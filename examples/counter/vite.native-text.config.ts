@@ -10,12 +10,21 @@ export default defineConfig({
       },
     }),
   ],
+  resolve: {
+    conditions: ["browser", "development"],
+  },
+  ssr: {
+    noExternal: ["@jhomra21/gpuix-solid", "@solidjs/universal", "solid-js"],
+    resolve: {
+      conditions: ["browser", "development", "import", "default"],
+    },
+  },
   build: {
     target: "node22",
     ssr: "src/native-text.tsx",
     outDir: "dist/native-text",
     rollupOptions: {
-      external: ["@gpuix/native", "@jhomra21/gpuix-solid", "solid-js"],
+      external: ["@gpuix/native"],
     },
   },
 })

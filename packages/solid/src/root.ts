@@ -60,14 +60,17 @@ export function createRoot(renderer: NativeRenderer): Root {
     flush,
     flushSync(fn) {
       try {
-        return fn()
+        return flushSolid(fn)
       } finally {
-        flush()
+        flushNative()
       }
     },
     dispatch(event) {
-      events.dispatch(event)
-      flush()
+      try {
+        flushSolid(() => events.dispatch(event))
+      } finally {
+        flushNative()
+      }
     },
     unmount() {
       dispose?.()

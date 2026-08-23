@@ -32,8 +32,7 @@ describe("Solid universal parity", () => {
 
     expect(parent.children).toEqual([second, first])
     expect(renderer.batches.at(-1)).toEqual([
-      ["insertBefore", parent.id, second.id, second.id],
-      ["appendChild", parent.id, first.id],
+      ["insertBefore", parent.id, second.id, first.id],
     ])
   })
 
