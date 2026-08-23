@@ -24,16 +24,16 @@
 
 ## M2 — native elements
 
-- [ ] img
-- [ ] svg
-- [ ] canvas
-- [ ] input
-- [ ] textarea
-- [ ] anchored
-- [ ] code
-- [ ] diff
-- [ ] markdown
-- [ ] virtual-list
+- [x] img
+- [x] svg
+- [x] canvas
+- [x] input
+- [x] textarea
+- [x] anchored
+- [x] code
+- [x] diff
+- [x] markdown
+- [x] virtual-list
 
 ## M3 — native capabilities
 
