@@ -78,25 +78,53 @@ function applyMotionProps(
   next: MotionHostSnapshot,
   previous: MotionHostSnapshot | undefined,
 ): void {
-  setHostProperty(node, "style", next.style, previous?.style)
-  setHostProperty(node, "onClick", next.onClick, previous?.onClick)
-  setHostProperty(node, "onMouseDown", next.onMouseDown, previous?.onMouseDown)
-  setHostProperty(node, "onMouseUp", next.onMouseUp, previous?.onMouseUp)
-  setHostProperty(node, "onMouseEnter", next.onMouseEnter, previous?.onMouseEnter)
-  setHostProperty(node, "onMouseLeave", next.onMouseLeave, previous?.onMouseLeave)
-  setHostProperty(node, "onMouseMove", next.onMouseMove, previous?.onMouseMove)
-  setHostProperty(
-    node,
-    "onMouseDownOutside",
-    next.onMouseDownOutside,
-    previous?.onMouseDownOutside,
-  )
-  setHostProperty(node, "onKeyDown", next.onKeyDown, previous?.onKeyDown)
-  setHostProperty(node, "onKeyUp", next.onKeyUp, previous?.onKeyUp)
-  setHostProperty(node, "onFocus", next.onFocus, previous?.onFocus)
-  setHostProperty(node, "onBlur", next.onBlur, previous?.onBlur)
-  setHostProperty(node, "onScroll", next.onScroll, previous?.onScroll)
-  setHostProperty(node, "autoFocus", next.autoFocus, previous?.autoFocus)
+  if (!previous || next.style !== previous.style) {
+    setHostProperty(node, "style", next.style, previous?.style)
+  }
+  if (!previous || next.onClick !== previous.onClick) {
+    setHostProperty(node, "onClick", next.onClick, previous?.onClick)
+  }
+  if (!previous || next.onMouseDown !== previous.onMouseDown) {
+    setHostProperty(node, "onMouseDown", next.onMouseDown, previous?.onMouseDown)
+  }
+  if (!previous || next.onMouseUp !== previous.onMouseUp) {
+    setHostProperty(node, "onMouseUp", next.onMouseUp, previous?.onMouseUp)
+  }
+  if (!previous || next.onMouseEnter !== previous.onMouseEnter) {
+    setHostProperty(node, "onMouseEnter", next.onMouseEnter, previous?.onMouseEnter)
+  }
+  if (!previous || next.onMouseLeave !== previous.onMouseLeave) {
+    setHostProperty(node, "onMouseLeave", next.onMouseLeave, previous?.onMouseLeave)
+  }
+  if (!previous || next.onMouseMove !== previous.onMouseMove) {
+    setHostProperty(node, "onMouseMove", next.onMouseMove, previous?.onMouseMove)
+  }
+  if (!previous || next.onMouseDownOutside !== previous.onMouseDownOutside) {
+    setHostProperty(
+      node,
+      "onMouseDownOutside",
+      next.onMouseDownOutside,
+      previous?.onMouseDownOutside,
+    )
+  }
+  if (!previous || next.onKeyDown !== previous.onKeyDown) {
+    setHostProperty(node, "onKeyDown", next.onKeyDown, previous?.onKeyDown)
+  }
+  if (!previous || next.onKeyUp !== previous.onKeyUp) {
+    setHostProperty(node, "onKeyUp", next.onKeyUp, previous?.onKeyUp)
+  }
+  if (!previous || next.onFocus !== previous.onFocus) {
+    setHostProperty(node, "onFocus", next.onFocus, previous?.onFocus)
+  }
+  if (!previous || next.onBlur !== previous.onBlur) {
+    setHostProperty(node, "onBlur", next.onBlur, previous?.onBlur)
+  }
+  if (!previous || next.onScroll !== previous.onScroll) {
+    setHostProperty(node, "onScroll", next.onScroll, previous?.onScroll)
+  }
+  if (!previous || next.autoFocus !== previous.autoFocus) {
+    setHostProperty(node, "autoFocus", next.autoFocus, previous?.autoFocus)
+  }
   setHostProperty(node, "motion", next.motion, previous?.motion)
 }
 
