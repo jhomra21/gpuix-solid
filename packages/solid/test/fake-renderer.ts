@@ -1,12 +1,14 @@
+import type { MutationValue } from "../src/host/mutations.js"
 import type { NativeRenderer } from "../src/host/types.js"
 
 export class FakeRenderer implements NativeRenderer {
-  readonly batches: unknown[][][] = []
-  readonly direct: unknown[][] = []
+  readonly batches: MutationValue[][][] = []
+  readonly direct: MutationValue[][] = []
   destroyed: number[] = []
 
   applyBatch(json: string): number[] {
-    this.batches.push(JSON.parse(json) as unknown[][])
+    // SAFETY: MutationDriver serializes batches containing only MutationValue entries.
+    this.batches.push(JSON.parse(json) as MutationValue[][])
     const destroyed = this.destroyed
     this.destroyed = []
     return destroyed

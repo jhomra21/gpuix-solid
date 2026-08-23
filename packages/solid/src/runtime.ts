@@ -1,4 +1,5 @@
 import { GpuixRenderer, type EventPayload, type WindowOptions } from "@gpuix/native"
+import type { Element as SolidElement } from "solid-js"
 import { createComponent } from "./host/universal.js"
 import { EventRegistry } from "./host/events.js"
 import { MutationDriver } from "./host/mutations.js"
@@ -9,7 +10,7 @@ import { GpuixContext } from "./context.js"
 import { startFrameLoop, type FrameLoop } from "./frame-loop.js"
 
 export interface Root {
-  render(code: () => unknown): void
+  render(code: () => SolidElement): void
   flush(): void
   flushSync<T>(fn: () => T): T
   dispatch(event: EventPayload): void
@@ -35,10 +36,11 @@ export function createRoot(renderer: NativeRenderer): Root {
         events.clear()
       }
       type UniversalNode = HostRootNode | HostNode
-      const Context = GpuixContext as unknown as (props: {
-        value: { renderer: NativeRenderer }
-        readonly children: unknown
-      }) => UniversalNode
+      type ContextProps = { value: { renderer: NativeRenderer }; readonly children: SolidElement }
+      const Context = (props: ContextProps): UniversalNode => {
+        // SAFETY: the Solid context provider returns the active renderer's host child.
+        return GpuixContext(props) as UniversalNode
+      }
       dispose = universalRender(
         () =>
           createComponent(Context, {
@@ -77,7 +79,7 @@ export function createRoot(renderer: NativeRenderer): Root {
 
 export function createRenderer(
   onEvent?: (event: EventPayload) => void,
-): { renderer: GpuixRenderer; bindRoot(root: Root): void } {
+): RendererBinding {
   let root: Root | undefined
   const renderer = new GpuixRenderer((error, event) => {
     if (error) {
@@ -102,6 +104,11 @@ export interface RenderOptions extends WindowOptions {
   onEvent?: (event: EventPayload) => void
 }
 
+export interface RendererBinding {
+  renderer: GpuixRenderer
+  bindRoot(root: Root): void
+}
+
 export interface RenderHandle {
   root: Root
   loop: FrameLoop
@@ -109,7 +116,7 @@ export interface RenderHandle {
   unmount(): void
 }
 
-export function render(code: () => unknown, options: RenderOptions = {}): RenderHandle {
+export function render(code: () => SolidElement, options: RenderOptions = {}): RenderHandle {
   const { renderer: injected, onEvent, ...windowOptions } = options
 
   if (injected) {
