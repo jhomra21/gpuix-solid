@@ -5,6 +5,10 @@ export type { Root } from "./root.js"
 export { startFrameLoop } from "./frame-loop.js"
 export type { FrameLoop, TickRenderer } from "./frame-loop.js"
 export { GpuixContext, useGpuix, useGpuixRequired } from "./context.js"
+export { useWindowSize } from "./hooks/use-window-size.js"
+export type { WindowSize } from "./hooks/use-window-size.js"
+export { motion } from "./components/motion.js"
+export type { MotionDivProps } from "./components/motion.js"
 
 export {
   effect,
