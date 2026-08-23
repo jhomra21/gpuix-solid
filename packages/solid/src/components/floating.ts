@@ -33,16 +33,6 @@ export interface FloatingContentProps extends Omit<HostProps, "children"> {
   collisionPadding?: number
 }
 
-export interface HostBindingSource extends Omit<HostProps, "style" | "children"> {
-  style?: unknown
-  children?: unknown
-}
-
-export interface HostBindingOverrides {
-  style?: Accessor<StyleDesc | undefined>
-  children?: Accessor<unknown>
-}
-
 const BOUND_HOST_PROPS = [
   "style",
   "onClick",
@@ -76,6 +66,7 @@ type BoundHostValue = HostProps[BoundHostProp]
 type HostSnapshot = Map<BoundHostProp, BoundHostValue>
 type InputCustomProp = (typeof INPUT_CUSTOM_PROPS)[number]
 type InputSnapshot = Map<InputCustomProp, InputProps[InputCustomProp]>
+type ControllableValue = string | boolean | null | undefined | readonly string[]
 
 export function isRenderFunction<Argument>(
   value: SolidElement | ((argument: Argument) => SolidElement),
@@ -128,12 +119,12 @@ export function composeRefs(...refs: Array<HostRef | undefined>): HostRef | unde
   }
 }
 
-export function createControllableState<Value>(
+export function createControllableState<Value extends ControllableValue>(
   controlled: Accessor<Value | undefined>,
   defaultValue: Value,
   onChange: Accessor<((value: Value) => void) | undefined>,
 ): readonly [Accessor<Value>, (value: Value) => void] {
-  const [internal, setInternal] = createSignal(defaultValue)
+  const [internal, setInternal] = createSignal<Value>(defaultValue)
   const value = (): Value => {
     const external = controlled()
     return external === undefined ? internal() : external
@@ -141,93 +132,10 @@ export function createControllableState<Value>(
   const setValue = (next: Value): void => {
     const current = value()
     if (Object.is(current, next)) return
-    if (controlled() === undefined) setInternal(() => next)
+    if (controlled() === undefined) setInternal(next)
     onChange()?.(next)
   }
   return [value, setValue] as const
-}
-
-export function createHostProps(
-  source: HostBindingSource,
-  overrides: HostBindingOverrides = {},
-): HostProps {
-  return {
-    get style() {
-      return overrides.style?.()
-    },
-    get children() {
-      return overrides.children ? overrides.children() : source.children
-    },
-    get ref() {
-      return source.ref
-    },
-    get onClick() {
-      return source.onClick
-    },
-    get onMouseDown() {
-      return source.onMouseDown
-    },
-    get onMouseUp() {
-      return source.onMouseUp
-    },
-    get onMouseEnter() {
-      return source.onMouseEnter
-    },
-    get onMouseLeave() {
-      return source.onMouseLeave
-    },
-    get onMouseMove() {
-      return source.onMouseMove
-    },
-    get onMouseDownOutside() {
-      return source.onMouseDownOutside
-    },
-    get onKeyDown() {
-      return source.onKeyDown
-    },
-    get onKeyUp() {
-      return source.onKeyUp
-    },
-    get onFocus() {
-      return source.onFocus
-    },
-    get onBlur() {
-      return source.onBlur
-    },
-    get onScroll() {
-      return source.onScroll
-    },
-    get onChange() {
-      return source.onChange
-    },
-    get onSubmit() {
-      return source.onSubmit
-    },
-    get onToggleFile() {
-      return source.onToggleFile
-    },
-    get onShowMore() {
-      return source.onShowMore
-    },
-    get onLineClick() {
-      return source.onLineClick
-    },
-    get onLinkClick() {
-      return source.onLinkClick
-    },
-    get autoFocus() {
-      return source.autoFocus
-    },
-    get tabIndex() {
-      return source.tabIndex
-    },
-    get testId() {
-      return source.testId
-    },
-    get motion() {
-      return source.motion
-    },
-  }
 }
 
 function snapshotHostProps(
