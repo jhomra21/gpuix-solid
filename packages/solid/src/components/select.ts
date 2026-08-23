@@ -277,7 +277,7 @@ export function SelectContent(props: SelectContentProps): SolidElement {
   const content = resolveChildren(() => props.children)
   content()
   const host = omit(props, "onEscapeKeyDown")
-  return createComponent(Show, {
+  return Show({
     get when() {
       return context.open()
     },
