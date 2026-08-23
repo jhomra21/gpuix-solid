@@ -7,6 +7,66 @@ export type { FrameLoop, TickRenderer } from "./frame-loop.js"
 export { GpuixContext, useGpuix, useGpuixRequired } from "./context.js"
 export { useWindowSize } from "./hooks/use-window-size.js"
 export type { WindowSize } from "./hooks/use-window-size.js"
+
+export {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectScrollDownButton,
+  SelectScrollUpButton,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from "./components/select.js"
+export type {
+  SelectContentProps,
+  SelectItemProps,
+  SelectItemState,
+  SelectProps,
+  SelectTriggerProps,
+  SelectTriggerState,
+  SelectValueProps,
+} from "./components/select.js"
+
+export {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxGroup,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxLabel,
+  ComboboxList,
+  ComboboxSeparator,
+  ComboboxTrigger,
+  ComboboxValueDisplay as ComboboxValue,
+} from "./components/combobox.js"
+export type {
+  ComboboxInputProps,
+  ComboboxItemProps,
+  ComboboxItemState,
+  ComboboxListProps,
+  ComboboxProps,
+  ComboboxTriggerProps,
+  ComboboxValue,
+  ComboboxValueProps,
+} from "./components/combobox.js"
+
+export {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./components/tooltip.js"
+export type {
+  TooltipContentProps,
+  TooltipProps,
+  TooltipProviderProps,
+  TooltipTriggerProps,
+} from "./components/tooltip.js"
+
 export { motion } from "./components/motion.js"
 export type { MotionDivProps } from "./components/motion.js"
 
