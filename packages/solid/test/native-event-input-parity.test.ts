@@ -1,0 +1,218 @@
+import type { EventPayload } from "@gpuix/native"
+import { createRenderEffect, createSignal } from "solid-js"
+import { describe, expect, it } from "vitest"
+import {
+  createElement,
+  insert,
+  insertNode,
+  setProp,
+} from "../src/host/universal.js"
+import { createTestRoot, hasNativeTestRenderer } from "../src/testing.js"
+
+const nativeIt = hasNativeTestRenderer ? it : it.skip
+
+function bindValue(
+  node: ReturnType<typeof createElement>,
+  value: () => string,
+): void {
+  createRenderEffect(
+    value,
+    (next, previous) => {
+      setProp(node, "value", next, previous)
+    },
+  )
+}
+
+function createReactiveText(value: () => string): ReturnType<typeof createElement> {
+  const text = createElement("text")
+  insert(text, value)
+  return text
+}
+
+describe("native event/input parity", () => {
+  nativeIt("edits a controlled input and emits the complete value", () => {
+    const testRoot = createTestRoot()
+    const [value, setValue] = createSignal("")
+
+    testRoot.render(() => {
+      const root = createElement("div")
+      setProp(root, "style", { width: 400, height: 100 })
+
+      const input = createElement("input")
+      setProp(input, "placeholder", "Type here...")
+      setProp(input, "style", { width: 300, height: 40 })
+      setProp(input, "onChange", (event: EventPayload) => {
+        setValue(event.value ?? "")
+      })
+      bindValue(input, value)
+
+      const label = createReactiveText(() => `Value: ${value()}`)
+      insertNode(root, input)
+      insertNode(root, label)
+      return root
+    })
+
+    const input = testRoot.renderer.findByType("input")[0]
+    expect(input).toBeDefined()
+    testRoot.renderer.nativeSimulateKeystrokes(input?.id ?? 0, "h i")
+
+    expect(testRoot.renderer.getAllText()).toContain("Value: hi")
+    expect(testRoot.renderer.getPaintedText()).toContain("hi")
+    testRoot.unmount()
+  })
+
+  nativeIt("supports textarea newline editing and submission", () => {
+    const testRoot = createTestRoot()
+    const [value, setValue] = createSignal("")
+    const [submits, setSubmits] = createSignal(0)
+
+    testRoot.render(() => {
+      const root = createElement("div")
+      setProp(root, "style", { width: 400, height: 160 })
+
+      const textarea = createElement("textarea")
+      setProp(textarea, "placeholder", "Write a message...")
+      setProp(textarea, "minRows", 1)
+      setProp(textarea, "maxRows", 4)
+      setProp(textarea, "style", { width: 300 })
+      setProp(textarea, "onChange", (event: EventPayload) => {
+        setValue(event.value ?? "")
+      })
+      setProp(textarea, "onSubmit", () => {
+        setSubmits((count) => count + 1)
+      })
+      bindValue(textarea, value)
+
+      insertNode(root, textarea)
+      insertNode(root, createReactiveText(() => `Value: ${JSON.stringify(value())}`))
+      insertNode(root, createReactiveText(() => `Submits: ${submits()}`))
+      return root
+    })
+
+    const textarea = testRoot.renderer.findByType("textarea")[0]
+    expect(textarea).toBeDefined()
+    testRoot.renderer.nativeSimulateKeystrokes(
+      textarea?.id ?? 0,
+      "h i shift-enter t h e r e",
+    )
+
+    expect(testRoot.renderer.getAllText()).toContain('Value: "hi\\nthere"')
+    expect(testRoot.renderer.getAllText()).toContain("Submits: 0")
+
+    testRoot.renderer.nativeSimulateKeystrokes(textarea?.id ?? 0, "enter")
+    expect(testRoot.renderer.getAllText()).toContain("Submits: 1")
+    testRoot.unmount()
+  })
+
+  nativeIt("focuses a native input from a real mouse click", () => {
+    const testRoot = createTestRoot()
+    const [value, setValue] = createSignal("")
+
+    testRoot.render(() => {
+      const root = createElement("div")
+      setProp(root, "style", { width: 400, height: 100 })
+
+      const input = createElement("input")
+      setProp(input, "style", { width: 300, height: 40 })
+      setProp(input, "onChange", (event: EventPayload) => {
+        setValue(event.value ?? "")
+      })
+      bindValue(input, value)
+
+      insertNode(root, input)
+      insertNode(root, createReactiveText(() => `Value: ${value()}`))
+      return root
+    })
+
+    testRoot.renderer.nativeSimulateClick(150, 20)
+    testRoot.renderer.simulateKeystrokes("a")
+
+    expect(testRoot.renderer.getAllText()).toContain("Value: a")
+    testRoot.unmount()
+  })
+
+  nativeIt("keeps click and keyboard handlers available on native inputs", () => {
+    const testRoot = createTestRoot()
+    const [clicks, setClicks] = createSignal(0)
+    const [keys, setKeys] = createSignal(0)
+
+    testRoot.render(() => {
+      const root = createElement("div")
+      setProp(root, "style", { width: 400, height: 100 })
+
+      const input = createElement("input")
+      setProp(input, "value", "")
+      setProp(input, "style", { width: 300, height: 40 })
+      setProp(input, "onClick", () => setClicks((count) => count + 1))
+      setProp(input, "onKeyDown", () => setKeys((count) => count + 1))
+
+      insertNode(root, input)
+      insertNode(root, createReactiveText(() => `Events: ${clicks()}/${keys()}`))
+      return root
+    })
+
+    const input = testRoot.renderer.findByType("input")[0]
+    expect(input).toBeDefined()
+    testRoot.renderer.nativeSimulateClick(150, 20)
+    testRoot.renderer.nativeSimulateKeyDown(input?.id ?? 0, "a")
+
+    expect(testRoot.renderer.getAllText()).toContain("Events: 1/1")
+    testRoot.unmount()
+  })
+
+  nativeIt("preserves granular keyDown/keyUp payloads", () => {
+    const testRoot = createTestRoot()
+    const events: EventPayload[] = []
+
+    testRoot.render(() => {
+      const input = createElement("input")
+      setProp(input, "value", "")
+      setProp(input, "style", { width: 300, height: 40 })
+      setProp(input, "onKeyDown", (event: EventPayload) => events.push(event))
+      setProp(input, "onKeyUp", (event: EventPayload) => events.push(event))
+      return input
+    })
+
+    const input = testRoot.renderer.findByType("input")[0]
+    expect(input).toBeDefined()
+    testRoot.renderer.nativeSimulateKeyDown(input?.id ?? 0, "a", true)
+    testRoot.renderer.nativeSimulateKeyUp(input?.id ?? 0, "a")
+
+    expect(events).toHaveLength(2)
+    expect(events[0]?.eventType).toBe("keyDown")
+    expect(events[0]?.key).toBe("a")
+    expect(events[0]?.isHeld).toBe(true)
+    expect(events[1]?.eventType).toBe("keyUp")
+    expect(events[1]?.key).toBe("a")
+    testRoot.unmount()
+  })
+
+  nativeIt("blocks editing when input is readOnly", () => {
+    const testRoot = createTestRoot()
+    const [value, setValue] = createSignal("locked")
+
+    testRoot.render(() => {
+      const root = createElement("div")
+      setProp(root, "style", { width: 400, height: 100 })
+
+      const input = createElement("input")
+      setProp(input, "readOnly", true)
+      setProp(input, "style", { width: 300, height: 40 })
+      setProp(input, "onChange", (event: EventPayload) => {
+        setValue(event.value ?? "")
+      })
+      bindValue(input, value)
+
+      insertNode(root, input)
+      insertNode(root, createReactiveText(() => `Value: ${value()}`))
+      return root
+    })
+
+    const input = testRoot.renderer.findByType("input")[0]
+    expect(input).toBeDefined()
+    testRoot.renderer.nativeSimulateKeystrokes(input?.id ?? 0, "backspace a")
+
+    expect(testRoot.renderer.getAllText()).toContain("Value: locked")
+    testRoot.unmount()
+  })
+})
