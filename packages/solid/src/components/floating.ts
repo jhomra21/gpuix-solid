@@ -22,7 +22,16 @@ import { insert, spread } from "../host/universal.js"
 export type FloatingSide = "top" | "right" | "bottom" | "left"
 export type FloatingAlign = "start" | "center" | "end"
 export type StateStyle<State> = StyleDesc | ((state: State) => StyleDesc)
-export type SlotRenderer = (props: HostProps) => SolidElement
+
+export type HostPropSource = {
+  [Name in keyof HostProps]?: HostProps[Name] | undefined
+}
+
+export type InputPropSource = HostPropSource & {
+  [Name in Exclude<keyof InputProps, keyof HostProps>]?: InputProps[Name] | undefined
+}
+
+export type SlotRenderer = (props: HostPropSource) => SolidElement
 
 export interface FloatingContentProps extends Omit<HostProps, "children"> {
   children?: SolidElement
@@ -31,6 +40,15 @@ export interface FloatingContentProps extends Omit<HostProps, "children"> {
   align?: FloatingAlign
   alignOffset?: number
   collisionPadding?: number
+}
+
+export type FloatingContentSource = HostPropSource & {
+  children?: SolidElement | undefined
+  side?: FloatingSide | undefined
+  sideOffset?: number | undefined
+  align?: FloatingAlign | undefined
+  alignOffset?: number | undefined
+  collisionPadding?: number | undefined
 }
 
 const BOUND_HOST_PROPS = [
@@ -124,22 +142,22 @@ export function createControllableState<Value extends ControllableValue>(
   defaultValue: Value,
   onChange: Accessor<((value: Value) => void) | undefined>,
 ): readonly [Accessor<Value>, (value: Value) => void] {
-  const [internal, setInternal] = createSignal<Value>(defaultValue)
+  const [internal, setInternal] = createSignal({ value: defaultValue })
   const value = (): Value => {
     const external = controlled()
-    return external === undefined ? internal() : external
+    return external === undefined ? internal().value : external
   }
   const setValue = (next: Value): void => {
     const current = value()
     if (Object.is(current, next)) return
-    if (controlled() === undefined) setInternal(next)
+    if (controlled() === undefined) setInternal({ value: next })
     onChange()?.(next)
   }
   return [value, setValue] as const
 }
 
 function snapshotHostProps(
-  props: HostProps,
+  props: HostPropSource,
   styleOverride: Accessor<StyleDesc | undefined> | undefined,
 ): HostSnapshot {
   const snapshot = new Map<BoundHostProp, BoundHostValue>()
@@ -151,7 +169,7 @@ function snapshotHostProps(
 
 function bindHostProps(
   node: HostElementNode,
-  props: HostProps,
+  props: HostPropSource,
   styleOverride: Accessor<StyleDesc | undefined> | undefined,
 ): void {
   let previous: HostSnapshot | undefined
@@ -170,13 +188,13 @@ function bindHostProps(
   if (props.ref) spread(node, { ref: props.ref }, true)
 }
 
-function snapshotInputProps(props: InputProps): InputSnapshot {
+function snapshotInputProps(props: InputPropSource): InputSnapshot {
   const snapshot = new Map<InputCustomProp, InputProps[InputCustomProp]>()
   for (const name of INPUT_CUSTOM_PROPS) snapshot.set(name, props[name])
   return snapshot
 }
 
-function bindInputProps(node: HostElementNode, props: InputProps): void {
+function bindInputProps(node: HostElementNode, props: InputPropSource): void {
   let previous: InputSnapshot | undefined
   createRenderEffect(
     () => snapshotInputProps(props),
@@ -193,7 +211,7 @@ function bindInputProps(node: HostElementNode, props: InputProps): void {
 }
 
 export function renderDiv(
-  props: HostProps,
+  props: HostPropSource,
   styleOverride?: Accessor<StyleDesc | undefined>,
 ): HostElementNode {
   const node = createHostElement("div")
@@ -202,7 +220,7 @@ export function renderDiv(
   return node
 }
 
-export function renderInput(props: InputProps): HostElementNode {
+export function renderInput(props: InputPropSource): HostElementNode {
   const node = createHostElement("input")
   bindHostProps(node, props, undefined)
   bindInputProps(node, props)
@@ -210,7 +228,7 @@ export function renderInput(props: InputProps): HostElementNode {
   return node
 }
 
-export function renderSlot(as: SlotRenderer | undefined, props: HostProps): SolidElement {
+export function renderSlot(as: SlotRenderer | undefined, props: HostPropSource): SolidElement {
   return as ? as(props) : renderDiv(props)
 }
 
@@ -273,7 +291,7 @@ function bindAnchoredProps(
   )
 }
 
-export function FloatingLayer(props: FloatingContentProps): HostElementNode {
+export function FloatingLayer(props: FloatingContentSource): HostElementNode {
   const anchored = createHostElement("anchored")
   bindAnchoredProps(
     anchored,
