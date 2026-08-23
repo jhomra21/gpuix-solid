@@ -1,13 +1,15 @@
 import {
   Show,
+  createComponent,
   createContext,
+  merge,
+  omit,
   onCleanup,
   useContext,
   type Accessor,
   type Element as SolidElement,
 } from "solid-js"
 import type { HostProps } from "../host/types.js"
-import { createComponent, mergeProps } from "../host/universal.js"
 import {
   FloatingLayer,
   composeHandlers,
@@ -165,7 +167,8 @@ export interface TooltipTriggerProps extends HostProps {
 
 export function TooltipTrigger(props: TooltipTriggerProps): SolidElement {
   const context = useTooltipContext("TooltipTrigger")
-  const merged = mergeProps(props, {
+  const host = omit(props, "as")
+  const merged = merge(host, {
     get tabIndex() {
       return props.as ? props.tabIndex : (props.tabIndex ?? 0)
     },
@@ -205,7 +208,7 @@ export function TooltipContent(props: TooltipContentProps): SolidElement {
       return context.open()
     },
     get children() {
-      const merged = mergeProps(props, {
+      const merged = merge(props, {
         get side() {
           return props.side ?? "top"
         },
