@@ -23,17 +23,19 @@ This project is an independently implemented Solid renderer built against GPUIX'
 
 ## Status
 
-Early development. The renderer kernel is being implemented first:
+The core Solid 2 renderer, native element surface, native capabilities, and first Solid-native component layer are implemented:
 
 - Solid 2 universal renderer integration
 - root-scoped JS shadow host tree
-- retained-tree mutation protocol
-- batched N-API writes
-- event registry and refs
-- GPUIX intrinsic JSX types
-- root lifecycle and frame loop
+- retained-tree mutation protocol and batched N-API writes
+- event registry, refs, lifecycle, and hot remount behavior
+- GPUIX intrinsic JSX types and native element parity
+- focus, scroll, selection, window, debug-overlay, and animation capabilities
+- Solid-native `Tooltip`, `Select`, and `Combobox`
+- Solid-native `as` slot renderer contract
+- unified `animate.*` declarative animation API backed by native GPUI animation frames
 
-Higher-level component parity (`Select`, `Combobox`, `Tooltip`, `motion`) and automation parity follow after the host contract is stable.
+The next major parity area is the native testing and automation layer.
 
 ## Why a native Solid renderer
 
@@ -61,10 +63,10 @@ Solid computation
 
 The JS shadow tree exists because Solid's universal reconciler needs synchronous `parent`, `firstChild`, and `nextSibling` answers while reconciling arrays. Native GPUI state can therefore remain batched without becoming the JS reconciler's query path.
 
-## Planned usage
+## Usage
 
 ```tsx
-import { render } from "@jhomra21/gpuix-solid"
+import { animate, render } from "@jhomra21/gpuix-solid"
 import { createSignal } from "solid-js"
 
 function App() {
@@ -76,12 +78,23 @@ function App() {
       <div onClick={() => setCount(count() + 1)}>
         <text>Increment</text>
       </div>
+
+      <animate.div
+        initial={{ opacity: 0, width: 80 }}
+        to={{ opacity: 1, width: 180 }}
+        transition={{ duration: 0.25, ease: "easeOut" }}
+        style={{ height: 44 }}
+      >
+        <text>Native GPUI animation</text>
+      </animate.div>
     </div>
   )
 }
 
 render(() => <App />, { title: "Solid GPUIX" })
 ```
+
+`animate.*` is the public animation surface. The underlying GPUIX `motion` descriptor remains an internal wire-format detail so animation frames stay in Rust/GPUI rather than running through a JavaScript frame loop.
 
 See `examples/counter` for the first fixture.
 
