@@ -10,6 +10,13 @@ export type { WindowSize } from "./hooks/use-window-size.js"
 export type { SlotRenderer } from "./components/floating.js"
 
 export {
+  TestRenderer,
+  createTestRoot,
+  hasNativeTestRenderer,
+} from "./testing.js"
+export type { TestElement, TestRoot } from "./testing.js"
+
+export {
   Select,
   SelectContent,
   SelectGroup,
