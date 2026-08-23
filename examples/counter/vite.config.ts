@@ -10,12 +10,26 @@ export default defineConfig({
       },
     }),
   ],
+  resolve: {
+    conditions: ["browser", "development"],
+  },
+  ssr: {
+    noExternal: ["@jhomra21/gpuix-solid", "@solidjs/universal", "solid-js"],
+    resolve: {
+      // A native GPUI app needs Solid's live client reactivity even though
+      // the resulting JavaScript executes under Bun rather than in a browser.
+      conditions: ["browser", "development", "import", "default"],
+    },
+  },
   build: {
     target: "node22",
     ssr: "src/index.tsx",
     outDir: "dist/counter",
     rollupOptions: {
-      external: ["@gpuix/native", "@jhomra21/gpuix-solid", "solid-js"],
+      // Bundle the Solid client runtime and this binding so runtime package
+      // resolution cannot select Solid's SSR export. Keep the actual native
+      // addon external so Bun loads the platform package normally.
+      external: ["@gpuix/native"],
     },
   },
 })
