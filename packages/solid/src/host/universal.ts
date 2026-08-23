@@ -15,8 +15,14 @@ import {
 } from "./nodes.js"
 
 const runtime = createRenderer<HostNode | HostParent>({
-  createElement(tagName) {
-    return createHostElement(tagName)
+  createElement(tagName, staticProps) {
+    const node = createHostElement(tagName)
+    if (staticProps) {
+      for (const [name, value] of Object.entries(staticProps)) {
+        setHostProperty(node, name, value, undefined)
+      }
+    }
+    return node
   },
   createTextNode(value) {
     return createHostText(value)
@@ -61,4 +67,5 @@ export const insert = runtime.insert
 export const spread = runtime.spread
 export const setProp = runtime.setProp
 export const mergeProps = runtime.mergeProps
-export const use = runtime.use
+export const applyRef = runtime.applyRef
+export const ref = runtime.ref
