@@ -1,10 +1,9 @@
 import { createMemo } from "solid-js"
-import { createHostElement } from "../host/nodes.js"
+import { createHostElement, type HostElementNode } from "../host/nodes.js"
 import type {
   HostProps,
   HostRef,
   MotionProps,
-  PublicInstance,
   StyleDesc,
 } from "../host/types.js"
 import { spread } from "../host/universal.js"
@@ -28,7 +27,7 @@ export interface MotionDivProps extends MotionProps {
   autoFocus?: boolean
 }
 
-function MotionDiv(props: MotionDivProps): PublicInstance & { readonly kind: "element" } {
+function MotionDiv(props: MotionDivProps): HostElementNode {
   const node = createHostElement("div")
   const nativeMotion = createMemo<MotionProps>(() => {
     const value: MotionProps = { animate: props.animate }
