@@ -15,7 +15,6 @@ export {
   spread,
   setProp,
   mergeProps,
-  use,
   applyRef,
   ref,
 } from "./host/universal.js"

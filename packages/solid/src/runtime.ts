@@ -35,13 +35,13 @@ export function createRoot(renderer: NativeRenderer): Root {
         events.clear()
       }
       type UniversalNode = HostRootNode | HostNode
-      const Provider = GpuixContext.Provider as unknown as (props: {
+      const Context = GpuixContext as unknown as (props: {
         value: { renderer: NativeRenderer }
         readonly children: unknown
       }) => UniversalNode
       dispose = universalRender(
         () =>
-          createComponent(Provider, {
+          createComponent(Context, {
             value: { renderer },
             get children() {
               return code()

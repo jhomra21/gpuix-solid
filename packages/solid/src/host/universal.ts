@@ -67,6 +67,5 @@ export const insert = runtime.insert
 export const spread = runtime.spread
 export const setProp = runtime.setProp
 export const mergeProps = runtime.mergeProps
-export const use = runtime.use
 export const applyRef = runtime.applyRef
 export const ref = runtime.ref
