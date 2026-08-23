@@ -1,6 +1,7 @@
 import {
   For,
   Show,
+  children as resolveChildren,
   createContext,
   createMemo,
   createRenderEffect,
@@ -18,7 +19,9 @@ import {
   composeHandlers,
   composeRefs,
   createControllableState,
+  createHostProps,
   floatingRootStyle,
+  isRenderFunction,
   renderDiv,
   renderInput,
   renderSlot,
@@ -126,14 +129,16 @@ export function Combobox(props: ComboboxProps): SolidElement {
   const [activeIndex, setActiveIndex] = createSignal<number | null>(null)
   const [itemRecords, setItemRecords] = createSignal<DisabledItemRecord[]>([])
   const inputRef: MutableBox<PublicInstance | undefined> = { value: undefined }
-  const itemToString = (item: string): string => (props.itemToStringValue ?? ((value) => value))(item)
+  const itemToString = (item: string): string => {
+    const stringify = props.itemToStringValue
+    return stringify ? stringify(item) : item
+  }
 
   const filterItems = (query: string): string[] => {
     const items = props.items ?? []
-    if (props.filter === null) return [...items]
-    if (props.filter) {
-      return items.filter((item) => props.filter?.(item, query, itemToString) ?? false)
-    }
+    const filter = props.filter
+    if (filter === null) return [...items]
+    if (filter) return items.filter((item) => filter(item, query, itemToString))
     return defaultFilter(items, query, itemToString)
   }
   const filteredItems = createMemo(() => filterItems(inputValue()))
@@ -173,7 +178,8 @@ export function Combobox(props: ComboboxProps): SolidElement {
   const moveActive = (delta: number): void => {
     const items = filteredItems()
     if (items.length === 0) return
-    let nextIndex = activeIndex() === null ? (delta > 0 ? -1 : 0) : activeIndex() as number
+    const current = activeIndex()
+    let nextIndex = current === null ? (delta > 0 ? -1 : 0) : current
     for (let checked = 0; checked < items.length; checked += 1) {
       nextIndex = (nextIndex + delta + items.length) % items.length
       const item = items[nextIndex]
@@ -186,7 +192,8 @@ export function Combobox(props: ComboboxProps): SolidElement {
   const selectItem = (item: string): void => {
     if ((props.disabled ?? false) || isDisabledItem(item)) return
     if (props.multiple ?? false) {
-      const selected = Array.isArray(value()) ? value() as string[] : []
+      const current = value()
+      const selected = Array.isArray(current) ? current : []
       const exists = selected.includes(item)
       setValue(exists ? selected.filter((candidate) => candidate !== item) : [...selected, item])
       setInputValueState("")
@@ -239,7 +246,7 @@ export function ComboboxInput(props: ComboboxInputProps): SolidElement {
     },
     props.ref,
   )
-  const merged = mergeProps(props as InputProps, {
+  const merged = mergeProps(props, {
     get ref() {
       return ref
     },
@@ -326,13 +333,14 @@ export interface ComboboxValueProps extends Omit<HostProps, "children"> {
   children?: SolidElement | ((value: ComboboxValue) => SolidElement)
 }
 
-export function ComboboxValueDisplay(props: ComboboxValueProps): SolidElement {
+export function ComboboxValue(props: ComboboxValueProps): SolidElement {
   const context = useComboboxContext("ComboboxValue")
-  const merged = mergeProps(props as unknown as HostProps, {
-    get children() {
+  const host = createHostProps(props, {
+    children: () => {
+      const child = props.children
+      if (isRenderFunction<ComboboxValue>(child)) return child(context.value())
+      if (child !== undefined) return child
       const current = context.value()
-      if (typeof props.children === "function") return props.children(current)
-      if (props.children !== undefined) return props.children
       const label = Array.isArray(current)
         ? current.map(context.itemToString).join(", ")
         : current === null
@@ -341,17 +349,22 @@ export function ComboboxValueDisplay(props: ComboboxValueProps): SolidElement {
       return label || props.placeholder
     },
   })
-  return renderDiv(merged)
+  return renderDiv(host)
 }
 
 export function ComboboxContent(props: FloatingContentProps): SolidElement {
   const context = useComboboxContext("ComboboxContent")
+  const content = resolveChildren(() => props.children)
+  content()
   return createComponent(Show, {
     get when() {
       return context.open()
     },
     get children() {
       const merged = mergeProps(props, {
+        get children() {
+          return content()
+        },
         get onMouseDownOutside() {
           return composeHandlers(props.onMouseDownOutside, () => context.setOpen(false))
         },
@@ -367,18 +380,19 @@ export interface ComboboxListProps extends Omit<HostProps, "children"> {
 
 export function ComboboxList(props: ComboboxListProps): SolidElement {
   const context = useComboboxContext("ComboboxList")
-  const merged = mergeProps(props as unknown as HostProps, {
-    get children() {
-      if (typeof props.children !== "function") return props.children
+  const host = createHostProps(props, {
+    children: () => {
+      const child = props.children
+      if (!isRenderFunction<string>(child)) return child
       return createComponent(For<string>, {
         get each() {
           return [...context.filteredItems()]
         },
-        children: (item) => (props.children as (value: string) => SolidElement)(item),
+        children: (item) => child(item),
       })
     },
   })
-  return renderDiv(merged)
+  return renderDiv(host)
 }
 
 export interface ComboboxItemState {
@@ -409,10 +423,14 @@ export function ComboboxItem(props: ComboboxItemProps): SolidElement {
       disabled: props.disabled ?? false,
     }
   }
-  const merged = mergeProps(props as unknown as HostProps, {
-    get style() {
-      return resolveStyle(props.style, state())
+  const host = createHostProps(props, {
+    style: () => resolveStyle(props.style, state()),
+    children: () => {
+      const child = props.children
+      return isRenderFunction<ComboboxItemState>(child) ? child(state()) : child
     },
+  })
+  const merged = mergeProps(host, {
     get onMouseEnter() {
       return composeHandlers(props.onMouseEnter, () => {
         const itemIndex = index()
@@ -423,9 +441,6 @@ export function ComboboxItem(props: ComboboxItemProps): SolidElement {
       return composeHandlers(props.onClick, () => {
         if (!(props.disabled ?? false)) context.selectItem(props.value)
       })
-    },
-    get children() {
-      return typeof props.children === "function" ? props.children(state()) : props.children
     },
   })
   return renderDiv(merged)
@@ -466,5 +481,5 @@ export {
   ComboboxList as List,
   ComboboxSeparator as Separator,
   ComboboxTrigger as Trigger,
-  ComboboxValueDisplay as Value,
+  ComboboxValue as Value,
 }
