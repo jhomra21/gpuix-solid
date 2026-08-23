@@ -13,6 +13,8 @@ import {
 import type {
   HostEventHandler,
   HostProps,
+  HostRef,
+  InputProps,
   StyleDesc,
 } from "../host/types.js"
 import { insert, spread } from "../host/universal.js"
@@ -57,9 +59,13 @@ const BOUND_HOST_PROPS = [
   "motion",
 ] as const satisfies ReadonlyArray<Exclude<keyof HostProps, "children" | "ref">>
 
+const INPUT_CUSTOM_PROPS = ["value", "placeholder", "readOnly", "theme"] as const
+
 type BoundHostProp = (typeof BOUND_HOST_PROPS)[number]
 type BoundHostValue = HostProps[BoundHostProp]
 type HostSnapshot = Map<BoundHostProp, BoundHostValue>
+type InputCustomProp = (typeof INPUT_CUSTOM_PROPS)[number]
+type InputSnapshot = Map<InputCustomProp, InputProps[InputCustomProp]>
 
 export function resolveStyle<State>(
   style: StateStyle<State> | undefined,
@@ -95,6 +101,14 @@ export function composeHandlers(
   return (event) => {
     first(event)
     second(event)
+  }
+}
+
+export function composeRefs(...refs: Array<HostRef | undefined>): HostRef | undefined {
+  const active = refs.filter((ref): ref is HostRef => ref !== undefined)
+  if (active.length === 0) return undefined
+  return (instance) => {
+    for (const ref of active) ref(instance)
   }
 }
 
@@ -149,12 +163,42 @@ function bindHostProps(
   if (props.ref) spread(node, { ref: props.ref }, true)
 }
 
+function snapshotInputProps(props: InputProps): InputSnapshot {
+  const snapshot = new Map<InputCustomProp, InputProps[InputCustomProp]>()
+  for (const name of INPUT_CUSTOM_PROPS) snapshot.set(name, props[name])
+  return snapshot
+}
+
+function bindInputProps(node: HostElementNode, props: InputProps): void {
+  let previous: InputSnapshot | undefined
+  createRenderEffect(
+    () => snapshotInputProps(props),
+    (next) => {
+      for (const name of INPUT_CUSTOM_PROPS) {
+        const value = next.get(name)
+        const prior = previous?.get(name)
+        if (previous && Object.is(value, prior)) continue
+        setHostProperty(node, name, value, prior)
+      }
+      previous = next
+    },
+  )
+}
+
 export function renderDiv(
   props: HostProps,
   styleOverride?: Accessor<StyleDesc | undefined>,
 ): HostElementNode {
   const node = createHostElement("div")
   bindHostProps(node, props, styleOverride)
+  insert(node, () => props.children)
+  return node
+}
+
+export function renderInput(props: InputProps): HostElementNode {
+  const node = createHostElement("input")
+  bindHostProps(node, props, undefined)
+  bindInputProps(node, props)
   insert(node, () => props.children)
   return node
 }
