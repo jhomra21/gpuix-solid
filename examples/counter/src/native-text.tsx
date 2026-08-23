@@ -1,4 +1,4 @@
-import { render } from "@jhomra21/gpuix-solid"
+import { render, type StyleDesc } from "@jhomra21/gpuix-solid"
 import { For, Show, createSignal } from "solid-js"
 
 const README = `# GPUIX Solid
@@ -41,6 +41,19 @@ const PATCH = [
 
 const TABS = ["markdown", "code", "diff"] as const
 type Tab = (typeof TABS)[number]
+
+const CONTENT_STYLE = {
+  display: "flex",
+  flexDirection: "column",
+  flexGrow: 1,
+  minHeight: 0,
+  padding: 24,
+} satisfies StyleDesc
+
+const SCROLL_CONTENT_STYLE = {
+  ...CONTENT_STYLE,
+  overflowY: "scroll",
+} satisfies StyleDesc
 
 function Tabs(props: { active: () => Tab; onSelect: (tab: Tab) => void }) {
   return (
@@ -94,16 +107,7 @@ function App() {
     >
       <Tabs active={tab} onSelect={setTab} />
 
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          flexGrow: 1,
-          minHeight: 0,
-          padding: 24,
-          overflowY: tab() === "diff" ? undefined : "scroll",
-        }}
-      >
+      <div style={tab() === "diff" ? CONTENT_STYLE : SCROLL_CONTENT_STYLE}>
         <Show when={tab() === "markdown"}>
           <markdown
             source={README}

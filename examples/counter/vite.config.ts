@@ -1,5 +1,5 @@
-import { defineConfig } from "vite"
 import solid from "@solidjs/vite-plugin"
+import { defineConfig } from "vite"
 
 export default defineConfig({
   plugins: [
@@ -13,7 +13,7 @@ export default defineConfig({
   build: {
     target: "node22",
     ssr: "src/index.tsx",
-    outDir: "dist",
+    outDir: "dist/counter",
     rollupOptions: {
       external: ["@gpuix/native", "@jhomra21/gpuix-solid", "solid-js"],
     },

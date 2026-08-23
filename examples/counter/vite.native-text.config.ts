@@ -12,8 +12,8 @@ export default defineConfig({
   ],
   build: {
     target: "node22",
-    ssr: "src/index.tsx",
-    outDir: "dist",
+    ssr: "src/native-text.tsx",
+    outDir: "dist/native-text",
     rollupOptions: {
       external: ["@gpuix/native", "@jhomra21/gpuix-solid", "solid-js"],
     },
