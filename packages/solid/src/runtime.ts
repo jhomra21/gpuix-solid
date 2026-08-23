@@ -1,7 +1,7 @@
 import { GpuixRenderer, type EventPayload, type WindowOptions } from "@gpuix/native"
 import type { Element as SolidElement } from "solid-js"
 import { startFrameLoop, type FrameLoop } from "./frame-loop.js"
-import type { NativeRenderer } from "./host/types.js"
+import type { DebugFrameOverlayMode, NativeRenderer } from "./host/types.js"
 import { createRoot, type Root } from "./root.js"
 
 export { createRoot } from "./root.js"
@@ -32,6 +32,7 @@ export function createRenderer(
 export interface RenderOptions extends WindowOptions {
   renderer?: NativeRenderer
   onEvent?: (event: EventPayload) => void
+  debugFrameOverlay?: DebugFrameOverlayMode
 }
 
 export interface RendererBinding {
@@ -47,9 +48,10 @@ export interface RenderHandle {
 }
 
 export function render(code: () => SolidElement, options: RenderOptions = {}): RenderHandle {
-  const { renderer: injected, onEvent, ...windowOptions } = options
+  const { renderer: injected, onEvent, debugFrameOverlay, ...windowOptions } = options
 
   if (injected) {
+    if (debugFrameOverlay) injected.setDebugFrameOverlay?.(debugFrameOverlay)
     const root = createRoot(injected)
     root.render(code)
     return {
@@ -64,6 +66,7 @@ export function render(code: () => SolidElement, options: RenderOptions = {}): R
 
   const native = createRenderer(onEvent)
   native.renderer.init(windowOptions)
+  if (debugFrameOverlay) native.renderer.setDebugFrameOverlay(debugFrameOverlay)
   const root = createRoot(native.renderer)
   native.bindRoot(root)
   root.render(code)
