@@ -15,8 +15,8 @@
 ## M1 — host kernel parity
 
 - [x] validate build against installed Solid 2 + `@gpuix/native`
-- [ ] complete intrinsic style/custom-prop typing from public GPUIX surface
-- [ ] exact built-in/universal custom-prop forwarding parity
+- [x] complete intrinsic style/custom-prop typing from public GPUIX surface
+- [x] exact built-in/universal custom-prop forwarding parity
 - [x] text/fragment/reorder parity fixtures
 - [x] ref behavior tests
 - [x] multiple-root lifecycle tests
