@@ -33,6 +33,16 @@ export interface FloatingContentProps extends Omit<HostProps, "children"> {
   collisionPadding?: number
 }
 
+export interface HostBindingSource extends Omit<HostProps, "style" | "children"> {
+  style?: unknown
+  children?: unknown
+}
+
+export interface HostBindingOverrides {
+  style?: Accessor<StyleDesc | undefined>
+  children?: Accessor<unknown>
+}
+
 const BOUND_HOST_PROPS = [
   "style",
   "onClick",
@@ -67,11 +77,17 @@ type HostSnapshot = Map<BoundHostProp, BoundHostValue>
 type InputCustomProp = (typeof INPUT_CUSTOM_PROPS)[number]
 type InputSnapshot = Map<InputCustomProp, InputProps[InputCustomProp]>
 
+export function isRenderFunction<Argument>(
+  value: SolidElement | ((argument: Argument) => SolidElement),
+): value is (argument: Argument) => SolidElement {
+  return value instanceof Function
+}
+
 export function resolveStyle<State>(
   style: StateStyle<State> | undefined,
   state: State,
 ): StyleDesc | undefined {
-  return typeof style === "function" ? style(state) : style
+  return style instanceof Function ? style(state) : style
 }
 
 export function mergeStyles(
@@ -129,6 +145,89 @@ export function createControllableState<Value>(
     onChange()?.(next)
   }
   return [value, setValue] as const
+}
+
+export function createHostProps(
+  source: HostBindingSource,
+  overrides: HostBindingOverrides = {},
+): HostProps {
+  return {
+    get style() {
+      return overrides.style?.()
+    },
+    get children() {
+      return overrides.children ? overrides.children() : source.children
+    },
+    get ref() {
+      return source.ref
+    },
+    get onClick() {
+      return source.onClick
+    },
+    get onMouseDown() {
+      return source.onMouseDown
+    },
+    get onMouseUp() {
+      return source.onMouseUp
+    },
+    get onMouseEnter() {
+      return source.onMouseEnter
+    },
+    get onMouseLeave() {
+      return source.onMouseLeave
+    },
+    get onMouseMove() {
+      return source.onMouseMove
+    },
+    get onMouseDownOutside() {
+      return source.onMouseDownOutside
+    },
+    get onKeyDown() {
+      return source.onKeyDown
+    },
+    get onKeyUp() {
+      return source.onKeyUp
+    },
+    get onFocus() {
+      return source.onFocus
+    },
+    get onBlur() {
+      return source.onBlur
+    },
+    get onScroll() {
+      return source.onScroll
+    },
+    get onChange() {
+      return source.onChange
+    },
+    get onSubmit() {
+      return source.onSubmit
+    },
+    get onToggleFile() {
+      return source.onToggleFile
+    },
+    get onShowMore() {
+      return source.onShowMore
+    },
+    get onLineClick() {
+      return source.onLineClick
+    },
+    get onLinkClick() {
+      return source.onLinkClick
+    },
+    get autoFocus() {
+      return source.autoFocus
+    },
+    get tabIndex() {
+      return source.tabIndex
+    },
+    get testId() {
+      return source.testId
+    },
+    get motion() {
+      return source.motion
+    },
+  }
 }
 
 function snapshotHostProps(
