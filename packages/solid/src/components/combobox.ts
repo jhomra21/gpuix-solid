@@ -9,6 +9,7 @@ import {
   merge,
   omit,
   onCleanup,
+  untrack,
   useContext,
   type Accessor,
   type Element as SolidElement,
@@ -352,7 +353,8 @@ export function ComboboxValue(props: ComboboxValueProps): SolidElement {
 export function ComboboxContent(props: FloatingContentProps): SolidElement {
   const context = useComboboxContext("ComboboxContent")
   const content = resolveChildren(() => props.children)
-  content()
+  // Resolve once while detached so items register before the popup opens.
+  untrack(content)
   return Show({
     get when() {
       return context.open()

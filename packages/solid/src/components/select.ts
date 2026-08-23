@@ -8,6 +8,7 @@ import {
   merge,
   omit,
   onCleanup,
+  untrack,
   useContext,
   type Accessor,
   type Element as SolidElement,
@@ -110,7 +111,9 @@ export function Select(props: SelectProps): SolidElement {
   const setOpen = (nextOpen: boolean): void => {
     setOpenState(nextOpen)
     if (nextOpen) {
-      const selected = items.find((item) => item.value() === value() && !item.disabled())
+      const selected = items.find(
+        (item) => item.value() === value() && !item.disabled(),
+      )
       setActiveValue(selected?.value() ?? null)
     } else {
       const trigger = triggerRef.value
@@ -188,11 +191,11 @@ export function SelectTrigger(props: SelectTriggerProps): SolidElement {
     get ref() {
       return ref
     },
-    get style() {
-      return resolveStyle(props.style, state())
-    },
     get tabIndex() {
       return disabled() ? -1 : (props.as ? props.tabIndex : (props.tabIndex ?? 0))
+    },
+    get style() {
+      return resolveStyle(props.style, state())
     },
     get onMouseDown() {
       return composeHandlers(props.onMouseDown, () => {
@@ -219,13 +222,19 @@ export function SelectTrigger(props: SelectTriggerProps): SolidElement {
         if (disabled()) return
         if (event.key === "escape") {
           context.setOpen(false)
-        } else if (event.key === "down" || (event.key === "n" && event.modifiers?.ctrl)) {
+          return
+        }
+        if (event.key === "down" || (event.key === "n" && event.modifiers?.ctrl)) {
           if (!context.open()) context.setOpen(true)
           context.moveActive(1)
-        } else if (event.key === "up" || (event.key === "p" && event.modifiers?.ctrl)) {
+          return
+        }
+        if (event.key === "up" || (event.key === "p" && event.modifiers?.ctrl)) {
           if (!context.open()) context.setOpen(true)
           context.moveActive(-1)
-        } else if (event.key === "enter" || event.key === "space") {
+          return
+        }
+        if (event.key === "enter" || event.key === "space") {
           context.setOpen(!context.open())
         }
       })
@@ -258,7 +267,8 @@ export interface SelectContentProps extends FloatingContentProps {
 export function SelectContent(props: SelectContentProps): SolidElement {
   const context = useSelectContext("SelectContent")
   const content = resolveChildren(() => props.children)
-  content()
+  // Resolve once while detached so items register before the popup opens.
+  untrack(content)
   const host = omit(props, "onEscapeKeyDown")
   return Show({
     get when() {
@@ -356,10 +366,6 @@ export function SelectItem(props: SelectItemProps): SolidElement {
     get style() {
       return resolveStyle(props.style, state())
     },
-    get children() {
-      const child = props.children
-      return isRenderFunction<SelectItemState>(child) ? child(state()) : child
-    },
     get onMouseEnter() {
       return composeHandlers(props.onMouseEnter, () => {
         if (!(props.disabled ?? false)) context.setActiveValue(props.value)
@@ -369,6 +375,10 @@ export function SelectItem(props: SelectItemProps): SolidElement {
       return composeHandlers(props.onClick, () => {
         if (!(props.disabled ?? false)) context.selectValue(props.value)
       })
+    },
+    get children() {
+      const child = props.children
+      return isRenderFunction<SelectItemState>(child) ? child(state()) : child
     },
   })
   return renderDiv(merged)
