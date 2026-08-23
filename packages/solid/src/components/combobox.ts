@@ -360,7 +360,7 @@ export function ComboboxContent(props: FloatingContentProps): SolidElement {
   const context = useComboboxContext("ComboboxContent")
   const content = resolveChildren(() => props.children)
   content()
-  return createComponent(Show, {
+  return Show({
     get when() {
       return context.open()
     },
@@ -389,7 +389,7 @@ export function ComboboxList(props: ComboboxListProps): SolidElement {
     get children() {
       const child = props.children
       if (!isRenderFunction<string>(child)) return child
-      return createComponent(For, {
+      return For({
         get each() {
           return context.filteredItems()
         },
@@ -460,7 +460,7 @@ export function ComboboxItem(props: ComboboxItemProps): SolidElement {
 
 export function ComboboxEmpty(props: HostProps): SolidElement {
   const context = useComboboxContext("ComboboxEmpty")
-  return createComponent(Show, {
+  return Show({
     get when() {
       return context.filteredItems().length === 0
     },
