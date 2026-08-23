@@ -1,6 +1,6 @@
 import { createComponent } from "solid-js"
 import { describe, expect, it } from "vitest"
-import type { HostProps, PublicInstance } from "../src/host/types.js"
+import type { PublicInstance } from "../src/host/types.js"
 import { createRoot } from "../src/root.js"
 import {
   Combobox,
@@ -9,7 +9,7 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "../src/components/combobox.js"
-import { renderDiv } from "../src/components/floating.js"
+import { renderDiv, type HostPropSource } from "../src/components/floating.js"
 import {
   Select,
   SelectContent,
@@ -169,7 +169,7 @@ describe("Solid floating controls", () => {
     const renderer = new ControlRenderer()
     const root = createRoot(renderer)
     let trigger: PublicInstance | undefined
-    let slotted: HostProps | undefined
+    let slotted: HostPropSource | undefined
 
     root.render(() => createComponent(Tooltip, {
       get children() {
