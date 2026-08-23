@@ -159,9 +159,9 @@ describe("Playwright-like locator API", () => {
 
   it("reports a typed timeout when a locator never appears", async () => {
     const app = new App(new RecordingBackend(null))
-    const error = await app.getByText("never").waitFor({ timeoutMs: 1 }).catch((reason: unknown) => reason)
-    expect(error).toBeInstanceOf(AutomationError)
-    expect(error).toMatchObject({ code: "Timeout" })
+    const pending = app.getByText("never").waitFor({ timeoutMs: 1 })
+    await expect(pending).rejects.toBeInstanceOf(AutomationError)
+    await expect(pending).rejects.toMatchObject({ code: "Timeout" })
   })
 })
 
