@@ -1,7 +1,7 @@
 import { createSignal } from "solid-js"
 import { describe, expect, it } from "vitest"
 import { applyDebugFrameOverlay } from "../src/capabilities.js"
-import { motion } from "../src/components/motion.js"
+import { animate } from "../src/components/animate.js"
 import { useGpuixRequired } from "../src/context.js"
 import { createHostElement } from "../src/host/nodes.js"
 import type { NativeRenderer } from "../src/host/types.js"
@@ -76,15 +76,15 @@ describe("native capabilities", () => {
     expect(renderer.capabilityCalls).toHaveLength(1)
   })
 
-  it("keeps motion.div reactive while sending one native motion prop", () => {
+  it("keeps animate.div reactive while sending one private native motion prop", () => {
     const renderer = new CapabilityRenderer()
     const root = createRoot(renderer)
     const [opacity, setOpacity] = createSignal(0)
 
     function App() {
-      return createComponent(motion.div, {
+      return createComponent(animate.div, {
         initial: { opacity: 0 },
-        get animate() {
+        get to() {
           return { opacity: opacity() }
         },
         transition: { duration: 0.2, ease: "easeOut" },
