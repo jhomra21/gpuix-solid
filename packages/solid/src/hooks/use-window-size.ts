@@ -1,4 +1,4 @@
-import { createSignal, onMount } from "solid-js"
+import { createSignal, onSettled } from "solid-js"
 import { useGpuix } from "../context.js"
 
 export interface WindowSize {
@@ -13,7 +13,7 @@ export function useWindowSize(): WindowSize {
   const context = useGpuix()
   const [size, setSize] = createSignal<WindowSize>(DEFAULT_WINDOW_SIZE)
 
-  onMount(() => {
+  onSettled(() => {
     try {
       const next = context?.renderer.getWindowSize?.()
       if (next) setSize({ width: next.width, height: next.height })
