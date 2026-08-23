@@ -2,9 +2,12 @@ import type { EventPayload } from "@gpuix/native"
 import {
   Show,
   children as resolveChildren,
+  createComponent,
   createContext,
   createRenderEffect,
   createSignal,
+  merge,
+  omit,
   onCleanup,
   useContext,
   type Accessor,
@@ -12,13 +15,11 @@ import {
 } from "solid-js"
 import { useGpuixRequired } from "../context.js"
 import type { HostProps, PublicInstance } from "../host/types.js"
-import { createComponent, mergeProps } from "../host/universal.js"
 import {
   FloatingLayer,
   composeHandlers,
   composeRefs,
   createControllableState,
-  createHostProps,
   floatingRootStyle,
   isRenderFunction,
   renderDiv,
@@ -108,6 +109,7 @@ export function Select(props: SelectProps): SolidElement {
       if (index < 0) return [...current, next]
       const previous = current[index]
       if (
+        previous &&
         previous.value === next.value &&
         previous.textValue === next.textValue &&
         previous.disabled === next.disabled
@@ -198,13 +200,13 @@ export function SelectTrigger(props: SelectTriggerProps): SolidElement {
     },
     props.ref,
   )
-  const host = createHostProps(props, {
-    style: () => resolveStyle(props.style, state()),
-    children: () => props.children,
-  })
-  const merged = mergeProps(host, {
+  const host = omit(omit(omit(props, "as"), "disabled"), "style")
+  const merged = merge(host, {
     get ref() {
       return ref
+    },
+    get style() {
+      return resolveStyle(props.style, state())
     },
     get tabIndex() {
       return disabled() ? -1 : (props.as ? props.tabIndex : (props.tabIndex ?? 0))
@@ -254,8 +256,9 @@ export interface SelectValueProps extends HostProps {
 }
 
 export function SelectValue(props: SelectValueProps): SolidElement {
+  const host = omit(props, "placeholder")
   const context = useSelectContext("SelectValue")
-  const merged = mergeProps(props, {
+  const merged = merge(host, {
     get children() {
       if (props.children !== undefined) return props.children
       const item = context.items().find((candidate) => candidate.value === context.value())
@@ -273,12 +276,13 @@ export function SelectContent(props: SelectContentProps): SolidElement {
   const context = useSelectContext("SelectContent")
   const content = resolveChildren(() => props.children)
   content()
+  const host = omit(props, "onEscapeKeyDown")
   return createComponent(Show, {
     get when() {
       return context.open()
     },
     get children() {
-      const merged = mergeProps(props, {
+      const merged = merge(host, {
         get children() {
           return content()
         },
@@ -348,13 +352,14 @@ function selectItemTextValue(props: SelectItemProps): string {
 export function SelectItem(props: SelectItemProps): SolidElement {
   const context = useSelectContext("SelectItem")
   const token = Symbol("select-item")
-  createRenderEffect(() => {
-    context.registerItem(token, {
+  createRenderEffect(
+    () => ({
       value: props.value,
       textValue: selectItemTextValue(props),
       disabled: props.disabled ?? false,
-    })
-  })
+    }),
+    (item) => context.registerItem(token, item),
+  )
   onCleanup(() => context.unregisterItem(token))
 
   const state = (): SelectItemState => ({
@@ -362,14 +367,18 @@ export function SelectItem(props: SelectItemProps): SolidElement {
     highlighted: context.activeValue() === props.value,
     disabled: props.disabled ?? false,
   })
-  const host = createHostProps(props, {
-    style: () => resolveStyle(props.style, state()),
-    children: () => {
+  const host = omit(
+    omit(omit(omit(omit(props, "value"), "disabled"), "textValue"), "style"),
+    "children",
+  )
+  const merged = merge(host, {
+    get style() {
+      return resolveStyle(props.style, state())
+    },
+    get children() {
       const child = props.children
       return isRenderFunction<SelectItemState>(child) ? child(state()) : child
     },
-  })
-  const merged = mergeProps(host, {
     get onMouseEnter() {
       return composeHandlers(props.onMouseEnter, () => {
         if (!(props.disabled ?? false)) context.setActiveValue(props.value)
