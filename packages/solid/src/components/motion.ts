@@ -30,11 +30,12 @@ export interface MotionDivProps extends MotionProps {
 
 function MotionDiv(props: MotionDivProps): PublicInstance & { readonly kind: "element" } {
   const node = createHostElement("div")
-  const nativeMotion = createMemo<MotionProps>(() => ({
-    ...(props.initial === undefined ? {} : { initial: props.initial }),
-    animate: props.animate,
-    ...(props.transition === undefined ? {} : { transition: props.transition }),
-  }))
+  const nativeMotion = createMemo<MotionProps>(() => {
+    const value: MotionProps = { animate: props.animate }
+    if (props.initial !== undefined) value.initial = props.initial
+    if (props.transition !== undefined) value.transition = props.transition
+    return value
+  })
 
   spread(node, () => ({
     children: props.children,
