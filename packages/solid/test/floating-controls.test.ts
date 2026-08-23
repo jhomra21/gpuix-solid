@@ -1,6 +1,6 @@
+import { createComponent } from "solid-js"
 import { describe, expect, it } from "vitest"
 import type { HostProps, PublicInstance } from "../src/host/types.js"
-import { createComponent } from "../src/host/universal.js"
 import { createRoot } from "../src/root.js"
 import {
   Combobox,
