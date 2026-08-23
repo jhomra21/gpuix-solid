@@ -67,8 +67,13 @@ export type {
   TooltipTriggerProps,
 } from "./components/tooltip.js"
 
-export { motion } from "./components/motion.js"
-export type { MotionDivProps } from "./components/motion.js"
+export { animate } from "./components/animate.js"
+export type {
+  AnimateDivProps,
+  AnimationEase,
+  AnimationStyle,
+  AnimationTransition,
+} from "./components/animate.js"
 
 export {
   effect,
@@ -100,10 +105,6 @@ export type {
   ImgProps,
   InputProps,
   MarkdownProps,
-  MotionEase,
-  MotionProps,
-  MotionStyle,
-  MotionTransition,
   NativeRenderer,
   PublicInstance,
   StyleDesc,
