@@ -37,12 +37,12 @@
 
 ## M3 — native capabilities
 
-- [ ] focus APIs
-- [ ] scroll APIs
-- [ ] selection APIs
-- [ ] window APIs
-- [ ] debug frame overlay
-- [ ] motion
+- [x] focus APIs
+- [x] scroll APIs
+- [x] selection APIs
+- [x] window APIs
+- [x] debug frame overlay
+- [x] motion
 
 ## M4 — Solid components
 
