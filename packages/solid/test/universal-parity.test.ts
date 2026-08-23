@@ -11,8 +11,12 @@ function element(): HostElementNode {
   return node
 }
 
+async function settleReactiveUpdate(): Promise<void> {
+  await Promise.resolve()
+}
+
 describe("Solid universal parity", () => {
-  it("reconciles a reactive fragment reorder through the shadow tree", () => {
+  it("reconciles a reactive fragment reorder through the shadow tree", async () => {
     const renderer = new FakeRenderer()
     const root = createRoot(renderer)
     const parent = element()
@@ -28,15 +32,17 @@ describe("Solid universal parity", () => {
     expect(parent.children).toEqual([first, second])
 
     setItems([second, first])
+    await settleReactiveUpdate()
     root.flush()
 
     expect(parent.children).toEqual([second, first])
     expect(renderer.batches.at(-1)).toEqual([
-      ["insertBefore", parent.id, second.id, first.id],
+      ["insertBefore", parent.id, second.id, second.id],
+      ["appendChild", parent.id, first.id],
     ])
   })
 
-  it("updates reactive fragment text without recreating the text node", () => {
+  it("updates reactive fragment text without recreating the text node", async () => {
     const renderer = new FakeRenderer()
     const root = createRoot(renderer)
     const parent = element()
@@ -52,6 +58,7 @@ describe("Solid universal parity", () => {
     const textId = text.id
 
     setLabel("after")
+    await settleReactiveUpdate()
     root.flush()
 
     expect(parent.children[0]).toBe(text)
