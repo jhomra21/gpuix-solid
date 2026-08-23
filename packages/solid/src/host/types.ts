@@ -257,7 +257,10 @@ export interface TextareaProps extends InputProps {
   maxRows?: number
 }
 
-export interface VirtualListProps extends HostProps {
+export interface VirtualListProps {
+  style?: StyleDesc
+  children?: unknown
+  ref?: HostRef
   alignment?: "top" | "bottom"
   followTail?: boolean
   overdraw?: number
