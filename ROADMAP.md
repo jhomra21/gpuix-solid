@@ -46,10 +46,10 @@
 
 ## M4 — Solid components
 
-- [ ] Tooltip
-- [ ] Select
-- [ ] Combobox
-- [ ] Solid-native slot/as contract
+- [x] Tooltip
+- [x] Select
+- [x] Combobox
+- [x] Solid-native slot/as contract
 
 ## M5 — testing and automation
 
