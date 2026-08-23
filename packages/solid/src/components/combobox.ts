@@ -1,0 +1,470 @@
+import {
+  For,
+  Show,
+  createContext,
+  createMemo,
+  createRenderEffect,
+  createSignal,
+  onCleanup,
+  useContext,
+  type Accessor,
+  type Element as SolidElement,
+} from "solid-js"
+import { useGpuixRequired } from "../context.js"
+import type { HostProps, InputProps, PublicInstance } from "../host/types.js"
+import { createComponent, mergeProps } from "../host/universal.js"
+import {
+  FloatingLayer,
+  composeHandlers,
+  composeRefs,
+  createControllableState,
+  floatingRootStyle,
+  renderDiv,
+  renderInput,
+  renderSlot,
+  resolveStyle,
+  type FloatingContentProps,
+  type SlotRenderer,
+  type StateStyle,
+} from "./floating.js"
+
+export type ComboboxValue = string | string[] | null
+
+interface DisabledItemRecord {
+  token: symbol
+  value: string
+  disabled: boolean
+}
+
+interface MutableBox<Value> {
+  value: Value
+}
+
+interface ComboboxContextValue {
+  open: Accessor<boolean>
+  disabled: Accessor<boolean>
+  multiple: Accessor<boolean>
+  value: Accessor<ComboboxValue>
+  inputValue: Accessor<string>
+  filteredItems: Accessor<readonly string[]>
+  activeIndex: Accessor<number | null>
+  inputRef: MutableBox<PublicInstance | undefined>
+  itemToString(item: string): string
+  setOpen(open: boolean): void
+  setInputValue(value: string): void
+  setActiveIndex(index: number | null): void
+  moveActive(delta: number): void
+  selectItem(item: string): void
+  registerItem(token: symbol, value: string, disabled: boolean): void
+  unregisterItem(token: symbol): void
+}
+
+const ComboboxContext = createContext<ComboboxContextValue>()
+
+function useComboboxContext(name: string): ComboboxContextValue {
+  try {
+    return useContext(ComboboxContext)
+  } catch {
+    throw new Error(`${name} must be used inside Combobox`)
+  }
+}
+
+function defaultFilter(
+  items: readonly string[],
+  query: string,
+  itemToString: (item: string) => string,
+): string[] {
+  const normalized = query.trim().toLowerCase()
+  if (!normalized) return [...items]
+  const matches: Array<{ item: string; rank: number; index: number }> = []
+  items.forEach((item, index) => {
+    const label = itemToString(item).toLowerCase()
+    const rank = label.startsWith(normalized) ? 0 : label.includes(normalized) ? 1 : null
+    if (rank !== null) matches.push({ item, rank, index })
+  })
+  return matches
+    .sort((left, right) => left.rank - right.rank || left.index - right.index)
+    .map((match) => match.item)
+}
+
+export interface ComboboxProps extends Omit<HostProps, "children" | "onChange"> {
+  children?: SolidElement
+  items?: readonly string[]
+  value?: ComboboxValue
+  defaultValue?: ComboboxValue
+  onValueChange?: (value: ComboboxValue) => void
+  inputValue?: string
+  defaultInputValue?: string
+  onInputValueChange?: (value: string) => void
+  open?: boolean
+  defaultOpen?: boolean
+  onOpenChange?: (open: boolean) => void
+  multiple?: boolean
+  disabled?: boolean
+  autoHighlight?: boolean | "always"
+  filter?: null | ((item: string, query: string, itemToString: (item: string) => string) => boolean)
+  itemToStringValue?: (item: string) => string
+}
+
+export function Combobox(props: ComboboxProps): SolidElement {
+  const renderer = useGpuixRequired()
+  const [value, setValue] = createControllableState<ComboboxValue>(
+    () => props.value,
+    props.defaultValue ?? null,
+    () => props.onValueChange,
+  )
+  const [inputValue, setInputValueState] = createControllableState(
+    () => props.inputValue,
+    props.defaultInputValue ?? "",
+    () => props.onInputValueChange,
+  )
+  const [open, setOpenState] = createControllableState(
+    () => props.open,
+    props.defaultOpen ?? false,
+    () => props.onOpenChange,
+  )
+  const [activeIndex, setActiveIndex] = createSignal<number | null>(null)
+  const [itemRecords, setItemRecords] = createSignal<DisabledItemRecord[]>([])
+  const inputRef: MutableBox<PublicInstance | undefined> = { value: undefined }
+  const itemToString = (item: string): string => (props.itemToStringValue ?? ((value) => value))(item)
+
+  const filterItems = (query: string): string[] => {
+    const items = props.items ?? []
+    if (props.filter === null) return [...items]
+    if (props.filter) {
+      return items.filter((item) => props.filter?.(item, query, itemToString) ?? false)
+    }
+    return defaultFilter(items, query, itemToString)
+  }
+  const filteredItems = createMemo(() => filterItems(inputValue()))
+  const isDisabledItem = (item: string): boolean =>
+    itemRecords().some((record) => record.value === item && record.disabled)
+
+  const registerItem = (token: symbol, item: string, disabled: boolean): void => {
+    setItemRecords((current) => {
+      const index = current.findIndex((record) => record.token === token)
+      const next = { token, value: item, disabled }
+      if (index < 0) return [...current, next]
+      const previous = current[index]
+      if (previous.value === item && previous.disabled === disabled) return current
+      const updated = [...current]
+      updated[index] = next
+      return updated
+    })
+  }
+  const unregisterItem = (token: symbol): void => {
+    setItemRecords((current) => current.filter((record) => record.token !== token))
+  }
+  const setOpen = (nextOpen: boolean): void => {
+    setOpenState(nextOpen)
+    if (nextOpen) {
+      queueMicrotask(() => {
+        const input = inputRef.value
+        if (input) renderer.focusElement?.(input.id)
+      })
+    }
+  }
+  const updateInputValue = (nextValue: string): void => {
+    setInputValueState(nextValue)
+    const nextItems = filterItems(nextValue)
+    const firstEnabled = nextItems.findIndex((item) => !isDisabledItem(item))
+    setActiveIndex(props.autoHighlight && firstEnabled >= 0 ? firstEnabled : null)
+  }
+  const moveActive = (delta: number): void => {
+    const items = filteredItems()
+    if (items.length === 0) return
+    let nextIndex = activeIndex() === null ? (delta > 0 ? -1 : 0) : activeIndex() as number
+    for (let checked = 0; checked < items.length; checked += 1) {
+      nextIndex = (nextIndex + delta + items.length) % items.length
+      const item = items[nextIndex]
+      if (item !== undefined && !isDisabledItem(item)) {
+        setActiveIndex(nextIndex)
+        return
+      }
+    }
+  }
+  const selectItem = (item: string): void => {
+    if ((props.disabled ?? false) || isDisabledItem(item)) return
+    if (props.multiple ?? false) {
+      const selected = Array.isArray(value()) ? value() as string[] : []
+      const exists = selected.includes(item)
+      setValue(exists ? selected.filter((candidate) => candidate !== item) : [...selected, item])
+      setInputValueState("")
+      setActiveIndex(null)
+      return
+    }
+    setValue(item)
+    setInputValueState(itemToString(item))
+    setOpen(false)
+    setActiveIndex(null)
+  }
+
+  const context: ComboboxContextValue = {
+    open,
+    disabled: () => props.disabled ?? false,
+    multiple: () => props.multiple ?? false,
+    value,
+    inputValue,
+    filteredItems,
+    activeIndex,
+    inputRef,
+    itemToString,
+    setOpen,
+    setInputValue: updateInputValue,
+    setActiveIndex,
+    moveActive,
+    selectItem,
+    registerItem,
+    unregisterItem,
+  }
+
+  return createComponent(ComboboxContext, {
+    value: context,
+    get children() {
+      return renderDiv(props, () => floatingRootStyle(props.style))
+    },
+  })
+}
+
+export interface ComboboxInputProps extends InputProps {
+  disabled?: boolean
+}
+
+export function ComboboxInput(props: ComboboxInputProps): SolidElement {
+  const context = useComboboxContext("ComboboxInput")
+  const disabled = (): boolean => props.disabled ?? context.disabled()
+  const ref = composeRefs(
+    (instance) => {
+      context.inputRef.value = instance
+    },
+    props.ref,
+  )
+  const merged = mergeProps(props as InputProps, {
+    get ref() {
+      return ref
+    },
+    get value() {
+      return context.inputValue()
+    },
+    get readOnly() {
+      return disabled() || props.readOnly
+    },
+    get autoFocus() {
+      return context.open()
+    },
+    get onClick() {
+      return composeHandlers(props.onClick, () => {
+        if (!disabled()) context.setOpen(true)
+      })
+    },
+    get onFocus() {
+      return composeHandlers(props.onFocus, () => {
+        if (!disabled()) context.setOpen(true)
+      })
+    },
+    get onChange() {
+      return composeHandlers(props.onChange, (event) => {
+        context.setInputValue(event.value ?? "")
+        if (!disabled()) context.setOpen(true)
+      })
+    },
+    get onKeyDown() {
+      return composeHandlers(props.onKeyDown, (event) => {
+        if (disabled()) return
+        if (event.key === "escape") {
+          context.setOpen(false)
+        } else if (event.key === "down" || (event.key === "n" && event.modifiers?.ctrl)) {
+          context.moveActive(1)
+        } else if (event.key === "up" || (event.key === "p" && event.modifiers?.ctrl)) {
+          context.moveActive(-1)
+        }
+      })
+    },
+    get onSubmit() {
+      return composeHandlers(props.onSubmit, () => {
+        if (disabled()) return
+        const index = context.activeIndex()
+        if (index === null) return
+        const item = context.filteredItems()[index]
+        if (item !== undefined) context.selectItem(item)
+      })
+    },
+  })
+  return renderInput(merged)
+}
+
+export interface ComboboxTriggerProps extends HostProps {
+  as?: SlotRenderer
+  disabled?: boolean
+}
+
+export function ComboboxTrigger(props: ComboboxTriggerProps): SolidElement {
+  const context = useComboboxContext("ComboboxTrigger")
+  const disabled = (): boolean => props.disabled ?? context.disabled()
+  const merged = mergeProps(props, {
+    get tabIndex() {
+      return disabled() ? -1 : (props.as ? props.tabIndex : (props.tabIndex ?? 0))
+    },
+    get onClick() {
+      return composeHandlers(props.onClick, () => {
+        if (!disabled()) context.setOpen(!context.open())
+      })
+    },
+    get onKeyDown() {
+      return composeHandlers(props.onKeyDown, (event) => {
+        if (disabled()) return
+        if (event.key === "down" || event.key === "up") context.setOpen(true)
+        if (event.key === "escape") context.setOpen(false)
+      })
+    },
+  })
+  return renderSlot(props.as, merged)
+}
+
+export interface ComboboxValueProps extends Omit<HostProps, "children"> {
+  placeholder?: SolidElement
+  children?: SolidElement | ((value: ComboboxValue) => SolidElement)
+}
+
+export function ComboboxValueDisplay(props: ComboboxValueProps): SolidElement {
+  const context = useComboboxContext("ComboboxValue")
+  const merged = mergeProps(props as unknown as HostProps, {
+    get children() {
+      const current = context.value()
+      if (typeof props.children === "function") return props.children(current)
+      if (props.children !== undefined) return props.children
+      const label = Array.isArray(current)
+        ? current.map(context.itemToString).join(", ")
+        : current === null
+          ? ""
+          : context.itemToString(current)
+      return label || props.placeholder
+    },
+  })
+  return renderDiv(merged)
+}
+
+export function ComboboxContent(props: FloatingContentProps): SolidElement {
+  const context = useComboboxContext("ComboboxContent")
+  return createComponent(Show, {
+    get when() {
+      return context.open()
+    },
+    get children() {
+      const merged = mergeProps(props, {
+        get onMouseDownOutside() {
+          return composeHandlers(props.onMouseDownOutside, () => context.setOpen(false))
+        },
+      })
+      return FloatingLayer(merged)
+    },
+  })
+}
+
+export interface ComboboxListProps extends Omit<HostProps, "children"> {
+  children?: SolidElement | ((item: string) => SolidElement)
+}
+
+export function ComboboxList(props: ComboboxListProps): SolidElement {
+  const context = useComboboxContext("ComboboxList")
+  const merged = mergeProps(props as unknown as HostProps, {
+    get children() {
+      if (typeof props.children !== "function") return props.children
+      return createComponent(For<string>, {
+        get each() {
+          return [...context.filteredItems()]
+        },
+        children: (item) => (props.children as (value: string) => SolidElement)(item),
+      })
+    },
+  })
+  return renderDiv(merged)
+}
+
+export interface ComboboxItemState {
+  selected: boolean
+  highlighted: boolean
+  disabled: boolean
+}
+
+export interface ComboboxItemProps extends Omit<HostProps, "children" | "style"> {
+  value: string
+  disabled?: boolean
+  children?: SolidElement | ((state: ComboboxItemState) => SolidElement)
+  style?: StateStyle<ComboboxItemState>
+}
+
+export function ComboboxItem(props: ComboboxItemProps): SolidElement {
+  const context = useComboboxContext("ComboboxItem")
+  const token = Symbol("combobox-item")
+  createRenderEffect(() => context.registerItem(token, props.value, props.disabled ?? false))
+  onCleanup(() => context.unregisterItem(token))
+
+  const index = (): number => context.filteredItems().indexOf(props.value)
+  const state = (): ComboboxItemState => {
+    const current = context.value()
+    return {
+      selected: Array.isArray(current) ? current.includes(props.value) : current === props.value,
+      highlighted: context.activeIndex() === index(),
+      disabled: props.disabled ?? false,
+    }
+  }
+  const merged = mergeProps(props as unknown as HostProps, {
+    get style() {
+      return resolveStyle(props.style, state())
+    },
+    get onMouseEnter() {
+      return composeHandlers(props.onMouseEnter, () => {
+        const itemIndex = index()
+        if (!(props.disabled ?? false) && itemIndex >= 0) context.setActiveIndex(itemIndex)
+      })
+    },
+    get onClick() {
+      return composeHandlers(props.onClick, () => {
+        if (!(props.disabled ?? false)) context.selectItem(props.value)
+      })
+    },
+    get children() {
+      return typeof props.children === "function" ? props.children(state()) : props.children
+    },
+  })
+  return renderDiv(merged)
+}
+
+export function ComboboxEmpty(props: HostProps): SolidElement {
+  const context = useComboboxContext("ComboboxEmpty")
+  return createComponent(Show, {
+    get when() {
+      return context.filteredItems().length === 0
+    },
+    get children() {
+      return renderDiv(props)
+    },
+  })
+}
+
+export function ComboboxGroup(props: HostProps): SolidElement {
+  return renderDiv(props)
+}
+
+export function ComboboxLabel(props: HostProps): SolidElement {
+  return renderDiv(props)
+}
+
+export function ComboboxSeparator(props: HostProps): SolidElement {
+  return renderDiv(props)
+}
+
+export {
+  Combobox as Root,
+  ComboboxContent as Content,
+  ComboboxEmpty as Empty,
+  ComboboxGroup as Group,
+  ComboboxInput as Input,
+  ComboboxItem as Item,
+  ComboboxLabel as Label,
+  ComboboxList as List,
+  ComboboxSeparator as Separator,
+  ComboboxTrigger as Trigger,
+  ComboboxValueDisplay as Value,
+}
