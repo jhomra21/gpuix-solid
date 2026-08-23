@@ -195,7 +195,9 @@ function adopt(root: HostRootNode, node: HostNode): void {
   if (node.kind === "text") {
     root.driver.enqueue("setText", node.id, node.text)
   } else {
-    if (node.style) root.driver.enqueue("setStyle", node.id, node.style)
+    if (node.style && Object.keys(node.style).length > 0) {
+      root.driver.enqueue("setStyle", node.id, node.style)
+    }
     for (const [eventType, handler] of node.events) {
       root.events.set(node.id, eventType, handler)
       root.driver.enqueue("setEventListener", node.id, eventType, true)
