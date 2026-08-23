@@ -5,7 +5,6 @@ import {
   createComponent,
   createContext,
   createMemo,
-  createRenderEffect,
   createSignal,
   merge,
   omit,
@@ -36,8 +35,8 @@ export type ComboboxValue = string | string[] | null
 
 interface DisabledItemRecord {
   token: symbol
-  value: string
-  disabled: boolean
+  value: Accessor<string>
+  disabled: Accessor<boolean>
 }
 
 interface MutableBox<Value> {
@@ -59,7 +58,7 @@ interface ComboboxContextValue {
   setActiveIndex(index: number | null): void
   moveActive(delta: number): void
   selectItem(item: string): void
-  registerItem(token: symbol, value: string, disabled: boolean): void
+  registerItem(item: DisabledItemRecord): void
   unregisterItem(token: symbol): void
 }
 
@@ -128,7 +127,7 @@ export function Combobox(props: ComboboxProps): SolidElement {
     () => props.onOpenChange,
   )
   const [activeIndex, setActiveIndex] = createSignal<number | null>(null)
-  const [itemRecords, setItemRecords] = createSignal<DisabledItemRecord[]>([])
+  const itemRecords: DisabledItemRecord[] = []
   const inputRef: MutableBox<PublicInstance | undefined> = { value: undefined }
   const itemToString = (item: string): string => {
     const stringify = props.itemToStringValue
@@ -144,22 +143,16 @@ export function Combobox(props: ComboboxProps): SolidElement {
   }
   const filteredItems = createMemo(() => filterItems(inputValue()))
   const isDisabledItem = (item: string): boolean =>
-    itemRecords().some((record) => record.value === item && record.disabled)
+    itemRecords.some((record) => record.value() === item && record.disabled())
 
-  const registerItem = (token: symbol, item: string, disabled: boolean): void => {
-    setItemRecords((current) => {
-      const index = current.findIndex((record) => record.token === token)
-      const next = { token, value: item, disabled }
-      if (index < 0) return [...current, next]
-      const previous = current[index]
-      if (previous && previous.value === item && previous.disabled === disabled) return current
-      const updated = [...current]
-      updated[index] = next
-      return updated
-    })
+  const registerItem = (item: DisabledItemRecord): void => {
+    const index = itemRecords.findIndex((record) => record.token === item.token)
+    if (index < 0) itemRecords.push(item)
+    else itemRecords[index] = item
   }
   const unregisterItem = (token: symbol): void => {
-    setItemRecords((current) => current.filter((record) => record.token !== token))
+    const index = itemRecords.findIndex((record) => record.token === token)
+    if (index >= 0) itemRecords.splice(index, 1)
   }
   const setOpen = (nextOpen: boolean): void => {
     setOpenState(nextOpen)
@@ -416,10 +409,11 @@ export interface ComboboxItemProps extends Omit<HostProps, "children" | "style">
 export function ComboboxItem(props: ComboboxItemProps): SolidElement {
   const context = useComboboxContext("ComboboxItem")
   const token = Symbol("combobox-item")
-  createRenderEffect(
-    () => ({ value: props.value, disabled: props.disabled ?? false }),
-    (item) => context.registerItem(token, item.value, item.disabled),
-  )
+  context.registerItem({
+    token,
+    value: () => props.value,
+    disabled: () => props.disabled ?? false,
+  })
   onCleanup(() => context.unregisterItem(token))
 
   const index = (): number => context.filteredItems().indexOf(props.value)
