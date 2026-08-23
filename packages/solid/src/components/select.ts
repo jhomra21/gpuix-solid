@@ -1,6 +1,7 @@
 import type { EventPayload } from "@gpuix/native"
 import {
   Show,
+  children as resolveChildren,
   createContext,
   createRenderEffect,
   createSignal,
@@ -17,7 +18,9 @@ import {
   composeHandlers,
   composeRefs,
   createControllableState,
+  createHostProps,
   floatingRootStyle,
+  isRenderFunction,
   renderDiv,
   renderSlot,
   resolveStyle,
@@ -62,12 +65,6 @@ function useSelectContext(name: string): SelectContextValue {
   } catch {
     throw new Error(`${name} must be used inside Select`)
   }
-}
-
-function inferTextValue(children: unknown, explicit: string | undefined): string {
-  if (explicit !== undefined) return explicit
-  if (typeof children === "string" || typeof children === "number") return String(children)
-  return ""
 }
 
 export interface SelectProps extends Omit<HostProps, "children" | "onChange"> {
@@ -201,15 +198,16 @@ export function SelectTrigger(props: SelectTriggerProps): SolidElement {
     },
     props.ref,
   )
-  const merged = mergeProps(props as unknown as HostProps, {
+  const host = createHostProps(props, {
+    style: () => resolveStyle(props.style, state()),
+    children: () => props.children,
+  })
+  const merged = mergeProps(host, {
     get ref() {
       return ref
     },
     get tabIndex() {
       return disabled() ? -1 : (props.as ? props.tabIndex : (props.tabIndex ?? 0))
-    },
-    get style() {
-      return resolveStyle(props.style, state())
     },
     get onMouseDown() {
       return composeHandlers(props.onMouseDown, () => {
@@ -273,12 +271,17 @@ export interface SelectContentProps extends FloatingContentProps {
 
 export function SelectContent(props: SelectContentProps): SolidElement {
   const context = useSelectContext("SelectContent")
+  const content = resolveChildren(() => props.children)
+  content()
   return createComponent(Show, {
     get when() {
       return context.open()
     },
     get children() {
       const merged = mergeProps(props, {
+        get children() {
+          return content()
+        },
         get tabIndex() {
           return props.tabIndex ?? 0
         },
@@ -297,15 +300,19 @@ export function SelectContent(props: SelectContentProps): SolidElement {
             if (event.key === "escape") {
               props.onEscapeKeyDown?.(event)
               context.setOpen(false)
-            } else if (event.key === "down" || (event.key === "n" && event.modifiers?.ctrl)) {
+              return
+            }
+            if (event.key === "down" || (event.key === "n" && event.modifiers?.ctrl)) {
               context.moveActive(1)
-            } else if (event.key === "up" || (event.key === "p" && event.modifiers?.ctrl)) {
+              return
+            }
+            if (event.key === "up" || (event.key === "p" && event.modifiers?.ctrl)) {
               context.moveActive(-1)
-            } else if (
-              (event.key === "enter" || event.key === "space") &&
-              context.activeValue()
-            ) {
-              context.selectValue(context.activeValue() as string)
+              return
+            }
+            if (event.key === "enter" || event.key === "space") {
+              const active = context.activeValue()
+              if (active !== null) context.selectValue(active)
             }
           })
         },
@@ -329,13 +336,22 @@ export interface SelectItemProps extends Omit<HostProps, "children" | "style"> {
   style?: StateStyle<SelectItemState>
 }
 
+function selectItemTextValue(props: SelectItemProps): string {
+  if (props.textValue !== undefined) return props.textValue
+  const child = props.children
+  if (child === undefined || child === null || child instanceof Function || child instanceof Object) {
+    return ""
+  }
+  return String(child)
+}
+
 export function SelectItem(props: SelectItemProps): SolidElement {
   const context = useSelectContext("SelectItem")
   const token = Symbol("select-item")
   createRenderEffect(() => {
     context.registerItem(token, {
       value: props.value,
-      textValue: inferTextValue(props.children, props.textValue),
+      textValue: selectItemTextValue(props),
       disabled: props.disabled ?? false,
     })
   })
@@ -346,10 +362,14 @@ export function SelectItem(props: SelectItemProps): SolidElement {
     highlighted: context.activeValue() === props.value,
     disabled: props.disabled ?? false,
   })
-  const merged = mergeProps(props as unknown as HostProps, {
-    get style() {
-      return resolveStyle(props.style, state())
+  const host = createHostProps(props, {
+    style: () => resolveStyle(props.style, state()),
+    children: () => {
+      const child = props.children
+      return isRenderFunction<SelectItemState>(child) ? child(state()) : child
     },
+  })
+  const merged = mergeProps(host, {
     get onMouseEnter() {
       return composeHandlers(props.onMouseEnter, () => {
         if (!(props.disabled ?? false)) context.setActiveValue(props.value)
@@ -359,9 +379,6 @@ export function SelectItem(props: SelectItemProps): SolidElement {
       return composeHandlers(props.onClick, () => {
         if (!(props.disabled ?? false)) context.selectValue(props.value)
       })
-    },
-    get children() {
-      return typeof props.children === "function" ? props.children(state()) : props.children
     },
   })
   return renderDiv(merged)
