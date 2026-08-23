@@ -203,7 +203,7 @@ export interface TooltipContentProps extends FloatingContentProps {}
 
 export function TooltipContent(props: TooltipContentProps): SolidElement {
   const context = useTooltipContext("TooltipContent")
-  return createComponent(Show, {
+  return Show({
     get when() {
       return context.open()
     },
