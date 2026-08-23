@@ -4,7 +4,6 @@ import {
   children as resolveChildren,
   createComponent,
   createContext,
-  createRenderEffect,
   createSignal,
   merge,
   omit,
@@ -32,9 +31,9 @@ import {
 
 interface SelectItemRecord {
   token: symbol
-  value: string
-  textValue: string
-  disabled: boolean
+  value: Accessor<string>
+  textValue: Accessor<string>
+  disabled: Accessor<boolean>
 }
 
 interface MutableBox<Value> {
@@ -45,7 +44,7 @@ interface SelectContextValue {
   open: Accessor<boolean>
   value: Accessor<string | undefined>
   disabled: Accessor<boolean>
-  items: Accessor<readonly SelectItemRecord[]>
+  items(): readonly SelectItemRecord[]
   activeValue: Accessor<string | null>
   triggerPressedWhileOpen: MutableBox<boolean>
   dismissedByOutsidePress: MutableBox<boolean>
@@ -54,7 +53,7 @@ interface SelectContextValue {
   setActiveValue(value: string | null): void
   moveActive(delta: number): void
   selectValue(value: string): void
-  registerItem(token: symbol, item: Omit<SelectItemRecord, "token">): void
+  registerItem(item: SelectItemRecord): void
   unregisterItem(token: symbol): void
 }
 
@@ -94,57 +93,41 @@ export function Select(props: SelectProps): SolidElement {
     () => props.onOpenChange,
   )
   const [activeValue, setActiveValue] = createSignal<string | null>(null)
-  const [items, setItems] = createSignal<SelectItemRecord[]>([])
+  const items: SelectItemRecord[] = []
   const triggerPressedWhileOpen: MutableBox<boolean> = { value: false }
   const dismissedByOutsidePress: MutableBox<boolean> = { value: false }
   const triggerRef: MutableBox<PublicInstance | undefined> = { value: undefined }
 
-  const registerItem = (
-    token: symbol,
-    item: Omit<SelectItemRecord, "token">,
-  ): void => {
-    setItems((current) => {
-      const index = current.findIndex((candidate) => candidate.token === token)
-      const next = { token, ...item }
-      if (index < 0) return [...current, next]
-      const previous = current[index]
-      if (
-        previous &&
-        previous.value === next.value &&
-        previous.textValue === next.textValue &&
-        previous.disabled === next.disabled
-      ) {
-        return current
-      }
-      const updated = [...current]
-      updated[index] = next
-      return updated
-    })
+  const registerItem = (item: SelectItemRecord): void => {
+    const index = items.findIndex((candidate) => candidate.token === item.token)
+    if (index < 0) items.push(item)
+    else items[index] = item
   }
   const unregisterItem = (token: symbol): void => {
-    setItems((current) => current.filter((item) => item.token !== token))
+    const index = items.findIndex((item) => item.token === token)
+    if (index >= 0) items.splice(index, 1)
   }
   const setOpen = (nextOpen: boolean): void => {
     setOpenState(nextOpen)
     if (nextOpen) {
-      const selected = items().find((item) => item.value === value() && !item.disabled)
-      setActiveValue(selected?.value ?? null)
+      const selected = items.find((item) => item.value() === value() && !item.disabled())
+      setActiveValue(selected?.value() ?? null)
     } else {
       const trigger = triggerRef.value
       if (trigger) renderer.focusElement?.(trigger.id)
     }
   }
   const moveActive = (delta: number): void => {
-    const enabled = items().filter((item) => !item.disabled)
+    const enabled = items.filter((item) => !item.disabled())
     if (enabled.length === 0) return
-    const currentIndex = enabled.findIndex((item) => item.value === activeValue())
+    const currentIndex = enabled.findIndex((item) => item.value() === activeValue())
     const start = currentIndex < 0 ? (delta > 0 ? -1 : 0) : currentIndex
     const nextIndex = (start + delta + enabled.length) % enabled.length
-    setActiveValue(enabled[nextIndex]?.value ?? null)
+    setActiveValue(enabled[nextIndex]?.value() ?? null)
   }
   const selectValue = (nextValue: string): void => {
-    const item = items().find((candidate) => candidate.value === nextValue)
-    if (!item || item.disabled) return
+    const item = items.find((candidate) => candidate.value() === nextValue)
+    if (!item || item.disabled()) return
     setValue(nextValue)
     setOpen(false)
   }
@@ -153,7 +136,7 @@ export function Select(props: SelectProps): SolidElement {
     open,
     value,
     disabled: () => props.disabled ?? false,
-    items,
+    items: () => items,
     activeValue,
     triggerPressedWhileOpen,
     dismissedByOutsidePress,
@@ -261,8 +244,8 @@ export function SelectValue(props: SelectValueProps): SolidElement {
   const merged = merge(host, {
     get children() {
       if (props.children !== undefined) return props.children
-      const item = context.items().find((candidate) => candidate.value === context.value())
-      return item?.textValue || props.placeholder
+      const item = context.items().find((candidate) => candidate.value() === context.value())
+      return item?.textValue() || props.placeholder
     },
   })
   return renderDiv(merged)
@@ -352,14 +335,12 @@ function selectItemTextValue(props: SelectItemProps): string {
 export function SelectItem(props: SelectItemProps): SolidElement {
   const context = useSelectContext("SelectItem")
   const token = Symbol("select-item")
-  createRenderEffect(
-    () => ({
-      value: props.value,
-      textValue: selectItemTextValue(props),
-      disabled: props.disabled ?? false,
-    }),
-    (item) => context.registerItem(token, item),
-  )
+  context.registerItem({
+    token,
+    value: () => props.value,
+    textValue: () => selectItemTextValue(props),
+    disabled: () => props.disabled ?? false,
+  })
   onCleanup(() => context.unregisterItem(token))
 
   const state = (): SelectItemState => ({
