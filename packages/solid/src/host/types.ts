@@ -17,6 +17,7 @@ export type ElementType =
 export type DebugFrameOverlayMode = "hidden" | "minimal" | "full"
 export type DimensionValue = number | string
 
+/** Internal native animation style passed through the GPUIX `motion` wire prop. */
 export interface MotionStyle {
   width?: number
   height?: number
@@ -28,6 +29,7 @@ export interface MotionStyle {
   borderRadius?: number
 }
 
+/** Internal native easing format passed through the GPUIX `motion` wire prop. */
 export type MotionEase =
   | "linear"
   | "ease"
@@ -36,6 +38,7 @@ export type MotionEase =
   | "easeInOut"
   | [number, number, number, number]
 
+/** Internal native transition format passed through the GPUIX `motion` wire prop. */
 export interface MotionTransition {
   /** Duration in seconds. */
   duration?: number
@@ -44,6 +47,7 @@ export interface MotionTransition {
   ease?: MotionEase
 }
 
+/** Internal native descriptor. Public callers use `animate.*`. */
 export interface MotionProps {
   initial?: MotionStyle | false
   animate: MotionStyle
@@ -242,7 +246,6 @@ export interface HostProps {
   autoFocus?: boolean
   tabIndex?: number
   testId?: string
-  motion?: MotionProps
 }
 
 export interface InputProps extends HostProps {
