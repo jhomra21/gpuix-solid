@@ -1,31 +1,34 @@
 import * as native from "@gpuix/native"
 import type { EventPayload } from "@gpuix/native"
 import type { Element as SolidElement } from "solid-js"
+import type { MutationValue } from "./host/mutations.js"
+import type { DebugFrameOverlayMode, NativeRenderer, StyleDesc } from "./host/types.js"
 import { createRoot, type Root } from "./root.js"
-import type { DebugFrameOverlayMode, NativeRenderer } from "./host/types.js"
 
 /** Whether this installed native build exports the GPU-backed test renderer. */
 export const hasNativeTestRenderer = Boolean(native.TestGpuixRenderer)
 
+type TestCustomProps = Record<string, MutationValue>
+
 export interface TestElement {
   id: number
   type: string
-  style: Record<string, unknown>
+  style: StyleDesc
   text: string | null
   events: Set<string>
   children: number[]
   parentId: number | null
-  customProps?: Record<string, unknown>
+  customProps?: TestCustomProps
 }
 
 interface NativeTreeNode {
   id: number
   type: string
-  style?: Record<string, unknown>
+  style?: StyleDesc
   text?: string | null
   events?: string[]
   children?: NativeTreeNode[]
-  customProps?: Record<string, unknown>
+  customProps?: TestCustomProps
 }
 
 function parseTree(json: string): NativeTreeNode | null {
