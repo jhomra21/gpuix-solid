@@ -2,9 +2,9 @@ import { createRenderer } from "@solidjs/universal"
 import {
   createHostElement,
   createHostText,
-  getFirstChild,
-  getNextSibling,
-  getParentNode,
+  getFirstChild as getHostFirstChild,
+  getNextSibling as getHostNextSibling,
+  getParentNode as getHostParentNode,
   insertHostNode,
   isHostTextNode,
   removeHostNode,
@@ -28,31 +28,39 @@ const runtime = createRenderer<HostNode | HostParent>({
     return createHostText(value)
   },
   replaceText(node, value) {
-    const candidate = node as HostNode
-    if (!isHostTextNode(candidate)) throw new TypeError("Expected GPUIX text node")
-    replaceHostText(candidate, value)
+    if (!isHostTextNode(node)) throw new TypeError("Expected GPUIX text node")
+    replaceHostText(node, value)
   },
   setProperty(node, name, value, previous) {
-    if ((node as HostParent).kind === "root") return
-    setHostProperty(node as HostNode, name, value, previous)
+    if (node.kind === "root") return
+    setHostProperty(node, name, value, previous)
   },
   insertNode(parent, node, anchor) {
-    insertHostNode(parent as HostParent, node as HostNode, (anchor as HostNode | undefined) ?? null)
+    if (parent.kind === "text" || node.kind === "root") {
+      throw new TypeError("Expected a GPUIX parent and child host node")
+    }
+    if (anchor?.kind === "root" || anchor?.kind === "text") {
+      throw new TypeError("Expected a GPUIX element anchor")
+    }
+    insertHostNode(parent, node, anchor ?? null)
   },
   isTextNode(node) {
-    return (node as HostNode).kind === "text"
+    return node.kind === "text"
   },
   removeNode(parent, node) {
-    removeHostNode(parent as HostParent, node as HostNode)
+    if (parent.kind === "text" || node.kind === "root") {
+      throw new TypeError("Expected a GPUIX parent and child host node")
+    }
+    removeHostNode(parent, node)
   },
   getParentNode(node) {
-    return getParentNode(node as HostNode)
+    return node.kind === "root" ? undefined : getHostParentNode(node)
   },
   getFirstChild(node) {
-    return getFirstChild(node as HostParent)
+    return node.kind === "text" ? undefined : getHostFirstChild(node)
   },
   getNextSibling(node) {
-    return getNextSibling(node as HostNode)
+    return node.kind === "root" ? undefined : getHostNextSibling(node)
   },
 })
 

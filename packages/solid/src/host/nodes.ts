@@ -3,7 +3,6 @@ import type { MutationDriver, MutationValue } from "./mutations.js"
 import type {
   ElementType,
   HostEventHandler,
-  HostProps,
   NativeRenderer,
   PublicInstance,
   StyleDesc,
@@ -40,7 +39,7 @@ export class HostElementNode implements PublicInstance {
   id = 0
   nativeAlive = false
   style: StyleDesc | undefined
-  readonly props = new Map<string, unknown>()
+  readonly props = new Map<string, MutationValue>()
   readonly events = new Map<string, HostEventHandler>()
 
   constructor(type: ElementType) {
@@ -71,22 +70,22 @@ export function createHostElement(type: string): HostElementNode {
   return new HostElementNode(type)
 }
 
-export function createHostText(value: unknown): HostTextNode {
+export function createHostText(value: string): HostTextNode {
   return new HostTextNode(String(value))
 }
 
-export function replaceHostText(node: HostTextNode, value: unknown): void {
+export function replaceHostText(node: HostTextNode, value: string): void {
   const text = String(value)
   if (node.text === text) return
   node.text = text
   if (node.root && node.nativeAlive) node.root.driver.enqueue("setText", node.id, text)
 }
 
-export function setHostProperty(
+export function setHostProperty<T>(
   node: HostNode,
   name: string,
-  value: unknown,
-  previous: unknown,
+  value: T,
+  previous?: T,
 ): void {
   if (node.kind === "text") return
   if (name === "children" || name === "ref" || name === "key") return
@@ -99,8 +98,8 @@ export function setHostProperty(
 
   const eventType = EVENT_PROP_TO_TYPE.get(name)
   if (eventType) {
-    const oldHandler = typeof previous === "function" ? (previous as HostEventHandler) : undefined
-    const handler = typeof value === "function" ? (value as HostEventHandler) : undefined
+    const oldHandler = isHostEventHandler(previous) ? previous : undefined
+    const handler = isHostEventHandler(value) ? value : undefined
     if (handler) node.events.set(eventType, handler)
     else node.events.delete(eventType)
 
@@ -114,7 +113,7 @@ export function setHostProperty(
   }
 
   if (value === undefined) node.props.delete(name)
-  else node.props.set(name, value)
+  else node.props.set(name, customPropValue(value))
   if (!node.root || !node.nativeAlive || isReserved(name)) return
   if (BUILT_IN_TYPES.has(node.type) && !UNIVERSAL_PROPS.has(name)) return
   node.root.driver.enqueue("setCustomPropValue", node.id, name, customPropValue(value))
@@ -175,7 +174,7 @@ export function getNextSibling(node: HostNode): HostNode | undefined {
   return index < 0 ? undefined : parent.children[index + 1]
 }
 
-export function isHostTextNode(node: HostNode): node is HostTextNode {
+export function isHostTextNode(node: HostNode | HostParent): node is HostTextNode {
   return node.kind === "text"
 }
 
@@ -233,22 +232,29 @@ function isReserved(name: string): boolean {
   return RESERVED_PROPS.has(name) || EVENT_PROP_TO_TYPE.has(name)
 }
 
-function customPropValue(value: unknown): MutationValue {
-  if (value === undefined || typeof value === "function") return null
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean" ||
-    typeof value === "object"
-  ) {
+function customPropValue<T>(value: T): MutationValue {
+  if (value === undefined || isHostEventHandler(value)) return null
+  if (isMutationValue(value)) {
     return value
   }
   return String(value)
 }
 
-function isStyle(value: unknown): value is StyleDesc {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+function isMutationValue<T>(value: T): value is T & MutationValue {
+  return value === null || typeof value === "string" || typeof value === "number" ||
+    typeof value === "boolean" || isObjectValue(value)
+}
+
+function isHostEventHandler<T>(value: T): value is T & HostEventHandler {
+  return typeof value === "function"
+}
+
+function isObjectValue<T>(value: T): value is T & object {
+  return value !== null && typeof value === "object"
+}
+
+function isStyle<T>(value: T): value is T & StyleDesc {
+  return isObjectValue(value) && !Array.isArray(value)
 }
 
 function isElementType(value: string): value is ElementType {

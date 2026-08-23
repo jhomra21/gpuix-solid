@@ -127,25 +127,41 @@ function callMutation(renderer: NativeRenderer, name: string, args: MutationValu
 
 function numberArg(args: MutationValue[], index: number): number {
   const value = args[index]
-  if (typeof value !== "number") throw new TypeError(`Expected numeric mutation arg ${index}`)
+  if (!isNumberValue(value)) throw new TypeError(`Expected numeric mutation arg ${index}`)
   return value
 }
 
 function stringArg(args: MutationValue[], index: number): string {
   const value = args[index]
-  if (typeof value !== "string") throw new TypeError(`Expected string mutation arg ${index}`)
+  if (!isStringValue(value)) throw new TypeError(`Expected string mutation arg ${index}`)
   return value
 }
 
 function booleanArg(args: MutationValue[], index: number): boolean {
   const value = args[index]
-  if (typeof value !== "boolean") throw new TypeError(`Expected boolean mutation arg ${index}`)
+  if (!isBooleanValue(value)) throw new TypeError(`Expected boolean mutation arg ${index}`)
   return value
 }
 
 function jsonArg(args: MutationValue[], index: number): string {
   const value = args[index]
-  if (typeof value === "string") return value
-  if (value && typeof value === "object") return JSON.stringify(value)
+  if (isStringValue(value)) return value
+  if (isObjectValue(value)) return JSON.stringify(value)
   throw new TypeError(`Expected object/string mutation arg ${index}`)
+}
+
+function isNumberValue<T>(value: T): value is T & number {
+  return typeof value === "number"
+}
+
+function isStringValue<T>(value: T): value is T & string {
+  return typeof value === "string"
+}
+
+function isBooleanValue<T>(value: T): value is T & boolean {
+  return typeof value === "boolean"
+}
+
+function isObjectValue<T>(value: T): value is T & object {
+  return value !== null && typeof value === "object"
 }
