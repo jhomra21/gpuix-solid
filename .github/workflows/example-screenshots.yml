@@ -4,12 +4,16 @@ on:
   push:
     branches:
       - example-screenshots
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
 
 jobs:
   capture:
+    if: github.event_name == 'push' || github.head_ref == 'example-screenshots'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
