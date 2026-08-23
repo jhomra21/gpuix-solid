@@ -7,6 +7,7 @@ import {
   insertHostNode,
   setHostProperty,
 } from "../src/host/nodes.js"
+import type { StyleDesc } from "../src/host/types.js"
 import { FakeRenderer } from "./fake-renderer.js"
 
 function fixture() {
@@ -22,7 +23,7 @@ describe("React host prop forwarding parity", () => {
     const { renderer, driver, root } = fixture()
     const node = createHostElement("div")
 
-    setHostProperty(node, "style", {}, undefined)
+    setHostProperty<StyleDesc | undefined>(node, "style", {}, undefined)
     insertHostNode(root, node)
     driver.flush()
 
@@ -31,12 +32,12 @@ describe("React host prop forwarding parity", () => {
       ["setRoot", 1],
     ])
 
-    const style = { padding: 12, opacity: 0.5 }
-    setHostProperty(node, "style", style, {})
+    const style: StyleDesc = { padding: 12, opacity: 0.5 }
+    setHostProperty<StyleDesc | undefined>(node, "style", style, {})
     driver.flush()
     expect(renderer.batches.at(-1)).toEqual([["setStyle", 1, style]])
 
-    setHostProperty(node, "style", undefined, style)
+    setHostProperty<StyleDesc | undefined>(node, "style", undefined, style)
     driver.flush()
     expect(renderer.batches.at(-1)).toEqual([["setStyle", 1, {}]])
   })
