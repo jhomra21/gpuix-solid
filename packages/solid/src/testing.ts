@@ -1,12 +1,29 @@
-import * as native from "@gpuix/native"
-import type { EventPayload } from "@gpuix/native"
+import { createRequire } from "node:module"
+import type { EventPayload, TestGpuixRenderer as NativeTestRendererApi } from "@gpuix/native"
 import type { Element as SolidElement } from "solid-js"
 import type { MutationValue } from "./host/mutations.js"
 import type { DebugFrameOverlayMode, NativeRenderer, StyleDesc } from "./host/types.js"
 import { createRoot, type Root } from "./root.js"
 
+type NativeTestRendererConstructor = new () => NativeTestRendererApi
+type NativeModule = { TestGpuixRenderer?: NativeTestRendererConstructor }
+
+function loadNativeTestRenderer(): NativeTestRendererConstructor | undefined {
+  try {
+    const require = createRequire(import.meta.url)
+    // SAFETY: @gpuix/native's generated entrypoint exports this constructor
+    // when the installed platform binding was built with native test support.
+    const nativeModule = require("@gpuix/native") as NativeModule
+    return nativeModule.TestGpuixRenderer
+  } catch {
+    return undefined
+  }
+}
+
+const NativeTestRenderer = loadNativeTestRenderer()
+
 /** Whether this installed native build exports the GPU-backed test renderer. */
-export const hasNativeTestRenderer = Boolean(native.TestGpuixRenderer)
+export const hasNativeTestRenderer = NativeTestRenderer !== undefined
 
 type TestCustomProps = Record<string, MutationValue>
 
@@ -45,17 +62,17 @@ function parseTree(json: string): NativeTreeNode | null {
  * root-owned Solid event registry.
  */
 export class TestRenderer implements NativeRenderer {
-  readonly #native: native.TestGpuixRenderer
+  readonly #native: NativeTestRendererApi
   #root: Root | undefined
   commitCount = 0
 
   constructor() {
-    if (!hasNativeTestRenderer) {
+    if (!NativeTestRenderer) {
       throw new Error(
         "Native TestGpuixRenderer not available. Use a native build with test support.",
       )
     }
-    this.#native = new native.TestGpuixRenderer()
+    this.#native = new NativeTestRenderer()
   }
 
   bindRoot(root: Root): void {
