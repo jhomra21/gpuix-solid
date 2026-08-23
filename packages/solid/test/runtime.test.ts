@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
-import { createRoot } from "../src/runtime.js"
 import { createElement, setProp } from "../src/host/universal.js"
 import type { HostElementNode } from "../src/host/nodes.js"
+import { createRoot } from "../src/root.js"
 import { FakeRenderer } from "./fake-renderer.js"
 
 function element(): HostElementNode {
