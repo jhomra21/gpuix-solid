@@ -9,12 +9,13 @@
     "typecheck": "tsc --noEmit",
     "start": "bun run start:counter",
     "start:counter": "bun dist/counter/index.js",
-    "start:native-text": "bun dist/native-text/index.js",
+    "start:native-text": "bun dist/native-text/native-text.js",
     "run": "bun run run:counter",
     "run:counter": "bun run build:counter && bun run start:counter",
     "run:native-text": "bun run build:native-text && bun run start:native-text"
   },
   "dependencies": {
+    "@gpuix/native": "^0.4.0",
     "@jhomra21/gpuix-solid": "workspace:*",
     "solid-js": "^2.0.0-rc.0"
   },
