@@ -41,7 +41,7 @@ export {
   ComboboxList,
   ComboboxSeparator,
   ComboboxTrigger,
-  ComboboxValueDisplay as ComboboxValue,
+  ComboboxValue,
 } from "./components/combobox.js"
 export type {
   ComboboxInputProps,
