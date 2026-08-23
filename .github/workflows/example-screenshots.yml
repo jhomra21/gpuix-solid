@@ -67,7 +67,7 @@ jobs:
             local window=""
 
             for _ in $(seq 1 30); do
-              window=$(xdotool search --name "$title" 2>/dev/null | tail -n 1 || true)
+              window=$(xdotool search --onlyvisible --name "$title" 2>/dev/null | tail -n 1 || true)
               if [ -n "$window" ]; then
                 break
               fi
@@ -78,14 +78,22 @@ jobs:
             done
 
             if [ -z "$window" ]; then
-              echo "Could not find window: $title"
+              echo "Could not find visible window: $title"
               cat "logs/$log"
               kill "$app_pid" 2>/dev/null || true
               wait "$app_pid" 2>/dev/null || true
               return 1
             fi
 
-            sleep 2
+            xdotool getwindowgeometry --shell "$window" >>"logs/$log" 2>&1 || true
+            eval "$(xdotool getwindowgeometry --shell "$window")"
+            xdotool windowraise "$window" 2>/dev/null || true
+            xdotool windowsize "$window" "$((WIDTH + 1))" "$((HEIGHT + 1))" 2>/dev/null || true
+            sleep 1
+            xdotool windowsize "$window" "$WIDTH" "$HEIGHT" 2>/dev/null || true
+            sleep 4
+
+            import -display "$DISPLAY" -window root "screenshots/${output%.png}-desktop.png"
             import -display "$DISPLAY" -window "$window" "screenshots/$output"
             identify "screenshots/$output"
             kill "$app_pid" 2>/dev/null || true
