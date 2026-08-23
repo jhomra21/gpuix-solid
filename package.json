@@ -8,10 +8,12 @@
     "examples/*"
   ],
   "scripts": {
-    "build": "bun run --filter '@jhomra21/gpuix-solid' build && bun run --filter 'gpuix-solid-counter' build",
-    "typecheck": "bun run --filter '@jhomra21/gpuix-solid' typecheck && bun run --filter 'gpuix-solid-counter' typecheck",
+    "build": "bun run --filter '@jhomra21/gpuix-solid' build && bun run --filter 'gpuix-solid-counter' build && bun run --filter 'gpuix-solid-native-text' build",
+    "typecheck": "bun run --filter '@jhomra21/gpuix-solid' typecheck && bun run --filter 'gpuix-solid-counter' typecheck && bun run --filter 'gpuix-solid-native-text' typecheck",
     "test": "bun run --filter '@jhomra21/gpuix-solid' test",
-    "lint": "oxlint ."
+    "lint": "oxlint .",
+    "example:counter": "bun run --filter '@jhomra21/gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run",
+    "example:native-text": "bun run --filter '@jhomra21/gpuix-solid' build && bun run --filter 'gpuix-solid-native-text' run"
   },
   "devDependencies": {
     "@oxlint/plugins": "1.79.0",
