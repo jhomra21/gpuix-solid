@@ -17,10 +17,10 @@
 - [x] validate build against installed Solid 2 + `@gpuix/native`
 - [ ] complete intrinsic style/custom-prop typing from public GPUIX surface
 - [ ] exact built-in/universal custom-prop forwarding parity
-- [ ] text/fragment/reorder parity fixtures
-- [ ] ref behavior tests
-- [ ] multiple-root lifecycle tests
-- [ ] hot remount semantics
+- [x] text/fragment/reorder parity fixtures
+- [x] ref behavior tests
+- [x] multiple-root lifecycle tests
+- [x] hot remount semantics
 
 ## M2 — native elements
 
