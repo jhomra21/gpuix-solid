@@ -55,7 +55,7 @@
 
 ## M5 — testing and automation
 
-- [ ] native TestRenderer adapter
+- [x] native TestRenderer adapter
 - [ ] retained-tree snapshot parity against React fixtures
 - [ ] event/input parity
 - [ ] selection/layout parity
