@@ -186,7 +186,7 @@ export function SelectTrigger(props: SelectTriggerProps): SolidElement {
     },
     props.ref,
   )
-  const host = omit(omit(props, "as"), "disabled")
+  const host = omit(omit(omit(props, "as"), "disabled"), "style")
   const merged = merge(host, {
     get ref() {
       return ref
@@ -359,7 +359,7 @@ export function SelectItem(props: SelectItemProps): SolidElement {
     disabled: props.disabled ?? false,
   })
   const host = omit(
-    omit(omit(omit(props, "value"), "disabled"), "textValue"),
+    omit(omit(omit(omit(props, "value"), "disabled"), "textValue"), "style"),
     "children",
   )
   const merged = merge(host, {
