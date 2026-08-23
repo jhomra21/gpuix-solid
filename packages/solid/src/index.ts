@@ -7,6 +7,7 @@ export type { FrameLoop, TickRenderer } from "./frame-loop.js"
 export { GpuixContext, useGpuix, useGpuixRequired } from "./context.js"
 export { useWindowSize } from "./hooks/use-window-size.js"
 export type { WindowSize } from "./hooks/use-window-size.js"
+export type { SlotRenderer } from "./components/floating.js"
 
 export {
   Select,
