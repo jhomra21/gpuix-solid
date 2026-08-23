@@ -177,11 +177,6 @@ export function IntrinsicSurfaceFixture() {
       autoFocus
       tabIndex={0}
       testId="surface-root"
-      motion={{
-        initial: { opacity: 0, width: 100, height: 40, top: 0, right: 0, bottom: 0, left: 0, borderRadius: 4 },
-        animate: { opacity: 1, width: 120, height: 44, top: 1, right: 1, bottom: 1, left: 1, borderRadius: 8 },
-        transition: { duration: 0.2, delay: 0.05, ease: [0.4, 0, 0.2, 1] },
-      }}
     >
       <text style={{ color: "#fff" }}>text</text>
       <img src="fixture.png" objectFit="contain" alt="fixture" />

@@ -42,7 +42,7 @@
 - [x] selection APIs
 - [x] window APIs
 - [x] debug frame overlay
-- [x] motion
+- [x] native animation bridge
 
 ## M4 — Solid components
 
@@ -50,6 +50,8 @@
 - [x] Select
 - [x] Combobox
 - [x] Solid-native slot/as contract
+- [x] unified `animate.*` API over the native animation bridge
+- [x] keep raw `motion` wire format out of public JSX
 
 ## M5 — testing and automation
 
@@ -59,7 +61,7 @@
 - [ ] selection/layout parity
 - [ ] Playwright-like locator API
 - [ ] live launch/connect transport
-- [ ] deterministic motion clock
+- [ ] deterministic animation clock
 - [ ] screenshot parity suite
 
 ## M6 — release

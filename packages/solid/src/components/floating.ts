@@ -74,7 +74,6 @@ const BOUND_HOST_PROPS = [
   "autoFocus",
   "tabIndex",
   "testId",
-  "motion",
 ] as const satisfies ReadonlyArray<Exclude<keyof HostProps, "children" | "ref">>
 
 const INPUT_CUSTOM_PROPS = ["value", "placeholder", "readOnly", "theme"] as const
