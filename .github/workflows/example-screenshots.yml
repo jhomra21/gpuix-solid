@@ -1,0 +1,111 @@
+name: Example Screenshots
+
+on:
+  push:
+    branches:
+      - example-screenshots
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install native display dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            xvfb \
+            xdotool \
+            imagemagick \
+            libxkbcommon-x11-0 \
+            libxcb-xkb1 \
+            libx11-xcb1 \
+            libfontconfig1 \
+            libegl1 \
+            libgl1-mesa-dri \
+            libvulkan1 \
+            mesa-vulkan-drivers \
+            libwayland-client0 \
+            libwayland-cursor0
+
+      - run: bun install
+      - run: bun run build
+
+      - name: Capture native windows
+        shell: bash
+        env:
+          DISPLAY: :99
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: |
+          set -euo pipefail
+          mkdir -p screenshots logs
+          Xvfb :99 -screen 0 1280x900x24 -nolisten tcp >logs/xvfb.log 2>&1 &
+          xvfb_pid=$!
+          trap 'kill "$xvfb_pid" 2>/dev/null || true' EXIT
+          sleep 2
+
+          capture() {
+            local title="$1"
+            local command="$2"
+            local output="$3"
+            local log="$4"
+
+            bash -lc "$command" >"logs/$log" 2>&1 &
+            local app_pid=$!
+            local window=""
+
+            for _ in $(seq 1 30); do
+              window=$(xdotool search --name "$title" 2>/dev/null | tail -n 1 || true)
+              if [ -n "$window" ]; then
+                break
+              fi
+              if ! kill -0 "$app_pid" 2>/dev/null; then
+                break
+              fi
+              sleep 1
+            done
+
+            if [ -z "$window" ]; then
+              echo "Could not find window: $title"
+              cat "logs/$log"
+              kill "$app_pid" 2>/dev/null || true
+              wait "$app_pid" 2>/dev/null || true
+              return 1
+            fi
+
+            sleep 2
+            import -display "$DISPLAY" -window "$window" "screenshots/$output"
+            identify "screenshots/$output"
+            kill "$app_pid" 2>/dev/null || true
+            wait "$app_pid" 2>/dev/null || true
+          }
+
+          capture \
+            "Solid GPUIX Counter" \
+            "bun run --filter 'gpuix-solid-counter' start:counter" \
+            "counter.png" \
+            "counter.log"
+
+          capture \
+            "Solid GPUIX Native Text" \
+            "bun run --filter 'gpuix-solid-counter' start:native-text" \
+            "native-text.png" \
+            "native-text.log"
+
+      - name: Upload screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-example-screenshots
+          path: |
+            screenshots
+            logs
+          if-no-files-found: warn
