@@ -1,0 +1,19 @@
+{
+  "name": "gpuix-solid-workspace",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "bun@1.3.14",
+  "workspaces": [
+    "packages/*",
+    "examples/*"
+  ],
+  "scripts": {
+    "build": "bun run --filter '@jhomra21/gpuix-solid' build && bun run --filter 'gpuix-solid-counter' build",
+    "typecheck": "bun run --filter '@jhomra21/gpuix-solid' typecheck && bun run --filter 'gpuix-solid-counter' typecheck",
+    "test": "bun run --filter '@jhomra21/gpuix-solid' test",
+    "lint": "oxlint ."
+  },
+  "devDependencies": {
+    "oxlint": "^1.79.0"
+  }
+}

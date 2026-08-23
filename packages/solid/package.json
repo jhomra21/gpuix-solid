@@ -1,0 +1,62 @@
+{
+  "name": "@jhomra21/gpuix-solid",
+  "version": "0.0.0",
+  "description": "Solid 2 bindings for GPUIX and Zed's GPUI framework.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./jsx-runtime": {
+      "types": "./jsx-runtime.d.ts",
+      "import": "./jsx-runtime.js"
+    },
+    "./jsx-dev-runtime": {
+      "types": "./jsx-dev-runtime.d.ts",
+      "import": "./jsx-dev-runtime.js"
+    }
+  },
+  "files": [
+    "dist",
+    "jsx-runtime.js",
+    "jsx-runtime.d.ts",
+    "jsx-dev-runtime.js",
+    "jsx-dev-runtime.d.ts"
+  ],
+  "scripts": {
+    "build": "rm -rf dist *.tsbuildinfo && tsc -p tsconfig.build.json",
+    "typecheck": "bun run build && tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@gpuix/native": "^0.4.0",
+    "@solidjs/universal": "2.0.0-rc.0"
+  },
+  "peerDependencies": {
+    "solid-js": "^2.0.0-rc.0"
+  },
+  "devDependencies": {
+    "solid-js": "^2.0.0-rc.0",
+    "typescript": "^5.9.2",
+    "vitest": "^4.1.10",
+    "@types/node": "^25.3.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jhomra21/gpuix-solid.git",
+    "directory": "packages/solid"
+  },
+  "keywords": [
+    "solid",
+    "solidjs",
+    "gpui",
+    "gpuix",
+    "zed",
+    "desktop",
+    "native"
+  ]
+}
