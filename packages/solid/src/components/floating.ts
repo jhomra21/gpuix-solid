@@ -104,7 +104,10 @@ export function createControllableState<Value>(
   onChange: Accessor<((value: Value) => void) | undefined>,
 ): readonly [Accessor<Value>, (value: Value) => void] {
   const [internal, setInternal] = createSignal(defaultValue)
-  const value = (): Value => controlled() === undefined ? internal() : controlled() as Value
+  const value = (): Value => {
+    const external = controlled()
+    return external === undefined ? internal() : external
+  }
   const setValue = (next: Value): void => {
     const current = value()
     if (Object.is(current, next)) return
@@ -114,16 +117,25 @@ export function createControllableState<Value>(
   return [value, setValue] as const
 }
 
-function snapshotHostProps(props: HostProps): HostSnapshot {
+function snapshotHostProps(
+  props: HostProps,
+  styleOverride: Accessor<StyleDesc | undefined> | undefined,
+): HostSnapshot {
   const snapshot = new Map<BoundHostProp, BoundHostValue>()
-  for (const name of BOUND_HOST_PROPS) snapshot.set(name, props[name])
+  for (const name of BOUND_HOST_PROPS) {
+    snapshot.set(name, name === "style" && styleOverride ? styleOverride() : props[name])
+  }
   return snapshot
 }
 
-function bindHostProps(node: HostElementNode, props: HostProps): void {
+function bindHostProps(
+  node: HostElementNode,
+  props: HostProps,
+  styleOverride: Accessor<StyleDesc | undefined> | undefined,
+): void {
   let previous: HostSnapshot | undefined
   createRenderEffect(
-    () => snapshotHostProps(props),
+    () => snapshotHostProps(props, styleOverride),
     (next) => {
       for (const name of BOUND_HOST_PROPS) {
         const value = next.get(name)
@@ -137,9 +149,12 @@ function bindHostProps(node: HostElementNode, props: HostProps): void {
   if (props.ref) spread(node, { ref: props.ref }, true)
 }
 
-export function renderDiv(props: HostProps): HostElementNode {
+export function renderDiv(
+  props: HostProps,
+  styleOverride?: Accessor<StyleDesc | undefined>,
+): HostElementNode {
   const node = createHostElement("div")
-  bindHostProps(node, props)
+  bindHostProps(node, props, styleOverride)
   insert(node, () => props.children)
   return node
 }
@@ -218,65 +233,10 @@ export function FloatingLayer(props: FloatingContentProps): HostElementNode {
     () => props.collisionPadding ?? 8,
   )
 
-  const content = renderDiv({
-    get children() {
-      return props.children
-    },
-    get style() {
-      return mergeStyles({ backgroundColor: "#1A1A1A" }, props.style)
-    },
-    get ref() {
-      return props.ref
-    },
-    get onClick() {
-      return props.onClick
-    },
-    get onMouseDown() {
-      return props.onMouseDown
-    },
-    get onMouseUp() {
-      return props.onMouseUp
-    },
-    get onMouseEnter() {
-      return props.onMouseEnter
-    },
-    get onMouseLeave() {
-      return props.onMouseLeave
-    },
-    get onMouseMove() {
-      return props.onMouseMove
-    },
-    get onMouseDownOutside() {
-      return props.onMouseDownOutside
-    },
-    get onKeyDown() {
-      return props.onKeyDown
-    },
-    get onKeyUp() {
-      return props.onKeyUp
-    },
-    get onFocus() {
-      return props.onFocus
-    },
-    get onBlur() {
-      return props.onBlur
-    },
-    get onScroll() {
-      return props.onScroll
-    },
-    get autoFocus() {
-      return props.autoFocus
-    },
-    get tabIndex() {
-      return props.tabIndex
-    },
-    get testId() {
-      return props.testId
-    },
-    get motion() {
-      return props.motion
-    },
-  })
+  const content = renderDiv(
+    props,
+    () => mergeStyles({ backgroundColor: "#1A1A1A" }, props.style),
+  )
   insert(anchored, content)
   return anchored
 }
