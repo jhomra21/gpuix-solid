@@ -1,21 +1,27 @@
 import { createRenderEffect, createSignal } from "solid-js"
 import { describe, expect, it } from "vitest"
-import type { HostNode } from "../src/host/nodes.js"
+import type { HostElementNode, HostNode } from "../src/host/nodes.js"
 import type { StyleDesc } from "../src/host/types.js"
 import { createElement, insert, insertNode, setProp } from "../src/host/universal.js"
 import { createTestRoot, hasNativeTestRenderer } from "../src/testing.js"
 
 const nativeIt = hasNativeTestRenderer ? it : it.skip
 
-function div(style: StyleDesc, children: HostNode[] = []): HostNode {
-  const node = createElement("div")
+function element(type: string): HostElementNode {
+  const node = createElement(type)
+  if (node.kind !== "element") throw new TypeError("Expected GPUIX host element")
+  return node
+}
+
+function div(style: StyleDesc, children: HostNode[] = []): HostElementNode {
+  const node = element("div")
   setProp(node, "style", style)
   for (const child of children) insertNode(node, child)
   return node
 }
 
-function text(value: string, style: StyleDesc = {}): HostNode {
-  const node = createElement("text")
+function text(value: string, style: StyleDesc = {}): HostElementNode {
+  const node = element("text")
   if (Object.keys(style).length > 0) setProp(node, "style", style)
   insert(node, value)
   return node
@@ -156,7 +162,7 @@ describe("native selection and layout parity", () => {
   })
 
   nativeIt("selects text rendered directly as a div child", () => {
-    const plain = createElement("div")
+    const plain = element("div")
     insert(plain, "plain div text")
     const testRoot = createTestRoot()
     testRoot.render(() => div(
@@ -174,10 +180,12 @@ describe("native selection and layout parity", () => {
 
     testRoot.render(() => {
       const root = div({ display: "flex", flexDirection: "column", padding: 20, gap: 10 })
-      const child = createElement("div")
+      const child = element("div")
       createRenderEffect(
         () => ({ width: width(), height: 40 }),
-        (next, previous) => setProp(child, "style", next, previous),
+        (next, previous) => {
+          setProp(child, "style", next, previous)
+        },
       )
       insertNode(root, child)
       childId = child.id
