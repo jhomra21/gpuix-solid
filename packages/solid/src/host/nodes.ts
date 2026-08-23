@@ -9,7 +9,7 @@ import type {
   StyleDesc,
 } from "./types.js"
 
-const RESERVED_PROPS = new Set(["children", "ref", "style", "key"])
+const RESERVED_PROPS = new Set(["children", "ref", "style", "className", "key"])
 const BUILT_IN_TYPES = new Set<ElementType>(["div", "text"])
 const UNIVERSAL_PROPS = new Set(["autoFocus", "tabIndex", "motion", "testId"])
 
@@ -38,6 +38,7 @@ export class HostElementNode implements PublicInstance {
   parent: HostParent | null = null
   root: HostRootNode | null = null
   id = 0
+  nativeAlive = false
   style: StyleDesc | undefined
   readonly props = new Map<string, unknown>()
   readonly events = new Map<string, HostEventHandler>()
@@ -54,6 +55,7 @@ export class HostTextNode {
   parent: HostParent | null = null
   root: HostRootNode | null = null
   id = 0
+  nativeAlive = false
   text: string
 
   constructor(text: string) {
@@ -77,7 +79,7 @@ export function replaceHostText(node: HostTextNode, value: unknown): void {
   const text = String(value)
   if (node.text === text) return
   node.text = text
-  if (node.root) node.root.driver.enqueue("setText", node.id, text)
+  if (node.root && node.nativeAlive) node.root.driver.enqueue("setText", node.id, text)
 }
 
 export function setHostProperty(
@@ -91,7 +93,7 @@ export function setHostProperty(
 
   if (name === "style") {
     node.style = isStyle(value) ? value : undefined
-    if (node.root) node.root.driver.enqueue("setStyle", node.id, node.style ?? {})
+    if (node.root && node.nativeAlive) node.root.driver.enqueue("setStyle", node.id, node.style ?? {})
     return
   }
 
@@ -102,7 +104,7 @@ export function setHostProperty(
     if (handler) node.events.set(eventType, handler)
     else node.events.delete(eventType)
 
-    if (!node.root) return
+    if (!node.root || !node.nativeAlive) return
     if (handler) node.root.events.set(node.id, eventType, handler)
     else node.root.events.delete(node.id, eventType)
     if (Boolean(oldHandler) !== Boolean(handler)) {
@@ -113,7 +115,7 @@ export function setHostProperty(
 
   if (value === undefined) node.props.delete(name)
   else node.props.set(name, value)
-  if (!node.root || isReserved(name)) return
+  if (!node.root || !node.nativeAlive || isReserved(name)) return
   if (BUILT_IN_TYPES.has(node.type) && !UNIVERSAL_PROPS.has(name)) return
   node.root.driver.enqueue("setCustomPropValue", node.id, name, customPropValue(value))
 }
@@ -154,6 +156,7 @@ export function removeHostNode(parent: HostParent, node: HostNode): void {
   const root = rootOf(parent)
   if (!root || !node.root) return
   if (parent.kind === "element") root.driver.enqueue("removeChild", parent.id, node.id)
+  markNativeDead(root, node)
   root.driver.enqueue("destroyElement", node.id)
 }
 
@@ -177,11 +180,17 @@ export function isHostTextNode(node: HostNode): node is HostTextNode {
 }
 
 function adopt(root: HostRootNode, node: HostNode): void {
-  if (node.root === root) return
-  if (node.root) throw new Error("Cannot insert a GPUIX host node into a different root")
+  if (node.root && node.root !== root) {
+    throw new Error("Cannot insert a GPUIX host node into a different root")
+  }
+  if (!node.root) {
+    node.root = root
+    node.id = root.allocateId()
+  }
+  if (node.nativeAlive) return
 
-  node.root = root
-  node.id = root.allocateId()
+  node.nativeAlive = true
+  root.events.activate(node.id)
   root.driver.enqueue("createElement", node.id, node.type)
 
   if (node.kind === "text") {
@@ -203,6 +212,12 @@ function adopt(root: HostRootNode, node: HostNode): void {
     adopt(root, child)
     root.driver.enqueue("appendChild", node.id, child.id)
   }
+}
+
+function markNativeDead(root: HostRootNode, node: HostNode): void {
+  node.nativeAlive = false
+  root.events.deactivate(node.id)
+  for (const child of node.children) markNativeDead(root, child)
 }
 
 function rootOf(parent: HostParent): HostRootNode | null {

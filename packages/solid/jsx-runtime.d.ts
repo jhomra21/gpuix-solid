@@ -1,4 +1,4 @@
-import type { JSX as SolidJSX } from "solid-js"
+import type { Element as SolidElement } from "solid-js"
 import type {
   AnchoredProps,
   CodeProps,
@@ -12,12 +12,15 @@ import type {
   VirtualListProps,
 } from "./dist/index.js"
 
+type RendererNode = { readonly kind: "element" | "text" }
+
 export namespace JSX {
-  type Element = SolidJSX.Element
-  type ElementClass = SolidJSX.ElementClass
-  type ElementAttributesProperty = SolidJSX.ElementAttributesProperty
-  type ElementChildrenAttribute = SolidJSX.ElementChildrenAttribute
-  type IntrinsicAttributes = SolidJSX.IntrinsicAttributes
+  type Element = SolidElement | RendererNode | ArrayElement
+  interface ArrayElement extends Array<Element> {}
+
+  interface ElementChildrenAttribute {
+    children: {}
+  }
 
   interface IntrinsicElements {
     div: HostProps

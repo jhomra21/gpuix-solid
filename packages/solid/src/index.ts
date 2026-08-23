@@ -16,6 +16,8 @@ export {
   setProp,
   mergeProps,
   use,
+  applyRef,
+  ref,
 } from "./host/universal.js"
 
 export { Errored, For, Loading, Match, Repeat, Reveal, Show, Switch } from "solid-js"
@@ -27,6 +29,8 @@ export type {
   DiffProps,
   DimensionValue,
   ElementType,
+  GpuixMetrics,
+  GpuixTheme,
   HostProps,
   ImgProps,
   InputProps,
@@ -38,6 +42,7 @@ export type {
   NativeRenderer,
   PublicInstance,
   StyleDesc,
+  SyntaxTheme,
   SvgProps,
   TextareaProps,
   VirtualListProps,

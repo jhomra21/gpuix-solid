@@ -53,9 +53,11 @@ export function createRoot(renderer: NativeRenderer): Root {
     },
     flush,
     flushSync(fn) {
-      const value = fn()
-      flush()
-      return value
+      try {
+        return fn()
+      } finally {
+        flush()
+      }
     },
     dispatch(event) {
       events.dispatch(event)

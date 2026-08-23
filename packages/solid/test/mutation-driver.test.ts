@@ -18,6 +18,24 @@ describe("MutationDriver", () => {
     expect(renderer.batches[0]).toHaveLength(3)
   })
 
+  it("serializes structured values for the direct N-API fallback", () => {
+    const renderer = new FakeRenderer()
+    Object.defineProperty(renderer, "applyBatch", { value: undefined })
+    const driver = new MutationDriver(renderer, new EventRegistry())
+
+    driver.enqueue("createElement", 1, "img")
+    driver.enqueue("setStyle", 1, { padding: 8 })
+    driver.enqueue("setCustomPropValue", 1, "src", "image.png")
+    driver.flush()
+
+    expect(renderer.direct).toEqual([
+      ["createElement", 1, "img"],
+      ["setStyle", 1, '{"padding":8}'],
+      ["setCustomProp", 1, "src", '"image.png"'],
+      ["commitMutations"],
+    ])
+  })
+
   it("preserves the queue when applyBatch throws", () => {
     const renderer = new FakeRenderer()
     renderer.applyBatch = () => { throw new Error("native failed") }

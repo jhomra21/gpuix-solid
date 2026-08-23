@@ -41,7 +41,7 @@ export class MutationDriver {
         const destroyed = this.#renderer.applyBatch(JSON.stringify(queue))
         this.#queue = []
         this.#scheduled = false
-        for (const id of destroyed) this.#events.deleteElement(id)
+        for (const id of destroyed) this.#events.deleteDestroyed(id)
         return
       }
 
@@ -64,7 +64,7 @@ export class MutationDriver {
       this.#renderer.commitMutations()
       this.#queue = []
       this.#scheduled = false
-      for (const id of destroyed) this.#events.deleteElement(id)
+      for (const id of destroyed) this.#events.deleteDestroyed(id)
     } catch (error) {
       // Keep the queue intact. A failed native batch must never be silently lost.
       this.#scheduled = false

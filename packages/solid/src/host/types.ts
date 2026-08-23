@@ -15,73 +15,7 @@ export type ElementType =
   | "virtual-list"
 
 export type DebugFrameOverlayMode = "hidden" | "minimal" | "full"
-
 export type DimensionValue = number | string
-
-/**
- * Initial style surface. This intentionally starts with the documented GPUIX
- * layout/paint keys needed by the first parity fixtures. It will be expanded
- * against upstream tests rather than copied from the React package.
- */
-export interface StyleDesc {
-  display?: string
-  visibility?: string
-  flexDirection?: string
-  flexWrap?: string
-  flexGrow?: number
-  flexShrink?: number
-  flexBasis?: number
-  alignItems?: string
-  alignSelf?: string
-  alignContent?: string
-  justifyContent?: string
-  gap?: number
-  rowGap?: number
-  columnGap?: number
-  width?: DimensionValue
-  height?: DimensionValue
-  minWidth?: DimensionValue
-  minHeight?: DimensionValue
-  maxWidth?: DimensionValue
-  maxHeight?: DimensionValue
-  padding?: number
-  paddingTop?: number
-  paddingRight?: number
-  paddingBottom?: number
-  paddingLeft?: number
-  margin?: number
-  marginTop?: number
-  marginRight?: number
-  marginBottom?: number
-  marginLeft?: number
-  position?: string
-  top?: number
-  right?: number
-  bottom?: number
-  left?: number
-  background?: string
-  backgroundColor?: string
-  color?: string
-  opacity?: number
-  borderWidth?: number
-  borderColor?: string
-  borderRadius?: number
-  fontSize?: number
-  fontFamily?: string
-  fontWeight?: string | number
-  textAlign?: string
-  lineHeight?: number
-  whiteSpace?: "normal" | "nowrap"
-  overflow?: string
-  overflowX?: string
-  overflowY?: string
-  cursor?: string
-  pointerEvents?: "auto" | "none"
-  userSelect?: "text" | "none" | "auto"
-  selectionColor?: string
-  hover?: Omit<StyleDesc, "hover" | "active">
-  active?: Omit<StyleDesc, "hover" | "active">
-}
 
 export interface MotionStyle {
   width?: number
@@ -103,7 +37,9 @@ export type MotionEase =
   | [number, number, number, number]
 
 export interface MotionTransition {
+  /** Duration in seconds. */
   duration?: number
+  /** Delay in seconds. */
   delay?: number
   ease?: MotionEase
 }
@@ -112,6 +48,168 @@ export interface MotionProps {
   initial?: MotionStyle | false
   animate: MotionStyle
   transition?: MotionTransition
+}
+
+export interface StyleDesc {
+  display?: string
+  visibility?: string
+  flexDirection?: string
+  flexWrap?: string
+  flexGrow?: number
+  flexShrink?: number
+  flexBasis?: number
+  alignItems?: string
+  alignSelf?: string
+  alignContent?: string
+  justifyContent?: string
+  gap?: number
+  rowGap?: number
+  columnGap?: number
+  gridTemplateColumns?: number
+  gridTemplateRows?: number
+  gridColumnMin?: "zero" | "min-content" | "max-content"
+  gridRowMin?: "zero" | "min-content" | "max-content"
+
+  width?: DimensionValue
+  height?: DimensionValue
+  minWidth?: DimensionValue
+  minHeight?: DimensionValue
+  maxWidth?: DimensionValue
+  maxHeight?: DimensionValue
+
+  padding?: number
+  paddingTop?: number
+  paddingRight?: number
+  paddingBottom?: number
+  paddingLeft?: number
+
+  margin?: number
+  marginTop?: number
+  marginRight?: number
+  marginBottom?: number
+  marginLeft?: number
+
+  position?: string
+  top?: number
+  right?: number
+  bottom?: number
+  left?: number
+
+  background?: string
+  backgroundColor?: string
+  color?: string
+  opacity?: number
+
+  borderWidth?: number
+  borderColor?: string
+  borderRadius?: number
+  borderTopLeftRadius?: number
+  borderTopRightRadius?: number
+  borderBottomLeftRadius?: number
+  borderBottomRightRadius?: number
+
+  fontSize?: number
+  fontFamily?: string
+  fontWeight?: string | number
+  textAlign?: string
+  lineHeight?: number
+  whiteSpace?: "normal" | "nowrap"
+  textOverflow?: "ellipsis" | "ellipsis-start"
+  lineClamp?: number
+
+  overflow?: string
+  overflowX?: string
+  overflowY?: string
+
+  cursor?: string
+  pointerEvents?: "auto" | "none"
+  userSelect?: "text" | "none" | "auto"
+  selectionColor?: string
+
+  hover?: Omit<StyleDesc, "hover" | "active">
+  active?: Omit<StyleDesc, "hover" | "active">
+}
+
+export interface SyntaxTheme {
+  comment?: string
+  keyword?: string
+  string?: string
+  stringSpecial?: string
+  escape?: string
+  number?: string
+  boolean?: string
+  typeName?: string
+  typeBuiltin?: string
+  constructor?: string
+  function?: string
+  functionBuiltin?: string
+  macroName?: string
+  property?: string
+  constant?: string
+  variable?: string
+  variableSpecial?: string
+  parameter?: string
+  operator?: string
+  punctuation?: string
+  tag?: string
+  attribute?: string
+  label?: string
+  invalid?: string
+}
+
+export interface GpuixMetrics {
+  codeTextSize?: number
+  codeLineHeight?: number
+  codePaddingX?: number
+  codePaddingY?: number
+  codeRadius?: number
+  codeHeaderPaddingY?: number
+  codeHeaderTextSize?: number
+  codeGutterDigitWidth?: number
+  codeGutterPaddingRight?: number
+  codeGutterMinWidth?: number
+
+  diffTextSize?: number
+  diffLineHeight?: number
+  diffFileHeaderHeight?: number
+  diffHunkHeaderHeight?: number
+  diffNoticeHeight?: number
+  diffBodyBottomPad?: number
+  diffGutterWidth?: number
+  diffMarkerWidth?: number
+  diffAccentBarWidth?: number
+  diffRowPaddingX?: number
+
+  mdTextSize?: number
+  mdLineHeight?: number
+  mdBlockGap?: number
+  mdHeadingSizes?: number[]
+  mdHeadingLineHeights?: number[]
+  mdTableCellPadding?: number
+  mdTableMinColumnWidth?: number
+  mdTableMinColumnContent?: number
+  mdInlineCodeRadius?: number
+}
+
+export interface GpuixTheme {
+  appearance?: "dark" | "light"
+  bg?: string
+  border?: string
+  text?: string
+  textMuted?: string
+  textFaint?: string
+  textDim?: string
+  accent?: string
+  caret?: string
+  codeText?: string
+  codeWash?: string
+  diffAdd?: string
+  diffDel?: string
+  diffHunkBg?: string
+  fontSans?: string
+  fontMono?: string
+  syntax?: SyntaxTheme
+  metrics?: GpuixMetrics
 }
 
 export type HostRef = (instance: PublicInstance) => void
@@ -151,7 +249,7 @@ export interface InputProps extends HostProps {
   value?: string
   placeholder?: string
   readOnly?: boolean
-  theme?: unknown
+  theme?: GpuixTheme
 }
 
 export interface TextareaProps extends InputProps {
@@ -182,7 +280,7 @@ export interface CodeProps extends HostProps {
   path?: string
   showLineNumbers?: boolean
   showHeader?: boolean
-  theme?: unknown
+  theme?: GpuixTheme
 }
 
 export interface DiffProps extends HostProps {
@@ -191,12 +289,12 @@ export interface DiffProps extends HostProps {
   collapsedPaths?: string[]
   scroll?: boolean
   maxLines?: number
-  theme?: unknown
+  theme?: GpuixTheme
 }
 
 export interface MarkdownProps extends HostProps {
   source?: string
-  theme?: unknown
+  theme?: GpuixTheme
 }
 
 export interface AnchoredProps extends HostProps {
@@ -232,11 +330,7 @@ export interface NativeRenderer {
   setEventListener(id: number, eventType: string, hasHandler: boolean): void
   setRoot(id: number): void
   commitMutations(): void
-  setCustomProp(
-    id: number,
-    key: string,
-    valueJson: string,
-  ): void
+  setCustomProp(id: number, key: string, valueJson: string): void
   applyBatch?(json: string): number[]
 
   focusElement?(elementId: number): void

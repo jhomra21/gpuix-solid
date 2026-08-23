@@ -29,6 +29,16 @@ export const EVENT_PROP_TO_TYPE = new Map<string, NativeEventType>(EVENT_PROPS)
 
 export class EventRegistry {
   readonly #handlers = new Map<number, Map<string, HostEventHandler>>()
+  readonly #live = new Set<number>()
+
+  activate(id: number): void {
+    this.#live.add(id)
+  }
+
+  deactivate(id: number): void {
+    this.#live.delete(id)
+    this.#handlers.delete(id)
+  }
 
   set(id: number, eventType: string, handler: HostEventHandler): void {
     const handlers = this.#handlers.get(id) ?? new Map<string, HostEventHandler>()
@@ -43,12 +53,15 @@ export class EventRegistry {
     if (handlers.size === 0) this.#handlers.delete(id)
   }
 
-  deleteElement(id: number): void {
-    this.#handlers.delete(id)
+  deleteDestroyed(id: number): void {
+    // A node can be destroyed and recreated with the same root-scoped ID in
+    // one native batch. Preserve handlers if the JS host node is live again.
+    if (!this.#live.has(id)) this.#handlers.delete(id)
   }
 
   clear(): void {
     this.#handlers.clear()
+    this.#live.clear()
   }
 
   has(id: number, eventType: string): boolean {
@@ -56,8 +69,7 @@ export class EventRegistry {
   }
 
   dispatch(event: EventPayload): void {
-    const id = event.elementId
-    if (typeof id !== "number") return
-    this.#handlers.get(id)?.get(event.eventType)?.(event)
+    if (!this.#live.has(event.elementId)) return
+    this.#handlers.get(event.elementId)?.get(event.eventType)?.(event)
   }
 }
