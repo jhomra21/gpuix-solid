@@ -4,8 +4,13 @@ import {
   unlinkSync,
   writeFileSync,
 } from "node:fs"
-import { createSignal } from "solid-js"
+import { createRenderEffect, createSignal } from "solid-js"
 import { describe, expect, it } from "vitest"
+import {
+  createElement,
+  insertNode,
+  setProp,
+} from "../src/host/universal.js"
 import { createTestRoot, hasNativeTestRenderer } from "../src/testing.js"
 
 const nativeIt = hasNativeTestRenderer ? it : it.skip
@@ -33,15 +38,17 @@ describe("native img/svg parity", () => {
     writeSvgFixture(IMAGE_FIXTURE_PATH)
     const testRoot = createTestRoot()
 
-    testRoot.render(() => (
-      <div style={{ width: 400, height: 240 }}>
-        <img
-          src={IMAGE_FIXTURE_PATH}
-          objectFit="cover"
-          style={{ width: 220, height: 120 }}
-        />
-      </div>
-    ))
+    testRoot.render(() => {
+      const root = createElement("div")
+      setProp(root, "style", { width: 400, height: 240 })
+
+      const image = createElement("img")
+      setProp(image, "src", IMAGE_FIXTURE_PATH)
+      setProp(image, "objectFit", "cover")
+      setProp(image, "style", { width: 220, height: 120 })
+      insertNode(root, image)
+      return root
+    })
 
     const images = testRoot.renderer.findByType("img")
     expect(images).toHaveLength(1)
@@ -56,24 +63,29 @@ describe("native img/svg parity", () => {
     const testRoot = createTestRoot()
     const [loaded, setLoaded] = createSignal(false)
 
-    testRoot.render(() => (
-      <div
-        style={{
-          width: 640,
-          height: 400,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: "#0f111a",
-        }}
-        onClick={() => setLoaded(true)}
-      >
-        <svg
-          src={loaded() ? IMAGE_FIXTURE_PATH : ""}
-          style={{ width: 240, height: 140, color: "#5ca9ff" }}
-        />
-      </div>
-    ))
+    testRoot.render(() => {
+      const root = createElement("div")
+      setProp(root, "style", {
+        width: 640,
+        height: 400,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#0f111a",
+      })
+      setProp(root, "onClick", () => setLoaded(true))
+
+      const svg = createElement("svg")
+      setProp(svg, "style", { width: 240, height: 140, color: "#5ca9ff" })
+      createRenderEffect(
+        () => loaded() ? IMAGE_FIXTURE_PATH : "",
+        (next, previous) => {
+          setProp(svg, "src", next, previous)
+        },
+      )
+      insertNode(root, svg)
+      return root
+    })
 
     const svg = testRoot.renderer.findByType("svg")[0]
     expect(svg?.customProps?.src).toBe("")
