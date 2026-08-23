@@ -1,5 +1,5 @@
 import type { EventPayload } from "@gpuix/native"
-import type { Element as SolidElement } from "solid-js"
+import { flush as flushSolid, type Element as SolidElement } from "solid-js"
 import { GpuixContext } from "./context.js"
 import { EventRegistry } from "./host/events.js"
 import { MutationDriver } from "./host/mutations.js"
@@ -21,7 +21,11 @@ export function createRoot(renderer: NativeRenderer): Root {
   const container = new HostRootNode(renderer, events, driver)
   let dispose: (() => void) | undefined
 
-  const flush = (): void => driver.flush()
+  const flushNative = (): void => driver.flush()
+  const flush = (): void => {
+    flushSolid()
+    flushNative()
+  }
 
   return {
     render(code) {

@@ -1,7 +1,7 @@
 import { createSignal } from "solid-js"
 import { describe, expect, it } from "vitest"
 import type { HostElementNode } from "../src/host/nodes.js"
-import { createElement, insert, spread } from "../src/host/universal.js"
+import { createElement, insert, setProp, spread } from "../src/host/universal.js"
 import { createRoot } from "../src/root.js"
 import { FakeRenderer } from "./fake-renderer.js"
 
@@ -11,18 +11,15 @@ function element(): HostElementNode {
   return node
 }
 
-async function settleReactiveUpdate(): Promise<void> {
-  await Promise.resolve()
-}
-
 describe("Solid universal parity", () => {
-  it("reconciles a reactive fragment reorder through the shadow tree", async () => {
+  it("reconciles a reactive fragment reorder after a native event", () => {
     const renderer = new FakeRenderer()
     const root = createRoot(renderer)
     const parent = element()
     const first = element()
     const second = element()
     const [items, setItems] = createSignal([first, second])
+    setProp(parent, "onClick", () => setItems([second, first]))
 
     root.render(() => {
       insert(parent, items)
@@ -31,9 +28,7 @@ describe("Solid universal parity", () => {
 
     expect(parent.children).toEqual([first, second])
 
-    setItems([second, first])
-    await settleReactiveUpdate()
-    root.flush()
+    root.dispatch({ elementId: parent.id, eventType: "click" })
 
     expect(parent.children).toEqual([second, first])
     expect(renderer.batches.at(-1)).toEqual([
@@ -42,11 +37,12 @@ describe("Solid universal parity", () => {
     ])
   })
 
-  it("updates reactive fragment text without recreating the text node", async () => {
+  it("updates reactive text after a native event without recreating it", () => {
     const renderer = new FakeRenderer()
     const root = createRoot(renderer)
     const parent = element()
     const [label, setLabel] = createSignal("before")
+    setProp(parent, "onClick", () => setLabel("after"))
 
     root.render(() => {
       insert(parent, label)
@@ -57,9 +53,7 @@ describe("Solid universal parity", () => {
     if (text?.kind !== "text") throw new TypeError("Expected GPUIX text child")
     const textId = text.id
 
-    setLabel("after")
-    await settleReactiveUpdate()
-    root.flush()
+    root.dispatch({ elementId: parent.id, eventType: "click" })
 
     expect(parent.children[0]).toBe(text)
     expect(text.id).toBe(textId)
