@@ -33,9 +33,15 @@ async function main(): Promise<void> {
 
     await app.getByTestId("dashboard-tab-invoices").click()
     await requireTestId(app, "invoice-workspace")
-    await requireTestId(app, "invoice-row-3")
-    await requireTestId(app, "invoice-detail-panel")
+    await requireTestId(app, "invoice-create-panel")
+    await app.getByTestId("create-title").fill("Eleventh invoice")
+    await app.getByTestId("create-body").fill("Created from the GPUIX Solid 2 kitchen sink port")
+    await app.getByTestId("create-invoice-submit").click()
+    await requireTestId(app, "invoice-row-11")
+    assert.equal(await app.getByText("Created!").count(), 1)
 
+    await app.getByTestId("invoice-row-3").click()
+    await requireTestId(app, "invoice-detail-panel")
     await app.getByTestId("edit-title").fill("Solid 2 native invoice")
     await app.getByTestId("toggle-invoice-notes").click()
     await requireTestId(app, "invoice-notes")
@@ -43,21 +49,30 @@ async function main(): Promise<void> {
     await app.getByTestId("save-invoice").click()
     assert.equal(await app.getByText("Saved!").count(), 1)
 
-    await app.getByTestId("create-invoice-nav").click()
-    await requireTestId(app, "invoice-create-panel")
-    await app.getByTestId("create-title").fill("Eleventh invoice")
-    await app.getByTestId("create-body").fill("Created from the GPUIX Solid 2 kitchen sink port")
-    await app.getByTestId("create-invoice-submit").click()
-    await requireTestId(app, "invoice-row-11")
-
     await app.getByTestId("dashboard-tab-users").click()
     await requireTestId(app, "users-workspace")
+    await requireTestId(app, "users-sort")
+    assert.equal(await app.getByTestId("users-sort-value").textContent(), "name")
+    const sortBounds = await app.getByTestId("users-sort").bounds()
+    assert.ok(sortBounds.width >= 140, `expected Sort By trigger to be full-width, got ${sortBounds.width}`)
+    assert.ok(sortBounds.height >= 30, `expected Sort By trigger to be normal control height, got ${sortBounds.height}`)
+
+    await app.getByTestId("users-sort").click()
+    await requireTestId(app, "users-sort-item-email")
+    await app.getByTestId("users-sort-item-email").click()
+    assert.equal(await app.getByTestId("users-sort-value").textContent(), "email")
+
     await app.getByTestId("users-filter").fill("Clementine")
     await requireTestId(app, "user-row-3")
     assert.equal(await app.getByTestId("user-row-1").count(), 0)
     await app.getByTestId("user-row-3").click()
     await requireTestId(app, "user-detail")
     assert.equal(await app.getByText("Clementine Bauch").count() > 0, true)
+
+    await app.clock.fastForward(300)
+    await app.screenshot({ path: screenshotPath })
+    assert.equal(existsSync(screenshotPath), true)
+    assert.ok(statSync(screenshotPath).size > 0)
 
     await app.getByTestId("root-nav-home").click()
     await requireTestId(app, "page-home")
@@ -66,12 +81,6 @@ async function main(): Promise<void> {
     await app.getByTestId("login-email").fill("demo@example.com")
     await app.getByTestId("login-submit").click()
     assert.equal(await app.getByText("Logged in").count(), 1)
-
-    await app.getByTestId("root-nav-dashboard").click()
-    await app.clock.fastForward(300)
-    await app.screenshot({ path: screenshotPath })
-    assert.equal(existsSync(screenshotPath), true)
-    assert.ok(statSync(screenshotPath).size > 0)
 
     console.log("tanstack kitchen sink integration: passed")
   } finally {
