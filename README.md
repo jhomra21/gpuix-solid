@@ -23,7 +23,7 @@ This project is an independently implemented Solid renderer built against GPUIX'
 
 ## Status
 
-The core Solid 2 renderer, native element surface, native capabilities, first Solid-native component layer, and most of the native testing foundation are implemented:
+M0 through M5 are complete. The renderer, native element surface, native capabilities, Solid-native component layer, and native testing/automation foundation are implemented and parity-tested:
 
 - Solid 2 universal renderer integration
 - root-scoped JS shadow host tree
@@ -35,10 +35,12 @@ The core Solid 2 renderer, native element surface, native capabilities, first So
 - Solid-native `as` slot renderer contract
 - unified `animate.*` declarative animation API backed by native GPUI animation frames
 - GPU-backed native TestRenderer adapter
-- native event/input parity and deterministic animation-clock coverage
+- retained-tree, event/input, selection/layout, and screenshot parity coverage
+- deterministic native animation-clock coverage
 - Playwright-like `App` / `Locator` automation API over the native automation tree
+- typed live stdio launch/connect automation transport
 
-The remaining M5 work is broader retained-tree/screenshot parity, completion of selection/layout validation, and live-process automation validation.
+M6 is release hardening: cross-platform CI, versioning, npm provenance, beta publication, and compatibility documentation.
 
 ## Why a native Solid renderer
 
@@ -144,6 +146,10 @@ await app.close()
 
 A renderer launched with piped stdin exposes the typed SSE-over-stdio automation protocol automatically; normal TTY-launched apps are unchanged. Live tree queries, painted bounds, pointer click, screenshots, and deterministic clock operations are supported. `fill()` and `press()` currently return a typed `Unsupported` error for live production renderers because `GpuixRenderer` does not yet expose native keystroke injection. They remain fully supported through `TestGpuixRenderer`.
 
+## Compatibility
+
+See [docs/compatibility.md](./docs/compatibility.md) for the validated Solid, GPUIX native, toolchain, and operating-system matrix.
+
 ## Reference projects
 
 The implementation is guided by four sources, for different reasons:
@@ -177,7 +183,7 @@ bun run test
 bun run build
 ```
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) and [AGENTS.md](./AGENTS.md) before making renderer changes.
+See [ARCHITECTURE.md](./ARCHITECTURE.md) and [AGENTS.md](./AGENTS.md) before making renderer changes. Release contributors should also read [RELEASING.md](./RELEASING.md).
 
 ## Credits
 
