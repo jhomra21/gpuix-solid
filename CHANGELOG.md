@@ -4,6 +4,8 @@
 
 <!-- Add user-facing changes here before preparing a release. -->
 
+- Add a Solid 2 + GPUIX native CodeImage editor example adapted from the MIT-licensed Solid 1.9.12 CodeImage application, including reactive frame/code/theme controls and native TestRenderer screenshot coverage.
+
 ## 0.1.0-beta.3 - 2026-08-24
 
 - Fix Solid 2 reconciliation when a text host node is used as an `insertBefore` anchor, allowing application-shaped component trees to mount and update without rejecting valid text anchors.
