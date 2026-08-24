@@ -46,16 +46,13 @@ const color = {
   panelRaised: "#20252d",
   panelSoft: "#252b34",
   border: "#303741",
-  borderStrong: "#3c4654",
   text: "#f1f3f5",
   muted: "#9ca6b4",
   faint: "#667180",
   blue: "#72a7ff",
   cyan: "#61d7d9",
   green: "#75d09a",
-  yellow: "#e5bd72",
   red: "#ef7f8c",
-  purple: "#b99aff",
 }
 
 const calls: readonly FunctionCall[] = [
@@ -199,16 +196,7 @@ function Badge(props: { children: string; tone?: "info" | "success" | "failure" 
     return color.muted
   }
   return (
-    <div
-      style={{
-        paddingTop: 4,
-        paddingBottom: 4,
-        paddingLeft: 7,
-        paddingRight: 7,
-        borderRadius: 5,
-        backgroundColor: background(),
-      }}
-    >
+    <div style={{ paddingTop: 4, paddingBottom: 4, paddingLeft: 7, paddingRight: 7, borderRadius: 5, backgroundColor: background() }}>
       <text style={{ color: foreground(), fontSize: 9, fontWeight: 700 }}>{props.children}</text>
     </div>
   )
@@ -222,21 +210,24 @@ function Section(props: {
   testId?: string
 }) {
   const [open, setOpen] = createSignal(props.defaultOpen ?? true)
+  const headerStyle = (): StyleDesc => ({
+    minHeight: 38,
+    paddingLeft: 12,
+    paddingRight: 12,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: color.panelRaised,
+    ...(props.collapsible ? { cursor: "pointer" } : {}),
+  })
+  const headerProps = () => props.testId ? { testId: props.testId } : {}
+
   return (
     <div style={surface({ overflow: "hidden" })}>
       <div
-        testId={props.testId}
+        {...headerProps()}
         onClick={() => props.collapsible && setOpen((value) => !value)}
-        style={{
-          minHeight: 38,
-          paddingLeft: 12,
-          paddingRight: 12,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          cursor: props.collapsible ? "pointer" : undefined,
-          backgroundColor: color.panelRaised,
-        }}
+        style={headerStyle()}
       >
         <text style={{ color: color.text, fontSize: 11, fontWeight: 700 }}>{props.title}</text>
         <Show when={props.collapsible}>
@@ -250,7 +241,7 @@ function Section(props: {
   )
 }
 
-function CodeBlock(props: { lines: readonly string[]; testId?: string }) {
+function CodeBlock(props: { lines: readonly string[]; testId: string }) {
   return (
     <div testId={props.testId} style={{ padding: 12, borderRadius: 7, backgroundColor: color.app, gap: 3 }}>
       <For each={props.lines}>
@@ -326,20 +317,10 @@ function FunctionList(props: {
 }
 
 function Properties(props: { call: FunctionCall; tab: DetailTab }) {
-  const rows = createMemo(() => {
-    if (props.tab === "request") {
-      return [
-        ["Method", props.call.method],
-        ["URL", props.call.path],
-        ["Started", props.call.startedAt],
-      ] as const
-    }
-    return [
-      ["OK", props.call.ok ? "true" : "false"],
-      ["Status", String(props.call.status)],
-      ["Timing", `${props.call.timingMs} ms`],
-    ] as const
-  })
+  const rows = createMemo(() => props.tab === "request"
+    ? [["Method", props.call.method], ["URL", props.call.path], ["Started", props.call.startedAt]] as const
+    : [["OK", props.call.ok ? "true" : "false"], ["Status", String(props.call.status)], ["Timing", `${props.call.timingMs} ms`]] as const)
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <For each={rows()}>
@@ -358,6 +339,7 @@ function FunctionDetail(props: { call: FunctionCall }) {
   const [tab, setTab] = createSignal<DetailTab>("request")
   const body = () => tab() === "request" ? props.call.requestBody : props.call.responseBody
   const headers = () => tab() === "request" ? props.call.requestHeaders : props.call.responseHeaders
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -406,25 +388,13 @@ function FunctionsPanel() {
   const visible = createMemo(() => calls.filter((call) => {
     const methodMatch = filter() === "ALL" || call.method === filter()
     const text = query().trim().toLowerCase()
-    const queryMatch = !text || call.name.toLowerCase().includes(text) || call.path.toLowerCase().includes(text)
-    return methodMatch && queryMatch
+    return methodMatch && (!text || call.name.toLowerCase().includes(text) || call.path.toLowerCase().includes(text))
   }))
   const selected = createMemo(() => calls.find((call) => call.id === selectedId()) ?? visible()[0])
 
   return (
     <div testId="functions-panel" style={{ display: "flex", flexGrow: 1, minHeight: 0 }}>
-      <div
-        style={{
-          width: 320,
-          minWidth: 320,
-          padding: 12,
-          gap: 10,
-          backgroundColor: color.toolbar,
-          borderWidth: 1,
-          borderColor: color.border,
-          overflowY: "auto",
-        }}
-      >
+      <div style={{ width: 320, minWidth: 320, padding: 12, gap: 10, backgroundColor: color.toolbar, borderWidth: 1, borderColor: color.border, overflowY: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             <text style={{ color: color.text, fontSize: 13, fontWeight: 700 }}>Server functions</text>
@@ -438,16 +408,7 @@ function FunctionsPanel() {
           value={query()}
           placeholder="Filter calls..."
           onChange={(event: EventPayload) => setQuery(event.value ?? "")}
-          style={{
-            minHeight: 34,
-            paddingLeft: 10,
-            paddingRight: 10,
-            backgroundColor: color.app,
-            color: color.text,
-            borderWidth: 1,
-            borderColor: color.border,
-            borderRadius: 7,
-          }}
+          style={{ minHeight: 34, paddingLeft: 10, paddingRight: 10, backgroundColor: color.app, color: color.text, borderWidth: 1, borderColor: color.border, borderRadius: 7 }}
         />
 
         <div style={{ display: "flex", gap: 5 }}>
@@ -464,14 +425,7 @@ function FunctionsPanel() {
       </div>
 
       <div style={{ flexGrow: 1, minWidth: 0, padding: 16, overflowY: "auto" }}>
-        <Show
-          when={selected()}
-          fallback={
-            <div style={surface({ padding: 24, alignItems: "center" })}>
-              <text style={{ color: color.muted, fontSize: 11 }}>Select a server function call.</text>
-            </div>
-          }
-        >
+        <Show when={selected()} fallback={<div style={surface({ padding: 24, alignItems: "center" })}><text style={{ color: color.muted, fontSize: 11 }}>Select a server function call.</text></div>}>
           {(call) => <FunctionDetail call={call()} />}
         </Show>
       </div>
@@ -489,35 +443,16 @@ function ErrorsPanel() {
       <div style={{ width: 320, minWidth: 320, padding: 12, gap: 8, backgroundColor: color.toolbar, borderWidth: 1, borderColor: color.border }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <text style={{ color: color.text, fontSize: 13, fontWeight: 700 }}>Runtime issues</text>
-          <div
-            testId="clear-errors"
-            onClick={() => setErrors([])}
-            style={button(false)}
-          >
+          <div testId="clear-errors" onClick={() => setErrors([])} style={button(false)}>
             <text style={{ color: color.muted, fontSize: 9 }}>Clear</text>
           </div>
         </div>
-        <For
-          each={errors()}
-          fallback={
-            <div testId="errors-empty" style={surface({ padding: 20, alignItems: "center" })}>
-              <text style={{ color: color.green, fontSize: 11 }}>No captured errors.</text>
-            </div>
-          }
-        >
+        <For each={errors()} fallback={<div testId="errors-empty" style={surface({ padding: 20, alignItems: "center" })}><text style={{ color: color.green, fontSize: 11 }}>No captured errors.</text></div>}>
           {(error) => (
             <div
               testId={`error-${error.id}`}
               onClick={() => setSelectedId(error.id)}
-              style={{
-                padding: 10,
-                gap: 4,
-                borderWidth: 1,
-                borderColor: selectedId() === error.id ? color.red : color.border,
-                borderRadius: 8,
-                backgroundColor: selectedId() === error.id ? "#342126" : color.panelRaised,
-                cursor: "pointer",
-              }}
+              style={{ padding: 10, gap: 4, borderWidth: 1, borderColor: selectedId() === error.id ? color.red : color.border, borderRadius: 8, backgroundColor: selectedId() === error.id ? "#342126" : color.panelRaised, cursor: "pointer" }}
             >
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <text style={{ color: color.text, fontSize: 10, fontWeight: 700 }}>{error.title}</text>
@@ -530,21 +465,9 @@ function ErrorsPanel() {
       </div>
 
       <div style={{ flexGrow: 1, minWidth: 0, padding: 16 }}>
-        <Show
-          when={selected()}
-          fallback={
-            <div style={surface({ padding: 24, alignItems: "center" })}>
-              <text style={{ color: color.muted, fontSize: 11 }}>No error selected.</text>
-            </div>
-          }
-        >
+        <Show when={selected()} fallback={<div style={surface({ padding: 24, alignItems: "center" })}><text style={{ color: color.muted, fontSize: 11 }}>No error selected.</text></div>}>
           {(error) => (
-            <animate.div
-              initial={{ opacity: 0.4, top: 6 }}
-              to={{ opacity: 1, top: 0 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-              style={{ position: "relative", display: "flex", flexDirection: "column", gap: 12 }}
-            >
+            <animate.div initial={{ opacity: 0.4, top: 6 }} to={{ opacity: 1, top: 0 }} transition={{ duration: 0.2, ease: "easeOut" }} style={{ position: "relative", display: "flex", flexDirection: "column", gap: 12 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                   <text testId="error-title" style={{ color: color.text, fontSize: 16, fontWeight: 700 }}>{error().title}</text>
@@ -552,12 +475,8 @@ function ErrorsPanel() {
                 </div>
                 <Badge tone="failure">ERROR</Badge>
               </div>
-              <Section title="Message">
-                <text style={{ color: color.text, fontSize: 11 }}>{error().message}</text>
-              </Section>
-              <Section title="Stack trace">
-                <CodeBlock lines={error().stack} />
-              </Section>
+              <Section title="Message"><text style={{ color: color.text, fontSize: 11 }}>{error().message}</text></Section>
+              <Section title="Stack trace"><CodeBlock testId="error-stack" lines={error().stack} /></Section>
             </animate.div>
           )}
         </Show>
@@ -569,36 +488,16 @@ function ErrorsPanel() {
 export function SolidStartDevtoolsNativeDemo() {
   const [panel, setPanel] = createSignal<Panel>("functions")
   return (
-    <div
-      testId="solid-start-devtools-shell"
-      style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", backgroundColor: color.app }}
-    >
-      <div
-        style={{
-          minHeight: 52,
-          paddingLeft: 16,
-          paddingRight: 16,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          backgroundColor: color.toolbar,
-          borderWidth: 1,
-          borderColor: color.border,
-        }}
-      >
+    <div testId="solid-start-devtools-shell" style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", backgroundColor: color.app }}>
+      <div style={{ minHeight: 52, paddingLeft: 16, paddingRight: 16, display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: color.toolbar, borderWidth: 1, borderColor: color.border }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 26, height: 26, alignItems: "center", justifyContent: "center", borderRadius: 7, backgroundColor: color.blue }}>
-            <text style={{ color: color.app, fontSize: 11, fontWeight: 800 }}>S</text>
-          </div>
+          <div style={{ width: 26, height: 26, alignItems: "center", justifyContent: "center", borderRadius: 7, backgroundColor: color.blue }}><text style={{ color: color.app, fontSize: 11, fontWeight: 800 }}>S</text></div>
           <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
             <text style={{ color: color.text, fontSize: 12, fontWeight: 700 }}>Solid Start Devtools Native</text>
             <text style={{ color: color.faint, fontSize: 9 }}>Official Solid 2 UI structure adapted to GPUIX</text>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          <Badge tone="info">Solid 2 RC</Badge>
-          <Badge tone="neutral">1.0.0-next.4</Badge>
-        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 7 }}><Badge tone="info">Solid 2 RC</Badge><Badge tone="neutral">1.0.0-next.4</Badge></div>
       </div>
 
       <Switch>
@@ -606,31 +505,12 @@ export function SolidStartDevtoolsNativeDemo() {
         <Match when={panel() === "errors"}><ErrorsPanel /></Match>
       </Switch>
 
-      <div
-        style={{
-          minHeight: 48,
-          paddingLeft: 14,
-          paddingRight: 14,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          backgroundColor: color.toolbar,
-          borderWidth: 1,
-          borderColor: color.border,
-        }}
-      >
+      <div style={{ minHeight: 48, paddingLeft: 14, paddingRight: 14, display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: color.toolbar, borderWidth: 1, borderColor: color.border }}>
         <div style={{ display: "flex", gap: 6 }}>
-          <div testId="toolbar-functions" onClick={() => setPanel("functions")} style={button(panel() === "functions")}>
-            <text style={{ color: panel() === "functions" ? color.cyan : color.muted, fontSize: 10, fontWeight: 700 }}>ƒ Server functions</text>
-          </div>
-          <div testId="toolbar-errors" onClick={() => setPanel("errors")} style={button(panel() === "errors")}>
-            <text style={{ color: panel() === "errors" ? color.red : color.muted, fontSize: 10, fontWeight: 700 }}>! Errors · {initialErrors.length}</text>
-          </div>
+          <div testId="toolbar-functions" onClick={() => setPanel("functions")} style={button(panel() === "functions")}><text style={{ color: panel() === "functions" ? color.cyan : color.muted, fontSize: 10, fontWeight: 700 }}>ƒ Server functions</text></div>
+          <div testId="toolbar-errors" onClick={() => setPanel("errors")} style={button(panel() === "errors")}><text style={{ color: panel() === "errors" ? color.red : color.muted, fontSize: 10, fontWeight: 700 }}>! Errors · {initialErrors.length}</text></div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          <div style={{ width: 7, height: 7, borderRadius: 99, backgroundColor: color.green }} />
-          <text style={{ color: color.faint, fontSize: 9 }}>Solid 2 universal renderer · native GPUI retained tree</text>
-        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 7 }}><div style={{ width: 7, height: 7, borderRadius: 99, backgroundColor: color.green }} /><text style={{ color: color.faint, fontSize: 9 }}>Solid 2 universal renderer · native GPUI retained tree</text></div>
       </div>
     </div>
   )
