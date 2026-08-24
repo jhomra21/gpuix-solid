@@ -15,6 +15,19 @@ export {
   hasNativeTestRenderer,
 } from "./testing.js"
 export type { TestElement, TestRoot } from "./testing.js"
+export {
+  App,
+  AutomationError,
+  InProcessAutomationBackend,
+  Locator,
+  createTestApp,
+} from "./automation.js"
+export type {
+  AutomationBackend,
+  AutomationErrorCode,
+  AutomationTreeNode,
+  ElementBounds,
+} from "./automation.js"
 
 export {
   Select,
