@@ -30,6 +30,86 @@ jobs:
           echo "Dispatching publish.yml recovery from main."
           gh workflow run publish.yml --repo "$GITHUB_REPOSITORY" --ref main
 
+  verify:
+    if: >-
+      github.event.issue.number == 31 &&
+      github.event.issue.pull_request == null &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.body == '/verify-release'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      - name: Use pinned npm registry client
+        shell: bash
+        run: npm install --global npm@11.19.0
+
+      - name: Verify registry integrity, dist-tag, and provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          package=$(node -p 'require("./packages/solid/package.json").name')
+          version=$(node -p 'require("./packages/solid/package.json").version')
+          metadata=$(npm view "${package}@${version}" --json)
+
+          mapfile -t fields < <(
+            printf '%s' "$metadata" | node -e '
+              let source = ""
+              process.stdin.on("data", (chunk) => { source += chunk })
+              process.stdin.on("end", () => {
+                let value = JSON.parse(source)
+                if (Array.isArray(value)) value = value.at(-1)
+                const attestations = value?.dist?.attestations
+                process.stdout.write([
+                  value?.version ?? "",
+                  value?.dist?.integrity ?? "",
+                  attestations?.url ?? "",
+                  attestations?.provenance?.predicateType ?? "",
+                ].join("\n"))
+              })
+            '
+          )
+
+          remote_version="${fields[0]:-}"
+          remote_integrity="${fields[1]:-}"
+          attestation_url="${fields[2]:-}"
+          provenance_predicate="${fields[3]:-}"
+
+          if [[ "$remote_version" != "$version" ]]; then
+            echo "Registry returned version ${remote_version:-<missing>}; expected ${version}."
+            exit 1
+          fi
+          if [[ "$remote_integrity" != sha512-* ]]; then
+            echo "Registry integrity is missing or malformed: ${remote_integrity:-<missing>}"
+            exit 1
+          fi
+          if [[ "$attestation_url" != https://registry.npmjs.org/-/npm/v1/attestations/* ]]; then
+            echo "npm provenance attestation URL is missing or unexpected: ${attestation_url:-<missing>}"
+            exit 1
+          fi
+          if [[ -z "$provenance_predicate" ]]; then
+            echo "npm provenance predicate is missing."
+            exit 1
+          fi
+
+          expected_tag=latest
+          if [[ "$version" == *-* ]]; then expected_tag=beta; fi
+          tagged_version=$(npm view "$package" dist-tags --json | node -e 'let s=""; process.stdin.on("data", c => s += c); process.stdin.on("end", () => { const tags=JSON.parse(s); process.stdout.write(tags[process.argv[1]] ?? ""); })' "$expected_tag")
+          if [[ "$tagged_version" != "$version" ]]; then
+            echo "Expected npm dist-tag ${expected_tag} -> ${version}, got ${tagged_version:-<missing>}."
+            exit 1
+          fi
+
+          gh issue comment 31 --repo "$GITHUB_REPOSITORY" --body "Release verification complete: v${version}; npm ${expected_tag} -> ${version}; registry integrity verified; provenance ${provenance_predicate}; attestation ${attestation_url}."
+
   finalize:
     if: >-
       github.event.issue.number == 31 &&
