@@ -7,7 +7,7 @@ GPUix Solid releases are prepared and published by GitHub Actions. Normal releas
 - `main` is the only source of publishable release bytes.
 - Runtime/source changes go through the normal Linux/macOS/Windows CI matrix before release preparation.
 - Release PRs are metadata-only: exactly `packages/solid/package.json` plus `CHANGELOG.md`.
-- The publish workflow builds and packs one sanitized npm artifact, smoke-tests that exact tarball in clean npm and Bun consumers, uploads it as a workflow artifact, then publishes those exact bytes without rebuilding.
+- The publish workflow builds and packs one sanitized npm artifact, smoke-tests that exact tarball in clean npm, Bun, and Solid TSX/Vite consumers, uploads it as a workflow artifact, then publishes those exact bytes without rebuilding.
 - npm registry integrity and the expected `beta`/`latest` dist-tag are verified after publication.
 - The Git tag and GitHub Release are created only after npm succeeds.
 - Scoped publishes are public and use npm provenance.
@@ -28,13 +28,13 @@ The **Prepare Release** workflow moves those notes into a dated immutable versio
 - `major`
 - `explicit`
 
-For a beta such as `0.1.0-beta.0`, `beta-next` produces `0.1.0-beta.1`. Promoting that prerelease produces `0.1.0`.
+For a beta such as `0.1.0-beta.1`, `beta-next` produces `0.1.0-beta.2`. Promoting that prerelease produces `0.1.0`.
 
 ## Normal release flow
 
 1. Confirm all intended source changes are merged and CI is green on `main`.
 2. Add meaningful user-facing notes under `CHANGELOG.md` → `Unreleased` while developing release-worthy changes.
-3. Run **Prepare Release** from `main` and select the release strategy.
+3. Run **Prepare Release** from `main`, or use the owner-only Release Control command for the desired release strategy.
 4. The workflow creates `release/v<version>` with only the package version and changelog transition, opens a release PR, and explicitly dispatches **Release Check**.
 5. The generated release commit uses `[skip ci]`, so the normal source matrix is not repeated for the metadata-only release PR.
 6. Review the version/changelog and merge only after Release Check is green.
@@ -47,7 +47,7 @@ For a beta such as `0.1.0-beta.0`, `beta-next` produces `0.1.0-beta.1`. Promotin
    - packs one npm tarball and verifies its npm SHA-512 integrity,
    - performs an npm publish dry-run,
    - installs that exact tarball into clean npm and Bun consumers,
-   - typechecks the public declarations,
+   - typechecks and bundles a clean external Solid TSX/Vite consumer against that exact tarball,
    - uploads the exact tarball plus `pack.json`,
    - downloads and re-verifies those bytes in the publish job,
    - publishes through npm Trusted Publishing/OIDC when the version is new,
@@ -56,6 +56,7 @@ For a beta such as `0.1.0-beta.0`, `beta-next` produces `0.1.0-beta.1`. Promotin
    - verifies the expected dist-tag,
    - creates `v<version>` only after npm succeeds,
    - creates the GitHub Release last.
+9. Run the Release Control `/verify-release` check when an explicit registry-level proof is useful. It validates the current version, dist-tag, SHA-512 integrity, and npm provenance attestation.
 
 ## First publication bootstrap
 
@@ -64,6 +65,8 @@ The one-time bootstrap is complete.
 `0.1.0-beta.0` was an internal pre-publication candidate and was intentionally never published. `0.1.0-beta.1` was the first public package version. Because npm requires a package to exist before a GitHub Actions trusted publisher can be configured, beta.1 was published once manually from the same sanitized staged tarball used by the release tooling. Registry integrity was verified against that tarball before Trusted Publishing was configured.
 
 That manual bootstrap must not be repeated for later versions.
+
+`0.1.0-beta.2` was the first steady-state tokenless release. It was published through Trusted Publishing/OIDC and the registry exposed a SLSA provenance v1 attestation for the published package.
 
 ## Trusted Publisher configuration
 
@@ -81,9 +84,25 @@ Do not add `NPM_TOKEN`, `NPM_BOOTSTRAP_TOKEN`, or another long-lived npm publish
 
 If the GitHub Environment name changes, update the npm Trusted Publisher to the exact same Environment name before the next release.
 
+## Release Control
+
+Issue #31 is the persistent owner-only control surface for release automation. Commands are accepted only on that issue and only from the repository owner.
+
+- `/release beta-next`
+- `/release promote-stable`
+- `/release patch`
+- `/release minor`
+- `/release major`
+- `/release explicit <version>`
+- `/recover-release`
+- `/finalize-release`
+- `/verify-release`
+
+The `/release` commands prepare a release from `main`. `/recover-release` dispatches the hardened publisher when a release did not reach a terminal state. `/finalize-release` repairs only a missing GitHub Release after validating npm and tag state. `/verify-release` is read-only with respect to npm: it checks the current version, expected dist-tag, registry SHA-512 integrity, and npm provenance attestation and reports the result back to issue #31.
+
 ## Manual recovery
 
-**Publish Package** can be dispatched manually from `main` when a release merge succeeded but publication, tag creation, or GitHub Release creation did not complete.
+**Publish Package** can also be dispatched manually from `main` when a release merge succeeded but publication, tag creation, or GitHub Release creation did not complete.
 
 Recovery is intentionally strict:
 
