@@ -9,7 +9,7 @@
     "build:dashboard": "vite build --config vite.dashboard.config.ts",
     "build:dashboard-test": "vite build --config vite.dashboard-test.config.ts",
     "typecheck": "tsc --noEmit",
-    "test:dashboard": "bun run build:dashboard-test && bun dist/dashboard-test/test.js",
+    "test:dashboard": "bun run build:dashboard-test && bun scripts/run-dashboard-test.mjs",
     "start": "bun run start:counter",
     "start:counter": "bun dist/counter/index.js",
     "start:native-text": "bun dist/native-text/native-text.js",
