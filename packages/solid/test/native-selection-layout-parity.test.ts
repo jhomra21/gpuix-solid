@@ -176,11 +176,12 @@ describe("native selection and layout parity", () => {
   nativeIt("reports painted bounds and reacts to layout width changes", () => {
     const testRoot = createTestRoot()
     const [width, setWidth] = createSignal(120)
-    let childId = 0
+    const child = element("div")
+
+    expect(child.id).toBe(0)
 
     testRoot.render(() => {
       const root = div({ display: "flex", flexDirection: "column", padding: 20, gap: 10 })
-      const child = element("div")
       createRenderEffect(
         () => ({ width: width(), height: 40 }),
         (next, previous) => {
@@ -188,11 +189,11 @@ describe("native selection and layout parity", () => {
         },
       )
       insertNode(root, child)
-      childId = child.id
       return root
     })
 
-    const initial = testRoot.renderer.getElementBounds(childId)
+    expect(child.id).toBeGreaterThan(0)
+    const initial = testRoot.renderer.getElementBounds(child.id)
     expect(initial).not.toBeNull()
     expect(initial?.[2]).toBeCloseTo(120, 3)
     expect(initial?.[3]).toBeCloseTo(40, 3)
@@ -200,7 +201,7 @@ describe("native selection and layout parity", () => {
     testRoot.root.flushSync(() => setWidth(180))
     testRoot.renderer.flush()
 
-    const updated = testRoot.renderer.getElementBounds(childId)
+    const updated = testRoot.renderer.getElementBounds(child.id)
     expect(updated).not.toBeNull()
     expect(updated?.[2]).toBeCloseTo(180, 3)
     expect(updated?.[3]).toBeCloseTo(40, 3)
