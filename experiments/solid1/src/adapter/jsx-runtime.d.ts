@@ -12,11 +12,8 @@ import type {
   VirtualListProps,
 } from "../../../../packages/solid/src/host/types.js"
 
-type RendererNode = { readonly kind: "element" | "text" }
-
 export namespace JSX {
-  type Element = SolidJSX.Element | RendererNode | ArrayElement
-  interface ArrayElement extends Array<Element> {}
+  type Element = SolidJSX.Element
 
   interface ElementChildrenAttribute {
     children: {}
