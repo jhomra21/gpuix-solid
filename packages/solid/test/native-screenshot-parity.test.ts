@@ -188,10 +188,11 @@ describe("native screenshot parity", () => {
     expect(elementWidth(testRoot.renderer, id)).toBeCloseTo(240, 1)
     testRoot.renderer.captureScreenshot(finalPath)
 
-    // The animated element occupies a small fraction of the full window, so a
-    // whole-PNG <99% byte-similarity threshold is not meaningful here. Geometry
-    // proves the native frame reached both endpoints; the screenshot gate proves
-    // that those distinct painted states did not encode to the same image.
+    // The box occupies only a small part of the full screenshot. A whole-PNG
+    // <99% byte-similarity threshold therefore says more about PNG compression
+    // than about this localized animation. The native bounds prove the rendered
+    // geometry reached both endpoints; this assertion proves the two painted
+    // endpoint frames did not encode to the same image.
     expectScreenshotsNotEqual(initialPath, finalPath)
     testRoot.renderer.clockResume()
     testRoot.unmount()
