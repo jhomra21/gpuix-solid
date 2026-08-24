@@ -1,3 +1,4 @@
+import { parseJson, type JsonValue } from "./automation/json.js"
 import type { MutationValue } from "./host/mutations.js"
 import type { StyleDesc } from "./host/types.js"
 import type { TestRenderer } from "./testing.js"
@@ -11,8 +12,6 @@ export type AutomationErrorCode =
   | "Unsupported"
   | "Security"
   | "Cancelled"
-
-export type AutomationTreeInput = unknown
 
 export class AutomationError extends Error {
   readonly code: AutomationErrorCode
@@ -56,7 +55,7 @@ export interface AutomationBackend {
   close(): void | Promise<void>
 }
 
-export function parseAutomationTreeValue(parsed: AutomationTreeInput): AutomationTreeNode | null {
+export function parseAutomationTreeValue(parsed: JsonValue): AutomationTreeNode | null {
   if (parsed === null) return null
   // SAFETY: GPUIX getAutomationTree() serializes the native automation tree
   // with the public AutomationTreeNode recursive schema.
@@ -64,8 +63,7 @@ export function parseAutomationTreeValue(parsed: AutomationTreeInput): Automatio
 }
 
 export function parseAutomationTree(json: string): AutomationTreeNode | null {
-  const parsed: AutomationTreeInput = JSON.parse(json)
-  return parseAutomationTreeValue(parsed)
+  return parseAutomationTreeValue(parseJson(json))
 }
 
 export function parseBounds(bounds: number[] | null): ElementBounds | null {
