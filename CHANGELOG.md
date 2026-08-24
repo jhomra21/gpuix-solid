@@ -4,6 +4,8 @@
 
 <!-- Add user-facing changes here before preparing a release. -->
 
+## 0.1.0-beta.3 - 2026-08-24
+
 - Fix Solid 2 reconciliation when a text host node is used as an `insertBefore` anchor, allowing application-shaped component trees to mount and update without rejecting valid text anchors.
 - Add a complex native Solid 2 dashboard dogfood fixture with Overview, Tasks, Notes, Weather, and Account pages, deterministic demo data, native animations, floating controls, native inputs, reactive list mutations, and TestRenderer automation coverage.
 - Expand native validation so Ubuntu CI installs the GPUI runtime dependencies and runs GPU-backed renderer/dashboard integration alongside macOS; Windows continues to lint, typecheck, test platform-independent behavior, and build while the upstream `@gpuix/native@0.4.0` hosted-runner binding issue is documented explicitly.
