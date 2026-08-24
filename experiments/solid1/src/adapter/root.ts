@@ -7,7 +7,9 @@ import {
 import { EventRegistry } from "../../../../packages/solid/src/host/events.js"
 import { MutationDriver } from "../../../../packages/solid/src/host/mutations.js"
 import {
+  HostElementNode,
   HostRootNode,
+  HostTextNode,
   removeHostNode,
   type HostNode,
 } from "../../../../packages/solid/src/host/nodes.js"
@@ -15,16 +17,15 @@ import type { NativeRenderer } from "../../../../packages/solid/src/host/types.j
 import { createComponent, universalRender } from "./universal.js"
 
 type UniversalNode = HostRootNode | HostNode
+type ContextResult = ReturnType<typeof GpuixContext.Provider>
 
 interface ContextProps {
   value: GpuixContextValue
   readonly children: JSX.Element
 }
 
-function isUniversalNode(value: unknown): value is UniversalNode {
-  if (typeof value !== "object" || value === null) return false
-  const kind = Reflect.get(value, "kind")
-  return kind === "root" || kind === "element" || kind === "text"
+function isUniversalNode(value: ContextResult | UniversalNode): value is UniversalNode {
+  return value instanceof HostRootNode || value instanceof HostElementNode || value instanceof HostTextNode
 }
 
 function Context(props: ContextProps): UniversalNode {
