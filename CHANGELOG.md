@@ -4,6 +4,8 @@
 
 <!-- Add user-facing changes here before preparing a release. -->
 
+## 0.1.0-beta.2 - 2026-08-24
+
 - Validate the exact release tarball in a clean external Solid 2 TSX/Vite consumer, including `Tooltip`, `Select`, `Combobox`, `animate.*`, and the automation subpath.
 - Add an owner-only release-control command that can prepare future releases from the stable GitHub control issue without requiring an Actions UI click.
 
