@@ -26,7 +26,7 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Dispatch publish for an untagged release
+      - name: Dispatch publish or release recovery
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -34,11 +34,6 @@ jobs:
           version=$(node -p 'require("./packages/solid/package.json").version')
           tag="v${version}"
           git fetch --tags --force
-
-          if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
-            echo "${tag} already exists; nothing to publish."
-            exit 0
-          fi
 
           release_sha=""
           while read -r sha; do
@@ -76,5 +71,22 @@ jobs:
           fi
 
           node scripts/release.mjs notes --version "$version" >/dev/null
-          echo "Dispatching publish.yml recovery for ${version} from ${release_sha}."
+
+          if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+            tagged_commit=$(git rev-list -n 1 "$tag")
+            if [[ "$tagged_commit" != "$release_sha" ]]; then
+              echo "${tag} points to ${tagged_commit}, expected release commit ${release_sha}; refusing recovery."
+              exit 1
+            fi
+
+            if gh release view "$tag" >/dev/null 2>&1; then
+              echo "${tag} and its GitHub Release already exist; nothing to recover."
+              exit 0
+            fi
+
+            echo "${tag} already points to ${release_sha}, but its GitHub Release is missing; dispatching recovery."
+          else
+            echo "Dispatching publish recovery for untagged ${version} from ${release_sha}."
+          fi
+
           gh workflow run publish.yml --ref main
