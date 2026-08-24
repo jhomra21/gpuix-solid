@@ -138,6 +138,14 @@ function collect(node: AutomationTreeNode | null, selector: Selector): Automatio
   return found
 }
 
+function nodeTextContent(node: AutomationTreeNode): string {
+  let text = node.text ?? ""
+  for (const child of node.children ?? []) {
+    text += nodeTextContent(child)
+  }
+  return text
+}
+
 function toKeystrokes(text: string): string {
   return [...text]
     .map((character) => {
@@ -222,7 +230,7 @@ export class Locator {
   }
 
   async textContent(): Promise<string> {
-    return (await this.element()).text ?? ""
+    return nodeTextContent(await this.element())
   }
 
   async waitFor(options: { timeoutMs?: number } = {}): Promise<AutomationTreeNode> {
