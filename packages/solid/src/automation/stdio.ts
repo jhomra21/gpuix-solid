@@ -188,7 +188,7 @@ export async function launch(options: {
   command: string
   args?: string[]
   cwd?: string
-  env?: NodeJS.ProcessEnv
+  env?: Record<string, string | undefined>
 }): Promise<App> {
   const child: ChildProcessWithoutNullStreams = spawn(
     options.command,
