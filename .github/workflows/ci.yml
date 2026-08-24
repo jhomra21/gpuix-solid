@@ -50,6 +50,9 @@ jobs:
       - run: bun run typecheck
       - run: bun run test
       - run: bun run build
+      - name: Verify Solid 1 compatibility experiment
+        working-directory: experiments/solid1
+        run: bun install --no-save && bun run check
       - run: node --test scripts/release.test.mjs
 
   package:

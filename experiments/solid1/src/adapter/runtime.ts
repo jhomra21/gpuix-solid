@@ -1,0 +1,73 @@
+import { GpuixRenderer, type EventPayload, type WindowOptions } from "@gpuix/native"
+import type { JSX } from "solid-js"
+import { applyDebugFrameOverlay } from "../../../../packages/solid/src/capabilities.js"
+import {
+  startFrameLoop,
+  type FrameLoop,
+} from "../../../../packages/solid/src/frame-loop.js"
+import type {
+  DebugFrameOverlayMode,
+  NativeRenderer,
+} from "../../../../packages/solid/src/host/types.js"
+import { createRoot, type Root } from "./root.js"
+
+export interface RenderOptions extends WindowOptions {
+  renderer?: NativeRenderer
+  onEvent?: (event: EventPayload) => void
+  debugFrameOverlay?: DebugFrameOverlayMode
+}
+
+export interface RenderHandle {
+  root: Root
+  loop: FrameLoop
+  renderer: NativeRenderer
+  unmount(): void
+}
+
+export function render(code: () => JSX.Element, options: RenderOptions = {}): RenderHandle {
+  const { renderer: injected, onEvent, debugFrameOverlay, ...windowOptions } = options
+
+  if (injected) {
+    applyDebugFrameOverlay(injected, debugFrameOverlay)
+    const root = createRoot(injected)
+    root.render(code)
+    return {
+      root,
+      renderer: injected,
+      loop: { stop() {} },
+      unmount() {
+        root.unmount()
+      },
+    }
+  }
+
+  let root: Root | undefined
+  const renderer = new GpuixRenderer((error, event) => {
+    if (error) {
+      console.error("[gpuix-solid1] native event error", error)
+      return
+    }
+    if (!event) return
+    root?.dispatch(event)
+    onEvent?.(event)
+  })
+  renderer.init(windowOptions)
+  applyDebugFrameOverlay(renderer, debugFrameOverlay)
+  root = createRoot(renderer)
+  root.render(code)
+  const loop = startFrameLoop(renderer, {
+    onTerminated() {
+      process.exitCode = 0
+    },
+  })
+
+  return {
+    root,
+    renderer,
+    loop,
+    unmount() {
+      loop.stop()
+      root?.unmount()
+    },
+  }
+}

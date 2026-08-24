@@ -1,0 +1,35 @@
+{
+  "name": "gpuix-solid1-experiment",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/adapter/index.ts",
+    "./jsx-runtime": {
+      "types": "./src/adapter/jsx-runtime.d.ts",
+      "default": "./src/adapter/index.ts"
+    },
+    "./jsx-dev-runtime": {
+      "types": "./src/adapter/jsx-runtime.d.ts",
+      "default": "./src/adapter/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "vite build",
+    "build:test": "vite build --config vite.test.config.ts",
+    "test:native": "bun run build:test && bun scripts/run-test.mjs",
+    "check": "bun run typecheck && bun run build && bun run test:native",
+    "start": "bun dist/app/index.js",
+    "run": "bun run build && bun run start"
+  },
+  "dependencies": {
+    "@gpuix/native": "0.4.0",
+    "solid-js": "1.9.15"
+  },
+  "devDependencies": {
+    "@types/node": "25.3.3",
+    "typescript": "5.9.3",
+    "vite": "8.2.2",
+    "vite-plugin-solid": "2.11.14"
+  }
+}
