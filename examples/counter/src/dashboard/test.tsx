@@ -54,6 +54,7 @@ async function main(): Promise<void> {
     await app.getByTestId("nav-notes").click()
     await app.getByTestId("note-new").click()
     assert.equal(await app.getByTestId("note-editor").count(), 1)
+    await app.clock.fastForward(300)
     await app.getByTestId("note-title").fill("Dashboard findings")
     await app.getByTestId("note-body").fill("Native inputs and list mutation are working together.")
     await app.getByTestId("note-save").click()
