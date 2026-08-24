@@ -105,7 +105,7 @@ jobs:
             fi
 
             node scripts/release.mjs notes --version "$version" >/dev/null
-            echo "release_sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+            echo "release_sha=${version_commit}" >> "$GITHUB_OUTPUT"
             echo "release=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -302,8 +302,6 @@ jobs:
           VERSION: ${{ steps.artifact.outputs.version }}
           INTEGRITY: ${{ steps.artifact.outputs.integrity }}
           TARBALL: ${{ steps.artifact.outputs.tarball }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_BOOTSTRAP_TOKEN }}
-          NPM_CONFIG_PROVENANCE: "true"
         shell: bash
         run: |
           remote_integrity=$(npm view "${PACKAGE}@${VERSION}" dist.integrity 2>/dev/null || true)
