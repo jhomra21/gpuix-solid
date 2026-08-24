@@ -56,13 +56,13 @@
 ## M5 — testing and automation
 
 - [x] native TestRenderer adapter
-- [ ] retained-tree snapshot parity against React fixtures
+- [x] retained-tree snapshot parity against React fixtures
 - [x] event/input parity
-- [ ] selection/layout parity
+- [x] selection/layout parity
 - [x] Playwright-like locator API
-- [ ] live launch/connect transport
+- [x] live launch/connect transport
 - [x] deterministic animation clock
-- [ ] screenshot parity suite
+- [x] screenshot parity suite
 
 ## M6 — release
 
