@@ -97,18 +97,20 @@ const initialNotes: Note[] = [
   },
 ]
 
+const austin: WeatherLocation = {
+  id: 1,
+  city: "Austin",
+  condition: "Clear",
+  temperature: 91,
+  high: 96,
+  low: 74,
+  humidity: 43,
+  wind: 9,
+  accent: color.yellow,
+}
+
 const weather: WeatherLocation[] = [
-  {
-    id: 1,
-    city: "Austin",
-    condition: "Clear",
-    temperature: 91,
-    high: 96,
-    low: 74,
-    humidity: 43,
-    wind: 9,
-    accent: color.yellow,
-  },
+  austin,
   {
     id: 2,
     city: "Seattle",
@@ -133,7 +135,7 @@ const weather: WeatherLocation[] = [
   },
 ]
 
-const pageMeta: Record<Page, { title: string; description: string; short: string }> = {
+const pageMeta = {
   overview: {
     title: "Overview",
     description: "A native GPUI dashboard powered by Solid 2 signals.",
@@ -159,7 +161,12 @@ const pageMeta: Record<Page, { title: string; description: string; short: string
     description: "Preferences, native Select, and component composition.",
     short: "AC",
   },
-}
+} satisfies Record<Page, { title: string; description: string; short: string }>
+
+const navItems: Page[] = ["overview", "tasks", "notes", "weather", "account"]
+const overviewLinks: Page[] = ["tasks", "notes", "weather", "account"]
+const taskFilters: TaskFilter[] = ["all", "active", "completed"]
+const noteFilters: NoteFilter[] = ["all", "active", "archived"]
 
 function panelStyle(extra: StyleDesc = {}): StyleDesc {
   return {
@@ -187,9 +194,7 @@ function actionStyle(active = false): StyleDesc {
     hover: {
       backgroundColor: active ? "#8eb1ff" : "#30384a",
     },
-    active: {
-      opacity: 0.82,
-    },
+    active: { opacity: 0.82 },
   }
 }
 
@@ -204,7 +209,7 @@ function SectionTitle(props: { title: string; detail?: string }) {
   )
 }
 
-function Pill(props: { children: unknown; accent?: string }) {
+function Pill(props: { text: string; accent?: string }) {
   return (
     <div
       style={{
@@ -216,7 +221,7 @@ function Pill(props: { children: unknown; accent?: string }) {
         backgroundColor: props.accent ?? color.panelSoft,
       }}
     >
-      <text style={{ color: color.text, fontSize: 11, fontWeight: 600 }}>{props.children}</text>
+      <text style={{ color: color.text, fontSize: 11, fontWeight: 600 }}>{props.text}</text>
     </div>
   )
 }
@@ -251,12 +256,12 @@ function MetricCard(props: {
 }
 
 function OverviewPage(props: { onNavigate: (page: Page) => void }) {
-  const activity = [
+  const activity: Array<readonly [string, string, string]> = [
     ["Release", "beta.2 published with SLSA provenance", color.green],
     ["Testing", "Clean Solid TSX/Vite consumer smoke passed", color.blue],
     ["Automation", "Live keystroke blocker isolated upstream", color.mauve],
     ["UI", "Complex dashboard dogfood fixture started", color.yellow],
-  ] as const
+  ]
 
   return (
     <div testId="page-overview" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -287,7 +292,7 @@ function OverviewPage(props: { onNavigate: (page: Page) => void }) {
         <div style={panelStyle({ flexGrow: 1, minWidth: 230, padding: 16, gap: 12 })}>
           <SectionTitle title="Explore the fixture" detail="Each page stresses a different renderer surface." />
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <For each={["tasks", "notes", "weather", "account"] as Page[]}>
+            <For each={overviewLinks}>
               {(page) => (
                 <div
                   testId={`overview-open-${page}`}
@@ -366,13 +371,9 @@ function TasksPage() {
       </div>
 
       <div style={{ display: "flex", gap: 8 }}>
-        <For each={["all", "active", "completed"] as TaskFilter[]}>
+        <For each={taskFilters}>
           {(value) => (
-            <div
-              testId={`filter-${value}`}
-              style={actionStyle(filter() === value)}
-              onClick={() => setFilter(value)}
-            >
+            <div testId={`filter-${value}`} style={actionStyle(filter() === value)} onClick={() => setFilter(value)}>
               <text style={{ color: filter() === value ? color.app : color.text, fontSize: 12, fontWeight: 600 }}>
                 {value === "all" ? "All" : value === "active" ? "Active" : "Completed"}
               </text>
@@ -488,7 +489,7 @@ function NotesPage() {
     <div testId="page-notes" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ display: "flex", gap: 8 }}>
-          <For each={["all", "active", "archived"] as NoteFilter[]}>
+          <For each={noteFilters}>
             {(value) => (
               <div testId={`notes-filter-${value}`} style={actionStyle(filter() === value)} onClick={() => setFilter(value)}>
                 <text style={{ color: filter() === value ? color.app : color.text, fontSize: 12 }}>
@@ -516,7 +517,16 @@ function NotesPage() {
             value={title()}
             placeholder="Note title"
             onChange={(event: EventPayload) => setTitle(event.value ?? "")}
-            style={{ minHeight: 34, paddingLeft: 10, paddingRight: 10, backgroundColor: color.app, color: color.text, borderWidth: 1, borderColor: color.border, borderRadius: 8 }}
+            style={{
+              minHeight: 34,
+              paddingLeft: 10,
+              paddingRight: 10,
+              backgroundColor: color.app,
+              color: color.text,
+              borderWidth: 1,
+              borderColor: color.border,
+              borderRadius: 8,
+            }}
           />
           <textarea
             testId="note-body"
@@ -525,7 +535,15 @@ function NotesPage() {
             minRows={2}
             maxRows={4}
             onChange={(event: EventPayload) => setBody(event.value ?? "")}
-            style={{ minHeight: 62, padding: 10, backgroundColor: color.app, color: color.text, borderWidth: 1, borderColor: color.border, borderRadius: 8 }}
+            style={{
+              minHeight: 62,
+              padding: 10,
+              backgroundColor: color.app,
+              color: color.text,
+              borderWidth: 1,
+              borderColor: color.border,
+              borderRadius: 8,
+            }}
           />
           <div testId="note-save" style={actionStyle(Boolean(title().trim()))} onClick={saveNote}>
             <text style={{ color: title().trim() ? color.app : color.text, fontSize: 12, fontWeight: 700 }}>Save note</text>
@@ -545,7 +563,7 @@ function NotesPage() {
             >
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                 <text style={{ color: color.text, fontSize: 13, fontWeight: 700 }}>{note.title}</text>
-                <Pill accent={note.archived ? "#312a42" : "#22362d"}>{note.archived ? "Archived" : "Active"}</Pill>
+                <Pill text={note.archived ? "Archived" : "Active"} accent={note.archived ? "#312a42" : "#22362d"} />
               </div>
               <text style={{ color: color.muted, fontSize: 11, lineHeight: 16, lineClamp: 3 }}>{note.body}</text>
               <div testId={`note-archive-${note.id}`} style={{ ...actionStyle(false), marginTop: 4 }} onClick={() => toggleArchive(note.id)}>
@@ -563,7 +581,7 @@ function NotesPage() {
 function WeatherPage() {
   const [selected, setSelected] = createSignal(1)
   const [refreshes, setRefreshes] = createSignal(0)
-  const current = createMemo(() => weather.find((item) => item.id === selected()) ?? weather[0]!)
+  const current = createMemo(() => weather.find((item) => item.id === selected()) ?? austin)
 
   return (
     <div testId="page-weather" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -596,8 +614,8 @@ function WeatherPage() {
               </div>
               <text style={{ color: color.muted, fontSize: 11 }}>High {item.high}° · Low {item.low}°</text>
               <div style={{ display: "flex", gap: 8 }}>
-                <Pill>Humidity {item.humidity}%</Pill>
-                <Pill>Wind {item.wind} mph</Pill>
+                <Pill text={`Humidity ${item.humidity}%`} />
+                <Pill text={`Wind ${item.wind} mph`} />
               </div>
             </animate.div>
           )}
@@ -712,10 +730,7 @@ function AccountPage() {
         </div>
         <TooltipProvider delayDuration={0}>
           <Tooltip>
-            <TooltipTrigger
-              testId="account-tooltip"
-              style={{ ...actionStyle(false), display: "flex", justifyContent: "space-between" }}
-            >
+            <TooltipTrigger testId="account-tooltip" style={{ ...actionStyle(false), display: "flex", justifyContent: "space-between" }}>
               <text style={{ color: color.text, fontSize: 12 }}>Automation status</text>
               <text style={{ color: color.green, fontSize: 11 }}>Ready</text>
             </TooltipTrigger>
@@ -734,7 +749,6 @@ function AccountPage() {
 
 export function DashboardDemo() {
   const [page, setPage] = createSignal<Page>("overview")
-  const navItems: Page[] = ["overview", "tasks", "notes", "weather", "account"]
 
   return (
     <div
@@ -840,21 +854,16 @@ export function DashboardDemo() {
             <text style={{ color: color.muted, fontSize: 10 }}>{pageMeta[page()].description}</text>
           </div>
           <div style={{ display: "flex", gap: 6 }}>
-            <Pill accent="#22362d">Solid 2</Pill>
-            <Pill accent="#24324d">Native GPUI</Pill>
+            <Pill text="Solid 2" accent="#22362d" />
+            <Pill text="Native GPUI" accent="#24324d" />
           </div>
         </div>
 
         <div style={{ flexGrow: 1, minHeight: 0, padding: 16, overflowY: "scroll" }}>
           <Switch>
             <Match when={page() === "overview"}>
-              <animate.div
-                initial={{ opacity: 0, left: 12 }}
-                to={{ opacity: 1, left: 0 }}
-                transition={{ duration: 0.22, ease: "easeOut" }}
-                style={{ position: "relative" }}
-              >
-                <OverviewPage onNavigate={setPage} />
+              <animate.div initial={{ opacity: 0, left: 12 }} to={{ opacity: 1, left: 0 }} transition={{ duration: 0.22, ease: "easeOut" }} style={{ position: "relative" }}>
+                <OverviewPage onNavigate={(next) => setPage(next)} />
               </animate.div>
             </Match>
             <Match when={page() === "tasks"}>
