@@ -21,6 +21,7 @@ function Counter() {
       }}
     >
       <div
+        testId="counter-value"
         style={{
           fontSize: 48,
           fontWeight: "bold",
@@ -55,6 +56,7 @@ function Counter() {
         </div>
 
         <div
+          testId="counter-increment"
           style={{
             padding: 12,
             paddingLeft: 24,
@@ -72,6 +74,7 @@ function Counter() {
       </div>
 
       <div
+        testId="counter-reset"
         style={{
           marginTop: 16,
           padding: 16,

@@ -23,7 +23,7 @@ This project is an independently implemented Solid renderer built against GPUIX'
 
 ## Status
 
-The core Solid 2 renderer, native element surface, native capabilities, and first Solid-native component layer are implemented:
+The core Solid 2 renderer, native element surface, native capabilities, first Solid-native component layer, and most of the native testing foundation are implemented:
 
 - Solid 2 universal renderer integration
 - root-scoped JS shadow host tree
@@ -34,8 +34,11 @@ The core Solid 2 renderer, native element surface, native capabilities, and firs
 - Solid-native `Tooltip`, `Select`, and `Combobox`
 - Solid-native `as` slot renderer contract
 - unified `animate.*` declarative animation API backed by native GPUI animation frames
+- GPU-backed native TestRenderer adapter
+- native event/input parity and deterministic animation-clock coverage
+- Playwright-like `App` / `Locator` automation API over the native automation tree
 
-The next major parity area is the native testing and automation layer.
+The remaining M5 work is broader retained-tree/screenshot parity, completion of selection/layout validation, and live-process automation validation.
 
 ## Why a native Solid renderer
 
@@ -98,6 +101,49 @@ render(() => <App />, { title: "Solid GPUIX" })
 
 See `examples/counter` for the first fixture.
 
+## Testing and automation
+
+The testing API uses the same Solid root, mutation driver, event registry, native retained tree, and GPUI rendering path as a normal app. GPU-backed tests are available when the installed `@gpuix/native` build exports `TestGpuixRenderer`.
+
+```ts
+import { createElement, insert, insertNode, setProp } from "@jhomra21/gpuix-solid"
+import { createTestRoot } from "@jhomra21/gpuix-solid"
+import { createTestApp } from "@jhomra21/gpuix-solid/automation"
+
+const testRoot = createTestRoot()
+
+testRoot.render(() => {
+  const root = createElement("div")
+  const action = createElement("div")
+  setProp(action, "testId", "save")
+  setProp(action, "style", { width: 120, height: 40 })
+  insert(action, "Save")
+  insertNode(root, action)
+  return root
+})
+
+const app = createTestApp(testRoot.renderer)
+await app.getByTestId("save").click()
+```
+
+Locators query the native automation tree on demand instead of holding DOM-like element objects. Supported locator operations include `getByTestId`, `getByText`, `getByType`, nested locators, `count`, strict `element`, `bounds`, `click`, `fill`, `press`, `textContent`, and `waitFor`.
+
+The `@jhomra21/gpuix-solid/automation` subpath also provides the live-process transport:
+
+```ts
+import { launch } from "@jhomra21/gpuix-solid/automation"
+
+const app = await launch({
+  command: "bun",
+  args: ["run", "./dist/my-gpuix-app.js"],
+})
+
+await app.getByTestId("save").click()
+await app.close()
+```
+
+A renderer launched with piped stdin exposes the typed SSE-over-stdio automation protocol automatically; normal TTY-launched apps are unchanged. Live tree queries, painted bounds, pointer click, screenshots, and deterministic clock operations are supported. `fill()` and `press()` currently return a typed `Unsupported` error for live production renderers because `GpuixRenderer` does not yet expose native keystroke injection. They remain fully supported through `TestGpuixRenderer`.
+
 ## Reference projects
 
 The implementation is guided by four sources, for different reasons:
@@ -118,6 +164,7 @@ These projects are references, not bundled source dependencies except for `@gpui
 5. One synchronous Solid update burst should cross N-API as few times as practical.
 6. Native animations remain native. Solid sends targets; Rust owns animation frames.
 7. Test behavior at the retained-tree/event boundary, then add screenshot parity against upstream fixtures.
+8. Automation attaches to a specific renderer/backend instance; locators do not create a module-global active app.
 
 ## Development
 

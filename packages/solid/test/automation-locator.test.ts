@@ -106,6 +106,12 @@ describe("Playwright-like locator API", () => {
     expect(await app.getByTestId("panel").getByType("text").count()).toBe(3)
   })
 
+  it("returns descendant text content for matched containers", async () => {
+    const app = new App(new RecordingBackend(tree))
+
+    expect(await app.getByTestId("list").textContent()).toBe("Alpha nestedBeta nested")
+  })
+
   it("is strict for missing and ambiguous locators", async () => {
     const app = new App(new RecordingBackend(tree))
 

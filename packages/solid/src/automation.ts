@@ -1,8 +1,22 @@
-import type { MutationValue } from "./host/mutations.js"
-import type { StyleDesc } from "./host/types.js"
+import { parseJson } from "./automation/json.js"
+import {
+  parseAutomationTreeValue,
+  type AutomationTreeNode,
+  type ElementBounds,
+} from "./automation/tree.js"
 import type { TestRenderer } from "./testing.js"
 
-export type AutomationErrorCode = "NotFound" | "Ambiguous" | "Timeout"
+export type { AutomationTreeNode, ElementBounds } from "./automation/tree.js"
+
+export type AutomationErrorCode =
+  | "NotFound"
+  | "Ambiguous"
+  | "Timeout"
+  | "Protocol"
+  | "Closed"
+  | "Unsupported"
+  | "Security"
+  | "Cancelled"
 
 export class AutomationError extends Error {
   readonly code: AutomationErrorCode
@@ -12,25 +26,6 @@ export class AutomationError extends Error {
     this.name = "AutomationError"
     this.code = code
   }
-}
-
-export interface ElementBounds {
-  x: number
-  y: number
-  width: number
-  height: number
-}
-
-export interface AutomationTreeNode {
-  id: number
-  type: string
-  text?: string
-  testId?: string
-  style?: StyleDesc
-  events?: string[]
-  customProps?: Record<string, MutationValue>
-  bounds?: ElementBounds
-  children?: AutomationTreeNode[]
 }
 
 export interface AutomationBackend {
@@ -46,15 +41,11 @@ export interface AutomationBackend {
   close(): void | Promise<void>
 }
 
-function parseAutomationTree(json: string): AutomationTreeNode | null {
-  const parsed: unknown = JSON.parse(json)
-  if (parsed === null) return null
-  // SAFETY: TestGpuixRenderer.getAutomationTree() serializes the GPUIX
-  // automation tree with this exact recursive schema.
-  return parsed as AutomationTreeNode
+export function parseAutomationTree(json: string): AutomationTreeNode | null {
+  return parseAutomationTreeValue(parseJson(json))
 }
 
-function parseBounds(bounds: number[] | null): ElementBounds | null {
+export function parseBounds(bounds: number[] | null): ElementBounds | null {
   if (bounds === null) return null
   const x = bounds[0]
   const y = bounds[1]
@@ -147,6 +138,14 @@ function collect(node: AutomationTreeNode | null, selector: Selector): Automatio
   return found
 }
 
+function nodeTextContent(node: AutomationTreeNode): string {
+  let text = node.text ?? ""
+  for (const child of node.children ?? []) {
+    text += nodeTextContent(child)
+  }
+  return text
+}
+
 function toKeystrokes(text: string): string {
   return [...text]
     .map((character) => {
@@ -231,7 +230,7 @@ export class Locator {
   }
 
   async textContent(): Promise<string> {
-    return (await this.element()).text ?? ""
+    return nodeTextContent(await this.element())
   }
 
   async waitFor(options: { timeoutMs?: number } = {}): Promise<AutomationTreeNode> {
