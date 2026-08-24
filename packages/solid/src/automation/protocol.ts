@@ -4,6 +4,9 @@ import type { AutomationErrorCode } from "../automation.js"
 
 export const PROTOCOL_VERSION = 1 as const
 
+export type WireInput = unknown
+export type WireResult = unknown
+
 export const automationErrorCodes = [
   "Timeout",
   "NotFound",
@@ -122,7 +125,7 @@ const responseSchema = z.union([
 export type AutomationResponse = z.infer<typeof responseSchema>
 export type WireMessage = AutomationRequest | AutomationResponse
 
-export function parseWireMessage(value: unknown): WireMessage {
+export function parseWireMessage(value: WireInput): WireMessage {
   const request = automationRequestSchema.safeParse(value)
   if (request.success) return request.data
   const response = responseSchema.safeParse(value)
@@ -145,7 +148,7 @@ export function createSseDecoder(
   const parser = createParser({
     onEvent(event: EventSourceMessage) {
       try {
-        const parsed: unknown = JSON.parse(event.data)
+        const parsed: WireInput = JSON.parse(event.data)
         onMessage(parseWireMessage(parsed))
       } catch (reason) {
         const error = reason instanceof Error ? reason : new Error(String(reason))
