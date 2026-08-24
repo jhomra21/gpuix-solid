@@ -1,11 +1,9 @@
 import { createParser, type EventSourceMessage } from "eventsource-parser"
 import { z } from "zod"
 import type { AutomationErrorCode } from "../automation.js"
+import { jsonValueSchema, parseJson, type JsonValue } from "./json.js"
 
 export const PROTOCOL_VERSION = 1 as const
-
-export type WireInput = unknown
-export type WireResult = unknown
 
 export const automationErrorCodes = [
   "Timeout",
@@ -97,7 +95,7 @@ export const initializeResultSchema = z.object({
   capabilities: z.array(z.enum(["input", "screenshot", "clock", "tree"])),
   window: z.object({ width: z.number(), height: z.number() }),
 })
-export const getTreeResultSchema = z.object({ tree: z.unknown().nullable() })
+export const getTreeResultSchema = z.object({ tree: jsonValueSchema.nullable() })
 export const getBoundsResultSchema = z.object({
   bounds: z.object({
     x: z.number(),
@@ -111,13 +109,13 @@ export const screenshotResultSchema = z.object({ path: z.string() })
 export const clockResultSchema = z.object({ nowMs: z.number() })
 
 const responseSchema = z.union([
-  z.object({ id: idSchema, result: z.unknown() }),
+  z.object({ id: idSchema, result: jsonValueSchema }),
   z.object({
     id: idSchema,
     error: z.object({
       code: errorCodeSchema,
       message: z.string(),
-      data: z.unknown().optional(),
+      data: jsonValueSchema.optional(),
     }),
   }),
 ])
@@ -125,7 +123,7 @@ const responseSchema = z.union([
 export type AutomationResponse = z.infer<typeof responseSchema>
 export type WireMessage = AutomationRequest | AutomationResponse
 
-export function parseWireMessage(value: WireInput): WireMessage {
+export function parseWireMessage(value: JsonValue): WireMessage {
   const request = automationRequestSchema.safeParse(value)
   if (request.success) return request.data
   const response = responseSchema.safeParse(value)
@@ -148,8 +146,7 @@ export function createSseDecoder(
   const parser = createParser({
     onEvent(event: EventSourceMessage) {
       try {
-        const parsed: WireInput = JSON.parse(event.data)
-        onMessage(parseWireMessage(parsed))
+        onMessage(parseWireMessage(parseJson(event.data)))
       } catch (reason) {
         const error = reason instanceof Error ? reason : new Error(String(reason))
         onInvalid?.(event.data, error)
