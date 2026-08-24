@@ -6,8 +6,8 @@ import {
   type AutomationBackend,
   type AutomationTreeNode,
   type ElementBounds,
-  parseAutomationTreeValue,
 } from "../automation.js"
+import { parseAutomationTreeValue } from "./tree.js"
 import {
   clockResultSchema,
   createSseDecoder,
