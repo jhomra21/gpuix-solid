@@ -63,9 +63,8 @@ jobs:
             echo "@jhomra21/gpuix-solid@$version already exists on npm."
             exit 1
           fi
-      - name: Inspect package tarball
-        working-directory: packages/solid
-        run: npm pack --dry-run
+      - name: Validate package tarball
+        run: node packages/solid/scripts/validate-package.mjs
       - name: Publish to npm
         working-directory: packages/solid
         env:
