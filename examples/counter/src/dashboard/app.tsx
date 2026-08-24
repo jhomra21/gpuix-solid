@@ -692,7 +692,7 @@ function AccountPage() {
           <SelectContent
             testId="density-content"
             side="bottom"
-            gap={6}
+            sideOffset={6}
             style={{
               width: 220,
               padding: 6,
@@ -768,7 +768,7 @@ export function DashboardDemo() {
           flexShrink: 0,
           padding: 12,
           backgroundColor: color.sidebar,
-          borderRightWidth: 1,
+          borderWidth: 1,
           borderColor: color.border,
           display: "flex",
           flexDirection: "column",
@@ -841,7 +841,7 @@ export function DashboardDemo() {
             minHeight: 66,
             paddingLeft: 18,
             paddingRight: 18,
-            borderBottomWidth: 1,
+            borderWidth: 1,
             borderColor: color.border,
             backgroundColor: color.sidebar,
             display: "flex",
