@@ -57,11 +57,11 @@
 
 - [x] native TestRenderer adapter
 - [ ] retained-tree snapshot parity against React fixtures
-- [ ] event/input parity
+- [x] event/input parity
 - [ ] selection/layout parity
-- [ ] Playwright-like locator API
+- [x] Playwright-like locator API
 - [ ] live launch/connect transport
-- [ ] deterministic animation clock
+- [x] deterministic animation clock
 - [ ] screenshot parity suite
 
 ## M6 — release
