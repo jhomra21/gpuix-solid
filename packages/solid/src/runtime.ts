@@ -1,5 +1,6 @@
 import { GpuixRenderer, type EventPayload, type WindowOptions } from "@gpuix/native"
 import type { Element as SolidElement } from "solid-js"
+import { enableAutomation } from "./automation/server.js"
 import { applyDebugFrameOverlay } from "./capabilities.js"
 import { startFrameLoop, type FrameLoop } from "./frame-loop.js"
 import type { DebugFrameOverlayMode, NativeRenderer } from "./host/types.js"
@@ -12,6 +13,7 @@ export function createRenderer(
   onEvent?: (event: EventPayload) => void,
 ): RendererBinding {
   let root: Root | undefined
+  let automationEnabled = false
   const renderer = new GpuixRenderer((error, event) => {
     if (error) {
       console.error("[gpuix-solid] native event error", error)
@@ -21,6 +23,15 @@ export function createRenderer(
     root?.dispatch(event)
     onEvent?.(event)
   })
+
+  const nativeInit = renderer.init.bind(renderer)
+  renderer.init = (options) => {
+    nativeInit(options)
+    if (!process.stdin.isTTY && !automationEnabled) {
+      enableAutomation(renderer)
+      automationEnabled = true
+    }
+  }
 
   return {
     renderer,
