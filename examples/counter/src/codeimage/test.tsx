@@ -9,6 +9,10 @@ import { CodeImageNativeDemo } from "./app"
 
 const screenshotPath = "/tmp/gpuix-solid-codeimage-native.png"
 
+async function requireTestId(app: ReturnType<typeof createTestApp>, testId: string): Promise<void> {
+  assert.equal(await app.getByTestId(testId).count(), 1, `expected ${testId} to exist exactly once`)
+}
+
 async function main(): Promise<void> {
   if (!hasNativeTestRenderer) {
     console.log("codeimage integration: native TestGpuixRenderer unavailable; skipped")
@@ -23,7 +27,7 @@ async function main(): Promise<void> {
   const app = createTestApp(testRoot.renderer)
 
   try {
-    assert.equal(await app.getByTestId("codeimage-shell").count(), 1)
+    await requireTestId(app, "codeimage-shell")
     assert.equal(await app.getByTestId("preview-filename").textContent(), "native-renderer.tsx")
     assert.equal(await app.getByTestId("theme-label").textContent(), "Tokyo Night")
     assert.equal(await app.getByTestId("padding-value").textContent(), "48px")
@@ -33,25 +37,35 @@ async function main(): Promise<void> {
     assert.ok(preview.width > 600)
     assert.ok(preview.height > 400)
 
+    await requireTestId(app, "tool-theme")
     await app.getByTestId("tool-theme").click()
+    await requireTestId(app, "theme-rose")
     await app.getByTestId("theme-rose").click()
     assert.equal(await app.getByTestId("theme-label").textContent(), "Rosé Pine")
 
+    await requireTestId(app, "tool-frame")
     await app.getByTestId("tool-frame").click()
+    await requireTestId(app, "padding-plus")
     await app.getByTestId("padding-plus").click()
     assert.equal(await app.getByTestId("padding-value").textContent(), "56px")
+    await requireTestId(app, "chrome-compact")
     await app.getByTestId("chrome-compact").click()
 
+    await requireTestId(app, "filename-input")
     await app.getByTestId("filename-input").fill("solid2-native.tsx")
     assert.equal(await app.getByTestId("preview-filename").textContent(), "solid2-native.tsx")
 
+    await requireTestId(app, "tool-code")
     await app.getByTestId("tool-code").click()
-    assert.equal(await app.getByTestId("line-number-1").count(), 1)
+    await requireTestId(app, "line-number-1")
+    await requireTestId(app, "toggle-line-numbers")
     await app.getByTestId("toggle-line-numbers").click()
     assert.equal(await app.getByTestId("line-number-1").count(), 0)
+    await requireTestId(app, "font-size-plus")
     await app.getByTestId("font-size-plus").click()
     assert.equal(await app.getByTestId("font-size-value").textContent(), "14px")
 
+    await requireTestId(app, "export-button")
     await app.getByTestId("export-button").click()
     assert.match(await app.getByTestId("export-status").textContent(), /Exported 1 preview/)
 
