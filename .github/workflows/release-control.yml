@@ -14,6 +14,57 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  prepare:
+    if: >-
+      github.event.issue.number == 31 &&
+      github.event.issue.pull_request == null &&
+      github.event.comment.user.login == github.repository_owner &&
+      startsWith(github.event.comment.body, '/release ')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch release preparation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        shell: bash
+        run: |
+          command=""
+          release_type=""
+          version=""
+          extra=""
+          read -r command release_type version extra <<< "$COMMENT_BODY"
+
+          if [[ "$command" != "/release" || -n "$extra" ]]; then
+            echo "Invalid release command. Expected: /release <type> [version]"
+            exit 1
+          fi
+
+          case "$release_type" in
+            beta-next|promote-stable|patch|minor|major)
+              if [[ -n "$version" ]]; then
+                echo "${release_type} does not accept an explicit version."
+                exit 1
+              fi
+              ;;
+            explicit)
+              if [[ -z "$version" ]]; then
+                echo "An explicit version is required when release_type=explicit."
+                exit 1
+              fi
+              ;;
+            *)
+              echo "Unsupported release type: ${release_type:-<empty>}"
+              exit 1
+              ;;
+          esac
+
+          args=(workflow run prepare-release.yml --repo "$GITHUB_REPOSITORY" --ref main -f "release_type=${release_type}")
+          if [[ "$release_type" == "explicit" ]]; then
+            args+=(-f "version=${version}")
+          fi
+          gh "${args[@]}"
+          gh issue comment 31 --repo "$GITHUB_REPOSITORY" --body "Release preparation dispatched: ${release_type}${version:+ ${version}}."
+
   recover:
     if: >-
       github.event.issue.number == 31 &&
