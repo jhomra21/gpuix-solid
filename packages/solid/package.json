@@ -33,7 +33,8 @@
     "jsx-dev-runtime.d.ts"
   ],
   "scripts": {
-    "build": "rm -rf dist *.tsbuildinfo && tsc -p tsconfig.build.json",
+    "clean": "bun scripts/clean.ts",
+    "build": "bun run clean && tsc -p tsconfig.build.json",
     "typecheck": "bun run build && tsc --noEmit",
     "test": "vitest run"
   },

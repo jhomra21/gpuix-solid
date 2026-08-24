@@ -66,7 +66,7 @@
 
 ## M6 — release
 
-- [ ] CI matrix
+- [x] CI matrix
 - [ ] package provenance
 - [ ] changesets/release workflow
 - [ ] beta package publication
