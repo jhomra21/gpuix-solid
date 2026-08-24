@@ -67,9 +67,9 @@
 ## M6 — release
 
 - [x] CI matrix
-- [ ] package provenance — prove the steady-state OIDC path with beta.2
+- [x] package provenance — `0.1.0-beta.2` proved the steady-state Trusted Publishing/OIDC path with SLSA provenance
 - [x] reviewed release PR + exact-artifact workflow
-- [x] beta package publication (`0.1.0-beta.1` bootstrap)
+- [x] beta package publication (`0.1.0-beta.1` bootstrap, `0.1.0-beta.2` automated)
 - [x] upstream compatibility matrix
 
 ## M7 — consumer validation and stabilization
@@ -77,6 +77,6 @@
 - [x] clean npm consumer import/typecheck fixture from the exact tarball
 - [x] clean Solid TSX/Vite consumer build from the exact tarball
 - [x] Bun clean-consumer import fixture
-- [ ] live `fill()` / `press()` keystroke injection — blocked on production `GpuixRenderer` exposing native keystroke simulation
-- [ ] first fully automated Trusted Publishing/OIDC release (`0.1.0-beta.2`)
+- [x] first fully automated Trusted Publishing/OIDC release (`0.1.0-beta.2`)
+- [ ] live `fill()` / `press()` keystroke injection — blocked on production `GpuixRenderer` exposing native keystroke simulation; tracked in #35
 - [ ] dogfood the beta in a real external GPUI application and fold API friction into stabilization
