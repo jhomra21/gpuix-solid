@@ -11,13 +11,13 @@ export interface ElementBounds {
 export interface AutomationTreeNode {
   id: number
   type: string
-  text?: string
-  testId?: string
-  style?: Record<string, JsonValue>
-  events?: string[]
-  customProps?: Record<string, JsonValue>
-  bounds?: ElementBounds
-  children?: AutomationTreeNode[]
+  text?: string | undefined
+  testId?: string | undefined
+  style?: Record<string, JsonValue> | undefined
+  events?: string[] | undefined
+  customProps?: Record<string, JsonValue> | undefined
+  bounds?: ElementBounds | undefined
+  children?: AutomationTreeNode[] | undefined
 }
 
 const boundsSchema = z.object({
