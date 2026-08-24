@@ -41,6 +41,7 @@ For a beta such as `0.1.0-beta.0`, `beta-next` produces `0.1.0-beta.1`. Promotin
 8. Publish Package:
    - resolves the approved release source,
    - runs the full release checks,
+   - installs the GPUI Linux runtime libraries needed to load `@gpuix/native` in the clean consumer,
    - stages the public package in `packages/solid/.publish`,
    - packs one npm tarball and verifies its npm SHA-512 integrity,
    - performs an npm publish dry-run,
@@ -58,13 +59,17 @@ For a beta such as `0.1.0-beta.0`, `beta-next` produces `0.1.0-beta.1`. Promotin
 
 npm trusted publishing can only be configured after the package exists in the registry. The first publication therefore needs a one-time authentication bridge.
 
-The repository already contains the reviewed `0.1.0-beta.0` version from before the hardened release flow was installed. For this one bootstrap release:
+`0.1.0-beta.0` was an internal pre-publication candidate. The release-hardening work found and fixed a clean-consumer declaration issue before anything reached npm, so beta.0 is intentionally left unpublished and has no released changelog section.
+
+For the first public beta:
 
 1. Merge the release-hardening PR and wait for `main` CI to be green.
 2. Create a short-lived npm granular access token that can publish `@jhomra21/gpuix-solid` and is permitted for CI when publish 2FA is enabled.
 3. Add it to the repository as the Actions secret `NPM_BOOTSTRAP_TOKEN`.
-4. Run **Publish Package** manually from `main`. The recovery path locates the commit that introduced `0.1.0-beta.0`, refuses intervening runtime/package-input changes, and packages the current reviewed release tooling.
-5. Confirm npm reports `@jhomra21/gpuix-solid@0.1.0-beta.0`, the `beta` dist-tag points to it, provenance exists, and the registry integrity matches the workflow artifact.
+4. Run **Prepare Release** from `main` with `beta-next`. It should prepare `0.1.0-beta.1` and move all initial-beta notes out of `Unreleased`.
+5. Review the generated `release/v0.1.0-beta.1` PR and merge only after **Release Check** is green.
+6. The merge automatically starts **Publish Package**, which uses `NPM_BOOTSTRAP_TOKEN` only as the first-publication authentication bridge.
+7. Confirm npm reports `@jhomra21/gpuix-solid@0.1.0-beta.1`, the `beta` dist-tag points to it, provenance exists, and the registry integrity matches the workflow artifact.
 
 Do not manually run `npm publish` from a workstation.
 
@@ -91,6 +96,7 @@ Recovery is intentionally strict:
 
 - it finds the main-branch commit that introduced the current version,
 - it refuses recovery if publishable runtime inputs changed afterward,
+- it requires an immutable changelog section for that version,
 - it rebuilds one candidate from the current reviewed release source,
 - if npm already has the version, the remote `dist.integrity` must exactly match the candidate,
 - an existing tag must point to the expected release source,
@@ -110,4 +116,4 @@ node packages/solid/scripts/validate-package.mjs
 node packages/solid/scripts/smoke-package.mjs
 ```
 
-The smoke script creates its consumers outside the repository and cleans them when complete.
+On Linux, the smoke test requires the same GPUI runtime libraries installed by CI/upstream GPUIX. The smoke script creates its consumer projects outside the repository and cleans them when complete.
