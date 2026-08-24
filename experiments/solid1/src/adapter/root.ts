@@ -1,40 +1,13 @@
 import type { EventPayload } from "@gpuix/native"
 import type { JSX } from "solid-js"
-import {
-  GpuixContext,
-  type GpuixContextValue,
-} from "./context.js"
 import { EventRegistry } from "../../../../packages/solid/src/host/events.js"
 import { MutationDriver } from "../../../../packages/solid/src/host/mutations.js"
 import {
-  HostElementNode,
   HostRootNode,
-  HostTextNode,
   removeHostNode,
-  type HostNode,
 } from "../../../../packages/solid/src/host/nodes.js"
 import type { NativeRenderer } from "../../../../packages/solid/src/host/types.js"
-import { createComponent, universalRender } from "./universal.js"
-
-type UniversalNode = HostRootNode | HostNode
-type ContextResult = ReturnType<typeof GpuixContext.Provider>
-
-interface ContextProps {
-  value: GpuixContextValue
-  readonly children: JSX.Element
-}
-
-function isUniversalNode(value: ContextResult | UniversalNode): value is UniversalNode {
-  return value instanceof HostRootNode || value instanceof HostElementNode || value instanceof HostTextNode
-}
-
-function Context(props: ContextProps): UniversalNode {
-  const rendered = GpuixContext.Provider(props)
-  if (!isUniversalNode(rendered)) {
-    throw new TypeError("Solid 1 GPUI context must resolve to one host node")
-  }
-  return rendered
-}
+import { universalRender } from "./universal.js"
 
 export interface Root {
   render(code: () => JSX.Element): void
@@ -63,16 +36,7 @@ export function createRoot(renderer: NativeRenderer): Root {
         events.clear()
       }
 
-      dispose = universalRender(
-        () =>
-          createComponent(Context, {
-            value: { renderer },
-            get children() {
-              return code()
-            },
-          }),
-        container,
-      )
+      dispose = universalRender(code, container)
       flushNative()
     },
     flush: flushNative,
