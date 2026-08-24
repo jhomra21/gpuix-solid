@@ -4,15 +4,14 @@ import {
   parseAutomationTree,
   parseBounds,
 } from "../automation.js"
+import { jsonValueSchema, type JsonValue } from "./json.js"
 import {
+  automationRequestSchema,
   createSseDecoder,
   encodeSse,
-  parseWireMessage,
   PROTOCOL_VERSION,
   type AutomationRequest,
   type AutomationResponse,
-  type WireInput,
-  type WireResult,
 } from "./protocol.js"
 
 export interface LiveAutomationRenderer {
@@ -85,7 +84,7 @@ export class LiveAutomationBackend implements AutomationBackend {
   close(): void {}
 }
 
-function success(id: number, result: WireResult): AutomationResponse {
+function success(id: number, result: JsonValue): AutomationResponse {
   return { id, result }
 }
 
@@ -112,11 +111,11 @@ async function dispatch(
         window: { width: 800, height: 600 },
       })
     case "getTree":
-      return success(request.id, { tree: await backend.getTree() })
+      return success(request.id, jsonValueSchema.parse({ tree: await backend.getTree() }))
     case "getBounds":
-      return success(request.id, {
+      return success(request.id, jsonValueSchema.parse({
         bounds: await backend.getBounds(request.params.elementId),
-      })
+      }))
     case "click":
       await backend.click(request.params.x, request.params.y)
       return success(request.id, { ok: true })
@@ -139,24 +138,10 @@ async function dispatch(
   }
 }
 
-export async function handleAutomationRequest(
-  raw: WireInput,
+async function respond(
+  request: AutomationRequest,
   backend: AutomationBackend,
 ): Promise<string> {
-  let request: AutomationRequest
-  try {
-    const message = parseWireMessage(raw)
-    if (!("method" in message)) {
-      throw new AutomationError("Protocol", "Server expected an automation request")
-    }
-    request = message
-  } catch (reason) {
-    const error = reason instanceof AutomationError
-      ? reason
-      : new AutomationError("Protocol", reason instanceof Error ? reason.message : String(reason))
-    throw error
-  }
-
   try {
     return encodeSse(await dispatch(request, backend))
   } catch (reason) {
@@ -167,10 +152,24 @@ export async function handleAutomationRequest(
   }
 }
 
+export async function handleAutomationRequest(
+  raw: JsonValue | AutomationRequest,
+  backend: AutomationBackend,
+): Promise<string> {
+  const parsed = automationRequestSchema.safeParse(raw)
+  if (!parsed.success) {
+    throw new AutomationError(
+      "Protocol",
+      `Invalid automation request: ${parsed.error.message}`,
+    )
+  }
+  return await respond(parsed.data, backend)
+}
+
 export function serveAutomationStdio(backend: AutomationBackend): void {
   const decoder = createSseDecoder((message) => {
     if (!("method" in message)) return
-    void handleAutomationRequest(message, backend).then((reply) => {
+    void respond(message, backend).then((reply) => {
       process.stdout.write(reply)
     })
   })
