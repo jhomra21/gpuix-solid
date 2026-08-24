@@ -3,18 +3,17 @@ import { describe, expect, it } from "vitest"
 import type { MutationValue } from "../src/host/mutations.js"
 import type { HostElementNode } from "../src/host/nodes.js"
 import type { StyleDesc } from "../src/host/types.js"
-import {
-  createElement,
-  createTextNode,
-  insert,
-  insertNode,
-  setProp,
-} from "../src/host/universal.js"
+import { insert, insertNode, setProp } from "../src/host/universal.js"
 import {
   createTestRoot,
   hasNativeTestRenderer,
   type TestRenderer,
 } from "../src/testing.js"
+import {
+  createNestedStyleFixture,
+  createOrderedTextFixture,
+  element,
+} from "./native-parity-fixtures.js"
 
 type NativeTree = NonNullable<ReturnType<TestRenderer["toJSON"]>>
 
@@ -26,12 +25,6 @@ interface SnapshotNode {
   events?: string[]
   customProps?: Record<string, MutationValue>
   children?: SnapshotNode[]
-}
-
-function element(type: string): HostElementNode {
-  const node = createElement(type)
-  if (node.kind !== "element") throw new TypeError("Expected GPUIX host element")
-  return node
 }
 
 function snapshot(node: NativeTree): SnapshotNode {
@@ -54,52 +47,7 @@ const nativeIt = hasNativeTestRenderer ? it : it.skip
 describe("native retained-tree parity", () => {
   nativeIt("matches the upstream nested style and text fixture", () => {
     const testRoot = createTestRoot()
-
-    testRoot.render(() => {
-      const root = element("div")
-      setProp(root, "style", {
-        display: "flex",
-        flexDirection: "row",
-        width: 400,
-        height: 200,
-        backgroundColor: "#1e1e2e",
-        gap: 8,
-        padding: 12,
-        borderRadius: 8,
-      })
-
-      const gutter = element("div")
-      setProp(gutter, "style", {
-        alignSelf: "stretch",
-        width: 50,
-        backgroundColor: "#313244",
-        flexShrink: 0,
-      })
-      const gutterText = element("text")
-      setProp(gutterText, "style", { color: "#6c7086", fontSize: 12 })
-      insertNode(gutterText, createTextNode("01"))
-      insertNode(gutter, gutterText)
-
-      const content = element("div")
-      setProp(content, "style", {
-        display: "flex",
-        flexDirection: "column",
-        flexGrow: 1,
-        gap: 4,
-      })
-      const first = element("text")
-      setProp(first, "style", { color: "#cdd6f4", fontSize: 14 })
-      insertNode(first, createTextNode("Line content that may wrap"))
-      const second = element("text")
-      setProp(second, "style", { color: "#a6adc8", fontSize: 12 })
-      insertNode(second, createTextNode("Second line of content"))
-      insertNode(content, first)
-      insertNode(content, second)
-
-      insertNode(root, gutter)
-      insertNode(root, content)
-      return root
-    })
+    testRoot.render(() => createNestedStyleFixture())
 
     const tree = testRoot.renderer.toJSON()
     if (!tree) throw new Error("Expected native retained tree")
@@ -242,16 +190,10 @@ describe("native retained-tree parity", () => {
 
   nativeIt("preserves native node identity while Solid reorders children", () => {
     const testRoot = createTestRoot()
-    const alpha = element("text")
-    const beta = element("text")
-    const gamma = element("text")
-    insertNode(alpha, createTextNode("alpha"))
-    insertNode(beta, createTextNode("beta"))
-    insertNode(gamma, createTextNode("gamma"))
+    const { root, alpha, beta, gamma } = createOrderedTextFixture()
     const [order, setOrder] = createSignal<HostElementNode[]>([alpha, beta, gamma])
 
     testRoot.render(() => {
-      const root = element("div")
       insert(root, order)
       return root
     })
