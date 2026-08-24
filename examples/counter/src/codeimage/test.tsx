@@ -4,6 +4,7 @@ import {
   createTestApp,
   createTestRoot,
   hasNativeTestRenderer,
+  type TestRenderer,
 } from "@jhomra21/gpuix-solid"
 import { CodeImageNativeDemo } from "./app"
 
@@ -11,6 +12,18 @@ const screenshotPath = "/tmp/gpuix-solid-codeimage-native.png"
 
 async function requireTestId(app: ReturnType<typeof createTestApp>, testId: string): Promise<void> {
   assert.equal(await app.getByTestId(testId).count(), 1, `expected ${testId} to exist exactly once`)
+}
+
+async function pointerClick(
+  app: ReturnType<typeof createTestApp>,
+  renderer: TestRenderer,
+  testId: string,
+): Promise<void> {
+  const bounds = await app.getByTestId(testId).bounds()
+  const x = bounds.x + bounds.width / 2
+  const y = bounds.y + bounds.height / 2
+  renderer.nativeSimulateMouseMove(x, y)
+  renderer.nativeSimulateClick(x, y)
 }
 
 async function main(): Promise<void> {
@@ -38,13 +51,13 @@ async function main(): Promise<void> {
     assert.ok(preview.height > 400)
 
     await requireTestId(app, "tool-theme")
-    await app.getByTestId("tool-theme").click()
+    await pointerClick(app, testRoot.renderer, "tool-theme")
     await requireTestId(app, "theme-rose")
     await app.getByTestId("theme-rose").click()
     assert.equal(await app.getByTestId("theme-label").textContent(), "Rosé Pine")
 
     await requireTestId(app, "tool-frame")
-    await app.getByTestId("tool-frame").click()
+    await pointerClick(app, testRoot.renderer, "tool-frame")
     await requireTestId(app, "padding-plus")
     await app.getByTestId("padding-plus").click()
     assert.equal(await app.getByTestId("padding-value").textContent(), "56px")
@@ -56,11 +69,8 @@ async function main(): Promise<void> {
     assert.equal(await app.getByTestId("preview-filename").textContent(), "solid2-native.tsx")
 
     await requireTestId(app, "tool-code")
-    await app.getByTestId("tool-code").click()
+    await pointerClick(app, testRoot.renderer, "tool-code")
     await requireTestId(app, "line-number-1")
-    if ((await app.getByTestId("toggle-line-numbers").count()) !== 1) {
-      console.log("codeimage automation tree after tool-code click:\n" + testRoot.renderer.getAutomationTree())
-    }
     await requireTestId(app, "toggle-line-numbers")
     await app.getByTestId("toggle-line-numbers").click()
     assert.equal(await app.getByTestId("line-number-1").count(), 0)
