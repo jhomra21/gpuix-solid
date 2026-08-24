@@ -20,6 +20,7 @@ type NativeTree = NonNullable<ReturnType<TestRenderer["toJSON"]>>
 
 interface SnapshotNode {
   type: string
+  testId?: string
   style?: StyleDesc
   text?: string
   events?: string[]
@@ -35,6 +36,7 @@ function element(type: string): HostElementNode {
 
 function snapshot(node: NativeTree): SnapshotNode {
   const result: SnapshotNode = { type: node.type }
+  if (node.testId !== undefined) result.testId = node.testId
   if (node.style && Object.keys(node.style).length > 0) result.style = node.style
   if (node.text !== undefined && node.text !== null) result.text = node.text
   if (node.events && node.events.length > 0) result.events = [...node.events].sort()
@@ -223,9 +225,6 @@ describe("native retained-tree parity", () => {
             "type": "input",
           },
         ],
-        "customProps": {
-          "testId": "snapshot-root",
-        },
         "events": [
           "click",
         ],
@@ -233,6 +232,7 @@ describe("native retained-tree parity", () => {
           "height": 120,
           "width": 320,
         },
+        "testId": "snapshot-root",
         "type": "div",
       }
     `)
@@ -242,20 +242,16 @@ describe("native retained-tree parity", () => {
 
   nativeIt("preserves native node identity while Solid reorders children", () => {
     const testRoot = createTestRoot()
-    const [order, setOrder] = createSignal<HostElementNode[]>([])
-    let alpha!: HostElementNode
-    let beta!: HostElementNode
-    let gamma!: HostElementNode
+    const alpha = element("text")
+    const beta = element("text")
+    const gamma = element("text")
+    insertNode(alpha, createTextNode("alpha"))
+    insertNode(beta, createTextNode("beta"))
+    insertNode(gamma, createTextNode("gamma"))
+    const [order, setOrder] = createSignal<HostElementNode[]>([alpha, beta, gamma])
 
     testRoot.render(() => {
       const root = element("div")
-      alpha = element("text")
-      beta = element("text")
-      gamma = element("text")
-      insertNode(alpha, createTextNode("alpha"))
-      insertNode(beta, createTextNode("beta"))
-      insertNode(gamma, createTextNode("gamma"))
-      setOrder([alpha, beta, gamma])
       insert(root, order)
       return root
     })
@@ -264,8 +260,7 @@ describe("native retained-tree parity", () => {
     expect(ids.every((id) => id > 0)).toBe(true)
     expect(testRoot.renderer.getRoot()?.children).toEqual(ids)
 
-    setOrder([gamma, alpha, beta])
-    testRoot.root.flush()
+    testRoot.root.flushSync(() => setOrder([gamma, alpha, beta]))
     testRoot.renderer.flush()
 
     expect([alpha.id, beta.id, gamma.id]).toEqual(ids)
