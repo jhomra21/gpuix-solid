@@ -54,7 +54,7 @@ export class LiveAutomationBackend implements AutomationBackend {
     this.#renderer.tick()
   }
 
-  keystrokes(): never {
+  keystrokes(_elementId: number, _keys: string): never {
     throw new AutomationError(
       "Unsupported",
       "Live GPUIX does not expose keystroke injection yet",
