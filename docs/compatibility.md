@@ -23,9 +23,11 @@ The native GPUIX contract is the behavioral baseline. When `@gpuix/native` chang
 - Linux arm64 and x64 GNU
 - Windows arm64 and x64 MSVC
 
-GPUix Solid CI runs frozen install, lint, typecheck, tests, and build on one GitHub-hosted runner for each OS family: macOS, Linux, and Windows.
+GPUix Solid CI runs frozen install, lint, typecheck, platform-independent tests, and builds on one GitHub-hosted runner for each OS family: macOS, Linux, and Windows.
 
-GPU-backed `TestGpuixRenderer` coverage depends on the installed native package exposing test support. GPUIX's published macOS build includes that support; platform-independent tests still run on Linux and Windows.
+Native `TestGpuixRenderer` coverage is currently validated in CI on macOS and Linux. The Ubuntu runner installs the GPUI runtime libraries required by the published Linux binding, so native event/input, layout, screenshot, animation, retained-tree, and dashboard dogfood coverage execute there instead of being skipped.
+
+The published `@gpuix/native@0.4.0` Windows x64 MSVC binding currently fails to load on GitHub-hosted Windows Server 2025 with `ERR_DLOPEN_FAILED` (`The specified procedure could not be found`). Windows CI therefore remains a lint, typecheck, build, and platform-independent-test gate, while the native dashboard execution is skipped on Windows CI only. This does not disable local Windows attempts; `bun run test` outside CI still tries to load and exercise the native binding.
 
 ## Solid 2 conditions
 
