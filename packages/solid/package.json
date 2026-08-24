@@ -20,6 +20,11 @@
       "types": "./jsx-dev-runtime.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./automation": {
+      "types": "./dist/automation/index.d.ts",
+      "import": "./dist/automation/index.js",
+      "default": "./dist/automation/index.js"
     }
   },
   "files": [
@@ -34,7 +39,9 @@
   },
   "dependencies": {
     "@gpuix/native": "^0.4.0",
-    "@solidjs/universal": "2.0.0-rc.0"
+    "@solidjs/universal": "2.0.0-rc.0",
+    "eventsource-parser": "^4.1.0",
+    "zod": "^4.4.3"
   },
   "peerDependencies": {
     "solid-js": "^2.0.0-rc.0"
