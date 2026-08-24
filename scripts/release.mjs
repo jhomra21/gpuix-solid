@@ -38,8 +38,8 @@ function compareIdentifier(a, b) {
 }
 
 export function compareVersions(aValue, bValue) {
-  const a = typeof aValue === "string" ? parseVersion(aValue) : aValue
-  const b = typeof bValue === "string" ? parseVersion(bValue) : bValue
+  const a = parseVersion(aValue)
+  const b = parseVersion(bValue)
   for (const key of ["major", "minor", "patch"]) {
     if (a[key] !== b[key]) return Math.sign(a[key] - b[key])
   }
@@ -97,7 +97,7 @@ export function nextVersion(currentValue, type, explicitValue) {
 }
 
 export function updatePackageVersion(content, currentVersion, nextVersionValue) {
-  const versionPattern = /(\"version\"\s*:\s*\")([^\"]+)(\")/
+  const versionPattern = /("version"\s*:\s*")([^"]+)(")/
   const match = versionPattern.exec(content)
   if (!match) throw new Error(`${PACKAGE_JSON_PATH} does not contain a version field`)
   if (match[2] !== currentVersion) {
