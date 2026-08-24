@@ -6,7 +6,8 @@ on:
 
 permissions:
   actions: write
-  contents: read
+  contents: write
+  issues: write
 
 concurrency:
   group: release-control
@@ -28,3 +29,91 @@ jobs:
         run: |
           echo "Dispatching publish.yml recovery from main."
           gh workflow run publish.yml --repo "$GITHUB_REPOSITORY" --ref main
+
+  finalize:
+    if: >-
+      github.event.issue.number == 31 &&
+      github.event.issue.pull_request == null &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.body == '/finalize-release'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      - name: Validate package, tag, and GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          package=$(node -p 'require("./packages/solid/package.json").name')
+          version=$(node -p 'require("./packages/solid/package.json").version')
+          tag="v${version}"
+          git fetch --tags --force
+
+          release_sha=""
+          while read -r sha; do
+            commit_version=$(git show "${sha}:packages/solid/package.json" | node -e 'let s=""; process.stdin.on("data", c => s += c); process.stdin.on("end", () => process.stdout.write(JSON.parse(s).version))')
+            if [[ "$commit_version" != "$version" ]]; then
+              continue
+            fi
+
+            parent_sha=$(git rev-parse "${sha}^" 2>/dev/null || true)
+            parent_version=""
+            if [[ -n "$parent_sha" ]] && git cat-file -e "${parent_sha}:packages/solid/package.json" 2>/dev/null; then
+              parent_version=$(git show "${parent_sha}:packages/solid/package.json" | node -e 'let s=""; process.stdin.on("data", c => s += c); process.stdin.on("end", () => process.stdout.write(JSON.parse(s).version))')
+            fi
+
+            if [[ "$parent_version" != "$version" ]]; then
+              release_sha="$sha"
+              break
+            fi
+          done < <(git log --first-parent --format=%H -- packages/solid/package.json)
+
+          if [[ -z "$release_sha" ]]; then
+            echo "Could not locate the main-branch commit that introduced ${version}."
+            exit 1
+          fi
+
+          if ! git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+            echo "${tag} does not exist; use /recover-release first."
+            exit 1
+          fi
+
+          tagged_commit=$(git rev-list -n 1 "$tag")
+          if [[ "$tagged_commit" != "$release_sha" ]]; then
+            echo "${tag} points to ${tagged_commit}, expected ${release_sha}."
+            exit 1
+          fi
+
+          remote_integrity=$(npm view "${package}@${version}" dist.integrity 2>/dev/null || true)
+          if [[ "$remote_integrity" != sha512-* ]]; then
+            echo "Could not verify npm integrity for ${package}@${version}."
+            exit 1
+          fi
+
+          expected_tag=latest
+          if [[ "$version" == *-* ]]; then expected_tag=beta; fi
+          tagged_version=$(npm view "$package" dist-tags --json | node -e 'let s=""; process.stdin.on("data", c => s += c); process.stdin.on("end", () => { const tags=JSON.parse(s); process.stdout.write(tags[process.argv[1]] ?? ""); })' "$expected_tag")
+          if [[ "$tagged_version" != "$version" ]]; then
+            echo "Expected npm dist-tag ${expected_tag} -> ${version}, got ${tagged_version:-<missing>}."
+            exit 1
+          fi
+
+          state="already existed"
+          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            node scripts/release.mjs notes --version "$version" > /tmp/release-notes.md
+            args=(release create "$tag" --repo "$GITHUB_REPOSITORY" --verify-tag --title "$tag" --notes-file /tmp/release-notes.md)
+            if [[ "$version" == *-* ]]; then args+=(--prerelease); fi
+            gh "${args[@]}"
+            state="created"
+          fi
+
+          gh issue comment 31 --repo "$GITHUB_REPOSITORY" --body "Release finalization complete: ${tag} ${state}; tag target ${release_sha}; npm ${expected_tag} -> ${version}; registry integrity verified."
