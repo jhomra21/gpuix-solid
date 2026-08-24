@@ -39,9 +39,7 @@ const runtime = createRenderer<HostNode | HostParent>({
     if (parent.kind === "text" || node.kind === "root") {
       throw new TypeError("Expected a GPUIX parent and child host node")
     }
-    if (anchor?.kind === "root" || anchor?.kind === "text") {
-      throw new TypeError("Expected a GPUIX element anchor")
-    }
+    if (anchor?.kind === "root") throw new TypeError("Expected a GPUIX host node anchor")
     insertHostNode(parent, node, anchor ?? null)
   },
   isTextNode(node) {
