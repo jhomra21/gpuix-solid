@@ -23,7 +23,7 @@ This project is an independently implemented Solid renderer built against GPUIX'
 
 ## Status
 
-M0 through M5 are complete. The renderer, native element surface, native capabilities, Solid-native component layer, and native testing/automation foundation are implemented and parity-tested:
+M0 through M6 are complete. The renderer, native element surface, native capabilities, Solid-native component layer, testing/automation foundation, and release pipeline are implemented and parity-tested:
 
 - Solid 2 universal renderer integration
 - root-scoped JS shadow host tree
@@ -39,8 +39,10 @@ M0 through M5 are complete. The renderer, native element surface, native capabil
 - deterministic native animation-clock coverage
 - Playwright-like `App` / `Locator` automation API over the native automation tree
 - typed live stdio launch/connect automation transport
+- cross-platform CI plus exact-tarball clean npm, Bun, and Solid TSX/Vite consumer validation
+- tokenless npm Trusted Publishing/OIDC with registry integrity, dist-tag, SLSA provenance, immutable tag, and GitHub Release verification
 
-M6 is release hardening: cross-platform CI, versioning, npm provenance, beta publication, and compatibility documentation.
+`0.1.0-beta.2` is the first release published entirely through the steady-state Trusted Publishing/OIDC pipeline. M7 now focuses on real-consumer stabilization and the remaining live-automation gap. Production `GpuixRenderer` does not yet expose native keystroke injection, so live `fill()` / `press()` remains blocked upstream and is tracked in issue #35.
 
 ## Why a native Solid renderer
 
