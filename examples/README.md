@@ -63,8 +63,8 @@ It exercises a much denser renderer surface than the parity examples:
 - Playwright-like `App` / `Locator` automation over `TestGpuixRenderer`
 - deterministic animation-clock assertions and a real native screenshot capture
 
-The dashboard integration test is part of `bun run test`; it navigates between pages, fills inputs, mutates tasks and notes, filters lists, selects weather data, changes preferences, drives the native `Select`, fast-forwards an animation, and captures a GPUI screenshot.
+The dashboard integration test is part of `bun run test`; it navigates between pages, fills inputs, mutates tasks and notes, filters lists, selects weather data, changes preferences, drives the native `Select`, fast-forwards animations, and captures a GPUI screenshot.
 
 ## Validation policy
 
-CI runs lint, package/example typechecks, tests, and builds all example targets. The dashboard's `TestGpuixRenderer` integration runs wherever the installed native build exposes native test support; otherwise that GPU-backed portion reports an explicit skip. CI intentionally does not open normal GPUI application windows on headless runners. Running the commands above on a supported desktop remains the end-to-end native smoke test.
+CI runs lint, package/example typechecks, tests, and builds all example targets. The dashboard's real `TestGpuixRenderer` integration executes on macOS and Linux CI. The published `@gpuix/native@0.4.0` Windows binding currently does not load on GitHub-hosted Windows Server 2025, so Windows CI still compiles and builds the dashboard and runs platform-independent tests but skips only the native dashboard execution. Running `bun run example:dashboard` on a supported desktop remains the end-to-end normal-window smoke test.
