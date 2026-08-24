@@ -210,17 +210,24 @@ function Section(props: {
   testId?: string
 }) {
   const [open, setOpen] = createSignal(props.defaultOpen ?? true)
-  const headerStyle = (): StyleDesc => ({
-    minHeight: 38,
-    paddingLeft: 12,
-    paddingRight: 12,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: color.panelRaised,
-    ...(props.collapsible ? { cursor: "pointer" } : {}),
-  })
-  const headerProps = () => props.testId ? { testId: props.testId } : {}
+  const headerStyle = (): StyleDesc => {
+    const style: StyleDesc = {
+      minHeight: 38,
+      paddingLeft: 12,
+      paddingRight: 12,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: color.panelRaised,
+    }
+    if (props.collapsible) style.cursor = "pointer"
+    return style
+  }
+  const headerProps = (): { testId?: string } => {
+    const result: { testId?: string } = {}
+    if (props.testId) result.testId = props.testId
+    return result
+  }
 
   return (
     <div style={surface({ overflow: "hidden" })}>
