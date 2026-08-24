@@ -3,11 +3,29 @@ import type { JSX } from "solid-js"
 import { EventRegistry } from "../../../../packages/solid/src/host/events.js"
 import { MutationDriver } from "../../../../packages/solid/src/host/mutations.js"
 import {
+  HostElementNode,
   HostRootNode,
+  HostTextNode,
   removeHostNode,
+  type HostNode,
 } from "../../../../packages/solid/src/host/nodes.js"
 import type { NativeRenderer } from "../../../../packages/solid/src/host/types.js"
 import { universalRender } from "./universal.js"
+
+type UniversalNode = HostRootNode | HostNode
+type SolidRenderResult = JSX.Element
+
+function isUniversalNode(value: SolidRenderResult | UniversalNode): value is UniversalNode {
+  return value instanceof HostRootNode || value instanceof HostElementNode || value instanceof HostTextNode
+}
+
+function resolveUniversalNode(code: () => JSX.Element): UniversalNode {
+  const rendered = code()
+  if (!isUniversalNode(rendered)) {
+    throw new TypeError("Solid 1 universal root must resolve to one GPUI host node")
+  }
+  return rendered
+}
 
 export interface Root {
   render(code: () => JSX.Element): void
@@ -36,7 +54,7 @@ export function createRoot(renderer: NativeRenderer): Root {
         events.clear()
       }
 
-      dispose = universalRender(code, container)
+      dispose = universalRender(() => resolveUniversalNode(code), container)
       flushNative()
     },
     flush: flushNative,
