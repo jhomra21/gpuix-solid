@@ -1,7 +1,12 @@
-import { parseJson, type JsonValue } from "./automation/json.js"
-import type { MutationValue } from "./host/mutations.js"
-import type { StyleDesc } from "./host/types.js"
+import { parseJson } from "./automation/json.js"
+import {
+  parseAutomationTreeValue,
+  type AutomationTreeNode,
+  type ElementBounds,
+} from "./automation/tree.js"
 import type { TestRenderer } from "./testing.js"
+
+export type { AutomationTreeNode, ElementBounds } from "./automation/tree.js"
 
 export type AutomationErrorCode =
   | "NotFound"
@@ -23,25 +28,6 @@ export class AutomationError extends Error {
   }
 }
 
-export interface ElementBounds {
-  x: number
-  y: number
-  width: number
-  height: number
-}
-
-export interface AutomationTreeNode {
-  id: number
-  type: string
-  text?: string
-  testId?: string
-  style?: StyleDesc
-  events?: string[]
-  customProps?: Record<string, MutationValue>
-  bounds?: ElementBounds
-  children?: AutomationTreeNode[]
-}
-
 export interface AutomationBackend {
   getTree(): AutomationTreeNode | null | Promise<AutomationTreeNode | null>
   getBounds(elementId: number): ElementBounds | null | Promise<ElementBounds | null>
@@ -53,13 +39,6 @@ export interface AutomationBackend {
   clockFastForward(deltaMs: number): number | Promise<number>
   clockResume(): number | Promise<number>
   close(): void | Promise<void>
-}
-
-export function parseAutomationTreeValue(parsed: JsonValue): AutomationTreeNode | null {
-  if (parsed === null) return null
-  // SAFETY: GPUIX getAutomationTree() serializes the native automation tree
-  // with the public AutomationTreeNode recursive schema.
-  return parsed as AutomationTreeNode
 }
 
 export function parseAutomationTree(json: string): AutomationTreeNode | null {
