@@ -48,6 +48,7 @@ describe("Solid universal parity", () => {
     const root = createRoot(renderer)
     const parent = element()
     const anchor = createTextNode("")
+    if (anchor.kind !== "text") throw new TypeError("Expected GPUIX text anchor")
     const inserted = element()
 
     root.render(() => {
