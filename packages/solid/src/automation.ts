@@ -2,7 +2,15 @@ import type { MutationValue } from "./host/mutations.js"
 import type { StyleDesc } from "./host/types.js"
 import type { TestRenderer } from "./testing.js"
 
-export type AutomationErrorCode = "NotFound" | "Ambiguous" | "Timeout"
+export type AutomationErrorCode =
+  | "NotFound"
+  | "Ambiguous"
+  | "Timeout"
+  | "Protocol"
+  | "Closed"
+  | "Unsupported"
+  | "Security"
+  | "Cancelled"
 
 export class AutomationError extends Error {
   readonly code: AutomationErrorCode
@@ -46,15 +54,19 @@ export interface AutomationBackend {
   close(): void | Promise<void>
 }
 
-function parseAutomationTree(json: string): AutomationTreeNode | null {
-  const parsed: unknown = JSON.parse(json)
+export function parseAutomationTreeValue(parsed: unknown): AutomationTreeNode | null {
   if (parsed === null) return null
-  // SAFETY: TestGpuixRenderer.getAutomationTree() serializes the GPUIX
-  // automation tree with this exact recursive schema.
+  // SAFETY: GPUIX getAutomationTree() serializes the native automation tree
+  // with the public AutomationTreeNode recursive schema.
   return parsed as AutomationTreeNode
 }
 
-function parseBounds(bounds: number[] | null): ElementBounds | null {
+export function parseAutomationTree(json: string): AutomationTreeNode | null {
+  const parsed: unknown = JSON.parse(json)
+  return parseAutomationTreeValue(parsed)
+}
+
+export function parseBounds(bounds: number[] | null): ElementBounds | null {
   if (bounds === null) return null
   const x = bounds[0]
   const y = bounds[1]
