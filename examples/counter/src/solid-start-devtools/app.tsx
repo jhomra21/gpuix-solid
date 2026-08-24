@@ -39,6 +39,10 @@ interface DevError {
   stack: readonly string[]
 }
 
+interface SectionHeaderProps {
+  testId?: string
+}
+
 const color = {
   app: "#0d0f12",
   toolbar: "#15181d",
@@ -223,8 +227,8 @@ function Section(props: {
     if (props.collapsible) style.cursor = "pointer"
     return style
   }
-  const headerProps = (): { testId?: string } => {
-    const result: { testId?: string } = {}
+  const headerProps = (): SectionHeaderProps => {
+    const result: SectionHeaderProps = {}
     if (props.testId) result.testId = props.testId
     return result
   }
