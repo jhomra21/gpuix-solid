@@ -1,0 +1,76 @@
+name: Release Check
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      - name: Validate release-only change
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF_NAME" != release/v* ]]; then
+            echo "Release Check must run on a release/v* branch; got ${GITHUB_REF_NAME}."
+            exit 1
+          fi
+
+          version=$(node -p 'require("./packages/solid/package.json").version')
+          expected_branch="release/v${version}"
+          if [[ "$GITHUB_REF_NAME" != "$expected_branch" ]]; then
+            echo "Release branch ${GITHUB_REF_NAME} does not match package version ${version}."
+            exit 1
+          fi
+
+          git show HEAD^:packages/solid/package.json > /tmp/package-before.json
+          previous=$(node -p 'require("/tmp/package-before.json").version')
+          node scripts/release.mjs assert-newer --from "$previous" --to "$version"
+          node scripts/release.mjs notes --version "$version" >/dev/null
+
+          mapfile -t changed < <(git diff --name-only HEAD^ HEAD)
+          if [[ "${#changed[@]}" -ne 2 ]]; then
+            echo "Generated release commit must change exactly package version + changelog; got:"
+            printf '  %s\n' "${changed[@]}"
+            exit 1
+          fi
+
+          for file in "${changed[@]}"; do
+            case "$file" in
+              CHANGELOG.md|packages/solid/package.json) ;;
+              *)
+                echo "Unexpected release PR file: $file"
+                exit 1
+                ;;
+            esac
+          done
+
+          node --input-type=module <<'NODE'
+          import fs from "node:fs"
+          const before = JSON.parse(fs.readFileSync("/tmp/package-before.json", "utf8"))
+          const after = JSON.parse(fs.readFileSync("packages/solid/package.json", "utf8"))
+          const beforeVersion = before.version
+          const afterVersion = after.version
+          delete before.version
+          delete after.version
+          if (JSON.stringify(before) !== JSON.stringify(after)) {
+            throw new Error("Release package.json changed fields other than version")
+          }
+          if (beforeVersion === afterVersion) {
+            throw new Error("Release package.json did not change version")
+          }
+          NODE
+
+      - name: Validate release tooling
+        run: node --test scripts/release.test.mjs

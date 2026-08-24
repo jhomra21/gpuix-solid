@@ -1,10 +1,21 @@
+import { readFileSync } from "node:fs"
 import { spawnSync } from "node:child_process"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const npm = process.platform === "win32" ? "npm.cmd" : "npm"
-const packed = spawnSync(npm, ["pack", "--dry-run", "--json"], {
+
+const staged = spawnSync(process.execPath, [path.join(packageRoot, "scripts/stage-package.mjs")], {
+  cwd: path.resolve(packageRoot, "../.."),
+  encoding: "utf8",
+})
+if (staged.status !== 0) {
+  process.stderr.write(staged.stderr)
+  process.exit(staged.status ?? 1)
+}
+
+const packed = spawnSync(npm, ["pack", ".publish", "--dry-run", "--json"], {
   cwd: packageRoot,
   encoding: "utf8",
 })
@@ -42,12 +53,22 @@ for (const file of files) {
     file.startsWith("src/") ||
     file.startsWith("test/") ||
     file.startsWith("scripts/") ||
+    file.startsWith(".publish/") ||
     file.endsWith(".tsbuildinfo")
   ) {
     throw new Error(`Publish tarball contains development file ${file}`)
   }
 }
 
+const publicPackage = JSON.parse(readFileSync(path.join(packageRoot, ".publish/package.json"), "utf8"))
+if (publicPackage.scripts !== undefined) throw new Error("Staged package must not publish workspace scripts")
+if (publicPackage.devDependencies !== undefined) {
+  throw new Error("Staged package must not publish development dependencies")
+}
+if (publicPackage.name !== "@jhomra21/gpuix-solid") {
+  throw new Error(`Unexpected staged package name: ${publicPackage.name}`)
+}
+
 console.log(
-  `Validated ${manifest.name}@${manifest.version}: ${files.size} files, ${manifest.size} bytes packed`,
+  `Validated staged ${manifest.name}@${manifest.version}: ${files.size} files, ${manifest.size} bytes packed`,
 )
