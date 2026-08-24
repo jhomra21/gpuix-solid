@@ -16,6 +16,8 @@ Solid 1 updates are synchronous, so this adapter flushes the GPUI mutation drive
 
 The native lab covers signals, computed state, native click/change events, controlled input, conditional mount/unmount with `Show`, keyed list insertion/reordering with `For`, retained-tree mutation batching, and native screenshot capture.
 
+The experiment intentionally stops at the core universal-renderer boundary. Context-backed GPUI hooks and higher-level components are not exported yet: Solid 1's provider return semantics differ from Solid 2's host-facing adapter contract, so those surfaces will be designed and tested during package promotion rather than hidden behind an unsafe cast.
+
 Run from the repository root:
 
 ```bash
