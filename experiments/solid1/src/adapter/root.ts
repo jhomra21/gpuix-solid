@@ -1,14 +1,32 @@
 import type { EventPayload } from "@gpuix/native"
 import type { JSX } from "solid-js"
-import { GpuixContext } from "./context.js"
+import {
+  GpuixContext,
+  type GpuixContextValue,
+} from "./context.js"
 import { EventRegistry } from "../../../../packages/solid/src/host/events.js"
 import { MutationDriver } from "../../../../packages/solid/src/host/mutations.js"
 import {
   HostRootNode,
   removeHostNode,
+  type HostNode,
 } from "../../../../packages/solid/src/host/nodes.js"
 import type { NativeRenderer } from "../../../../packages/solid/src/host/types.js"
 import { createComponent, universalRender } from "./universal.js"
+
+type UniversalNode = HostRootNode | HostNode
+
+interface ContextProps {
+  value: GpuixContextValue
+  readonly children: JSX.Element
+}
+
+function Context(props: ContextProps): UniversalNode {
+  const rendered = GpuixContext.Provider(props)
+  // SAFETY: this provider wraps a root callback compiled by the same universal renderer,
+  // so its resolved child is the GPUI host node inserted into this root.
+  return rendered as UniversalNode
+}
 
 export interface Root {
   render(code: () => JSX.Element): void
@@ -39,7 +57,7 @@ export function createRoot(renderer: NativeRenderer): Root {
 
       dispose = universalRender(
         () =>
-          createComponent(GpuixContext.Provider, {
+          createComponent(Context, {
             value: { renderer },
             get children() {
               return code()
