@@ -10,12 +10,13 @@
   "scripts": {
     "build": "bun run --filter '@jhomra21/gpuix-solid' build && bun run --filter 'gpuix-solid-counter' build",
     "typecheck": "bun run --filter '@jhomra21/gpuix-solid' typecheck && bun run --filter 'gpuix-solid-counter' typecheck",
-    "test": "bun run --filter '@jhomra21/gpuix-solid' test",
+    "test": "bun run --filter '@jhomra21/gpuix-solid' test && bun run --filter '@jhomra21/gpuix-solid' build && bun run --filter 'gpuix-solid-counter' test:dashboard",
     "lint": "oxlint .",
     "release:check": "bun run lint && bun run typecheck && bun run test && bun run build",
     "release:test": "node --test scripts/release.test.mjs",
     "example:counter": "bun run --filter '@jhomra21/gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:counter",
-    "example:native-text": "bun run --filter '@jhomra21/gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:native-text"
+    "example:native-text": "bun run --filter '@jhomra21/gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:native-text",
+    "example:dashboard": "bun run --filter '@jhomra21/gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:dashboard"
   },
   "devDependencies": {
     "@oxlint/plugins": "1.79.0",
