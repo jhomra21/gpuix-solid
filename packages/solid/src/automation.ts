@@ -12,6 +12,8 @@ export type AutomationErrorCode =
   | "Security"
   | "Cancelled"
 
+export type AutomationTreeInput = unknown
+
 export class AutomationError extends Error {
   readonly code: AutomationErrorCode
 
@@ -54,7 +56,7 @@ export interface AutomationBackend {
   close(): void | Promise<void>
 }
 
-export function parseAutomationTreeValue(parsed: unknown): AutomationTreeNode | null {
+export function parseAutomationTreeValue(parsed: AutomationTreeInput): AutomationTreeNode | null {
   if (parsed === null) return null
   // SAFETY: GPUIX getAutomationTree() serializes the native automation tree
   // with the public AutomationTreeNode recursive schema.
@@ -62,7 +64,7 @@ export function parseAutomationTreeValue(parsed: unknown): AutomationTreeNode | 
 }
 
 export function parseAutomationTree(json: string): AutomationTreeNode | null {
-  const parsed: unknown = JSON.parse(json)
+  const parsed: AutomationTreeInput = JSON.parse(json)
   return parseAutomationTreeValue(parsed)
 }
 
