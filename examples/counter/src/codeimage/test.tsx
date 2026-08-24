@@ -58,6 +58,9 @@ async function main(): Promise<void> {
     await requireTestId(app, "tool-code")
     await app.getByTestId("tool-code").click()
     await requireTestId(app, "line-number-1")
+    if ((await app.getByTestId("toggle-line-numbers").count()) !== 1) {
+      console.log("codeimage automation tree after tool-code click:\n" + testRoot.renderer.getAutomationTree())
+    }
     await requireTestId(app, "toggle-line-numbers")
     await app.getByTestId("toggle-line-numbers").click()
     assert.equal(await app.getByTestId("line-number-1").count(), 0)
