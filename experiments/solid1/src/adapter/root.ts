@@ -21,11 +21,18 @@ interface ContextProps {
   readonly children: JSX.Element
 }
 
+function isUniversalNode(value: unknown): value is UniversalNode {
+  if (typeof value !== "object" || value === null) return false
+  const kind = Reflect.get(value, "kind")
+  return kind === "root" || kind === "element" || kind === "text"
+}
+
 function Context(props: ContextProps): UniversalNode {
   const rendered = GpuixContext.Provider(props)
-  // SAFETY: this provider wraps a root callback compiled by the same universal renderer,
-  // so its resolved child is the GPUI host node inserted into this root.
-  return rendered as UniversalNode
+  if (!isUniversalNode(rendered)) {
+    throw new TypeError("Solid 1 GPUI context must resolve to one host node")
+  }
+  return rendered
 }
 
 export interface Root {
