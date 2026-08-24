@@ -11,6 +11,8 @@ import {
   PROTOCOL_VERSION,
   type AutomationRequest,
   type AutomationResponse,
+  type WireInput,
+  type WireResult,
 } from "./protocol.js"
 
 export interface LiveAutomationRenderer {
@@ -83,7 +85,7 @@ export class LiveAutomationBackend implements AutomationBackend {
   close(): void {}
 }
 
-function success(id: number, result: unknown): AutomationResponse {
+function success(id: number, result: WireResult): AutomationResponse {
   return { id, result }
 }
 
@@ -138,7 +140,7 @@ async function dispatch(
 }
 
 export async function handleAutomationRequest(
-  raw: unknown,
+  raw: WireInput,
   backend: AutomationBackend,
 ): Promise<string> {
   let request: AutomationRequest
