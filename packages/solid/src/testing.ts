@@ -41,6 +41,7 @@ export interface TestElement {
 interface NativeTreeNode {
   id: number
   type: string
+  testId?: string
   style?: StyleDesc
   text?: string | null
   events?: string[]
