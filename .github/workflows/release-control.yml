@@ -1,0 +1,30 @@
+name: Release Control
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: release-control
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    if: >-
+      github.event.issue.number == 31 &&
+      github.event.issue.pull_request == null &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.body == '/recover-release'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch hardened publish recovery
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          echo "Dispatching publish.yml recovery from main."
+          gh workflow run publish.yml --repo "$GITHUB_REPOSITORY" --ref main
