@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-<!-- Add user-facing changes here before preparing a release. -->
+- Keep the public automation `launch({ env })` contract structural so TypeScript consumers do not need the global `NodeJS` namespace just to use the packaged automation API.
 
 ## 0.1.0-beta.0 - 2026-08-24
 
