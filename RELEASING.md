@@ -1,6 +1,6 @@
 # Releasing
 
-GPUix Solid releases are prepared and published by GitHub Actions. Do not publish from a developer workstation.
+GPUix Solid releases are prepared and published by GitHub Actions. Normal releases must not be published from a developer workstation.
 
 ## Release invariants
 
@@ -12,6 +12,7 @@ GPUix Solid releases are prepared and published by GitHub Actions. Do not publis
 - The Git tag and GitHub Release are created only after npm succeeds.
 - Scoped publishes are public and use npm provenance.
 - A recovery run may accept an already-published version only when npm reports the same SHA-512 integrity as the validated artifact.
+- Recovery resolves the main-branch commit that introduced the current package version and keeps the release tag anchored to that commit.
 - Never reuse a version whose npm bytes differ or that has already been published with different content.
 
 ## Changelog lifecycle
@@ -34,10 +35,10 @@ For a beta such as `0.1.0-beta.0`, `beta-next` produces `0.1.0-beta.1`. Promotin
 1. Confirm all intended source changes are merged and CI is green on `main`.
 2. Add meaningful user-facing notes under `CHANGELOG.md` → `Unreleased` while developing release-worthy changes.
 3. Run **Prepare Release** from `main` and select the release strategy.
-4. The workflow creates `release/v<version>` with only the package version and changelog transition, then opens a release PR.
-5. The generated release commit uses `[skip ci]`; the workflow explicitly dispatches **Release Check** instead of repeating the full source matrix for metadata-only changes.
+4. The workflow creates `release/v<version>` with only the package version and changelog transition, opens a release PR, and explicitly dispatches **Release Check**.
+5. The generated release commit uses `[skip ci]`, so the normal source matrix is not repeated for the metadata-only release PR.
 6. Review the version/changelog and merge only after Release Check is green.
-7. Merging a `release/v*` PR automatically starts **Publish Package**.
+7. The merge creates a push to `main`. **Publish Trigger** detects an untagged approved version, verifies package-affecting inputs have not drifted, and dispatches **Publish Package** through `workflow_dispatch`.
 8. Publish Package:
    - resolves the approved release source,
    - runs the full release checks,
@@ -49,57 +50,49 @@ For a beta such as `0.1.0-beta.0`, `beta-next` produces `0.1.0-beta.1`. Promotin
    - typechecks the public declarations,
    - uploads the exact tarball plus `pack.json`,
    - downloads and re-verifies those bytes in the publish job,
-   - publishes through npm,
+   - publishes through npm Trusted Publishing/OIDC when the version is new,
+   - accepts an existing version only when registry integrity matches exactly,
    - polls npm until registry integrity matches,
    - verifies the expected dist-tag,
    - creates `v<version>` only after npm succeeds,
    - creates the GitHub Release last.
 
-## First npm publication
+## First publication bootstrap
 
-npm trusted publishing can only be configured after the package exists in the registry. The first publication therefore needs a one-time authentication bridge.
+The one-time bootstrap is complete.
 
-`0.1.0-beta.0` was an internal pre-publication candidate. The release-hardening work found and fixed a clean-consumer declaration issue before anything reached npm, so beta.0 is intentionally left unpublished and has no released changelog section.
+`0.1.0-beta.0` was an internal pre-publication candidate and was intentionally never published. `0.1.0-beta.1` was the first public package version. Because npm requires a package to exist before a GitHub Actions trusted publisher can be configured, beta.1 was published once manually from the same sanitized staged tarball used by the release tooling. Registry integrity was verified against that tarball before Trusted Publishing was configured.
 
-For the first public beta:
+That manual bootstrap must not be repeated for later versions.
 
-1. Merge the release-hardening PR and wait for `main` CI to be green.
-2. Create a short-lived npm granular access token that can publish `@jhomra21/gpuix-solid` and is permitted for CI when publish 2FA is enabled.
-3. Add it to the repository as the Actions secret `NPM_BOOTSTRAP_TOKEN`.
-4. Run **Prepare Release** from `main` with `beta-next`. It should prepare `0.1.0-beta.1` and move all initial-beta notes out of `Unreleased`.
-5. Review the generated `release/v0.1.0-beta.1` PR and merge only after **Release Check** is green.
-6. The merge automatically starts **Publish Package**, which uses `NPM_BOOTSTRAP_TOKEN` only as the first-publication authentication bridge.
-7. Confirm npm reports `@jhomra21/gpuix-solid@0.1.0-beta.1`, the `beta` dist-tag points to it, provenance exists, and the registry integrity matches the workflow artifact.
+## Trusted Publisher configuration
 
-Do not manually run `npm publish` from a workstation.
+Normal npm publication is tokenless. The npm trusted publisher is:
 
-## Switch to trusted publishing
+- package: `@jhomra21/gpuix-solid`
+- repository: `jhomra21/gpuix-solid`
+- workflow filename: `publish.yml`
+- GitHub environment: `npm-publish`
+- allowed action: `npm publish`
 
-Immediately after the first package exists on npm:
+The publish job keeps `id-token: write` and uses npm 11.19.0+ so npm can exchange the GitHub OIDC identity for a short-lived publish credential.
 
-1. Open the npm package settings for `@jhomra21/gpuix-solid`.
-2. Add a GitHub Actions trusted publisher for:
-   - repository: `jhomra21/gpuix-solid`
-   - workflow file: `publish.yml`
-3. Keep the workflow's `id-token: write` permission and npm 11.19.0+ publishing client.
-4. Publish the next beta through the normal release PR flow and verify its provenance.
-5. Delete `NPM_BOOTSTRAP_TOKEN` from GitHub Actions secrets.
-6. On npm, disallow traditional publish tokens after the trusted publisher is proven.
+Do not add `NPM_TOKEN`, `NPM_BOOTSTRAP_TOKEN`, or another long-lived npm publishing token to repository secrets or the workflow.
 
-The publish job keeps `NODE_AUTH_TOKEN` only as the bootstrap fallback. npm trusted publishing uses the GitHub OIDC identity when configured.
+If the GitHub Environment name changes, update the npm Trusted Publisher to the exact same Environment name before the next release.
 
 ## Manual recovery
 
-**Publish Package** can be dispatched manually from `main` when a release merge succeeded but publication/tag/release creation did not complete.
+**Publish Package** can be dispatched manually from `main` when a release merge succeeded but publication, tag creation, or GitHub Release creation did not complete.
 
 Recovery is intentionally strict:
 
 - it finds the main-branch commit that introduced the current version,
 - it refuses recovery if publishable runtime inputs changed afterward,
 - it requires an immutable changelog section for that version,
-- it rebuilds one candidate from the current reviewed release source,
+- it rebuilds one candidate from the reviewed release source,
 - if npm already has the version, the remote `dist.integrity` must exactly match the candidate,
-- an existing tag must point to the expected release source,
+- an existing tag must point to the version-introducing release commit,
 - an existing GitHub Release is treated as completed state rather than overwritten blindly.
 
 If runtime/package inputs changed after a version was prepared, prepare a new version instead of attempting recovery.
