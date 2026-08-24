@@ -269,7 +269,7 @@ function InvoiceWorkspace() {
               <div testId="toggle-invoice-notes" onClick={() => setNotesOpen((open) => !open)} style={{ alignSelf: "flex-start", cursor: "pointer" }}><text style={{ color: palette.blue, fontSize: 12 }}>{notesOpen() ? "Close Notes" : "Show Notes"}</text></div>
               <Show when={notesOpen()}>
                 <textarea testId="invoice-notes" value={notes()} placeholder="Write some notes here..." minRows={5} maxRows={5} onChange={(event: EventPayload) => setNotes(event.value ?? "")} style={nativeInputStyle({ width: "100%", minHeight: 120, paddingTop: 8, paddingBottom: 8 })} />
-                <text style={{ color: palette.muted, fontSize: 10, fontStyle: "italic" }}>Upstream: Notes are stored in the URL. Try copying the URL into a new tab!</text>
+                <text style={{ color: palette.muted, fontSize: 10 }}>Upstream: Notes are stored in the URL. Try copying the URL into a new tab!</text>
               </Show>
               <div testId="save-invoice" onClick={saveInvoice} style={{ ...blueButtonStyle(false), alignSelf: "flex-start" }}><text style={{ color: palette.white, fontSize: 11, fontWeight: 800 }}>SAVE</text></div>
               <Show when={saved()}><StatusBadge text="Saved!" tone="success" /></Show>
