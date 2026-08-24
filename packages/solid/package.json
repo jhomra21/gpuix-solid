@@ -58,6 +58,11 @@
     "url": "https://github.com/jhomra21/gpuix-solid.git",
     "directory": "packages/solid"
   },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public",
+    "provenance": true
+  },
   "keywords": [
     "solid",
     "solidjs",

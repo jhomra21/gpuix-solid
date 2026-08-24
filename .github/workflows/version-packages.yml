@@ -1,0 +1,45 @@
+name: Version Packages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - name: Require main
+        run: test "$GITHUB_REF_NAME" = "main"
+      - run: bun install --frozen-lockfile
+      - name: Apply changesets
+        run: bun run version-packages
+      - name: Create version pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet; then
+            echo "No pending changesets produced version changes."
+            exit 1
+          fi
+
+          branch="release/version-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add -A
+          git commit -m "chore: version packages"
+          git push --set-upstream origin "$branch"
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "chore: version packages" \
+            --body "Generated from committed Changesets by the Version Packages workflow."

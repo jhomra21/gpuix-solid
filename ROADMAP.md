@@ -68,6 +68,6 @@
 
 - [x] CI matrix
 - [ ] package provenance
-- [ ] changesets/release workflow
+- [x] changesets/release workflow
 - [ ] beta package publication
-- [ ] upstream compatibility matrix
+- [x] upstream compatibility matrix
