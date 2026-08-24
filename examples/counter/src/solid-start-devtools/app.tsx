@@ -1,4 +1,5 @@
 import { For, Match, Show, Switch, createMemo, createSignal } from "solid-js"
+import type { Element as SolidElement } from "solid-js"
 import {
   animate,
   type EventPayload,
@@ -215,7 +216,7 @@ function Badge(props: { children: string; tone?: "info" | "success" | "failure" 
 
 function Section(props: {
   title: string
-  children: unknown
+  children: SolidElement
   collapsible?: boolean
   defaultOpen?: boolean
   testId?: string
@@ -243,7 +244,7 @@ function Section(props: {
         </Show>
       </div>
       <Show when={open()}>
-        <div style={{ padding: 12 }}>{props.children as never}</div>
+        <div style={{ padding: 12 }}>{props.children}</div>
       </Show>
     </div>
   )
