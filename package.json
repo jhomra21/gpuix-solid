@@ -13,9 +13,7 @@
     "test": "bun run --filter '@jhomra21/gpuix-solid' test",
     "lint": "oxlint .",
     "release:check": "bun run lint && bun run typecheck && bun run test && bun run build",
-    "changeset": "bunx @changesets/cli@3.0.1",
-    "changeset:status": "bunx @changesets/cli@3.0.1 status",
-    "version-packages": "bunx @changesets/cli@3.0.1 version",
+    "release:test": "node --test scripts/release.test.mjs",
     "example:counter": "bun run --filter '@jhomra21/gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:counter",
     "example:native-text": "bun run --filter '@jhomra21/gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:native-text"
   },
