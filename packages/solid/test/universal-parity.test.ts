@@ -1,7 +1,14 @@
 import { createSignal } from "solid-js"
 import { describe, expect, it } from "vitest"
 import type { HostElementNode } from "../src/host/nodes.js"
-import { createElement, insert, setProp, spread } from "../src/host/universal.js"
+import {
+  createElement,
+  createTextNode,
+  insert,
+  insertNode,
+  setProp,
+  spread,
+} from "../src/host/universal.js"
 import { createRoot } from "../src/root.js"
 import { FakeRenderer } from "./fake-renderer.js"
 
@@ -34,6 +41,24 @@ describe("Solid universal parity", () => {
     expect(renderer.batches.at(-1)).toEqual([
       ["insertBefore", parent.id, second.id, first.id],
     ])
+  })
+
+  it("accepts a text host node as a reconciliation anchor", () => {
+    const renderer = new FakeRenderer()
+    const root = createRoot(renderer)
+    const parent = element()
+    const anchor = createTextNode("")
+    const inserted = element()
+
+    root.render(() => {
+      insertNode(parent, anchor)
+      insertNode(parent, inserted, anchor)
+      return parent
+    })
+
+    expect(parent.children).toEqual([inserted, anchor])
+    expect(inserted.parent).toBe(parent)
+    expect(anchor.parent).toBe(parent)
   })
 
   it("updates reactive text after a native event without recreating it", () => {
