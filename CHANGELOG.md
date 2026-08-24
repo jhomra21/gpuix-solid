@@ -4,6 +4,8 @@
 
 <!-- Add user-facing changes here before preparing a release. -->
 
+- Add a complex native Solid 2 dashboard dogfood fixture with Overview, Tasks, Notes, Weather, and Account pages, deterministic demo data, native animations, floating controls, and TestRenderer automation coverage.
+
 ## 0.1.0-beta.2 - 2026-08-24
 
 - Validate the exact release tarball in a clean external Solid 2 TSX/Vite consumer, including `Tooltip`, `Select`, `Combobox`, `animate.*`, and the automation subpath.

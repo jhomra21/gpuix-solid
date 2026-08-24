@@ -1,6 +1,6 @@
 # Runnable parity examples
 
-These examples are Solid 2 ports of the corresponding runnable React examples in [`remorses/gpuix`](https://github.com/remorses/gpuix/tree/main/examples). They are deliberately kept close to upstream behavior so renderer differences are easy to spot.
+These examples are Solid 2 ports and dogfood fixtures for the native renderer. The parity targets stay close to upstream GPUIX behavior, while the dashboard intentionally exercises a broader application-shaped surface.
 
 The example bundles include Solid's **client reactive runtime** even though the generated JavaScript executes under Bun. Solid publishes an SSR-oriented `node` export, which is not appropriate for a long-lived native desktop renderer. The Vite configs therefore resolve the `browser` condition only while bundling Solid and GPUix Solid; `@gpuix/native` remains external and loads normally for the host platform.
 
@@ -41,6 +41,30 @@ This is the Solid parity target for upstream `examples/native-text.tsx`. It exer
 
 Expected behavior: the three tabs switch between native Markdown, highlighted TypeScript, and a scrollable word diff. Native interactions update the status line. On supported desktop platforms, text should remain selectable/copyable using GPUIX's shared native selection registry.
 
+## Dashboard
+
+Run from the repository root:
+
+```bash
+bun run example:dashboard
+```
+
+The dashboard is adapted from the application shell and page ideas in `jhomra21/cloudflare-workers-solid-tanstack-spa-betterauth-D1-KV`, originally written with Solid 1.9.7. It deliberately removes the web stack, router, authentication, Cloudflare, Convex, Kobalte, and Tailwind dependencies. The result is a deterministic Solid 2 + GPUI fixture with local demo data.
+
+It exercises a much denser renderer surface than the parity examples:
+
+- persistent sidebar and header shell with reactive page navigation
+- Overview, Tasks, Notes, Weather, and Account pages
+- flex wrapping, scrolling, cards, borders, typography, hover and active styles
+- controlled native `<input>` and `<textarea>` elements
+- filtering, list insertion/removal, conditional subtrees, and derived counts
+- `Select`, `Tooltip`, and `animate.div` composition
+- native GPUI animation of page entrances, progress bars, note panels, and weather cards
+- Playwright-like `App` / `Locator` automation over `TestGpuixRenderer`
+- deterministic animation-clock assertions and a real native screenshot capture
+
+The dashboard integration test is part of `bun run test`; it navigates between pages, fills inputs, mutates tasks and notes, filters lists, selects weather data, changes preferences, drives the native `Select`, fast-forwards animations, and captures a GPUI screenshot.
+
 ## Validation policy
 
-CI runs lint, package/example typechecks, tests, and builds both examples. CI intentionally does not open GPUI windows on the headless runner. Running the commands above on a supported desktop is the end-to-end native smoke test.
+CI runs lint, package/example typechecks, tests, and builds all example targets. The dashboard's real `TestGpuixRenderer` integration executes on macOS and Linux CI. The published `@gpuix/native@0.4.0` Windows binding currently does not load on GitHub-hosted Windows Server 2025, so Windows CI still compiles and builds the dashboard and runs platform-independent tests but skips only the native dashboard execution. Running `bun run example:dashboard` on a supported desktop remains the end-to-end normal-window smoke test.
