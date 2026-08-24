@@ -59,7 +59,7 @@ interface SimpleRoutePageProps {
 }
 
 const palette = {
-  app: "#ffffff",
+  app: "#f9fafb",
   panelSoft: "#f3f4f6",
   panelHover: "#f9fafb",
   border: "#d1d5db",
@@ -172,18 +172,18 @@ function StatusBadge(props: { text: string; tone: "success" | "failure" }) {
 
 function HomePage(props: { onInvoice: () => void }) {
   return (
-    <div testId="page-home" style={{ padding: 10, gap: 10, maxWidth: 620 }}>
+    <div testId="page-home" style={{ padding: 8, gap: 8, maxWidth: 576 }}>
       <text style={{ color: palette.text, fontSize: 18 }}>Welcome Home!</text>
       <Divider />
-      <div testId="home-new-invoice" onClick={props.onInvoice} style={{ alignSelf: "flex-start", paddingTop: 5, paddingBottom: 5, paddingLeft: 9, paddingRight: 9, borderRadius: 999, backgroundColor: palette.blueButton, cursor: "pointer" }}>
-        <text style={{ color: palette.white, fontSize: 11 }}>1 New Invoice</text>
+      <div testId="home-new-invoice" onClick={props.onInvoice} style={{ alignSelf: "flex-start", paddingTop: 4, paddingBottom: 4, paddingLeft: 8, paddingRight: 8, borderRadius: 999, backgroundColor: palette.blueButton, cursor: "pointer" }}>
+        <text style={{ color: palette.white, fontSize: 12 }}>1 New Invoice</text>
       </div>
       <Divider />
       <text style={{ color: palette.text, fontSize: 12, lineHeight: 18 }}>As you navigate around take note of the UX. It should feel suspense-like, where routes are only rendered once all of their data and elements are ready.</text>
       <Divider />
-      <text style={{ color: palette.text, fontSize: 12, lineHeight: 18 }}>To exaggerate async effects, the browser kitchen sink exposes an artificial request delay control. This native adaptation keeps route state deterministic and local so it can run without a network.</text>
+      <text style={{ color: palette.text, fontSize: 12, lineHeight: 18 }}>To exaggerate async effects, play with the artificial request delay slider in the bottom-left corner.</text>
       <Divider />
-      <text style={{ color: palette.text, fontSize: 12, lineHeight: 18 }}>Link-hover preloading and route-cache controls are browser-router concerns; the dashboard, invoice, user, form, search, sort, and mutation-shaped UI below renders directly through GPUI.</text>
+      <text style={{ color: palette.text, fontSize: 12, lineHeight: 18 }}>The last 2 sliders determine if link-hover preloading is enabled (and how long those preloads stick around) and also whether to cache rendered route data (and for how long). Both of these default to 0 (or off).</text>
     </div>
   )
 }
@@ -191,21 +191,21 @@ function HomePage(props: { onInvoice: () => void }) {
 function InvoiceFields(props: InvoiceFieldsProps) {
   return (
     <div style={{ gap: 8 }}>
-      <input testId={props.titleTestId} value={props.title} placeholder="Invoice Title" onChange={(event: EventPayload) => props.onTitle(event.value ?? "")} style={nativeInputStyle({ width: "100%", fontSize: 14, fontWeight: 700 })} />
-      <textarea testId={props.bodyTestId} value={props.body} placeholder="Invoice Body..." minRows={5} maxRows={8} onChange={(event: EventPayload) => props.onBody(event.value ?? "")} style={nativeInputStyle({ width: "100%", minHeight: 130, paddingTop: 9, paddingBottom: 9, lineHeight: 17 })} />
+      <input testId={props.titleTestId} value={props.title} placeholder="Invoice Title" onChange={(event: EventPayload) => props.onTitle(event.value ?? "")} style={nativeInputStyle({ width: "100%", minHeight: 42, fontSize: 18, fontWeight: 700, paddingLeft: 8, paddingRight: 8 })} />
+      <textarea testId={props.bodyTestId} value={props.body} placeholder="Invoice Body..." minRows={6} maxRows={6} onChange={(event: EventPayload) => props.onBody(event.value ?? "")} style={nativeInputStyle({ width: "100%", minHeight: 144, paddingTop: 8, paddingBottom: 8, paddingLeft: 8, paddingRight: 8, lineHeight: 18 })} />
     </div>
   )
 }
 
 function InvoiceWorkspace() {
   const [invoices, setInvoices] = createSignal<Invoice[]>(initialInvoices)
-  const [selectedId, setSelectedId] = createSignal<number | null>(3)
-  const [creating, setCreating] = createSignal(false)
+  const [selectedId, setSelectedId] = createSignal<number | null>(null)
+  const [creating, setCreating] = createSignal(true)
   const [newTitle, setNewTitle] = createSignal("")
   const [newBody, setNewBody] = createSignal("")
   const [created, setCreated] = createSignal(false)
-  const [editTitle, setEditTitle] = createSignal(initialInvoices[2]?.title ?? "")
-  const [editBody, setEditBody] = createSignal(initialInvoices[2]?.body ?? "")
+  const [editTitle, setEditTitle] = createSignal("")
+  const [editBody, setEditBody] = createSignal("")
   const [notesOpen, setNotesOpen] = createSignal(false)
   const [notes, setNotes] = createSignal("")
   const [saved, setSaved] = createSignal(false)
@@ -219,14 +219,6 @@ function InvoiceWorkspace() {
     setSelectedId(invoice.id)
     setEditTitle(invoice.title)
     setEditBody(invoice.body)
-  }
-
-  const beginCreate = () => {
-    setSelectedId(null)
-    setCreating(true)
-    setCreated(false)
-    setNewTitle("")
-    setNewBody("")
   }
 
   const createInvoice = () => {
@@ -248,13 +240,11 @@ function InvoiceWorkspace() {
 
   return (
     <div testId="invoice-workspace" style={{ flexGrow: 1, minHeight: 0, display: "flex" }}>
-      <div style={{ width: 210, flexShrink: 0, overflowY: "scroll" }}>
-        <div style={{ padding: 8 }}><div testId="create-invoice-nav" onClick={beginCreate} style={{ ...blueButtonStyle(false), alignItems: "center" }}><text style={{ color: palette.white, fontSize: 11, fontWeight: 800 }}>Create Invoice</text></div></div>
-        <Divider />
+      <div style={{ width: 192, flexShrink: 0, overflowY: "scroll" }}>
         <For each={invoices()}>
           {(invoice) => (
             <>
-              <div testId={`invoice-row-${invoice.id}`} onClick={() => chooseInvoice(invoice)} style={{ minHeight: 38, paddingLeft: 12, paddingRight: 8, justifyContent: "center", backgroundColor: selectedId() === invoice.id && !creating() ? palette.panelSoft : palette.white, cursor: "pointer", hover: { backgroundColor: palette.panelHover } }}>
+              <div testId={`invoice-row-${invoice.id}`} onClick={() => chooseInvoice(invoice)} style={{ minHeight: 38, paddingLeft: 12, paddingRight: 8, justifyContent: "center", backgroundColor: selectedId() === invoice.id && !creating() ? palette.panelSoft : palette.app, cursor: "pointer", hover: { backgroundColor: palette.panelHover } }}>
                 <text style={{ color: palette.blue, fontSize: 11, fontWeight: selectedId() === invoice.id ? 800 : 500 }}>#{invoice.id} - {invoice.title.slice(0, 10)}</text>
               </div>
               <Divider />
@@ -263,25 +253,25 @@ function InvoiceWorkspace() {
         </For>
       </div>
       <div style={{ width: 1, backgroundColor: palette.border, flexShrink: 0 }} />
-      <div style={{ flexGrow: 1, minWidth: 0, padding: 12, overflowY: "scroll" }}>
+      <div style={{ flexGrow: 1, minWidth: 0, padding: 8, overflowY: "scroll" }}>
         <Show when={creating()}>
-          <div testId="invoice-create-panel" style={{ gap: 10, maxWidth: 680 }}>
+          <div testId="invoice-create-panel" style={{ gap: 8 }}>
             <text style={{ color: palette.text, fontSize: 13 }}>Create a new Invoice:</text>
             <InvoiceFields title={newTitle()} body={newBody()} titleTestId="create-title" bodyTestId="create-body" onTitle={setNewTitle} onBody={setNewBody} />
-            <div testId="create-invoice-submit" onClick={createInvoice} style={blueButtonStyle(!newTitle().trim())}><text style={{ color: palette.white, fontSize: 11, fontWeight: 800 }}>CREATE</text></div>
+            <div testId="create-invoice-submit" onClick={createInvoice} style={{ ...blueButtonStyle(!newTitle().trim()), alignSelf: "flex-start" }}><text style={{ color: palette.white, fontSize: 11, fontWeight: 800 }}>CREATE</text></div>
             <Show when={created()}><StatusBadge text="Created!" tone="success" /></Show>
           </div>
         </Show>
         <Show when={!creating() && selected()}>
           {(invoice) => (
-            <div testId="invoice-detail-panel" style={{ gap: 10, maxWidth: 680 }}>
+            <div testId="invoice-detail-panel" style={{ gap: 8 }}>
               <InvoiceFields title={editTitle()} body={editBody()} titleTestId="edit-title" bodyTestId="edit-body" onTitle={(value) => { setEditTitle(value); setSaved(false) }} onBody={(value) => { setEditBody(value); setSaved(false) }} />
               <div testId="toggle-invoice-notes" onClick={() => setNotesOpen((open) => !open)} style={{ alignSelf: "flex-start", cursor: "pointer" }}><text style={{ color: palette.blue, fontSize: 12 }}>{notesOpen() ? "Close Notes" : "Show Notes"}</text></div>
               <Show when={notesOpen()}>
-                <textarea testId="invoice-notes" value={notes()} placeholder="Write some notes here..." minRows={4} maxRows={6} onChange={(event: EventPayload) => setNotes(event.value ?? "")} style={nativeInputStyle({ width: "100%", minHeight: 96, paddingTop: 9, paddingBottom: 9 })} />
-                <text style={{ color: palette.muted, fontSize: 10 }}>Notes are stored in the URL in the upstream example. This native fixture preserves them as local route-shaped state.</text>
+                <textarea testId="invoice-notes" value={notes()} placeholder="Write some notes here..." minRows={5} maxRows={5} onChange={(event: EventPayload) => setNotes(event.value ?? "")} style={nativeInputStyle({ width: "100%", minHeight: 120, paddingTop: 8, paddingBottom: 8 })} />
+                <text style={{ color: palette.muted, fontSize: 10, fontStyle: "italic" }}>Upstream: Notes are stored in the URL. Try copying the URL into a new tab!</text>
               </Show>
-              <div testId="save-invoice" onClick={saveInvoice} style={blueButtonStyle(false)}><text style={{ color: palette.white, fontSize: 11, fontWeight: 800 }}>SAVE</text></div>
+              <div testId="save-invoice" onClick={saveInvoice} style={{ ...blueButtonStyle(false), alignSelf: "flex-start" }}><text style={{ color: palette.white, fontSize: 11, fontWeight: 800 }}>SAVE</text></div>
               <Show when={saved()}><StatusBadge text="Saved!" tone="success" /></Show>
               <text testId="invoice-id" style={{ color: palette.faint, fontSize: 10 }}>Invoice #{invoice().id}</text>
             </div>
@@ -312,37 +302,42 @@ function UsersWorkspace() {
   return (
     <div testId="users-workspace" style={{ flexGrow: 1, minHeight: 0, display: "flex" }}>
       <div style={{ width: 310, flexShrink: 0, overflowY: "scroll" }}>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", padding: 10, backgroundColor: palette.panelSoft }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 8, paddingBottom: 8, paddingLeft: 12, paddingRight: 12, backgroundColor: palette.panelSoft }}>
           <text style={{ color: palette.text, fontSize: 11 }}>Sort By:</text>
-          <Select value={sortBy()} onValueChange={changeSort}>
-            <SelectTrigger testId="users-sort" style={nativeInputStyle({ flexGrow: 1, minHeight: 32 })}><SelectValue /></SelectTrigger>
-            <SelectContent style={{ padding: 5, backgroundColor: palette.white, borderWidth: 1, borderColor: palette.border, borderRadius: 4 }}>
-              <SelectItem value="name" style={{ padding: 7, color: palette.text, hover: { backgroundColor: palette.panelSoft } }}>name</SelectItem>
-              <SelectItem value="id" style={{ padding: 7, color: palette.text, hover: { backgroundColor: palette.panelSoft } }}>id</SelectItem>
-              <SelectItem value="email" style={{ padding: 7, color: palette.text, hover: { backgroundColor: palette.panelSoft } }}>email</SelectItem>
+          <Select value={sortBy()} onValueChange={changeSort} style={{ flexGrow: 1, minWidth: 0 }}>
+            <SelectTrigger testId="users-sort" style={nativeInputStyle({ width: "100%", minHeight: 32, display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingLeft: 8, paddingRight: 8 })}>
+              <SelectValue style={{ flexGrow: 1, minWidth: 0 }}>
+                <text testId="users-sort-value" style={{ color: palette.text, fontSize: 12 }}>{sortBy()}</text>
+              </SelectValue>
+              <text style={{ color: palette.muted, fontSize: 10 }}>▾</text>
+            </SelectTrigger>
+            <SelectContent side="bottom" sideOffset={2} align="start" style={{ width: 180, padding: 4, backgroundColor: palette.white, borderWidth: 1, borderColor: palette.border, borderRadius: 4 }}>
+              <SelectItem testId="users-sort-item-name" value="name" textValue="name" style={{ padding: 7, color: palette.text, hover: { backgroundColor: palette.panelSoft } }}>name</SelectItem>
+              <SelectItem testId="users-sort-item-id" value="id" textValue="id" style={{ padding: 7, color: palette.text, hover: { backgroundColor: palette.panelSoft } }}>id</SelectItem>
+              <SelectItem testId="users-sort-item-email" value="email" textValue="email" style={{ padding: 7, color: palette.text, hover: { backgroundColor: palette.panelSoft } }}>email</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <Divider />
-        <div style={{ display: "flex", gap: 8, alignItems: "center", padding: 10, backgroundColor: palette.panelSoft }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 8, paddingBottom: 8, paddingLeft: 12, paddingRight: 12, backgroundColor: palette.panelSoft }}>
           <text style={{ color: palette.text, fontSize: 11 }}>Filter By:</text>
-          <input testId="users-filter" value={filterBy()} placeholder="Search Names..." onChange={(event: EventPayload) => setFilterBy(event.value ?? "")} style={nativeInputStyle({ flexGrow: 1, minHeight: 32 })} />
+          <input testId="users-filter" value={filterBy()} placeholder="Search Names..." onChange={(event: EventPayload) => setFilterBy(event.value ?? "")} style={nativeInputStyle({ flexGrow: 1, minWidth: 0, minHeight: 32, paddingLeft: 8, paddingRight: 8 })} />
         </div>
         <Divider />
         <For each={filteredUsers()}>
           {(user) => (
             <>
-              <div testId={`user-row-${user.id}`} onClick={() => setSelectedId(user.id)} style={{ minHeight: 38, paddingLeft: 12, paddingRight: 8, justifyContent: "center", backgroundColor: selectedId() === user.id ? palette.panelSoft : palette.white, cursor: "pointer", hover: { backgroundColor: palette.panelHover } }}><text style={{ color: palette.blue, fontSize: 11, fontWeight: selectedId() === user.id ? 800 : 500 }}>{user.name}</text></div>
+              <div testId={`user-row-${user.id}`} onClick={() => setSelectedId(user.id)} style={{ minHeight: 38, paddingLeft: 12, paddingRight: 8, justifyContent: "center", backgroundColor: palette.app, cursor: "pointer", hover: { backgroundColor: palette.panelHover } }}><text style={{ color: palette.blue, fontSize: 11, fontWeight: selectedId() === user.id ? 800 : 500 }}>{user.name}</text></div>
               <Divider />
             </>
           )}
         </For>
       </div>
       <div style={{ width: 1, backgroundColor: palette.border, flexShrink: 0 }} />
-      <div style={{ flexGrow: 1, minWidth: 0, padding: 12, overflowY: "scroll" }}>
-        <Show when={selected()} fallback={<div testId="users-index-copy" style={{ gap: 10, maxWidth: 650 }}><text style={{ color: palette.text, fontSize: 12, lineHeight: 18 }}>Normally, setting default search parameters would either need to be done manually in every link to a page, or as a side-effect.</text><text style={{ color: palette.text, fontSize: 12, lineHeight: 18 }}>Instead, TanStack Router uses search filters to provide defaults or persist search params for links to routes and child routes.</text><text style={{ color: palette.text, fontSize: 12, lineHeight: 18 }}>A good example is the sorting and filtering of this users list. The native adaptation keeps the same reactive state while rendering it directly through GPUIX.</text></div>}>
+      <div style={{ flexGrow: 1, minWidth: 0, padding: 8, overflowY: "scroll" }}>
+        <Show when={selected()} fallback={<div testId="users-index-copy" style={{ gap: 10, maxWidth: 650 }}><text style={{ color: palette.text, fontSize: 12, lineHeight: 18 }}>Normally, setting default search parameters would either need to be done manually in every link to a page, or as a side-effect (not a great experience).</text><text style={{ color: palette.text, fontSize: 12, lineHeight: 18 }}>Instead, we can use search filters to provide defaults or even persist search params for links to routes (and child routes).</text><text style={{ color: palette.text, fontSize: 12, lineHeight: 18 }}>A good example of this is the sorting and filtering of the users list. In a traditional router, both would be lost while navigating around individual users or changing each sort/filter option unless each state was manually passed into each new link.</text></div>}>
           {(user) => (
-            <div testId="user-detail" style={{ gap: 7 }}>
+            <div testId="user-detail" style={{ gap: 5 }}>
               <text style={{ color: palette.text, fontSize: 14, fontWeight: 800 }}>{user().name}</text>
               <text style={{ color: palette.text, fontSize: 11, fontFamily: "monospace" }}>{`{`}</text>
               <text style={{ color: palette.text, fontSize: 11, fontFamily: "monospace" }}>  "id": {user().id},</text>
@@ -366,15 +361,15 @@ function DashboardPage() {
   const [tab, setTab] = createSignal<DashboardTab>("summary")
   return (
     <div testId="page-dashboard" style={{ flexGrow: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-      <div style={{ minHeight: 46, paddingLeft: 10, paddingRight: 10, justifyContent: "center" }}><text style={{ color: palette.text, fontSize: 20 }}>Dashboard</text></div>
+      <div style={{ minHeight: 40, paddingLeft: 8, paddingRight: 8, justifyContent: "center" }}><text style={{ color: palette.text, fontSize: 20 }}>Dashboard</text></div>
       <Divider />
-      <div style={{ minHeight: 40, display: "flex" }}>
-        <For each={dashboardTabs}>{([value, label]) => <div testId={`dashboard-tab-${value}`} onClick={() => setTab(value)} style={{ minWidth: 82, paddingLeft: 12, paddingRight: 12, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: palette.borderSoft, backgroundColor: palette.white, cursor: "pointer" }}><text style={{ color: palette.text, fontSize: 12, fontWeight: tab() === value ? 800 : 400 }}>{label}</text></div>}</For>
+      <div style={{ minHeight: 40, display: "flex", alignItems: "stretch" }}>
+        <For each={dashboardTabs}>{([value, label], index) => <><div testId={`dashboard-tab-${value}`} onClick={() => setTab(value)} style={{ paddingLeft: 8, paddingRight: 8, alignItems: "center", justifyContent: "center", backgroundColor: palette.app, cursor: "pointer" }}><text style={{ color: palette.text, fontSize: 12, fontWeight: tab() === value ? 800 : 400 }}>{label}</text></div><Show when={index() < dashboardTabs.length - 1}><div style={{ width: 1, backgroundColor: palette.borderSoft }} /></Show></>}</For>
       </div>
       <Divider />
       <div style={{ flexGrow: 1, minHeight: 0, display: "flex" }}>
         <Switch>
-          <Match when={tab() === "summary"}><div testId="dashboard-summary" style={{ padding: 16 }}><text style={{ color: palette.text, fontSize: 12 }}>Welcome to the dashboard! You have </text><text testId="invoice-count" style={{ color: palette.text, fontSize: 12, fontWeight: 800 }}>{initialInvoices.length} total invoices.</text></div></Match>
+          <Match when={tab() === "summary"}><div testId="dashboard-summary" style={{ padding: 16, display: "flex", flexDirection: "row", gap: 3 }}><text style={{ color: palette.text, fontSize: 12 }}>Welcome to the dashboard! You have</text><text testId="invoice-count" style={{ color: palette.text, fontSize: 12, fontWeight: 800 }}>{initialInvoices.length} total invoices.</text></div></Match>
           <Match when={tab() === "invoices"}><InvoiceWorkspace /></Match>
           <Match when={tab() === "users"}><UsersWorkspace /></Match>
         </Switch>
@@ -384,26 +379,24 @@ function DashboardPage() {
 }
 
 function SimpleRoutePage(props: SimpleRoutePageProps) {
-  return <div testId={props.testId} style={{ padding: 12, gap: 10, maxWidth: 620 }}><text style={{ color: palette.text, fontSize: 18, fontWeight: 700 }}>{props.title}</text><Divider /><text style={{ color: palette.text, fontSize: 12, lineHeight: 18 }}>{props.body}</text></div>
+  return <div testId={props.testId} style={{ padding: 8, gap: 8, maxWidth: 620 }}><text style={{ color: palette.text, fontSize: 18, fontWeight: 700 }}>{props.title}</text><Divider /><text style={{ color: palette.text, fontSize: 12, lineHeight: 18 }}>{props.body}</text></div>
 }
 
 function LoginPage() {
   const [email, setEmail] = createSignal("")
   const [signedIn, setSignedIn] = createSignal(false)
-  return <div testId="page-login" style={{ padding: 12, gap: 10, maxWidth: 420 }}><text style={{ color: palette.text, fontSize: 18, fontWeight: 700 }}>Login</text><input testId="login-email" value={email()} placeholder="Email" onChange={(event: EventPayload) => setEmail(event.value ?? "")} style={nativeInputStyle({ width: "100%" })} /><div testId="login-submit" onClick={() => { if (email().trim()) setSignedIn(true) }} style={blueButtonStyle(!email().trim())}><text style={{ color: palette.white, fontSize: 11, fontWeight: 800 }}>LOGIN</text></div><Show when={signedIn()}><StatusBadge text="Logged in" tone="success" /></Show></div>
+  return <div testId="page-login" style={{ padding: 8, gap: 8, maxWidth: 420 }}><text style={{ color: palette.text, fontSize: 18, fontWeight: 700 }}>Login</text><input testId="login-email" value={email()} placeholder="Email" onChange={(event: EventPayload) => setEmail(event.value ?? "")} style={nativeInputStyle({ width: "100%" })} /><div testId="login-submit" onClick={() => { if (email().trim()) setSignedIn(true) }} style={{ ...blueButtonStyle(!email().trim()), alignSelf: "flex-start" }}><text style={{ color: palette.white, fontSize: 11, fontWeight: 800 }}>LOGIN</text></div><Show when={signedIn()}><StatusBadge text="Logged in" tone="success" /></Show></div>
 }
 
 export function TanStackKitchenSinkNative() {
   const [page, setPage] = createSignal<RootPage>("dashboard")
   return (
     <div testId="tanstack-kitchen-sink" style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", backgroundColor: palette.app, color: palette.text, fontFamily: "system-ui" }}>
-      <div style={{ minHeight: 58, display: "flex", alignItems: "center", gap: 10, paddingLeft: 10, paddingRight: 10 }}><text style={{ color: palette.text, fontSize: 30, fontWeight: 500 }}>Kitchen Sink</text><div style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: palette.green }} /></div>
+      <div style={{ minHeight: 56, display: "flex", alignItems: "center", paddingLeft: 8, paddingRight: 8 }}><text style={{ color: palette.text, fontSize: 30, fontWeight: 500 }}>Kitchen Sink</text></div>
       <Divider />
       <div style={{ flexGrow: 1, minHeight: 0, display: "flex" }}>
         <div style={{ width: 224, flexShrink: 0, overflowY: "scroll" }}>
-          <For each={rootNav}>{(item) => <><div testId={`root-nav-${item.page}`} onClick={() => setPage(item.page)} style={{ minHeight: 42, paddingLeft: 12, paddingRight: 10, justifyContent: "center", backgroundColor: page() === item.page ? palette.panelSoft : palette.white, cursor: "pointer", hover: { backgroundColor: palette.panelHover } }}><text style={{ color: palette.blue, fontSize: 12, fontWeight: page() === item.page ? 800 : 500 }}>{item.label}</text></div><Divider /></>}</For>
-          <div style={{ flexGrow: 1 }} />
-          <div style={{ padding: 10, gap: 5 }}><text style={{ color: palette.faint, fontSize: 9 }}>TanStack Router Solid 2 RC kitchen sink</text><text style={{ color: palette.faint, fontSize: 9 }}>native GPUIX adaptation</text></div>
+          <For each={rootNav}>{(item) => <><div testId={`root-nav-${item.page}`} onClick={() => setPage(item.page)} style={{ minHeight: 40, paddingLeft: 12, paddingRight: 12, justifyContent: "center", backgroundColor: palette.app, cursor: "pointer", hover: { backgroundColor: palette.panelHover } }}><text style={{ color: palette.blue, fontSize: 12, fontWeight: page() === item.page ? 800 : 500 }}>{item.label}</text></div><Divider /></>}</For>
         </div>
         <div style={{ width: 1, backgroundColor: palette.border, flexShrink: 0 }} />
         <div style={{ flexGrow: 1, minWidth: 0, minHeight: 0, display: "flex" }}>
