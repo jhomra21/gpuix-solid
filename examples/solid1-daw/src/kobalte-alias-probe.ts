@@ -13,6 +13,7 @@ import { Avatar as UpstreamAvatar } from "./upstream/components/ui/avatar"
 import { Button as UpstreamButton } from "./upstream/components/ui/button"
 import { Separator as UpstreamSeparator } from "./upstream/components/ui/separator"
 import { TextField as UpstreamTextField } from "./upstream/components/ui/text-field"
+import { Tooltip as UpstreamTooltip } from "./upstream/components/ui/tooltip"
 
 type NativeAliasPolymorphicProbe = PolymorphicProps<"div", { label: string }>
 type NativeAliasColorModeProbe = ColorModeStorageManager
@@ -32,6 +33,7 @@ export const kobalteAliasProbe = {
   UpstreamButton,
   UpstreamSeparator,
   UpstreamTextField,
+  UpstreamTooltip,
 }
 
 export type { NativeAliasColorModeProbe, NativeAliasPolymorphicProbe }
