@@ -1,5 +1,6 @@
 import { createContext, createSignal, Show, useContext, type JSX } from "solid-js"
 import type { EventPayload } from "@gpuix/native"
+import type { StyleDesc } from "../host/types.js"
 import type { PolymorphicProps } from "./polymorphic.js"
 import { Portal as NativePortal, mergeStyle, triggerBaseStyle, type NativeComponentProps } from "./shared.jsx"
 
@@ -27,6 +28,14 @@ function requireContext(name: string): DialogContextValue {
   return context
 }
 
+function interactiveStyle(disabled: boolean | undefined, override: StyleDesc | undefined): StyleDesc {
+  return mergeStyle({
+    ...triggerBaseStyle,
+    opacity: disabled ? 0.5 : 1,
+    pointerEvents: disabled ? "none" : "auto",
+  }, override)
+}
+
 export function Root(props: DialogRootProps): JSX.Element {
   const [internalOpen, setInternalOpen] = createSignal(props.defaultOpen ?? false)
   const open = () => props.open ?? internalOpen()
@@ -42,13 +51,18 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, DialogTriggerPr
   return (
     <div
       testId={props.testId}
-      tabIndex={props.tabIndex ?? 0}
-      onClick={(event: EventPayload) => { props.onClick?.(event); if (!props.disabled) context.setOpen(true) }}
-      onKeyDown={(event: EventPayload) => {
-        props.onKeyDown?.(event)
-        if (!props.disabled && (event.key === "enter" || event.key === "space")) context.setOpen(true)
+      tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)}
+      onClick={(event: EventPayload) => {
+        if (props.disabled) return
+        props.onClick?.(event)
+        context.setOpen(true)
       }}
-      style={mergeStyle(triggerBaseStyle, props.style)}
+      onKeyDown={(event: EventPayload) => {
+        if (props.disabled) return
+        props.onKeyDown?.(event)
+        if (event.key === "enter" || event.key === "space") context.setOpen(true)
+      }}
+      style={interactiveStyle(props.disabled, props.style)}
     >{props.children}</div>
   )
 }
@@ -113,9 +127,18 @@ export function CloseButton<T = "button">(props: PolymorphicProps<T, DialogClose
   return (
     <div
       testId={props.testId}
-      tabIndex={props.tabIndex ?? 0}
-      onClick={(event: EventPayload) => { props.onClick?.(event); context.setOpen(false) }}
-      style={mergeStyle(triggerBaseStyle, props.style)}
+      tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)}
+      onClick={(event: EventPayload) => {
+        if (props.disabled) return
+        props.onClick?.(event)
+        context.setOpen(false)
+      }}
+      onKeyDown={(event: EventPayload) => {
+        if (props.disabled) return
+        props.onKeyDown?.(event)
+        if (event.key === "enter" || event.key === "space") context.setOpen(false)
+      }}
+      style={interactiveStyle(props.disabled, props.style)}
     >{props.children}</div>
   )
 }
