@@ -1,7 +1,7 @@
 import { createContext, createSignal, Show, useContext, type JSX } from "solid-js"
 import type { EventPayload } from "@gpuix/native"
 import type { PolymorphicProps } from "./polymorphic.js"
-import { Portal as NativePortal, mergeStyle, triggerBaseStyle, type NativeComponentProps } from "./shared.js"
+import { Portal as NativePortal, mergeStyle, triggerBaseStyle, type NativeComponentProps } from "./shared.jsx"
 
 export interface DialogRootProps {
   children?: JSX.Element
