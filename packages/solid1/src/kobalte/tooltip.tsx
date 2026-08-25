@@ -1,7 +1,16 @@
 import { createContext, createSignal, onCleanup, Show, useContext, type JSX } from "solid-js"
 import type { EventPayload } from "@gpuix/native"
 import type { PolymorphicProps } from "./polymorphic.js"
-import { FloatingLayer, Portal, mergeStyle, triggerBaseStyle, type FloatingAlign, type FloatingSide, type NativeComponentProps } from "./shared.jsx"
+import {
+  FloatingLayer,
+  Portal,
+  hasNativeClassStyle,
+  mergeStyle,
+  triggerBaseStyle,
+  type FloatingAlign,
+  type FloatingSide,
+  type NativeComponentProps,
+} from "./shared.jsx"
 
 export type TooltipPlacement = `${FloatingSide}` | `${FloatingSide}-${FloatingAlign}`
 
@@ -133,6 +142,11 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, TooltipTriggerP
 export function Content<T = "div">(props: PolymorphicProps<T, TooltipContentProps<T>>): JSX.Element {
   const context = requireContext("Tooltip.Content")
   const placement = () => parsePlacement(props.placement ?? context.placement())
+  const fallbackStyle = { padding: 6, borderWidth: 1, borderColor: "#34343a", borderRadius: 4 }
+  const style = () => hasNativeClassStyle(props)
+    ? props.style
+    : mergeStyle(fallbackStyle, props.style)
+
   return (
     <Show when={context.open()}>
       <FloatingLayer
@@ -145,7 +159,7 @@ export function Content<T = "div">(props: PolymorphicProps<T, TooltipContentProp
         sideOffset={props.gutter ?? context.gutter()}
         onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); context.cancelClose() }}
         onMouseLeave={(event: EventPayload) => { props.onMouseLeave?.(event); context.scheduleClose() }}
-        style={mergeStyle({ padding: 6, borderWidth: 1, borderColor: "#34343a", borderRadius: 4 }, props.style)}
+        style={style()}
       >
         {props.children}
       </FloatingLayer>
