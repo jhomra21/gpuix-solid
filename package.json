@@ -4,15 +4,17 @@
   "version": "0.0.0",
   "packageManager": "bun@1.3.14",
   "workspaces": [
-    "packages/*",
-    "examples/*"
+    "packages/solid",
+    "examples/counter"
   ],
   "scripts": {
     "build": "bun run --filter '@jhomra21/gpuix-solid' build && bun run --filter 'gpuix-solid-counter' build",
     "typecheck": "bun run --filter '@jhomra21/gpuix-solid' typecheck && bun run --filter 'gpuix-solid-counter' typecheck",
     "test": "bun run --filter '@jhomra21/gpuix-solid' test && bun run --filter '@jhomra21/gpuix-solid' build && bun run --filter 'gpuix-solid-counter' test:dashboard && bun run --filter 'gpuix-solid-counter' test:codeimage && bun run --filter 'gpuix-solid-counter' test:tanstack-kitchen-sink",
     "lint": "oxlint .",
-    "solid1:check": "cd experiments/solid1 && bun install --no-save && bun run check",
+    "solid1:package": "cd packages/solid1 && bun install --no-save && bun run test && bun run typecheck",
+    "solid1:daw": "cd examples/solid1-daw && bun install --no-save && bun run typecheck && bun run test:native",
+    "solid1:check": "bun run solid1:package && bun run solid1:daw",
     "release:check": "bun run lint && bun run typecheck && bun run test && bun run build",
     "release:test": "node --test scripts/release.test.mjs",
     "example:counter": "bun run --filter '@jhomra21/gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:counter",
@@ -20,7 +22,8 @@
     "example:dashboard": "bun run --filter '@jhomra21/gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:dashboard",
     "example:codeimage": "bun run --filter '@jhomra21/gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:codeimage",
     "example:tanstack-kitchen-sink": "bun run --filter '@jhomra21/gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:tanstack-kitchen-sink",
-    "example:solid1": "cd experiments/solid1 && bun install --no-save && bun run run"
+    "example:solid1": "cd experiments/solid1 && bun install --no-save && bun run run",
+    "example:solid1-daw": "cd packages/solid1 && bun install --no-save && bun run build && cd ../../examples/solid1-daw && bun install --no-save && bun run run"
   },
   "devDependencies": {
     "@oxlint/plugins": "1.79.0",
