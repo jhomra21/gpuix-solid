@@ -55,7 +55,7 @@ function nodeText(node: NativeTreeNode): string {
   return text
 }
 
-function insetPoint(bounds: TestBounds): { x: number; y: number } {
+function insetPoint(bounds: TestBounds) {
   return {
     x: bounds.x + Math.min(4, bounds.width / 4),
     y: bounds.y + Math.min(4, bounds.height / 4),
