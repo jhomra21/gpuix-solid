@@ -97,7 +97,7 @@ const TrackSidebarRow = (props: TrackSidebarRowProps): JSX.Element => {
             onClick={() => props.onVolumeChange(Math.min(1, props.track.volume + 0.05))}
             style={{ width: 74, height: 6, backgroundColor: dawTheme.timelineBackground, borderWidth: 1, borderColor: dawTheme.border, position: "relative", cursor: "pointer" }}
           >
-            <div style={{ position: "absolute", top: 1, left: 1, height: 2, width: `${Math.round(props.track.volume * 70)}px`, backgroundColor: dawTheme.foreground }} />
+            <div style={{ position: "absolute", top: 1, left: 1, height: 2, width: Math.round(props.track.volume * 70), backgroundColor: dawTheme.foreground }} />
           </div>
           <text style={{ ...text3xs, width: 23, color: dawTheme.mutedForeground, textAlign: "right" }}>{`${Math.round(props.track.volume * 100)}%`}</text>
         </div>
@@ -106,7 +106,7 @@ const TrackSidebarRow = (props: TrackSidebarRowProps): JSX.Element => {
           <text style={{ ...text3xs, color: dawTheme.mutedForeground }}>{props.track.pan === 0 ? "C" : props.track.pan < 0 ? `${Math.abs(props.track.pan)}L` : `${props.track.pan}R`}</text>
           <text style={{ ...text3xs, color: dawTheme.mutedForeground }}>{`${Math.round(props.track.send * 100)}%`}</text>
           <div style={{ marginLeft: 3, width: 34, height: 4, backgroundColor: dawTheme.timelineBackground, position: "relative" }}>
-            <div style={{ width: `${Math.round(meter() * 34)}px`, height: 4, backgroundColor: meterColor(meter()) }} />
+            <div style={{ width: Math.round(meter() * 34), height: 4, backgroundColor: meterColor(meter()) }} />
           </div>
         </div>
       </div>
