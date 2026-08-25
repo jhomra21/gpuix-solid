@@ -24,10 +24,10 @@ import {
 } from "./native-style.js"
 
 interface NativeStyleState {
-  class?: string
-  className?: string
-  classList?: NativeClassList
-  inlineStyle?: StyleDesc
+  class: string | undefined
+  className: string | undefined
+  classList: NativeClassList | undefined
+  inlineStyle: StyleDesc | undefined
 }
 
 const styleStates = new WeakMap<HostElementNode, NativeStyleState>()
@@ -58,19 +58,20 @@ const runtime = createRenderer<HostNode | HostParent>({
     if (node.kind === "root") return
     if (node.kind === "element") {
       if (name === "style") {
-        setNativeInlineStyle(node, value)
+        setHostProperty(node, name, value, previous)
+        setNativeInlineStyle(node, node.style)
         return
       }
       if (name === "class") {
-        setNativeClass(node, value)
+        setNativeClass(node, parseNativeClassName(value))
         return
       }
       if (name === "className") {
-        setNativeClassName(node, value)
+        setNativeClassName(node, parseNativeClassName(value))
         return
       }
       if (name === "classList") {
-        setNativeClassList(node, value)
+        setNativeClassList(node, parseNativeClassList(value))
         return
       }
     }
@@ -123,26 +124,48 @@ export const setProp = runtime.setProp
 export const mergeProps = runtime.mergeProps
 export const use = runtime.use
 
+function parseNativeClassName<T>(value: T): string | undefined {
+  return value == null ? undefined : String(value)
+}
+
+function parseNativeClassList<T>(value: T): NativeClassList | undefined {
+  if (value == null) return undefined
+  const parsed: NativeClassList = {}
+  for (const [candidate, enabled] of Object.entries(Object(value))) {
+    parsed[candidate] = Boolean(enabled)
+  }
+  return parsed
+}
+
+function nativeStyleState(node: HostElementNode): NativeStyleState {
+  return styleStates.get(node) ?? {
+    class: undefined,
+    className: undefined,
+    classList: undefined,
+    inlineStyle: undefined,
+  }
+}
+
 function setNativeInlineStyle(node: HostElementNode, style: StyleDesc | undefined): void {
-  const state = styleStates.get(node) ?? {}
+  const state = nativeStyleState(node)
   state.inlineStyle = style
   commitNativeStyleState(node, state)
 }
 
 function setNativeClass(node: HostElementNode, className: string | undefined): void {
-  const state = styleStates.get(node) ?? {}
+  const state = nativeStyleState(node)
   state.class = className
   commitNativeStyleState(node, state)
 }
 
 function setNativeClassName(node: HostElementNode, className: string | undefined): void {
-  const state = styleStates.get(node) ?? {}
+  const state = nativeStyleState(node)
   state.className = className
   commitNativeStyleState(node, state)
 }
 
 function setNativeClassList(node: HostElementNode, classList: NativeClassList | undefined): void {
-  const state = styleStates.get(node) ?? {}
+  const state = nativeStyleState(node)
   state.classList = classList
   commitNativeStyleState(node, state)
 }
