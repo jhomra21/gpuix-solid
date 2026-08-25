@@ -9,6 +9,13 @@ const themePath = path.join(projectRoot, "src/native-theme.css")
 const sourcesPath = path.join(projectRoot, "native-tailwind.sources.json")
 const outputPath = path.join(projectRoot, "src/native-tailwind.generated.ts")
 
+const nativeTextTransforms = new Map([
+  ["uppercase", "uppercase"],
+  ["lowercase", "lowercase"],
+  ["capitalize", "capitalize"],
+  ["normal-case", "none"],
+])
+
 const explicitlyIgnored = new Map([
   ["active:scale-97", "@gpuix/native@0.4.0 has no transform/scale StyleDesc field"],
   ["!transition-transform", "native StyleDesc transitions are not published in @gpuix/native@0.4.0"],
@@ -39,7 +46,6 @@ const explicitlyIgnored = new Map([
   ["w-fit", "native floating content uses intrinsic sizing instead of CSS fit-content"],
   ["shadow-md", "boxShadow exists upstream but is not published in @gpuix/native@0.4.0"],
   ["tracking-wide", "letter-spacing is not exposed by @gpuix/native@0.4.0; keep the copied source unchanged until the native text contract supports it"],
-  ["uppercase", "text-transform is not exposed by @gpuix/native@0.4.0; keep the copied source unchanged until the compatibility layer can transform text without editing source"],
 ])
 
 const themeCss = await readFile(themePath, "utf8")
@@ -64,6 +70,12 @@ const classes = {}
 const omissions = []
 
 for (const candidate of rawCandidates) {
+  const textTransform = nativeTextTransforms.get(candidate)
+  if (textTransform) {
+    classes[candidate] = { base: {}, textTransform }
+    continue
+  }
+
   const ignoredReason = explicitlyIgnored.get(candidate)
   if (ignoredReason) {
     classes[candidate] = { base: {} }
