@@ -48,7 +48,9 @@ interface BrowserSection {
 interface ClipDragState {
   clipId: string
   startX: number
+  startY: number
   startSec: number
+  startTrackIndex: number
 }
 
 const BROWSER_WIDTH = 280
@@ -337,21 +339,34 @@ export function DawSolid1Showcase(): JSX.Element {
   const beginClipDrag = (clip: DemoClip, event: EventPayload): void => {
     if (event.button !== undefined && event.button !== 0) return
     const position = clipPositions()[clip.id]
-    if (!position || event.x === undefined) return
+    const startTrackIndex = trackState().findIndex((track) => track.id === position?.trackId)
+    if (!position || startTrackIndex < 0 || event.x === undefined || event.y === undefined) return
     setSelectedClipId(clip.id)
     setSelectedTrackId(position.trackId)
-    setDrag({ clipId: clip.id, startX: event.x, startSec: position.startSec })
+    setDrag({
+      clipId: clip.id,
+      startX: event.x,
+      startY: event.y,
+      startSec: position.startSec,
+      startTrackIndex,
+    })
   }
 
-  const moveClipDrag = (targetTrackId: string, event: EventPayload): void => {
+  const moveClipDrag = (event: EventPayload): void => {
     const currentDrag = drag()
-    if (!currentDrag || event.x === undefined) return
+    if (!currentDrag || event.x === undefined || event.y === undefined) return
+    const currentTracks = trackState()
     const clip = clipDefinitions.find((entry) => entry.id === currentDrag.clipId)
-    const targetTrack = trackState().find((track) => track.id === targetTrackId)
-    if (!clip || !targetTrack || !canPlaceClipOnTrack(clip, targetTrack)) return
+    const sourceTrack = currentTracks[currentDrag.startTrackIndex]
+    if (!clip || !sourceTrack) return
 
+    const laneDelta = Math.round((event.y - currentDrag.startY) / LANE_HEIGHT)
+    const targetTrackIndex = Math.round(clamp(currentDrag.startTrackIndex + laneDelta, 0, currentTracks.length - 1))
+    const candidateTrack = currentTracks[targetTrackIndex]
+    const targetTrack = candidateTrack && canPlaceClipOnTrack(clip, candidateTrack) ? candidateTrack : sourceTrack
     const rawStart = Math.max(0, currentDrag.startSec + (event.x - currentDrag.startX) / PIXELS_PER_SECOND)
     const nextStart = grid() ? quantizeSecToGrid(rawStart, bpm(), gridDenominator()) : rawStart
+
     setClipPositions((current) => ({
       ...current,
       [clip.id]: { trackId: targetTrack.id, startSec: nextStart },
@@ -466,7 +481,7 @@ export function DawSolid1Showcase(): JSX.Element {
           </div>
         </Show>
 
-        <div style={{ flexGrow: 1, minWidth: 0, minHeight: 0, overflow: "hidden", backgroundColor: colors.timelineBackground }}>
+        <div style={{ flexGrow: 1, minWidth: 0, minHeight: 0, position: "relative", overflow: "hidden", backgroundColor: colors.timelineBackground }}>
           <div style={{ height: ARRANGEMENT_OVERVIEW_HEIGHT, minHeight: ARRANGEMENT_OVERVIEW_HEIGHT, display: "flex" }}>
             <div style={{ width: TRACK_SIDEBAR_WIDTH, minWidth: TRACK_SIDEBAR_WIDTH, backgroundColor: colors.timelineSurface, borderWidth: 1, borderColor: colors.border, paddingLeft: 10, justifyContent: "center" }}><text style={{ color: colors.mutedForeground, fontSize: 8 }}>ARRANGEMENT</text></div>
             <div style={{ flexGrow: 1, position: "relative", backgroundColor: colors.timelineBackground, borderWidth: 1, borderColor: colors.border, overflow: "hidden" }}>
@@ -528,8 +543,6 @@ export function DawSolid1Showcase(): JSX.Element {
 
                   <div
                     testId={`timeline-lane-${track.id}`}
-                    onMouseMove={(event: EventPayload) => moveClipDrag(track.id, event)}
-                    onMouseUp={finishClipDrag}
                     style={{ flexGrow: 1, height: LANE_HEIGHT, position: "relative", overflow: "hidden", backgroundColor: colors.timelineBackground, borderWidth: 1, borderColor: colors.border }}
                   >
                     <For each={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]}>
@@ -545,8 +558,6 @@ export function DawSolid1Showcase(): JSX.Element {
                             testId={`clip-${clip.id}`}
                             onClick={() => selectClip(clip)}
                             onMouseDown={(event: EventPayload) => beginClipDrag(clip, event)}
-                            onMouseMove={(event: EventPayload) => moveClipDrag(track.id, event)}
-                            onMouseUp={finishClipDrag}
                             style={{ position: "absolute", left: position().startSec * PIXELS_PER_SECOND, top: 8, width: clip.durationSec * PIXELS_PER_SECOND, height: 80, paddingTop: 7, paddingLeft: 8, paddingRight: 8, backgroundColor: clip.color, borderWidth: selected() ? 2 : 1, borderColor: selected() ? colors.clipSelected : "#ffffff33", borderRadius: 2, cursor: dragging() ? "grabbing" : "grab", opacity: dragging() ? 0.88 : 1 }}
                           >
                             <text style={{ color: colors.foreground, fontSize: 9, fontWeight: 700, whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{clip.label}</text>
@@ -564,6 +575,23 @@ export function DawSolid1Showcase(): JSX.Element {
               )}
             </For>
           </div>
+
+          <Show when={drag()}>
+            <div
+              testId="clip-drag-surface"
+              onMouseMove={moveClipDrag}
+              onMouseUp={finishClipDrag}
+              style={{
+                position: "absolute",
+                top: ARRANGEMENT_OVERVIEW_HEIGHT + RULER_HEIGHT,
+                right: 0,
+                bottom: 0,
+                left: 0,
+                backgroundColor: "#00000001",
+                cursor: "grabbing",
+              }}
+            />
+          </Show>
         </div>
       </div>
 
