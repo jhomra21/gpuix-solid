@@ -3,6 +3,7 @@ import {
   configureNativeStyleManifest,
   createTestRoot,
   hasNativeTestRenderer,
+  resolveNativeDescendantClassStyle,
   setNativeStyleColorMode,
 } from "@jhomra21/gpuix-solid1"
 import { DawSolid1Showcase } from "./app"
@@ -158,10 +159,15 @@ if (!hasNativeTestRenderer) {
     Math.abs(sourceButtonBounds.width - 40) <= 1 && Math.abs(sourceButtonBounds.height - 40) <= 1,
     `copied DAW icon button should resolve size-10 to 40x40, got ${sourceButtonBounds.width}x${sourceButtonBounds.height}`,
   )
-  const sourceIconBounds = sourceUi.renderer.boundsTestId("upstream-button-icon")
+  const sourceIconStyle = resolveNativeDescendantClassStyle(
+    "[&_svg]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+    undefined,
+    "svg",
+    false,
+  )
   requireCondition(
-    Math.abs(sourceIconBounds.width - 16) <= 1 && Math.abs(sourceIconBounds.height - 16) <= 1,
-    `copied DAW button descendant SVG utility should resolve to 16x16, got ${sourceIconBounds.width}x${sourceIconBounds.height}`,
+    sourceIconStyle?.width === 16 && sourceIconStyle.height === 16,
+    `copied DAW button descendant SVG utility should resolve to 16x16, got ${JSON.stringify(sourceIconStyle)}`,
   )
   sourceUi.renderer.clickTestId("upstream-button")
   requireText(sourceUi.renderer.textContent("upstream-button-count"), "Copied Button presses: 1", "copied DAW button")
