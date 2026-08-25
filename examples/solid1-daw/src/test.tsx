@@ -1,8 +1,17 @@
 import { existsSync, statSync } from "node:fs"
-import { createTestRoot, hasNativeTestRenderer } from "@jhomra21/gpuix-solid1"
+import {
+  configureNativeStyleManifest,
+  createTestRoot,
+  hasNativeTestRenderer,
+  setNativeStyleColorMode,
+} from "@jhomra21/gpuix-solid1"
 import { DawSolid1Showcase } from "./app"
+import { nativeTailwindManifest } from "./native-tailwind.generated"
 
 const UPSTREAM_DRAG_ISSUE = "https://github.com/remorses/gpuix/issues/20"
+
+configureNativeStyleManifest(nativeTailwindManifest)
+setNativeStyleColorMode("dark")
 
 function requireCondition(condition: boolean, message: string): void {
   if (!condition) throw new Error(message)
