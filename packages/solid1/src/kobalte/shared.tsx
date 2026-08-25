@@ -1,10 +1,13 @@
 import type { JSX } from "solid-js"
 import type { EventPayload } from "@gpuix/native"
 import type { HostProps, StyleDesc } from "../host/types.js"
+import type { NativeClassList } from "../native-style.js"
 
 export type NativeComponentProps = Omit<HostProps, "children" | "testId"> & {
   children?: JSX.Element
   class?: string
+  className?: string
+  classList?: NativeClassList
   disabled?: boolean
   testId?: string | undefined
 }
@@ -57,6 +60,9 @@ export function FloatingLayer(props: FloatingContentProps): JSX.Element {
       occlude
     >
       <div
+        class={props.class}
+        className={props.className}
+        classList={props.classList}
         testId={props.testId}
         tabIndex={props.tabIndex}
         onClick={props.onClick}
