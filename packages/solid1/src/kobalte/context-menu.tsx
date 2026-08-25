@@ -3,7 +3,7 @@ import type { EventPayload } from "@gpuix/native"
 import type { PolymorphicProps } from "./polymorphic.js"
 import { Portal, mergeStyle, popupBaseStyle, type NativeComponentProps } from "./shared.jsx"
 
-export interface ContextMenuRootProps { children?: JSX.Element; open?: boolean; defaultOpen?: boolean; onOpenChange?: (open: boolean) => void }
+export interface ContextMenuRootProps { children?: JSX.Element; open?: boolean; defaultOpen?: boolean; onOpenChange?: (open: boolean) => void; gutter?: number }
 export interface ContextMenuTriggerProps<T = "div"> extends NativeComponentProps { as?: T }
 export interface ContextMenuContentProps<T = "div"> extends NativeComponentProps { as?: T }
 export interface ContextMenuItemProps<T = "div"> extends NativeComponentProps { as?: T; onSelect?: () => void }
@@ -19,6 +19,7 @@ type ContextMenuContextValue = {
   open: () => boolean
   setOpen: (open: boolean) => void
   position: () => ContextPoint
+  gutter: () => number
   openAt: (event: EventPayload) => void
 }
 const ContextMenuContext = createContext<ContextMenuContextValue>()
@@ -39,6 +40,7 @@ export function Root(props: ContextMenuRootProps): JSX.Element {
   const [internalOpen, setInternalOpen] = createSignal(props.defaultOpen ?? false)
   const [position, setPosition] = createSignal<ContextPoint>({ x: 0, y: 0 })
   const open = () => props.open ?? internalOpen()
+  const gutter = () => props.gutter ?? 0
   const setOpen = (next: boolean) => {
     if (props.open === undefined) setInternalOpen(next)
     props.onOpenChange?.(next)
@@ -48,7 +50,7 @@ export function Root(props: ContextMenuRootProps): JSX.Element {
     setPosition({ x: event.x ?? 0, y: event.y ?? 0 })
     setOpen(true)
   }
-  return <ContextMenuContext.Provider value={{ open, setOpen, position, openAt }}>{props.children}</ContextMenuContext.Provider>
+  return <ContextMenuContext.Provider value={{ open, setOpen, position, gutter, openAt }}>{props.children}</ContextMenuContext.Provider>
 }
 
 export function Trigger<T = "div">(props: PolymorphicProps<T, ContextMenuTriggerProps<T>>): JSX.Element {
@@ -77,7 +79,7 @@ export function Content<T = "div">(props: PolymorphicProps<T, ContextMenuContent
   const context = requireContext("ContextMenu.Content")
   return (
     <Show when={context.open()}>
-      <anchored position={context.position()} side="bottom" align="start" gap={0} fit="snap" snapMargin={8} deferred priority={2} occlude>
+      <anchored position={context.position()} side="bottom" align="start" gap={context.gutter()} fit="snap" snapMargin={8} deferred priority={2} occlude>
         <div
           class={props.class}
           className={props.className}
