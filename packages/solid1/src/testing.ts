@@ -87,17 +87,13 @@ export class TestRenderer implements NativeRenderer {
 
   flush(): void { this.#native.flush() }
 
-  dispatchNativeEvents(): EventPayload[] {
+  dispatchNativeEvents(): void {
     const root = this.#root
     if (!root) throw new Error("TestRenderer is not bound to a Solid 1 root")
-    const dispatched: EventPayload[] = []
     for (;;) {
       const events = this.#native.drainEvents()
-      if (events.length === 0) return dispatched
-      for (const event of events) {
-        dispatched.push(event)
-        root.dispatch(event)
-      }
+      if (events.length === 0) return
+      for (const event of events) root.dispatch(event)
     }
   }
 
@@ -120,31 +116,16 @@ export class TestRenderer implements NativeRenderer {
     this.#native.flush()
 
     this.#native.simulateMouseDown(startX, startY, 0)
-    const downEvents = this.dispatchNativeEvents()
+    this.dispatchNativeEvents()
     this.#native.flush()
 
     this.#native.simulateMouseMove(endX, endY, 0)
-    const moveEvents = this.dispatchNativeEvents()
+    this.dispatchNativeEvents()
     this.#native.flush()
 
     this.#native.simulateMouseUp(endX, endY, 0)
-    const upEvents = this.dispatchNativeEvents()
+    this.dispatchNativeEvents()
     this.#native.flush()
-
-    const summarize = (event: EventPayload) => ({
-      type: event.eventType,
-      id: event.elementId,
-      x: event.x,
-      y: event.y,
-      button: event.button,
-      pressedButton: event.pressedButton,
-    })
-    console.log("solid1 native drag trace", JSON.stringify({
-      requested: { startX, startY, endX, endY },
-      down: downEvents.map(summarize),
-      move: moveEvents.map(summarize),
-      up: upEvents.map(summarize),
-    }))
   }
 
   boundsTestId(testId: string): TestBounds {
