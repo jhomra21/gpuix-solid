@@ -23,7 +23,7 @@
     },
     "./kobalte": {
       "types": "./dist/kobalte/index.d.ts",
-      "import": "./dist/kobalte/index.js"
+      "import": "./dist/kobalte/index.jsx"
     },
     "./kobalte/polymorphic": {
       "types": "./dist/kobalte/polymorphic.d.ts",
@@ -31,39 +31,39 @@
     },
     "./kobalte/button": {
       "types": "./dist/kobalte/button.d.ts",
-      "import": "./dist/kobalte/button.js"
+      "import": "./dist/kobalte/button.jsx"
     },
     "./kobalte/image": {
       "types": "./dist/kobalte/image.d.ts",
-      "import": "./dist/kobalte/image.js"
+      "import": "./dist/kobalte/image.jsx"
     },
     "./kobalte/separator": {
       "types": "./dist/kobalte/separator.d.ts",
-      "import": "./dist/kobalte/separator.js"
+      "import": "./dist/kobalte/separator.jsx"
     },
     "./kobalte/text-field": {
       "types": "./dist/kobalte/text-field.d.ts",
-      "import": "./dist/kobalte/text-field.js"
+      "import": "./dist/kobalte/text-field.jsx"
     },
     "./kobalte/tooltip": {
       "types": "./dist/kobalte/tooltip.d.ts",
-      "import": "./dist/kobalte/tooltip.js"
+      "import": "./dist/kobalte/tooltip.jsx"
     },
     "./kobalte/dialog": {
       "types": "./dist/kobalte/dialog.d.ts",
-      "import": "./dist/kobalte/dialog.js"
+      "import": "./dist/kobalte/dialog.jsx"
     },
     "./kobalte/dropdown-menu": {
       "types": "./dist/kobalte/dropdown-menu.d.ts",
-      "import": "./dist/kobalte/dropdown-menu.js"
+      "import": "./dist/kobalte/dropdown-menu.jsx"
     },
     "./kobalte/context-menu": {
       "types": "./dist/kobalte/context-menu.d.ts",
-      "import": "./dist/kobalte/context-menu.js"
+      "import": "./dist/kobalte/context-menu.jsx"
     },
     "./kobalte/menubar": {
       "types": "./dist/kobalte/menubar.d.ts",
-      "import": "./dist/kobalte/menubar.js"
+      "import": "./dist/kobalte/menubar.jsx"
     }
   },
   "files": [
