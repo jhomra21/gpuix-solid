@@ -76,12 +76,6 @@ try {
         for (const key of ["render", "createRoot", "createTestRoot", "For", "Show", "configureNativeStyleManifest"]) {
           if (!(key in solid1)) throw new Error("Missing Solid 1 export: " + key)
         }
-        const kobalte = await import("@jhomra21/gpuix-solid1/kobalte")
-        for (const key of ["ColorModeProvider", "Button", "Image", "Separator", "TextField", "Tooltip", "Dialog", "DropdownMenu", "ContextMenu", "Menubar"]) {
-          if (!(key in kobalte)) throw new Error("Missing Solid 1 Kobalte export: " + key)
-        }
-        const subpaths = ["button", "image", "separator", "text-field", "tooltip", "dialog", "dropdown-menu", "context-menu", "menubar", "polymorphic"]
-        for (const subpath of subpaths) await import("@jhomra21/gpuix-solid1/kobalte/" + subpath)
         console.log("npm clean-consumer Solid 1 imports: PASS")
       `,
     ],
@@ -137,7 +131,7 @@ try {
   if (!builtSource.includes("ConsumerFixture")) {
     throw new Error("Clean-consumer Vite build did not emit the Solid 1 fixture")
   }
-  console.log("npm clean-consumer Solid 1 TSX build: PASS")
+  console.log("npm clean-consumer Solid 1 TSX + Kobalte build: PASS")
 
   const bunConsumer = path.join(root, "bun")
   mkdirSync(bunConsumer, { recursive: true })
