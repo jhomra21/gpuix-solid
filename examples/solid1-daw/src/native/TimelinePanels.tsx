@@ -13,11 +13,11 @@ export interface TimelinePanelsProps {
   onClose: () => void
   onEffectsTabClick: () => void
   onClipTabClick: () => void
-  selectedClip?: NativeClip
+  selectedClip: NativeClip | undefined
   effects: EffectsPanelProps
 }
 
-const ClipPanel = (props: { clip?: NativeClip }): JSX.Element => (
+const ClipPanel = (props: { clip: NativeClip | undefined }): JSX.Element => (
   <div testId="clip-panel" style={{ height: "100%", display: "flex", gap: 12, padding: 12, backgroundColor: dawTheme.appSurface }}>
     <div style={{ width: 300, minWidth: 300, height: "100%", padding: 12, gap: 8, borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.timelineSurface }}>
       <text style={{ ...text2xs, color: dawTheme.mutedForeground, fontWeight: 700 }}>CLIP</text>
