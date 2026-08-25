@@ -12,6 +12,16 @@ This fixture is not a generic DAW mock. Browser-only implementation details such
 
 The implementation is source-first, not screenshot-first. Start from the pinned Solid component and preserve its Solid control flow, component boundaries, ordering, dimensions, alignment and state semantics as directly as possible. Translate only browser host details that cannot execute in GPUIX (DOM/Kobalte primitives, Tailwind class strings, SVG/canvas/browser APIs, persistence/audio/router integrations). Do not redraw or reinterpret a component from a screenshot when its Solid source already expresses the UI. When equivalent source intent renders differently, treat that as a GPUIX/Solid compatibility defect to fix or explicitly document rather than compensating with arbitrary per-example offsets.
 
+## Compatibility-first port sequence
+
+Do not continue expanding the hand-translated DAW UI until the browser-facing primitive layers are independently validated. The sequence is:
+
+1. `examples/solid1-kobalte`: validate native Solid 1 compatibility for the exact Kobalte surface used by the DAW — Button, Image/Avatar, Separator, TextField, Tooltip, Dialog, DropdownMenu, ContextMenu, Menubar and ColorMode.
+2. Add native `class` / `classList` / Tailwind v4 compilation so the DAW's actual utility strings and theme tokens resolve to GPUIX styles instead of being manually rewritten.
+3. Add native aliases for the Kobalte import paths so the DAW wrappers can keep their existing public API and CVA/cn output.
+4. Replace the native DAW translations with the pinned Solid source components and deterministic fixture data.
+5. Treat any remaining visual or interaction mismatch as a GPUIX compatibility defect, not an invitation to tune source-specific coordinates.
+
 Pinned geometry from the source branch:
 
 - left browser default width: 280px
