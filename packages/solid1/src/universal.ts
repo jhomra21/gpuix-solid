@@ -364,19 +364,17 @@ function parseNativeClassList<T>(value: T): NativeClassList | undefined {
 
 function normalizeNativeInlineStyle(style: StyleDesc | undefined): StyleDesc | undefined {
   if (!style) return undefined
-  return {
-    ...style,
-    width: normalizeInlineDimension(style.width),
-    height: normalizeInlineDimension(style.height),
-    minWidth: normalizeInlineDimension(style.minWidth),
-    minHeight: normalizeInlineDimension(style.minHeight),
-    maxWidth: normalizeInlineDimension(style.maxWidth),
-    maxHeight: normalizeInlineDimension(style.maxHeight),
-  }
+  const normalized: StyleDesc = { ...style }
+  if (style.width !== undefined) normalized.width = normalizeInlineDimension(style.width)
+  if (style.height !== undefined) normalized.height = normalizeInlineDimension(style.height)
+  if (style.minWidth !== undefined) normalized.minWidth = normalizeInlineDimension(style.minWidth)
+  if (style.minHeight !== undefined) normalized.minHeight = normalizeInlineDimension(style.minHeight)
+  if (style.maxWidth !== undefined) normalized.maxWidth = normalizeInlineDimension(style.maxWidth)
+  if (style.maxHeight !== undefined) normalized.maxHeight = normalizeInlineDimension(style.maxHeight)
+  return normalized
 }
 
-function normalizeInlineDimension(value: DimensionValue | undefined): DimensionValue | undefined {
-  if (value === undefined) return undefined
+function normalizeInlineDimension(value: DimensionValue): DimensionValue {
   const trimmed = String(value).trim()
   if (trimmed === "0") return 0
   const pixel = trimmed.match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))px$/i)
