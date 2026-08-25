@@ -201,7 +201,7 @@ const runtime = createRenderer<HostNode | HostParent>({
     if (parent.kind === "text" || node.kind === "root") {
       throw new TypeError("Expected a GPUIX parent and child host node")
     }
-    const svgRoot = inlineSvgRoot(parent)
+    const svgRoot = parent.kind === "element" ? inlineSvgRoot(parent) : undefined
     if (node.kind === "element") classStyledNodes.delete(node)
     removeHostNode(parent, node)
     if (svgRoot) refreshInlineSvg(svgRoot)
@@ -288,10 +288,10 @@ function refreshInlineSvg(node: HostElementNode): void {
 }
 
 function inlineSvgRoot(node: HostElementNode): HostElementNode | undefined {
-  let current: HostElementNode | undefined = node
+  let current: HostElementNode = node
   for (;;) {
     if (semanticTags.get(current) === "svg") return current
-    const parent = current.parent
+    const parent: HostParent | null = current.parent
     if (!parent || parent.kind === "root") return undefined
     current = parent
   }
