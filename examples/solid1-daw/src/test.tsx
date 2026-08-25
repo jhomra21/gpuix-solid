@@ -18,7 +18,11 @@ if (!hasNativeTestRenderer) {
   console.log("solid1 DAW source-structured port: native TestGpuixRenderer unavailable; skipped")
 } else {
   const app = createTestRoot()
-  app.render(() => <DawSolid1Showcase />)
+  app.render(() => (
+    <div testId="daw-test-viewport" style={{ width: "100%", height: "100%", overflow: "scroll" }}>
+      <DawSolid1Showcase />
+    </div>
+  ))
 
   const requireCentered = (parentId: string, childId: string, tolerance = 3): void => {
     const parent = app.renderer.boundsTestId(parentId)
@@ -73,12 +77,18 @@ if (!hasNativeTestRenderer) {
   requireCondition(app.renderer.hasTestId("browser-item-compressor"), "effects search should retain Compressor")
   requireCondition(!app.renderer.hasTestId("browser-item-eq-eight"), "effects search should filter EQ Eight")
 
+  app.renderer.scrollTestId("daw-test-viewport", 0, -260)
+  const lowerViewportOffset = app.renderer.scrollOffsetTestId("daw-test-viewport")
+  requireCondition(lowerViewportOffset !== null && lowerViewportOffset[1] < 0, "DAW test viewport should scroll to reveal lower controls")
+
   app.renderer.clickTestId("compressor-threshold-plus")
   requireText(app.renderer.textContent("compressor-threshold-value"), "-17.0 dB", "compressor threshold")
 
+  app.renderer.scrollTestId("daw-test-viewport", -420, -260)
   app.renderer.clickTestId("eq-high-plus")
   requireText(app.renderer.textContent("eq-high-value"), "+1.0 dB", "EQ high gain")
 
+  app.renderer.scrollTestId("daw-test-viewport", 0, -260)
   app.renderer.clickTestId("bottom-tab-clip")
   requireCondition(app.renderer.hasTestId("clip-panel"), "clip tab should mount clip panel")
   requireCondition(!app.renderer.hasTestId("effects-panel"), "clip tab should unmount effects panel")
@@ -93,6 +103,7 @@ if (!hasNativeTestRenderer) {
   app.renderer.clickTestId("bottom-panel-open")
   requireCondition(app.renderer.hasTestId("bottom-panel"), "show should restore bottom panel")
 
+  app.renderer.scrollTestId("daw-test-viewport", 0, 0)
   app.renderer.clickTestId("transport-stop")
   requireText(app.renderer.textContent("transport-state"), "0.00s", "stop resets playhead")
 
