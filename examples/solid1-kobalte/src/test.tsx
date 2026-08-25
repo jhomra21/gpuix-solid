@@ -41,7 +41,7 @@ if (!hasNativeTestRenderer) {
 
   app.renderer.clickTestId("context-trigger")
   requireCondition(!app.renderer.hasTestId("context-content"), "ContextMenu must ignore a normal left click")
-  app.renderer.clickTestId("context-trigger", 2)
+  app.renderer.rightClickTestId("context-trigger")
   requireCondition(app.renderer.hasTestId("context-content"), "ContextMenu must open from a native right click")
   app.renderer.clickTestId("context-duplicate")
   requireText(app.renderer.textContent("last-action"), "Duplicate clip", "Context menu selection")
