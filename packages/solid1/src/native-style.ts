@@ -39,7 +39,9 @@ export function setNativeStyleColorMode(nextMode: NativeColorMode): void {
 
 export function onNativeStyleEnvironmentChange(listener: () => void): () => void {
   environmentListeners.add(listener)
-  return () => environmentListeners.delete(listener)
+  return () => {
+    environmentListeners.delete(listener)
+  }
 }
 
 export function resolveNativeClassStyle(
@@ -69,15 +71,6 @@ export function mergeNativeStyles(...styles: Array<StyleDesc | undefined>): Styl
     result = mergeStylePair(result, style)
   }
   return result
-}
-
-export function isNativeStyleDesc(value: unknown): value is StyleDesc {
-  return value !== null && typeof value === "object" && !Array.isArray(value)
-}
-
-export function isNativeClassList(value: unknown): value is NativeClassList {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) return false
-  return Object.values(value).every((entry) => entry === undefined || entry === null || typeof entry === "boolean")
 }
 
 function classCandidates(className: string | undefined, classList: NativeClassList | undefined): string[] {
