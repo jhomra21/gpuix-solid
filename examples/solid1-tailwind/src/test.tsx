@@ -20,6 +20,10 @@ if (!hasNativeTestRenderer) {
   requireEqual(darkRoot.backgroundColor, "oklch(0.141 0.005 285.823)", "dark background token")
   requireEqual(darkRoot.color, "oklch(0.985 0 0)", "dark foreground token")
 
+  const textSmall = app.renderer.styleTestId("tailwind-text-sm")
+  requireEqual(textSmall.fontSize, 14, "text-sm font size")
+  requireEqual(textSmall.lineHeight, 20, "text-sm line height")
+
   const action = app.renderer.styleTestId("primary-action")
   requireEqual(action.height, 40, "h-10")
   requireEqual(action.paddingLeft, 16, "px-4 left")
