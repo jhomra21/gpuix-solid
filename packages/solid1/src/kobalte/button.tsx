@@ -1,0 +1,44 @@
+import type { JSX } from "solid-js"
+import type { EventPayload } from "@gpuix/native"
+import type { StyleDesc } from "../host/types.js"
+import type { PolymorphicProps } from "./polymorphic.js"
+import { mergeStyle, triggerBaseStyle, type NativeComponentProps } from "./shared.js"
+
+export interface ButtonRootProps<T = "button"> extends NativeComponentProps {
+  as?: T
+  pressed?: boolean
+  onPress?: (event: EventPayload) => void
+}
+
+export function Root<T = "button">(props: PolymorphicProps<T, ButtonRootProps<T>>): JSX.Element {
+  const style = (): StyleDesc => mergeStyle(triggerBaseStyle, {
+    opacity: props.disabled ? 0.5 : 1,
+    pointerEvents: props.disabled ? "none" : "auto",
+  }) ?? triggerBaseStyle
+
+  return (
+    <div
+      testId={props.testId}
+      tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)}
+      onClick={(event) => {
+        if (props.disabled) return
+        props.onClick?.(event)
+        props.onPress?.(event)
+      }}
+      onKeyDown={(event) => {
+        if (props.disabled) return
+        props.onKeyDown?.(event)
+        if (event.key === "enter" || event.key === "space") props.onPress?.(event)
+      }}
+      onFocus={props.onFocus}
+      onBlur={props.onBlur}
+      onMouseEnter={props.onMouseEnter}
+      onMouseLeave={props.onMouseLeave}
+      style={mergeStyle(style(), props.style)}
+    >
+      {props.children}
+    </div>
+  )
+}
+
+export const Button = Root
