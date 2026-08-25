@@ -8,6 +8,7 @@
     "noEmit": true,
     "paths": {
       "~/*": ["src/upstream/*"],
+      "@daw-browser/shared": ["src/compat/daw-browser-shared.ts"],
       "@kobalte/core": ["../../packages/solid1/src/kobalte/index.tsx"],
       "@kobalte/core/polymorphic": ["../../packages/solid1/src/kobalte/polymorphic.ts"],
       "@kobalte/core/button": ["../../packages/solid1/src/kobalte/button.tsx"],
