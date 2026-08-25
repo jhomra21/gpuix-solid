@@ -407,13 +407,33 @@ function reapplyNativeStyleSubtree(node: HostElementNode): void {
 function applyNativeStyleState(node: HostElementNode): void {
   const state = nativeStyleState(node)
   const className = combinedClassName(state)
+  const inheritedStyle = resolveInheritedNativeStyle(node)
   const ancestorStyle = resolveAncestorDescendantStyle(node)
   const classStyle = resolveNativeClassStyle(className, state.classList)
   setHostProperty(
     node,
     "style",
-    mergeNativeStyles(ancestorStyle, classStyle, state.inlineStyle) ?? {},
+    mergeNativeStyles(inheritedStyle, ancestorStyle, classStyle, state.inlineStyle) ?? {},
   )
+}
+
+function resolveInheritedNativeStyle(node: HostElementNode): StyleDesc | undefined {
+  const parent = node.parent
+  if (!parent || parent.kind !== "element" || !parent.style) return undefined
+  const source = parent.style
+  const inherited: StyleDesc = {}
+  if (source.visibility !== undefined) inherited.visibility = source.visibility
+  if (source.color !== undefined) inherited.color = source.color
+  if (source.fontSize !== undefined) inherited.fontSize = source.fontSize
+  if (source.fontFamily !== undefined) inherited.fontFamily = source.fontFamily
+  if (source.fontWeight !== undefined) inherited.fontWeight = source.fontWeight
+  if (source.textAlign !== undefined) inherited.textAlign = source.textAlign
+  if (source.lineHeight !== undefined) inherited.lineHeight = source.lineHeight
+  if (source.whiteSpace !== undefined) inherited.whiteSpace = source.whiteSpace
+  if (source.cursor !== undefined) inherited.cursor = source.cursor
+  if (source.userSelect !== undefined) inherited.userSelect = source.userSelect
+  if (source.selectionColor !== undefined) inherited.selectionColor = source.selectionColor
+  return Object.keys(inherited).length > 0 ? inherited : undefined
 }
 
 function resolveAncestorDescendantStyle(node: HostElementNode): StyleDesc | undefined {
