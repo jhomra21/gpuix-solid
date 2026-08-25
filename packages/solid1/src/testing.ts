@@ -136,6 +136,24 @@ export class TestRenderer implements NativeRenderer {
     this.#native.flush()
   }
 
+  scrollTestId(testId: string, x: number, y: number): void {
+    const node = this.requireTestId(testId)
+    this.#native.flush()
+    this.#native.scrollTo(node.id, x, y)
+    this.#native.flush()
+  }
+
+  scrollOffsetTestId(testId: string): [number, number] | null {
+    const node = this.requireTestId(testId)
+    this.#native.flush()
+    const offset = this.#native.getScrollOffset(node.id)
+    if (!offset) return null
+    const x = offset[0]
+    const y = offset[1]
+    if (x === undefined || y === undefined) throw new Error(`${testId} returned an incomplete scroll offset`)
+    return [x, y]
+  }
+
   dragTestId(testId: string, deltaX: number, deltaY: number): void {
     const start = insetPoint(this.boundsTestId(testId))
     const endX = start.x + deltaX
