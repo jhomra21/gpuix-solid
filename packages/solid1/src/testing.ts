@@ -106,8 +106,8 @@ export class TestRenderer implements NativeRenderer {
 
   dragTestId(testId: string, deltaX: number, deltaY: number): void {
     const bounds = this.boundsTestId(testId)
-    const startX = bounds.x + bounds.width / 2
-    const startY = bounds.y + bounds.height / 2
+    const startX = bounds.x + Math.min(4, bounds.width / 4)
+    const startY = bounds.y + Math.min(4, bounds.height / 4)
     const endX = startX + deltaX
     const endY = startY + deltaY
 
