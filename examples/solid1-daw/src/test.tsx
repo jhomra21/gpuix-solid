@@ -73,9 +73,7 @@ if (!hasNativeTestRenderer) {
   requireCondition(app.renderer.hasTestId("browser-item-compressor"), "effects search should retain Compressor")
   requireCondition(!app.renderer.hasTestId("browser-item-eq-eight"), "effects search should filter EQ Eight")
 
-  process.env.GPUIX_DEBUG_EVENTS = "1"
   app.renderer.clickTestId("compressor-threshold-plus")
-  process.env.GPUIX_DEBUG_EVENTS = "0"
   requireText(app.renderer.textContent("compressor-threshold-value"), "-17.0 dB", "compressor threshold")
 
   app.renderer.clickTestId("eq-high-plus")
