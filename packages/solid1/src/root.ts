@@ -2,9 +2,11 @@ import type { EventPayload } from "@gpuix/native"
 import type { JSX } from "solid-js"
 import { EventRegistry } from "./host/events.js"
 import { MutationDriver } from "./host/mutations.js"
-import { HostRootNode, removeHostNode } from "./host/nodes.js"
+import { HostRootNode, removeHostNode, type HostNode } from "./host/nodes.js"
 import type { NativeRenderer } from "./host/types.js"
 import { universalRender } from "./universal.js"
+
+type UniversalRenderNode = HostRootNode | HostNode
 
 export interface Root {
   render(code: () => JSX.Element): void
@@ -33,10 +35,11 @@ export function createRoot(renderer: NativeRenderer): Root {
         events.clear()
       }
 
-      // Solid's universal renderer must receive the component result directly so it can
-      // resolve accessors produced by Context.Provider, control flow, and other wrappers.
-      // Evaluating and validating code() first rejects valid non-host intermediate values.
-      dispose = universalRender(code, container)
+      // Solid's JSX.Element type includes provider/control-flow expressions that are not
+      // host nodes until the universal renderer resolves them. The renderer's generic
+      // signature only describes the eventual host value, so keep the expression intact
+      // and narrow at this boundary instead of eagerly evaluating code().
+      dispose = universalRender(code as () => UniversalRenderNode, container)
       flushNative()
     },
     flush: flushNative,
