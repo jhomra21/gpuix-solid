@@ -14,14 +14,17 @@ import {
   type HostElementNode,
   type HostNode,
   type HostParent,
+  type HostTextNode,
 } from "./host/nodes.js"
 import type { ElementType, StyleDesc } from "./host/types.js"
 import {
   mergeNativeStyles,
   onNativeStyleEnvironmentChange,
   resolveNativeClassStyle,
+  resolveNativeClassTextTransform,
   resolveNativeDescendantClassStyle,
   type NativeClassList,
+  type NativeTextTransform,
 } from "./native-style.js"
 
 interface NativeStyleState {
@@ -37,6 +40,8 @@ const styleStates = new WeakMap<HostElementNode, NativeStyleState>()
 const classStyledNodes = new Set<HostElementNode>()
 const semanticTags = new WeakMap<HostElementNode, string>()
 const svgAttributes = new WeakMap<HostElementNode, Map<string, SvgAttributeValue>>()
+const textTransforms = new WeakMap<HostElementNode, NativeTextTransform>()
+const sourceTextValues = new WeakMap<HostTextNode, string>()
 
 const TEXT_SEMANTIC_TAGS = new Set([
   "span",
@@ -143,11 +148,14 @@ const runtime = createRenderer<HostNode | HostParent>({
     return node
   },
   createTextNode(value) {
-    return createHostText(value)
+    const node = createHostText(value)
+    sourceTextValues.set(node, String(value))
+    return node
   },
   replaceText(node, value) {
     if (!isHostTextNode(node)) throw new TypeError("Expected GPUIX text node")
-    replaceHostText(node, value)
+    sourceTextValues.set(node, String(value))
+    applyNativeTextTransform(node)
     refreshInlineSvgFromParent(node.parent)
   },
   setProperty(node, name, value, previous) {
@@ -194,6 +202,7 @@ const runtime = createRenderer<HostNode | HostParent>({
     if (anchor?.kind === "root") throw new TypeError("Expected a GPUIX host node anchor")
     insertHostNode(parent, node, anchor ?? null)
     if (node.kind === "element") reapplyNativeStyleSubtree(node)
+    else applyNativeTextTransform(node)
     refreshInlineSvgFromParent(parent)
   },
   isTextNode(node) {
@@ -401,6 +410,7 @@ function reapplyNativeStyleSubtree(node: HostElementNode): void {
   applyNativeStyleState(node)
   for (const child of node.children) {
     if (child.kind === "element") reapplyNativeStyleSubtree(child)
+    else applyNativeTextTransform(child)
   }
 }
 
@@ -410,11 +420,40 @@ function applyNativeStyleState(node: HostElementNode): void {
   const inheritedStyle = resolveInheritedNativeStyle(node)
   const ancestorStyle = resolveAncestorDescendantStyle(node)
   const classStyle = resolveNativeClassStyle(className, state.classList)
+  const inheritedTextTransform = resolveInheritedTextTransform(node)
+  const classTextTransform = resolveNativeClassTextTransform(className, state.classList)
+  const textTransform = classTextTransform ?? inheritedTextTransform
+  if (textTransform === undefined) textTransforms.delete(node)
+  else textTransforms.set(node, textTransform)
   setHostProperty(
     node,
     "style",
     mergeNativeStyles(inheritedStyle, ancestorStyle, classStyle, state.inlineStyle) ?? {},
   )
+}
+
+function applyNativeTextTransform(node: HostTextNode): void {
+  const source = sourceTextValues.get(node) ?? node.text
+  const parent = node.parent
+  const transform = parent?.kind === "element" ? textTransforms.get(parent) : undefined
+  replaceHostText(node, transformText(source, transform))
+}
+
+function transformText(value: string, transform: NativeTextTransform | undefined): string {
+  switch (transform) {
+    case "uppercase": return value.toUpperCase()
+    case "lowercase": return value.toLowerCase()
+    case "capitalize": return value.replace(/\b\p{L}/gu, (character) => character.toUpperCase())
+    case "none":
+    case undefined:
+      return value
+  }
+}
+
+function resolveInheritedTextTransform(node: HostElementNode): NativeTextTransform | undefined {
+  const parent = node.parent
+  if (!parent || parent.kind !== "element") return undefined
+  return textTransforms.get(parent)
 }
 
 function resolveInheritedNativeStyle(node: HostElementNode): StyleDesc | undefined {
