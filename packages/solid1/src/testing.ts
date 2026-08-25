@@ -55,6 +55,13 @@ function nodeText(node: NativeTreeNode): string {
   return text
 }
 
+function insetPoint(bounds: TestBounds): { x: number; y: number } {
+  return {
+    x: bounds.x + Math.min(4, bounds.width / 4),
+    y: bounds.y + Math.min(4, bounds.height / 4),
+  }
+}
+
 const NativeTestRenderer = loadNativeTestRenderer()
 export const hasNativeTestRenderer = NativeTestRenderer !== undefined
 
@@ -98,32 +105,26 @@ export class TestRenderer implements NativeRenderer {
   }
 
   clickTestId(testId: string): void {
-    const bounds = this.boundsTestId(testId)
-    this.#native.simulateClick(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)
+    const point = insetPoint(this.boundsTestId(testId))
+    this.#native.simulateClick(point.x, point.y)
     this.dispatchNativeEvents()
     this.#native.flush()
   }
 
   dragTestId(testId: string, deltaX: number, deltaY: number): void {
-    const bounds = this.boundsTestId(testId)
-    const startX = bounds.x + Math.min(4, bounds.width / 4)
-    const startY = bounds.y + Math.min(4, bounds.height / 4)
-    const endX = startX + deltaX
-    const endY = startY + deltaY
+    const start = insetPoint(this.boundsTestId(testId))
+    const endX = start.x + deltaX
+    const endY = start.y + deltaY
 
-    this.#native.simulateMouseMove(startX, startY)
+    this.#native.simulateMouseMove(start.x, start.y)
     this.dispatchNativeEvents()
     this.#native.flush()
 
-    this.#native.simulateMouseDown(startX, startY, 0)
+    this.#native.simulateMouseDown(start.x, start.y, 0)
     this.dispatchNativeEvents()
     this.#native.flush()
 
-    // GPUI's VisualTestContext accepts pressedButton as event payload data; it does
-    // not maintain a platform button state from simulateMouseDown. Once the app has
-    // mounted its drag-continuation surface, a normal native mouse-move is the
-    // reliable stateful continuation of that real down event in @gpuix/native 0.4.0.
-    this.#native.simulateMouseMove(endX, endY)
+    this.#native.simulateMouseMove(endX, endY, 0)
     this.dispatchNativeEvents()
     this.#native.flush()
 
