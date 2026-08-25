@@ -9,7 +9,10 @@ import type { PolymorphicProps } from "@kobalte/core/polymorphic"
 import * as Separator from "@kobalte/core/separator"
 import * as TextField from "@kobalte/core/text-field"
 import * as Tooltip from "@kobalte/core/tooltip"
+import { Avatar as UpstreamAvatar } from "./upstream/components/ui/avatar"
 import { Button as UpstreamButton } from "./upstream/components/ui/button"
+import { Separator as UpstreamSeparator } from "./upstream/components/ui/separator"
+import { TextField as UpstreamTextField } from "./upstream/components/ui/text-field"
 
 type NativeAliasPolymorphicProbe = PolymorphicProps<"div", { label: string }>
 type NativeAliasColorModeProbe = ColorModeStorageManager
@@ -25,7 +28,10 @@ export const kobalteAliasProbe = {
   Separator,
   TextField,
   Tooltip,
+  UpstreamAvatar,
   UpstreamButton,
+  UpstreamSeparator,
+  UpstreamTextField,
 }
 
 export type { NativeAliasColorModeProbe, NativeAliasPolymorphicProbe }
