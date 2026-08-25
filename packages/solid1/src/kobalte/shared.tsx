@@ -5,9 +5,9 @@ import type { NativeClassList } from "../native-style.js"
 
 export type NativeComponentProps = Omit<HostProps, "children" | "testId"> & {
   children?: JSX.Element
-  class?: string
-  className?: string
-  classList?: NativeClassList
+  class?: string | undefined
+  className?: string | undefined
+  classList?: NativeClassList | undefined
   disabled?: boolean
   testId?: string | undefined
 }
