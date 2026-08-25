@@ -1,5 +1,6 @@
 import { createTestRoot, hasNativeTestRenderer } from "@jhomra21/gpuix-solid1"
 import { KobalteShowcase } from "./app"
+import { SemanticSvgProbe } from "./semantic-svg-probe"
 
 function requireCondition(condition: boolean, message: string): void {
   if (!condition) throw new Error(message)
@@ -85,5 +86,16 @@ if (!hasNativeTestRenderer) {
   requireCondition(!app.renderer.hasTestId("dialog-content"), "Dialog close button should close content")
 
   app.unmount()
+
+  const semantic = createTestRoot()
+  semantic.render(() => <SemanticSvgProbe />)
+  requireCondition(semantic.renderer.hasTestId("inline-svg"), "inline SVG should materialize as the native svg custom element")
+  requireText(semantic.renderer.textContent("semantic-span"), "Semantic span", "semantic span mapping")
+  const source = semantic.renderer.customPropTestId("inline-svg", "source")
+  requireCondition(typeof source === "string" && source.includes("M18 6l-12 12"), "inline SVG should serialize path markup into the upstream source prop")
+  const src = semantic.renderer.customPropTestId("inline-svg", "src")
+  requireCondition(typeof src === "string" && src.startsWith("data:image/svg+xml,"), "inline SVG should keep the data-URI fallback for published native builds")
+  semantic.unmount()
+
   console.log("solid1 Kobalte compatibility showcase: passed")
 }
