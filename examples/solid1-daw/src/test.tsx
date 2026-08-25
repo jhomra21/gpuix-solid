@@ -20,6 +20,19 @@ if (!hasNativeTestRenderer) {
   const app = createTestRoot()
   app.render(() => <DawSolid1Showcase />)
 
+  const requireCentered = (parentId: string, childId: string, tolerance = 3): void => {
+    const parent = app.renderer.boundsTestId(parentId)
+    const child = app.renderer.boundsTestId(childId)
+    const parentCenterX = parent.x + parent.width / 2
+    const parentCenterY = parent.y + parent.height / 2
+    const childCenterX = child.x + child.width / 2
+    const childCenterY = child.y + child.height / 2
+    requireCondition(
+      Math.abs(parentCenterX - childCenterX) <= tolerance && Math.abs(parentCenterY - childCenterY) <= tolerance,
+      `${childId} should be centered in ${parentId}; parent center ${parentCenterX},${parentCenterY}, child center ${childCenterX},${childCenterY}`,
+    )
+  }
+
   requireText(app.renderer.textContent("transport-state"), "2.75s", "initial playhead")
   requireCondition(app.renderer.hasTestId("browser-sidebar"), "browser sidebar should start open")
   requireCondition(app.renderer.hasTestId("track-sidebar"), "source TrackSidebar should be mounted")
@@ -27,6 +40,8 @@ if (!hasNativeTestRenderer) {
 
   const browserBounds = app.renderer.boundsTestId("browser-sidebar")
   requireCondition(browserBounds.width >= 275, `browser should preserve ~280px upstream width, got ${browserBounds.width}`)
+  const browserTabBounds = app.renderer.boundsTestId("browser-tab-assets")
+  requireCondition(Math.abs(browserTabBounds.height - 24) <= 1, `browser tabs should preserve upstream 24px rows, got ${browserTabBounds.height}`)
   const timelineBounds = app.renderer.boundsTestId("timeline-surface")
   const sidebarBounds = app.renderer.boundsTestId("track-sidebar")
   requireCondition(sidebarBounds.width >= 330, `track sidebar should preserve ~336px upstream width, got ${sidebarBounds.width}`)
@@ -36,6 +51,16 @@ if (!hasNativeTestRenderer) {
   requireCondition(laneBounds.height >= 92, `timeline lane should preserve ~96px upstream height, got ${laneBounds.height}`)
   const bottomBounds = app.renderer.boundsTestId("bottom-panel")
   requireCondition(bottomBounds.height >= 385, `bottom panel footprint should preserve 360px body + footer/padding, got ${bottomBounds.height}`)
+
+  requireCentered("browser-toggle", "browser-toggle-indicator")
+  requireCentered("transport-record", "transport-record-indicator")
+  requireCentered("transport-play", "transport-play-indicator")
+  requireCentered("transport-stop", "transport-stop-indicator")
+  requireCentered("metronome-toggle", "metronome-indicator")
+  requireCentered("loop-toggle", "loop-indicator")
+  requireCentered("grid-toggle", "grid-indicator")
+  requireCentered("midi-keyboard-toggle", "midi-keyboard-indicator")
+  requireCentered("save-status", "save-status-indicator")
 
   app.renderer.clickTestId("transport-play")
   requireText(app.renderer.textContent("transport-state"), "3.00s", "play advances playhead")
