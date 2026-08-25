@@ -1,6 +1,7 @@
 import { existsSync, statSync } from "node:fs"
 import { createTestRoot, hasNativeTestRenderer } from "@jhomra21/gpuix-solid1"
 import { DawSolid1Showcase } from "./app"
+import { UpstreamDialogProbe } from "./upstream-dialog-probe"
 
 const UPSTREAM_DRAG_ISSUE = "https://github.com/remorses/gpuix/issues/20"
 
@@ -139,5 +140,17 @@ if (!hasNativeTestRenderer) {
   }
 
   app.unmount()
+
+  const copiedDialog = createTestRoot()
+  copiedDialog.render(() => <UpstreamDialogProbe />)
+  requireCondition(!copiedDialog.renderer.hasTestId("upstream-dialog-content"), "copied DAW dialog should start closed")
+  copiedDialog.renderer.clickTestId("upstream-dialog-trigger")
+  requireCondition(copiedDialog.renderer.hasTestId("upstream-dialog-content"), "copied DAW DialogContent should mount through native Kobalte aliases")
+  requireText(copiedDialog.renderer.textContent("upstream-dialog-title"), "Export audio", "copied DAW dialog title")
+  requireText(copiedDialog.renderer.textContent("upstream-dialog-description"), "copied DAW dialog wrapper", "copied DAW dialog description")
+  copiedDialog.renderer.pressKeyTestId("upstream-dialog-content", "escape")
+  requireCondition(!copiedDialog.renderer.hasTestId("upstream-dialog-content"), "copied DAW dialog should preserve native Escape close semantics")
+  copiedDialog.unmount()
+
   console.log("solid1 DAW source-structured port: passed")
 }
