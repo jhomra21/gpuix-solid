@@ -149,7 +149,7 @@ function normalizePublishedNativeColors(style: StyleDesc | undefined): StyleDesc
   const result: StyleDesc = { ...style }
   for (const key of ["background", "backgroundColor", "color", "borderColor", "selectionColor"] as const) {
     const value = result[key]
-    if (typeof value === "string") result[key] = normalizePublishedNativeColor(value)
+    if (value !== undefined) result[key] = normalizePublishedNativeColor(value)
   }
   if (result.boxShadow) {
     result.boxShadow = {
@@ -236,7 +236,11 @@ function oklchToSrgb(lightness: number, chroma: number, hue: number): [number, n
   const linearRed = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s
   const linearGreen = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s
   const linearBlue = -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s
-  return [linearRed, linearGreen, linearBlue].map(srgbChannel) as [number, number, number]
+  return [
+    srgbChannel(linearRed),
+    srgbChannel(linearGreen),
+    srgbChannel(linearBlue),
+  ]
 }
 
 function srgbChannel(linear: number): number {
