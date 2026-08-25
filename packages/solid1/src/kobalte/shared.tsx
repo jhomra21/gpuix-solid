@@ -116,5 +116,4 @@ export const popupBaseStyle: StyleDesc = {
   borderWidth: 1,
   borderColor: "#34343a",
   borderRadius: 6,
-  boxShadow: undefined,
 }
