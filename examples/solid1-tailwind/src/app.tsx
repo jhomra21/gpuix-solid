@@ -33,7 +33,7 @@ function ShowcaseBody(): JSX.Element {
       <div class="flex items-center" style={{ justifyContent: "space-between" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <text style={{ fontSize: 24, lineHeight: 30, fontWeight: 700 }}>Tailwind v4 → GPUI native styles</text>
-          <text class="text-muted-foreground text-sm">Compiler-generated classes, native hover/active state, and DAW-shaped theme tokens.</text>
+          <text testId="tailwind-text-sm" class="text-muted-foreground text-sm">Compiler-generated classes, native hover/active state, and DAW-shaped theme tokens.</text>
         </div>
         <Button.Root
           testId="theme-toggle"
