@@ -18,8 +18,8 @@ export function UpstreamUiProbe(): JSX.Element {
   return (
     <div
       testId="upstream-ui-probe"
-      class="flex flex-col gap-2 bg-background text-foreground p-4"
-      style={{ width: 520 }}
+      class="flex flex-col gap-2 bg-background text-foreground"
+      style={{ width: 520, padding: 16 }}
     >
       <div class="flex items-center gap-2">
         <Button
