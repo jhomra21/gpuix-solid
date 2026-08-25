@@ -12,6 +12,10 @@ import type {
   VirtualListProps,
 } from "./dist/index.js"
 
+type JSXProps<T> = {
+  [K in keyof T]: {} extends Pick<T, K> ? T[K] | undefined : T[K]
+}
+
 export namespace JSX {
   type Element = SolidJSX.Element
 
@@ -20,17 +24,17 @@ export namespace JSX {
   }
 
   interface IntrinsicElements {
-    div: HostProps
-    text: HostProps
-    img: ImgProps
-    svg: SvgProps
-    canvas: HostProps
-    input: InputProps
-    textarea: TextareaProps
-    anchored: AnchoredProps
-    code: CodeProps
-    diff: DiffProps
-    markdown: MarkdownProps
-    "virtual-list": VirtualListProps
+    div: JSXProps<HostProps>
+    text: JSXProps<HostProps>
+    img: JSXProps<ImgProps>
+    svg: JSXProps<SvgProps>
+    canvas: JSXProps<HostProps>
+    input: JSXProps<InputProps>
+    textarea: JSXProps<TextareaProps>
+    anchored: JSXProps<AnchoredProps>
+    code: JSXProps<CodeProps>
+    diff: JSXProps<DiffProps>
+    markdown: JSXProps<MarkdownProps>
+    "virtual-list": JSXProps<VirtualListProps>
   }
 }
