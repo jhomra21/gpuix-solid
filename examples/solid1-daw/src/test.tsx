@@ -100,19 +100,19 @@ if (!hasNativeTestRenderer) {
   requireText(app.renderer.textContent("eq-high-value"), "+1.0 dB", "EQ high gain")
 
   app.renderer.scrollTestId("daw-test-viewport", 0, -260)
-  app.renderer.clickTestId("bottom-tab-clip")
+  app.renderer.clickTextWithinTestId("bottom-panel", "Clip")
   requireCondition(app.renderer.hasTestId("clip-panel"), "clip tab should mount clip panel")
   requireCondition(!app.renderer.hasTestId("effects-panel"), "clip tab should unmount effects panel")
 
-  app.renderer.clickTestId("bottom-tab-effects")
+  app.renderer.clickTextWithinTestId("bottom-panel", "Effects")
   requireCondition(app.renderer.hasTestId("effects-panel"), "effects tab should restore devices")
 
   app.renderer.scrollTestId("daw-test-viewport", -420, -260)
-  app.renderer.clickTestId("bottom-panel-close")
+  app.renderer.clickTextWithinTestId("bottom-panel", "Hide")
   requireCondition(app.renderer.hasTestId("bottom-panel-closed"), "hide should collapse bottom panel")
   requireCondition(!app.renderer.hasTestId("bottom-panel"), "collapsed panel should unmount expanded shell")
 
-  app.renderer.clickTestId("bottom-panel-open")
+  app.renderer.clickTextWithinTestId("bottom-panel-closed", "Show")
   requireCondition(app.renderer.hasTestId("bottom-panel"), "show should restore bottom panel")
 
   app.renderer.scrollTestId("daw-test-viewport", 0, 0)
