@@ -38,6 +38,8 @@ const explicitlyIgnored = new Map([
   ["z-50", "native anchored-layer priority owns popup stacking"],
   ["w-fit", "native floating content uses intrinsic sizing instead of CSS fit-content"],
   ["shadow-md", "boxShadow exists upstream but is not published in @gpuix/native@0.4.0"],
+  ["tracking-wide", "letter-spacing is not exposed by @gpuix/native@0.4.0; keep the copied source unchanged until the native text contract supports it"],
+  ["uppercase", "text-transform is not exposed by @gpuix/native@0.4.0; keep the copied source unchanged until the compatibility layer can transform text without editing source"],
 ])
 
 const themeCss = await readFile(themePath, "utf8")
@@ -274,6 +276,12 @@ function mapDeclaration(style, property, rawValue, candidate) {
     case "color": style.color = normalizeColor(value); return
     case "opacity": style.opacity = opacityValue(value, candidate); return
     case "border-width": style.borderWidth = lengthValue(value, property, candidate); return
+    case "border-inline-width": applyPair(style, "borderLeftWidth", "borderRightWidth", value, property, candidate); return
+    case "border-block-width": applyPair(style, "borderTopWidth", "borderBottomWidth", value, property, candidate); return
+    case "border-top-width": style.borderTopWidth = lengthValue(value, property, candidate); return
+    case "border-right-width": style.borderRightWidth = lengthValue(value, property, candidate); return
+    case "border-bottom-width": style.borderBottomWidth = lengthValue(value, property, candidate); return
+    case "border-left-width": style.borderLeftWidth = lengthValue(value, property, candidate); return
     case "border-color": style.borderColor = normalizeColor(value); return
     case "border-radius": style.borderRadius = radiusValue(value, property, candidate); return
     case "font-size": style.fontSize = lengthValue(value, property, candidate); return
@@ -289,6 +297,12 @@ function mapDeclaration(style, property, rawValue, candidate) {
     case "pointer-events": style.pointerEvents = value; return
     case "user-select": style.userSelect = value; return
     case "border-style":
+    case "border-inline-style":
+    case "border-block-style":
+    case "border-top-style":
+    case "border-right-style":
+    case "border-bottom-style":
+    case "border-left-style":
       if (value === "solid") return
       break
   }
@@ -387,7 +401,7 @@ function numericOrString(value) {
 }
 
 function normalizeColor(value) {
-  const mix = value.match(/^color-mix\(in oklab,\s*(oklch\([^)]*\))\s+(\d+(?:\.\d+)?)%,\s*transparent\)$/)
+  const mix = value.match(/^color-mix\(in (?:oklab|srgb),\s*(oklch\([^)]*\))\s+(\d+(?:\.\d+)?)%,\s*transparent\)$/)
   if (!mix) return value
   const color = mix[1]
   const alpha = mix[2]
