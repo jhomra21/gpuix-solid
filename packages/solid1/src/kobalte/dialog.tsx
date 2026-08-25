@@ -63,28 +63,37 @@ function contentNode<T>(
   context: DialogContextValue,
 ): JSX.Element {
   return (
-    <div
-      testId={props.testId}
-      tabIndex={props.tabIndex ?? 0}
-      onMouseDownOutside={(event: EventPayload) => { props.onMouseDownOutside?.(event); context.setOpen(false) }}
-      onKeyDown={(event: EventPayload) => { props.onKeyDown?.(event); if (event.key === "escape") context.setOpen(false) }}
-      style={mergeStyle({
-        position: "absolute",
-        left: 280,
-        top: 140,
-        width: 600,
-        maxHeight: 520,
-        overflowY: "auto",
-        padding: 18,
-        gap: 12,
-        backgroundColor: "#151518",
-        color: "#fafafa",
-        borderWidth: 1,
-        borderColor: "#34343a",
-        borderRadius: 8,
-        pointerEvents: "auto",
-      }, props.style)}
-    >{props.children}</div>
+    <anchored
+      position={{ x: 280, y: 140 }}
+      side="bottom"
+      align="start"
+      gap={0}
+      fit="snap"
+      snapMargin={16}
+      deferred
+      priority={3}
+      occlude
+    >
+      <div
+        testId={props.testId}
+        tabIndex={props.tabIndex ?? 0}
+        onMouseDownOutside={(event: EventPayload) => { props.onMouseDownOutside?.(event); context.setOpen(false) }}
+        onKeyDown={(event: EventPayload) => { props.onKeyDown?.(event); if (event.key === "escape") context.setOpen(false) }}
+        style={mergeStyle({
+          width: 600,
+          maxHeight: 520,
+          overflowY: "auto",
+          padding: 18,
+          gap: 12,
+          backgroundColor: "#151518",
+          color: "#fafafa",
+          borderWidth: 1,
+          borderColor: "#34343a",
+          borderRadius: 8,
+          pointerEvents: "auto",
+        }, props.style)}
+      >{props.children}</div>
+    </anchored>
   )
 }
 
