@@ -39,9 +39,11 @@ export function createRoot(renderer: NativeRenderer): Root {
       // host nodes until the universal renderer resolves them. The renderer's generic
       // signature only describes the eventual host value, so keep the expression intact
       // and narrow at this boundary instead of eagerly evaluating code().
-      // SAFETY: universalRender resolves Solid JSX expressions before inserting them, and
-      // this renderer can only materialize HostRootNode/HostNode values into this container.
-      dispose = universalRender(code as () => UniversalRenderNode, container)
+      // SAFETY: Solid's universal renderer resolves the JSX expression before host insertion;
+      // the GPUIX renderer itself can only create HostRootNode/HostNode values. The unknown
+      // bridge is required because JSX.Element intentionally includes non-host intermediates.
+      const renderCode = code as unknown as () => UniversalRenderNode
+      dispose = universalRender(renderCode, container)
       flushNative()
     },
     flush: flushNative,
