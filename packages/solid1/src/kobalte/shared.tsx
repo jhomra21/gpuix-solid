@@ -11,8 +11,7 @@ export type NativeComponentProps = Omit<HostProps, "children"> & {
 export type FloatingSide = "top" | "right" | "bottom" | "left"
 export type FloatingAlign = "start" | "center" | "end"
 
-export function mergeStyle(base: StyleDesc | undefined, override: StyleDesc | undefined): StyleDesc | undefined {
-  if (!base) return override
+export function mergeStyle(base: StyleDesc, override: StyleDesc | undefined): StyleDesc {
   if (!override) return base
   return { ...base, ...override }
 }
