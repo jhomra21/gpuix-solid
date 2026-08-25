@@ -17,6 +17,15 @@ export type ElementType =
 export type DebugFrameOverlayMode = "hidden" | "minimal" | "full"
 export type DimensionValue = number | string
 
+export interface DebugFrameOverlayStats {
+  currentMs?: number
+  p90Ms?: number
+  p99Ms?: number
+  maxMs?: number
+  frames: number
+  samples: number
+}
+
 /** Internal native animation style passed through the GPUIX `motion` wire prop. */
 export interface MotionStyle {
   width?: number
@@ -52,6 +61,14 @@ export interface MotionProps {
   initial?: MotionStyle | false
   animate: MotionStyle
   transition?: MotionTransition
+}
+
+export interface BoxShadow {
+  offsetX: number
+  offsetY: number
+  blurRadius: number
+  spreadRadius: number
+  color: string
 }
 
 export interface StyleDesc {
@@ -105,12 +122,17 @@ export interface StyleDesc {
   opacity?: number
 
   borderWidth?: number
+  borderTopWidth?: number
+  borderRightWidth?: number
+  borderBottomWidth?: number
+  borderLeftWidth?: number
   borderColor?: string
   borderRadius?: number
   borderTopLeftRadius?: number
   borderTopRightRadius?: number
   borderBottomLeftRadius?: number
   borderBottomRightRadius?: number
+  boxShadow?: BoxShadow
 
   fontSize?: number
   fontFamily?: string
@@ -242,6 +264,7 @@ export interface HostProps {
   onShowMore?: HostEventHandler
   onLineClick?: HostEventHandler
   onLinkClick?: HostEventHandler
+  onVisibleRange?: HostEventHandler
 
   autoFocus?: boolean
   tabIndex?: number
@@ -268,6 +291,9 @@ export interface VirtualListProps {
   followTail?: boolean
   overdraw?: number
   estimatedItemHeight?: number
+  itemCount?: number
+  windowStart?: number
+  onVisibleRange?: HostEventHandler
 }
 
 export interface ImgProps extends HostProps {
@@ -278,6 +304,7 @@ export interface ImgProps extends HostProps {
 
 export interface SvgProps extends HostProps {
   src?: string
+  source?: string
 }
 
 export interface CodeProps extends HostProps {
@@ -352,6 +379,7 @@ export interface NativeRenderer {
   getDebugFrameOverlay?(): string
   cycleDebugFrameOverlay?(): string
   resetDebugFrameOverlayStats?(): void
+  getDebugFrameOverlayStats?(): DebugFrameOverlayStats
 }
 
 export interface PublicInstance {
