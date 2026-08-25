@@ -2,30 +2,9 @@ import type { EventPayload } from "@gpuix/native"
 import type { JSX } from "solid-js"
 import { EventRegistry } from "./host/events.js"
 import { MutationDriver } from "./host/mutations.js"
-import {
-  HostElementNode,
-  HostRootNode,
-  HostTextNode,
-  removeHostNode,
-  type HostNode,
-} from "./host/nodes.js"
+import { HostRootNode, removeHostNode } from "./host/nodes.js"
 import type { NativeRenderer } from "./host/types.js"
 import { universalRender } from "./universal.js"
-
-type UniversalNode = HostRootNode | HostNode
-type SolidRenderResult = JSX.Element
-
-function isUniversalNode(value: SolidRenderResult | UniversalNode): value is UniversalNode {
-  return value instanceof HostRootNode || value instanceof HostElementNode || value instanceof HostTextNode
-}
-
-function resolveUniversalNode(code: () => JSX.Element): UniversalNode {
-  const rendered = code()
-  if (!isUniversalNode(rendered)) {
-    throw new TypeError("Solid 1 universal root must resolve to one GPUI host node")
-  }
-  return rendered
-}
 
 export interface Root {
   render(code: () => JSX.Element): void
@@ -54,7 +33,10 @@ export function createRoot(renderer: NativeRenderer): Root {
         events.clear()
       }
 
-      dispose = universalRender(() => resolveUniversalNode(code), container)
+      // Solid's universal renderer must receive the component result directly so it can
+      // resolve accessors produced by Context.Provider, control flow, and other wrappers.
+      // Evaluating and validating code() first rejects valid non-host intermediate values.
+      dispose = universalRender(code, container)
       flushNative()
     },
     flush: flushNative,
