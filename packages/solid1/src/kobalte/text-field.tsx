@@ -67,7 +67,13 @@ export function Root<T = "div">(props: PolymorphicProps<T, TextFieldRootProps<T>
   }
   return (
     <TextFieldContext.Provider value={context}>
-      <div testId={props.testId} style={mergeStyle({ gap: 4 }, props.style)}>{props.children}</div>
+      <div
+        class={props.class}
+        className={props.className}
+        classList={props.classList}
+        testId={props.testId}
+        style={mergeStyle({ gap: 4 }, props.style)}
+      >{props.children}</div>
     </TextFieldContext.Provider>
   )
 }
@@ -76,6 +82,9 @@ export function Input<T = "input">(props: PolymorphicProps<T, TextFieldInputProp
   const context = requireContext("TextField.Input")
   return (
     <input
+      class={props.class}
+      className={props.className}
+      classList={props.classList}
       testId={props.testId}
       value={props.value ?? context.value()}
       placeholder={props.placeholder}
@@ -104,6 +113,9 @@ export function TextArea<T = "textarea">(props: PolymorphicProps<T, TextFieldTex
   const context = requireContext("TextField.TextArea")
   return (
     <textarea
+      class={props.class}
+      className={props.className}
+      classList={props.classList}
       testId={props.testId}
       value={props.value ?? context.value()}
       placeholder={props.placeholder}
@@ -130,18 +142,18 @@ export function TextArea<T = "textarea">(props: PolymorphicProps<T, TextFieldTex
 }
 
 export function Label<T = "label">(props: PolymorphicProps<T, TextFieldLabelProps<T>>): JSX.Element {
-  return <text testId={props.testId} style={mergeStyle({ fontSize: 12, lineHeight: 16, fontWeight: 600, color: "#fafafa" }, props.style)}>{props.children}</text>
+  return <text class={props.class} className={props.className} classList={props.classList} testId={props.testId} style={mergeStyle({ fontSize: 12, lineHeight: 16, fontWeight: 600, color: "#fafafa" }, props.style)}>{props.children}</text>
 }
 
 export function Description<T = "div">(props: PolymorphicProps<T, TextFieldDescriptionProps<T>>): JSX.Element {
-  return <text testId={props.testId} style={mergeStyle({ fontSize: 11, lineHeight: 14, color: "#a1a1aa" }, props.style)}>{props.children}</text>
+  return <text class={props.class} className={props.className} classList={props.classList} testId={props.testId} style={mergeStyle({ fontSize: 11, lineHeight: 14, color: "#a1a1aa" }, props.style)}>{props.children}</text>
 }
 
 export function ErrorMessage<T = "div">(props: PolymorphicProps<T, TextFieldErrorMessageProps<T>>): JSX.Element {
   const context = requireContext("TextField.ErrorMessage")
   return (
     <Show when={props.forceMount || context.validationState() === "invalid"}>
-      <text testId={props.testId} style={mergeStyle({ fontSize: 11, lineHeight: 14, color: "#ef4444" }, props.style)}>{props.children}</text>
+      <text class={props.class} className={props.className} classList={props.classList} testId={props.testId} style={mergeStyle({ fontSize: 11, lineHeight: 14, color: "#ef4444" }, props.style)}>{props.children}</text>
     </Show>
   )
 }
