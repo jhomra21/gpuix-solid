@@ -3,10 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "source:check": "node scripts/check-upstream-source-parity.mjs",
     "generate:styles": "node scripts/generate-native-tailwind.mjs",
     "build": "bun run generate:styles && vite build",
     "build:test": "bun run generate:styles && vite build --config vite.test.config.ts",
-    "typecheck": "bun run generate:styles && tsc --noEmit",
+    "typecheck": "bun run source:check && bun run generate:styles && tsc --noEmit",
     "test:native": "bun run build:test && bun scripts/run-test.mjs",
     "start": "bun dist/app/index.js",
     "run": "bun run build && bun run start"
