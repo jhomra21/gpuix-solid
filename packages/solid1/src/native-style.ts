@@ -2,6 +2,7 @@ import type { StyleDesc } from "./host/types.js"
 
 export type NativeColorMode = "light" | "dark"
 export type NativeClassList = Record<string, boolean | null | undefined>
+export type NativeTextTransform = "uppercase" | "lowercase" | "capitalize" | "none"
 
 export interface NativeStyleVariant {
   base?: StyleDesc
@@ -11,6 +12,7 @@ export interface NativeStyleVariant {
 
 export interface NativeStyleManifestEntry extends NativeStyleVariant {
   descendants?: Record<string, NativeStyleVariant>
+  textTransform?: NativeTextTransform
 }
 
 export interface NativeStyleManifest {
@@ -61,6 +63,23 @@ export function resolveNativeClassStyle(
     const entry = activeManifest.classes[candidate]
     if (!entry) throw missingCandidate(candidate)
     resolved = mergeNativeStyles(resolved, resolveVariant(entry))
+  }
+  return resolved
+}
+
+export function resolveNativeClassTextTransform(
+  className: string | undefined,
+  classList: NativeClassList | undefined,
+): NativeTextTransform | undefined {
+  const candidates = classCandidates(className, classList)
+  if (candidates.length === 0) return undefined
+  const activeManifest = requireManifest()
+
+  let resolved: NativeTextTransform | undefined
+  for (const candidate of candidates) {
+    const entry = activeManifest.classes[candidate]
+    if (!entry) throw missingCandidate(candidate)
+    if (entry.textTransform !== undefined) resolved = entry.textTransform
   }
   return resolved
 }
