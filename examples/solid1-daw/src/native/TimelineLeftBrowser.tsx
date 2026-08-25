@@ -1,7 +1,7 @@
 import { For, Show, type JSX } from "solid-js"
 import type { EventPayload } from "@jhomra21/gpuix-solid1"
 import { browserSections, type BrowserTab } from "./model"
-import { dawTheme, layout, text2xs, textXs } from "./theme"
+import { dawTheme, layout, text2xs, text3xs, textXs } from "./theme"
 
 const tabs: Array<{ id: BrowserTab; label: string }> = [
   { id: "assets", label: "Assets" },
