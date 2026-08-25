@@ -3,9 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build",
-    "build:test": "vite build --config vite.test.config.ts",
-    "typecheck": "tsc --noEmit",
+    "generate:styles": "node scripts/generate-native-tailwind.mjs",
+    "build": "bun run generate:styles && vite build",
+    "build:test": "bun run generate:styles && vite build --config vite.test.config.ts",
+    "typecheck": "bun run generate:styles && tsc --noEmit",
     "test:native": "bun run build:test && bun scripts/run-test.mjs",
     "start": "bun dist/app/index.js",
     "run": "bun run build && bun run start"
@@ -19,7 +20,10 @@
     "tailwind-merge": "3.5.0"
   },
   "devDependencies": {
+    "@tailwindcss/node": "4.2.1",
     "@types/node": "^25.3.3",
+    "postcss": "8.5.26",
+    "tailwindcss": "4.2.1",
     "typescript": "^5.9.2",
     "vite": "^8.1.5",
     "vite-plugin-solid": "^2.11.14"
