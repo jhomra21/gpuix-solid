@@ -16,6 +16,13 @@ interface NativeTreeNode {
   children?: NativeTreeNode[]
 }
 
+export interface TestBounds {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 function loadNativeTestRenderer(): NativeTestRendererConstructor | undefined {
   try {
     const require = createRequire(import.meta.url)
@@ -91,6 +98,37 @@ export class TestRenderer implements NativeRenderer {
   }
 
   clickTestId(testId: string): void {
+    const bounds = this.boundsTestId(testId)
+    this.#native.simulateClick(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+  }
+
+  dragTestId(testId: string, deltaX: number, deltaY: number): void {
+    const bounds = this.boundsTestId(testId)
+    const startX = bounds.x + bounds.width / 2
+    const startY = bounds.y + bounds.height / 2
+    const endX = startX + deltaX
+    const endY = startY + deltaY
+
+    this.#native.simulateMouseMove(startX, startY)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+
+    this.#native.simulateMouseDown(startX, startY, 0)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+
+    this.#native.simulateMouseMove(endX, endY, 0)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+
+    this.#native.simulateMouseUp(endX, endY, 0)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+  }
+
+  boundsTestId(testId: string): TestBounds {
     const node = this.requireTestId(testId)
     this.#native.flush()
     const bounds = this.#native.getElementBounds(node.id)
@@ -102,9 +140,7 @@ export class TestRenderer implements NativeRenderer {
     if (x === undefined || y === undefined || width === undefined || height === undefined) {
       throw new Error(`${testId} returned incomplete bounds`)
     }
-    this.#native.simulateClick(x + width / 2, y + height / 2)
-    this.dispatchNativeEvents()
-    this.#native.flush()
+    return { x, y, width, height }
   }
 
   typeTestId(testId: string, text: string): void {
