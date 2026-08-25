@@ -218,28 +218,26 @@ export default function Timeline(): JSX.Element {
         onEffectsTabClick={() => { setBottomTab("effects"); setBottomPanelOpen(true) }}
         onClipTabClick={() => { setBottomTab("clip"); setBottomPanelOpen(true) }}
         selectedClip={selectedClip()}
-        effects={{
-          compressorEnabled: compressorEnabled(),
-          onToggleCompressor: () => setCompressorEnabled((enabled) => !enabled),
-          compressorRatio: compressorRatio(),
-          onRatioChange: setCompressorRatio,
-          compressorAttack: compressorAttack(),
-          onAttackChange: setCompressorAttack,
-          compressorRelease: compressorRelease(),
-          onReleaseChange: setCompressorRelease,
-          compressorThreshold: compressorThreshold(),
-          onThresholdChange: setCompressorThreshold,
-          compressorWet: compressorWet(),
-          onWetChange: setCompressorWet,
-          eqEnabled: eqEnabled(),
-          onToggleEq: () => setEqEnabled((enabled) => !enabled),
-          eqLowGain: eqLowGain(),
-          onEqLowGain: setEqLowGain,
-          eqMidGain: eqMidGain(),
-          onEqMidGain: setEqMidGain,
-          eqHighGain: eqHighGain(),
-          onEqHighGain: setEqHighGain,
-        }}
+        compressorEnabled={compressorEnabled()}
+        onToggleCompressor={() => setCompressorEnabled((enabled) => !enabled)}
+        compressorRatio={compressorRatio()}
+        onRatioChange={setCompressorRatio}
+        compressorAttack={compressorAttack()}
+        onAttackChange={setCompressorAttack}
+        compressorRelease={compressorRelease()}
+        onReleaseChange={setCompressorRelease}
+        compressorThreshold={compressorThreshold()}
+        onThresholdChange={setCompressorThreshold}
+        compressorWet={compressorWet()}
+        onWetChange={setCompressorWet}
+        eqEnabled={eqEnabled()}
+        onToggleEq={() => setEqEnabled((enabled) => !enabled)}
+        eqLowGain={eqLowGain()}
+        onEqLowGain={setEqLowGain}
+        eqMidGain={eqMidGain()}
+        onEqMidGain={setEqMidGain}
+        eqHighGain={eqHighGain()}
+        onEqHighGain={setEqHighGain}
       />
     </div>
   )
