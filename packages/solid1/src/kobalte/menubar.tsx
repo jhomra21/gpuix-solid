@@ -90,3 +90,4 @@ export function SubContent<T = "div">(props: PolymorphicProps<T, MenubarSubConte
 }
 
 export const Menubar = Object.assign(Root, { Root, Menu, Trigger, Portal, Content, Item, Separator, Sub, SubTrigger, SubContent })
+export { Portal }
