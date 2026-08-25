@@ -20,6 +20,7 @@ import {
   mergeNativeStyles,
   onNativeStyleEnvironmentChange,
   resolveNativeClassStyle,
+  resolveNativeDescendantClassStyle,
   type NativeClassList,
 } from "./native-style.js"
 
@@ -130,7 +131,7 @@ onNativeStyleEnvironmentChange(() => {
       classStyledNodes.delete(node)
       continue
     }
-    applyNativeStyleState(node)
+    reapplyNativeStyleSubtree(node)
   }
 })
 
@@ -192,6 +193,7 @@ const runtime = createRenderer<HostNode | HostParent>({
     }
     if (anchor?.kind === "root") throw new TypeError("Expected a GPUIX host node anchor")
     insertHostNode(parent, node, anchor ?? null)
+    if (node.kind === "element") reapplyNativeStyleSubtree(node)
     refreshInlineSvgFromParent(parent)
   },
   isTextNode(node) {
@@ -387,7 +389,7 @@ function commitNativeStyleState(node: HostElementNode, state: NativeStyleState):
   styleStates.set(node, state)
   if (hasNativeClasses(state)) classStyledNodes.add(node)
   else classStyledNodes.delete(node)
-  applyNativeStyleState(node)
+  reapplyNativeStyleSubtree(node)
 }
 
 function hasNativeClasses(state: NativeStyleState): boolean {
@@ -395,10 +397,52 @@ function hasNativeClasses(state: NativeStyleState): boolean {
   return Boolean(state.classList && Object.values(state.classList).some(Boolean))
 }
 
+function reapplyNativeStyleSubtree(node: HostElementNode): void {
+  applyNativeStyleState(node)
+  for (const child of node.children) {
+    if (child.kind === "element") reapplyNativeStyleSubtree(child)
+  }
+}
+
 function applyNativeStyleState(node: HostElementNode): void {
-  const state = styleStates.get(node)
-  if (!state) return
-  const className = [state.class, state.className].filter(Boolean).join(" ") || undefined
+  const state = nativeStyleState(node)
+  const className = combinedClassName(state)
+  const ancestorStyle = resolveAncestorDescendantStyle(node)
   const classStyle = resolveNativeClassStyle(className, state.classList)
-  setHostProperty(node, "style", mergeNativeStyles(classStyle, state.inlineStyle) ?? {})
+  setHostProperty(
+    node,
+    "style",
+    mergeNativeStyles(ancestorStyle, classStyle, state.inlineStyle) ?? {},
+  )
+}
+
+function resolveAncestorDescendantStyle(node: HostElementNode): StyleDesc | undefined {
+  const ancestors: HostElementNode[] = []
+  let parent: HostParent | null = node.parent
+  while (parent && parent.kind === "element") {
+    ancestors.unshift(parent)
+    parent = parent.parent
+  }
+
+  const tagName = semanticTags.get(node) ?? node.type
+  const directParent = node.parent
+  let resolved: StyleDesc | undefined
+  for (const ancestor of ancestors) {
+    const state = styleStates.get(ancestor)
+    if (!state || !hasNativeClasses(state)) continue
+    resolved = mergeNativeStyles(
+      resolved,
+      resolveNativeDescendantClassStyle(
+        combinedClassName(state),
+        state.classList,
+        tagName,
+        directParent === ancestor,
+      ),
+    )
+  }
+  return resolved
+}
+
+function combinedClassName(state: NativeStyleState): string | undefined {
+  return [state.class, state.className].filter(Boolean).join(" ") || undefined
 }
