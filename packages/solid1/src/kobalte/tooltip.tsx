@@ -144,7 +144,7 @@ export function Content<T = "div">(props: PolymorphicProps<T, TooltipContentProp
   const placement = () => parsePlacement(props.placement ?? context.placement())
   const fallbackStyle = { padding: 6, borderWidth: 1, borderColor: "#34343a", borderRadius: 4 }
   const style = () => hasNativeClassStyle(props)
-    ? props.style
+    ? (props.style ?? {})
     : mergeStyle(fallbackStyle, props.style)
 
   return (
