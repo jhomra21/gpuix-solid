@@ -25,8 +25,16 @@ type JSXProps<T> = {
 
 type DomCompatibleProps<TNative, TDom> = JSXProps<TNative> | TDom
 
-type InlineSvgProps = NativeClassProps & {
-  children?: SolidJSX.Element | SolidJSX.Element[] | undefined
+type SemanticDomProps = DomCompatibleProps<HostProps, SolidJSX.HTMLAttributes<HTMLElement>> & {
+  disabled?: boolean | undefined
+  href?: string | undefined
+  type?: string | undefined
+  role?: string | undefined
+  "aria-label"?: string | undefined
+  "aria-hidden"?: string | boolean | undefined
+}
+
+type InlineSvgProps = JSXProps<SvgProps> & {
   xmlns?: string | undefined
   viewBox?: string | undefined
   width?: string | number | undefined
@@ -34,16 +42,15 @@ type InlineSvgProps = NativeClassProps & {
   fill?: string | undefined
   stroke?: string | undefined
   "stroke-width"?: string | number | undefined
+  preserveAspectRatio?: string | undefined
   role?: string | undefined
   "aria-label"?: string | undefined
   "aria-hidden"?: string | boolean | undefined
 }
 
-type InlineSvgPathProps = NativeClassProps & {
-  d?: string | undefined
-  fill?: string | undefined
-  stroke?: string | undefined
-  "stroke-width"?: string | number | undefined
+type InlineSvgChildProps = NativeClassProps & {
+  children?: SolidJSX.Element | SolidJSX.Element[] | undefined
+  [name: string]: unknown
 }
 
 export namespace JSX {
@@ -55,11 +62,58 @@ export namespace JSX {
 
   interface IntrinsicElements {
     div: DomCompatibleProps<HostProps, SolidJSX.HTMLAttributes<HTMLDivElement>>
-    span: DomCompatibleProps<HostProps, SolidJSX.HTMLAttributes<HTMLSpanElement>>
+    span: SemanticDomProps
+    p: SemanticDomProps
+    h1: SemanticDomProps
+    h2: SemanticDomProps
+    h3: SemanticDomProps
+    h4: SemanticDomProps
+    h5: SemanticDomProps
+    h6: SemanticDomProps
+    strong: SemanticDomProps
+    em: SemanticDomProps
+    small: SemanticDomProps
+    label: SemanticDomProps
+    time: SemanticDomProps
+    kbd: SemanticDomProps
+    samp: SemanticDomProps
+    button: SemanticDomProps
+    section: SemanticDomProps
+    main: SemanticDomProps
+    header: SemanticDomProps
+    footer: SemanticDomProps
+    nav: SemanticDomProps
+    aside: SemanticDomProps
+    article: SemanticDomProps
+    ul: SemanticDomProps
+    ol: SemanticDomProps
+    li: SemanticDomProps
+    form: SemanticDomProps
+    fieldset: SemanticDomProps
+    legend: SemanticDomProps
+    figure: SemanticDomProps
+    figcaption: SemanticDomProps
+    a: SemanticDomProps
     text: JSXProps<HostProps>
     img: JSXProps<ImgProps>
-    svg: JSXProps<SvgProps> | InlineSvgProps
-    path: InlineSvgPathProps
+    svg: InlineSvgProps
+    path: InlineSvgChildProps
+    g: InlineSvgChildProps
+    defs: InlineSvgChildProps
+    linearGradient: InlineSvgChildProps
+    radialGradient: InlineSvgChildProps
+    stop: InlineSvgChildProps
+    rect: InlineSvgChildProps
+    circle: InlineSvgChildProps
+    ellipse: InlineSvgChildProps
+    line: InlineSvgChildProps
+    polyline: InlineSvgChildProps
+    polygon: InlineSvgChildProps
+    clipPath: InlineSvgChildProps
+    mask: InlineSvgChildProps
+    title: InlineSvgChildProps
+    desc: InlineSvgChildProps
+    use: InlineSvgChildProps
     canvas: JSXProps<HostProps>
     input: JSXProps<InputProps>
     textarea: JSXProps<TextareaProps>
