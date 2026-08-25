@@ -12,6 +12,7 @@ export default defineConfig({
   ],
   resolve: {
     conditions: ["browser", "development"],
+    dedupe: ["solid-js"],
   },
   ssr: {
     noExternal: ["@jhomra21/gpuix-solid1", "solid-js"],
