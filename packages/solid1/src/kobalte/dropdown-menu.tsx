@@ -10,7 +10,7 @@ export interface DropdownMenuSeparatorProps<T = "hr"> extends NativeComponentPro
 export interface DropdownMenuSubProps { children?: JSX.Element; open?: boolean; defaultOpen?: boolean; onOpenChange?: (open: boolean) => void }
 export interface DropdownMenuSubTriggerProps<T = "div"> extends NativeComponentProps { as?: T }
 export interface DropdownMenuSubContentProps<T = "div"> extends NativeComponentProps { as?: T }
-export interface DropdownMenuCheckboxItemProps<T = "div"> extends DropdownMenuItemProps<T> { checked?: boolean; defaultChecked?: boolean; onChange?: (checked: boolean) => void }
+export type DropdownMenuCheckboxItemProps<T = "div"> = Omit<DropdownMenuItemProps<T>, "onChange"> & { checked?: boolean; defaultChecked?: boolean; onChange?: (checked: boolean) => void }
 export interface DropdownMenuGroupProps { children?: JSX.Element }
 export interface DropdownMenuGroupLabelProps<T = "span"> extends NativeComponentProps { as?: T }
 export interface DropdownMenuRadioGroupProps { children?: JSX.Element; value?: string; defaultValue?: string; onChange?: (value: string) => void }
