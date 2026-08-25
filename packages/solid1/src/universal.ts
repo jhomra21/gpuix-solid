@@ -1,3 +1,4 @@
+import { createRoot as createSolidRoot, type JSX } from "solid-js"
 import { createRenderer } from "solid-js/universal"
 import {
   createHostElement,
@@ -56,7 +57,13 @@ const runtime = createRenderer<HostNode | HostParent>({
   },
 })
 
-export const universalRender = runtime.render
+export function universalRender(code: () => JSX.Element, node: HostNode | HostParent): () => void {
+  return createSolidRoot((dispose) => {
+    runtime.insert(node, code())
+    return dispose
+  })
+}
+
 export const effect = runtime.effect
 export const memo = runtime.memo
 export const createComponent = runtime.createComponent
