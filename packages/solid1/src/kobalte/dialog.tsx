@@ -128,6 +128,11 @@ export function CloseButton<T = "button">(props: PolymorphicProps<T, DialogClose
     <div
       testId={props.testId}
       tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)}
+      onMouseDown={(event: EventPayload) => {
+        if (props.disabled) return
+        props.onMouseDown?.(event)
+        context.setOpen(false)
+      }}
       onClick={(event: EventPayload) => {
         if (props.disabled) return
         props.onClick?.(event)
