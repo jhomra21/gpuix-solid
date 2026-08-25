@@ -50,9 +50,8 @@ jobs:
       - run: bun run typecheck
       - run: bun run test
       - run: bun run build
-      - name: Verify Solid 1 compatibility experiment
-        working-directory: experiments/solid1
-        run: bun install --no-save && bun run check
+      - name: Verify Solid 1 package and DAW showcase
+        run: bun run solid1:check
       - run: node --test scripts/release.test.mjs
 
   package:
@@ -90,3 +89,6 @@ jobs:
         run: node packages/solid/scripts/validate-package.mjs
       - name: Smoke exact package tarball
         run: node packages/solid/scripts/smoke-package.mjs
+      - name: Smoke Solid 1 package
+        working-directory: packages/solid1
+        run: bun install --no-save && bun run test && bun run build && npm pack --dry-run
