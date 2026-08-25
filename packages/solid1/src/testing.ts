@@ -100,12 +100,7 @@ export class TestRenderer implements NativeRenderer {
     for (;;) {
       const events = this.#native.drainEvents()
       if (events.length === 0) return
-      for (const event of events) {
-        if (process.env.GPUIX_DEBUG_EVENTS === "1") {
-          console.log("native-event", JSON.stringify(event))
-        }
-        root.dispatch(event)
-      }
+      for (const event of events) root.dispatch(event)
     }
   }
 
