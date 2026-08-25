@@ -1,6 +1,7 @@
 import { createRequire } from "node:module"
 import type { EventPayload, TestGpuixRenderer as NativeTestRendererApi } from "@gpuix/native"
 import type { JSX } from "solid-js"
+import type { MutationValue } from "./host/mutations.js"
 import type { NativeRenderer, StyleDesc } from "./host/types.js"
 import { createRoot, type Root } from "./root.js"
 
@@ -13,7 +14,7 @@ interface NativeTreeNode {
   testId?: string
   style?: StyleDesc
   text?: string | null
-  customProps?: Record<string, unknown>
+  customProps?: Record<string, MutationValue>
   children?: NativeTreeNode[]
 }
 
@@ -213,7 +214,7 @@ export class TestRenderer implements NativeRenderer {
     return this.requireTestId(testId).style ?? {}
   }
 
-  customPropTestId(testId: string, key: string): unknown {
+  customPropTestId(testId: string, key: string): MutationValue | undefined {
     return this.requireTestId(testId).customProps?.[key]
   }
 
