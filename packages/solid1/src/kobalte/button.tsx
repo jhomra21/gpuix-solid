@@ -2,7 +2,7 @@ import type { JSX } from "solid-js"
 import type { EventPayload } from "@gpuix/native"
 import type { StyleDesc } from "../host/types.js"
 import type { PolymorphicProps } from "./polymorphic.js"
-import { mergeStyle, triggerBaseStyle, type NativeComponentProps } from "./shared.js"
+import { mergeStyle, triggerBaseStyle, type NativeComponentProps } from "./shared.jsx"
 
 export interface ButtonRootProps<T = "button"> extends NativeComponentProps {
   as?: T
