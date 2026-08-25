@@ -57,6 +57,15 @@ function nodeText(node: NativeTreeNode): string {
   return text
 }
 
+function findElementByExactText(node: NativeTreeNode, text: string): NativeTreeNode | undefined {
+  for (const child of node.children ?? []) {
+    const found = findElementByExactText(child, text)
+    if (found) return found
+  }
+  if (node.type !== "text" && nodeText(node).trim() === text) return node
+  return undefined
+}
+
 function insetPoint(bounds: TestBounds) {
   return {
     x: bounds.x + Math.min(4, bounds.width / 4),
@@ -108,6 +117,16 @@ export class TestRenderer implements NativeRenderer {
 
   clickTestId(testId: string): void {
     const point = insetPoint(this.boundsTestId(testId))
+    this.#native.simulateClick(point.x, point.y)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+  }
+
+  clickTextWithinTestId(testId: string, text: string): void {
+    const parent = this.requireTestId(testId)
+    const node = findElementByExactText(parent, text)
+    if (!node) throw new Error(`Expected visible text ${JSON.stringify(text)} inside ${testId}`)
+    const point = insetPoint(this.boundsNode(node, `${testId} text ${JSON.stringify(text)}`))
     this.#native.simulateClick(point.x, point.y)
     this.dispatchNativeEvents()
     this.#native.flush()
@@ -180,17 +199,7 @@ export class TestRenderer implements NativeRenderer {
 
   boundsTestId(testId: string): TestBounds {
     const node = this.requireTestId(testId)
-    this.#native.flush()
-    const bounds = this.#native.getElementBounds(node.id)
-    if (!bounds || bounds.length < 4) throw new Error(`${testId} has no painted bounds`)
-    const x = bounds[0]
-    const y = bounds[1]
-    const width = bounds[2]
-    const height = bounds[3]
-    if (x === undefined || y === undefined || width === undefined || height === undefined) {
-      throw new Error(`${testId} returned incomplete bounds`)
-    }
-    return { x, y, width, height }
+    return this.boundsNode(node, testId)
   }
 
   typeTestId(testId: string, text: string): void {
@@ -221,6 +230,20 @@ export class TestRenderer implements NativeRenderer {
   captureScreenshot(path: string): void {
     this.#native.flush()
     this.#native.captureScreenshot(path)
+  }
+
+  private boundsNode(node: NativeTreeNode, label: string): TestBounds {
+    this.#native.flush()
+    const bounds = this.#native.getElementBounds(node.id)
+    if (!bounds || bounds.length < 4) throw new Error(`${label} has no painted bounds`)
+    const x = bounds[0]
+    const y = bounds[1]
+    const width = bounds[2]
+    const height = bounds[3]
+    if (x === undefined || y === undefined || width === undefined || height === undefined) {
+      throw new Error(`${label} returned incomplete bounds`)
+    }
+    return { x, y, width, height }
   }
 
   private requireTestId(testId: string): NativeTreeNode {
