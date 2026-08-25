@@ -11,6 +11,7 @@ export {
   getNativeStyleColorMode,
   mergeNativeStyles,
   resolveNativeClassStyle,
+  resolveNativeDescendantClassStyle,
   setNativeStyleColorMode,
 } from "./native-style.js"
 export type {
@@ -18,6 +19,7 @@ export type {
   NativeColorMode,
   NativeStyleManifest,
   NativeStyleManifestEntry,
+  NativeStyleVariant,
 } from "./native-style.js"
 
 export {
