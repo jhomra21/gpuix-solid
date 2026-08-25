@@ -16,10 +16,12 @@ if (!hasNativeTestRenderer) {
   app.render(() => <KobalteShowcase />)
 
   requireCondition(app.renderer.hasTestId("kobalte-showcase"), "Kobalte showcase root should render")
+  requireCondition(app.renderer.styleTestId("kobalte-showcase").backgroundColor === "#09090b", "showcase should start with the dark palette")
   requireCondition(app.renderer.hasTestId("button-action"), "Button adapter should render")
   requireCondition(app.renderer.hasTestId("button-disabled"), "disabled Button adapter should render")
   requireCondition(app.renderer.hasTestId("text-field-input"), "TextField.Input should render")
   requireCondition(app.renderer.hasTestId("text-field-error"), "invalid TextField.ErrorMessage should render")
+  requireCondition(app.renderer.hasTestId("avatar-jm-content"), "Image.Fallback should render the primary deterministic avatar")
   requireCondition(app.renderer.hasTestId("avatar-fallback-content"), "Image.Fallback should render without a source")
   requireCondition(!app.renderer.hasTestId("dropdown-content"), "DropdownMenu.Content should start closed")
   requireCondition(!app.renderer.hasTestId("context-content"), "ContextMenu.Content should start closed")
@@ -31,10 +33,26 @@ if (!hasNativeTestRenderer) {
 
   app.renderer.clickTestId("theme-toggle")
   requireText(app.renderer.textContent("theme-toggle"), "Theme: light", "ColorMode toggle")
+  requireCondition(app.renderer.styleTestId("kobalte-showcase").backgroundColor === "#f5f5f7", "ColorMode toggle should switch the painted root palette")
+  requireCondition(app.renderer.styleTestId("text-field-input").backgroundColor === "#ffffff", "ColorMode toggle should switch controlled input chrome")
+
+  requireCondition(!app.renderer.hasTestId("tooltip-content"), "Tooltip content should start closed")
+  app.renderer.hoverTestId("tooltip-trigger")
+  requireCondition(app.renderer.hasTestId("tooltip-content"), "Tooltip should open from native hover")
 
   app.renderer.clickTestId("dropdown-trigger")
   requireCondition(app.renderer.hasTestId("dropdown-content"), "DropdownMenu.Trigger should open content")
-  requireCondition(app.renderer.hasTestId("dropdown-item"), "DropdownMenu.Item should mount inside content")
+  requireCondition(app.renderer.hasTestId("dropdown-checkbox-indicator"), "checked DropdownMenu.CheckboxItem should render its indicator")
+  app.renderer.clickTestId("dropdown-checkbox")
+  requireCondition(!app.renderer.hasTestId("dropdown-checkbox-indicator"), "DropdownMenu.CheckboxItem should toggle without closing the menu")
+  requireCondition(app.renderer.hasTestId("dropdown-content"), "checkbox selection should keep the root menu open")
+  requireCondition(app.renderer.hasTestId("radio-beats-indicator"), "initial radio value should render its indicator")
+  app.renderer.clickTestId("radio-time")
+  requireCondition(app.renderer.hasTestId("radio-time-indicator"), "DropdownMenu.RadioItem should update the selected indicator")
+  requireCondition(!app.renderer.hasTestId("radio-beats-indicator"), "previous radio indicator should clear")
+  app.renderer.hoverTestId("dropdown-sub-trigger")
+  requireCondition(app.renderer.hasTestId("dropdown-sub-content"), "DropdownMenu.Sub should open from hover")
+
   app.renderer.clickTestId("dropdown-item")
   requireText(app.renderer.textContent("last-action"), "Insert audio track", "Dropdown item selection")
   requireCondition(!app.renderer.hasTestId("dropdown-content"), "Dropdown item should close root menu")
@@ -49,6 +67,8 @@ if (!hasNativeTestRenderer) {
 
   app.renderer.clickTestId("menubar-file")
   requireCondition(app.renderer.hasTestId("menubar-file-content"), "Menubar trigger should open its menu")
+  app.renderer.hoverTestId("menubar-export")
+  requireCondition(app.renderer.hasTestId("menubar-export-content"), "Menubar submenu should open from hover")
   app.renderer.clickTestId("menubar-new")
   requireText(app.renderer.textContent("last-action"), "New project", "Menubar selection")
   requireCondition(!app.renderer.hasTestId("menubar-file-content"), "Menubar item should close menu")
@@ -56,10 +76,13 @@ if (!hasNativeTestRenderer) {
   app.renderer.clickTestId("dialog-trigger")
   requireCondition(app.renderer.hasTestId("dialog-overlay"), "Dialog overlay should mount")
   requireCondition(app.renderer.hasTestId("dialog-content"), "Dialog content should mount")
+  app.renderer.pressKeyTestId("dialog-content", "escape")
+  requireCondition(!app.renderer.hasTestId("dialog-content"), "Dialog should close from Escape")
+
+  app.renderer.clickTestId("dialog-trigger")
+  requireCondition(app.renderer.hasTestId("dialog-content"), "Dialog should reopen")
   app.renderer.clickTestId("dialog-close")
   requireCondition(!app.renderer.hasTestId("dialog-content"), "Dialog close button should close content")
-
-  requireCondition(app.renderer.hasTestId("tooltip-trigger"), "Tooltip trigger should render for manual hover/focus validation")
 
   app.unmount()
   console.log("solid1 Kobalte compatibility showcase: passed")
