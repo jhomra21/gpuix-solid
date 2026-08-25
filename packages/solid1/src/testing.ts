@@ -111,6 +111,21 @@ export class TestRenderer implements NativeRenderer {
     this.#native.flush()
   }
 
+  hoverTestId(testId: string): void {
+    const point = insetPoint(this.boundsTestId(testId))
+    this.#native.simulateMouseMove(point.x, point.y)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+  }
+
+  pressKeyTestId(testId: string, key: string): void {
+    const node = this.requireTestId(testId)
+    this.#native.focusElement(node.id)
+    this.#native.simulateKeystrokes(key)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+  }
+
   dragTestId(testId: string, deltaX: number, deltaY: number): void {
     const start = insetPoint(this.boundsTestId(testId))
     const endX = start.x + deltaX
