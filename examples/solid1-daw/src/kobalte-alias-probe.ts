@@ -11,6 +11,7 @@ import * as TextField from "@kobalte/core/text-field"
 import * as Tooltip from "@kobalte/core/tooltip"
 import { Avatar as UpstreamAvatar } from "./upstream/components/ui/avatar"
 import { Button as UpstreamButton } from "./upstream/components/ui/button"
+import { Dialog as UpstreamDialog } from "./upstream/components/ui/dialog"
 import { Separator as UpstreamSeparator } from "./upstream/components/ui/separator"
 import { TextField as UpstreamTextField } from "./upstream/components/ui/text-field"
 import { Tooltip as UpstreamTooltip } from "./upstream/components/ui/tooltip"
@@ -31,6 +32,7 @@ export const kobalteAliasProbe = {
   Tooltip,
   UpstreamAvatar,
   UpstreamButton,
+  UpstreamDialog,
   UpstreamSeparator,
   UpstreamTextField,
   UpstreamTooltip,
