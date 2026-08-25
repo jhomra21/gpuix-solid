@@ -1,10 +1,24 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "baseUrl": ".",
     "jsx": "preserve",
     "jsxImportSource": "@jhomra21/gpuix-solid1",
     "noEmit": true,
+    "paths": {
+      "@kobalte/core": ["../../packages/solid1/src/kobalte/index.tsx"],
+      "@kobalte/core/polymorphic": ["../../packages/solid1/src/kobalte/polymorphic.ts"],
+      "@kobalte/core/button": ["../../packages/solid1/src/kobalte/button.tsx"],
+      "@kobalte/core/image": ["../../packages/solid1/src/kobalte/image.tsx"],
+      "@kobalte/core/separator": ["../../packages/solid1/src/kobalte/separator.tsx"],
+      "@kobalte/core/text-field": ["../../packages/solid1/src/kobalte/text-field.tsx"],
+      "@kobalte/core/tooltip": ["../../packages/solid1/src/kobalte/tooltip.tsx"],
+      "@kobalte/core/dialog": ["../../packages/solid1/src/kobalte/dialog.tsx"],
+      "@kobalte/core/dropdown-menu": ["../../packages/solid1/src/kobalte/dropdown-menu.tsx"],
+      "@kobalte/core/context-menu": ["../../packages/solid1/src/kobalte/context-menu.tsx"],
+      "@kobalte/core/menubar": ["../../packages/solid1/src/kobalte/menubar.tsx"]
+    },
     "types": ["node"]
   },
-  "include": ["src", "vite*.config.ts"]
+  "include": ["src", "vite*.config.ts", "kobalte-native-aliases.ts"]
 }
