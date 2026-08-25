@@ -376,8 +376,8 @@ function normalizeNativeInlineStyle(style: StyleDesc | undefined): StyleDesc | u
 }
 
 function normalizeInlineDimension(value: DimensionValue | undefined): DimensionValue | undefined {
-  if (typeof value !== "string") return value
-  const trimmed = value.trim()
+  if (value === undefined) return undefined
+  const trimmed = String(value).trim()
   if (trimmed === "0") return 0
   const pixel = trimmed.match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))px$/i)
   if (pixel) return Number(pixel[1])
