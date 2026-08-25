@@ -192,7 +192,7 @@ function mapDeclaration(style, property, rawValue, candidate) {
     case "border-radius": style.borderRadius = lengthValue(value, property, candidate); return
     case "font-size": style.fontSize = lengthValue(value, property, candidate); return
     case "font-weight": style.fontWeight = numericOrString(value); return
-    case "line-height": style.lineHeight = lineHeightValue(value, candidate); return
+    case "line-height": style.lineHeight = lineHeightValue(value, candidate, style.fontSize); return
     case "text-align": style.textAlign = value; return
     case "white-space": style.whiteSpace = value; return
     case "text-overflow": style.textOverflow = value; return
@@ -253,17 +253,25 @@ function lengthValue(value, property, candidate) {
   throw new Error(`Unsupported native length from Tailwind candidate ${JSON.stringify(candidate)}: ${property}: ${value}`)
 }
 
-function lineHeightValue(value, candidate) {
+function lineHeightValue(value, candidate, fontSize) {
   const normalized = value.trim()
   const direct = Number(normalized)
-  if (Number.isFinite(direct)) return direct
+  if (Number.isFinite(direct)) return relativeLineHeight(direct, fontSize, candidate, value)
   const calc = normalized.match(/^calc\(\s*(-?\d+(?:\.\d+)?)\s*([*/])\s*(-?\d+(?:\.\d+)?)\s*\)$/)
   if (calc) {
     const left = Number(calc[1])
     const right = Number(calc[3])
-    return calc[2] === "*" ? left * right : left / right
+    const ratio = calc[2] === "*" ? left * right : left / right
+    return relativeLineHeight(ratio, fontSize, candidate, value)
   }
   return lengthValue(normalized, "line-height", candidate)
+}
+
+function relativeLineHeight(ratio, fontSize, candidate, sourceValue) {
+  if (!Number.isFinite(fontSize)) {
+    throw new Error(`Native Tailwind candidate ${JSON.stringify(candidate)} has relative line-height ${sourceValue} without a local font-size`)
+  }
+  return ratio * fontSize
 }
 
 function opacityValue(value, candidate) {
