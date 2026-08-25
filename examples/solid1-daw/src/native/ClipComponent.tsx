@@ -38,7 +38,7 @@ const ClipComponent = (props: ClipComponentProps): JSX.Element => {
         hover: { opacity: 0.94 },
       }}
     >
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 20, paddingLeft: 4, paddingRight: 4, justifyContent: "center", backgroundColor: "#09090b59", pointerEvents: "none" }}>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 20, display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "flex-start", paddingLeft: 4, paddingRight: 4, backgroundColor: "#09090b59", pointerEvents: "none" }}>
         <text style={{ ...textXs, color: dawTheme.foreground, whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{props.clip.name}</text>
       </div>
 
