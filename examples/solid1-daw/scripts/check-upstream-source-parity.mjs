@@ -18,7 +18,7 @@ const copiedSources = [
 ]
 
 for (const [localPath, upstreamPath, expectedBlob] of copiedSources) {
-  const content = await readFile(path.join(projectRoot, localPath))
+  const content = normalizeCheckoutLineEndings(await readFile(path.join(projectRoot, localPath)))
   const actualBlob = gitBlobSha(content)
   if (actualBlob !== expectedBlob) {
     throw new Error([
@@ -32,6 +32,10 @@ for (const [localPath, upstreamPath, expectedBlob] of copiedSources) {
 }
 
 console.log(`DAW verbatim source parity: ${copiedSources.length} files match ${upstreamRevision}`)
+
+function normalizeCheckoutLineEndings(content) {
+  return Buffer.from(content.toString("utf8").replaceAll("\r\n", "\n"))
+}
 
 function gitBlobSha(content) {
   const header = Buffer.from(`blob ${content.byteLength}\0`)
