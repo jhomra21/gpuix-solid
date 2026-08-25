@@ -71,21 +71,21 @@ const TrackSidebarRow = (props: TrackSidebarRowProps): JSX.Element => {
           <div
             testId={`track-${props.track.id}-mute`}
             onClick={props.onToggleMute}
-            style={{ width: 54, height: 20, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: props.track.muted ? dawTheme.timelineSurfaceMuted : dawTheme.amber, cursor: "pointer" }}
+            style={{ display: "flex", flexDirection: "row", width: 55, height: 20, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: props.track.muted ? dawTheme.timelineSurfaceMuted : dawTheme.amber, cursor: "pointer" }}
           >
             <text style={{ ...textXs, color: props.track.muted ? dawTheme.mutedForeground : "#111111", fontWeight: 800 }}>{String(props.track.number)}</text>
           </div>
           <div
             testId={`track-${props.track.id}-solo`}
             onClick={props.onToggleSolo}
-            style={{ width: 20, height: 20, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: props.track.soloed ? "#93c5fd" : dawTheme.border, backgroundColor: props.track.soloed ? "#3b82f6" : dawTheme.timelineSurfaceMuted, cursor: "pointer" }}
+            style={{ display: "flex", flexDirection: "row", width: 19, height: 20, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: props.track.soloed ? "#93c5fd" : dawTheme.border, backgroundColor: props.track.soloed ? "#3b82f6" : dawTheme.timelineSurfaceMuted, cursor: "pointer" }}
           >
             <text style={{ ...textXs, color: props.track.soloed ? "#050505" : dawTheme.foreground, fontWeight: 700 }}>S</text>
           </div>
           <div
             testId={`track-${props.track.id}-arm`}
             onClick={props.onToggleArm}
-            style={{ width: 20, height: 20, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: dawTheme.red, backgroundColor: props.track.armed ? dawTheme.red : dawTheme.timelineSurface, cursor: "pointer" }}
+            style={{ display: "flex", flexDirection: "row", width: 19, height: 20, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: dawTheme.red, backgroundColor: props.track.armed ? dawTheme.red : dawTheme.timelineSurface, cursor: "pointer" }}
           >
             <text style={{ ...textXs, color: props.track.armed ? "#09090b" : "#f87171", fontWeight: 700 }}>R</text>
           </div>
