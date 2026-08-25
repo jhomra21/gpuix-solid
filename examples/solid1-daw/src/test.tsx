@@ -96,6 +96,7 @@ if (!hasNativeTestRenderer) {
   app.renderer.clickTestId("bottom-tab-effects")
   requireCondition(app.renderer.hasTestId("effects-panel"), "effects tab should restore devices")
 
+  app.renderer.scrollTestId("daw-test-viewport", -420, -260)
   app.renderer.clickTestId("bottom-panel-close")
   requireCondition(app.renderer.hasTestId("bottom-panel-closed"), "hide should collapse bottom panel")
   requireCondition(!app.renderer.hasTestId("bottom-panel"), "collapsed panel should unmount expanded shell")
