@@ -1,6 +1,6 @@
 import { Show, type JSX } from "solid-js"
 import type { NativeTrack } from "./model"
-import { dawTheme, layout, text2xs, textXs } from "./theme"
+import { dawTheme, layout, text2xs, text3xs, textSm, textXs } from "./theme"
 
 export interface TrackSidebarRowProps {
   track: NativeTrack
