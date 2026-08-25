@@ -1,4 +1,5 @@
 import { createContext, createSignal, Show, useContext, type JSX } from "solid-js"
+import type { EventPayload } from "@gpuix/native"
 import type { PolymorphicProps } from "./polymorphic.js"
 import { FloatingLayer, Portal, mergeStyle, popupBaseStyle, triggerBaseStyle, type NativeComponentProps } from "./shared.js"
 
@@ -41,17 +42,17 @@ export function Root(props: DropdownMenuRootProps): JSX.Element {
 
 export function Trigger<T = "button">(props: PolymorphicProps<T, DropdownMenuTriggerProps<T>>): JSX.Element {
   const context = requireMenu("DropdownMenu.Trigger")
-  return <div testId={props.testId} tabIndex={props.tabIndex ?? 0} onClick={(event) => { props.onClick?.(event); if (!props.disabled) context.setOpen(!context.open()) }} style={mergeStyle(triggerBaseStyle, props.style)}>{props.children}</div>
+  return <div testId={props.testId} tabIndex={props.tabIndex ?? 0} onClick={(event: EventPayload) => { props.onClick?.(event); if (!props.disabled) context.setOpen(!context.open()) }} style={mergeStyle(triggerBaseStyle, props.style)}>{props.children}</div>
 }
 
 export function Content<T = "div">(props: PolymorphicProps<T, DropdownMenuContentProps<T>>): JSX.Element {
   const context = requireMenu("DropdownMenu.Content")
-  return <Show when={context.open()}><FloatingLayer testId={props.testId} side="bottom" align="start" sideOffset={props.gutter ?? context.gutter()} onMouseDownOutside={(event) => { props.onMouseDownOutside?.(event); context.setOpen(false) }} onKeyDown={(event) => { props.onKeyDown?.(event); if (event.key === "escape") context.setOpen(false) }} style={mergeStyle(popupBaseStyle, props.style)}>{props.children}</FloatingLayer></Show>
+  return <Show when={context.open()}><FloatingLayer testId={props.testId} side="bottom" align="start" sideOffset={props.gutter ?? context.gutter()} onMouseDownOutside={(event: EventPayload) => { props.onMouseDownOutside?.(event); context.setOpen(false) }} onKeyDown={(event: EventPayload) => { props.onKeyDown?.(event); if (event.key === "escape") context.setOpen(false) }} style={mergeStyle(popupBaseStyle, props.style)}>{props.children}</FloatingLayer></Show>
 }
 
 export function Item<T = "div">(props: PolymorphicProps<T, DropdownMenuItemProps<T>>): JSX.Element {
   const context = requireMenu("DropdownMenu.Item")
-  return <div testId={props.testId} tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)} onClick={(event) => { if (props.disabled) return; props.onClick?.(event); props.onSelect?.(); if (props.closeOnSelect !== false) context.setOpen(false) }} style={mergeStyle({ display: "flex", flexDirection: "row", alignItems: "center", minHeight: 26, paddingLeft: 8, paddingRight: 8, gap: 6, cursor: "pointer", opacity: props.disabled ? 0.5 : 1, hover: { backgroundColor: "#2a2a30" } }, props.style)}>{props.children}</div>
+  return <div testId={props.testId} tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)} onClick={(event: EventPayload) => { if (props.disabled) return; props.onClick?.(event); props.onSelect?.(); if (props.closeOnSelect !== false) context.setOpen(false) }} style={mergeStyle({ display: "flex", flexDirection: "row", alignItems: "center", minHeight: 26, paddingLeft: 8, paddingRight: 8, gap: 6, cursor: "pointer", opacity: props.disabled ? 0.5 : 1, hover: { backgroundColor: "#2a2a30" } }, props.style)}>{props.children}</div>
 }
 
 export function Separator<T = "hr">(props: PolymorphicProps<T, DropdownMenuSeparatorProps<T>>): JSX.Element {
@@ -71,7 +72,7 @@ export function Sub(props: DropdownMenuSubProps): JSX.Element {
 export function SubTrigger<T = "div">(props: PolymorphicProps<T, DropdownMenuSubTriggerProps<T>>): JSX.Element {
   const context = useContext(SubContext)
   if (!context) throw new Error("DropdownMenu.SubTrigger must be used inside DropdownMenu.Sub")
-  return <div testId={props.testId} tabIndex={props.tabIndex ?? 0} onMouseEnter={(event) => { props.onMouseEnter?.(event); context.setOpen(true) }} onClick={(event) => { props.onClick?.(event); context.setOpen(!context.open()) }} style={mergeStyle({ display: "flex", flexDirection: "row", alignItems: "center", minHeight: 26, paddingLeft: 8, paddingRight: 8, cursor: "pointer", hover: { backgroundColor: "#2a2a30" } }, props.style)}>{props.children}</div>
+  return <div testId={props.testId} tabIndex={props.tabIndex ?? 0} onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); context.setOpen(true) }} onClick={(event: EventPayload) => { props.onClick?.(event); context.setOpen(!context.open()) }} style={mergeStyle({ display: "flex", flexDirection: "row", alignItems: "center", minHeight: 26, paddingLeft: 8, paddingRight: 8, cursor: "pointer", hover: { backgroundColor: "#2a2a30" } }, props.style)}>{props.children}</div>
 }
 
 export function SubContent<T = "div">(props: PolymorphicProps<T, DropdownMenuSubContentProps<T>>): JSX.Element {
@@ -84,7 +85,8 @@ export function CheckboxItem<T = "div">(props: PolymorphicProps<T, DropdownMenuC
   const [internalChecked, setInternalChecked] = createSignal(props.defaultChecked ?? false)
   const checked = () => props.checked ?? internalChecked()
   const setChecked = (next: boolean) => { if (props.checked === undefined) setInternalChecked(next); props.onChange?.(next) }
-  return <IndicatorContext.Provider value={{ selected: checked }}><Item {...props} closeOnSelect={false} onSelect={() => { setChecked(!checked()); props.onSelect?.() }}>{props.children}</Item></IndicatorContext.Provider>
+  const { checked: _checked, defaultChecked: _defaultChecked, onChange: _onChange, ...itemProps } = props
+  return <IndicatorContext.Provider value={{ selected: checked }}><Item {...itemProps} closeOnSelect={false} onSelect={() => { setChecked(!checked()); props.onSelect?.() }}>{props.children}</Item></IndicatorContext.Provider>
 }
 
 export function ItemIndicator(props: DropdownMenuItemIndicatorProps): JSX.Element {
@@ -107,3 +109,4 @@ export function RadioItem<T = "div">(props: PolymorphicProps<T, DropdownMenuRadi
 }
 
 export const DropdownMenu = Object.assign(Root, { Root, Trigger, Portal, Content, Item, Separator, Group, GroupLabel, Sub, SubTrigger, SubContent, CheckboxItem, ItemIndicator, RadioGroup, RadioItem })
+export { Portal }
