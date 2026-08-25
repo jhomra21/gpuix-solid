@@ -1,7 +1,7 @@
 import { createContext, createSignal, Show, useContext, type JSX } from "solid-js"
 import type { ImgProps } from "../host/types.js"
 import type { PolymorphicProps } from "./polymorphic.js"
-import { mergeStyle, type NativeComponentProps } from "./shared.js"
+import { mergeStyle, type NativeComponentProps } from "./shared.jsx"
 
 type ImageContextValue = {
   hasSource: () => boolean
