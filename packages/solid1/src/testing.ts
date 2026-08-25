@@ -104,9 +104,19 @@ export class TestRenderer implements NativeRenderer {
     }
   }
 
-  clickTestId(testId: string, button = 0): void {
+  clickTestId(testId: string): void {
     const point = insetPoint(this.boundsTestId(testId))
-    this.#native.simulateClick(point.x, point.y, button)
+    this.#native.simulateClick(point.x, point.y)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+  }
+
+  rightClickTestId(testId: string): void {
+    const point = insetPoint(this.boundsTestId(testId))
+    this.#native.simulateMouseDown(point.x, point.y, 2)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+    this.#native.simulateMouseUp(point.x, point.y, 2)
     this.dispatchNativeEvents()
     this.#native.flush()
   }
