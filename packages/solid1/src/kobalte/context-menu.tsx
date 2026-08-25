@@ -55,6 +55,9 @@ export function Trigger<T = "div">(props: PolymorphicProps<T, ContextMenuTrigger
   const context = requireContext("ContextMenu.Trigger")
   return (
     <div
+      class={props.class}
+      className={props.className}
+      classList={props.classList}
       testId={props.testId}
       tabIndex={props.tabIndex}
       onMouseDown={(event: EventPayload) => {
@@ -76,6 +79,9 @@ export function Content<T = "div">(props: PolymorphicProps<T, ContextMenuContent
     <Show when={context.open()}>
       <anchored position={context.position()} side="bottom" align="start" gap={0} fit="snap" snapMargin={8} deferred priority={2} occlude>
         <div
+          class={props.class}
+          className={props.className}
+          classList={props.classList}
           testId={props.testId}
           tabIndex={props.tabIndex ?? 0}
           onMouseDownOutside={(event: EventPayload) => { props.onMouseDownOutside?.(event); context.setOpen(false) }}
@@ -91,6 +97,9 @@ export function Item<T = "div">(props: PolymorphicProps<T, ContextMenuItemProps<
   const context = requireContext("ContextMenu.Item")
   return (
     <div
+      class={props.class}
+      className={props.className}
+      classList={props.classList}
       testId={props.testId}
       tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)}
       onClick={(event: EventPayload) => {
@@ -105,12 +114,12 @@ export function Item<T = "div">(props: PolymorphicProps<T, ContextMenuItemProps<
 }
 
 export function Separator<T = "hr">(props: PolymorphicProps<T, ContextMenuSeparatorProps<T>>): JSX.Element {
-  return <div testId={props.testId} style={mergeStyle({ height: 1, marginTop: 4, marginBottom: 4, backgroundColor: "#34343a" }, props.style)} />
+  return <div class={props.class} className={props.className} classList={props.classList} testId={props.testId} style={mergeStyle({ height: 1, marginTop: 4, marginBottom: 4, backgroundColor: "#34343a" }, props.style)} />
 }
 
 export function Group(props: ContextMenuGroupProps): JSX.Element { return <>{props.children}</> }
 export function GroupLabel<T = "span">(props: PolymorphicProps<T, ContextMenuGroupLabelProps<T>>): JSX.Element {
-  return <text testId={props.testId} style={mergeStyle({ fontSize: 11, lineHeight: 16, fontWeight: 700, color: "#a1a1aa", paddingLeft: 8, paddingRight: 8 }, props.style)}>{props.children}</text>
+  return <text class={props.class} className={props.className} classList={props.classList} testId={props.testId} style={mergeStyle({ fontSize: 11, lineHeight: 16, fontWeight: 700, color: "#a1a1aa", paddingLeft: 8, paddingRight: 8 }, props.style)}>{props.children}</text>
 }
 
 export function Sub(props: ContextMenuSubProps): JSX.Element {
@@ -123,13 +132,13 @@ export function Sub(props: ContextMenuSubProps): JSX.Element {
 export function SubTrigger<T = "div">(props: PolymorphicProps<T, ContextMenuSubTriggerProps<T>>): JSX.Element {
   const context = useContext(SubContext)
   if (!context) throw new Error("ContextMenu.SubTrigger must be used inside ContextMenu.Sub")
-  return <div testId={props.testId} tabIndex={props.tabIndex ?? 0} onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); context.setOpen(true) }} onClick={(event: EventPayload) => { props.onClick?.(event); context.setOpen(!context.open()) }} style={mergeStyle({ display: "flex", flexDirection: "row", alignItems: "center", minHeight: 26, paddingLeft: 8, paddingRight: 8, cursor: "pointer", hover: { backgroundColor: "#2a2a30" } }, props.style)}>{props.children}</div>
+  return <div class={props.class} className={props.className} classList={props.classList} testId={props.testId} tabIndex={props.tabIndex ?? 0} onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); context.setOpen(true) }} onClick={(event: EventPayload) => { props.onClick?.(event); context.setOpen(!context.open()) }} style={mergeStyle({ display: "flex", flexDirection: "row", alignItems: "center", minHeight: 26, paddingLeft: 8, paddingRight: 8, cursor: "pointer", hover: { backgroundColor: "#2a2a30" } }, props.style)}>{props.children}</div>
 }
 
 export function SubContent<T = "div">(props: PolymorphicProps<T, ContextMenuSubContentProps<T>>): JSX.Element {
   const context = useContext(SubContext)
   if (!context) throw new Error("ContextMenu.SubContent must be used inside ContextMenu.Sub")
-  return <Show when={context.open()}><div testId={props.testId} style={mergeStyle(popupBaseStyle, props.style)}>{props.children}</div></Show>
+  return <Show when={context.open()}><div class={props.class} className={props.className} classList={props.classList} testId={props.testId} style={mergeStyle(popupBaseStyle, props.style)}>{props.children}</div></Show>
 }
 
 export const ContextMenu = Object.assign(Root, { Root, Trigger, Portal, Content, Item, Separator, Group, GroupLabel, Sub, SubTrigger, SubContent })
