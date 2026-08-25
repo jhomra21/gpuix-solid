@@ -88,10 +88,10 @@ export function Content<T = "div">(props: PolymorphicProps<T, DialogContentProps
         onKeyDown={(event) => { props.onKeyDown?.(event); if (event.key === "escape") context.setOpen(false) }}
         style={mergeStyle({
           position: "absolute",
-          left: "25%",
-          top: "18%",
-          width: "50%",
-          maxHeight: "64%",
+          left: 280,
+          top: 140,
+          width: 600,
+          maxHeight: 520,
           overflowY: "auto",
           padding: 18,
           gap: 12,
