@@ -111,6 +111,9 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, TooltipTriggerP
   const context = requireContext("Tooltip.Trigger")
   return (
     <div
+      class={props.class}
+      className={props.className}
+      classList={props.classList}
       testId={props.testId}
       tabIndex={props.tabIndex ?? 0}
       onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); context.scheduleOpen() }}
@@ -133,6 +136,9 @@ export function Content<T = "div">(props: PolymorphicProps<T, TooltipContentProp
   return (
     <Show when={context.open()}>
       <FloatingLayer
+        class={props.class}
+        className={props.className}
+        classList={props.classList}
         testId={props.testId}
         side={placement().side}
         align={placement().align}
