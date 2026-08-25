@@ -11,9 +11,6 @@ const outputPath = path.join(projectRoot, "src/native-tailwind.generated.ts")
 
 const themeCss = await readFile(themePath, "utf8")
 const candidates = JSON.parse(await readFile(candidatesPath, "utf8"))
-if (!Array.isArray(candidates) || !candidates.every((candidate) => typeof candidate === "string")) {
-  throw new Error("native-tailwind.candidates.json must contain only strings")
-}
 
 const compiler = await compile(themeCss, {
   base: projectRoot,
