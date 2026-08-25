@@ -50,7 +50,41 @@ type InlineSvgProps = JSXProps<SvgProps> & {
 
 type InlineSvgChildProps = NativeClassProps & {
   children?: SolidJSX.Element | SolidJSX.Element[] | undefined
-  [name: string]: unknown
+  id?: string | undefined
+  d?: string | undefined
+  x?: string | number | undefined
+  y?: string | number | undefined
+  x1?: string | number | undefined
+  x2?: string | number | undefined
+  y1?: string | number | undefined
+  y2?: string | number | undefined
+  cx?: string | number | undefined
+  cy?: string | number | undefined
+  r?: string | number | undefined
+  rx?: string | number | undefined
+  ry?: string | number | undefined
+  width?: string | number | undefined
+  height?: string | number | undefined
+  points?: string | undefined
+  offset?: string | number | undefined
+  fill?: string | undefined
+  stroke?: string | undefined
+  opacity?: string | number | undefined
+  transform?: string | undefined
+  viewBox?: string | undefined
+  preserveAspectRatio?: string | undefined
+  href?: string | undefined
+  "stroke-width"?: string | number | undefined
+  "stroke-linecap"?: string | undefined
+  "stroke-linejoin"?: string | undefined
+  "stroke-miterlimit"?: string | number | undefined
+  "stroke-dasharray"?: string | number | undefined
+  "stroke-dashoffset"?: string | number | undefined
+  "fill-rule"?: string | undefined
+  "clip-rule"?: string | undefined
+  "clip-path"?: string | undefined
+  "stop-color"?: string | undefined
+  "stop-opacity"?: string | number | undefined
 }
 
 export namespace JSX {
