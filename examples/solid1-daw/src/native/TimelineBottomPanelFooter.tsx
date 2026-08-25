@@ -12,17 +12,19 @@ export interface TimelineBottomPanelFooterProps {
 
 const TimelineBottomPanelFooter = (props: TimelineBottomPanelFooterProps): JSX.Element => {
   const tabStyle = (active: boolean) => ({
+    display: "flex" as const,
+    flexDirection: "row" as const,
     height: 28,
     minHeight: 28,
     paddingLeft: 12,
     paddingRight: 12,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
     borderWidth: 1,
     borderColor: dawTheme.border,
     backgroundColor: active ? dawTheme.muted : dawTheme.background,
     color: active ? dawTheme.foreground : dawTheme.mutedForeground,
-    cursor: "pointer",
+    cursor: "pointer" as const,
   })
 
   return (
@@ -35,7 +37,7 @@ const TimelineBottomPanelFooter = (props: TimelineBottomPanelFooterProps): JSX.E
           <text style={{ ...text2xs, color: props.activeTab === "clip" ? dawTheme.foreground : dawTheme.mutedForeground, fontWeight: 650 }}>CLIP</text>
         </div>
       </div>
-      <div testId={props.toggleLabel === "Hide" ? "bottom-panel-close" : "bottom-panel-open"} onClick={props.onToggle} style={{ height: 28, minHeight: 28, paddingLeft: 12, paddingRight: 12, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.appSurface, cursor: "pointer" }}>
+      <div testId={props.toggleLabel === "Hide" ? "bottom-panel-close" : "bottom-panel-open"} onClick={props.onToggle} style={{ display: "flex", flexDirection: "row", height: 28, minHeight: 28, paddingLeft: 12, paddingRight: 12, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.appSurface, cursor: "pointer" }}>
         <text style={{ ...text2xs, color: dawTheme.foreground, fontWeight: 650 }}>{props.toggleLabel.toUpperCase()}</text>
       </div>
     </div>
