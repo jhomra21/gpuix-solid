@@ -54,11 +54,14 @@ export const TimelineLeftBrowser = (props: TimelineLeftBrowserProps): JSX.Elemen
                 testId={`browser-tab-${tab.id}`}
                 onClick={() => props.onSelectTab(tab.id)}
                 style={{
-                  height: 28,
-                  minHeight: 28,
+                  display: "flex",
+                  flexDirection: "row",
+                  height: 24,
+                  minHeight: 24,
                   paddingLeft: 8,
                   paddingRight: 8,
-                  justifyContent: "center",
+                  alignItems: "center",
+                  justifyContent: "flex-start",
                   backgroundColor: props.activeTab === tab.id ? dawTheme.appSurface : dawTheme.background,
                   color: props.activeTab === tab.id ? dawTheme.foreground : dawTheme.mutedForeground,
                   cursor: "pointer",
