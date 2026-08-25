@@ -32,7 +32,7 @@ function ShowcaseBody(): JSX.Element {
     >
       <div class="flex items-center" style={{ justifyContent: "space-between" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <text style={{ fontSize: 24, lineHeight: 30, fontWeight: 700 }}>Tailwind v4 → GPUI native styles</text>
+          <text testId="tailwind-title" style={{ fontSize: 24, lineHeight: 30, fontWeight: 700 }}>Tailwind v4 → GPUI native styles</text>
           <text testId="tailwind-text-sm" class="text-muted-foreground text-sm">Compiler-generated classes, native hover/active state, and DAW-shaped theme tokens.</text>
         </div>
         <Button.Root
@@ -40,7 +40,7 @@ function ShowcaseBody(): JSX.Element {
           class="flex items-center justify-center h-10 px-4 py-2 rounded-md border border-border bg-app-surface hover:bg-accent hover:text-accent-foreground cursor-pointer"
           onPress={() => colorMode.toggleColorMode()}
         >
-          <text>{`Theme: ${colorMode.colorMode()}`}</text>
+          <text testId="theme-toggle-label">{`Theme: ${colorMode.colorMode()}`}</text>
         </Button.Root>
       </div>
 
@@ -55,7 +55,7 @@ function ShowcaseBody(): JSX.Element {
           class="flex items-center justify-center gap-2 h-10 px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-accent hover:text-accent-foreground active:bg-muted cursor-pointer"
           onPress={() => setPresses((value) => value + 1)}
         >
-          <text>{`Native action · ${presses()}`}</text>
+          <text testId="primary-action-label">{`Native action · ${presses()}`}</text>
         </Button.Root>
       </div>
 
@@ -80,7 +80,7 @@ function ShowcaseBody(): JSX.Element {
         class="bg-primary text-primary-foreground rounded-md"
         style={{ backgroundColor: "#7c3aed", padding: 14 }}
       >
-        <text>Inline background wins over the generated bg-primary class.</text>
+        <text testId="inline-precedence-label">Inline background wins over the generated bg-primary class.</text>
       </div>
 
       <text class="text-muted-foreground text-sm">
