@@ -104,16 +104,16 @@ const clipDefinitions: DemoClip[] = [
   { id: "vocals-b", kind: "audio", label: "Hook Comp", durationSec: 2.55, color: "#8567aa" },
 ]
 
-const initialClipPositions: Record<string, ClipPosition> = {
+const initialClipPositions = {
   "drums-a": { trackId: "drums", startSec: 0.6 },
   "drums-b": { trackId: "drums", startSec: 3.7 },
   "bass-a": { trackId: "bass", startSec: 1.25 },
   "synth-a": { trackId: "synth", startSec: 2.15 },
   "vocals-a": { trackId: "vocals", startSec: 0.8 },
   "vocals-b": { trackId: "vocals", startSec: 4.35 },
-}
+} satisfies Record<string, ClipPosition>
 
-const browserData: Record<BrowserTab, BrowserSection[]> = {
+const browserData = {
   assets: [
     { id: "project-samples", label: "PROJECT SAMPLES", children: [
       { id: "kick-tight", label: "Kick · Tight 04", subtitle: "One-shot" },
@@ -149,13 +149,15 @@ const browserData: Record<BrowserTab, BrowserSection[]> = {
       { id: "glass-pad", label: "Glass Pad", subtitle: "Wavetable" },
     ] },
   ],
-}
+} satisfies Record<BrowserTab, BrowserSection[]>
 
-const browserTabLabels: Record<BrowserTab, string> = {
+const browserTabs: readonly BrowserTab[] = ["assets", "effects", "midi-instruments"]
+
+const browserTabLabels = {
   assets: "Assets",
   effects: "Effects",
   "midi-instruments": "MIDI Instruments",
-}
+} satisfies Record<BrowserTab, string>
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
@@ -213,6 +215,23 @@ function compactButtonStyle(active = false): StyleDesc {
   }
 }
 
+function miniStepStyle(): StyleDesc {
+  return {
+    minHeight: 18,
+    paddingLeft: 5,
+    paddingRight: 5,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.timelineBackground,
+    color: colors.mutedForeground,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 3,
+    cursor: "pointer",
+    hover: { backgroundColor: colors.timelineSurfaceMuted, color: colors.foreground },
+  }
+}
+
 interface ToggleButtonProps {
   testId: string
   label: string
@@ -246,8 +265,8 @@ function Knob(props: KnobProps): JSX.Element {
         <text style={{ color: colors.foreground, fontFamily: "monospace", fontSize: 8 }}>{props.value}</text>
       </div>
       <div style={{ display: "flex", gap: 2 }}>
-        <div testId={`${props.testId}-minus`} onClick={props.onDecrease} style={{ ...compactButtonStyle(), minHeight: 18, paddingLeft: 5, paddingRight: 5 }}><text style={{ color: colors.mutedForeground, fontSize: 9 }}>−</text></div>
-        <div testId={`${props.testId}-plus`} onClick={props.onIncrease} style={{ ...compactButtonStyle(), minHeight: 18, paddingLeft: 5, paddingRight: 5 }}><text style={{ color: colors.mutedForeground, fontSize: 9 }}>+</text></div>
+        <div testId={`${props.testId}-minus`} onClick={props.onDecrease} style={miniStepStyle()}><text style={{ color: colors.mutedForeground, fontSize: 9 }}>−</text></div>
+        <div testId={`${props.testId}-plus`} onClick={props.onIncrease} style={miniStepStyle()}><text style={{ color: colors.mutedForeground, fontSize: 9 }}>+</text></div>
       </div>
       <text testId={`${props.testId}-value`} style={{ color: colors.mutedForeground, fontFamily: "monospace", fontSize: 8 }}>{props.value}</text>
     </div>
@@ -396,7 +415,7 @@ export function DawSolid1Showcase(): JSX.Element {
         <Show when={browserOpen()}>
           <div testId="browser-sidebar" style={{ width: BROWSER_WIDTH, minWidth: BROWSER_WIDTH, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, overflow: "hidden" }}>
             <div style={{ padding: 8, gap: 4, borderWidth: 1, borderColor: colors.border }}>
-              <For each={["assets", "effects", "midi-instruments"] as BrowserTab[]}>
+              <For each={browserTabs}>
                 {(tab) => (
                   <div testId={`browser-tab-${tab}`} onClick={() => { setBrowserTab(tab); setBrowserSearch("") }} style={{ height: 26, paddingLeft: 8, paddingRight: 8, justifyContent: "center", backgroundColor: browserTab() === tab ? colors.appSurfaceMuted : colors.background, cursor: "pointer", hover: { backgroundColor: colors.appSurfaceMuted } }}>
                     <text style={{ color: browserTab() === tab ? colors.foreground : colors.mutedForeground, fontSize: 10 }}>{browserTabLabels[tab]}</text>
