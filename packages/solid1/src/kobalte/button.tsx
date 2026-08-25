@@ -18,6 +18,9 @@ export function Root<T = "button">(props: PolymorphicProps<T, ButtonRootProps<T>
 
   return (
     <div
+      class={props.class}
+      className={props.className}
+      classList={props.classList}
       testId={props.testId}
       tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)}
       onClick={(event: EventPayload) => {
