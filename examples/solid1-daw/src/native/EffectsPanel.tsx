@@ -18,9 +18,9 @@ function Knob(props: KnobProps): JSX.Element {
         <div style={{ position: "absolute", top: 4, left: 18, width: 2, height: 12, backgroundColor: props.active === false ? dawTheme.mutedForeground : dawTheme.foreground }} />
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-        <div testId={`${props.testId}-minus`} onClick={props.onDecrease} style={{ display: "flex", flexDirection: "row", width: 18, height: 16, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.timelineSurface, cursor: "pointer" }}><text style={{ ...text3xs, color: dawTheme.mutedForeground, pointerEvents: "none" }}>−</text></div>
+        <div testId={`${props.testId}-minus`} onClick={props.onDecrease} style={{ display: "flex", flexDirection: "row", width: 18, height: 16, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.timelineSurface, cursor: "pointer" }}><text onClick={props.onDecrease} style={{ ...text3xs, color: dawTheme.mutedForeground }}>−</text></div>
         <text testId={`${props.testId}-value`} style={{ ...text3xs, minWidth: 32, color: dawTheme.foreground, fontFamily: "monospace", textAlign: "center" }}>{props.valueLabel}</text>
-        <div testId={`${props.testId}-plus`} onClick={props.onIncrease} style={{ display: "flex", flexDirection: "row", width: 18, height: 16, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.timelineSurface, cursor: "pointer" }}><text style={{ ...text3xs, color: dawTheme.mutedForeground, pointerEvents: "none" }}>+</text></div>
+        <div testId={`${props.testId}-plus`} onClick={props.onIncrease} style={{ display: "flex", flexDirection: "row", width: 18, height: 16, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.timelineSurface, cursor: "pointer" }}><text onClick={props.onIncrease} style={{ ...text3xs, color: dawTheme.mutedForeground }}>+</text></div>
       </div>
     </div>
   )
@@ -34,7 +34,7 @@ function DeviceHeader(props: { title: string; enabled: boolean; onToggle: () => 
         <text style={{ ...text3xs, color: dawTheme.mutedForeground }}>Audio</text>
       </div>
       <div onClick={props.onToggle} style={{ display: "flex", flexDirection: "row", height: 30, minHeight: 30, width: 38, alignItems: "center", justifyContent: "center", backgroundColor: props.enabled ? "#0e4a5d" : dawTheme.timelineSurface, borderWidth: 1, borderColor: dawTheme.border, cursor: "pointer" }}>
-        <text style={{ ...text2xs, color: props.enabled ? "#67e8f9" : dawTheme.mutedForeground, pointerEvents: "none" }}>{props.enabled ? "On" : "Off"}</text>
+        <text onClick={props.onToggle} style={{ ...text2xs, color: props.enabled ? "#67e8f9" : dawTheme.mutedForeground }}>{props.enabled ? "On" : "Off"}</text>
       </div>
     </div>
   )
@@ -111,7 +111,7 @@ const EffectsPanel = (props: EffectsPanelProps): JSX.Element => (
           <div style={{ width: 96, minWidth: 96, alignItems: "center", gap: 10 }}>
             <Knob testId="compressor-makeup" label="Makeup" valueLabel="0.0 dB" active={props.compressorEnabled} onDecrease={() => {}} onIncrease={() => {}} />
             <div style={{ display: "flex", flexWrap: "wrap", gap: 3, justifyContent: "center" }}>
-              <For each={["PEAK", "RMS", "Compress", "Log"]}>{(label) => <div style={{ display: "flex", flexDirection: "row", height: 22, paddingLeft: 5, paddingRight: 5, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.timelineSurfaceMuted }}><text style={{ ...text3xs, color: dawTheme.mutedForeground, pointerEvents: "none" }}>{label}</text></div>}</For>
+              <For each={["PEAK", "RMS", "Compress", "Log"]}>{(label) => <div style={{ display: "flex", flexDirection: "row", height: 22, paddingLeft: 5, paddingRight: 5, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.timelineSurfaceMuted }}><text style={{ ...text3xs, color: dawTheme.mutedForeground }}>{label}</text></div>}</For>
             </div>
           </div>
         </div>
