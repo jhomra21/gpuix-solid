@@ -1,4 +1,5 @@
 import { createContext, createSignal, Show, useContext, type JSX } from "solid-js"
+import type { EventPayload } from "@gpuix/native"
 import type { PolymorphicProps } from "./polymorphic.js"
 import { Portal as NativePortal, mergeStyle, triggerBaseStyle, type NativeComponentProps } from "./shared.js"
 
@@ -42,8 +43,8 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, DialogTriggerPr
     <div
       testId={props.testId}
       tabIndex={props.tabIndex ?? 0}
-      onClick={(event) => { props.onClick?.(event); if (!props.disabled) context.setOpen(true) }}
-      onKeyDown={(event) => {
+      onClick={(event: EventPayload) => { props.onClick?.(event); if (!props.disabled) context.setOpen(true) }}
+      onKeyDown={(event: EventPayload) => {
         props.onKeyDown?.(event)
         if (!props.disabled && (event.key === "enter" || event.key === "space")) context.setOpen(true)
       }}
@@ -62,7 +63,7 @@ export function Overlay<T = "div">(props: PolymorphicProps<T, DialogOverlayProps
     <Show when={context.open()}>
       <div
         testId={props.testId}
-        onClick={(event) => { props.onClick?.(event); context.setOpen(false) }}
+        onClick={(event: EventPayload) => { props.onClick?.(event); context.setOpen(false) }}
         style={mergeStyle({
           position: "absolute",
           top: 0,
@@ -84,8 +85,8 @@ export function Content<T = "div">(props: PolymorphicProps<T, DialogContentProps
       <div
         testId={props.testId}
         tabIndex={props.tabIndex ?? 0}
-        onMouseDownOutside={(event) => { props.onMouseDownOutside?.(event); context.setOpen(false) }}
-        onKeyDown={(event) => { props.onKeyDown?.(event); if (event.key === "escape") context.setOpen(false) }}
+        onMouseDownOutside={(event: EventPayload) => { props.onMouseDownOutside?.(event); context.setOpen(false) }}
+        onKeyDown={(event: EventPayload) => { props.onKeyDown?.(event); if (event.key === "escape") context.setOpen(false) }}
         style={mergeStyle({
           position: "absolute",
           left: 280,
@@ -113,7 +114,7 @@ export function CloseButton<T = "button">(props: PolymorphicProps<T, DialogClose
     <div
       testId={props.testId}
       tabIndex={props.tabIndex ?? 0}
-      onClick={(event) => { props.onClick?.(event); context.setOpen(false) }}
+      onClick={(event: EventPayload) => { props.onClick?.(event); context.setOpen(false) }}
       style={mergeStyle(triggerBaseStyle, props.style)}
     >{props.children}</div>
   )
