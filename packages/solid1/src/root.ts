@@ -2,11 +2,9 @@ import type { EventPayload } from "@gpuix/native"
 import type { JSX } from "solid-js"
 import { EventRegistry } from "./host/events.js"
 import { MutationDriver } from "./host/mutations.js"
-import { HostRootNode, removeHostNode, type HostNode } from "./host/nodes.js"
+import { HostRootNode, removeHostNode } from "./host/nodes.js"
 import type { NativeRenderer } from "./host/types.js"
 import { universalRender } from "./universal.js"
-
-type UniversalRenderNode = HostRootNode | HostNode
 
 export interface Root {
   render(code: () => JSX.Element): void
@@ -35,15 +33,7 @@ export function createRoot(renderer: NativeRenderer): Root {
         events.clear()
       }
 
-      // Solid's JSX.Element type includes provider/control-flow expressions that are not
-      // host nodes until the universal renderer resolves them. The renderer's generic
-      // signature only describes the eventual host value, so keep the expression intact
-      // and narrow at this boundary instead of eagerly evaluating code().
-      // SAFETY: Solid's universal renderer resolves the JSX expression before host insertion;
-      // the GPUIX renderer itself can only create HostRootNode/HostNode values. The unknown
-      // bridge is required because JSX.Element intentionally includes non-host intermediates.
-      const renderCode = code as unknown as () => UniversalRenderNode
-      dispose = universalRender(renderCode, container)
+      dispose = universalRender(code, container)
       flushNative()
     },
     flush: flushNative,
