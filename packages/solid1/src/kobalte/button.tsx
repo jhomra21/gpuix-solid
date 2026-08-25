@@ -14,18 +14,18 @@ export function Root<T = "button">(props: PolymorphicProps<T, ButtonRootProps<T>
   const style = (): StyleDesc => mergeStyle(triggerBaseStyle, {
     opacity: props.disabled ? 0.5 : 1,
     pointerEvents: props.disabled ? "none" : "auto",
-  }) ?? triggerBaseStyle
+  })
 
   return (
     <div
       testId={props.testId}
       tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)}
-      onClick={(event) => {
+      onClick={(event: EventPayload) => {
         if (props.disabled) return
         props.onClick?.(event)
         props.onPress?.(event)
       }}
-      onKeyDown={(event) => {
+      onKeyDown={(event: EventPayload) => {
         if (props.disabled) return
         props.onKeyDown?.(event)
         if (event.key === "enter" || event.key === "space") props.onPress?.(event)
