@@ -1,6 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "allowImportingTsExtensions": true,
     "baseUrl": ".",
     "jsx": "preserve",
     "jsxImportSource": "@jhomra21/gpuix-solid1",
