@@ -1,4 +1,6 @@
 import { createContext, createSignal, Show, useContext, type JSX } from "solid-js"
+import type { EventPayload } from "@gpuix/native"
+import type { StyleDesc } from "../host/types.js"
 import type { PolymorphicProps } from "./polymorphic.js"
 import { FloatingLayer, Portal, mergeStyle, popupBaseStyle, triggerBaseStyle, type NativeComponentProps } from "./shared.js"
 
@@ -47,19 +49,23 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, MenubarTriggerP
   const root = requireRoot("Menubar.Trigger")
   const menu = requireMenu("Menubar.Trigger")
   const expanded = () => root.value() === menu.value()
-  return <div testId={props.testId} tabIndex={props.tabIndex ?? 0} onClick={(event) => { props.onClick?.(event); if (!props.disabled) root.setValue(expanded() ? null : menu.value()) }} onMouseEnter={(event) => { props.onMouseEnter?.(event); if (root.value() != null) root.setValue(menu.value()) }} style={mergeStyle({ ...triggerBaseStyle, minHeight: 28, paddingLeft: 8, paddingRight: 8, backgroundColor: expanded() ? "#2a2a30" : undefined }, props.style)}>{props.children}</div>
+  const style = (): StyleDesc => {
+    const base: StyleDesc = { ...triggerBaseStyle, minHeight: 28, paddingLeft: 8, paddingRight: 8 }
+    return expanded() ? { ...base, backgroundColor: "#2a2a30" } : base
+  }
+  return <div testId={props.testId} tabIndex={props.tabIndex ?? 0} onClick={(event: EventPayload) => { props.onClick?.(event); if (!props.disabled) root.setValue(expanded() ? null : menu.value()) }} onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); if (root.value() != null) root.setValue(menu.value()) }} style={mergeStyle(style(), props.style)}>{props.children}</div>
 }
 
 export function Content<T = "div">(props: PolymorphicProps<T, MenubarContentProps<T>>): JSX.Element {
   const root = requireRoot("Menubar.Content")
   const menu = requireMenu("Menubar.Content")
   const expanded = () => root.value() === menu.value()
-  return <Show when={expanded()}><FloatingLayer testId={props.testId} side="bottom" align="start" sideOffset={menu.gutter()} alignOffset={menu.shift()} onMouseDownOutside={(event) => { props.onMouseDownOutside?.(event); root.setValue(null) }} onKeyDown={(event) => { props.onKeyDown?.(event); if (event.key === "escape") root.setValue(null) }} style={mergeStyle(popupBaseStyle, props.style)}>{props.children}</FloatingLayer></Show>
+  return <Show when={expanded()}><FloatingLayer testId={props.testId} side="bottom" align="start" sideOffset={menu.gutter()} alignOffset={menu.shift()} onMouseDownOutside={(event: EventPayload) => { props.onMouseDownOutside?.(event); root.setValue(null) }} onKeyDown={(event: EventPayload) => { props.onKeyDown?.(event); if (event.key === "escape") root.setValue(null) }} style={mergeStyle(popupBaseStyle, props.style)}>{props.children}</FloatingLayer></Show>
 }
 
 export function Item<T = "div">(props: PolymorphicProps<T, MenubarItemProps<T>>): JSX.Element {
   const root = requireRoot("Menubar.Item")
-  return <div testId={props.testId} tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)} onClick={(event) => { if (props.disabled) return; props.onClick?.(event); props.onSelect?.(); root.setValue(null) }} style={mergeStyle({ display: "flex", flexDirection: "row", alignItems: "center", minHeight: 26, paddingLeft: 8, paddingRight: 8, gap: 6, cursor: "pointer", opacity: props.disabled ? 0.5 : 1, hover: { backgroundColor: "#2a2a30" } }, props.style)}>{props.children}</div>
+  return <div testId={props.testId} tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)} onClick={(event: EventPayload) => { if (props.disabled) return; props.onClick?.(event); props.onSelect?.(); root.setValue(null) }} style={mergeStyle({ display: "flex", flexDirection: "row", alignItems: "center", minHeight: 26, paddingLeft: 8, paddingRight: 8, gap: 6, cursor: "pointer", opacity: props.disabled ? 0.5 : 1, hover: { backgroundColor: "#2a2a30" } }, props.style)}>{props.children}</div>
 }
 
 export function Separator<T = "hr">(props: PolymorphicProps<T, MenubarSeparatorProps<T>>): JSX.Element { return <div testId={props.testId} style={mergeStyle({ height: 1, marginTop: 4, marginBottom: 4, backgroundColor: "#34343a" }, props.style)} /> }
@@ -74,7 +80,7 @@ export function Sub(props: MenubarSubProps): JSX.Element {
 export function SubTrigger<T = "div">(props: PolymorphicProps<T, MenubarSubTriggerProps<T>>): JSX.Element {
   const context = useContext(SubContext)
   if (!context) throw new Error("Menubar.SubTrigger must be used inside Menubar.Sub")
-  return <div testId={props.testId} tabIndex={props.tabIndex ?? 0} onMouseEnter={(event) => { props.onMouseEnter?.(event); context.setOpen(true) }} onClick={(event) => { props.onClick?.(event); context.setOpen(!context.open()) }} style={mergeStyle({ display: "flex", flexDirection: "row", alignItems: "center", minHeight: 26, paddingLeft: 8, paddingRight: 8, cursor: "pointer", hover: { backgroundColor: "#2a2a30" } }, props.style)}>{props.children}</div>
+  return <div testId={props.testId} tabIndex={props.tabIndex ?? 0} onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); context.setOpen(true) }} onClick={(event: EventPayload) => { props.onClick?.(event); context.setOpen(!context.open()) }} style={mergeStyle({ display: "flex", flexDirection: "row", alignItems: "center", minHeight: 26, paddingLeft: 8, paddingRight: 8, cursor: "pointer", hover: { backgroundColor: "#2a2a30" } }, props.style)}>{props.children}</div>
 }
 
 export function SubContent<T = "div">(props: PolymorphicProps<T, MenubarSubContentProps<T>>): JSX.Element {
