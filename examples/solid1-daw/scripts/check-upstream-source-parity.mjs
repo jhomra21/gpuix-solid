@@ -16,6 +16,9 @@ const copiedSources = [
   ["src/upstream/components/ui/separator.tsx", "src/components/ui/separator.tsx", "3b30bdeb3e4e279e3e36d0dc0179c1d0b4714929"],
   ["src/upstream/components/ui/text-field.tsx", "src/components/ui/text-field.tsx", "cfdf5cd7442fc95c84fc6d49a4122950ce16d528"],
   ["src/upstream/components/ui/tooltip.tsx", "src/components/ui/tooltip.tsx", "d2c24f507e056e58d6058b302f57f048d182be67"],
+  ["src/upstream/components/timeline/TimelineBottomPanelFooter.tsx", "src/components/timeline/TimelineBottomPanelFooter.tsx", "159c03bb50998a19bd90f7960fa4991ce8d2a8ce"],
+  ["src/upstream/components/timeline/local-save-failure-banner.tsx", "src/components/timeline/local-save-failure-banner.tsx", "7c44e05d51bdd203bcad05d52de3bafec6bc42ed"],
+  ["src/upstream/lib/bottom-panel-layout.ts", "src/lib/bottom-panel-layout.ts", "aa7e348a31969ba8a1c16957464ddc9e2a3fb884"],
 ]
 
 for (const [localPath, upstreamPath, expectedBlob] of copiedSources) {
