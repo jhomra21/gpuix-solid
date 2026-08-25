@@ -34,13 +34,6 @@ interface BrowserItem {
   meta: string
 }
 
-interface EqBand {
-  id: string
-  label: string
-  frequency: number
-  gain: number
-}
-
 const colors = {
   background: "#0f1013",
   timeline: "#111216",
@@ -150,12 +143,6 @@ const browserItems: BrowserItem[] = [
 ]
 
 const browserCategories = ["All", "Sounds", "Drums", "Instruments", "Audio Effects"] as const
-
-const initialEqBands: EqBand[] = [
-  { id: "low", label: "Low", frequency: 120, gain: -1 },
-  { id: "mid", label: "Mid", frequency: 1200, gain: 2 },
-  { id: "high", label: "High", frequency: 7800, gain: 0 },
-]
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
@@ -276,7 +263,9 @@ export function DawSolid1Showcase(): JSX.Element {
   const [compressorRelease, setCompressorRelease] = createSignal(120)
   const [compressorWet, setCompressorWet] = createSignal(1)
   const [eqEnabled, setEqEnabled] = createSignal(true)
-  const [eqBands, setEqBands] = createSignal<EqBand[]>(initialEqBands)
+  const [eqLowGain, setEqLowGain] = createSignal(-1)
+  const [eqMidGain, setEqMidGain] = createSignal(2)
+  const [eqHighGain, setEqHighGain] = createSignal(0)
 
   const selectedTrack = createMemo<DemoTrack>(() => tracks().find((track) => track.id === selectedTrackId()) ?? bassTrack)
   const selectedClip = createMemo(() => clips.find((clip) => clip.id === selectedClipId()))
@@ -310,10 +299,6 @@ export function DawSolid1Showcase(): JSX.Element {
   const selectClip = (clip: DemoClip): void => {
     setSelectedClipId(clip.id)
     setSelectedTrackId(clip.trackId)
-  }
-
-  const adjustEqGain = (bandId: string, delta: number): void => {
-    setEqBands((current) => current.map((band) => band.id === bandId ? { ...band, gain: clamp(band.gain + delta, -12, 12) } : band))
   }
 
   return (
@@ -571,21 +556,23 @@ export function DawSolid1Showcase(): JSX.Element {
                   <SmallButton testId="eq-enabled" label={eqEnabled() ? "On" : "Off"} active={eqEnabled()} onClick={() => setEqEnabled((enabled) => !enabled)} />
                 </div>
                 <div style={{ height: 72, display: "flex", alignItems: "center", gap: 5, padding: 7, backgroundColor: "#0b0d10", borderWidth: 1, borderColor: colors.border, borderRadius: 4 }}>
-                  <For each={eqBands()}>
-                    {(band) => (
-                      <div style={{ flexGrow: 1, height: 56, alignItems: "center", justifyContent: "center", gap: 3 }}>
-                        <div style={{ width: "75%", height: clamp(22 + band.gain * 2, 8, 48), backgroundColor: band.id === "low" ? colors.green : band.id === "mid" ? colors.blue : colors.purple, borderRadius: 3 }} />
-                        <text style={{ color: colors.faint, fontSize: 7 }}>{band.label}</text>
-                      </div>
-                    )}
-                  </For>
+                  <div style={{ flexGrow: 1, height: 56, alignItems: "center", justifyContent: "center", gap: 3 }}>
+                    <div style={{ width: "75%", height: clamp(22 + eqLowGain() * 2, 8, 48), backgroundColor: colors.green, borderRadius: 3 }} />
+                    <text style={{ color: colors.faint, fontSize: 7 }}>Low</text>
+                  </div>
+                  <div style={{ flexGrow: 1, height: 56, alignItems: "center", justifyContent: "center", gap: 3 }}>
+                    <div style={{ width: "75%", height: clamp(22 + eqMidGain() * 2, 8, 48), backgroundColor: colors.blue, borderRadius: 3 }} />
+                    <text style={{ color: colors.faint, fontSize: 7 }}>Mid</text>
+                  </div>
+                  <div style={{ flexGrow: 1, height: 56, alignItems: "center", justifyContent: "center", gap: 3 }}>
+                    <div style={{ width: "75%", height: clamp(22 + eqHighGain() * 2, 8, 48), backgroundColor: colors.purple, borderRadius: 3 }} />
+                    <text style={{ color: colors.faint, fontSize: 7 }}>High</text>
+                  </div>
                 </div>
                 <div style={{ display: "flex", gap: 7 }}>
-                  <For each={eqBands()}>
-                    {(band) => (
-                      <ParameterControl testId={`eq-${band.id}`} label={`${band.label} ${band.frequency}Hz`} value={signed(band.gain, " dB")} onDecrease={() => adjustEqGain(band.id, -1)} onIncrease={() => adjustEqGain(band.id, 1)} />
-                    )}
-                  </For>
+                  <ParameterControl testId="eq-low" label="Low 120Hz" value={signed(eqLowGain(), " dB")} onDecrease={() => setEqLowGain((value) => clamp(value - 1, -12, 12))} onIncrease={() => setEqLowGain((value) => clamp(value + 1, -12, 12))} />
+                  <ParameterControl testId="eq-mid" label="Mid 1200Hz" value={signed(eqMidGain(), " dB")} onDecrease={() => setEqMidGain((value) => clamp(value - 1, -12, 12))} onIncrease={() => setEqMidGain((value) => clamp(value + 1, -12, 12))} />
+                  <ParameterControl testId="eq-high" label="High 7800Hz" value={signed(eqHighGain(), " dB")} onDecrease={() => setEqHighGain((value) => clamp(value - 1, -12, 12))} onIncrease={() => setEqHighGain((value) => clamp(value + 1, -12, 12))} />
                 </div>
               </div>
             </div>
