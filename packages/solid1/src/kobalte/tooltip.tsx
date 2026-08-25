@@ -1,7 +1,7 @@
 import { createContext, createSignal, onCleanup, Show, useContext, type JSX } from "solid-js"
 import type { EventPayload } from "@gpuix/native"
 import type { PolymorphicProps } from "./polymorphic.js"
-import { FloatingLayer, Portal, mergeStyle, triggerBaseStyle, type FloatingAlign, type FloatingSide, type NativeComponentProps } from "./shared.js"
+import { FloatingLayer, Portal, mergeStyle, triggerBaseStyle, type FloatingAlign, type FloatingSide, type NativeComponentProps } from "./shared.jsx"
 
 export type TooltipPlacement = `${FloatingSide}` | `${FloatingSide}-${FloatingAlign}`
 
