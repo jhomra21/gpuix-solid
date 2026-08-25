@@ -12,15 +12,15 @@ interface KnobProps {
 
 function Knob(props: KnobProps): JSX.Element {
   return (
-    <div style={{ width: 72, minWidth: 72, alignItems: "center", gap: 3 }}>
+    <div style={{ width: 72, minWidth: 72, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
       <text style={{ ...text3xs, color: dawTheme.mutedForeground }}>{props.label}</text>
       <div style={{ width: 38, height: 38, borderRadius: 19, borderWidth: 2, borderColor: props.active === false ? dawTheme.border : "#71717a", backgroundColor: dawTheme.timelineBackground, position: "relative" }}>
         <div style={{ position: "absolute", top: 4, left: 18, width: 2, height: 12, backgroundColor: props.active === false ? dawTheme.mutedForeground : dawTheme.foreground }} />
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-        <div testId={`${props.testId}-minus`} onClick={props.onDecrease} style={{ width: 18, height: 16, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.timelineSurface, cursor: "pointer" }}><text style={{ ...text3xs, color: dawTheme.mutedForeground }}>−</text></div>
+        <div testId={`${props.testId}-minus`} onClick={props.onDecrease} style={{ display: "flex", flexDirection: "row", width: 18, height: 16, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.timelineSurface, cursor: "pointer" }}><text style={{ ...text3xs, color: dawTheme.mutedForeground }}>−</text></div>
         <text testId={`${props.testId}-value`} style={{ ...text3xs, minWidth: 32, color: dawTheme.foreground, fontFamily: "monospace", textAlign: "center" }}>{props.valueLabel}</text>
-        <div testId={`${props.testId}-plus`} onClick={props.onIncrease} style={{ width: 18, height: 16, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.timelineSurface, cursor: "pointer" }}><text style={{ ...text3xs, color: dawTheme.mutedForeground }}>+</text></div>
+        <div testId={`${props.testId}-plus`} onClick={props.onIncrease} style={{ display: "flex", flexDirection: "row", width: 18, height: 16, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.timelineSurface, cursor: "pointer" }}><text style={{ ...text3xs, color: dawTheme.mutedForeground }}>+</text></div>
       </div>
     </div>
   )
@@ -33,7 +33,7 @@ function DeviceHeader(props: { title: string; enabled: boolean; onToggle: () => 
         <text style={{ ...textXs, color: dawTheme.foreground, fontWeight: 700 }}>{props.title}</text>
         <text style={{ ...text3xs, color: dawTheme.mutedForeground }}>Audio</text>
       </div>
-      <div onClick={props.onToggle} style={{ height: 30, minHeight: 30, width: 38, alignItems: "center", justifyContent: "center", backgroundColor: props.enabled ? "#0e4a5d" : dawTheme.timelineSurface, borderWidth: 1, borderColor: dawTheme.border, cursor: "pointer" }}>
+      <div onClick={props.onToggle} style={{ display: "flex", flexDirection: "row", height: 30, minHeight: 30, width: 38, alignItems: "center", justifyContent: "center", backgroundColor: props.enabled ? "#0e4a5d" : dawTheme.timelineSurface, borderWidth: 1, borderColor: dawTheme.border, cursor: "pointer" }}>
         <text style={{ ...text2xs, color: props.enabled ? "#67e8f9" : dawTheme.mutedForeground }}>{props.enabled ? "On" : "Off"}</text>
       </div>
     </div>
@@ -72,13 +72,13 @@ const EffectsPanel = (props: EffectsPanelProps): JSX.Element => (
       <div testId="compressor-device" style={{ width: 560, minWidth: 560, height: "100%", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.timelineSurface, opacity: props.compressorEnabled ? 1 : 0.7 }}>
         <DeviceHeader title="Compressor" enabled={props.compressorEnabled} onToggle={props.onToggleCompressor} />
         <div style={{ flexGrow: 1, minHeight: 0, display: "flex", gap: 8, padding: 10 }}>
-          <div style={{ width: 84, minWidth: 84, gap: 8, alignItems: "center" }}>
+          <div style={{ width: 84, minWidth: 84, display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
             <Knob testId="compressor-ratio" label="Ratio" valueLabel={`${props.compressorRatio.toFixed(props.compressorRatio < 10 ? 1 : 0)}:1`} active={props.compressorEnabled} onDecrease={() => props.onRatioChange(clamp(props.compressorRatio - 0.5, 1, 20))} onIncrease={() => props.onRatioChange(clamp(props.compressorRatio + 0.5, 1, 20))} />
             <Knob testId="compressor-attack" label="Attack" valueLabel={`${props.compressorAttack.toFixed(props.compressorAttack < 10 ? 1 : 0)} ms`} active={props.compressorEnabled} onDecrease={() => props.onAttackChange(clamp(props.compressorAttack - 1, 0, 100))} onIncrease={() => props.onAttackChange(clamp(props.compressorAttack + 1, 0, 100))} />
             <Knob testId="compressor-release" label="Release" valueLabel={`${Math.round(props.compressorRelease)} ms`} active={props.compressorEnabled} onDecrease={() => props.onReleaseChange(clamp(props.compressorRelease - 10, 20, 800))} onIncrease={() => props.onReleaseChange(clamp(props.compressorRelease + 10, 20, 800))} />
           </div>
 
-          <div style={{ flexGrow: 1, minWidth: 0, gap: 7 }}>
+          <div style={{ flexGrow: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 7 }}>
             <div style={{ height: 38, minHeight: 38, display: "flex", gap: 4 }}>
               <For each={[
                 ["THRESH", `${props.compressorThreshold.toFixed(1)} dB`, "#67e8f9"],
@@ -108,10 +108,10 @@ const EffectsPanel = (props: EffectsPanelProps): JSX.Element => (
             </div>
           </div>
 
-          <div style={{ width: 96, minWidth: 96, alignItems: "center", gap: 10 }}>
+          <div style={{ width: 96, minWidth: 96, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
             <Knob testId="compressor-makeup" label="Makeup" valueLabel="0.0 dB" active={props.compressorEnabled} onDecrease={() => {}} onIncrease={() => {}} />
             <div style={{ display: "flex", flexWrap: "wrap", gap: 3, justifyContent: "center" }}>
-              <For each={["PEAK", "RMS", "Compress", "Log"]}>{(label) => <div style={{ height: 22, paddingLeft: 5, paddingRight: 5, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.timelineSurfaceMuted }}><text style={{ ...text3xs, color: dawTheme.mutedForeground }}>{label}</text></div>}</For>
+              <For each={["PEAK", "RMS", "Compress", "Log"]}>{(label) => <div style={{ height: 22, display: "flex", flexDirection: "row", paddingLeft: 5, paddingRight: 5, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.timelineSurfaceMuted }}><text style={{ ...text3xs, color: dawTheme.mutedForeground }}>{label}</text></div>}</For>
             </div>
           </div>
         </div>
@@ -119,7 +119,7 @@ const EffectsPanel = (props: EffectsPanelProps): JSX.Element => (
 
       <div testId="eq-device" style={{ width: 520, minWidth: 520, height: "100%", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.timelineSurface, opacity: props.eqEnabled ? 1 : 0.7 }}>
         <DeviceHeader title="EQ Eight" enabled={props.eqEnabled} onToggle={props.onToggleEq} />
-        <div style={{ flexGrow: 1, minHeight: 0, padding: 10, gap: 8 }}>
+        <div style={{ flexGrow: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: 10, gap: 8 }}>
           <div style={{ flexGrow: 1, minHeight: 180, position: "relative", overflow: "hidden", backgroundColor: dawTheme.deviceGraphBackground, borderWidth: 1, borderColor: dawTheme.border }}>
             <For each={[1,2,3,4,5,6,7,8,9]}>{(index) => <div style={{ position: "absolute", left: index * 50, top: 0, width: 1, height: 190, backgroundColor: dawTheme.deviceGraphGrid }} />}</For>
             <For each={[1,2,3,4,5]}>{(index) => <div style={{ position: "absolute", top: index * 31, left: 0, width: 500, height: 1, backgroundColor: dawTheme.deviceGraphGrid }} />}</For>
