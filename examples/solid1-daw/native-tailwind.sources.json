@@ -1,7 +1,6 @@
 [
   "src/upstream/components/ui/avatar.tsx",
   "src/upstream/components/ui/button.tsx",
-  "src/upstream/components/ui/dropdown-menu.tsx",
   "src/upstream/components/ui/separator.tsx",
   "src/upstream/components/ui/text-field.tsx",
   "src/upstream/components/ui/tooltip.tsx"
