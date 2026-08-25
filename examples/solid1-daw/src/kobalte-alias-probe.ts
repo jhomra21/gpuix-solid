@@ -9,6 +9,7 @@ import type { PolymorphicProps } from "@kobalte/core/polymorphic"
 import * as Separator from "@kobalte/core/separator"
 import * as TextField from "@kobalte/core/text-field"
 import * as Tooltip from "@kobalte/core/tooltip"
+import { Button as UpstreamButton } from "./upstream/components/ui/button"
 
 type NativeAliasPolymorphicProbe = PolymorphicProps<"div", { label: string }>
 type NativeAliasColorModeProbe = ColorModeStorageManager
@@ -24,6 +25,7 @@ export const kobalteAliasProbe = {
   Separator,
   TextField,
   Tooltip,
+  UpstreamButton,
 }
 
 export type { NativeAliasColorModeProbe, NativeAliasPolymorphicProbe }
