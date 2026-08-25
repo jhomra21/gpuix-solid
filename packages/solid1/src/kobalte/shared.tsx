@@ -2,10 +2,11 @@ import type { JSX } from "solid-js"
 import type { EventPayload } from "@gpuix/native"
 import type { HostProps, StyleDesc } from "../host/types.js"
 
-export type NativeComponentProps = Omit<HostProps, "children"> & {
+export type NativeComponentProps = Omit<HostProps, "children" | "testId"> & {
   children?: JSX.Element
   class?: string
   disabled?: boolean
+  testId?: string | undefined
 }
 
 export type FloatingSide = "top" | "right" | "bottom" | "left"
