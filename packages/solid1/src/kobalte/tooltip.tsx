@@ -1,4 +1,5 @@
 import { createContext, createSignal, onCleanup, Show, useContext, type JSX } from "solid-js"
+import type { EventPayload } from "@gpuix/native"
 import type { PolymorphicProps } from "./polymorphic.js"
 import { FloatingLayer, Portal, mergeStyle, triggerBaseStyle, type FloatingAlign, type FloatingSide, type NativeComponentProps } from "./shared.js"
 
@@ -112,13 +113,13 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, TooltipTriggerP
     <div
       testId={props.testId}
       tabIndex={props.tabIndex ?? 0}
-      onMouseEnter={(event) => { props.onMouseEnter?.(event); context.scheduleOpen() }}
-      onMouseLeave={(event) => { props.onMouseLeave?.(event); context.scheduleClose() }}
-      onFocus={(event) => { props.onFocus?.(event); context.setOpen(true) }}
-      onBlur={(event) => { props.onBlur?.(event); context.setOpen(false) }}
-      onMouseDown={(event) => { props.onMouseDown?.(event); context.setOpen(false) }}
-      onClick={(event) => { props.onClick?.(event); context.setOpen(false) }}
-      onKeyDown={(event) => { props.onKeyDown?.(event); if (event.key === "escape") context.setOpen(false) }}
+      onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); context.scheduleOpen() }}
+      onMouseLeave={(event: EventPayload) => { props.onMouseLeave?.(event); context.scheduleClose() }}
+      onFocus={(event: EventPayload) => { props.onFocus?.(event); context.setOpen(true) }}
+      onBlur={(event: EventPayload) => { props.onBlur?.(event); context.setOpen(false) }}
+      onMouseDown={(event: EventPayload) => { props.onMouseDown?.(event); context.setOpen(false) }}
+      onClick={(event: EventPayload) => { props.onClick?.(event); context.setOpen(false) }}
+      onKeyDown={(event: EventPayload) => { props.onKeyDown?.(event); if (event.key === "escape") context.setOpen(false) }}
       style={mergeStyle(triggerBaseStyle, props.style)}
     >
       {props.children}
@@ -136,8 +137,8 @@ export function Content<T = "div">(props: PolymorphicProps<T, TooltipContentProp
         side={placement().side}
         align={placement().align}
         sideOffset={props.gutter ?? context.gutter()}
-        onMouseEnter={(event) => { props.onMouseEnter?.(event); context.cancelClose() }}
-        onMouseLeave={(event) => { props.onMouseLeave?.(event); context.scheduleClose() }}
+        onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); context.cancelClose() }}
+        onMouseLeave={(event: EventPayload) => { props.onMouseLeave?.(event); context.scheduleClose() }}
         style={mergeStyle({ padding: 6, borderWidth: 1, borderColor: "#34343a", borderRadius: 4 }, props.style)}
       >
         {props.children}
