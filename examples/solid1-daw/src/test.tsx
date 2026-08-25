@@ -73,13 +73,6 @@ if (!hasNativeTestRenderer) {
   requireCondition(app.renderer.hasTestId("browser-item-compressor"), "effects search should retain Compressor")
   requireCondition(!app.renderer.hasTestId("browser-item-eq-eight"), "effects search should filter EQ Eight")
 
-  console.log("threshold-plus geometry", JSON.stringify({
-    plus: app.renderer.boundsTestId("compressor-threshold-plus"),
-    value: app.renderer.boundsTestId("compressor-threshold-value"),
-    device: app.renderer.boundsTestId("compressor-device"),
-    panel: app.renderer.boundsTestId("effects-panel"),
-    bottom: app.renderer.boundsTestId("bottom-panel"),
-  }))
   app.renderer.clickTestId("compressor-threshold-plus")
   requireText(app.renderer.textContent("compressor-threshold-value"), "-17.0 dB", "compressor threshold")
 
