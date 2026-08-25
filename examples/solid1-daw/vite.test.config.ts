@@ -1,6 +1,6 @@
 import solid from "vite-plugin-solid"
 import { defineConfig } from "vite"
-import { kobalteNativeAliases } from "./kobalte-native-aliases"
+import { kobalteNativeAliases } from "./kobalte-native-aliases.ts"
 
 export default defineConfig({
   plugins: [
