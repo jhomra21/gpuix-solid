@@ -17,8 +17,6 @@ import {
 } from "./host/nodes.js"
 import type { StyleDesc } from "./host/types.js"
 import {
-  isNativeClassList,
-  isNativeStyleDesc,
   mergeNativeStyles,
   onNativeStyleEnvironmentChange,
   resolveNativeClassStyle,
@@ -58,9 +56,23 @@ const runtime = createRenderer<HostNode | HostParent>({
   },
   setProperty(node, name, value, previous) {
     if (node.kind === "root") return
-    if (node.kind === "element" && isNativeStyleProperty(name)) {
-      setNativeStyleProperty(node, name, value)
-      return
+    if (node.kind === "element") {
+      if (name === "style") {
+        setNativeInlineStyle(node, value)
+        return
+      }
+      if (name === "class") {
+        setNativeClass(node, value)
+        return
+      }
+      if (name === "className") {
+        setNativeClassName(node, value)
+        return
+      }
+      if (name === "classList") {
+        setNativeClassList(node, value)
+        return
+      }
     }
     setHostProperty(node, name, value, previous)
   },
@@ -111,28 +123,31 @@ export const setProp = runtime.setProp
 export const mergeProps = runtime.mergeProps
 export const use = runtime.use
 
-function isNativeStyleProperty(name: string): name is "class" | "className" | "classList" | "style" {
-  return name === "class" || name === "className" || name === "classList" || name === "style"
+function setNativeInlineStyle(node: HostElementNode, style: StyleDesc | undefined): void {
+  const state = styleStates.get(node) ?? {}
+  state.inlineStyle = style
+  commitNativeStyleState(node, state)
 }
 
-function setNativeStyleProperty(
-  node: HostElementNode,
-  name: "class" | "className" | "classList" | "style",
-  value: unknown,
-): void {
+function setNativeClass(node: HostElementNode, className: string | undefined): void {
   const state = styleStates.get(node) ?? {}
+  state.class = className
+  commitNativeStyleState(node, state)
+}
 
-  if (name === "style") {
-    if (value !== undefined && !isNativeStyleDesc(value)) throw new TypeError("GPUIX style must be an object")
-    state.inlineStyle = value
-  } else if (name === "classList") {
-    if (value !== undefined && !isNativeClassList(value)) throw new TypeError("GPUIX classList must map class names to booleans")
-    state.classList = value
-  } else {
-    if (value !== undefined && typeof value !== "string") throw new TypeError(`GPUIX ${name} must be a string`)
-    state[name] = value
-  }
+function setNativeClassName(node: HostElementNode, className: string | undefined): void {
+  const state = styleStates.get(node) ?? {}
+  state.className = className
+  commitNativeStyleState(node, state)
+}
 
+function setNativeClassList(node: HostElementNode, classList: NativeClassList | undefined): void {
+  const state = styleStates.get(node) ?? {}
+  state.classList = classList
+  commitNativeStyleState(node, state)
+}
+
+function commitNativeStyleState(node: HostElementNode, state: NativeStyleState): void {
   styleStates.set(node, state)
   if (hasNativeClasses(state)) classStyledNodes.add(node)
   else classStyledNodes.delete(node)
