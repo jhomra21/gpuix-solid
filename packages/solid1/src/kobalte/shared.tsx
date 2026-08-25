@@ -1,4 +1,4 @@
-import { createSignal, type Accessor, type JSX, type Setter } from "solid-js"
+import type { JSX } from "solid-js"
 import type { EventPayload } from "@gpuix/native"
 import type { HostProps, StyleDesc } from "../host/types.js"
 
@@ -15,23 +15,6 @@ export function mergeStyle(base: StyleDesc | undefined, override: StyleDesc | un
   if (!base) return override
   if (!override) return base
   return { ...base, ...override }
-}
-
-export function createControllableSignal<T>(options: {
-  value?: Accessor<T | undefined>
-  defaultValue: T
-  onChange?: (value: T) => void
-}): [Accessor<T>, Setter<T>] {
-  const [internal, setInternal] = createSignal(options.defaultValue)
-  const value = () => options.value?.() ?? internal()
-  const setValue: Setter<T> = (next) => {
-    const current = value()
-    const resolved = typeof next === "function" ? (next as (previous: T) => T)(current) : next
-    if (options.value?.() === undefined) setInternal(() => resolved)
-    if (!Object.is(current, resolved)) options.onChange?.(resolved)
-    return resolved
-  }
-  return [value, setValue]
 }
 
 export function composeHandlers(
