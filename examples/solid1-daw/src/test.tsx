@@ -7,6 +7,7 @@ import {
 } from "@jhomra21/gpuix-solid1"
 import { DawSolid1Showcase } from "./app"
 import { nativeTailwindManifest } from "./native-tailwind.generated"
+import { UpstreamUiProbe } from "./upstream-ui-probe"
 
 const UPSTREAM_DRAG_ISSUE = "https://github.com/remorses/gpuix/issues/20"
 
@@ -148,6 +149,37 @@ if (!hasNativeTestRenderer) {
   }
 
   app.unmount()
+
+  const sourceUi = createTestRoot()
+  sourceUi.render(() => <UpstreamUiProbe />)
+
+  const sourceButtonBounds = sourceUi.renderer.boundsTestId("upstream-button")
+  requireCondition(
+    Math.abs(sourceButtonBounds.width - 40) <= 1 && Math.abs(sourceButtonBounds.height - 40) <= 1,
+    `copied DAW icon button should resolve size-10 to 40x40, got ${sourceButtonBounds.width}x${sourceButtonBounds.height}`,
+  )
+  const sourceIconBounds = sourceUi.renderer.boundsTestId("upstream-button-icon")
+  requireCondition(
+    Math.abs(sourceIconBounds.width - 16) <= 1 && Math.abs(sourceIconBounds.height - 16) <= 1,
+    `copied DAW button descendant SVG utility should resolve to 16x16, got ${sourceIconBounds.width}x${sourceIconBounds.height}`,
+  )
+  sourceUi.renderer.clickTestId("upstream-button")
+  requireText(sourceUi.renderer.textContent("upstream-button-count"), "Copied Button presses: 1", "copied DAW button")
+
+  const avatarBounds = sourceUi.renderer.boundsTestId("upstream-avatar")
+  requireCondition(
+    Math.abs(avatarBounds.width - 40) <= 1 && Math.abs(avatarBounds.height - 40) <= 1,
+    `copied DAW avatar size-10 should resolve to 40x40, got ${avatarBounds.width}x${avatarBounds.height}`,
+  )
+
+  sourceUi.renderer.typeTestId("upstream-text-input", "Bass")
+  requireText(sourceUi.renderer.textContent("upstream-text-error"), "Invalid route", "copied DAW TextField invalid state")
+
+  requireCondition(!sourceUi.renderer.hasTestId("upstream-tooltip-content"), "copied DAW tooltip should start closed")
+  sourceUi.renderer.hoverTestId("upstream-tooltip-trigger")
+  requireCondition(sourceUi.renderer.hasTestId("upstream-tooltip-content"), "copied DAW tooltip should open through native hover")
+
+  sourceUi.unmount()
 
   console.log("solid1 DAW source-structured port: passed")
 }
