@@ -73,9 +73,15 @@ try {
       "-e",
       `
         const solid1 = await import("@jhomra21/gpuix-solid1")
-        for (const key of ["render", "createRoot", "createTestRoot", "For", "Show"]) {
+        for (const key of ["render", "createRoot", "createTestRoot", "For", "Show", "configureNativeStyleManifest"]) {
           if (!(key in solid1)) throw new Error("Missing Solid 1 export: " + key)
         }
+        const kobalte = await import("@jhomra21/gpuix-solid1/kobalte")
+        for (const key of ["ColorModeProvider", "Button", "Image", "Separator", "TextField", "Tooltip", "Dialog", "DropdownMenu", "ContextMenu", "Menubar"]) {
+          if (!(key in kobalte)) throw new Error("Missing Solid 1 Kobalte export: " + key)
+        }
+        const subpaths = ["button", "image", "separator", "text-field", "tooltip", "dialog", "dropdown-menu", "context-menu", "menubar", "polymorphic"]
+        for (const subpath of subpaths) await import("@jhomra21/gpuix-solid1/kobalte/" + subpath)
         console.log("npm clean-consumer Solid 1 imports: PASS")
       `,
     ],
@@ -84,7 +90,7 @@ try {
 
   writeFileSync(
     path.join(src, "index.tsx"),
-    `import { createSignal } from "solid-js"\nimport { For, Show, render, type EventPayload } from "@jhomra21/gpuix-solid1"\n\nconst names = ["Drums", "Bass", "Synth"]\n\nexport function ConsumerFixture() {\n  const [count, setCount] = createSignal(1)\n  return (\n    <div style={{ width: 360, padding: 16, gap: 8 }}>\n      <div onClick={() => setCount((value) => value + 1)}>\n        <text>{\`Count: \${count()}\`}</text>\n      </div>\n      <input value={String(count())} onChange={(event: EventPayload) => setCount(Number(event.value ?? count()))} />\n      <Show when={count() > 0}><text>Visible</text></Show>\n      <For each={names}>{(name) => <text>{name}</text>}</For>\n    </div>\n  )\n}\n\nvoid render\n`,
+    `import { createSignal } from "solid-js"\nimport { For, Show, render, type EventPayload } from "@jhomra21/gpuix-solid1"\nimport { Button, ColorModeProvider } from "@jhomra21/gpuix-solid1/kobalte"\n\nconst names = ["Drums", "Bass", "Synth"]\n\nexport function ConsumerFixture() {\n  const [count, setCount] = createSignal(1)\n  return (\n    <ColorModeProvider initialColorMode="dark">\n      <div style={{ width: 360, padding: 16, gap: 8 }}>\n        <Button.Root onPress={() => setCount((value) => value + 1)}>\n          <text>{\`Count: \${count()}\`}</text>\n        </Button.Root>\n        <input value={String(count())} onChange={(event: EventPayload) => setCount(Number(event.value ?? count()))} />\n        <Show when={count() > 0}><text>Visible</text></Show>\n        <For each={names}>{(name) => <text>{name}</text>}</For>\n      </div>\n    </ColorModeProvider>\n  )\n}\n\nvoid render\n`,
   )
   writeFileSync(
     path.join(npmConsumer, "tsconfig.json"),
@@ -108,7 +114,7 @@ try {
   )
   writeFileSync(
     path.join(npmConsumer, "vite.config.mjs"),
-    `import solid from "vite-plugin-solid"\nimport { defineConfig } from "vite"\n\nexport default defineConfig({\n  plugins: [\n    solid({\n      solid: {\n        generate: "universal",\n        moduleName: "@jhomra21/gpuix-solid1",\n      },\n    }),\n  ],\n  resolve: {\n    conditions: ["browser", "development"],\n    dedupe: ["solid-js"],\n  },\n  ssr: {\n    noExternal: ["@jhomra21/gpuix-solid1", "solid-js"],\n    resolve: { conditions: ["browser", "development", "import", "default"] },\n  },\n  build: {\n    target: "node22",\n    ssr: "src/index.tsx",\n    outDir: "dist",\n    rollupOptions: { external: ["@gpuix/native"] },\n  },\n})\n`,
+    `import solid from "vite-plugin-solid"\nimport { defineConfig } from "vite"\n\nexport default defineConfig({\n  plugins: [\n    solid({\n      solid: {\n        generate: "universal",\n        moduleName: "@jhomra21/gpuix-solid1",\n      },\n    }),\n  ],\n  resolve: {\n    conditions: ["browser", "development"],\n    dedupe: ["solid-js"],\n  },\n  ssr: {\n    noExternal: [/^@jhomra21\\/gpuix-solid1(?:\\/.*)?$/, "solid-js"],\n    resolve: { conditions: ["browser", "development", "import", "default"] },\n  },\n  build: {\n    target: "node22",\n    ssr: "src/index.tsx",\n    outDir: "dist",\n    rollupOptions: { external: ["@gpuix/native"] },\n  },\n})\n`,
   )
 
   run(
@@ -146,7 +152,9 @@ try {
       "-e",
       `
         import * as solid1 from "@jhomra21/gpuix-solid1"
+        import * as kobalte from "@jhomra21/gpuix-solid1/kobalte"
         if (!("render" in solid1) || !("createRoot" in solid1)) throw new Error("Bun Solid 1 import failed")
+        if (!("Button" in kobalte) || !("Dialog" in kobalte)) throw new Error("Bun Solid 1 Kobalte import failed")
         console.log("Bun clean-consumer Solid 1 imports: PASS")
       `,
     ],
