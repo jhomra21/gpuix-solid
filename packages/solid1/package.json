@@ -31,7 +31,9 @@
     "clean": "bun scripts/clean.ts",
     "build": "bun run clean && tsc -p tsconfig.build.json",
     "typecheck": "bun run build && tsc --noEmit",
-    "test": "bun scripts/check-host-parity.ts"
+    "test": "bun scripts/check-host-parity.ts",
+    "validate:package": "node scripts/validate-package.mjs",
+    "smoke:package": "node scripts/smoke-package.mjs"
   },
   "dependencies": {
     "@gpuix/native": "^0.4.0"
