@@ -104,9 +104,9 @@ export class TestRenderer implements NativeRenderer {
     }
   }
 
-  clickTestId(testId: string): void {
+  clickTestId(testId: string, button = 0): void {
     const point = insetPoint(this.boundsTestId(testId))
-    this.#native.simulateClick(point.x, point.y)
+    this.#native.simulateClick(point.x, point.y, button)
     this.dispatchNativeEvents()
     this.#native.flush()
   }
