@@ -208,6 +208,10 @@ export class TestRenderer implements NativeRenderer {
     return nodeText(this.requireTestId(testId))
   }
 
+  styleTestId(testId: string): StyleDesc {
+    return this.requireTestId(testId).style ?? {}
+  }
+
   captureScreenshot(path: string): void {
     this.#native.flush()
     this.#native.captureScreenshot(path)
