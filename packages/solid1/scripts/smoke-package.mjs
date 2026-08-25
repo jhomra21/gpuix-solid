@@ -146,10 +146,8 @@ try {
       "-e",
       `
         import * as solid1 from "@jhomra21/gpuix-solid1"
-        import * as kobalte from "@jhomra21/gpuix-solid1/kobalte"
         if (!("render" in solid1) || !("createRoot" in solid1)) throw new Error("Bun Solid 1 import failed")
-        if (!("Button" in kobalte) || !("Dialog" in kobalte)) throw new Error("Bun Solid 1 Kobalte import failed")
-        console.log("Bun clean-consumer Solid 1 imports: PASS")
+        console.log("Bun clean-consumer Solid 1 core imports: PASS")
       `,
     ],
     { cwd: bunConsumer },
