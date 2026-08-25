@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "preserve",
+    "jsxImportSource": "@jhomra21/gpuix-solid1",
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["src", "vite*.config.ts"]
+}
