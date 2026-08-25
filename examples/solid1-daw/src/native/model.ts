@@ -135,7 +135,7 @@ export const initialTracks: NativeTrack[] = [
   },
 ]
 
-export const browserSections: Record<BrowserTab, BrowserSection[]> = {
+export const browserSections = {
   assets: [
     {
       id: "project-samples",
@@ -178,4 +178,4 @@ export const browserSections: Record<BrowserTab, BrowserSection[]> = {
       ],
     },
   ],
-}
+} satisfies Record<BrowserTab, BrowserSection[]>
