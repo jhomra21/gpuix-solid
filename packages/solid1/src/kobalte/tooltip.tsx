@@ -23,6 +23,11 @@ export interface TooltipContentProps<T = "div"> extends NativeComponentProps {
 }
 export interface TooltipPortalProps { children?: JSX.Element }
 
+interface ParsedTooltipPlacement {
+  side: FloatingSide
+  align: FloatingAlign
+}
+
 type TooltipContextValue = {
   open: () => boolean
   setOpen: (open: boolean) => void
@@ -35,9 +40,20 @@ type TooltipContextValue = {
 
 const TooltipContext = createContext<TooltipContextValue>()
 
-function parsePlacement(value: TooltipPlacement): { side: FloatingSide; align: FloatingAlign } {
-  const [side, align] = value.split("-") as [FloatingSide, FloatingAlign | undefined]
-  return { side, align: align ?? "center" }
+function parsePlacement(value: TooltipPlacement): ParsedTooltipPlacement {
+  const side: FloatingSide = value.startsWith("right")
+    ? "right"
+    : value.startsWith("bottom")
+      ? "bottom"
+      : value.startsWith("left")
+        ? "left"
+        : "top"
+  const align: FloatingAlign = value.endsWith("-start")
+    ? "start"
+    : value.endsWith("-end")
+      ? "end"
+      : "center"
+  return { side, align }
 }
 
 function requireContext(name: string): TooltipContextValue {
@@ -54,23 +70,30 @@ function TooltipRoot(props: TooltipRootProps): JSX.Element {
   const clearOpen = () => { if (openTimer) clearTimeout(openTimer); openTimer = undefined }
   const clearClose = () => { if (closeTimer) clearTimeout(closeTimer); closeTimer = undefined }
   const setOpen = (next: boolean) => {
-    clearOpen(); clearClose()
+    const previous = open()
+    clearOpen()
+    clearClose()
     if (props.open === undefined) setInternalOpen(next)
-    if (open() !== next || props.open !== undefined) props.onOpenChange?.(next)
+    if (previous !== next) props.onOpenChange?.(next)
   }
   const scheduleOpen = () => {
-    clearClose(); clearOpen()
+    clearClose()
+    clearOpen()
     const delay = props.openDelay ?? 250
     if (delay <= 0) setOpen(true)
     else openTimer = setTimeout(() => setOpen(true), delay)
   }
   const scheduleClose = () => {
-    clearOpen(); clearClose()
+    clearOpen()
+    clearClose()
     const delay = props.closeDelay ?? 0
     if (delay <= 0) setOpen(false)
     else closeTimer = setTimeout(() => setOpen(false), delay)
   }
-  onCleanup(() => { clearOpen(); clearClose() })
+  onCleanup(() => {
+    clearOpen()
+    clearClose()
+  })
   const context: TooltipContextValue = {
     open,
     setOpen,
