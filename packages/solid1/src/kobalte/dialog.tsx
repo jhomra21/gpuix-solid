@@ -43,6 +43,9 @@ function overlayNode<T>(
 ): JSX.Element {
   return (
     <div
+      class={props.class}
+      className={props.className}
+      classList={props.classList}
       testId={props.testId}
       onClick={(event: EventPayload) => { props.onClick?.(event); context.setOpen(false) }}
       style={mergeStyle({
@@ -75,6 +78,9 @@ function contentNode<T>(
       occlude
     >
       <div
+        class={props.class}
+        className={props.className}
+        classList={props.classList}
         testId={props.testId}
         tabIndex={props.tabIndex ?? 0}
         onMouseDownOutside={(event: EventPayload) => { props.onMouseDownOutside?.(event); context.setOpen(false) }}
@@ -111,6 +117,9 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, DialogTriggerPr
   const context = requireContext("Dialog.Trigger")
   return (
     <div
+      class={props.class}
+      className={props.className}
+      classList={props.classList}
       testId={props.testId}
       tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)}
       onClick={(event: EventPayload) => {
@@ -155,6 +164,9 @@ export function CloseButton<T = "button">(props: PolymorphicProps<T, DialogClose
   const context = requireContext("Dialog.CloseButton")
   return (
     <div
+      class={props.class}
+      className={props.className}
+      classList={props.classList}
       testId={props.testId}
       tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)}
       onClick={(event: EventPayload) => {
@@ -173,11 +185,11 @@ export function CloseButton<T = "button">(props: PolymorphicProps<T, DialogClose
 }
 
 export function Title<T = "h2">(props: PolymorphicProps<T, DialogTitleProps<T>>): JSX.Element {
-  return <text testId={props.testId} style={mergeStyle({ fontSize: 18, lineHeight: 24, fontWeight: 700, color: "#fafafa" }, props.style)}>{props.children}</text>
+  return <text class={props.class} className={props.className} classList={props.classList} testId={props.testId} style={mergeStyle({ fontSize: 18, lineHeight: 24, fontWeight: 700, color: "#fafafa" }, props.style)}>{props.children}</text>
 }
 
 export function Description<T = "p">(props: PolymorphicProps<T, DialogDescriptionProps<T>>): JSX.Element {
-  return <text testId={props.testId} style={mergeStyle({ fontSize: 13, lineHeight: 18, color: "#a1a1aa" }, props.style)}>{props.children}</text>
+  return <text class={props.class} className={props.className} classList={props.classList} testId={props.testId} style={mergeStyle({ fontSize: 13, lineHeight: 18, color: "#a1a1aa" }, props.style)}>{props.children}</text>
 }
 
 export const Dialog = Object.assign(Root, { Root, Trigger, Portal, Overlay, Content, CloseButton, Title, Description })
