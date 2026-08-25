@@ -6,8 +6,9 @@ import { mergeStyle, triggerBaseStyle, type NativeComponentProps } from "./share
 
 export interface ButtonRootProps<T = "button"> extends NativeComponentProps {
   as?: T
-  pressed?: boolean
-  onPress?: (event: EventPayload) => void
+  type?: "button" | "submit" | "reset" | string | undefined
+  pressed?: boolean | undefined
+  onPress?: ((event: EventPayload) => void) | undefined
 }
 
 export function Root<T = "button">(props: PolymorphicProps<T, ButtonRootProps<T>>): JSX.Element {
