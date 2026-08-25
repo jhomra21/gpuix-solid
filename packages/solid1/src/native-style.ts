@@ -3,10 +3,14 @@ import type { StyleDesc } from "./host/types.js"
 export type NativeColorMode = "light" | "dark"
 export type NativeClassList = Record<string, boolean | null | undefined>
 
-export interface NativeStyleManifestEntry {
+export interface NativeStyleVariant {
   base?: StyleDesc
   light?: StyleDesc
   dark?: StyleDesc
+}
+
+export interface NativeStyleManifestEntry extends NativeStyleVariant {
+  descendants?: Record<string, NativeStyleVariant>
 }
 
 export interface NativeStyleManifest {
@@ -50,16 +54,37 @@ export function resolveNativeClassStyle(
 ): StyleDesc | undefined {
   const candidates = classCandidates(className, classList)
   if (candidates.length === 0) return undefined
-  if (!manifest) {
-    throw new Error("Native class styling requires configureNativeStyleManifest() before render")
-  }
+  const activeManifest = requireManifest()
 
   let resolved: StyleDesc | undefined
   for (const candidate of candidates) {
-    const entry = manifest.classes[candidate]
-    if (!entry) throw new Error(`Native style manifest is missing Tailwind candidate ${JSON.stringify(candidate)}`)
-    const themed = colorMode === "dark" ? entry.dark : entry.light
-    resolved = mergeNativeStyles(resolved, entry.base, themed)
+    const entry = activeManifest.classes[candidate]
+    if (!entry) throw missingCandidate(candidate)
+    resolved = mergeNativeStyles(resolved, resolveVariant(entry))
+  }
+  return resolved
+}
+
+export function resolveNativeDescendantClassStyle(
+  className: string | undefined,
+  classList: NativeClassList | undefined,
+  tagName: string,
+  directChild: boolean,
+): StyleDesc | undefined {
+  const candidates = classCandidates(className, classList)
+  if (candidates.length === 0) return undefined
+  const activeManifest = requireManifest()
+
+  let resolved: StyleDesc | undefined
+  for (const candidate of candidates) {
+    const entry = activeManifest.classes[candidate]
+    if (!entry) throw missingCandidate(candidate)
+    const descendants = entry.descendants
+    if (!descendants) continue
+    resolved = mergeNativeStyles(resolved, resolveVariant(descendants[tagName]))
+    if (directChild) {
+      resolved = mergeNativeStyles(resolved, resolveVariant(descendants[`>${tagName}`]))
+    }
   }
   return resolved
 }
@@ -71,6 +96,23 @@ export function mergeNativeStyles(...styles: Array<StyleDesc | undefined>): Styl
     result = mergeStylePair(result, style)
   }
   return result
+}
+
+function requireManifest(): NativeStyleManifest {
+  if (!manifest) {
+    throw new Error("Native class styling requires configureNativeStyleManifest() before render")
+  }
+  return manifest
+}
+
+function missingCandidate(candidate: string): Error {
+  return new Error(`Native style manifest is missing Tailwind candidate ${JSON.stringify(candidate)}`)
+}
+
+function resolveVariant(variant: NativeStyleVariant | undefined): StyleDesc | undefined {
+  if (!variant) return undefined
+  const themed = colorMode === "dark" ? variant.dark : variant.light
+  return mergeNativeStyles(variant.base, themed)
 }
 
 function classCandidates(className: string | undefined, classList: NativeClassList | undefined): string[] {
