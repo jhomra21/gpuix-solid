@@ -1,5 +1,6 @@
 import solid from "vite-plugin-solid"
 import { defineConfig } from "vite"
+import { kobalteNativeAliases } from "./kobalte-native-aliases"
 
 export default defineConfig({
   plugins: [
@@ -11,6 +12,7 @@ export default defineConfig({
     }),
   ],
   resolve: {
+    alias: kobalteNativeAliases,
     conditions: ["browser", "development"],
     dedupe: ["solid-js"],
   },
