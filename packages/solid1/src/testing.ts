@@ -119,7 +119,11 @@ export class TestRenderer implements NativeRenderer {
     this.dispatchNativeEvents()
     this.#native.flush()
 
-    this.#native.simulateMouseMove(endX, endY, 0)
+    // GPUI's VisualTestContext accepts pressedButton as event payload data; it does
+    // not maintain a platform button state from simulateMouseDown. Once the app has
+    // mounted its drag-continuation surface, a normal native mouse-move is the
+    // reliable stateful continuation of that real down event in @gpuix/native 0.4.0.
+    this.#native.simulateMouseMove(endX, endY)
     this.dispatchNativeEvents()
     this.#native.flush()
 
