@@ -7,14 +7,21 @@ import type {
   ImgProps,
   InputProps,
   MarkdownProps,
+  NativeClassList,
   SvgProps,
   TextareaProps,
   VirtualListProps,
 } from "./dist/index.js"
 
+type NativeClassProps = {
+  class?: string | undefined
+  className?: string | undefined
+  classList?: NativeClassList | undefined
+}
+
 type JSXProps<T> = {
   [K in keyof T]: {} extends Pick<T, K> ? T[K] | undefined : T[K]
-}
+} & NativeClassProps
 
 export namespace JSX {
   type Element = SolidJSX.Element
