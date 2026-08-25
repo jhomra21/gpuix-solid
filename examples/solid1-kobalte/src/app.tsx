@@ -63,7 +63,7 @@ function ShowcaseBody(): JSX.Element {
         </Button.Root>
       </div>
 
-      <Menubar.Root onValueChange={(value) => setLastAction(`Menubar: ${value ?? "closed"}`)}>
+      <Menubar.Root onValueChange={(value) => { if (value != null) setLastAction(`Menubar: ${value}`) }}>
         <Menubar.Menu value="file">
           <Menubar.Trigger testId="menubar-file" style={buttonStyle}><text style={{ fontSize: 12, color: colors.text }}>File</text></Menubar.Trigger>
           <Menubar.Portal>
