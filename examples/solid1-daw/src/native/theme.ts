@@ -54,6 +54,8 @@ export const text3xs: StyleDesc = { fontSize: 8, lineHeight: 10 }
 
 export function ghostButton(active = false): StyleDesc {
   return {
+    display: "flex",
+    flexDirection: "row",
     height: 28,
     minHeight: 28,
     minWidth: 28,
