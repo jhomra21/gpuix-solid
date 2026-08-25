@@ -130,6 +130,21 @@ const OMITTED_SVG_ATTRIBUTES = new Set([
   "source",
 ])
 
+const INLINE_LENGTH_KEYS = new Set([
+  "width", "height", "minWidth", "minHeight", "maxWidth", "maxHeight",
+  "padding", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
+  "margin", "marginTop", "marginRight", "marginBottom", "marginLeft",
+  "top", "right", "bottom", "left",
+  "gap", "rowGap", "columnGap", "flexBasis",
+  "borderWidth", "borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth",
+  "borderRadius", "borderTopLeftRadius", "borderTopRightRadius", "borderBottomLeftRadius", "borderBottomRightRadius",
+  "fontSize", "lineHeight",
+])
+
+const PERCENTAGE_DIMENSION_KEYS = new Set([
+  "width", "height", "minWidth", "minHeight", "maxWidth", "maxHeight",
+])
+
 onNativeStyleEnvironmentChange(() => {
   for (const node of classStyledNodes) {
     if (!node.nativeAlive) {
@@ -176,8 +191,7 @@ const runtime = createRenderer<HostNode | HostParent>({
       }
 
       if (name === "style") {
-        setHostProperty(node, name, value, previous)
-        setNativeInlineStyle(node, node.style)
+        setNativeInlineStyle(node, normalizeNativeInlineStyle(value))
         return
       }
       if (name === "class") {
@@ -359,6 +373,35 @@ function parseNativeClassList<T>(value: T): NativeClassList | undefined {
     parsed[candidate] = Boolean(enabled)
   }
   return parsed
+}
+
+function normalizeNativeInlineStyle<T>(value: T): StyleDesc | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
+  const normalized: Record<string, unknown> = {}
+  for (const [rawKey, rawValue] of Object.entries(value)) {
+    if (rawValue == null) continue
+    const key = cssPropertyToNativeKey(rawKey)
+    normalized[key] = INLINE_LENGTH_KEYS.has(key)
+      ? normalizeInlineLength(key, rawValue)
+      : rawValue
+  }
+  return normalized as StyleDesc
+}
+
+function cssPropertyToNativeKey(property: string): string {
+  return property.replace(/-([a-z])/g, (_match, character: string) => character.toUpperCase())
+}
+
+function normalizeInlineLength(property: string, value: unknown): unknown {
+  if (typeof value !== "string") return value
+  const trimmed = value.trim()
+  if (trimmed === "0") return 0
+  const pixel = trimmed.match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))px$/i)
+  if (pixel) return Number(pixel[1])
+  const rem = trimmed.match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))rem$/i)
+  if (rem) return Number(rem[1]) * 16
+  if (PERCENTAGE_DIMENSION_KEYS.has(property) && /^-?(?:\d+(?:\.\d+)?|\.\d+)%$/.test(trimmed)) return trimmed
+  return value
 }
 
 function nativeStyleState(node: HostElementNode): NativeStyleState {
