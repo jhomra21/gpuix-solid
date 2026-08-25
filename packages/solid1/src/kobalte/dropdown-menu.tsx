@@ -1,9 +1,24 @@
 import { createContext, createSignal, Show, useContext, type JSX } from "solid-js"
 import type { EventPayload } from "@gpuix/native"
+import type { StyleDesc } from "../host/types.js"
 import type { PolymorphicProps } from "./polymorphic.js"
-import { FloatingLayer, Portal, mergeStyle, popupBaseStyle, triggerBaseStyle, type NativeComponentProps } from "./shared.jsx"
+import {
+  FloatingLayer,
+  Portal,
+  hasNativeClassStyle,
+  mergeStyle,
+  popupBaseStyle,
+  triggerBaseStyle,
+  type NativeComponentProps,
+} from "./shared.jsx"
 
-export interface DropdownMenuRootProps { children?: JSX.Element; open?: boolean; defaultOpen?: boolean; onOpenChange?: (open: boolean) => void; gutter?: number }
+export interface DropdownMenuRootProps {
+  children?: JSX.Element
+  open?: boolean
+  defaultOpen?: boolean
+  onOpenChange?: (open: boolean) => void
+  gutter?: number
+}
 export interface DropdownMenuTriggerProps<T = "button"> extends NativeComponentProps { as?: T }
 export interface DropdownMenuContentProps<T = "div"> extends NativeComponentProps { as?: T; gutter?: number }
 export interface DropdownMenuItemProps<T = "div"> extends NativeComponentProps { as?: T; onSelect?: () => void; closeOnSelect?: boolean }
@@ -33,71 +48,247 @@ function requireMenu(name: string): MenuContextValue {
   return context
 }
 
+function classAwareFallback(
+  props: Pick<NativeComponentProps, "class" | "className" | "classList" | "style">,
+  fallback: StyleDesc,
+  structural: StyleDesc = {},
+): StyleDesc {
+  const base = hasNativeClassStyle(props) ? structural : { ...fallback, ...structural }
+  return mergeStyle(base, props.style)
+}
+
+function disabledState(disabled: boolean | undefined): StyleDesc {
+  return disabled
+    ? { opacity: 0.5, pointerEvents: "none" }
+    : { opacity: 1, pointerEvents: "auto" }
+}
+
 export function Root(props: DropdownMenuRootProps): JSX.Element {
   const [internalOpen, setInternalOpen] = createSignal(props.defaultOpen ?? false)
   const open = () => props.open ?? internalOpen()
-  const setOpen = (next: boolean) => { if (props.open === undefined) setInternalOpen(next); props.onOpenChange?.(next) }
+  const setOpen = (next: boolean) => {
+    if (props.open === undefined) setInternalOpen(next)
+    props.onOpenChange?.(next)
+  }
   return <MenuContext.Provider value={{ open, setOpen, gutter: () => props.gutter ?? 4 }}>{props.children}</MenuContext.Provider>
 }
 
 export function Trigger<T = "button">(props: PolymorphicProps<T, DropdownMenuTriggerProps<T>>): JSX.Element {
   const context = requireMenu("DropdownMenu.Trigger")
-  return <div class={props.class} className={props.className} classList={props.classList} testId={props.testId} tabIndex={props.tabIndex ?? 0} onClick={(event: EventPayload) => { props.onClick?.(event); if (!props.disabled) context.setOpen(!context.open()) }} style={mergeStyle(triggerBaseStyle, props.style)}>{props.children}</div>
+  return (
+    <div
+      class={props.class}
+      className={props.className}
+      classList={props.classList}
+      testId={props.testId}
+      tabIndex={props.tabIndex ?? 0}
+      onClick={(event: EventPayload) => {
+        props.onClick?.(event)
+        if (!props.disabled) context.setOpen(!context.open())
+      }}
+      style={mergeStyle(triggerBaseStyle, props.style)}
+    >{props.children}</div>
+  )
 }
 
 export function Content<T = "div">(props: PolymorphicProps<T, DropdownMenuContentProps<T>>): JSX.Element {
   const context = requireMenu("DropdownMenu.Content")
-  return <Show when={context.open()}><FloatingLayer class={props.class} className={props.className} classList={props.classList} testId={props.testId} side="bottom" align="start" sideOffset={props.gutter ?? context.gutter()} onMouseDownOutside={(event: EventPayload) => { props.onMouseDownOutside?.(event); context.setOpen(false) }} onKeyDown={(event: EventPayload) => { props.onKeyDown?.(event); if (event.key === "escape") context.setOpen(false) }} style={mergeStyle(popupBaseStyle, props.style)}>{props.children}</FloatingLayer></Show>
+  return (
+    <Show when={context.open()}>
+      <FloatingLayer
+        class={props.class}
+        className={props.className}
+        classList={props.classList}
+        testId={props.testId}
+        side="bottom"
+        align="start"
+        sideOffset={props.gutter ?? context.gutter()}
+        onMouseDownOutside={(event: EventPayload) => {
+          props.onMouseDownOutside?.(event)
+          context.setOpen(false)
+        }}
+        onKeyDown={(event: EventPayload) => {
+          props.onKeyDown?.(event)
+          if (event.key === "escape") context.setOpen(false)
+        }}
+        style={classAwareFallback(props, popupBaseStyle)}
+      >{props.children}</FloatingLayer>
+    </Show>
+  )
 }
 
 export function Item<T = "div">(props: PolymorphicProps<T, DropdownMenuItemProps<T>>): JSX.Element {
   const context = requireMenu("DropdownMenu.Item")
-  return <div class={props.class} className={props.className} classList={props.classList} testId={props.testId} tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)} onClick={(event: EventPayload) => { if (props.disabled) return; props.onClick?.(event); props.onSelect?.(); if (props.closeOnSelect !== false) context.setOpen(false) }} style={mergeStyle({ display: "flex", flexDirection: "row", alignItems: "center", minHeight: 26, paddingLeft: 8, paddingRight: 8, gap: 6, cursor: "pointer", opacity: props.disabled ? 0.5 : 1, hover: { backgroundColor: "#2a2a30" } }, props.style)}>{props.children}</div>
+  const fallback: StyleDesc = {
+    display: "flex",
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 26,
+    paddingLeft: 8,
+    paddingRight: 8,
+    gap: 6,
+    cursor: "pointer",
+    hover: { backgroundColor: "#2a2a30" },
+  }
+  return (
+    <div
+      class={props.class}
+      className={props.className}
+      classList={props.classList}
+      testId={props.testId}
+      tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)}
+      onClick={(event: EventPayload) => {
+        if (props.disabled) return
+        props.onClick?.(event)
+        props.onSelect?.()
+        if (props.closeOnSelect !== false) context.setOpen(false)
+      }}
+      style={classAwareFallback(props, fallback, disabledState(props.disabled))}
+    >{props.children}</div>
+  )
 }
 
 export function Separator<T = "hr">(props: PolymorphicProps<T, DropdownMenuSeparatorProps<T>>): JSX.Element {
-  return <div class={props.class} className={props.className} classList={props.classList} testId={props.testId} style={mergeStyle({ height: 1, marginTop: 4, marginBottom: 4, backgroundColor: "#34343a" }, props.style)} />
+  return (
+    <div
+      class={props.class}
+      className={props.className}
+      classList={props.classList}
+      testId={props.testId}
+      style={classAwareFallback(props, { height: 1, marginTop: 4, marginBottom: 4, backgroundColor: "#34343a" })}
+    />
+  )
 }
 
-export function Group(props: DropdownMenuGroupProps): JSX.Element { return <>{props.children}</> }
-export function GroupLabel<T = "span">(props: PolymorphicProps<T, DropdownMenuGroupLabelProps<T>>): JSX.Element { return <text class={props.class} className={props.className} classList={props.classList} testId={props.testId} style={mergeStyle({ fontSize: 11, lineHeight: 16, fontWeight: 700, color: "#a1a1aa", paddingLeft: 8, paddingRight: 8 }, props.style)}>{props.children}</text> }
+export function Group(props: DropdownMenuGroupProps): JSX.Element {
+  return <>{props.children}</>
+}
+
+export function GroupLabel<T = "span">(props: PolymorphicProps<T, DropdownMenuGroupLabelProps<T>>): JSX.Element {
+  return (
+    <text
+      class={props.class}
+      className={props.className}
+      classList={props.classList}
+      testId={props.testId}
+      style={classAwareFallback(props, {
+        fontSize: 11,
+        lineHeight: 16,
+        fontWeight: 700,
+        color: "#a1a1aa",
+        paddingLeft: 8,
+        paddingRight: 8,
+      })}
+    >{props.children}</text>
+  )
+}
 
 export function Sub(props: DropdownMenuSubProps): JSX.Element {
   const [internalOpen, setInternalOpen] = createSignal(props.defaultOpen ?? false)
   const open = () => props.open ?? internalOpen()
-  const setOpen = (next: boolean) => { if (props.open === undefined) setInternalOpen(next); props.onOpenChange?.(next) }
+  const setOpen = (next: boolean) => {
+    if (props.open === undefined) setInternalOpen(next)
+    props.onOpenChange?.(next)
+  }
   return <SubContext.Provider value={{ open, setOpen }}>{props.children}</SubContext.Provider>
 }
 
 export function SubTrigger<T = "div">(props: PolymorphicProps<T, DropdownMenuSubTriggerProps<T>>): JSX.Element {
   const context = useContext(SubContext)
   if (!context) throw new Error("DropdownMenu.SubTrigger must be used inside DropdownMenu.Sub")
-  return <div class={props.class} className={props.className} classList={props.classList} testId={props.testId} tabIndex={props.tabIndex ?? 0} onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); context.setOpen(true) }} onClick={(event: EventPayload) => { props.onClick?.(event); context.setOpen(!context.open()) }} style={mergeStyle({ display: "flex", flexDirection: "row", alignItems: "center", minHeight: 26, paddingLeft: 8, paddingRight: 8, cursor: "pointer", hover: { backgroundColor: "#2a2a30" } }, props.style)}>{props.children}</div>
+  const fallback: StyleDesc = {
+    display: "flex",
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 26,
+    paddingLeft: 8,
+    paddingRight: 8,
+    cursor: "pointer",
+    hover: { backgroundColor: "#2a2a30" },
+  }
+  return (
+    <div
+      class={props.class}
+      className={props.className}
+      classList={props.classList}
+      testId={props.testId}
+      tabIndex={props.tabIndex ?? 0}
+      onMouseEnter={(event: EventPayload) => {
+        props.onMouseEnter?.(event)
+        context.setOpen(true)
+      }}
+      onClick={(event: EventPayload) => {
+        props.onClick?.(event)
+        context.setOpen(!context.open())
+      }}
+      style={classAwareFallback(props, fallback, disabledState(props.disabled))}
+    >{props.children}</div>
+  )
 }
 
 export function SubContent<T = "div">(props: PolymorphicProps<T, DropdownMenuSubContentProps<T>>): JSX.Element {
   const context = useContext(SubContext)
   if (!context) throw new Error("DropdownMenu.SubContent must be used inside DropdownMenu.Sub")
-  return <Show when={context.open()}><FloatingLayer class={props.class} className={props.className} classList={props.classList} testId={props.testId} side="right" align="start" sideOffset={4} style={mergeStyle(popupBaseStyle, props.style)}>{props.children}</FloatingLayer></Show>
+  return (
+    <Show when={context.open()}>
+      <FloatingLayer
+        class={props.class}
+        className={props.className}
+        classList={props.classList}
+        testId={props.testId}
+        side="right"
+        align="start"
+        sideOffset={4}
+        style={classAwareFallback(props, popupBaseStyle)}
+      >{props.children}</FloatingLayer>
+    </Show>
+  )
 }
 
 export function CheckboxItem<T = "div">(props: PolymorphicProps<T, DropdownMenuCheckboxItemProps<T>>): JSX.Element {
   const [internalChecked, setInternalChecked] = createSignal(props.defaultChecked ?? false)
   const checked = () => props.checked ?? internalChecked()
-  const setChecked = (next: boolean) => { if (props.checked === undefined) setInternalChecked(next); props.onChange?.(next) }
+  const setChecked = (next: boolean) => {
+    if (props.checked === undefined) setInternalChecked(next)
+    props.onChange?.(next)
+  }
   const { checked: _checked, defaultChecked: _defaultChecked, onChange: _onChange, ...itemProps } = props
-  return <IndicatorContext.Provider value={{ selected: checked }}><Item {...itemProps} closeOnSelect={false} onSelect={() => { setChecked(!checked()); props.onSelect?.() }}>{props.children}</Item></IndicatorContext.Provider>
+  return (
+    <IndicatorContext.Provider value={{ selected: checked }}>
+      <Item
+        {...itemProps}
+        closeOnSelect={false}
+        onSelect={() => {
+          setChecked(!checked())
+          props.onSelect?.()
+        }}
+      >{props.children}</Item>
+    </IndicatorContext.Provider>
+  )
 }
 
 export function ItemIndicator(props: DropdownMenuItemIndicatorProps): JSX.Element {
   const context = useContext(IndicatorContext)
-  return <Show when={context?.selected()}><div class={props.class} className={props.className} classList={props.classList} testId={props.testId} style={props.style}>{props.children}</div></Show>
+  return (
+    <Show when={context?.selected()}>
+      <div
+        class={props.class}
+        className={props.className}
+        classList={props.classList}
+        testId={props.testId}
+        style={props.style}
+      >{props.children}</div>
+    </Show>
+  )
 }
 
 export function RadioGroup(props: DropdownMenuRadioGroupProps): JSX.Element {
   const [internalValue, setInternalValue] = createSignal(props.defaultValue)
   const value = () => props.value ?? internalValue()
-  const setValue = (next: string) => { if (props.value === undefined) setInternalValue(next); props.onChange?.(next) }
+  const setValue = (next: string) => {
+    if (props.value === undefined) setInternalValue(next)
+    props.onChange?.(next)
+  }
   return <RadioContext.Provider value={{ value, setValue }}>{props.children}</RadioContext.Provider>
 }
 
@@ -105,8 +296,35 @@ export function RadioItem<T = "div">(props: PolymorphicProps<T, DropdownMenuRadi
   const radio = useContext(RadioContext)
   if (!radio) throw new Error("DropdownMenu.RadioItem must be used inside DropdownMenu.RadioGroup")
   const selected = () => radio.value() === props.value
-  return <IndicatorContext.Provider value={{ selected }}><Item {...props} closeOnSelect={false} onSelect={() => { radio.setValue(props.value); props.onSelect?.() }}>{props.children}</Item></IndicatorContext.Provider>
+  return (
+    <IndicatorContext.Provider value={{ selected }}>
+      <Item
+        {...props}
+        closeOnSelect={false}
+        onSelect={() => {
+          radio.setValue(props.value)
+          props.onSelect?.()
+        }}
+      >{props.children}</Item>
+    </IndicatorContext.Provider>
+  )
 }
 
-export const DropdownMenu = Object.assign(Root, { Root, Trigger, Portal, Content, Item, Separator, Group, GroupLabel, Sub, SubTrigger, SubContent, CheckboxItem, ItemIndicator, RadioGroup, RadioItem })
+export const DropdownMenu = Object.assign(Root, {
+  Root,
+  Trigger,
+  Portal,
+  Content,
+  Item,
+  Separator,
+  Group,
+  GroupLabel,
+  Sub,
+  SubTrigger,
+  SubContent,
+  CheckboxItem,
+  ItemIndicator,
+  RadioGroup,
+  RadioItem,
+})
 export { Portal }
