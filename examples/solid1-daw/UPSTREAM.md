@@ -10,6 +10,8 @@ This native example ports a focused UI slice from `jhomra21/daw-browser-convex`.
 
 This fixture is not a generic DAW mock. Browser-only implementation details such as Tailwind class names, DOM APIs, SVG/canvas plumbing, Convex persistence and Web Audio are translated or replaced, but the native GPUIX version must preserve the current application's recognizable component hierarchy, geometry, tokens and interaction semantics.
 
+The implementation is source-first, not screenshot-first. Start from the pinned Solid component and preserve its Solid control flow, component boundaries, ordering, dimensions, alignment and state semantics as directly as possible. Translate only browser host details that cannot execute in GPUIX (DOM/Kobalte primitives, Tailwind class strings, SVG/canvas/browser APIs, persistence/audio/router integrations). Do not redraw or reinterpret a component from a screenshot when its Solid source already expresses the UI. When equivalent source intent renders differently, treat that as a GPUIX/Solid compatibility defect to fix or explicitly document rather than compensating with arbitrary per-example offsets.
+
 Pinned geometry from the source branch:
 
 - left browser default width: 280px
