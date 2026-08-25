@@ -57,6 +57,11 @@ function collectThemeVariables(rootNode) {
     })
   })
 
+  rootNode.walkAtRules("property", (rule) => {
+    const initial = rule.nodes?.find((node) => node.type === "decl" && node.prop === "initial-value")
+    if (initial?.type === "decl" && light[rule.params] === undefined) light[rule.params] = initial.value
+  })
+
   return { light, dark: { ...light, ...darkOverrides } }
 }
 
@@ -181,13 +186,13 @@ function mapDeclaration(style, property, rawValue, candidate) {
     case "left": style.left = lengthValue(value, property, candidate); return
     case "background-color": style.backgroundColor = normalizeColor(value); return
     case "color": style.color = normalizeColor(value); return
-    case "opacity": style.opacity = numberValue(value, property, candidate); return
+    case "opacity": style.opacity = opacityValue(value, candidate); return
     case "border-width": style.borderWidth = lengthValue(value, property, candidate); return
     case "border-color": style.borderColor = normalizeColor(value); return
     case "border-radius": style.borderRadius = lengthValue(value, property, candidate); return
     case "font-size": style.fontSize = lengthValue(value, property, candidate); return
     case "font-weight": style.fontWeight = numericOrString(value); return
-    case "line-height": style.lineHeight = lengthValue(value, property, candidate); return
+    case "line-height": style.lineHeight = lineHeightValue(value, candidate); return
     case "text-align": style.textAlign = value; return
     case "white-space": style.whiteSpace = value; return
     case "text-overflow": style.textOverflow = value; return
@@ -205,14 +210,14 @@ function mapDeclaration(style, property, rawValue, candidate) {
 }
 
 function applyPair(style, first, second, value, property, candidate) {
-  const parts = splitWhitespace(value)
+  const parts = splitTopLevelWhitespace(value)
   if (parts.length === 0 || parts.length > 2) throw new Error(`Unsupported ${property} value for ${JSON.stringify(candidate)}: ${value}`)
   style[first] = lengthValue(parts[0], property, candidate)
   style[second] = lengthValue(parts[1] ?? parts[0], property, candidate)
 }
 
 function applyBoxShorthand(style, prefix, value, candidate) {
-  const parts = splitWhitespace(value)
+  const parts = splitTopLevelWhitespace(value)
   if (parts.length < 1 || parts.length > 4) throw new Error(`Unsupported ${prefix} shorthand for ${JSON.stringify(candidate)}: ${value}`)
   const top = lengthValue(parts[0], prefix, candidate)
   const right = lengthValue(parts[1] ?? parts[0], prefix, candidate)
@@ -246,6 +251,28 @@ function lengthValue(value, property, candidate) {
     return calc[3] === "*" ? left * right : left / right
   }
   throw new Error(`Unsupported native length from Tailwind candidate ${JSON.stringify(candidate)}: ${property}: ${value}`)
+}
+
+function lineHeightValue(value, candidate) {
+  const normalized = value.trim()
+  const direct = Number(normalized)
+  if (Number.isFinite(direct)) return direct
+  const calc = normalized.match(/^calc\(\s*(-?\d+(?:\.\d+)?)\s*([*/])\s*(-?\d+(?:\.\d+)?)\s*\)$/)
+  if (calc) {
+    const left = Number(calc[1])
+    const right = Number(calc[3])
+    return calc[2] === "*" ? left * right : left / right
+  }
+  return lengthValue(normalized, "line-height", candidate)
+}
+
+function opacityValue(value, candidate) {
+  const normalized = value.trim()
+  if (normalized.endsWith("%")) {
+    const percentage = Number(normalized.slice(0, -1))
+    if (Number.isFinite(percentage)) return percentage / 100
+  }
+  return numberValue(normalized, "opacity", candidate)
 }
 
 function numberValue(value, property, candidate) {
@@ -301,8 +328,22 @@ function firstVarFunction(value) {
   return { start, end: end + 1, name, fallback }
 }
 
-function splitWhitespace(value) {
-  return value.trim().split(/\s+/).filter(Boolean)
+function splitTopLevelWhitespace(value) {
+  const parts = []
+  let start = 0
+  let depth = 0
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index]
+    if (character === "(") depth += 1
+    else if (character === ")") depth -= 1
+    else if (/\s/.test(character) && depth === 0) {
+      if (index > start) parts.push(value.slice(start, index))
+      while (index + 1 < value.length && /\s/.test(value[index + 1])) index += 1
+      start = index + 1
+    }
+  }
+  if (start < value.length) parts.push(value.slice(start))
+  return parts.filter(Boolean)
 }
 
 function escapeCssIdentifier(value) {
