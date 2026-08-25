@@ -1,69 +1,136 @@
-import {
-  Root,
-  Trigger,
-  Portal,
-  Content,
-  Item,
-  Separator,
-  Group,
-  GroupLabel,
-  Sub,
-  SubTrigger,
-  SubContent,
-  CheckboxItem,
-  ItemIndicator,
-  RadioGroup,
-  RadioItem,
-} from "./dropdown-menu.js"
+import { createContext, createSignal, Show, useContext, type JSX } from "solid-js"
+import type { EventPayload } from "@gpuix/native"
+import type { PolymorphicProps } from "./polymorphic.js"
+import { Portal, mergeStyle, popupBaseStyle, type NativeComponentProps } from "./shared.js"
 
-export type {
-  DropdownMenuRootProps as ContextMenuRootProps,
-  DropdownMenuTriggerProps as ContextMenuTriggerProps,
-  DropdownMenuContentProps as ContextMenuContentProps,
-  DropdownMenuItemProps as ContextMenuItemProps,
-  DropdownMenuSeparatorProps as ContextMenuSeparatorProps,
-  DropdownMenuSubProps as ContextMenuSubProps,
-  DropdownMenuSubTriggerProps as ContextMenuSubTriggerProps,
-  DropdownMenuSubContentProps as ContextMenuSubContentProps,
-  DropdownMenuCheckboxItemProps as ContextMenuCheckboxItemProps,
-  DropdownMenuGroupProps as ContextMenuGroupProps,
-  DropdownMenuGroupLabelProps as ContextMenuGroupLabelProps,
-  DropdownMenuRadioGroupProps as ContextMenuRadioGroupProps,
-  DropdownMenuRadioItemProps as ContextMenuRadioItemProps,
-} from "./dropdown-menu.js"
+export interface ContextMenuRootProps { children?: JSX.Element; open?: boolean; defaultOpen?: boolean; onOpenChange?: (open: boolean) => void }
+export interface ContextMenuTriggerProps<T = "div"> extends NativeComponentProps { as?: T }
+export interface ContextMenuContentProps<T = "div"> extends NativeComponentProps { as?: T }
+export interface ContextMenuItemProps<T = "div"> extends NativeComponentProps { as?: T; onSelect?: () => void }
+export interface ContextMenuSeparatorProps<T = "hr"> extends NativeComponentProps { as?: T }
+export interface ContextMenuGroupProps { children?: JSX.Element }
+export interface ContextMenuGroupLabelProps<T = "span"> extends NativeComponentProps { as?: T }
+export interface ContextMenuSubProps { children?: JSX.Element; open?: boolean; defaultOpen?: boolean; onOpenChange?: (open: boolean) => void }
+export interface ContextMenuSubTriggerProps<T = "div"> extends NativeComponentProps { as?: T }
+export interface ContextMenuSubContentProps<T = "div"> extends NativeComponentProps { as?: T }
 
-export {
-  Root,
-  Trigger,
-  Portal,
-  Content,
-  Item,
-  Separator,
-  Group,
-  GroupLabel,
-  Sub,
-  SubTrigger,
-  SubContent,
-  CheckboxItem,
-  ItemIndicator,
-  RadioGroup,
-  RadioItem,
+interface ContextPoint { x: number; y: number }
+type ContextMenuContextValue = {
+  open: () => boolean
+  setOpen: (open: boolean) => void
+  position: () => ContextPoint
+  openAt: (event: EventPayload) => void
+}
+const ContextMenuContext = createContext<ContextMenuContextValue>()
+type SubContextValue = { open: () => boolean; setOpen: (open: boolean) => void }
+const SubContext = createContext<SubContextValue>()
+
+function requireContext(name: string): ContextMenuContextValue {
+  const context = useContext(ContextMenuContext)
+  if (!context) throw new Error(`${name} must be used inside ContextMenu.Root`)
+  return context
 }
 
-export const ContextMenu = Object.assign(Root, {
-  Root,
-  Trigger,
-  Portal,
-  Content,
-  Item,
-  Separator,
-  Group,
-  GroupLabel,
-  Sub,
-  SubTrigger,
-  SubContent,
-  CheckboxItem,
-  ItemIndicator,
-  RadioGroup,
-  RadioItem,
-})
+function isContextClick(event: EventPayload): boolean {
+  return event.isRightClick === true || event.button === 2
+}
+
+export function Root(props: ContextMenuRootProps): JSX.Element {
+  const [internalOpen, setInternalOpen] = createSignal(props.defaultOpen ?? false)
+  const [position, setPosition] = createSignal<ContextPoint>({ x: 0, y: 0 })
+  const open = () => props.open ?? internalOpen()
+  const setOpen = (next: boolean) => {
+    if (props.open === undefined) setInternalOpen(next)
+    props.onOpenChange?.(next)
+  }
+  const openAt = (event: EventPayload) => {
+    if (!isContextClick(event)) return
+    setPosition({ x: event.x ?? 0, y: event.y ?? 0 })
+    setOpen(true)
+  }
+  return <ContextMenuContext.Provider value={{ open, setOpen, position, openAt }}>{props.children}</ContextMenuContext.Provider>
+}
+
+export function Trigger<T = "div">(props: PolymorphicProps<T, ContextMenuTriggerProps<T>>): JSX.Element {
+  const context = requireContext("ContextMenu.Trigger")
+  return (
+    <div
+      testId={props.testId}
+      tabIndex={props.tabIndex}
+      onMouseDown={(event: EventPayload) => {
+        props.onMouseDown?.(event)
+        context.openAt(event)
+      }}
+      onClick={(event: EventPayload) => {
+        props.onClick?.(event)
+        context.openAt(event)
+      }}
+      style={mergeStyle({ userSelect: "none" }, props.style)}
+    >{props.children}</div>
+  )
+}
+
+export function Content<T = "div">(props: PolymorphicProps<T, ContextMenuContentProps<T>>): JSX.Element {
+  const context = requireContext("ContextMenu.Content")
+  return (
+    <Show when={context.open()}>
+      <anchored position={context.position()} side="bottom" align="start" gap={0} fit="snap" snapMargin={8} deferred priority={2} occlude>
+        <div
+          testId={props.testId}
+          tabIndex={props.tabIndex ?? 0}
+          onMouseDownOutside={(event: EventPayload) => { props.onMouseDownOutside?.(event); context.setOpen(false) }}
+          onKeyDown={(event: EventPayload) => { props.onKeyDown?.(event); if (event.key === "escape") context.setOpen(false) }}
+          style={mergeStyle(popupBaseStyle, props.style)}
+        >{props.children}</div>
+      </anchored>
+    </Show>
+  )
+}
+
+export function Item<T = "div">(props: PolymorphicProps<T, ContextMenuItemProps<T>>): JSX.Element {
+  const context = requireContext("ContextMenu.Item")
+  return (
+    <div
+      testId={props.testId}
+      tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)}
+      onClick={(event: EventPayload) => {
+        if (props.disabled) return
+        props.onClick?.(event)
+        props.onSelect?.()
+        context.setOpen(false)
+      }}
+      style={mergeStyle({ display: "flex", flexDirection: "row", alignItems: "center", minHeight: 26, paddingLeft: 8, paddingRight: 8, gap: 6, cursor: "pointer", opacity: props.disabled ? 0.5 : 1, hover: { backgroundColor: "#2a2a30" } }, props.style)}
+    >{props.children}</div>
+  )
+}
+
+export function Separator<T = "hr">(props: PolymorphicProps<T, ContextMenuSeparatorProps<T>>): JSX.Element {
+  return <div testId={props.testId} style={mergeStyle({ height: 1, marginTop: 4, marginBottom: 4, backgroundColor: "#34343a" }, props.style)} />
+}
+
+export function Group(props: ContextMenuGroupProps): JSX.Element { return <>{props.children}</> }
+export function GroupLabel<T = "span">(props: PolymorphicProps<T, ContextMenuGroupLabelProps<T>>): JSX.Element {
+  return <text testId={props.testId} style={mergeStyle({ fontSize: 11, lineHeight: 16, fontWeight: 700, color: "#a1a1aa", paddingLeft: 8, paddingRight: 8 }, props.style)}>{props.children}</text>
+}
+
+export function Sub(props: ContextMenuSubProps): JSX.Element {
+  const [internalOpen, setInternalOpen] = createSignal(props.defaultOpen ?? false)
+  const open = () => props.open ?? internalOpen()
+  const setOpen = (next: boolean) => { if (props.open === undefined) setInternalOpen(next); props.onOpenChange?.(next) }
+  return <SubContext.Provider value={{ open, setOpen }}>{props.children}</SubContext.Provider>
+}
+
+export function SubTrigger<T = "div">(props: PolymorphicProps<T, ContextMenuSubTriggerProps<T>>): JSX.Element {
+  const context = useContext(SubContext)
+  if (!context) throw new Error("ContextMenu.SubTrigger must be used inside ContextMenu.Sub")
+  return <div testId={props.testId} tabIndex={props.tabIndex ?? 0} onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); context.setOpen(true) }} onClick={(event: EventPayload) => { props.onClick?.(event); context.setOpen(!context.open()) }} style={mergeStyle({ display: "flex", flexDirection: "row", alignItems: "center", minHeight: 26, paddingLeft: 8, paddingRight: 8, cursor: "pointer", hover: { backgroundColor: "#2a2a30" } }, props.style)}>{props.children}</div>
+}
+
+export function SubContent<T = "div">(props: PolymorphicProps<T, ContextMenuSubContentProps<T>>): JSX.Element {
+  const context = useContext(SubContext)
+  if (!context) throw new Error("ContextMenu.SubContent must be used inside ContextMenu.Sub")
+  return <Show when={context.open()}><div testId={props.testId} style={mergeStyle(popupBaseStyle, props.style)}>{props.children}</div></Show>
+}
+
+export const ContextMenu = Object.assign(Root, { Root, Trigger, Portal, Content, Item, Separator, Group, GroupLabel, Sub, SubTrigger, SubContent })
+export { Portal }
