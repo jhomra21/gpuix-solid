@@ -20,6 +20,24 @@ export function mergeStyle(base: StyleDesc, override: StyleDesc | undefined): St
   return { ...base, ...override }
 }
 
+export function hasNativeClassStyle(
+  props: Pick<NativeComponentProps, "class" | "className" | "classList">,
+): boolean {
+  if (props.class?.trim() || props.className?.trim()) return true
+  return Boolean(props.classList && Object.values(props.classList).some(Boolean))
+}
+
+export function mergeComponentStyle(
+  structural: StyleDesc,
+  fallbackVisual: StyleDesc,
+  props: Pick<NativeComponentProps, "class" | "className" | "classList" | "style">,
+): StyleDesc {
+  const base = hasNativeClassStyle(props)
+    ? structural
+    : mergeStyle(structural, fallbackVisual)
+  return mergeStyle(base, props.style)
+}
+
 export function composeHandlers(
   first: ((event: EventPayload) => void) | undefined,
   second: ((event: EventPayload) => void) | undefined,
@@ -76,7 +94,11 @@ export function FloatingLayer(props: FloatingContentProps): JSX.Element {
         onKeyUp={props.onKeyUp}
         onFocus={props.onFocus}
         onBlur={props.onBlur}
-        style={mergeStyle({ backgroundColor: "#151518" }, props.style)}
+        style={mergeComponentStyle(
+          { pointerEvents: "auto" },
+          { backgroundColor: "#151518" },
+          props,
+        )}
       >
         {props.children}
       </div>
