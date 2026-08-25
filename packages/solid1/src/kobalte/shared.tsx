@@ -3,12 +3,16 @@ import type { EventPayload } from "@gpuix/native"
 import type { HostProps, StyleDesc } from "../host/types.js"
 import type { NativeClassList } from "../native-style.js"
 
-export type NativeComponentProps = Omit<HostProps, "children" | "testId"> & {
+type OptionalUndefined<T> = {
+  [K in keyof T]: {} extends Pick<T, K> ? T[K] | undefined : T[K]
+}
+
+export type NativeComponentProps = Omit<OptionalUndefined<HostProps>, "children" | "testId"> & {
   children?: JSX.Element
   class?: string | undefined
   className?: string | undefined
   classList?: NativeClassList | undefined
-  disabled?: boolean
+  disabled?: boolean | undefined
   testId?: string | undefined
 }
 
