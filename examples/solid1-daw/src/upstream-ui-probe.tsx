@@ -1,4 +1,5 @@
 import { createSignal, type JSX } from "solid-js"
+import LocalSaveFailureBanner from "./upstream/components/timeline/local-save-failure-banner"
 import { Avatar, AvatarFallback } from "./upstream/components/ui/avatar"
 import { Button } from "./upstream/components/ui/button"
 import { Separator } from "./upstream/components/ui/separator"
@@ -74,6 +75,14 @@ export function UpstreamUiProbe(): JSX.Element {
           Copied DAW tooltip content
         </TooltipContent>
       </Tooltip>
+
+      <div testId="upstream-save-banner">
+        <LocalSaveFailureBanner
+          message="Storage quota exceeded."
+          onExportArchive={() => undefined}
+          onDismiss={() => undefined}
+        />
+      </div>
     </div>
   )
 }
