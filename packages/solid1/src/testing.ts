@@ -13,6 +13,7 @@ interface NativeTreeNode {
   testId?: string
   style?: StyleDesc
   text?: string | null
+  customProps?: Record<string, unknown>
   children?: NativeTreeNode[]
 }
 
@@ -210,6 +211,10 @@ export class TestRenderer implements NativeRenderer {
 
   styleTestId(testId: string): StyleDesc {
     return this.requireTestId(testId).style ?? {}
+  }
+
+  customPropTestId(testId: string, key: string): unknown {
+    return this.requireTestId(testId).customProps?.[key]
   }
 
   captureScreenshot(path: string): void {
