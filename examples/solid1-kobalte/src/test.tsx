@@ -40,7 +40,9 @@ if (!hasNativeTestRenderer) {
   requireCondition(!app.renderer.hasTestId("dropdown-content"), "Dropdown item should close root menu")
 
   app.renderer.clickTestId("context-trigger")
-  requireCondition(app.renderer.hasTestId("context-content"), "ContextMenu trigger should open compatibility content")
+  requireCondition(!app.renderer.hasTestId("context-content"), "ContextMenu must ignore a normal left click")
+  app.renderer.clickTestId("context-trigger", 2)
+  requireCondition(app.renderer.hasTestId("context-content"), "ContextMenu must open from a native right click")
   app.renderer.clickTestId("context-duplicate")
   requireText(app.renderer.textContent("last-action"), "Duplicate clip", "Context menu selection")
   requireCondition(!app.renderer.hasTestId("context-content"), "Context menu item should close content")
