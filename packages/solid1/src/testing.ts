@@ -19,6 +19,7 @@ interface NativeTreeNode {
 function loadNativeTestRenderer(): NativeTestRendererConstructor | undefined {
   try {
     const require = createRequire(import.meta.url)
+    // SAFETY: @gpuix/native exports TestGpuixRenderer when the installed platform binding includes test support.
     const nativeModule = require("@gpuix/native") as NativeModule
     return nativeModule.TestGpuixRenderer
   } catch {
@@ -27,6 +28,7 @@ function loadNativeTestRenderer(): NativeTestRendererConstructor | undefined {
 }
 
 function parseTree(json: string): NativeTreeNode | null {
+  // SAFETY: TestGpuixRenderer.getTreeJson() is a native contract with this recursive retained-tree shape.
   return JSON.parse(json) as NativeTreeNode | null
 }
 
