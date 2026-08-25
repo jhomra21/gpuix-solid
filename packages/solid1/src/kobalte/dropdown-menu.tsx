@@ -1,7 +1,7 @@
 import { createContext, createSignal, Show, useContext, type JSX } from "solid-js"
 import type { EventPayload } from "@gpuix/native"
 import type { PolymorphicProps } from "./polymorphic.js"
-import { FloatingLayer, Portal, mergeStyle, popupBaseStyle, triggerBaseStyle, type NativeComponentProps } from "./shared.js"
+import { FloatingLayer, Portal, mergeStyle, popupBaseStyle, triggerBaseStyle, type NativeComponentProps } from "./shared.jsx"
 
 export interface DropdownMenuRootProps { children?: JSX.Element; open?: boolean; defaultOpen?: boolean; onOpenChange?: (open: boolean) => void; gutter?: number }
 export interface DropdownMenuTriggerProps<T = "button"> extends NativeComponentProps { as?: T }
