@@ -23,6 +23,29 @@ type JSXProps<T> = {
   [K in keyof T]: {} extends Pick<T, K> ? T[K] | undefined : T[K]
 } & NativeClassProps
 
+type DomCompatibleProps<TNative, TDom> = JSXProps<TNative> | TDom
+
+type InlineSvgProps = NativeClassProps & {
+  children?: SolidJSX.Element | SolidJSX.Element[] | undefined
+  xmlns?: string | undefined
+  viewBox?: string | undefined
+  width?: string | number | undefined
+  height?: string | number | undefined
+  fill?: string | undefined
+  stroke?: string | undefined
+  "stroke-width"?: string | number | undefined
+  role?: string | undefined
+  "aria-label"?: string | undefined
+  "aria-hidden"?: string | boolean | undefined
+}
+
+type InlineSvgPathProps = NativeClassProps & {
+  d?: string | undefined
+  fill?: string | undefined
+  stroke?: string | undefined
+  "stroke-width"?: string | number | undefined
+}
+
 export namespace JSX {
   type Element = SolidJSX.Element
 
@@ -31,10 +54,12 @@ export namespace JSX {
   }
 
   interface IntrinsicElements {
-    div: JSXProps<HostProps>
+    div: DomCompatibleProps<HostProps, SolidJSX.HTMLAttributes<HTMLDivElement>>
+    span: DomCompatibleProps<HostProps, SolidJSX.HTMLAttributes<HTMLSpanElement>>
     text: JSXProps<HostProps>
     img: JSXProps<ImgProps>
-    svg: JSXProps<SvgProps>
+    svg: JSXProps<SvgProps> | InlineSvgProps
+    path: InlineSvgPathProps
     canvas: JSXProps<HostProps>
     input: JSXProps<InputProps>
     textarea: JSXProps<TextareaProps>
