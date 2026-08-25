@@ -6,6 +6,21 @@ export { TestRenderer, createTestRoot, hasNativeTestRenderer } from "./testing.j
 export type { TestRoot } from "./testing.js"
 
 export {
+  clearNativeStyleManifest,
+  configureNativeStyleManifest,
+  getNativeStyleColorMode,
+  mergeNativeStyles,
+  resolveNativeClassStyle,
+  setNativeStyleColorMode,
+} from "./native-style.js"
+export type {
+  NativeClassList,
+  NativeColorMode,
+  NativeStyleManifest,
+  NativeStyleManifestEntry,
+} from "./native-style.js"
+
+export {
   effect,
   memo,
   createComponent,
