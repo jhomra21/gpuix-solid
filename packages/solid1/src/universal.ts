@@ -30,27 +30,12 @@ interface NativeStyleState {
   inlineStyle: StyleDesc | undefined
 }
 
-type SvgAttributeValue = string | number | boolean
+type SvgAttributeValue = string
 
 const styleStates = new WeakMap<HostElementNode, NativeStyleState>()
 const classStyledNodes = new Set<HostElementNode>()
 const semanticTags = new WeakMap<HostElementNode, string>()
 const svgAttributes = new WeakMap<HostElementNode, Map<string, SvgAttributeValue>>()
-
-const NATIVE_TAGS = new Set<ElementType>([
-  "div",
-  "text",
-  "img",
-  "svg",
-  "canvas",
-  "input",
-  "textarea",
-  "anchored",
-  "code",
-  "diff",
-  "markdown",
-  "virtual-list",
-])
 
 const TEXT_SEMANTIC_TAGS = new Set([
   "span",
@@ -252,10 +237,25 @@ export const mergeProps = runtime.mergeProps
 export const use = runtime.use
 
 function nativeElementType(tagName: string): ElementType {
-  if (NATIVE_TAGS.has(tagName as ElementType)) return tagName as ElementType
-  if (TEXT_SEMANTIC_TAGS.has(tagName)) return "text"
-  if (DIV_SEMANTIC_TAGS.has(tagName) || SVG_CHILD_TAGS.has(tagName)) return "div"
-  throw new Error(`Unsupported GPUIX semantic element <${tagName}>`)
+  switch (tagName) {
+    case "div":
+    case "text":
+    case "img":
+    case "svg":
+    case "canvas":
+    case "input":
+    case "textarea":
+    case "anchored":
+    case "code":
+    case "diff":
+    case "markdown":
+    case "virtual-list":
+      return tagName
+    default:
+      if (TEXT_SEMANTIC_TAGS.has(tagName)) return "text"
+      if (DIV_SEMANTIC_TAGS.has(tagName) || SVG_CHILD_TAGS.has(tagName)) return "div"
+      throw new Error(`Unsupported GPUIX semantic element <${tagName}>`)
+  }
 }
 
 function isSvgMarkupTag(tagName: string): boolean {
@@ -269,11 +269,8 @@ function isSvgMarkupAttribute(name: string): boolean {
 function setSvgAttribute<T>(node: HostElementNode, name: string, value: T): void {
   if (!isSvgMarkupAttribute(name)) return
   const attributes = svgAttributes.get(node) ?? new Map<string, SvgAttributeValue>()
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-    attributes.set(name, value)
-  } else {
-    attributes.delete(name)
-  }
+  if (value == null) attributes.delete(name)
+  else attributes.set(name, String(value))
   svgAttributes.set(node, attributes)
 }
 
@@ -307,7 +304,7 @@ function serializeSvgElement(node: HostElementNode, root: boolean): string {
   const attributes = new Map(svgAttributes.get(node) ?? [])
   if (root && !attributes.has("xmlns")) attributes.set("xmlns", "http://www.w3.org/2000/svg")
   const renderedAttributes = [...attributes]
-    .map(([name, value]) => `${serializeSvgAttributeName(name)}="${escapeXmlAttribute(String(value))}"`)
+    .map(([name, value]) => `${serializeSvgAttributeName(name)}="${escapeXmlAttribute(value)}"`)
     .join(" ")
   const opening = renderedAttributes ? `<${tagName} ${renderedAttributes}>` : `<${tagName}>`
   const children = node.children.map(serializeSvgChild).join("")
