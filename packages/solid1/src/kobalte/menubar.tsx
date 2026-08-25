@@ -2,7 +2,7 @@ import { createContext, createSignal, Show, useContext, type JSX } from "solid-j
 import type { EventPayload } from "@gpuix/native"
 import type { StyleDesc } from "../host/types.js"
 import type { PolymorphicProps } from "./polymorphic.js"
-import { FloatingLayer, Portal, mergeStyle, popupBaseStyle, triggerBaseStyle, type NativeComponentProps } from "./shared.js"
+import { FloatingLayer, Portal, mergeStyle, popupBaseStyle, triggerBaseStyle, type NativeComponentProps } from "./shared.jsx"
 
 export interface MenubarRootProps { children?: JSX.Element; value?: string | null; defaultValue?: string | null; onValueChange?: (value: string | null) => void }
 export interface MenubarMenuProps { children?: JSX.Element; value?: string; gutter?: number; shift?: number }
