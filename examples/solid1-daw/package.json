@@ -13,7 +13,10 @@
   "dependencies": {
     "@gpuix/native": "^0.4.0",
     "@jhomra21/gpuix-solid1": "file:../../packages/solid1",
-    "solid-js": "1.9.15"
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "solid-js": "1.9.15",
+    "tailwind-merge": "3.5.0"
   },
   "devDependencies": {
     "@types/node": "^25.3.3",
