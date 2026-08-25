@@ -5,7 +5,7 @@ import TimelineBottomPanelShell from "./TimelineBottomPanelShell"
 import type { BottomTab, NativeClip } from "./model"
 import { dawTheme, text2xs, textSm, textXs } from "./theme"
 
-export interface TimelinePanelsProps {
+export interface TimelinePanelsProps extends EffectsPanelProps {
   open: boolean
   activeTab: BottomTab
   heightPx: number
@@ -14,7 +14,6 @@ export interface TimelinePanelsProps {
   onEffectsTabClick: () => void
   onClipTabClick: () => void
   selectedClip: NativeClip | undefined
-  effects: EffectsPanelProps
 }
 
 const ClipPanel = (props: { clip: NativeClip | undefined }): JSX.Element => (
@@ -59,26 +58,26 @@ const TimelinePanels = (props: TimelinePanelsProps): JSX.Element => {
       <TimelineBottomPanelShell heightPx={props.heightPx} footer={footer()}>
         <Show when={props.activeTab === "effects"} fallback={<ClipPanel clip={props.selectedClip} />}>
           <EffectsPanel
-            compressorEnabled={props.effects.compressorEnabled}
-            onToggleCompressor={props.effects.onToggleCompressor}
-            compressorRatio={props.effects.compressorRatio}
-            onRatioChange={props.effects.onRatioChange}
-            compressorAttack={props.effects.compressorAttack}
-            onAttackChange={props.effects.onAttackChange}
-            compressorRelease={props.effects.compressorRelease}
-            onReleaseChange={props.effects.onReleaseChange}
-            compressorThreshold={props.effects.compressorThreshold}
-            onThresholdChange={props.effects.onThresholdChange}
-            compressorWet={props.effects.compressorWet}
-            onWetChange={props.effects.onWetChange}
-            eqEnabled={props.effects.eqEnabled}
-            onToggleEq={props.effects.onToggleEq}
-            eqLowGain={props.effects.eqLowGain}
-            onEqLowGain={props.effects.onEqLowGain}
-            eqMidGain={props.effects.eqMidGain}
-            onEqMidGain={props.effects.onEqMidGain}
-            eqHighGain={props.effects.eqHighGain}
-            onEqHighGain={props.effects.onEqHighGain}
+            compressorEnabled={props.compressorEnabled}
+            onToggleCompressor={props.onToggleCompressor}
+            compressorRatio={props.compressorRatio}
+            onRatioChange={props.onRatioChange}
+            compressorAttack={props.compressorAttack}
+            onAttackChange={props.onAttackChange}
+            compressorRelease={props.compressorRelease}
+            onReleaseChange={props.onReleaseChange}
+            compressorThreshold={props.compressorThreshold}
+            onThresholdChange={props.onThresholdChange}
+            compressorWet={props.compressorWet}
+            onWetChange={props.onWetChange}
+            eqEnabled={props.eqEnabled}
+            onToggleEq={props.onToggleEq}
+            eqLowGain={props.eqLowGain}
+            onEqLowGain={props.onEqLowGain}
+            eqMidGain={props.eqMidGain}
+            onEqMidGain={props.onEqMidGain}
+            eqHighGain={props.eqHighGain}
+            onEqHighGain={props.onEqHighGain}
           />
         </Show>
       </TimelineBottomPanelShell>
