@@ -16,7 +16,7 @@ import {
   type HostParent,
   type HostTextNode,
 } from "./host/nodes.js"
-import type { ElementType, StyleDesc } from "./host/types.js"
+import type { DimensionValue, ElementType, StyleDesc } from "./host/types.js"
 import {
   mergeNativeStyles,
   onNativeStyleEnvironmentChange,
@@ -130,21 +130,6 @@ const OMITTED_SVG_ATTRIBUTES = new Set([
   "source",
 ])
 
-const INLINE_LENGTH_KEYS = new Set([
-  "width", "height", "minWidth", "minHeight", "maxWidth", "maxHeight",
-  "padding", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
-  "margin", "marginTop", "marginRight", "marginBottom", "marginLeft",
-  "top", "right", "bottom", "left",
-  "gap", "rowGap", "columnGap", "flexBasis",
-  "borderWidth", "borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth",
-  "borderRadius", "borderTopLeftRadius", "borderTopRightRadius", "borderBottomLeftRadius", "borderBottomRightRadius",
-  "fontSize", "lineHeight",
-])
-
-const PERCENTAGE_DIMENSION_KEYS = new Set([
-  "width", "height", "minWidth", "minHeight", "maxWidth", "maxHeight",
-])
-
 onNativeStyleEnvironmentChange(() => {
   for (const node of classStyledNodes) {
     if (!node.nativeAlive) {
@@ -191,7 +176,9 @@ const runtime = createRenderer<HostNode | HostParent>({
       }
 
       if (name === "style") {
-        setNativeInlineStyle(node, normalizeNativeInlineStyle(value))
+        // SAFETY: Our JSX host contract types the `style` property as StyleDesc; this is the universal renderer boundary for that property.
+        const inlineStyle = value as StyleDesc | undefined
+        setNativeInlineStyle(node, normalizeNativeInlineStyle(inlineStyle))
         return
       }
       if (name === "class") {
@@ -375,24 +362,20 @@ function parseNativeClassList<T>(value: T): NativeClassList | undefined {
   return parsed
 }
 
-function normalizeNativeInlineStyle<T>(value: T): StyleDesc | undefined {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
-  const normalized: Record<string, unknown> = {}
-  for (const [rawKey, rawValue] of Object.entries(value)) {
-    if (rawValue == null) continue
-    const key = cssPropertyToNativeKey(rawKey)
-    normalized[key] = INLINE_LENGTH_KEYS.has(key)
-      ? normalizeInlineLength(key, rawValue)
-      : rawValue
+function normalizeNativeInlineStyle(style: StyleDesc | undefined): StyleDesc | undefined {
+  if (!style) return undefined
+  return {
+    ...style,
+    width: normalizeInlineDimension(style.width),
+    height: normalizeInlineDimension(style.height),
+    minWidth: normalizeInlineDimension(style.minWidth),
+    minHeight: normalizeInlineDimension(style.minHeight),
+    maxWidth: normalizeInlineDimension(style.maxWidth),
+    maxHeight: normalizeInlineDimension(style.maxHeight),
   }
-  return normalized as StyleDesc
 }
 
-function cssPropertyToNativeKey(property: string): string {
-  return property.replace(/-([a-z])/g, (_match, character: string) => character.toUpperCase())
-}
-
-function normalizeInlineLength(property: string, value: unknown): unknown {
+function normalizeInlineDimension(value: DimensionValue | undefined): DimensionValue | undefined {
   if (typeof value !== "string") return value
   const trimmed = value.trim()
   if (trimmed === "0") return 0
@@ -400,7 +383,6 @@ function normalizeInlineLength(property: string, value: unknown): unknown {
   if (pixel) return Number(pixel[1])
   const rem = trimmed.match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))rem$/i)
   if (rem) return Number(rem[1]) * 16
-  if (PERCENTAGE_DIMENSION_KEYS.has(property) && /^-?(?:\d+(?:\.\d+)?|\.\d+)%$/.test(trimmed)) return trimmed
   return value
 }
 
