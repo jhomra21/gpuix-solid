@@ -21,6 +21,7 @@ export interface DialogDescriptionProps<T = "p"> extends NativeComponentProps { 
 
 type DialogContextValue = { open: () => boolean; setOpen: (open: boolean) => void }
 const DialogContext = createContext<DialogContextValue>()
+const DialogPortalContext = createContext(false)
 
 function requireContext(name: string): DialogContextValue {
   const context = useContext(DialogContext)
@@ -34,6 +35,57 @@ function interactiveStyle(disabled: boolean | undefined, override: StyleDesc | u
     opacity: disabled ? 0.5 : 1,
     pointerEvents: disabled ? "none" : "auto",
   }, override)
+}
+
+function overlayNode<T>(
+  props: PolymorphicProps<T, DialogOverlayProps<T>>,
+  context: DialogContextValue,
+): JSX.Element {
+  return (
+    <div
+      testId={props.testId}
+      onClick={(event: EventPayload) => { props.onClick?.(event); context.setOpen(false) }}
+      style={mergeStyle({
+        position: "absolute",
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
+        backgroundColor: "#00000088",
+        pointerEvents: "auto",
+      }, props.style)}
+    />
+  )
+}
+
+function contentNode<T>(
+  props: PolymorphicProps<T, DialogContentProps<T>>,
+  context: DialogContextValue,
+): JSX.Element {
+  return (
+    <div
+      testId={props.testId}
+      tabIndex={props.tabIndex ?? 0}
+      onMouseDownOutside={(event: EventPayload) => { props.onMouseDownOutside?.(event); context.setOpen(false) }}
+      onKeyDown={(event: EventPayload) => { props.onKeyDown?.(event); if (event.key === "escape") context.setOpen(false) }}
+      style={mergeStyle({
+        position: "absolute",
+        left: 280,
+        top: 140,
+        width: 600,
+        maxHeight: 520,
+        overflowY: "auto",
+        padding: 18,
+        gap: 12,
+        backgroundColor: "#151518",
+        color: "#fafafa",
+        borderWidth: 1,
+        borderColor: "#34343a",
+        borderRadius: 8,
+        pointerEvents: "auto",
+      }, props.style)}
+    >{props.children}</div>
+  )
 }
 
 export function Root(props: DialogRootProps): JSX.Element {
@@ -68,58 +120,26 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, DialogTriggerPr
 }
 
 export function Portal(props: DialogPortalProps): JSX.Element {
-  return <NativePortal>{props.children}</NativePortal>
+  const context = requireContext("Dialog.Portal")
+  return (
+    <Show when={context.open()}>
+      <DialogPortalContext.Provider value={true}>
+        <NativePortal>{props.children}</NativePortal>
+      </DialogPortalContext.Provider>
+    </Show>
+  )
 }
 
 export function Overlay<T = "div">(props: PolymorphicProps<T, DialogOverlayProps<T>>): JSX.Element {
   const context = requireContext("Dialog.Overlay")
-  return (
-    <Show when={context.open()}>
-      <div
-        testId={props.testId}
-        onClick={(event: EventPayload) => { props.onClick?.(event); context.setOpen(false) }}
-        style={mergeStyle({
-          position: "absolute",
-          top: 0,
-          right: 0,
-          bottom: 0,
-          left: 0,
-          backgroundColor: "#00000088",
-          pointerEvents: "auto",
-        }, props.style)}
-      />
-    </Show>
-  )
+  const inPortal = useContext(DialogPortalContext)
+  return inPortal ? overlayNode(props, context) : <Show when={context.open()}>{overlayNode(props, context)}</Show>
 }
 
 export function Content<T = "div">(props: PolymorphicProps<T, DialogContentProps<T>>): JSX.Element {
   const context = requireContext("Dialog.Content")
-  return (
-    <Show when={context.open()}>
-      <div
-        testId={props.testId}
-        tabIndex={props.tabIndex ?? 0}
-        onMouseDownOutside={(event: EventPayload) => { props.onMouseDownOutside?.(event); context.setOpen(false) }}
-        onKeyDown={(event: EventPayload) => { props.onKeyDown?.(event); if (event.key === "escape") context.setOpen(false) }}
-        style={mergeStyle({
-          position: "absolute",
-          left: 280,
-          top: 140,
-          width: 600,
-          maxHeight: 520,
-          overflowY: "auto",
-          padding: 18,
-          gap: 12,
-          backgroundColor: "#151518",
-          color: "#fafafa",
-          borderWidth: 1,
-          borderColor: "#34343a",
-          borderRadius: 8,
-          pointerEvents: "auto",
-        }, props.style)}
-      >{props.children}</div>
-    </Show>
-  )
+  const inPortal = useContext(DialogPortalContext)
+  return inPortal ? contentNode(props, context) : <Show when={context.open()}>{contentNode(props, context)}</Show>
 }
 
 export function CloseButton<T = "button">(props: PolymorphicProps<T, DialogCloseButtonProps<T>>): JSX.Element {
@@ -128,11 +148,6 @@ export function CloseButton<T = "button">(props: PolymorphicProps<T, DialogClose
     <div
       testId={props.testId}
       tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)}
-      onMouseDown={(event: EventPayload) => {
-        if (props.disabled) return
-        props.onMouseDown?.(event)
-        context.setOpen(false)
-      }}
       onClick={(event: EventPayload) => {
         if (props.disabled) return
         props.onClick?.(event)
