@@ -11,6 +11,9 @@ export function Root<T = "hr">(props: PolymorphicProps<T, SeparatorRootProps<T>>
   const vertical = () => props.orientation === "vertical"
   return (
     <div
+      class={props.class}
+      className={props.className}
+      classList={props.classList}
       testId={props.testId}
       style={mergeStyle(
         vertical()
