@@ -74,6 +74,11 @@ type DomCompatEvent = EventPayload & {
   stopPropagation: () => void
 }
 
+type GlobalEventHandler = (event: DomCompatEvent) => void
+const globalListeners = new Map<string, Set<GlobalEventHandler>>()
+
+installNativeDomGlobals()
+
 function fallbackTarget(event: EventPayload): DomCompatTarget {
   const x = event.x ?? 0
   const y = event.y ?? 0
@@ -122,6 +127,45 @@ function domCompatibleEvent(event: EventPayload, target: DomCompatTarget | undef
     preventDefault: () => undefined,
     stopPropagation: () => undefined,
   })
+}
+
+function globalEventName(eventType: string): string | undefined {
+  if (eventType === "mouseMove") return "pointermove"
+  if (eventType === "mouseUp") return "pointerup"
+  if (eventType === "mouseDown") return "pointerdown"
+  return undefined
+}
+
+function dispatchGlobalEvent(event: DomCompatEvent): void {
+  const name = globalEventName(event.eventType)
+  if (!name) return
+  for (const handler of globalListeners.get(name) ?? []) handler(event)
+}
+
+function installNativeDomGlobals(): void {
+  if (Reflect.get(globalThis, "window") === undefined) {
+    Reflect.set(globalThis, "window", {
+      devicePixelRatio: 1,
+      addEventListener(type: string, handler: GlobalEventHandler) {
+        const handlers = globalListeners.get(type) ?? new Set<GlobalEventHandler>()
+        handlers.add(handler)
+        globalListeners.set(type, handlers)
+      },
+      removeEventListener(type: string, handler: GlobalEventHandler) {
+        const handlers = globalListeners.get(type)
+        handlers?.delete(handler)
+        if (handlers?.size === 0) globalListeners.delete(type)
+      },
+    })
+  }
+
+  if (Reflect.get(globalThis, "document") === undefined) {
+    const classList = {
+      add: (..._tokens: string[]): void => undefined,
+      remove: (..._tokens: string[]): void => undefined,
+    }
+    Reflect.set(globalThis, "document", { body: { classList } })
+  }
 }
 
 export class EventRegistry {
@@ -177,8 +221,8 @@ export class EventRegistry {
 
   dispatch(event: EventPayload): void {
     if (!this.#live.has(event.elementId)) return
-    this.#handlers.get(event.elementId)?.get(event.eventType)?.(
-      domCompatibleEvent(event, this.#targets.get(event.elementId)),
-    )
+    const domEvent = domCompatibleEvent(event, this.#targets.get(event.elementId))
+    this.#handlers.get(event.elementId)?.get(event.eventType)?.(domEvent)
+    dispatchGlobalEvent(domEvent)
   }
 }
