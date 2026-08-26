@@ -453,6 +453,7 @@ function mapDeclaration(style, property, rawValue, candidate) {
     case "text-overflow": style.textOverflow = value; return
     case "cursor": style.cursor = value; return
     case "pointer-events": style.pointerEvents = value; return
+    case "-webkit-user-select":
     case "user-select": style.userSelect = value; return
     case "box-sizing": return
     case "outline-style": return
