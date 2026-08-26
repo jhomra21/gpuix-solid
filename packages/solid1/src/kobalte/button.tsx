@@ -31,7 +31,7 @@ export function Root<T = "button">(props: PolymorphicProps<T, ButtonRootProps<T>
       class={props.class}
       className={props.className}
       classList={props.classList}
-      testId={props.testId}
+      testId={props.testId ?? props["aria-label"]}
       tabIndex={disabled() ? undefined : (props.tabIndex ?? 0)}
       onClick={(event: EventPayload) => {
         if (disabled()) return
