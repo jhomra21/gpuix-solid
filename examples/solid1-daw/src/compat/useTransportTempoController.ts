@@ -24,7 +24,7 @@ export function useTransportTempoController(options: Options) {
     if (next !== options.bpm()) options.onChangeBpm(next)
   }
 
-  const ignorePointer = (_event: unknown) => undefined
+  const ignorePointer = (_event: PointerEvent) => undefined
 
   return {
     tempoDraft,
