@@ -99,7 +99,7 @@ const explicitlyIgnored = new Map([
   ["data-[closed]:fade-out-0", "native Kobalte menus unmount directly without browser CSS opacity animation"],
   ["data-[expanded]:fade-in-0", "native Kobalte menus mount directly without browser CSS opacity animation"],
   ["data-[closed]:zoom-out-95", "native Kobalte menus do not use browser CSS scale animations"],
-  ["data-[expanded]:zoom-in-95", "native Kobalte menus do not use browser CSS scale animations"],
+  ["data-[expanded]:zoom-in-95", "native Kobalte menus mount directly without browser CSS scale animations"],
   ["data-[placement=bottom]:slide-in-from-top-2", "native FloatingLayer owns placement without CSS translate animation"],
   ["data-[placement=left]:slide-in-from-right-2", "native FloatingLayer owns placement without CSS translate animation"],
   ["data-[placement=right]:slide-in-from-left-2", "native FloatingLayer owns placement without CSS translate animation"],
@@ -480,19 +480,16 @@ function applyFlexShorthand(style, value, candidate) {
   if (value === "none") {
     style.flexGrow = 0
     style.flexShrink = 0
-    style.flexBasis = "auto"
     return
   }
   if (value === "auto") {
     style.flexGrow = 1
     style.flexShrink = 1
-    style.flexBasis = "auto"
     return
   }
   if (value === "initial") {
     style.flexGrow = 0
     style.flexShrink = 1
-    style.flexBasis = "auto"
     return
   }
 
