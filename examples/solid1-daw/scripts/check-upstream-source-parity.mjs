@@ -19,6 +19,7 @@ const copiedSources = [
   ["src/upstream/components/ui/tooltip.tsx", "src/components/ui/tooltip.tsx", "d2c24f507e056e58d6058b302f57f048d182be67"],
   ["src/upstream/components/timeline/TransportControls.tsx", "src/components/timeline/TransportControls.tsx", "811dfb8e7b11247a1ec0533fda4a43d10293344f"],
   ["src/upstream/components/timeline/browser/timeline-left-browser.tsx", "src/components/timeline/browser/timeline-left-browser.tsx", "e4c94b535c1a628c618bb39928d9c7a160557d39"],
+  ["src/upstream/components/timeline/TrackLane.tsx", "src/components/timeline/TrackLane.tsx", "82850963b07f67a3655068d8fe14122e290ece96"],
   ["src/upstream/components/timeline/TimelineBottomPanelFooter.tsx", "src/components/timeline/TimelineBottomPanelFooter.tsx", "159c03bb50998a19bd90f7960fa4991ce8d2a8ce"],
   ["src/upstream/components/timeline/TimelineBottomPanelShell.tsx", "src/components/timeline/TimelineBottomPanelShell.tsx", "c5e3ab05e6b9ea09471dddd2038541ceb7a7a1ed"],
   ["src/upstream/components/timeline/grid-options.ts", "src/components/timeline/grid-options.ts", "6fb7bf39c0535502ee0fae794a30ce7569a9d85e"],
