@@ -35,10 +35,11 @@ export type NativeEventType = (typeof EVENT_PROPS)[number][1]
 
 export const EVENT_PROP_TO_TYPE = new Map<string, NativeEventType>(EVENT_PROPS)
 
-type DomCompatTarget = {
+export type DomCompatTarget = {
   value: string
   scrollTop: number
-  style: Record<string, string>
+  scrollLeft: number
+  style: Record<string, unknown>
   classList: {
     add: (...tokens: string[]) => void
     remove: (...tokens: string[]) => void
@@ -46,9 +47,9 @@ type DomCompatTarget = {
   focus: () => void
   blur: () => void
   select: () => void
-  setPointerCapture: (_pointerId: number) => void
-  releasePointerCapture: (_pointerId: number) => void
-  hasPointerCapture: (_pointerId: number) => boolean
+  setPointerCapture: (pointerId: number) => void
+  releasePointerCapture: (pointerId: number) => void
+  hasPointerCapture: (pointerId: number) => boolean
   getBoundingClientRect: () => {
     left: number
     top: number
@@ -73,12 +74,13 @@ type DomCompatEvent = EventPayload & {
   stopPropagation: () => void
 }
 
-function domCompatibleEvent(event: EventPayload): DomCompatEvent {
+function fallbackTarget(event: EventPayload): DomCompatTarget {
   const x = event.x ?? 0
   const y = event.y ?? 0
-  const target: DomCompatTarget = {
+  return {
     value: event.value ?? "",
     scrollTop: 0,
+    scrollLeft: 0,
     style: {},
     classList: {
       add: () => undefined,
@@ -99,10 +101,16 @@ function domCompatibleEvent(event: EventPayload): DomCompatEvent {
       height: 0,
     }),
   }
+}
+
+function domCompatibleEvent(event: EventPayload, target: DomCompatTarget | undefined): DomCompatEvent {
+  const x = event.x ?? 0
+  const y = event.y ?? 0
+  const currentTarget = target ?? fallbackTarget(event)
 
   return Object.assign({}, event, {
-    currentTarget: target,
-    target,
+    currentTarget,
+    target: currentTarget,
     clientX: x,
     clientY: y,
     pointerId: 0,
@@ -118,14 +126,20 @@ function domCompatibleEvent(event: EventPayload): DomCompatEvent {
 export class EventRegistry {
   readonly #handlers = new Map<number, Map<string, HostEventHandler>>()
   readonly #live = new Set<number>()
+  readonly #targets = new Map<number, DomCompatTarget>()
 
   activate(id: number): void {
     this.#live.add(id)
   }
 
+  setTarget(id: number, target: DomCompatTarget): void {
+    this.#targets.set(id, target)
+  }
+
   deactivate(id: number): void {
     this.#live.delete(id)
     this.#handlers.delete(id)
+    this.#targets.delete(id)
   }
 
   set(id: number, eventType: string, handler: HostEventHandler): void {
@@ -144,12 +158,16 @@ export class EventRegistry {
   deleteDestroyed(id: number): void {
     // A node can be destroyed and recreated with the same root-scoped ID in
     // one native batch. Preserve handlers if the JS host node is live again.
-    if (!this.#live.has(id)) this.#handlers.delete(id)
+    if (!this.#live.has(id)) {
+      this.#handlers.delete(id)
+      this.#targets.delete(id)
+    }
   }
 
   clear(): void {
     this.#handlers.clear()
     this.#live.clear()
+    this.#targets.clear()
   }
 
   has(id: number, eventType: string): boolean {
@@ -158,6 +176,8 @@ export class EventRegistry {
 
   dispatch(event: EventPayload): void {
     if (!this.#live.has(event.elementId)) return
-    this.#handlers.get(event.elementId)?.get(event.eventType)?.(domCompatibleEvent(event))
+    this.#handlers.get(event.elementId)?.get(event.eventType)?.(
+      domCompatibleEvent(event, this.#targets.get(event.elementId)),
+    )
   }
 }
