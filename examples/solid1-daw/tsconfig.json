@@ -3,9 +3,11 @@
   "compilerOptions": {
     "allowImportingTsExtensions": true,
     "baseUrl": ".",
+    "exactOptionalPropertyTypes": false,
     "jsx": "preserve",
     "jsxImportSource": "@jhomra21/gpuix-solid1",
     "noEmit": true,
+    "noUncheckedIndexedAccess": false,
     "paths": {
       "solid-js/web": ["src/compat/solid-web.ts"],
       "~/context/app-preferences": ["src/compat/app-preferences.ts"],
