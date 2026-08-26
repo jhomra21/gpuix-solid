@@ -15,5 +15,7 @@
   "src/upstream/components/timeline/toolbar-context.tsx",
   "src/upstream/components/timeline/TimelineBottomPanelFooter.tsx",
   "src/upstream/components/timeline/TimelineBottomPanelShell.tsx",
-  "src/upstream/components/timeline/local-save-failure-banner.tsx"
+  "src/upstream/components/timeline/local-save-failure-banner.tsx",
+  "src/upstream-ui-probe.tsx",
+  "src/native-tailwind-runtime-candidates.tsx"
 ]
