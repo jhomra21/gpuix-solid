@@ -133,6 +133,9 @@ if (!hasNativeTestRenderer) {
   app.renderer.clickTextWithinTestId("bottom-panel", "EFFECTS")
   requireCondition(app.renderer.hasTestId("effects-panel"), "effects tab should restore devices")
 
+  app.renderer.scrollTestId("daw-test-viewport", -320, -260)
+  const toggleViewportOffset = app.renderer.scrollOffsetTestId("daw-test-viewport")
+  requireCondition(toggleViewportOffset !== null && toggleViewportOffset[0] < 0, "DAW test viewport should scroll horizontally to reveal the right-aligned panel toggle")
   app.renderer.clickTextWithinTestId("bottom-panel", "HIDE")
   requireCondition(app.renderer.hasTestId("bottom-panel-closed"), "hide should collapse bottom panel")
   requireCondition(!app.renderer.hasTestId("bottom-panel"), "collapsed panel should unmount expanded shell")
