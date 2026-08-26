@@ -21,17 +21,17 @@ export interface TimelineLeftBrowserProps {
   onActivateItem: (id: string) => void
 }
 
-const emptyQueries = (): Record<TimelineBrowserTab, string> => ({
+const emptyQueries = () => ({
   assets: "",
   effects: "",
   "midi-instruments": "",
-})
+}) satisfies Record<TimelineBrowserTab, string>
 
-const emptyScroll = (): Record<TimelineBrowserTab, number> => ({
+const emptyScroll = () => ({
   assets: 0,
   effects: 0,
   "midi-instruments": 0,
-})
+}) satisfies Record<TimelineBrowserTab, number>
 
 function itemForTab(tab: TimelineBrowserTab, item: { id: string; label: string; subtitle?: string }): BrowserItem {
   return {
@@ -61,14 +61,14 @@ function sourceSections(tab: TimelineBrowserTab, query: string): BrowserSection[
     .filter((section) => section.leafCount > 0 || !normalized)
 }
 
-function treeExpansion(props: TimelineLeftBrowserProps): Record<TimelineBrowserTab, BrowserTreeExpansionState> {
+function treeExpansion(props: TimelineLeftBrowserProps) {
   const stateFor = (tab: TimelineBrowserTab): BrowserTreeExpansionState =>
     Object.fromEntries(browserSections[tab].map((section) => [`section:${section.id}`, props.expandedSections.has(section.id)]))
   return {
     assets: stateFor("assets"),
     effects: stateFor("effects"),
     "midi-instruments": stateFor("midi-instruments"),
-  }
+  } satisfies Record<TimelineBrowserTab, BrowserTreeExpansionState>
 }
 
 export const TimelineLeftBrowser = (props: TimelineLeftBrowserProps): JSX.Element => {
