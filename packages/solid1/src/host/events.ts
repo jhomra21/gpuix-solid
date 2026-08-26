@@ -8,13 +8,20 @@ export const EVENT_PROPS = [
   ["onLinkClick", "linkClick"],
   ["onVisibleRange", "visibleRange"],
   ["onChange", "change"],
+  ["onInput", "change"],
   ["onSubmit", "submit"],
   ["onClick", "click"],
   ["onMouseDown", "mouseDown"],
+  ["onPointerDown", "mouseDown"],
   ["onMouseUp", "mouseUp"],
+  ["onPointerUp", "mouseUp"],
+  ["onPointerCancel", "mouseUp"],
+  ["onLostPointerCapture", "mouseUp"],
   ["onMouseEnter", "mouseEnter"],
   ["onMouseLeave", "mouseLeave"],
+  ["onPointerLeave", "mouseLeave"],
   ["onMouseMove", "mouseMove"],
+  ["onPointerMove", "mouseMove"],
   ["onMouseDownOutside", "mouseDownOutside"],
   ["onKeyDown", "keyDown"],
   ["onKeyUp", "keyUp"],
@@ -27,6 +34,86 @@ export type EventPropName = (typeof EVENT_PROPS)[number][0]
 export type NativeEventType = (typeof EVENT_PROPS)[number][1]
 
 export const EVENT_PROP_TO_TYPE = new Map<string, NativeEventType>(EVENT_PROPS)
+
+type DomCompatTarget = {
+  value: string
+  scrollTop: number
+  style: Record<string, string>
+  classList: {
+    add: (...tokens: string[]) => void
+    remove: (...tokens: string[]) => void
+  }
+  focus: () => void
+  blur: () => void
+  select: () => void
+  setPointerCapture: (_pointerId: number) => void
+  releasePointerCapture: (_pointerId: number) => void
+  hasPointerCapture: (_pointerId: number) => boolean
+  getBoundingClientRect: () => {
+    left: number
+    top: number
+    right: number
+    bottom: number
+    width: number
+    height: number
+  }
+}
+
+type DomCompatEvent = EventPayload & {
+  currentTarget: DomCompatTarget
+  target: DomCompatTarget
+  clientX: number
+  clientY: number
+  pointerId: number
+  shiftKey: boolean
+  metaKey: boolean
+  altKey: boolean
+  ctrlKey: boolean
+  preventDefault: () => void
+  stopPropagation: () => void
+}
+
+function domCompatibleEvent(event: EventPayload): DomCompatEvent {
+  const x = event.x ?? 0
+  const y = event.y ?? 0
+  const target: DomCompatTarget = {
+    value: event.value ?? "",
+    scrollTop: 0,
+    style: {},
+    classList: {
+      add: () => undefined,
+      remove: () => undefined,
+    },
+    focus: () => undefined,
+    blur: () => undefined,
+    select: () => undefined,
+    setPointerCapture: () => undefined,
+    releasePointerCapture: () => undefined,
+    hasPointerCapture: () => false,
+    getBoundingClientRect: () => ({
+      left: x,
+      top: y,
+      right: x,
+      bottom: y,
+      width: 0,
+      height: 0,
+    }),
+  }
+
+  return Object.assign({}, event, {
+    currentTarget: target,
+    target,
+    clientX: x,
+    clientY: y,
+    pointerId: 0,
+    shiftKey: false,
+    metaKey: false,
+    altKey: false,
+    ctrlKey: false,
+    preventDefault: () => undefined,
+    stopPropagation: () => undefined,
+  })
+}
 
 export class EventRegistry {
   readonly #handlers = new Map<number, Map<string, HostEventHandler>>()
@@ -71,6 +158,6 @@ export class EventRegistry {
 
   dispatch(event: EventPayload): void {
     if (!this.#live.has(event.elementId)) return
-    this.#handlers.get(event.elementId)?.get(event.eventType)?.(event)
+    this.#handlers.get(event.elementId)?.get(event.eventType)?.(domCompatibleEvent(event))
   }
 }
