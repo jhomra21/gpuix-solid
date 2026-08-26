@@ -53,6 +53,8 @@ export default function Timeline(): JSX.Element {
   const [bpm, setBpm] = createSignal(120)
   const [metronomeEnabled, setMetronomeEnabled] = createSignal(false)
   const [loopEnabled, setLoopEnabled] = createSignal(false)
+  const [loopStartSec, setLoopStartSec] = createSignal(1)
+  const [loopEndSec, setLoopEndSec] = createSignal(4)
   const [gridEnabled, setGridEnabled] = createSignal(true)
   const [gridDenominator, setGridDenominator] = createSignal(16)
   const [midiKeyboardEnabled, setMidiKeyboardEnabled] = createSignal(false)
@@ -188,6 +190,16 @@ export default function Timeline(): JSX.Element {
         pixelsPerSecond={PIXELS_PER_SECOND}
         gridEnabled={gridEnabled()}
         playheadSec={playheadSec()}
+        bpm={bpm()}
+        gridDenominator={gridDenominator()}
+        loopEnabled={loopEnabled()}
+        loopStartSec={loopStartSec()}
+        loopEndSec={loopEndSec()}
+        onSetLoopRegion={(startSec, endSec) => {
+          setLoopStartSec(startSec)
+          setLoopEndSec(endSec)
+        }}
+        onRulerScrub={setPlayheadSec}
         sidebar={{
           onSelectTrack: selectTrack,
           onToggleMute: (id) => updateTrack(id, (track) => ({ ...track, muted: !track.muted })),
