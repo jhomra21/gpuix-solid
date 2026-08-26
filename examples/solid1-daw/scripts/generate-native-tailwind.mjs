@@ -17,6 +17,18 @@ const nativeTextTransforms = new Map([
   ["normal-case", "none"],
 ])
 
+// GPUIX 0.4.0 supports equal-count CSS grid tracks, but not arbitrary CSS
+// templates or justify-self. Preserve the copied transport's 1fr/auto/1fr
+// semantics with the equivalent flex layout: equal flexible side zones around
+// one intrinsic center zone. These entries are fixture compatibility, not
+// silent CSS omissions.
+const nativeCompatEntries = new Map([
+  ["grid-cols-[1fr_auto_1fr]", { base: { display: "flex", flexDirection: "row" } }],
+  ["justify-self-start", { base: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, justifyContent: "flex-start" } }],
+  ["justify-self-center", { base: { flexGrow: 0, flexShrink: 0 } }],
+  ["justify-self-end", { base: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, justifyContent: "flex-end" } }],
+])
+
 const explicitlyIgnored = new Map([
   ["active:scale-97", "@gpuix/native@0.4.0 has no transform/scale StyleDesc field"],
   ["-translate-y-1/2", "@gpuix/native@0.4.0 has no transform/translate StyleDesc field"],
@@ -32,6 +44,8 @@ const explicitlyIgnored = new Map([
   ["focus-visible:ring-2", "native focus-visible styling is not exposed by @gpuix/native@0.4.0"],
   ["focus-visible:ring-ring", "native focus-visible styling is not exposed by @gpuix/native@0.4.0"],
   ["focus-visible:ring-offset-2", "native focus-visible styling is not exposed by @gpuix/native@0.4.0"],
+  ["focus:border-border", "native focus pseudo styling is not published; this input already has the same border-border base color"],
+  ["focus:outline-none", "native inputs do not paint a browser focus outline"],
   ["disabled:pointer-events-none", "the native Kobalte adapter owns disabled pointer behavior"],
   ["disabled:opacity-50", "the native Kobalte adapter owns disabled opacity"],
   ["underline-offset-4", "native text decoration offset is not exposed by @gpuix/native@0.4.0"],
@@ -48,6 +62,8 @@ const explicitlyIgnored = new Map([
   ["peer-disabled:opacity-70", "peer variants require native relationship-state styling"],
   ["leading-none", "relative line-height needs merged font-size context before it can be represented exactly"],
   ["appearance-none", "GPUIX native inputs do not have browser user-agent appearance chrome to suppress"],
+  ["fill-current", "inline GPUIX SVG styling does not expose CSS fill through StyleDesc; source currentColor stroke still inherits normally"],
+  ["tabular-nums", "font-variant-numeric is not exposed by @gpuix/native@0.4.0"],
   ["aspect-square", "the copied avatar already supplies equal native width and height through size utilities"],
   ["z-40", "published native StyleDesc has no z-index; retained-tree/layer order owns stacking"],
   ["z-50", "native anchored-layer priority owns popup stacking"],
@@ -78,6 +94,12 @@ const classes = {}
 const omissions = []
 
 for (const candidate of rawCandidates) {
+  const compatEntry = nativeCompatEntries.get(candidate)
+  if (compatEntry) {
+    classes[candidate] = compatEntry
+    continue
+  }
+
   const textTransform = nativeTextTransforms.get(candidate)
   if (textTransform) {
     classes[candidate] = { base: {}, textTransform }
