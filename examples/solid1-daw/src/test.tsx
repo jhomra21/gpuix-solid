@@ -136,6 +136,12 @@ if (!hasNativeTestRenderer) {
   app.renderer.scrollTestId("daw-test-viewport", -320, -260)
   const toggleViewportOffset = app.renderer.scrollOffsetTestId("daw-test-viewport")
   requireCondition(toggleViewportOffset !== null && toggleViewportOffset[0] < 0, "DAW test viewport should scroll horizontally to reveal the right-aligned panel toggle")
+  const toggleViewportBounds = app.renderer.boundsTestId("daw-test-viewport")
+  const hideBounds = app.renderer.boundsTextWithinTestId("bottom-panel", "HIDE")
+  requireCondition(
+    hideBounds.x >= toggleViewportBounds.x && hideBounds.x < toggleViewportBounds.x + toggleViewportBounds.width,
+    `bottom panel HIDE control should be visible after viewport scroll, viewport ${JSON.stringify(toggleViewportBounds)}, hide ${JSON.stringify(hideBounds)}`,
+  )
   app.renderer.clickTextWithinTestId("bottom-panel", "HIDE")
   requireCondition(app.renderer.hasTestId("bottom-panel-closed"), "hide should collapse bottom panel")
   requireCondition(!app.renderer.hasTestId("bottom-panel"), "collapsed panel should unmount expanded shell")
