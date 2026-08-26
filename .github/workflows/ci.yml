@@ -52,6 +52,13 @@ jobs:
       - run: bun run build
       - name: Verify Solid 1 package and DAW showcase
         run: bun run solid1:check
+      - name: Upload native DAW screenshot
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: solid1-daw-native-macos
+          path: /tmp/gpuix-solid1-daw-source-structured.png
+          if-no-files-found: error
       - run: node --test scripts/release.test.mjs
 
   package:
