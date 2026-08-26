@@ -38,5 +38,6 @@ export const kobalteNativeAliases: Alias[] = [
   { find: /^~\/lib\/timeline-storage$/, replacement: compat("timeline-storage.ts") },
   { find: /^~\/lib\/timeline-track-layout$/, replacement: compat("timeline-track-layout.ts") },
   { find: /^~\/lib\/timeline-utils$/, replacement: compat("timeline-utils.ts") },
+  { find: /^~\/lib\/timeline-view$/, replacement: compat("timeline-view.ts") },
   { find: /^~\//, replacement: `${fileURLToPath(upstreamRoot)}/` },
 ]
