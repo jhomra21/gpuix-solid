@@ -53,6 +53,10 @@ if (!hasNativeTestRenderer) {
   requireCondition(laneBounds.height >= 92, `timeline lane should preserve ~96px upstream height, got ${laneBounds.height}`)
   const bottomBounds = app.renderer.boundsTestId("bottom-panel")
   requireCondition(bottomBounds.height >= 385, `bottom panel footprint should preserve 360px body + footer/padding, got ${bottomBounds.height}`)
+  const compressorBounds = app.renderer.boundsTestId("compressor-device")
+  requireCondition(Math.abs(compressorBounds.width - 560) <= 1, `compressor should preserve upstream 560px shell, got ${compressorBounds.width}`)
+  const eqBounds = app.renderer.boundsTestId("eq-device")
+  requireCondition(Math.abs(eqBounds.width - 704) <= 1, `EQ should preserve upstream 704px shell, got ${eqBounds.width}`)
 
   requireCondition(app.renderer.hasTestId("Hide browser sidebar"), "source browser toggle aria label should reach the native host")
   requireCondition(app.renderer.hasTestId("Start recording"), "source record button aria label should reach the native host")
@@ -81,9 +85,10 @@ if (!hasNativeTestRenderer) {
   app.renderer.clickTestId("compressor-threshold-plus")
   requireText(app.renderer.textContent("compressor-threshold-value"), "-17.0 dB", "compressor threshold")
 
-  app.renderer.scrollTestId("daw-test-viewport", -420, -260)
-  app.renderer.clickTestId("eq-high-plus")
-  requireText(app.renderer.textContent("eq-high-value"), "+1.0 dB", "EQ high gain")
+  app.renderer.scrollTestId("daw-test-viewport", -540, -260)
+  app.renderer.clickTestId("eq-band-7")
+  app.renderer.clickTestId("eq-selected-gain-plus")
+  requireText(app.renderer.textContent("eq-selected-gain-value"), "+1.0 dB", "EQ high gain")
 
   app.renderer.scrollTestId("daw-test-viewport", 0, -260)
   app.renderer.clickTextWithinTestId("bottom-panel", "CLIP")
