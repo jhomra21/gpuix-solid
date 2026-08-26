@@ -137,8 +137,8 @@ function resolveVariant(variant: NativeStyleVariant | undefined): StyleDesc | un
 function classCandidates(className: string | undefined, classList: NativeClassList | undefined): string[] {
   const candidates = className?.split(/\s+/).filter(Boolean) ?? []
   if (!classList) return candidates
-  for (const [candidate, enabled] of Object.entries(classList)) {
-    if (enabled) candidates.push(candidate)
+  for (const [classNames, enabled] of Object.entries(classList)) {
+    if (enabled) candidates.push(...classNames.split(/\s+/).filter(Boolean))
   }
   return candidates
 }
