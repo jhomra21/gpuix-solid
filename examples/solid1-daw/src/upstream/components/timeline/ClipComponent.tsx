@@ -32,15 +32,18 @@ type Props = {
   onCommitFades: (clipId: string, fades: ClipFades, baseline: ClipFades) => void
 }
 
+function pointerEvent(event: EventPayload): PointerEvent {
+  // SAFETY: the Solid host EventRegistry dispatches mouse/pointer handlers with its DOM-compatible event facade, including PointerEvent coordinates, button state, targets, and control methods.
+  return event as PointerEvent
+}
+
 const ClipComponent = (props: Props): JSX.Element => (
   <NativeClipComponent
     clip={props.clip}
     selected={props.isSelected}
     pixelsPerSecond={props.pixelsPerSecond}
     onSelect={() => props.contextMenu.selectClip(props.trackId, props.clip.id)}
-    onMouseDown={(event: EventPayload) =>
-      props.onPointerDown(props.trackId, props.clip.id, event as unknown as PointerEvent)
-    }
+    onMouseDown={(event) => props.onPointerDown(props.trackId, props.clip.id, pointerEvent(event))}
   />
 )
 
