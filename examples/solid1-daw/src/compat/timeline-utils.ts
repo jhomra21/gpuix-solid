@@ -8,6 +8,14 @@ export const GROUP_INDENT_PX = 16
 export const GROUP_RAIL_WIDTH = 4
 export const DEFAULT_AUTOMATION_LANE_HEIGHT = 48
 
+export function timelineDurationSec(tracks: Array<{ clips: Array<{ startSec: number; duration: number }> }>): number {
+  let maxEnd = 0
+  for (const track of tracks) {
+    for (const clip of track.clips) maxEnd = Math.max(maxEnd, clip.startSec + clip.duration)
+  }
+  return Math.max(30, maxEnd + 5)
+}
+
 export function quantizeSecToGrid(
   sec: number,
   bpm: number,
