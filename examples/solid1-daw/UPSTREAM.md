@@ -103,6 +103,7 @@ Pinned `SampleDetailWaveform.tsx` uses Canvas 2D, `ResizeObserver` and the wavef
 The source crossover exposed reusable host gaps that are fixed in the Solid host rather than hidden in DAW adapters. The Solid 1 and Solid 2 host files remain byte-for-byte mirrored.
 
 - `HostElementNode.getBoundingClientRect()` uses production `GpuixRenderer.getElementBounds(id)`.
+- `TestGpuixRenderer.getElementBounds()` reports the painted content box for bordered divs, so fidelity tests reconstruct pinned border-box widths by adding the resolved left/right border widths.
 - host elements expose `focus()`, `blur()`, `select()`, `scrollTop`, `scrollLeft` and pointer-capture bookkeeping.
 - native event dispatch now supplies the real host element as `event.currentTarget` / `event.target` and synchronizes input `value` before the handler runs.
 - native host elements satisfy `instanceof Element` / `instanceof HTMLElement` in the Node runtime.
