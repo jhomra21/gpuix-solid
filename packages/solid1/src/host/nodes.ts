@@ -12,6 +12,10 @@ const RESERVED_PROPS = new Set(["children", "ref", "style", "className", "key"])
 const BUILT_IN_TYPES = new Set<ElementType>(["div", "text"])
 const UNIVERSAL_PROPS = new Set(["autoFocus", "tabIndex", "motion", "testId"])
 
+type BoundsCapableRenderer = NativeRenderer & {
+  getElementBounds?(elementId: number): number[] | null
+}
+
 export class HostRootNode {
   readonly kind = "root" as const
   readonly children: HostNode[] = []
@@ -38,12 +42,99 @@ export class HostElementNode implements PublicInstance {
   root: HostRootNode | null = null
   id = 0
   nativeAlive = false
-  style: StyleDesc | undefined
+  style: StyleDesc = {}
   readonly props = new Map<string, MutationValue>()
   readonly events = new Map<string, HostEventHandler>()
+  readonly #capturedPointers = new Set<number>()
 
   constructor(type: ElementType) {
     this.type = type
+  }
+
+  focus(): void {
+    const root = this.root
+    if (!root || !this.nativeAlive) return
+    root.driver.flush()
+    root.driver.renderer.focusElement?.(this.id)
+  }
+
+  blur(): void {
+    const root = this.root
+    if (!root || !this.nativeAlive) return
+    root.driver.flush()
+    root.driver.renderer.blur?.()
+  }
+
+  select(): void {
+    this.focus()
+  }
+
+  get scrollLeft(): number {
+    const offset = this.scrollOffset()
+    return -(offset?.[0] ?? 0)
+  }
+
+  set scrollLeft(value: number) {
+    this.setScrollOffset(value, this.scrollTop)
+  }
+
+  get scrollTop(): number {
+    const offset = this.scrollOffset()
+    return -(offset?.[1] ?? 0)
+  }
+
+  set scrollTop(value: number) {
+    this.setScrollOffset(this.scrollLeft, value)
+  }
+
+  setPointerCapture(pointerId: number): void {
+    this.#capturedPointers.add(pointerId)
+  }
+
+  releasePointerCapture(pointerId: number): void {
+    this.#capturedPointers.delete(pointerId)
+  }
+
+  hasPointerCapture(pointerId: number): boolean {
+    return this.#capturedPointers.has(pointerId)
+  }
+
+  getBoundingClientRect(): {
+    x: number
+    y: number
+    left: number
+    top: number
+    right: number
+    bottom: number
+    width: number
+    height: number
+    toJSON(): Record<string, number>
+  } {
+    const root = this.root
+    if (!root || !this.nativeAlive) return emptyBounds()
+    root.driver.flush()
+    const renderer = root.driver.renderer as BoundsCapableRenderer
+    const bounds = renderer.getElementBounds?.(this.id)
+    if (!bounds || bounds.length < 4) return emptyBounds()
+    const x = bounds[0] ?? 0
+    const y = bounds[1] ?? 0
+    const width = bounds[2] ?? 0
+    const height = bounds[3] ?? 0
+    return domBounds(x, y, width, height)
+  }
+
+  private scrollOffset(): number[] | null {
+    const root = this.root
+    if (!root || !this.nativeAlive) return null
+    root.driver.flush()
+    return root.driver.renderer.getScrollOffset?.(this.id) ?? null
+  }
+
+  private setScrollOffset(left: number, top: number): void {
+    const root = this.root
+    if (!root || !this.nativeAlive) return
+    root.driver.flush()
+    root.driver.renderer.scrollTo?.(this.id, -Math.max(0, left), -Math.max(0, top))
   }
 }
 
@@ -91,8 +182,8 @@ export function setHostProperty<T>(
   if (name === "children" || name === "ref" || name === "key") return
 
   if (name === "style") {
-    node.style = isStyle(value) ? value : undefined
-    if (node.root && node.nativeAlive) node.root.driver.enqueue("setStyle", node.id, node.style ?? {})
+    node.style = isStyle(value) ? value : {}
+    if (node.root && node.nativeAlive) node.root.driver.enqueue("setStyle", node.id, node.style)
     return
   }
 
@@ -195,7 +286,7 @@ function adopt(root: HostRootNode, node: HostNode): void {
   if (node.kind === "text") {
     root.driver.enqueue("setText", node.id, node.text)
   } else {
-    if (node.style && Object.keys(node.style).length > 0) {
+    if (Object.keys(node.style).length > 0) {
       root.driver.enqueue("setStyle", node.id, node.style)
     }
     for (const [eventType, handler] of node.events) {
@@ -257,6 +348,28 @@ function isObjectValue<T>(value: T): value is T & object {
 
 function isStyle<T>(value: T): value is T & StyleDesc {
   return isObjectValue(value) && !Array.isArray(value)
+}
+
+function domBounds(x: number, y: number, width: number, height: number) {
+  const right = x + width
+  const bottom = y + height
+  return {
+    x,
+    y,
+    left: x,
+    top: y,
+    right,
+    bottom,
+    width,
+    height,
+    toJSON() {
+      return { x, y, left: x, top: y, right, bottom, width, height }
+    },
+  }
+}
+
+function emptyBounds() {
+  return domBounds(0, 0, 0, 0)
 }
 
 function isElementType(value: string): value is ElementType {

@@ -20,6 +20,7 @@ const copiedSources = [
   ["src/upstream/components/timeline/TransportControls.tsx", "src/components/timeline/TransportControls.tsx", "811dfb8e7b11247a1ec0533fda4a43d10293344f"],
   ["src/upstream/components/timeline/browser/timeline-left-browser.tsx", "src/components/timeline/browser/timeline-left-browser.tsx", "e4c94b535c1a628c618bb39928d9c7a160557d39"],
   ["src/upstream/components/timeline/ArrangementOverview.tsx", "src/components/timeline/ArrangementOverview.tsx", "cd451fa1e5f7b920ff07659626994c7a4a5c22b7"],
+  ["src/upstream/components/timeline/TimelineRuler.tsx", "src/components/timeline/TimelineRuler.tsx", "279a63babe012a772e4aa81ed3bbcd3489d9f86b"],
   ["src/upstream/components/timeline/TrackLane.tsx", "src/components/timeline/TrackLane.tsx", "82850963b07f67a3655068d8fe14122e290ece96"],
   ["src/upstream/components/timeline/TimelineBottomPanelFooter.tsx", "src/components/timeline/TimelineBottomPanelFooter.tsx", "159c03bb50998a19bd90f7960fa4991ce8d2a8ce"],
   ["src/upstream/components/timeline/TimelineBottomPanelShell.tsx", "src/components/timeline/TimelineBottomPanelShell.tsx", "c5e3ab05e6b9ea09471dddd2038541ceb7a7a1ed"],

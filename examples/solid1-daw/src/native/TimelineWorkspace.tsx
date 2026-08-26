@@ -1,12 +1,13 @@
 import { For, Show, type JSX } from "solid-js"
 import type { EventPayload } from "@jhomra21/gpuix-solid1"
 import UpstreamArrangementOverview from "../upstream/components/timeline/ArrangementOverview"
+import UpstreamTimelineRuler from "../upstream/components/timeline/TimelineRuler"
 import type { Track } from "../compat/timeline-core-types"
 import { TimelineLeftBrowser, type TimelineLeftBrowserProps } from "./TimelineLeftBrowser"
 import TrackLane from "./TrackLane"
 import TrackSidebar, { type TrackSidebarProps } from "./TrackSidebar"
 import type { NativeTrack } from "./model"
-import { dawTheme, layout, text2xs, textXs } from "./theme"
+import { dawTheme, layout, textXs } from "./theme"
 
 export interface TimelineWorkspaceProps {
   browser: TimelineLeftBrowserProps
@@ -16,6 +17,9 @@ export interface TimelineWorkspaceProps {
   pixelsPerSecond: number
   gridEnabled: boolean
   playheadSec: number
+  bpm?: number
+  gridDenominator?: number
+  loopEnabled?: boolean
   sidebar: Omit<TrackSidebarProps, "tracks" | "selectedTrackId">
   onSelectClip: (trackId: string, clipId: string) => void
   onClipMouseDown: (trackId: string, clipId: string, event: EventPayload) => void
@@ -45,19 +49,6 @@ const timelineDuration = (tracks: NativeTrack[]): number => Math.max(
   ...tracks.flatMap((track) => track.clips.map((clip) => clip.startSec + clip.duration)),
 )
 
-const TimelineRuler = (props: { playheadSec: number; pixelsPerSecond: number }): JSX.Element => (
-  <div style={{ height: layout.rulerHeight, minHeight: layout.rulerHeight, position: "relative", overflow: "hidden", backgroundColor: dawTheme.timelineBackground, borderWidth: 1, borderColor: dawTheme.border }}>
-    <For each={[1,2,3,4,5,6,7,8,9,10,11,12]}>
-      {(bar) => (
-        <div style={{ position: "absolute", left: (bar - 1) * 144, top: 0, width: 1, height: layout.rulerHeight, backgroundColor: dawTheme.timelineGridMajor }}>
-          <text style={{ ...text2xs, marginLeft: 5, marginTop: 5, color: dawTheme.mutedForeground }}>{String(bar)}</text>
-        </div>
-      )}
-    </For>
-    <div style={{ position: "absolute", left: props.playheadSec * props.pixelsPerSecond, top: 0, width: 1, height: layout.rulerHeight, backgroundColor: dawTheme.timelinePlayhead }} />
-  </div>
-)
-
 const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
   const durationSec = () => timelineDuration(props.tracks)
   const arrangementWidth = () => durationSec() * props.pixelsPerSecond
@@ -78,7 +69,20 @@ const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
               onCommitVisibleRange={() => {}}
             />
           </div>
-          <TimelineRuler playheadSec={props.playheadSec} pixelsPerSecond={props.pixelsPerSecond} />
+          <div style={{ height: layout.rulerHeight, minHeight: layout.rulerHeight, overflow: "hidden" }}>
+            <UpstreamTimelineRuler
+              durationSec={durationSec()}
+              bpm={props.bpm ?? 120}
+              denom={props.gridDenominator ?? 16}
+              gridEnabled={props.gridEnabled}
+              pixelsPerSecond={props.pixelsPerSecond}
+              visibleRange={{ startSec: 0, endSec: durationSec() }}
+              loopEnabled={props.loopEnabled ?? false}
+              loopStartSec={1}
+              loopEndSec={4}
+              onPointerDown={() => {}}
+            />
+          </div>
           <div style={{ flexGrow: 1, minHeight: 0, overflowY: "auto", position: "relative" }}>
             <For each={props.tracks}>
               {(track) => (

@@ -10,6 +10,7 @@
   "src/upstream/components/timeline/TransportControls.tsx",
   "src/upstream/components/timeline/browser/timeline-left-browser.tsx",
   "src/upstream/components/timeline/ArrangementOverview.tsx",
+  "src/upstream/components/timeline/TimelineRuler.tsx",
   "src/upstream/components/timeline/TrackLane.tsx",
   "src/upstream/components/timeline/toolbar-context.tsx",
   "src/upstream/components/timeline/TimelineBottomPanelFooter.tsx",
