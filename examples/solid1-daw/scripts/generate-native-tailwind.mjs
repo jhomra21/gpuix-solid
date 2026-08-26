@@ -47,6 +47,7 @@ const explicitlyIgnored = new Map([
   ["peer-disabled:cursor-not-allowed", "peer variants require native relationship-state styling"],
   ["peer-disabled:opacity-70", "peer variants require native relationship-state styling"],
   ["leading-none", "relative line-height needs merged font-size context before it can be represented exactly"],
+  ["appearance-none", "GPUIX native inputs do not have browser user-agent appearance chrome to suppress"],
   ["aspect-square", "the copied avatar already supplies equal native width and height through size utilities"],
   ["z-40", "published native StyleDesc has no z-index; retained-tree/layer order owns stacking"],
   ["z-50", "native anchored-layer priority owns popup stacking"],
@@ -324,221 +325,143 @@ function mapDeclaration(style, property, rawValue, candidate) {
     case "margin-right": style.marginRight = lengthValue(value, property, candidate); return
     case "margin-bottom": style.marginBottom = lengthValue(value, property, candidate); return
     case "margin-left": style.marginLeft = lengthValue(value, property, candidate); return
-    case "position": style.position = value === "fixed" ? "absolute" : value; return
+    case "position": style.position = value; return
     case "top": style.top = lengthValue(value, property, candidate); return
     case "right": style.right = lengthValue(value, property, candidate); return
     case "bottom": style.bottom = lengthValue(value, property, candidate); return
     case "left": style.left = lengthValue(value, property, candidate); return
-    case "background-color": style.backgroundColor = normalizeColor(value); return
-    case "color": style.color = normalizeColor(value); return
-    case "opacity": style.opacity = opacityValue(value, candidate); return
+    case "inset": applyInsetShorthand(style, value, candidate); return
+    case "inset-inline": applyPair(style, "left", "right", value, property, candidate); return
+    case "inset-block": applyPair(style, "top", "bottom", value, property, candidate); return
+    case "overflow": style.overflow = value; return
+    case "overflow-x": style.overflowX = value; return
+    case "overflow-y": style.overflowY = value; return
+    case "background-color": style.backgroundColor = colorValue(value, property, candidate); return
+    case "color": style.color = colorValue(value, property, candidate); return
+    case "opacity": style.opacity = numberValue(value, property, candidate); return
     case "border-width": style.borderWidth = lengthValue(value, property, candidate); return
-    case "border-inline-width": applyPair(style, "borderLeftWidth", "borderRightWidth", value, property, candidate); return
-    case "border-block-width": applyPair(style, "borderTopWidth", "borderBottomWidth", value, property, candidate); return
     case "border-top-width": style.borderTopWidth = lengthValue(value, property, candidate); return
     case "border-right-width": style.borderRightWidth = lengthValue(value, property, candidate); return
     case "border-bottom-width": style.borderBottomWidth = lengthValue(value, property, candidate); return
     case "border-left-width": style.borderLeftWidth = lengthValue(value, property, candidate); return
-    case "border-color": style.borderColor = normalizeColor(value); return
-    case "border-radius": style.borderRadius = radiusValue(value, property, candidate); return
+    case "border-color": style.borderColor = colorValue(value, property, candidate); return
+    case "border-top-color": style.borderTopColor = colorValue(value, property, candidate); return
+    case "border-right-color": style.borderRightColor = colorValue(value, property, candidate); return
+    case "border-bottom-color": style.borderBottomColor = colorValue(value, property, candidate); return
+    case "border-left-color": style.borderLeftColor = colorValue(value, property, candidate); return
+    case "border-radius": style.borderRadius = lengthValue(value, property, candidate); return
+    case "border-top-left-radius": style.borderTopLeftRadius = lengthValue(value, property, candidate); return
+    case "border-top-right-radius": style.borderTopRightRadius = lengthValue(value, property, candidate); return
+    case "border-bottom-right-radius": style.borderBottomRightRadius = lengthValue(value, property, candidate); return
+    case "border-bottom-left-radius": style.borderBottomLeftRadius = lengthValue(value, property, candidate); return
+    case "font-family": style.fontFamily = value; return
     case "font-size": style.fontSize = lengthValue(value, property, candidate); return
-    case "font-weight": style.fontWeight = numericOrString(value); return
-    case "line-height": style.lineHeight = lineHeightValue(value, candidate, style.fontSize); return
+    case "font-weight": style.fontWeight = numberOrStringValue(value); return
+    case "line-height": style.lineHeight = lengthValue(value, property, candidate); return
     case "text-align": style.textAlign = value; return
     case "white-space": style.whiteSpace = value; return
     case "text-overflow": style.textOverflow = value; return
-    case "overflow": style.overflow = value; return
-    case "overflow-x": style.overflowX = value; return
-    case "overflow-y": style.overflowY = value; return
     case "cursor": style.cursor = value; return
     case "pointer-events": style.pointerEvents = value; return
     case "user-select": style.userSelect = value; return
-    case "border-style":
-    case "border-inline-style":
-    case "border-block-style":
-    case "border-top-style":
-    case "border-right-style":
-    case "border-bottom-style":
-    case "border-left-style":
-      if (value === "solid") return
-      break
+    case "box-sizing": return
+    case "outline-style": return
+    case "outline-width": return
+    case "outline-color": return
+    case "outline-offset": return
+    case "--tw-ring-offset-width": return
+    case "--tw-ring-offset-color": return
+    case "--tw-ring-color": return
+    case "--tw-ring-shadow": return
+    case "--tw-inset-ring-shadow": return
+    case "--tw-shadow": return
+    case "--tw-shadow-colored": return
+    case "box-shadow": return
+    case "transition-property": return
+    case "transition-duration": return
+    case "transition-timing-function": return
+    default:
+      throw new Error(`Unsupported CSS declaration from Tailwind candidate ${JSON.stringify(candidate)}:\n${property}: ${value}`)
   }
-  throw new Error(`Unsupported CSS declaration from Tailwind candidate ${JSON.stringify(candidate)}: ${property}: ${value}`)
+}
+
+function applyBoxShorthand(style, prefix, value, candidate) {
+  const parts = splitCssValue(value)
+  if (parts.length < 1 || parts.length > 4) throw new Error(`Unsupported ${prefix} shorthand for ${JSON.stringify(candidate)}: ${value}`)
+  const [a, b = a, c = a, d = b] = parts
+  style[`${prefix}Top`] = lengthValue(a, prefix, candidate)
+  style[`${prefix}Right`] = lengthValue(b, prefix, candidate)
+  style[`${prefix}Bottom`] = lengthValue(c, prefix, candidate)
+  style[`${prefix}Left`] = lengthValue(d, prefix, candidate)
 }
 
 function applyPair(style, first, second, value, property, candidate) {
-  const parts = splitTopLevelWhitespace(value)
-  if (parts.length === 0 || parts.length > 2) throw new Error(`Unsupported ${property} value for ${JSON.stringify(candidate)}: ${value}`)
+  const parts = splitCssValue(value)
+  if (parts.length === 0 || parts.length > 2) throw new Error(`Unsupported ${property} shorthand for ${JSON.stringify(candidate)}: ${value}`)
   style[first] = lengthValue(parts[0], property, candidate)
   style[second] = lengthValue(parts[1] ?? parts[0], property, candidate)
 }
 
-function applyBoxShorthand(style, prefix, value, candidate) {
-  const parts = splitTopLevelWhitespace(value)
-  if (parts.length < 1 || parts.length > 4) throw new Error(`Unsupported ${prefix} shorthand for ${JSON.stringify(candidate)}: ${value}`)
-  const top = lengthValue(parts[0], prefix, candidate)
-  const right = lengthValue(parts[1] ?? parts[0], prefix, candidate)
-  const bottom = lengthValue(parts[2] ?? parts[0], prefix, candidate)
-  const left = lengthValue(parts[3] ?? parts[1] ?? parts[0], prefix, candidate)
-  if (top === right && right === bottom && bottom === left) style[prefix] = top
-  else {
-    style[`${prefix}Top`] = top
-    style[`${prefix}Right`] = right
-    style[`${prefix}Bottom`] = bottom
-    style[`${prefix}Left`] = left
+function applyInsetShorthand(style, value, candidate) {
+  const parts = splitCssValue(value)
+  if (parts.length < 1 || parts.length > 4) throw new Error(`Unsupported inset shorthand for ${JSON.stringify(candidate)}: ${value}`)
+  const [top, right = top, bottom = top, left = right] = parts
+  style.top = lengthValue(top, "inset", candidate)
+  style.right = lengthValue(right, "inset", candidate)
+  style.bottom = lengthValue(bottom, "inset", candidate)
+  style.left = lengthValue(left, "inset", candidate)
+}
+
+function resolveCssValue(value, variables) {
+  let current = value
+  for (let iteration = 0; iteration < 12 && current.includes("var("); iteration++) {
+    const next = current.replace(/var\((--[\w-]+)(?:,\s*([^()]+))?\)/g, (_match, name, fallback) => variables[name] ?? fallback ?? `var(${name})`)
+    if (next === current) break
+    current = next
   }
-}
-
-function dimensionValue(value, property, candidate) {
-  if (value === "auto" || value.endsWith("%")) return value
-  return lengthValue(value, property, candidate)
-}
-
-function radiusValue(value, property, candidate) {
-  if (/^calc\(\s*infinity\s*\*\s*1px\s*\)$/.test(value)) return 9999
-  return lengthValue(value, property, candidate)
+  return current
 }
 
 function lengthValue(value, property, candidate) {
-  const normalized = value.trim()
-  if (normalized === "0") return 0
-  const numberPattern = "-?(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?:e[+-]?\\d+)?"
-  const px = normalized.match(new RegExp(`^(${numberPattern})px$`, "i"))
+  if (value === "0") return 0
+  if (value === "auto") return "auto"
+  if (value === "100%") return "100%"
+  const px = value.match(/^(-?\d+(?:\.\d+)?)px$/)
   if (px) return Number(px[1])
-  const rem = normalized.match(new RegExp(`^(${numberPattern})rem$`, "i"))
+  const rem = value.match(/^(-?\d+(?:\.\d+)?)rem$/)
   if (rem) return Number(rem[1]) * 16
-  const calc = normalized.match(new RegExp(`^calc\\(\\s*(${numberPattern})(px|rem)\\s*([*/])\\s*(${numberPattern})\\s*\\)$`, "i"))
-  if (calc) {
-    const left = Number(calc[1]) * (calc[2] === "rem" ? 16 : 1)
-    const right = Number(calc[4])
-    return calc[3] === "*" ? left * right : left / right
-  }
-  throw new Error(`Unsupported native length from Tailwind candidate ${JSON.stringify(candidate)}: ${property}: ${value}`)
+  throw new Error(`Unsupported ${property} length from ${JSON.stringify(candidate)}: ${value}`)
 }
 
-function lineHeightValue(value, candidate, fontSize) {
-  const normalized = value.trim()
-  const direct = Number(normalized)
-  if (Number.isFinite(direct)) return relativeLineHeight(direct, fontSize, candidate, value)
-  const calc = normalized.match(/^calc\(\s*(-?\d+(?:\.\d+)?)\s*([*/])\s*(-?\d+(?:\.\d+)?)\s*\)$/)
-  if (calc) {
-    const left = Number(calc[1])
-    const right = Number(calc[3])
-    const ratio = calc[2] === "*" ? left * right : left / right
-    return relativeLineHeight(ratio, fontSize, candidate, value)
-  }
-  return lengthValue(normalized, "line-height", candidate)
+function dimensionValue(value, property, candidate) {
+  if (value === "max-content" || value === "min-content") return value
+  return lengthValue(value, property, candidate)
 }
 
-function relativeLineHeight(ratio, fontSize, candidate, sourceValue) {
-  if (!Number.isFinite(fontSize)) {
-    throw new Error(`Native Tailwind candidate ${JSON.stringify(candidate)} has relative line-height ${sourceValue} without a local font-size`)
-  }
-  return ratio * fontSize
-}
-
-function opacityValue(value, candidate) {
-  const normalized = value.trim()
-  if (normalized.endsWith("%")) {
-    const percentage = Number(normalized.slice(0, -1))
-    if (Number.isFinite(percentage)) return percentage / 100
-  }
-  return numberValue(normalized, "opacity", candidate)
+function colorValue(value, property, candidate) {
+  if (value === "transparent" || value === "currentColor") return value
+  if (/^#[0-9a-f]{3,8}$/i.test(value)) return value
+  if (/^oklch\(/i.test(value)) return value
+  if (/^color-mix\(/i.test(value)) return value
+  if (/^rgb\(/i.test(value)) return value
+  throw new Error(`Unsupported ${property} color from ${JSON.stringify(candidate)}: ${value}`)
 }
 
 function numberValue(value, property, candidate) {
   const number = Number(value)
-  if (!Number.isFinite(number)) throw new Error(`Expected numeric ${property} for ${JSON.stringify(candidate)}, received ${value}`)
+  if (!Number.isFinite(number)) throw new Error(`Unsupported ${property} number from ${JSON.stringify(candidate)}: ${value}`)
   return number
 }
 
-function numericOrString(value) {
-  const number = Number(value)
-  return Number.isFinite(number) ? number : value
+function numberOrStringValue(value) {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : value
 }
 
-function normalizeColor(value) {
-  const mix = value.match(/^color-mix\(in (?:oklab|srgb),\s*(oklch\([^)]*\))\s+(\d+(?:\.\d+)?)%,\s*transparent\)$/)
-  if (!mix) return value
-  const color = mix[1]
-  const alpha = mix[2]
-  if (color.includes("/")) return value
-  return color.replace(/\)$/, ` / ${alpha}%)`)
-}
-
-function resolveCssValue(value, variables) {
-  let result = value
-  for (let iteration = 0; iteration < 32; iteration += 1) {
-    const variable = firstVarFunction(result)
-    if (!variable) return result
-    const replacement = variables[variable.name] ?? variable.fallback
-    if (replacement === undefined) throw new Error(`Unresolved CSS variable ${variable.name} in ${JSON.stringify(value)}`)
-    result = result.slice(0, variable.start) + replacement + result.slice(variable.end)
-  }
-  throw new Error(`CSS variable resolution exceeded 32 substitutions for ${JSON.stringify(value)}`)
-}
-
-function firstVarFunction(value) {
-  const start = value.indexOf("var(")
-  if (start < 0) return undefined
-  let depth = 1
-  let comma = -1
-  let end = start + 4
-  for (; end < value.length; end += 1) {
-    const character = value[end]
-    if (character === "(") depth += 1
-    else if (character === ")") {
-      depth -= 1
-      if (depth === 0) break
-    } else if (character === "," && depth === 1 && comma < 0) comma = end
-  }
-  if (depth !== 0) throw new Error(`Unclosed CSS var() in ${JSON.stringify(value)}`)
-  const nameEnd = comma < 0 ? end : comma
-  const name = value.slice(start + 4, nameEnd).trim()
-  const fallback = comma < 0 ? undefined : value.slice(comma + 1, end).trim()
-  return { start, end: end + 1, name, fallback }
-}
-
-function splitTopLevelWhitespace(value) {
-  const parts = []
-  let start = 0
-  let depth = 0
-  for (let index = 0; index < value.length; index += 1) {
-    const character = value[index]
-    if (character === "(") depth += 1
-    else if (character === ")") depth -= 1
-    else if (/\s/.test(character) && depth === 0) {
-      if (index > start) parts.push(value.slice(start, index))
-      while (index + 1 < value.length && /\s/.test(value[index + 1])) index += 1
-      start = index + 1
-    }
-  }
-  if (start < value.length) parts.push(value.slice(start))
-  return parts.filter(Boolean)
+function splitCssValue(value) {
+  return value.trim().split(/\s+/)
 }
 
 function escapeCssIdentifier(value) {
-  let result = ""
-  for (let index = 0; index < value.length; index += 1) {
-    const code = value.charCodeAt(index)
-    const character = value[index]
-    if (code === 0) {
-      result += "�"
-      continue
-    }
-    if ((code >= 1 && code <= 31) || code === 127 || (index === 0 && code >= 48 && code <= 57) || (index === 1 && code >= 48 && code <= 57 && value.charCodeAt(0) === 45)) {
-      result += `\\${code.toString(16)} `
-      continue
-    }
-    if (index === 0 && character === "-" && value.length === 1) {
-      result += "\\-"
-      continue
-    }
-    if (code >= 128 || character === "-" || character === "_" || (code >= 48 && code <= 57) || (code >= 65 && code <= 90) || (code >= 97 && code <= 122)) {
-      result += character
-    } else {
-      result += `\\${character}`
-    }
-  }
-  return result
+  return value.replace(/[^a-zA-Z0-9_-]/g, (character) => `\\${character.charCodeAt(0).toString(16)} `)
 }
