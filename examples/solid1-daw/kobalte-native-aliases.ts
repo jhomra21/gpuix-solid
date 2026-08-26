@@ -9,6 +9,10 @@ function adapter(file: string): string {
   return fileURLToPath(new URL(file, kobalteRoot))
 }
 
+function compat(file: string): string {
+  return fileURLToPath(new URL(file, compatRoot))
+}
+
 export const kobalteNativeAliases: Alias[] = [
   { find: /^@kobalte\/core$/, replacement: adapter("index.tsx") },
   { find: /^@kobalte\/core\/polymorphic$/, replacement: adapter("polymorphic.ts") },
@@ -21,6 +25,8 @@ export const kobalteNativeAliases: Alias[] = [
   { find: /^@kobalte\/core\/dropdown-menu$/, replacement: adapter("dropdown-menu.tsx") },
   { find: /^@kobalte\/core\/context-menu$/, replacement: adapter("context-menu.tsx") },
   { find: /^@kobalte\/core\/menubar$/, replacement: adapter("menubar.tsx") },
-  { find: /^@daw-browser\/shared$/, replacement: fileURLToPath(new URL("daw-browser-shared.ts", compatRoot)) },
+  { find: /^@daw-browser\/shared$/, replacement: compat("daw-browser-shared.ts") },
+  { find: /^~\/lib\/timeline-storage$/, replacement: compat("timeline-storage.ts") },
+  { find: /^~\/lib\/timeline-utils$/, replacement: compat("timeline-utils.ts") },
   { find: /^~\//, replacement: `${fileURLToPath(upstreamRoot)}/` },
 ]
