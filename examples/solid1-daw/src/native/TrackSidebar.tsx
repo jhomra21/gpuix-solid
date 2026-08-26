@@ -1,7 +1,7 @@
 import { For, type JSX } from "solid-js"
 import type { NativeTrack } from "./model"
 import TrackSidebarRow from "./TrackSidebarRow"
-import { dawTheme, layout, text2xs } from "./theme"
+import { dawTheme, layout } from "./theme"
 
 export interface TrackSidebarProps {
   tracks: NativeTrack[]
@@ -21,16 +21,14 @@ const TrackSidebar = (props: TrackSidebarProps): JSX.Element => (
       minWidth: layout.sidebarWidth,
       height: "100%",
       backgroundColor: dawTheme.timelineSurface,
-      borderWidth: 1,
+      borderLeftWidth: 1,
       borderColor: dawTheme.border,
       overflow: "hidden",
+      position: "relative",
     }}
   >
-    <div style={{ height: layout.overviewHeight, minHeight: layout.overviewHeight, backgroundColor: dawTheme.timelineSurface, borderWidth: 1, borderColor: dawTheme.border }} />
-    <div style={{ height: layout.rulerHeight, minHeight: layout.rulerHeight, display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 8, paddingRight: 8, backgroundColor: dawTheme.timelineSurface, borderWidth: 1, borderColor: dawTheme.border }}>
-      <text style={{ ...text2xs, color: dawTheme.mutedForeground }}>TRACKS</text>
-      <text style={{ ...text2xs, color: dawTheme.mutedForeground }}>MIXER</text>
-    </div>
+    <div style={{ height: layout.overviewHeight, minHeight: layout.overviewHeight, backgroundColor: dawTheme.timelineSurface, borderBottomWidth: 1, borderColor: dawTheme.border }} />
+    <div style={{ height: layout.rulerHeight, minHeight: layout.rulerHeight, backgroundColor: dawTheme.timelineSurface, borderBottomWidth: 1, borderColor: dawTheme.border }} />
     <div style={{ flexGrow: 1, minHeight: 0, overflowY: "auto" }}>
       <For each={props.tracks}>
         {(track) => (
@@ -45,6 +43,7 @@ const TrackSidebar = (props: TrackSidebarProps): JSX.Element => (
           />
         )}
       </For>
+      <div style={{ minHeight: 24, flexGrow: 1, backgroundColor: dawTheme.timelineSurface }} />
     </div>
   </div>
 )
