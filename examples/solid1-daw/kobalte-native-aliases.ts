@@ -29,6 +29,7 @@ export const kobalteNativeAliases: Alias[] = [
   { find: /^@daw-browser\/shared$/, replacement: compat("daw-browser-shared.ts") },
   { find: /^~\/hooks\/useTransportTempoController$/, replacement: compat("useTransportTempoController.ts") },
   { find: /^~\/lib\/project-save-status$/, replacement: compat("project-save-status.ts") },
+  { find: /^~\/lib\/timeline-left-browser-preferences$/, replacement: compat("timeline-left-browser-preferences.ts") },
   { find: /^~\/lib\/timeline-storage$/, replacement: compat("timeline-storage.ts") },
   { find: /^~\/lib\/timeline-utils$/, replacement: compat("timeline-utils.ts") },
   { find: /^~\//, replacement: `${fileURLToPath(upstreamRoot)}/` },
