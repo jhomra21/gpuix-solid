@@ -1,5 +1,6 @@
 import { createMemo, createSignal, type JSX } from "solid-js"
 import type { EventPayload } from "@jhomra21/gpuix-solid1"
+import { DEFAULT_PIXELS_PER_SECOND } from "../compat/timeline-view"
 import TimelineChrome from "./TimelineChrome"
 import TimelinePanels from "./TimelinePanels"
 import TimelineWorkspace from "./TimelineWorkspace"
@@ -14,8 +15,6 @@ interface DragState {
   startY: number
   startSec: number
 }
-
-const PIXELS_PER_SECOND = 72
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
@@ -53,10 +52,10 @@ export default function Timeline(): JSX.Element {
   const [bpm, setBpm] = createSignal(120)
   const [metronomeEnabled, setMetronomeEnabled] = createSignal(false)
   const [loopEnabled, setLoopEnabled] = createSignal(false)
-  const [loopStartSec, setLoopStartSec] = createSignal(1)
-  const [loopEndSec, setLoopEndSec] = createSignal(4)
+  const [loopStartSec, setLoopStartSec] = createSignal(0)
+  const [loopEndSec, setLoopEndSec] = createSignal(8)
   const [gridEnabled, setGridEnabled] = createSignal(true)
-  const [gridDenominator, setGridDenominator] = createSignal(16)
+  const [gridDenominator, setGridDenominator] = createSignal(4)
   const [midiKeyboardEnabled, setMidiKeyboardEnabled] = createSignal(false)
   const [playheadSec, setPlayheadSec] = createSignal(2.75)
   const [bottomPanelOpen, setBottomPanelOpen] = createSignal(true)
@@ -122,7 +121,7 @@ export default function Timeline(): JSX.Element {
     const source = currentTracks.find((track) => track.id === currentDrag.sourceTrackId)
     if (!source) return
     const target = candidate && compatible(found.clip, candidate) ? candidate : source
-    const rawStart = Math.max(0, currentDrag.startSec + (event.x - currentDrag.startX) / PIXELS_PER_SECOND)
+    const rawStart = Math.max(0, currentDrag.startSec + (event.x - currentDrag.startX) / DEFAULT_PIXELS_PER_SECOND)
     const startSec = gridEnabled() ? quantizeSecToGrid(rawStart, bpm(), gridDenominator()) : rawStart
     const movedClip = { ...found.clip, startSec }
 
@@ -186,7 +185,7 @@ export default function Timeline(): JSX.Element {
         tracks={tracks()}
         selectedClipId={selectedClipId()}
         selectedTrackId={selectedTrackId()}
-        pixelsPerSecond={PIXELS_PER_SECOND}
+        pixelsPerSecond={DEFAULT_PIXELS_PER_SECOND}
         gridEnabled={gridEnabled()}
         playheadSec={playheadSec()}
         bpm={bpm()}
