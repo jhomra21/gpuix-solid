@@ -1,4 +1,9 @@
 import { readFileSync } from "node:fs"
+import {
+  clearNativeStyleManifest,
+  configureNativeStyleManifest,
+  resolveNativeClassStyle,
+} from "../src/native-style.ts"
 
 const packageRoot = new URL("../", import.meta.url)
 const repoRoot = new URL("../../../", import.meta.url)
@@ -10,6 +15,20 @@ for (const file of sharedFiles) {
   if (solid1 !== solid2) {
     throw new Error(`Solid 1 host mirror drifted from Solid 2: ${file}`)
   }
+}
+
+configureNativeStyleManifest({
+  classes: {
+    "bg-app-surface": { base: { backgroundColor: "#111111" } },
+    "text-foreground": { base: { color: "#eeeeee" } },
+  },
+})
+const combinedClassListStyle = resolveNativeClassStyle(undefined, {
+  "bg-app-surface text-foreground": true,
+})
+clearNativeStyleManifest()
+if (combinedClassListStyle?.backgroundColor !== "#111111" || combinedClassListStyle.color !== "#eeeeee") {
+  throw new Error("Solid 1 native classList must split multi-class keys before manifest lookup")
 }
 
 console.log("solid1 host parity: passed")
