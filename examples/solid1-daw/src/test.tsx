@@ -85,20 +85,24 @@ if (!hasNativeTestRenderer) {
   app.renderer.clickTestId("compressor-threshold-plus")
   requireText(app.renderer.textContent("compressor-threshold-value"), "-17.0 dB", "compressor threshold")
 
-  app.renderer.scrollTestId("daw-test-viewport", -540, -260)
+  app.renderer.scrollTestId("effects-panel", -540, 0)
+  const effectsOffset = app.renderer.scrollOffsetTestId("effects-panel")
+  requireCondition(effectsOffset !== null && effectsOffset[0] < 0, "effects chain should scroll horizontally to the EQ device")
   app.renderer.clickTestId("eq-band-7")
   app.renderer.clickTestId("eq-selected-gain-plus")
   requireText(app.renderer.textContent("eq-selected-gain-value"), "+1.0 dB", "EQ high gain")
 
-  app.renderer.scrollTestId("daw-test-viewport", 0, -260)
   app.renderer.clickTextWithinTestId("bottom-panel", "CLIP")
   requireCondition(app.renderer.hasTestId("clip-panel"), "clip tab should mount clip panel")
   requireCondition(!app.renderer.hasTestId("effects-panel"), "clip tab should unmount effects panel")
+  const clipPanelText = app.renderer.textContent("clip-panel")
+  requireText(clipPanelText, "SAMPLE DETAIL", "source-shaped sample detail rail")
+  requireText(clipPanelText, "Source BPM", "source-shaped sample controls")
+  requireText(clipPanelText, "BEAT GRID", "source-shaped sample waveform header")
 
   app.renderer.clickTextWithinTestId("bottom-panel", "EFFECTS")
   requireCondition(app.renderer.hasTestId("effects-panel"), "effects tab should restore devices")
 
-  app.renderer.scrollTestId("daw-test-viewport", -420, -260)
   app.renderer.clickTextWithinTestId("bottom-panel", "HIDE")
   requireCondition(app.renderer.hasTestId("bottom-panel-closed"), "hide should collapse bottom panel")
   requireCondition(!app.renderer.hasTestId("bottom-panel"), "collapsed panel should unmount expanded shell")
@@ -174,6 +178,7 @@ if (!hasNativeTestRenderer) {
 
   requireCondition(!sourceUi.renderer.hasTestId("upstream-tooltip-content"), "copied DAW tooltip should start closed")
   sourceUi.renderer.hoverTestId("upstream-tooltip-trigger")
+  requireCondition(app.renderer.hasTestId("upstream-tooltip-content") === false, "DAW root must not receive source probe popups")
   requireCondition(sourceUi.renderer.hasTestId("upstream-tooltip-content"), "copied DAW tooltip should open through native hover")
 
   sourceUi.unmount()
