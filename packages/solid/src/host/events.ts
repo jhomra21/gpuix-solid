@@ -39,7 +39,7 @@ export type DomCompatTarget = {
   value: string
   scrollTop: number
   scrollLeft: number
-  style: Record<string, unknown>
+  style: object
   classList: {
     add: (...tokens: string[]) => void
     remove: (...tokens: string[]) => void
@@ -107,6 +107,7 @@ function domCompatibleEvent(event: EventPayload, target: DomCompatTarget | undef
   const x = event.x ?? 0
   const y = event.y ?? 0
   const currentTarget = target ?? fallbackTarget(event)
+  if (event.value !== undefined) currentTarget.value = event.value
 
   return Object.assign({}, event, {
     currentTarget,
