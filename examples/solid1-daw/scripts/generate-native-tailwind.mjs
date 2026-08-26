@@ -20,13 +20,19 @@ const nativeTextTransforms = new Map([
 // GPUIX 0.4.0 supports equal-count CSS grid tracks, but not arbitrary CSS
 // templates or justify-self. Preserve the copied transport's 1fr/auto/1fr
 // semantics with the equivalent flex layout: equal flexible side zones around
-// one intrinsic center zone. These entries are fixture compatibility, not
-// silent CSS omissions.
+// one intrinsic center zone. Other entries below translate source geometry
+// into native fields without editing the copied DAW components.
 const nativeCompatEntries = new Map([
   ["grid-cols-[1fr_auto_1fr]", { base: { display: "flex", flexDirection: "row" } }],
   ["justify-self-start", { base: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, justifyContent: "flex-start" } }],
   ["justify-self-center", { base: { flexGrow: 0, flexShrink: 0 } }],
   ["justify-self-end", { base: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, justifyContent: "flex-end" } }],
+  ["grid-cols-1", { base: { gridTemplateColumns: 1 } }],
+  ["space-y-0.5", { base: { gap: 2 } }],
+  // Browser resize handle: parent is 8px wide and the rail is 4px wide, so
+  // CSS right:50% + translateX(50%) is exactly a 2px right inset natively.
+  ["right-1/2", { base: { right: 2 } }],
+  ["translate-x-1/2", { base: {} }],
 ])
 
 const explicitlyIgnored = new Map([
@@ -36,6 +42,7 @@ const explicitlyIgnored = new Map([
   ["group", "Tailwind group is a relationship-state marker and has no direct painted native style"],
   ["group-hover:bg-sky-500/20", "group relationship hover styling is not exposed by @gpuix/native@0.4.0"],
   ["group-active:bg-sky-500/20", "group relationship active styling is not exposed by @gpuix/native@0.4.0"],
+  ["group-hover:text-foreground", "the copied browser item already has text-foreground as its base color; native group relationship hover styling is not exposed"],
   ["!transition-transform", "native StyleDesc transitions are not published in @gpuix/native@0.4.0"],
   ["!duration-150", "native StyleDesc transitions are not published in @gpuix/native@0.4.0"],
   ["transition-colors", "native StyleDesc transitions are not published in @gpuix/native@0.4.0"],
@@ -46,6 +53,8 @@ const explicitlyIgnored = new Map([
   ["focus-visible:ring-offset-2", "native focus-visible styling is not exposed by @gpuix/native@0.4.0"],
   ["focus:border-border", "native focus pseudo styling is not published; this input already has the same border-border base color"],
   ["focus:outline-none", "native inputs do not paint a browser focus outline"],
+  ["focus:bg-app-surface/60", "native input focus background pseudo styling is not published by @gpuix/native@0.4.0"],
+  ["outline-none", "GPUIX native inputs do not paint the browser outline suppressed by this utility"],
   ["disabled:pointer-events-none", "the native Kobalte adapter owns disabled pointer behavior"],
   ["disabled:opacity-50", "the native Kobalte adapter owns disabled opacity"],
   ["underline-offset-4", "native text decoration offset is not exposed by @gpuix/native@0.4.0"],
@@ -55,21 +64,29 @@ const explicitlyIgnored = new Map([
   ["file:text-sm", "native input has no browser file-selector pseudo-element"],
   ["file:font-medium", "native input has no browser file-selector pseudo-element"],
   ["placeholder:text-muted-foreground", "native input placeholder styling is not separately exposed by @gpuix/native@0.4.0"],
+  ["selection:bg-primary/40", "native text selection has its own selectionColor contract rather than CSS ::selection variants"],
   ["disabled:cursor-not-allowed", "the native Kobalte adapter owns disabled interaction"],
   ["data-[invalid]:border-error-foreground", "the native TextField adapter owns invalid border state until data-state variants are native"],
   ["data-[invalid]:text-error-foreground", "the native TextField adapter owns invalid state until data-state variants are native"],
+  ["data-[expanded]:bg-muted", "the native Menubar adapter owns expanded trigger background state"],
+  ["data-[expanded]:text-foreground", "the native Menubar adapter owns expanded trigger state; arbitrary data variants are not native selectors"],
   ["peer-disabled:cursor-not-allowed", "peer variants require native relationship-state styling"],
   ["peer-disabled:opacity-70", "peer variants require native relationship-state styling"],
   ["leading-none", "relative line-height needs merged font-size context before it can be represented exactly"],
   ["appearance-none", "GPUIX native inputs do not have browser user-agent appearance chrome to suppress"],
   ["fill-current", "inline GPUIX SVG styling does not expose CSS fill through StyleDesc; source currentColor stroke still inherits normally"],
   ["tabular-nums", "font-variant-numeric is not exposed by @gpuix/native@0.4.0"],
+  ["tracking-normal", "letter-spacing is not exposed by @gpuix/native@0.4.0"],
+  ["tracking-wide", "letter-spacing is not exposed by @gpuix/native@0.4.0; keep the copied source unchanged until the native text contract supports it"],
+  ["tracking-widest", "letter-spacing is not exposed by @gpuix/native@0.4.0"],
+  ["border-dashed", "@gpuix/native@0.4.0 exposes border width/color but not border style; native fallback remains solid"],
   ["aspect-square", "the copied avatar already supplies equal native width and height through size utilities"],
+  ["z-10", "published native StyleDesc has no z-index; retained-tree/layer order owns stacking"],
+  ["z-30", "published native StyleDesc has no z-index; retained-tree/layer order owns stacking"],
   ["z-40", "published native StyleDesc has no z-index; retained-tree/layer order owns stacking"],
   ["z-50", "native anchored-layer priority owns popup stacking"],
   ["w-fit", "native floating content uses intrinsic sizing instead of CSS fit-content"],
   ["shadow-md", "boxShadow exists upstream but is not published in @gpuix/native@0.4.0"],
-  ["tracking-wide", "letter-spacing is not exposed by @gpuix/native@0.4.0; keep the copied source unchanged until the native text contract supports it"],
 ])
 
 const themeCss = await readFile(themePath, "utf8")
@@ -366,6 +383,20 @@ function mapDeclaration(style, property, rawValue, candidate) {
     case "border-right-width": style.borderRightWidth = lengthValue(value, property, candidate); return
     case "border-bottom-width": style.borderBottomWidth = lengthValue(value, property, candidate); return
     case "border-left-width": style.borderLeftWidth = lengthValue(value, property, candidate); return
+    case "border-inline-width": {
+      const width = lengthValue(value, property, candidate)
+      style.borderLeftWidth = width
+      style.borderRightWidth = width
+      return
+    }
+    case "border-block-width": {
+      const width = lengthValue(value, property, candidate)
+      style.borderTopWidth = width
+      style.borderBottomWidth = width
+      return
+    }
+    case "border-inline-style": return
+    case "border-block-style": return
     case "border-color": style.borderColor = colorValue(value, property, candidate); return
     case "border-top-color": style.borderTopColor = colorValue(value, property, candidate); return
     case "border-right-color": style.borderRightColor = colorValue(value, property, candidate); return
