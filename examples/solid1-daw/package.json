@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "source:check": "node scripts/check-upstream-source-parity.mjs",
-    "generate:styles": "node scripts/generate-native-tailwind.mjs",
+    "generate:styles": "bun scripts/generate-native-tailwind.mjs",
     "build": "bun run generate:styles && vite build",
     "build:test": "bun run generate:styles && vite build --config vite.test.config.ts",
     "typecheck": "bun run source:check && bun run generate:styles && tsc --noEmit",
