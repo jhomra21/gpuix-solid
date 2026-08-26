@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "host:build": "cd ../../packages/solid1 && bun run build",
+    "host:build": "cd ../../packages/solid1 && bun install --no-save && bun run build",
     "source:check": "node scripts/check-upstream-source-parity.mjs",
     "generate:styles": "bun scripts/generate-native-tailwind.mjs",
     "build": "bun run host:build && bun run generate:styles && vite build",
