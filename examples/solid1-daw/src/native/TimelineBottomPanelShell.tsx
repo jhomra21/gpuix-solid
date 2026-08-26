@@ -20,13 +20,17 @@ const TimelineBottomPanelShell = (props: TimelineBottomPanelShellProps): JSX.Ele
     onHeightCommit(_heightPx: number): void {},
   }
 
+  const footprint = () => props.heightPx + BOTTOM_PANEL_FOOTER_HEIGHT_PX + BOTTOM_PANEL_EDGE_PADDING_PX
+
   return (
     <div
       testId="bottom-panel"
       style={{
         position: "relative",
         width: "100%",
-        height: props.heightPx + BOTTOM_PANEL_FOOTER_HEIGHT_PX + BOTTOM_PANEL_EDGE_PADDING_PX,
+        height: footprint(),
+        minHeight: footprint(),
+        flexShrink: 0,
       }}
     >
       <UpstreamTimelineBottomPanelShell
