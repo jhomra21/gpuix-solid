@@ -3,6 +3,7 @@ import {
   configureNativeStyleManifest,
   createTestRoot,
   hasNativeTestRenderer,
+  resolveNativeClassStyle,
   resolveNativeDescendantClassStyle,
   setNativeStyleColorMode,
 } from "@jhomra21/gpuix-solid1"
@@ -24,6 +25,27 @@ function requireText(actual: string, expected: string, label: string): void {
     throw new Error(`${label}: expected ${JSON.stringify(expected)} in ${JSON.stringify(actual)}`)
   }
 }
+
+const transportFrameStyle = resolveNativeClassStyle("grid grid-cols-[1fr_auto_1fr]", undefined)
+requireCondition(
+  transportFrameStyle?.display === "flex" && transportFrameStyle.flexDirection === "row",
+  `upstream 1fr/auto/1fr transport grid should translate to a native flex row, got ${JSON.stringify(transportFrameStyle)}`,
+)
+const transportLeftStyle = resolveNativeClassStyle("justify-self-start flex", undefined)
+requireCondition(
+  transportLeftStyle?.flexGrow === 1 && transportLeftStyle.flexBasis === 0 && transportLeftStyle.justifyContent === "flex-start",
+  `transport left zone should preserve one flexible side track, got ${JSON.stringify(transportLeftStyle)}`,
+)
+const transportCenterStyle = resolveNativeClassStyle("justify-self-center flex", undefined)
+requireCondition(
+  transportCenterStyle?.flexGrow === 0 && transportCenterStyle.flexShrink === 0,
+  `transport center zone should stay intrinsic, got ${JSON.stringify(transportCenterStyle)}`,
+)
+const transportRightStyle = resolveNativeClassStyle("justify-self-end flex", undefined)
+requireCondition(
+  transportRightStyle?.flexGrow === 1 && transportRightStyle.flexBasis === 0 && transportRightStyle.justifyContent === "flex-end",
+  `transport right zone should preserve one flexible side track, got ${JSON.stringify(transportRightStyle)}`,
+)
 
 if (!hasNativeTestRenderer) {
   console.log("solid1 DAW source-structured port: native TestGpuixRenderer unavailable; skipped")
