@@ -100,6 +100,7 @@ const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
                   track={track}
                   selectedClipId={props.selectedClipId}
                   pixelsPerSecond={props.pixelsPerSecond}
+                  bpm={props.bpm}
                   gridEnabled={props.gridEnabled}
                   onSelectClip={props.onSelectClip}
                   onClipMouseDown={props.onClipMouseDown}
