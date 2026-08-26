@@ -52,6 +52,7 @@ export type {
   CodeProps,
   DebugFrameOverlayMode,
   DiffProps,
+  EventPayload,
   GpuixTheme,
   HostProps,
   ImgProps,
@@ -65,4 +66,4 @@ export type {
 } from "./host/types.js"
 
 export { GpuixRenderer } from "@gpuix/native"
-export type { EventPayload, WindowOptions } from "@gpuix/native"
+export type { WindowOptions } from "@gpuix/native"
