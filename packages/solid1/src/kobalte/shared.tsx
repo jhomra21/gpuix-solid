@@ -14,6 +14,10 @@ export type NativeComponentProps = Omit<OptionalUndefined<HostProps>, "children"
   classList?: NativeClassList | undefined
   disabled?: boolean | undefined
   testId?: string | undefined
+  variant?: string | undefined
+  size?: string | undefined
+  "aria-label"?: string | undefined
+  "aria-pressed"?: boolean | undefined
 }
 
 export type FloatingSide = "top" | "right" | "bottom" | "left"
