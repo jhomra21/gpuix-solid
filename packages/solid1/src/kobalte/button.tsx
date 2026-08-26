@@ -1,4 +1,4 @@
-import type { JSX } from "solid-js"
+import { createMemo, type JSX } from "solid-js"
 import type { EventPayload } from "@gpuix/native"
 import type { StyleDesc } from "../host/types.js"
 import type { PolymorphicProps } from "./polymorphic.js"
@@ -12,9 +12,18 @@ export interface ButtonRootProps<T = "button"> extends NativeComponentProps {
 }
 
 export function Root<T = "button">(props: PolymorphicProps<T, ButtonRootProps<T>>): JSX.Element {
+  // Solid's compiled component spreads may expose lazy getters whose first read
+  // creates an internal memo. Prime the interaction-facing values while this
+  // component is owned so native events never instantiate those computations
+  // later, outside the render owner.
+  const disabled = createMemo(() => props.disabled)
+  const onClick = createMemo(() => props.onClick)
+  const onPress = createMemo(() => props.onPress)
+  const onKeyDown = createMemo(() => props.onKeyDown)
+
   const style = (): StyleDesc => mergeStyle(triggerBaseStyle, {
-    opacity: props.disabled ? 0.5 : 1,
-    pointerEvents: props.disabled ? "none" : "auto",
+    opacity: disabled() ? 0.5 : 1,
+    pointerEvents: disabled() ? "none" : "auto",
   })
 
   return (
@@ -23,16 +32,16 @@ export function Root<T = "button">(props: PolymorphicProps<T, ButtonRootProps<T>
       className={props.className}
       classList={props.classList}
       testId={props.testId}
-      tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)}
+      tabIndex={disabled() ? undefined : (props.tabIndex ?? 0)}
       onClick={(event: EventPayload) => {
-        if (props.disabled) return
-        props.onClick?.(event)
-        props.onPress?.(event)
+        if (disabled()) return
+        onClick()?.(event)
+        onPress()?.(event)
       }}
       onKeyDown={(event: EventPayload) => {
-        if (props.disabled) return
-        props.onKeyDown?.(event)
-        if (event.key === "enter" || event.key === "space") props.onPress?.(event)
+        if (disabled()) return
+        onKeyDown()?.(event)
+        if (event.key === "enter" || event.key === "space") onPress()?.(event)
       }}
       onFocus={props.onFocus}
       onBlur={props.onBlur}
