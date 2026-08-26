@@ -14,6 +14,7 @@ function compat(file: string): string {
 }
 
 export const kobalteNativeAliases: Alias[] = [
+  { find: /^solid-js\/web$/, replacement: compat("solid-web.ts") },
   { find: /^@kobalte\/core$/, replacement: adapter("index.tsx") },
   { find: /^@kobalte\/core\/polymorphic$/, replacement: adapter("polymorphic.ts") },
   { find: /^@kobalte\/core\/button$/, replacement: adapter("button.tsx") },
@@ -26,6 +27,8 @@ export const kobalteNativeAliases: Alias[] = [
   { find: /^@kobalte\/core\/context-menu$/, replacement: adapter("context-menu.tsx") },
   { find: /^@kobalte\/core\/menubar$/, replacement: adapter("menubar.tsx") },
   { find: /^@daw-browser\/shared$/, replacement: compat("daw-browser-shared.ts") },
+  { find: /^~\/hooks\/useTransportTempoController$/, replacement: compat("useTransportTempoController.ts") },
+  { find: /^~\/lib\/project-save-status$/, replacement: compat("project-save-status.ts") },
   { find: /^~\/lib\/timeline-storage$/, replacement: compat("timeline-storage.ts") },
   { find: /^~\/lib\/timeline-utils$/, replacement: compat("timeline-utils.ts") },
   { find: /^~\//, replacement: `${fileURLToPath(upstreamRoot)}/` },
