@@ -81,9 +81,10 @@ export class MutationDriver {
 
   enqueue(name: string, ...args: MutationValue[]): void {
     if (this.#disposed) throw new Error("GPUix Solid mutation driver is disposed")
-    if (name === "setStyle") {
-      const style = parseStyleMutation(args[1])
-      if (style) args[1] = normalizeStyleMutation(style)
+    if (name === "setStyle" && isObjectValue(args[1]) && !Array.isArray(args[1])) {
+      // SAFETY: setStyle is only enqueued with the renderer-owned StyleDesc object; this boundary widens numeric fields solely to accept CSS unit strings before native serialization.
+      const style = args[1] as StyleMutationInput
+      args[1] = normalizeStyleMutation(style)
     }
     this.#queue.push([name, ...args])
     this.#schedule()
@@ -182,12 +183,6 @@ function callMutation(renderer: NativeRenderer, name: string, args: MutationValu
   }
 }
 
-function parseStyleMutation(value: MutationValue | undefined): StyleMutationInput | undefined {
-  if (!isObjectValue(value) || Array.isArray(value)) return undefined
-  // SAFETY: setStyle is only enqueued with the renderer-owned StyleDesc object; this parser widens numeric fields solely to accept CSS unit strings at the native boundary.
-  return value as StyleMutationInput
-}
-
 function normalizeStyleMutation(style: StyleMutationInput): StyleDesc {
   return {
     ...style,
@@ -240,14 +235,14 @@ function normalizeStyleMutation(style: StyleMutationInput): StyleDesc {
 
 function normalizeNumberStyle(value: number | string | undefined, property: NumberStyleKey): number | undefined {
   if (value === undefined) return undefined
-  if (typeof value === "number") return value
+  if (isNumberValue(value)) return value
   const normalized = parseNumericCssValue(value)
   if (normalized !== undefined) return normalized
   throw new TypeError(`Unsupported numeric inline style ${property}: ${JSON.stringify(value)}`)
 }
 
 function normalizeDimensionStyle(value: DimensionValue | undefined): DimensionValue | undefined {
-  if (value === undefined || typeof value === "number") return value
+  if (value === undefined || isNumberValue(value)) return value
   return parseNumericCssValue(value) ?? value
 }
 
