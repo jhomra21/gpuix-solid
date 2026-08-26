@@ -18,6 +18,11 @@ const nativeTextTransforms = new Map([
 
 const explicitlyIgnored = new Map([
   ["active:scale-97", "@gpuix/native@0.4.0 has no transform/scale StyleDesc field"],
+  ["-translate-y-1/2", "@gpuix/native@0.4.0 has no transform/translate StyleDesc field"],
+  ["top-1/2", "published native positioned offsets are numeric pixels; this visual centering helper depends on the paired unsupported translate transform"],
+  ["group", "Tailwind group is a relationship-state marker and has no direct painted native style"],
+  ["group-hover:bg-sky-500/20", "group relationship hover styling is not exposed by @gpuix/native@0.4.0"],
+  ["group-active:bg-sky-500/20", "group relationship active styling is not exposed by @gpuix/native@0.4.0"],
   ["!transition-transform", "native StyleDesc transitions are not published in @gpuix/native@0.4.0"],
   ["!duration-150", "native StyleDesc transitions are not published in @gpuix/native@0.4.0"],
   ["transition-colors", "native StyleDesc transitions are not published in @gpuix/native@0.4.0"],
@@ -42,6 +47,7 @@ const explicitlyIgnored = new Map([
   ["peer-disabled:opacity-70", "peer variants require native relationship-state styling"],
   ["leading-none", "relative line-height needs merged font-size context before it can be represented exactly"],
   ["aspect-square", "the copied avatar already supplies equal native width and height through size utilities"],
+  ["z-40", "published native StyleDesc has no z-index; retained-tree/layer order owns stacking"],
   ["z-50", "native anchored-layer priority owns popup stacking"],
   ["w-fit", "native floating content uses intrinsic sizing instead of CSS fit-content"],
   ["shadow-md", "boxShadow exists upstream but is not published in @gpuix/native@0.4.0"],
@@ -279,7 +285,7 @@ function mapDeclaration(style, property, rawValue, candidate) {
     case "margin-right": style.marginRight = lengthValue(value, property, candidate); return
     case "margin-bottom": style.marginBottom = lengthValue(value, property, candidate); return
     case "margin-left": style.marginLeft = lengthValue(value, property, candidate); return
-    case "position": style.position = value; return
+    case "position": style.position = value === "fixed" ? "absolute" : value; return
     case "top": style.top = lengthValue(value, property, candidate); return
     case "right": style.right = lengthValue(value, property, candidate); return
     case "bottom": style.bottom = lengthValue(value, property, candidate); return
