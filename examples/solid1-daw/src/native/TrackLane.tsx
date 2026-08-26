@@ -9,6 +9,7 @@ export interface TrackLaneProps {
   track: NativeTrack
   selectedClipId: string
   pixelsPerSecond: number
+  bpm: number
   gridEnabled: boolean
   onSelectClip: (trackId: string, clipId: string) => void
   onClipMouseDown: (trackId: string, clipId: string, event: EventPayload) => void
@@ -76,7 +77,7 @@ const TrackLane = (props: TrackLaneProps): JSX.Element => (
       onRetryMedia={() => {}}
       onReplaceMedia={() => {}}
       onRemoveMissingMedia={() => {}}
-      bpm={120}
+      bpm={props.bpm}
       pixelsPerSecond={props.pixelsPerSecond}
       viewportRedrawVersion={0}
       canEditClipFades={() => false}
