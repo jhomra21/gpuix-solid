@@ -1,3 +1,9 @@
+export type ClipVisualColors = {
+  backgroundColor: string
+  borderColor: string
+  opacity?: number
+}
+
 export function resolveClipColor(
   color: string | undefined,
   tokens: Readonly<Record<string, string>>,
@@ -9,10 +15,11 @@ export function createClipVisualColors(
   color: string,
   selected: boolean,
   ghost: boolean,
-): { backgroundColor: string; borderColor: string; opacity?: number } {
-  return {
+): ClipVisualColors {
+  const visual: ClipVisualColors = {
     backgroundColor: color,
     borderColor: selected ? "#60a5fa" : color,
-    ...(ghost ? { opacity: 0.65 } : {}),
   }
+  if (ghost) visual.opacity = 0.65
+  return visual
 }
