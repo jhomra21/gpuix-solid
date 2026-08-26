@@ -3,6 +3,7 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { compile } from "@tailwindcss/node"
 import postcss from "postcss"
+import * as ts from "typescript"
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const themePath = path.join(projectRoot, "src/native-theme.css")
@@ -123,18 +124,56 @@ console.log(`DAW native Tailwind manifest: ${Object.keys(classes).length} classe
 
 function collectCandidates(sources) {
   const candidates = new Set()
-  const stringPattern = /(["'`])((?:\\.|(?!\1)[\s\S])*?)\1/g
 
-  for (const { text } of sources) {
-    for (const match of text.matchAll(stringPattern)) {
-      for (const token of match[2].split(/\s+/)) {
-        const candidate = token.trim()
-        if (candidate) candidates.add(candidate)
+  for (const { sourcePath, text } of sources) {
+    const scriptKind = sourcePath.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS
+    const sourceFile = ts.createSourceFile(sourcePath, text, ts.ScriptTarget.Latest, true, scriptKind)
+
+    const visit = (node) => {
+      if (ts.isJsxAttribute(node) && (node.name.text === "class" || node.name.text === "className")) {
+        collectClassExpression(node.initializer, candidates)
+        return
       }
+
+      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "cva") {
+        for (const argument of node.arguments) collectClassExpression(argument, candidates)
+        return
+      }
+
+      ts.forEachChild(node, visit)
     }
+
+    visit(sourceFile)
   }
 
   return [...candidates].sort()
+}
+
+function collectClassExpression(node, candidates) {
+  if (!node) return
+
+  if (ts.isStringLiteralLike(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+    addClassString(node.text, candidates)
+    return
+  }
+
+  if (ts.isTemplateExpression(node)) {
+    addClassString(node.head.text, candidates)
+    for (const span of node.templateSpans) {
+      collectClassExpression(span.expression, candidates)
+      addClassString(span.literal.text, candidates)
+    }
+    return
+  }
+
+  ts.forEachChild(node, (child) => collectClassExpression(child, candidates))
+}
+
+function addClassString(value, candidates) {
+  for (const token of value.split(/\s+/)) {
+    const candidate = token.trim()
+    if (candidate) candidates.add(candidate)
+  }
 }
 
 function collectThemeVariables(rootNode) {
