@@ -1,9 +1,10 @@
-import { For, Show, type JSX } from "solid-js"
+import { createMemo, For, Show, type JSX } from "solid-js"
 import type { EventPayload } from "@jhomra21/gpuix-solid1"
-import UpstreamArrangementOverview from "../upstream/components/timeline/ArrangementOverview"
 import UpstreamTimelineRuler from "../upstream/components/timeline/TimelineRuler"
 import type { RuntimeClip, Track } from "../compat/timeline-core-types"
+import { timelineDurationSec } from "../compat/timeline-utils"
 import { TimelineLeftBrowser, type TimelineLeftBrowserProps } from "./TimelineLeftBrowser"
+import ArrangementOverview from "./ArrangementOverview"
 import TrackLane from "./TrackLane"
 import TrackSidebar, { type TrackSidebarProps } from "./TrackSidebar"
 import type { NativeTrack } from "./model"
@@ -53,14 +54,17 @@ function sourceTrack(track: NativeTrack): Track {
   }
 }
 
-const timelineDuration = (tracks: NativeTrack[]): number => Math.max(
-  12,
-  ...tracks.flatMap((track) => track.clips.map((clip) => clip.startSec + clip.duration)),
-)
-
 const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
-  const durationSec = () => timelineDuration(props.tracks)
-  const arrangementWidth = () => durationSec() * props.pixelsPerSecond
+  const durationSec = () => timelineDurationSec(props.tracks)
+  const sourceTracks = createMemo(() => props.tracks.map(sourceTrack))
+  const timelineViewportWidth = () => Math.max(
+    360,
+    layout.windowWidth - (props.browser.open ? layout.browserWidth : 0) - layout.sidebarWidth,
+  )
+  const visibleRange = () => ({
+    startSec: 0,
+    endSec: Math.min(durationSec(), timelineViewportWidth() / props.pixelsPerSecond),
+  })
 
   return (
     <div testId="timeline-workspace" style={{ flexGrow: 1, minHeight: 0, display: "flex", backgroundColor: dawTheme.timelineBackground, position: "relative" }}>
@@ -69,11 +73,11 @@ const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
       <div style={{ flexGrow: 1, minWidth: 0, minHeight: 0, display: "flex", overflow: "hidden", position: "relative" }}>
         <div testId="timeline-surface" style={{ flexGrow: 1, minWidth: 0, minHeight: 0, position: "relative", overflow: "hidden", backgroundColor: dawTheme.timelineBackground }}>
           <div style={{ height: layout.overviewHeight, minHeight: layout.overviewHeight, overflow: "hidden" }}>
-            <UpstreamArrangementOverview
+            <ArrangementOverview
               durationSec={durationSec()}
-              width={arrangementWidth()}
-              tracks={props.tracks.map(sourceTrack)}
-              visibleRange={{ startSec: 0, endSec: durationSec() }}
+              width={timelineViewportWidth()}
+              tracks={sourceTracks()}
+              visibleRange={visibleRange()}
               onPreviewVisibleRange={() => {}}
               onCommitVisibleRange={() => {}}
             />
@@ -85,7 +89,7 @@ const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
               denom={props.gridDenominator}
               gridEnabled={props.gridEnabled}
               pixelsPerSecond={props.pixelsPerSecond}
-              visibleRange={{ startSec: 0, endSec: durationSec() }}
+              visibleRange={visibleRange()}
               loopEnabled={props.loopEnabled}
               loopStartSec={props.loopStartSec}
               loopEndSec={props.loopEndSec}
@@ -107,6 +111,8 @@ const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
                   pixelsPerSecond={props.pixelsPerSecond}
                   bpm={props.bpm}
                   gridEnabled={props.gridEnabled}
+                  gridDenominator={props.gridDenominator}
+                  durationSec={durationSec()}
                   onSelectClip={props.onSelectClip}
                   onClipMouseDown={props.onClipMouseDown}
                 />
