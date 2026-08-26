@@ -34,19 +34,7 @@ type SemanticDomProps = DomCompatibleProps<HostProps, SolidJSX.HTMLAttributes<HT
   "aria-hidden"?: string | boolean | undefined
 }
 
-type InlineSvgProps = JSXProps<SvgProps> & {
-  xmlns?: string | undefined
-  viewBox?: string | undefined
-  width?: string | number | undefined
-  height?: string | number | undefined
-  fill?: string | undefined
-  stroke?: string | undefined
-  "stroke-width"?: string | number | undefined
-  preserveAspectRatio?: string | undefined
-  role?: string | undefined
-  "aria-label"?: string | undefined
-  "aria-hidden"?: string | boolean | undefined
-}
+type InlineSvgProps = JSXProps<SvgProps> | SolidJSX.SvgSVGAttributes<SVGSVGElement>
 
 type InlineSvgChildProps = NativeClassProps & {
   children?: SolidJSX.Element | SolidJSX.Element[] | undefined
