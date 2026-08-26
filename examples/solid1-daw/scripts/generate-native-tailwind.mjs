@@ -404,7 +404,7 @@ function mapDeclaration(style, property, rawValue, candidate) {
     case "overflow-y": style.overflowY = value; return
     case "background-color": style.backgroundColor = colorValue(value, property, candidate); return
     case "color": style.color = colorValue(value, property, candidate); return
-    case "opacity": style.opacity = numberValue(value, property, candidate); return
+    case "opacity": style.opacity = opacityValue(value, candidate); return
     case "border-width": style.borderWidth = lengthValue(value, property, candidate); return
     case "border-top-width": style.borderTopWidth = lengthValue(value, property, candidate); return
     case "border-right-width": style.borderRightWidth = lengthValue(value, property, candidate); return
@@ -588,6 +588,19 @@ function colorValue(value, property, candidate) {
   if (/^color-mix\(/i.test(value)) return value
   if (/^rgb\(/i.test(value)) return value
   throw new Error(`Unsupported ${property} color from ${JSON.stringify(candidate)}: ${value}`)
+}
+
+function opacityValue(value, candidate) {
+  if (value.endsWith("%")) {
+    const percentage = Number(value.slice(0, -1))
+    if (!Number.isFinite(percentage) || percentage < 0 || percentage > 100) {
+      throw new Error(`Unsupported opacity percentage from ${JSON.stringify(candidate)}: ${value}`)
+    }
+    return percentage / 100
+  }
+  const opacity = numberValue(value, "opacity", candidate)
+  if (opacity < 0 || opacity > 1) throw new Error(`Unsupported opacity number from ${JSON.stringify(candidate)}: ${value}`)
+  return opacity
 }
 
 function numberValue(value, property, candidate) {
