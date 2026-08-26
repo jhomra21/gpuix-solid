@@ -92,9 +92,8 @@ export default function Timeline(): JSX.Element {
     setSelectedClipId(clipId)
   }
 
-  const beginClipDrag = (trackId: string, clipId: string, event: EventPayload): void => {
-    if (event.button !== undefined && event.button !== 0) return
-    if (event.x === undefined || event.y === undefined) return
+  const beginClipDrag = (trackId: string, clipId: string, event: PointerEvent): void => {
+    if (event.button !== 0) return
     const currentTracks = tracks()
     const sourceTrackIndex = currentTracks.findIndex((track) => track.id === trackId)
     const clip = currentTracks[sourceTrackIndex]?.clips.find((entry) => entry.id === clipId)
@@ -104,8 +103,8 @@ export default function Timeline(): JSX.Element {
       clipId,
       sourceTrackId: trackId,
       startTrackIndex: sourceTrackIndex,
-      startX: event.x,
-      startY: event.y,
+      startX: event.clientX,
+      startY: event.clientY,
       startSec: clip.startSec,
     })
   }
