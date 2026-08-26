@@ -421,8 +421,17 @@ function mapDeclaration(style, property, rawValue, candidate) {
       style.borderBottomWidth = width
       return
     }
-    case "border-inline-style": return
-    case "border-block-style": return
+    case "border-style":
+    case "border-top-style":
+    case "border-right-style":
+    case "border-bottom-style":
+    case "border-left-style":
+      if (value === "solid") return
+      throw new Error(`Unsupported ${property} from ${JSON.stringify(candidate)}: ${value}`)
+    case "border-inline-style":
+    case "border-block-style":
+      if (value === "solid") return
+      throw new Error(`Unsupported ${property} from ${JSON.stringify(candidate)}: ${value}`)
     case "border-color": style.borderColor = colorValue(value, property, candidate); return
     case "border-top-color": style.borderTopColor = colorValue(value, property, candidate); return
     case "border-right-color": style.borderRightColor = colorValue(value, property, candidate); return
