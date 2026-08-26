@@ -29,6 +29,7 @@ const nativeCompatEntries = new Map([
   ["justify-self-end", { base: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, justifyContent: "flex-end" } }],
   ["grid-cols-1", { base: { gridTemplateColumns: 1 } }],
   ["space-y-0.5", { base: { gap: 2 } }],
+  ["rounded-full", { base: { borderRadius: 9999 } }],
   // Browser resize handle: parent is 8px wide and the rail is 4px wide, so
   // CSS right:50% + translateX(50%) is exactly a 2px right inset natively.
   ["right-1/2", { base: { right: 2 } }],
