@@ -509,6 +509,11 @@ function lengthValue(value, property, candidate) {
   if (px) return Number(px[1])
   const rem = value.match(/^(-?\d+(?:\.\d+)?)rem$/)
   if (rem) return Number(rem[1]) * 16
+  const product = value.match(/^calc\(\s*(-?\d+(?:\.\d+)?)(px|rem)\s*\*\s*(-?\d+(?:\.\d+)?)\s*\)$/)
+  if (product) {
+    const amount = Number(product[1]) * Number(product[3])
+    return product[2] === "rem" ? amount * 16 : amount
+  }
   throw new Error(`Unsupported ${property} length from ${JSON.stringify(candidate)}: ${value}`)
 }
 
@@ -537,7 +542,27 @@ function numberOrStringValue(value) {
 }
 
 function splitCssValue(value) {
-  return value.trim().split(/\s+/)
+  const parts = []
+  let current = ""
+  let depth = 0
+
+  for (const character of value.trim()) {
+    if (character === "(") depth += 1
+    else if (character === ")") depth -= 1
+
+    if (/\s/.test(character) && depth === 0) {
+      if (current) {
+        parts.push(current)
+        current = ""
+      }
+      continue
+    }
+    current += character
+  }
+
+  if (current) parts.push(current)
+  if (depth !== 0) throw new Error(`Unbalanced CSS value: ${value}`)
+  return parts
 }
 
 function escapeCssIdentifier(value) {
