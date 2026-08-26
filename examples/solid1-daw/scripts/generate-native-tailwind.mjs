@@ -699,5 +699,5 @@ function splitCssValue(value) {
 }
 
 function escapeCssIdentifier(value) {
-  return value.replace(/[^a-zA-Z0-9_-]/g, (character) => `\\${character.charCodeAt(0).toString(16)} `)
+  return value.replace(/[^a-zA-Z0-9_-]/g, (character) => `\\${character}`)
 }
