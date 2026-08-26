@@ -218,6 +218,7 @@ export default function Timeline(): JSX.Element {
         open={bottomPanelOpen()}
         activeTab={bottomTab()}
         heightPx={layout.bottomPanelHeight}
+        projectBpm={bpm()}
         onOpen={() => setBottomPanelOpen(true)}
         onClose={() => setBottomPanelOpen(false)}
         onEffectsTabClick={() => { setBottomTab("effects"); setBottomPanelOpen(true) }}
