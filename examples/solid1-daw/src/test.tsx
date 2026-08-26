@@ -74,6 +74,13 @@ if (!hasNativeTestRenderer) {
   requireCondition(sidebarBounds.x > timelineBounds.x, "TrackSidebar must be right of the arrangement like upstream TimelineWorkspace")
   const laneBounds = app.renderer.boundsTestId("lane-synth")
   requireCondition(laneBounds.height >= 92, `timeline lane should preserve ~96px upstream height, got ${laneBounds.height}`)
+  const overviewClipStyle = app.renderer.styleTestId("overview-clip-drums-a")
+  requireCondition(
+    overviewClipStyle.backgroundColor === "#00a76c",
+    `arrangement overview should preserve source clip colors instead of SVG tinting, got ${JSON.stringify(overviewClipStyle.backgroundColor)}`,
+  )
+  const overviewClipBounds = app.renderer.boundsTestId("overview-clip-drums-a")
+  requireCondition(overviewClipBounds.width > 50, `30s source overview should retain a visible Drum Loop 01 block, got ${overviewClipBounds.width}`)
   const bottomBounds = app.renderer.boundsTestId("bottom-panel")
   requireCondition(bottomBounds.height >= 385, `bottom panel footprint should preserve 360px body + footer/padding, got ${bottomBounds.height}`)
   const compressorBounds = app.renderer.boundsTestId("compressor-device")
@@ -96,7 +103,7 @@ if (!hasNativeTestRenderer) {
   requireCondition(app.renderer.hasTestId("Toggle metronome"), "source metronome aria label should reach the native host")
   requireCondition(app.renderer.hasTestId("Toggle loop region"), "source loop aria label should reach the native host")
   requireCondition(app.renderer.hasTestId("Toggle snap to grid"), "source grid aria label should reach the native host")
-  requireText(app.renderer.textContent("daw-showcase"), "1/16", "upstream grid resolution")
+  requireText(app.renderer.textContent("daw-showcase"), "1/4", "upstream default grid resolution")
   requireCondition(!app.renderer.textContent("daw-showcase").includes("1/32"), "native fixture must not invent a 1/32 grid option absent upstream")
 
   app.renderer.clickTestId("Play")
