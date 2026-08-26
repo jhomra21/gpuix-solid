@@ -8,7 +8,7 @@ import ArrangementOverview from "./ArrangementOverview"
 import TrackLane from "./TrackLane"
 import TrackSidebar, { type TrackSidebarProps } from "./TrackSidebar"
 import type { NativeTrack } from "./model"
-import { dawTheme, layout, textXs } from "./theme"
+import { dawTheme, layout } from "./theme"
 
 export interface TimelineWorkspaceProps {
   browser: TimelineLeftBrowserProps
@@ -118,9 +118,6 @@ const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
                 />
               )}
             </For>
-            <div style={{ minHeight: 58, backgroundColor: dawTheme.timelineBackground, borderWidth: 1, borderColor: dawTheme.timelineSurfaceMuted }}>
-              <text style={{ ...textXs, margin: 8, color: dawTheme.mutedForeground }}>Drop files here to create a new track</text>
-            </div>
           </div>
 
           <div style={{ position: "absolute", left: props.playheadSec * props.pixelsPerSecond, top: layout.headerHeight, bottom: 0, width: 1, backgroundColor: dawTheme.timelinePlayhead, pointerEvents: "none" }} />
