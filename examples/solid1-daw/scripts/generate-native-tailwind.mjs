@@ -114,6 +114,7 @@ const explicitlyIgnored = new Map([
   ["w-max", "native floating content uses intrinsic sizing; @gpuix/native@0.4.0 dimensions do not accept CSS max-content"],
   ["shadow-md", "boxShadow exists upstream but is not published in @gpuix/native@0.4.0"],
   ["shadow-lg", "boxShadow exists upstream but is not published in @gpuix/native@0.4.0"],
+  ["ml-auto", "@gpuix/native@0.4.0 exposes numeric margins only; CSS auto main-axis margins are unavailable"],
 ])
 
 const themeCss = await readFile(themePath, "utf8")
