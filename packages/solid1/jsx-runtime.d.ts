@@ -149,8 +149,8 @@ export namespace JSX {
     desc: InlineSvgChildProps
     use: InlineSvgChildProps
     canvas: JSXProps<HostProps>
-    input: JSXProps<InputProps>
-    textarea: JSXProps<TextareaProps>
+    input: DomCompatibleProps<InputProps, SolidJSX.InputHTMLAttributes<HTMLInputElement>>
+    textarea: DomCompatibleProps<TextareaProps, SolidJSX.TextareaHTMLAttributes<HTMLTextAreaElement>>
     anchored: JSXProps<AnchoredProps>
     code: JSXProps<CodeProps>
     diff: JSXProps<DiffProps>
