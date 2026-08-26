@@ -228,6 +228,9 @@ function normalizeStyleMutation(style: StyleMutationInput): StyleDesc {
     fontSize: normalizeNumberStyle(style.fontSize, "fontSize"),
     lineHeight: normalizeNumberStyle(style.lineHeight, "lineHeight"),
     lineClamp: normalizeNumberStyle(style.lineClamp, "lineClamp"),
+    overflow: normalizeOverflowStyle(style.overflow),
+    overflowX: normalizeOverflowStyle(style.overflowX),
+    overflowY: normalizeOverflowStyle(style.overflowY),
     hover: style.hover ? normalizeStyleMutation(style.hover) : undefined,
     active: style.active ? normalizeStyleMutation(style.active) : undefined,
   }
@@ -246,6 +249,10 @@ function normalizeNumberStyle(value: number | string | undefined, property: Numb
 function normalizeDimensionStyle(value: DimensionValue | undefined): DimensionValue | undefined {
   if (value === undefined || isNumberValue(value)) return value
   return parseNumericCssValue(value) ?? value
+}
+
+function normalizeOverflowStyle(value: string | undefined): string | undefined {
+  return value === "auto" ? "scroll" : value
 }
 
 function parseNumericCssValue(value: string): number | undefined {
