@@ -17,6 +17,7 @@
       "~/lib/timeline-storage": ["src/compat/timeline-storage.ts"],
       "~/lib/timeline-track-layout": ["src/compat/timeline-track-layout.ts"],
       "~/lib/timeline-utils": ["src/compat/timeline-utils.ts"],
+      "~/lib/timeline-view": ["src/compat/timeline-view.ts"],
       "~/*": ["src/upstream/*"],
       "@daw-browser/shared": ["src/compat/daw-browser-shared.ts"],
       "@daw-browser/timeline-core/types": ["src/compat/timeline-core-types.ts"],
