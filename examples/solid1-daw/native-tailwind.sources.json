@@ -5,5 +5,6 @@
   "src/upstream/components/ui/text-field.tsx",
   "src/upstream/components/ui/tooltip.tsx",
   "src/upstream/components/timeline/TimelineBottomPanelFooter.tsx",
+  "src/upstream/components/timeline/TimelineBottomPanelShell.tsx",
   "src/upstream/components/timeline/local-save-failure-banner.tsx"
 ]
