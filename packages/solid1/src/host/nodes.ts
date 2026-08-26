@@ -1,4 +1,4 @@
-import { EVENT_PROP_TO_TYPE, type EventRegistry } from "./events.js"
+import { EVENT_PROP_TO_TYPE, type DomCompatTarget, type EventRegistry } from "./events.js"
 import type { MutationDriver, MutationValue } from "./mutations.js"
 import type {
   ElementType,
@@ -34,7 +34,7 @@ export class HostRootNode {
   }
 }
 
-export class HostElementNode implements PublicInstance {
+export class HostElementNode implements PublicInstance, DomCompatTarget {
   readonly kind = "element" as const
   readonly type: ElementType
   readonly children: HostNode[] = []
@@ -45,10 +45,23 @@ export class HostElementNode implements PublicInstance {
   style: StyleDesc = {}
   readonly props = new Map<string, MutationValue>()
   readonly events = new Map<string, HostEventHandler>()
+  readonly classList = {
+    add: (..._tokens: string[]): void => undefined,
+    remove: (..._tokens: string[]): void => undefined,
+  }
   readonly #capturedPointers = new Set<number>()
 
   constructor(type: ElementType) {
     this.type = type
+  }
+
+  get value(): string {
+    const value = this.props.get("value")
+    return value === null || value === undefined ? "" : String(value)
+  }
+
+  set value(value: string) {
+    setHostProperty(this, "value", value)
   }
 
   focus(): void {
@@ -99,6 +112,10 @@ export class HostElementNode implements PublicInstance {
     return this.#capturedPointers.has(pointerId)
   }
 
+  closest(_selector: string): HostElementNode | null {
+    return null
+  }
+
   getBoundingClientRect(): {
     x: number
     y: number
@@ -137,6 +154,8 @@ export class HostElementNode implements PublicInstance {
     root.driver.renderer.scrollTo?.(this.id, -Math.max(0, left), -Math.max(0, top))
   }
 }
+
+installDomConstructors()
 
 export class HostTextNode {
   readonly kind = "text" as const
@@ -286,6 +305,7 @@ function adopt(root: HostRootNode, node: HostNode): void {
   if (node.kind === "text") {
     root.driver.enqueue("setText", node.id, node.text)
   } else {
+    root.events.setTarget(node.id, node)
     if (Object.keys(node.style).length > 0) {
       root.driver.enqueue("setStyle", node.id, node.style)
     }
@@ -370,6 +390,11 @@ function domBounds(x: number, y: number, width: number, height: number) {
 
 function emptyBounds() {
   return domBounds(0, 0, 0, 0)
+}
+
+function installDomConstructors(): void {
+  if (Reflect.get(globalThis, "Element") === undefined) Reflect.set(globalThis, "Element", HostElementNode)
+  if (Reflect.get(globalThis, "HTMLElement") === undefined) Reflect.set(globalThis, "HTMLElement", HostElementNode)
 }
 
 function isElementType(value: string): value is ElementType {
