@@ -364,6 +364,7 @@ function mapDeclaration(style, property, rawValue, candidate) {
     case "justify-content": style.justifyContent = value; return
     case "flex-direction": style.flexDirection = value; return
     case "flex-wrap": style.flexWrap = value; return
+    case "flex": applyFlexShorthand(style, value, candidate); return
     case "flex-grow": style.flexGrow = numberValue(value, property, candidate); return
     case "flex-shrink": style.flexShrink = numberValue(value, property, candidate); return
     case "flex-basis": style.flexBasis = lengthValue(value, property, candidate); return
@@ -473,6 +474,54 @@ function mapDeclaration(style, property, rawValue, candidate) {
   }
 }
 
+function applyFlexShorthand(style, value, candidate) {
+  if (value === "none") {
+    style.flexGrow = 0
+    style.flexShrink = 0
+    style.flexBasis = "auto"
+    return
+  }
+  if (value === "auto") {
+    style.flexGrow = 1
+    style.flexShrink = 1
+    style.flexBasis = "auto"
+    return
+  }
+  if (value === "initial") {
+    style.flexGrow = 0
+    style.flexShrink = 1
+    style.flexBasis = "auto"
+    return
+  }
+
+  const parts = splitCssValue(value)
+  if (parts.length === 1) {
+    style.flexGrow = numberValue(parts[0], "flex-grow", candidate)
+    style.flexShrink = 1
+    style.flexBasis = 0
+    return
+  }
+  if (parts.length === 2) {
+    style.flexGrow = numberValue(parts[0], "flex-grow", candidate)
+    const secondNumber = Number(parts[1])
+    if (Number.isFinite(secondNumber)) {
+      style.flexShrink = secondNumber
+      style.flexBasis = 0
+    } else {
+      style.flexShrink = 1
+      style.flexBasis = lengthValue(parts[1], "flex-basis", candidate)
+    }
+    return
+  }
+  if (parts.length === 3) {
+    style.flexGrow = numberValue(parts[0], "flex-grow", candidate)
+    style.flexShrink = numberValue(parts[1], "flex-shrink", candidate)
+    style.flexBasis = lengthValue(parts[2], "flex-basis", candidate)
+    return
+  }
+  throw new Error(`Unsupported flex shorthand from ${JSON.stringify(candidate)}: ${value}`)
+}
+
 function applyBoxShorthand(style, prefix, value, candidate) {
   const parts = splitCssValue(value)
   if (parts.length < 1 || parts.length > 4) throw new Error(`Unsupported ${prefix} shorthand for ${JSON.stringify(candidate)}: ${value}`)
@@ -511,7 +560,7 @@ function resolveCssValue(value, variables) {
 }
 
 function lengthValue(value, property, candidate) {
-  if (value === "0") return 0
+  if (value === "0" || value === "0%") return 0
   if (value === "auto") return "auto"
   if (value === "100%") return "100%"
   const px = value.match(/^(-?\d+(?:\.\d+)?)px$/)
