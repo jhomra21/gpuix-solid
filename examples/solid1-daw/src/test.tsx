@@ -76,9 +76,17 @@ if (!hasNativeTestRenderer) {
   const bottomBounds = app.renderer.boundsTestId("bottom-panel")
   requireCondition(bottomBounds.height >= 385, `bottom panel footprint should preserve 360px body + footer/padding, got ${bottomBounds.height}`)
   const compressorBounds = app.renderer.boundsTestId("compressor-device")
-  requireCondition(Math.abs(compressorBounds.width - 560) <= 1, `compressor should preserve upstream 560px shell, got ${compressorBounds.width}`)
+  const compressorStyle = app.renderer.styleTestId("compressor-device")
+  const compressorShellWidth = compressorBounds.width
+    + (compressorStyle.borderLeftWidth ?? compressorStyle.borderWidth ?? 0)
+    + (compressorStyle.borderRightWidth ?? compressorStyle.borderWidth ?? 0)
+  requireCondition(Math.abs(compressorShellWidth - 560) <= 1, `compressor should preserve upstream 560px shell, got ${compressorShellWidth}`)
   const eqBounds = app.renderer.boundsTestId("eq-device")
-  requireCondition(Math.abs(eqBounds.width - 704) <= 1, `EQ should preserve upstream 704px shell, got ${eqBounds.width}`)
+  const eqStyle = app.renderer.styleTestId("eq-device")
+  const eqShellWidth = eqBounds.width
+    + (eqStyle.borderLeftWidth ?? eqStyle.borderWidth ?? 0)
+    + (eqStyle.borderRightWidth ?? eqStyle.borderWidth ?? 0)
+  requireCondition(Math.abs(eqShellWidth - 704) <= 1, `EQ should preserve upstream 704px shell, got ${eqShellWidth}`)
 
   requireCondition(app.renderer.hasTestId("Hide browser sidebar"), "source browser toggle aria label should reach the native host")
   requireCondition(app.renderer.hasTestId("Start recording"), "source record button aria label should reach the native host")
