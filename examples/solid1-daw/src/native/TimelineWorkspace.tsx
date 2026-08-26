@@ -17,9 +17,13 @@ export interface TimelineWorkspaceProps {
   pixelsPerSecond: number
   gridEnabled: boolean
   playheadSec: number
-  bpm?: number
-  gridDenominator?: number
-  loopEnabled?: boolean
+  bpm: number
+  gridDenominator: number
+  loopEnabled: boolean
+  loopStartSec: number
+  loopEndSec: number
+  onSetLoopRegion: (startSec: number, endSec: number) => void
+  onRulerScrub: (sec: number) => void
   sidebar: Omit<TrackSidebarProps, "tracks" | "selectedTrackId">
   onSelectClip: (trackId: string, clipId: string) => void
   onClipMouseDown: (trackId: string, clipId: string, event: EventPayload) => void
@@ -72,15 +76,21 @@ const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
           <div style={{ height: layout.rulerHeight, minHeight: layout.rulerHeight, overflow: "hidden" }}>
             <UpstreamTimelineRuler
               durationSec={durationSec()}
-              bpm={props.bpm ?? 120}
-              denom={props.gridDenominator ?? 16}
+              bpm={props.bpm}
+              denom={props.gridDenominator}
               gridEnabled={props.gridEnabled}
               pixelsPerSecond={props.pixelsPerSecond}
               visibleRange={{ startSec: 0, endSec: durationSec() }}
-              loopEnabled={props.loopEnabled ?? false}
-              loopStartSec={1}
-              loopEndSec={4}
-              onPointerDown={() => {}}
+              loopEnabled={props.loopEnabled}
+              loopStartSec={props.loopStartSec}
+              loopEndSec={props.loopEndSec}
+              onSetLoopRegion={props.onSetLoopRegion}
+              onPointerDown={(event) => {
+                const rect = event.currentTarget instanceof HTMLElement
+                  ? event.currentTarget.getBoundingClientRect()
+                  : { left: 0 }
+                props.onRulerScrub(Math.max(0, Math.min(durationSec(), (event.clientX - rect.left) / props.pixelsPerSecond)))
+              }}
             />
           </div>
           <div style={{ flexGrow: 1, minHeight: 0, overflowY: "auto", position: "relative" }}>
