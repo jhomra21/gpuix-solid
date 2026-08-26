@@ -119,6 +119,7 @@ export type {
   DiffProps,
   DimensionValue,
   ElementType,
+  EventPayload,
   GpuixMetrics,
   GpuixTheme,
   HostProps,
@@ -135,4 +136,4 @@ export type {
 } from "./host/types.js"
 
 export { GpuixRenderer } from "@gpuix/native"
-export type { EventModifiers, EventPayload, WindowOptions } from "@gpuix/native"
+export type { EventModifiers, WindowOptions } from "@gpuix/native"
