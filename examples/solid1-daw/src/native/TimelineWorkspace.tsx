@@ -1,5 +1,7 @@
 import { For, Show, type JSX } from "solid-js"
 import type { EventPayload } from "@jhomra21/gpuix-solid1"
+import UpstreamArrangementOverview from "../upstream/components/timeline/ArrangementOverview"
+import type { Track } from "../compat/timeline-core-types"
 import { TimelineLeftBrowser, type TimelineLeftBrowserProps } from "./TimelineLeftBrowser"
 import TrackLane from "./TrackLane"
 import TrackSidebar, { type TrackSidebarProps } from "./TrackSidebar"
@@ -22,14 +24,25 @@ export interface TimelineWorkspaceProps {
   onDragEnd: () => void
 }
 
-const ArrangementOverview = (): JSX.Element => (
-  <div style={{ height: layout.overviewHeight, minHeight: layout.overviewHeight, position: "relative", overflow: "hidden", backgroundColor: dawTheme.timelineBackground, borderWidth: 1, borderColor: dawTheme.border }}>
-    <For each={[0,1,2,3,4,5,6,7,8,9,10,11,12]}>
-      {(index) => (
-        <div style={{ position: "absolute", left: 12 + index * 74, top: index % 3 === 0 ? 6 : 10, width: index % 3 === 0 ? 58 : 38, height: index % 3 === 0 ? 4 : 3, backgroundColor: index % 3 === 0 ? dawTheme.timelineSurfaceMuted : dawTheme.timelineGridMajor, borderRadius: 2 }} />
-      )}
-    </For>
-  </div>
+function sourceTrack(track: NativeTrack): Track {
+  return {
+    id: track.id,
+    name: track.name,
+    kind: track.kind === "midi" ? "instrument" : track.kind,
+    channelRole: track.kind === "return" ? "return" : track.kind === "group" ? "group" : "track",
+    collapsed: track.collapsed,
+    color: track.color,
+    clips: track.clips.map((clip) => ({
+      ...clip,
+      color: clip.color ?? (clip.kind === "midi" ? dawTheme.clipMidi : dawTheme.clipAudio),
+      ...(clip.kind === "midi" ? { midi: { notes: [] } } : {}),
+    })),
+  }
+}
+
+const timelineDuration = (tracks: NativeTrack[]): number => Math.max(
+  12,
+  ...tracks.flatMap((track) => track.clips.map((clip) => clip.startSec + clip.duration)),
 )
 
 const TimelineRuler = (props: { playheadSec: number; pixelsPerSecond: number }): JSX.Element => (
@@ -45,47 +58,61 @@ const TimelineRuler = (props: { playheadSec: number; pixelsPerSecond: number }):
   </div>
 )
 
-const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => (
-  <div testId="timeline-workspace" style={{ flexGrow: 1, minHeight: 0, display: "flex", backgroundColor: dawTheme.timelineBackground, position: "relative" }}>
-    <TimelineLeftBrowser {...props.browser} />
+const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
+  const durationSec = () => timelineDuration(props.tracks)
+  const arrangementWidth = () => durationSec() * props.pixelsPerSecond
 
-    <div style={{ flexGrow: 1, minWidth: 0, minHeight: 0, display: "flex", overflow: "hidden", position: "relative" }}>
-      <div testId="timeline-surface" style={{ flexGrow: 1, minWidth: 0, minHeight: 0, position: "relative", overflow: "hidden", backgroundColor: dawTheme.timelineBackground }}>
-        <ArrangementOverview />
-        <TimelineRuler playheadSec={props.playheadSec} pixelsPerSecond={props.pixelsPerSecond} />
-        <div style={{ flexGrow: 1, minHeight: 0, overflowY: "auto", position: "relative" }}>
-          <For each={props.tracks}>
-            {(track) => (
-              <TrackLane
-                track={track}
-                selectedClipId={props.selectedClipId}
-                pixelsPerSecond={props.pixelsPerSecond}
-                gridEnabled={props.gridEnabled}
-                onSelectClip={props.onSelectClip}
-                onClipMouseDown={props.onClipMouseDown}
-              />
-            )}
-          </For>
-          <div style={{ minHeight: 58, backgroundColor: dawTheme.timelineBackground, borderWidth: 1, borderColor: dawTheme.timelineSurfaceMuted }}>
-            <text style={{ ...textXs, margin: 8, color: dawTheme.mutedForeground }}>Drop files here to create a new track</text>
+  return (
+    <div testId="timeline-workspace" style={{ flexGrow: 1, minHeight: 0, display: "flex", backgroundColor: dawTheme.timelineBackground, position: "relative" }}>
+      <TimelineLeftBrowser {...props.browser} />
+
+      <div style={{ flexGrow: 1, minWidth: 0, minHeight: 0, display: "flex", overflow: "hidden", position: "relative" }}>
+        <div testId="timeline-surface" style={{ flexGrow: 1, minWidth: 0, minHeight: 0, position: "relative", overflow: "hidden", backgroundColor: dawTheme.timelineBackground }}>
+          <div style={{ height: layout.overviewHeight, minHeight: layout.overviewHeight, overflow: "hidden" }}>
+            <UpstreamArrangementOverview
+              durationSec={durationSec()}
+              width={arrangementWidth()}
+              tracks={props.tracks.map(sourceTrack)}
+              visibleRange={{ startSec: 0, endSec: durationSec() }}
+              onPreviewVisibleRange={() => {}}
+              onCommitVisibleRange={() => {}}
+            />
           </div>
+          <TimelineRuler playheadSec={props.playheadSec} pixelsPerSecond={props.pixelsPerSecond} />
+          <div style={{ flexGrow: 1, minHeight: 0, overflowY: "auto", position: "relative" }}>
+            <For each={props.tracks}>
+              {(track) => (
+                <TrackLane
+                  track={track}
+                  selectedClipId={props.selectedClipId}
+                  pixelsPerSecond={props.pixelsPerSecond}
+                  gridEnabled={props.gridEnabled}
+                  onSelectClip={props.onSelectClip}
+                  onClipMouseDown={props.onClipMouseDown}
+                />
+              )}
+            </For>
+            <div style={{ minHeight: 58, backgroundColor: dawTheme.timelineBackground, borderWidth: 1, borderColor: dawTheme.timelineSurfaceMuted }}>
+              <text style={{ ...textXs, margin: 8, color: dawTheme.mutedForeground }}>Drop files here to create a new track</text>
+            </div>
+          </div>
+
+          <div style={{ position: "absolute", left: props.playheadSec * props.pixelsPerSecond, top: layout.headerHeight, bottom: 0, width: 1, backgroundColor: dawTheme.timelinePlayhead, pointerEvents: "none" }} />
         </div>
 
-        <div style={{ position: "absolute", left: props.playheadSec * props.pixelsPerSecond, top: layout.headerHeight, bottom: 0, width: 1, backgroundColor: dawTheme.timelinePlayhead, pointerEvents: "none" }} />
+        <TrackSidebar tracks={props.tracks} selectedTrackId={props.selectedTrackId} {...props.sidebar} />
       </div>
 
-      <TrackSidebar tracks={props.tracks} selectedTrackId={props.selectedTrackId} {...props.sidebar} />
+      <Show when={props.dragging}>
+        <div
+          testId="timeline-drag-layer"
+          onMouseMove={props.onDragMove}
+          onMouseUp={props.onDragEnd}
+          style={{ position: "absolute", top: layout.headerHeight, right: layout.sidebarWidth, bottom: 0, left: props.browser.open ? layout.browserWidth : 0, backgroundColor: "#00000001", cursor: "grabbing" }}
+        />
+      </Show>
     </div>
-
-    <Show when={props.dragging}>
-      <div
-        testId="timeline-drag-layer"
-        onMouseMove={props.onDragMove}
-        onMouseUp={props.onDragEnd}
-        style={{ position: "absolute", top: layout.headerHeight, right: layout.sidebarWidth, bottom: 0, left: props.browser.open ? layout.browserWidth : 0, backgroundColor: "#00000001", cursor: "grabbing" }}
-      />
-    </Show>
-  </div>
-)
+  )
+}
 
 export default TimelineWorkspace
