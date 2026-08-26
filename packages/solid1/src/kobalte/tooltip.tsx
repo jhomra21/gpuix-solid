@@ -123,7 +123,7 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, TooltipTriggerP
       class={props.class}
       className={props.className}
       classList={props.classList}
-      testId={props.testId}
+      testId={props.testId ?? props["aria-label"]}
       tabIndex={props.tabIndex ?? 0}
       onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); context.scheduleOpen() }}
       onMouseLeave={(event: EventPayload) => { props.onMouseLeave?.(event); context.scheduleClose() }}
