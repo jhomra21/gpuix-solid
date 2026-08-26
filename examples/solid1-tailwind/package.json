@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "generate": "node scripts/generate-native-tailwind.mjs",
+    "generate": "bun scripts/generate-native-tailwind.mjs",
     "build": "bun run generate && vite build",
     "build:test": "bun run generate && vite build --config vite.test.config.ts",
     "typecheck": "bun run generate && tsc --noEmit",
