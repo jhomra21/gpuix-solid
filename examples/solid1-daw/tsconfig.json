@@ -10,6 +10,7 @@
       "solid-js/web": ["src/compat/solid-web.ts"],
       "~/hooks/useTransportTempoController": ["src/compat/useTransportTempoController.ts"],
       "~/lib/project-save-status": ["src/compat/project-save-status.ts"],
+      "~/lib/timeline-left-browser-preferences": ["src/compat/timeline-left-browser-preferences.ts"],
       "~/lib/timeline-storage": ["src/compat/timeline-storage.ts"],
       "~/lib/timeline-utils": ["src/compat/timeline-utils.ts"],
       "~/*": ["src/upstream/*"],
