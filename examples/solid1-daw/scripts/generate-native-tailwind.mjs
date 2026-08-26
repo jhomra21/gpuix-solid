@@ -447,7 +447,7 @@ function mapDeclaration(style, property, rawValue, candidate) {
     case "font-family": style.fontFamily = value; return
     case "font-size": style.fontSize = lengthValue(value, property, candidate); return
     case "font-weight": style.fontWeight = numberOrStringValue(value); return
-    case "line-height": style.lineHeight = lengthValue(value, property, candidate); return
+    case "line-height": style.lineHeight = lineHeightValue(value, style.fontSize, property, candidate); return
     case "text-align": style.textAlign = value; return
     case "white-space": style.whiteSpace = value; return
     case "text-overflow": style.textOverflow = value; return
@@ -554,11 +554,50 @@ function applyInsetShorthand(style, value, candidate) {
 function resolveCssValue(value, variables) {
   let current = value
   for (let iteration = 0; iteration < 12 && current.includes("var("); iteration++) {
-    const next = current.replace(/var\((--[\w-]+)(?:,\s*([^()]+))?\)/g, (_match, name, fallback) => variables[name] ?? fallback ?? `var(${name})`)
+    const next = resolveInnermostCssVariable(current, variables)
     if (next === current) break
     current = next
   }
   return current
+}
+
+function resolveInnermostCssVariable(value, variables) {
+  const start = value.lastIndexOf("var(")
+  if (start < 0) return value
+
+  let depth = 0
+  let end = -1
+  for (let index = start + 4; index < value.length; index++) {
+    const character = value[index]
+    if (character === "(") depth += 1
+    else if (character === ")") {
+      if (depth === 0) {
+        end = index
+        break
+      }
+      depth -= 1
+    }
+  }
+  if (end < 0) throw new Error(`Unbalanced CSS variable value: ${value}`)
+
+  const body = value.slice(start + 4, end)
+  let comma = -1
+  depth = 0
+  for (let index = 0; index < body.length; index++) {
+    const character = body[index]
+    if (character === "(") depth += 1
+    else if (character === ")") depth -= 1
+    else if (character === "," && depth === 0) {
+      comma = index
+      break
+    }
+  }
+
+  const name = (comma < 0 ? body : body.slice(0, comma)).trim()
+  const fallback = comma < 0 ? undefined : body.slice(comma + 1).trim()
+  const replacement = variables[name] ?? fallback
+  if (replacement === undefined) return value
+  return value.slice(0, start) + replacement + value.slice(end + 1)
 }
 
 function lengthValue(value, property, candidate) {
@@ -575,6 +614,27 @@ function lengthValue(value, property, candidate) {
     return product[2] === "rem" ? amount * 16 : amount
   }
   throw new Error(`Unsupported ${property} length from ${JSON.stringify(candidate)}: ${value}`)
+}
+
+function lineHeightValue(value, fontSize, property, candidate) {
+  const unitless = value.match(/^(-?\d+(?:\.\d+)?)$/)
+  if (unitless) return relativeLineHeight(Number(unitless[1]), fontSize, candidate)
+
+  const ratio = value.match(/^calc\(\s*(-?\d+(?:\.\d+)?)\s*\/\s*(-?\d+(?:\.\d+)?)\s*\)$/)
+  if (ratio) {
+    const denominator = Number(ratio[2])
+    if (denominator === 0) throw new Error(`Unsupported line-height division by zero from ${JSON.stringify(candidate)}: ${value}`)
+    return relativeLineHeight(Number(ratio[1]) / denominator, fontSize, candidate)
+  }
+
+  return lengthValue(value, property, candidate)
+}
+
+function relativeLineHeight(multiplier, fontSize, candidate) {
+  if (!Number.isFinite(multiplier) || multiplier <= 0 || !Number.isFinite(fontSize)) {
+    throw new Error(`Relative line-height from ${JSON.stringify(candidate)} requires a finite positive multiplier and font-size`)
+  }
+  return multiplier * fontSize
 }
 
 function dimensionValue(value, property, candidate) {
