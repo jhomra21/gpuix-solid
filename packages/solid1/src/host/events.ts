@@ -1,5 +1,7 @@
-import type { EventPayload } from "@gpuix/native"
-import type { HostEventHandler } from "./types.js"
+import type { EventPayload as NativeEventPayload } from "@gpuix/native"
+import type { DomCompatTarget, EventPayload, HostEventHandler } from "./types.js"
+
+export type { DomCompatTarget } from "./types.js"
 
 export const EVENT_PROPS = [
   ["onToggleFile", "toggleFile"],
@@ -35,51 +37,12 @@ export type NativeEventType = (typeof EVENT_PROPS)[number][1]
 
 export const EVENT_PROP_TO_TYPE = new Map<string, NativeEventType>(EVENT_PROPS)
 
-export type DomCompatTarget = {
-  value: string
-  scrollTop: number
-  scrollLeft: number
-  style: object
-  classList: {
-    add: (...tokens: string[]) => void
-    remove: (...tokens: string[]) => void
-  }
-  focus: () => void
-  blur: () => void
-  select: () => void
-  setPointerCapture: (pointerId: number) => void
-  releasePointerCapture: (pointerId: number) => void
-  hasPointerCapture: (pointerId: number) => boolean
-  getBoundingClientRect: () => {
-    left: number
-    top: number
-    right: number
-    bottom: number
-    width: number
-    height: number
-  }
-}
-
-type DomCompatEvent = EventPayload & {
-  currentTarget: DomCompatTarget
-  target: DomCompatTarget
-  clientX: number
-  clientY: number
-  pointerId: number
-  shiftKey: boolean
-  metaKey: boolean
-  altKey: boolean
-  ctrlKey: boolean
-  preventDefault: () => void
-  stopPropagation: () => void
-}
-
-type GlobalEventHandler = (event: DomCompatEvent) => void
+type GlobalEventHandler = (event: EventPayload) => void
 const globalListeners = new Map<string, Set<GlobalEventHandler>>()
 
 installNativeDomGlobals()
 
-function fallbackTarget(event: EventPayload): DomCompatTarget {
+function fallbackTarget(event: NativeEventPayload): DomCompatTarget {
   const x = event.x ?? 0
   const y = event.y ?? 0
   return {
@@ -108,10 +71,18 @@ function fallbackTarget(event: EventPayload): DomCompatTarget {
   }
 }
 
-function domCompatibleEvent(event: EventPayload, target: DomCompatTarget | undefined): DomCompatEvent {
+function pointerCompatibleTarget(target: DomCompatTarget): DomCompatTarget & EventTarget {
+  return Object.assign(target, {
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    dispatchEvent: () => true,
+  })
+}
+
+function domCompatibleEvent(event: NativeEventPayload, target: DomCompatTarget | undefined): EventPayload {
   const x = event.x ?? 0
   const y = event.y ?? 0
-  const currentTarget = target ?? fallbackTarget(event)
+  const currentTarget = pointerCompatibleTarget(target ?? fallbackTarget(event))
   if (event.value !== undefined) currentTarget.value = event.value
 
   return Object.assign({}, event, {
@@ -136,7 +107,7 @@ function globalEventName(eventType: string): string | undefined {
   return undefined
 }
 
-function dispatchGlobalEvent(event: DomCompatEvent): void {
+function dispatchGlobalEvent(event: EventPayload): void {
   const name = globalEventName(event.eventType)
   if (!name) return
   for (const handler of globalListeners.get(name) ?? []) handler(event)
@@ -227,7 +198,7 @@ export class EventRegistry {
     return this.#handlers.get(id)?.has(eventType) ?? false
   }
 
-  dispatch(event: EventPayload): void {
+  dispatch(event: NativeEventPayload): void {
     if (!this.#live.has(event.elementId)) return
     const domEvent = domCompatibleEvent(event, this.#targets.get(event.elementId))
     this.#handlers.get(event.elementId)?.get(event.eventType)?.(domEvent)
