@@ -2,7 +2,7 @@ import { For, Show, type JSX } from "solid-js"
 import type { EventPayload } from "@jhomra21/gpuix-solid1"
 import UpstreamArrangementOverview from "../upstream/components/timeline/ArrangementOverview"
 import UpstreamTimelineRuler from "../upstream/components/timeline/TimelineRuler"
-import type { Track } from "../compat/timeline-core-types"
+import type { RuntimeClip, Track } from "../compat/timeline-core-types"
 import { TimelineLeftBrowser, type TimelineLeftBrowserProps } from "./TimelineLeftBrowser"
 import TrackLane from "./TrackLane"
 import TrackSidebar, { type TrackSidebarProps } from "./TrackSidebar"
@@ -26,10 +26,19 @@ export interface TimelineWorkspaceProps {
   onRulerScrub: (sec: number) => void
   sidebar: Omit<TrackSidebarProps, "tracks" | "selectedTrackId">
   onSelectClip: (trackId: string, clipId: string) => void
-  onClipMouseDown: (trackId: string, clipId: string, event: EventPayload) => void
+  onClipMouseDown: (trackId: string, clipId: string, event: PointerEvent) => void
   dragging: boolean
   onDragMove: (event: EventPayload) => void
   onDragEnd: () => void
+}
+
+function sourceClip(clip: NativeTrack["clips"][number]): RuntimeClip {
+  const runtimeClip: RuntimeClip = {
+    ...clip,
+    color: clip.color ?? (clip.kind === "midi" ? dawTheme.clipMidi : dawTheme.clipAudio),
+  }
+  if (clip.kind === "midi") runtimeClip.midi = { notes: [] }
+  return runtimeClip
 }
 
 function sourceTrack(track: NativeTrack): Track {
@@ -40,11 +49,7 @@ function sourceTrack(track: NativeTrack): Track {
     channelRole: track.kind === "return" ? "return" : track.kind === "group" ? "group" : "track",
     collapsed: track.collapsed,
     color: track.color,
-    clips: track.clips.map((clip) => ({
-      ...clip,
-      color: clip.color ?? (clip.kind === "midi" ? dawTheme.clipMidi : dawTheme.clipAudio),
-      ...(clip.kind === "midi" ? { midi: { notes: [] } } : {}),
-    })),
+    clips: track.clips.map(sourceClip),
   }
 }
 
