@@ -6,13 +6,7 @@ import {
 import { DawSolid1Showcase } from "./app"
 import { nativeTailwindManifest } from "./native-tailwind.generated"
 
-configureNativeStyleManifest({
-  ...nativeTailwindManifest,
-  classes: {
-    ...nativeTailwindManifest.classes,
-    "!cursor-pointer": { base: { cursor: "pointer" } },
-  },
-})
+configureNativeStyleManifest(nativeTailwindManifest)
 setNativeStyleColorMode("dark")
 
 render(() => <DawSolid1Showcase />, {
