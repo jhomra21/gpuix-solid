@@ -267,17 +267,17 @@ type PointerCompatTarget = DomCompatTarget & EventTarget
 
 export type EventPayload = NativeEventPayload &
   Partial<Omit<PointerEvent, "currentTarget" | "target">> & {
-    currentTarget: PointerCompatTarget
-    target: PointerCompatTarget
-    clientX: number
-    clientY: number
-    pointerId: number
-    shiftKey: boolean
-    metaKey: boolean
-    altKey: boolean
-    ctrlKey: boolean
-    preventDefault: () => void
-    stopPropagation: () => void
+    currentTarget?: PointerCompatTarget
+    target?: PointerCompatTarget
+    clientX?: number
+    clientY?: number
+    pointerId?: number
+    shiftKey?: boolean
+    metaKey?: boolean
+    altKey?: boolean
+    ctrlKey?: boolean
+    preventDefault?: () => void
+    stopPropagation?: () => void
   }
 
 export type HostRef = (instance: PublicInstance) => void
