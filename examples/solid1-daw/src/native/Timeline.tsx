@@ -133,13 +133,6 @@ export default function Timeline(): JSX.Element {
     setSelectedTrackId(target.id)
   }
 
-  const cycleGrid = (): void => {
-    const current = gridDenominator()
-    if (current === 8) setGridDenominator(16)
-    else if (current === 16) setGridDenominator(32)
-    else setGridDenominator(8)
-  }
-
   return (
     <div testId="daw-showcase" style={{ width: "100%", height: "100%", minWidth: 1180, minHeight: 820, display: "flex", flexDirection: "column", backgroundColor: dawTheme.background, color: dawTheme.foreground, fontFamily: "system-ui", overflow: "hidden" }}>
       <TimelineChrome
@@ -161,7 +154,7 @@ export default function Timeline(): JSX.Element {
           gridEnabled: gridEnabled(),
           onToggleGrid: () => setGridEnabled((active) => !active),
           gridDenominator: gridDenominator(),
-          onChangeGridDenominator: cycleGrid,
+          onChangeGridDenominator: setGridDenominator,
           midiKeyboardEnabled: midiKeyboardEnabled(),
           onToggleMidiKeyboard: () => setMidiKeyboardEnabled((active) => !active),
           playheadSec: playheadSec(),
