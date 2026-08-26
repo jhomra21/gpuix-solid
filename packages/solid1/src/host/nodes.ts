@@ -130,6 +130,7 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     const root = this.root
     if (!root || !this.nativeAlive) return emptyBounds()
     root.driver.flush()
+    // SAFETY: The installed GPUIX production/test renderers expose getElementBounds; the optional capability keeps older bindings compatible.
     const renderer = root.driver.renderer as BoundsCapableRenderer
     const bounds = renderer.getElementBounds?.(this.id)
     if (!bounds || bounds.length < 4) return emptyBounds()
@@ -393,8 +394,20 @@ function emptyBounds() {
 }
 
 function installDomConstructors(): void {
-  if (Reflect.get(globalThis, "Element") === undefined) Reflect.set(globalThis, "Element", HostElementNode)
-  if (Reflect.get(globalThis, "HTMLElement") === undefined) Reflect.set(globalThis, "HTMLElement", HostElementNode)
+  if (!Object.hasOwn(globalThis, "Element")) {
+    Object.defineProperty(globalThis, "Element", {
+      configurable: true,
+      writable: true,
+      value: HostElementNode,
+    })
+  }
+  if (!Object.hasOwn(globalThis, "HTMLElement")) {
+    Object.defineProperty(globalThis, "HTMLElement", {
+      configurable: true,
+      writable: true,
+      value: HostElementNode,
+    })
+  }
 }
 
 function isElementType(value: string): value is ElementType {
