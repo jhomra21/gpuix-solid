@@ -184,7 +184,7 @@ function callMutation(renderer: NativeRenderer, name: string, args: MutationValu
 }
 
 function normalizeStyleMutation(style: StyleMutationInput): StyleDesc {
-  return {
+  const normalized = {
     ...style,
     flexGrow: normalizeNumberStyle(style.flexGrow, "flexGrow"),
     flexShrink: normalizeNumberStyle(style.flexShrink, "flexShrink"),
@@ -231,6 +231,8 @@ function normalizeStyleMutation(style: StyleMutationInput): StyleDesc {
     hover: style.hover ? normalizeStyleMutation(style.hover) : undefined,
     active: style.active ? normalizeStyleMutation(style.active) : undefined,
   }
+  // SAFETY: every widened numeric StyleMutationInput field above is converted to the corresponding StyleDesc number contract before this object crosses the native boundary; undefined optional fields are omitted by JSON serialization.
+  return normalized as StyleDesc
 }
 
 function normalizeNumberStyle(value: number | string | undefined, property: NumberStyleKey): number | undefined {
