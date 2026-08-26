@@ -1,7 +1,9 @@
 type ProjectSaveStatusInput = {
   projectId: string
   userId?: string
+  mode?: unknown
   sharedOutboxStatus?: { pending: number; failed: number } | null
+  cloudBackupStatus?: unknown
 }
 
 export function getProjectSaveStatus(input: ProjectSaveStatusInput) {
