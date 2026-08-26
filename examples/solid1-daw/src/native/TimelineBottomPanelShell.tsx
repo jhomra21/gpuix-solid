@@ -1,5 +1,9 @@
 import type { JSX } from "solid-js"
-import { dawTheme } from "./theme"
+import UpstreamTimelineBottomPanelShell from "../upstream/components/timeline/TimelineBottomPanelShell"
+import {
+  BOTTOM_PANEL_EDGE_PADDING_PX,
+  BOTTOM_PANEL_FOOTER_HEIGHT_PX,
+} from "../upstream/lib/bottom-panel-layout"
 
 export interface TimelineBottomPanelShellProps {
   heightPx: number
@@ -7,14 +11,33 @@ export interface TimelineBottomPanelShellProps {
   children: JSX.Element
 }
 
-const TimelineBottomPanelShell = (props: TimelineBottomPanelShellProps): JSX.Element => (
-  <div testId="bottom-panel" style={{ backgroundColor: dawTheme.appSurface, borderWidth: 1, borderColor: dawTheme.border, paddingBottom: 4 }}>
-    <div style={{ height: props.heightPx, minHeight: props.heightPx, position: "relative", overflow: "hidden" }}>
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 8, backgroundColor: "#00000001", cursor: "ns-resize" }} />
-      {props.children}
+const TimelineBottomPanelShell = (props: TimelineBottomPanelShellProps): JSX.Element => {
+  const controls = {
+    get heightPx(): number {
+      return props.heightPx
+    },
+    onHeightPreview(_heightPx: number): void {},
+    onHeightCommit(_heightPx: number): void {},
+  }
+
+  return (
+    <div
+      testId="bottom-panel"
+      style={{
+        position: "relative",
+        width: "100%",
+        height: props.heightPx + BOTTOM_PANEL_FOOTER_HEIGHT_PX + BOTTOM_PANEL_EDGE_PADDING_PX,
+      }}
+    >
+      <UpstreamTimelineBottomPanelShell
+        controls={controls}
+        resizeLabel="Resize bottom panel"
+        footer={props.footer}
+      >
+        {props.children}
+      </UpstreamTimelineBottomPanelShell>
     </div>
-    {props.footer}
-  </div>
-)
+  )
+}
 
 export default TimelineBottomPanelShell
