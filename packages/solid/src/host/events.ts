@@ -143,28 +143,36 @@ function dispatchGlobalEvent(event: DomCompatEvent): void {
 }
 
 function installNativeDomGlobals(): void {
-  if (Reflect.get(globalThis, "window") === undefined) {
-    Reflect.set(globalThis, "window", {
-      devicePixelRatio: 1,
-      addEventListener(type: string, handler: GlobalEventHandler) {
-        const handlers = globalListeners.get(type) ?? new Set<GlobalEventHandler>()
-        handlers.add(handler)
-        globalListeners.set(type, handlers)
-      },
-      removeEventListener(type: string, handler: GlobalEventHandler) {
-        const handlers = globalListeners.get(type)
-        handlers?.delete(handler)
-        if (handlers?.size === 0) globalListeners.delete(type)
+  if (!Object.hasOwn(globalThis, "window")) {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      writable: true,
+      value: {
+        devicePixelRatio: 1,
+        addEventListener(type: string, handler: GlobalEventHandler) {
+          const handlers = globalListeners.get(type) ?? new Set<GlobalEventHandler>()
+          handlers.add(handler)
+          globalListeners.set(type, handlers)
+        },
+        removeEventListener(type: string, handler: GlobalEventHandler) {
+          const handlers = globalListeners.get(type)
+          handlers?.delete(handler)
+          if (handlers?.size === 0) globalListeners.delete(type)
+        },
       },
     })
   }
 
-  if (Reflect.get(globalThis, "document") === undefined) {
+  if (!Object.hasOwn(globalThis, "document")) {
     const classList = {
       add: (..._tokens: string[]): void => undefined,
       remove: (..._tokens: string[]): void => undefined,
     }
-    Reflect.set(globalThis, "document", { body: { classList } })
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      writable: true,
+      value: { body: { classList } },
+    })
   }
 }
 
