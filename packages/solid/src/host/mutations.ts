@@ -5,6 +5,55 @@ export type MutationValue = string | number | boolean | object | null
 export type Mutation = readonly [name: string, ...args: MutationValue[]]
 
 const APPLY_BATCH_CUSTOM_PROP = "setCustomPropValue"
+const NUMERIC_STYLE_PROPERTIES = new Set([
+  "flexGrow",
+  "flexShrink",
+  "flexBasis",
+  "gap",
+  "rowGap",
+  "columnGap",
+  "gridTemplateColumns",
+  "gridTemplateRows",
+  "width",
+  "height",
+  "minWidth",
+  "minHeight",
+  "maxWidth",
+  "maxHeight",
+  "padding",
+  "paddingTop",
+  "paddingRight",
+  "paddingBottom",
+  "paddingLeft",
+  "margin",
+  "marginTop",
+  "marginRight",
+  "marginBottom",
+  "marginLeft",
+  "top",
+  "right",
+  "bottom",
+  "left",
+  "opacity",
+  "borderWidth",
+  "borderTopWidth",
+  "borderRightWidth",
+  "borderBottomWidth",
+  "borderLeftWidth",
+  "borderRadius",
+  "borderTopLeftRadius",
+  "borderTopRightRadius",
+  "borderBottomLeftRadius",
+  "borderBottomRightRadius",
+  "fontSize",
+  "lineHeight",
+  "lineClamp",
+  "offsetX",
+  "offsetY",
+  "blurRadius",
+  "spreadRadius",
+])
+const NESTED_STYLE_PROPERTIES = new Set(["hover", "active", "boxShadow"])
 
 export class MutationDriver {
   readonly #renderer: NativeRenderer
@@ -28,6 +77,9 @@ export class MutationDriver {
 
   enqueue(name: string, ...args: MutationValue[]): void {
     if (this.#disposed) throw new Error("GPUix Solid mutation driver is disposed")
+    if (name === "setStyle" && isObjectValue(args[1]) && !Array.isArray(args[1])) {
+      args[1] = normalizeStyleObject(args[1])
+    }
     this.#queue.push([name, ...args])
     this.#schedule()
   }
@@ -123,6 +175,32 @@ function callMutation(renderer: NativeRenderer, name: string, args: MutationValu
     default:
       throw new Error(`Unsupported GPUIX mutation: ${name}`)
   }
+}
+
+function normalizeStyleObject(style: object): object {
+  const normalized: Record<string, unknown> = { ...style as Record<string, unknown> }
+  for (const [property, value] of Object.entries(normalized)) {
+    if (NESTED_STYLE_PROPERTIES.has(property) && isObjectValue(value) && !Array.isArray(value)) {
+      normalized[property] = normalizeStyleObject(value)
+      continue
+    }
+    if (NUMERIC_STYLE_PROPERTIES.has(property)) {
+      normalized[property] = normalizeNumericStyleValue(value)
+    }
+  }
+  return normalized
+}
+
+function normalizeNumericStyleValue(value: unknown): unknown {
+  if (typeof value !== "string") return value
+  const trimmed = value.trim()
+  const numeric = trimmed.match(/^-?(?:\d+(?:\.\d+)?|\.\d+)$/)
+  if (numeric) return Number(trimmed)
+  const pixel = trimmed.match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))px$/i)
+  if (pixel) return Number(pixel[1])
+  const rem = trimmed.match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))rem$/i)
+  if (rem) return Number(rem[1]) * 16
+  return value
 }
 
 function numberArg(args: MutationValue[], index: number): number {
