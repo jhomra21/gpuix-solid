@@ -1,4 +1,4 @@
-import type { EventPayload } from "@gpuix/native"
+import type { EventPayload as NativeEventPayload } from "@gpuix/native"
 
 export type ElementType =
   | "div"
@@ -237,6 +237,48 @@ export interface GpuixTheme {
   syntax?: SyntaxTheme
   metrics?: GpuixMetrics
 }
+
+export type DomCompatTarget = {
+  value: string
+  scrollTop: number
+  scrollLeft: number
+  style: object
+  classList: {
+    add: (...tokens: string[]) => void
+    remove: (...tokens: string[]) => void
+  }
+  focus: () => void
+  blur: () => void
+  select: () => void
+  setPointerCapture: (pointerId: number) => void
+  releasePointerCapture: (pointerId: number) => void
+  hasPointerCapture: (pointerId: number) => boolean
+  getBoundingClientRect: () => {
+    left: number
+    top: number
+    right: number
+    bottom: number
+    width: number
+    height: number
+  }
+}
+
+type PointerCompatTarget = DomCompatTarget & EventTarget
+
+export type EventPayload = NativeEventPayload &
+  Partial<Omit<PointerEvent, "currentTarget" | "target">> & {
+    currentTarget: PointerCompatTarget
+    target: PointerCompatTarget
+    clientX: number
+    clientY: number
+    pointerId: number
+    shiftKey: boolean
+    metaKey: boolean
+    altKey: boolean
+    ctrlKey: boolean
+    preventDefault: () => void
+    stopPropagation: () => void
+  }
 
 export type HostRef = (instance: PublicInstance) => void
 export type HostEventHandler = (event: EventPayload) => void
