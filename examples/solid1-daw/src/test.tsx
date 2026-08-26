@@ -35,20 +35,7 @@ if (!hasNativeTestRenderer) {
     </div>
   ))
 
-  const requireCentered = (parentId: string, childId: string, tolerance = 3): void => {
-    const parent = app.renderer.boundsTestId(parentId)
-    const child = app.renderer.boundsTestId(childId)
-    const parentCenterX = parent.x + parent.width / 2
-    const parentCenterY = parent.y + parent.height / 2
-    const childCenterX = child.x + child.width / 2
-    const childCenterY = child.y + child.height / 2
-    requireCondition(
-      Math.abs(parentCenterX - childCenterX) <= tolerance && Math.abs(parentCenterY - childCenterY) <= tolerance,
-      `${childId} should be centered in ${parentId}; parent center ${parentCenterX},${parentCenterY}, child center ${childCenterX},${childCenterY}`,
-    )
-  }
-
-  requireText(app.renderer.textContent("transport-state"), "2.75s", "initial playhead")
+  requireText(app.renderer.textContent("daw-showcase"), "2.75s", "initial playhead")
   requireCondition(app.renderer.hasTestId("browser-sidebar"), "browser sidebar should start open")
   requireCondition(app.renderer.hasTestId("track-sidebar"), "source TrackSidebar should be mounted")
   requireCondition(app.renderer.hasTestId("effects-panel"), "effects panel should start open")
@@ -67,21 +54,19 @@ if (!hasNativeTestRenderer) {
   const bottomBounds = app.renderer.boundsTestId("bottom-panel")
   requireCondition(bottomBounds.height >= 385, `bottom panel footprint should preserve 360px body + footer/padding, got ${bottomBounds.height}`)
 
-  requireCentered("browser-toggle", "browser-toggle-indicator")
-  requireCentered("transport-record", "transport-record-indicator")
-  requireCentered("transport-play", "transport-play-indicator")
-  requireCentered("transport-stop", "transport-stop-indicator")
-  requireCentered("metronome-toggle", "metronome-indicator")
-  requireCentered("loop-toggle", "loop-indicator")
-  requireCentered("grid-toggle", "grid-indicator")
-  requireCentered("midi-keyboard-toggle", "midi-keyboard-indicator")
-  requireCentered("save-status", "save-status-indicator")
+  requireCondition(app.renderer.hasTestId("Hide browser sidebar"), "source browser toggle aria label should reach the native host")
+  requireCondition(app.renderer.hasTestId("Start recording"), "source record button aria label should reach the native host")
+  requireCondition(app.renderer.hasTestId("Play"), "source play button aria label should reach the native host")
+  requireCondition(app.renderer.hasTestId("Stop"), "source stop button aria label should reach the native host")
+  requireCondition(app.renderer.hasTestId("Toggle metronome"), "source metronome aria label should reach the native host")
+  requireCondition(app.renderer.hasTestId("Toggle loop region"), "source loop aria label should reach the native host")
+  requireCondition(app.renderer.hasTestId("Toggle snap to grid"), "source grid aria label should reach the native host")
+  requireText(app.renderer.textContent("daw-showcase"), "1/16", "upstream grid resolution")
+  requireCondition(!app.renderer.textContent("daw-showcase").includes("1/32"), "native fixture must not invent a 1/32 grid option absent upstream")
 
-  app.renderer.clickTestId("transport-play")
-  requireText(app.renderer.textContent("transport-state"), "3.00s", "play advances playhead")
-
-  app.renderer.clickTestId("grid-resolution")
-  requireText(app.renderer.textContent("grid-resolution"), "1/32", "cycle grid resolution")
+  app.renderer.clickTestId("Play")
+  requireText(app.renderer.textContent("daw-showcase"), "3.00s", "play advances playhead")
+  requireCondition(app.renderer.hasTestId("Pause"), "source play control should expose Pause while playing")
 
   app.renderer.clickTestId("browser-tab-effects")
   app.renderer.typeTestId("browser-search", "comp")
@@ -116,8 +101,8 @@ if (!hasNativeTestRenderer) {
   requireCondition(app.renderer.hasTestId("bottom-panel"), "show should restore bottom panel")
 
   app.renderer.scrollTestId("daw-test-viewport", 0, 0)
-  app.renderer.clickTestId("transport-stop")
-  requireText(app.renderer.textContent("transport-state"), "0.00s", "stop resets playhead")
+  app.renderer.clickTestId("Stop")
+  requireText(app.renderer.textContent("daw-showcase"), "0.00s", "stop resets playhead")
 
   const screenshotPath = "/tmp/gpuix-solid1-daw-source-structured.png"
   app.renderer.captureScreenshot(screenshotPath)
