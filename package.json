@@ -27,7 +27,7 @@
     "example:solid1": "cd experiments/solid1 && bun install --no-save && bun run run",
     "example:solid1-kobalte": "cd packages/solid1 && bun install --no-save && bun run build && cd ../../examples/solid1-kobalte && bun install --no-save && bun run run",
     "example:solid1-tailwind": "cd packages/solid1 && bun install --no-save && bun run build && cd ../../examples/solid1-tailwind && bun install --no-save && bun run run",
-    "example:solid1-daw": "cd packages/solid1 && bun install --no-save && bun run build && cd ../../examples/solid1-daw && bun install --no-save && bun run run"
+    "example:solid1-daw": "cd examples/solid1-daw && bun install --no-save && bun run run"
   },
   "devDependencies": {
     "@oxlint/plugins": "1.79.0",
