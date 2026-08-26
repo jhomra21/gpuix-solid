@@ -33,12 +33,14 @@ const nativeCompatEntries = new Map([
   // CSS right:50% + translateX(50%) is exactly a 2px right inset natively.
   ["right-1/2", { base: { right: 2 } }],
   ["translate-x-1/2", { base: {} }],
+  // Bottom-panel resize handle is 16px tall and its center rail is 4px tall.
+  // CSS top:50% + translateY(-50%) therefore lands at top:6px exactly.
+  ["top-1/2", { base: { top: 6 } }],
+  ["-translate-y-1/2", { base: {} }],
 ])
 
 const explicitlyIgnored = new Map([
   ["active:scale-97", "@gpuix/native@0.4.0 has no transform/scale StyleDesc field"],
-  ["-translate-y-1/2", "@gpuix/native@0.4.0 has no transform/translate StyleDesc field"],
-  ["top-1/2", "published native positioned offsets are numeric pixels; this visual centering helper depends on the paired unsupported translate transform"],
   ["group", "Tailwind group is a relationship-state marker and has no direct painted native style"],
   ["group-hover:bg-sky-500/20", "group relationship hover styling is not exposed by @gpuix/native@0.4.0"],
   ["group-active:bg-sky-500/20", "group relationship active styling is not exposed by @gpuix/native@0.4.0"],
@@ -108,6 +110,7 @@ const explicitlyIgnored = new Map([
   ["z-40", "published native StyleDesc has no z-index; retained-tree/layer order owns stacking"],
   ["z-50", "native anchored-layer priority owns popup stacking"],
   ["w-fit", "native floating content uses intrinsic sizing instead of CSS fit-content"],
+  ["w-max", "native floating content uses intrinsic sizing; @gpuix/native@0.4.0 dimensions do not accept CSS max-content"],
   ["shadow-md", "boxShadow exists upstream but is not published in @gpuix/native@0.4.0"],
   ["shadow-lg", "boxShadow exists upstream but is not published in @gpuix/native@0.4.0"],
 ])
@@ -510,7 +513,6 @@ function lengthValue(value, property, candidate) {
 }
 
 function dimensionValue(value, property, candidate) {
-  if (value === "max-content" || value === "min-content") return value
   return lengthValue(value, property, candidate)
 }
 
