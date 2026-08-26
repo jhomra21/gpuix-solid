@@ -34,6 +34,7 @@ export const dawTheme = {
 } as const
 
 export const layout = {
+  windowWidth: 1440,
   browserWidth: 280,
   sidebarWidth: 336,
   overviewHeight: 24,
@@ -41,7 +42,7 @@ export const layout = {
   headerHeight: 56,
   laneHeight: 96,
   collapsedLaneHeight: 32,
-  groupIndent: 12,
+  groupIndent: 16,
   groupRailWidth: 4,
   bottomPanelHeight: 360,
   transportHeight: 45,
