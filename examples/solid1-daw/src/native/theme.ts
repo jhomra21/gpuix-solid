@@ -41,7 +41,7 @@ export const layout = {
   headerHeight: 56,
   laneHeight: 96,
   collapsedLaneHeight: 32,
-  groupIndent: 16,
+  groupIndent: 12,
   groupRailWidth: 4,
   bottomPanelHeight: 360,
   transportHeight: 45,
