@@ -21,7 +21,7 @@ The implementation is source-first, not screenshot-first. A browser-facing sourc
 - arrangement overview: 24px
 - timeline ruler: 32px
 - normal track lane: 96px (`LANE_HEIGHT`)
-- group indent: 12px
+- group indent: 16px
 - shared bottom/effects panel body: 360px (`FX_PANEL_HEIGHT_PX`)
 - bottom panel footer: 28px
 - bottom edge padding: 4px
@@ -32,13 +32,14 @@ The implementation is source-first, not screenshot-first. A browser-facing sourc
 
 The native color constants are exact sRGB translations of the dark OKLCH tokens in the pinned `src/index.css`, including timeline background/surfaces, borders, clips, meters, playhead and device graph colors.
 
+The deterministic fixture also starts from the pinned timeline defaults: 100px/sec, 120 BPM, grid enabled at 1/4, loop disabled with a 0–8s stored region, and the source `timelineDurationSec()` minimum of 30 seconds.
+
 ## Verbatim source running through GPUIX
 
 These files are copied byte-for-byte from the pinned DAW revision and are protected by `scripts/check-upstream-source-parity.mjs`:
 
 - `src/components/timeline/TransportControls.tsx`
 - `src/components/timeline/browser/timeline-left-browser.tsx`
-- `src/components/timeline/ArrangementOverview.tsx`
 - `src/components/timeline/TimelineRuler.tsx`
 - `src/components/timeline/TrackLane.tsx`
 - `src/components/timeline/TimelineBottomPanelShell.tsx`
@@ -49,6 +50,8 @@ These files are copied byte-for-byte from the pinned DAW revision and are protec
 - the copied DAW UI primitives listed by the parity script
 - `src/lib/bottom-panel-layout.ts`
 - `src/lib/bottom-panel-preferences.ts`
+
+`src/components/timeline/ArrangementOverview.tsx` is also copied byte-for-byte and parity-protected, but its multicolor SVG paint is represented by the explicit native leaf documented below because the current GPUIX SVG element applies one tint to the entire SVG.
 
 The DAW native Tailwind generator scans these source files directly. The generated style manifest is rebuilt before build, test and typecheck; it is not a hand-maintained translation of their class strings.
 
@@ -62,14 +65,20 @@ These files own deterministic fixture state or bridge application services, but 
 | `src/native/TimelineChrome.tsx` | `src/components/timeline/timeline-chrome.tsx` | mounts exact `TransportControls`; browser-only hidden inputs are omitted |
 | `src/native/TransportControls.tsx` | exact `TransportControls.tsx` | supplies deterministic project/menu/MIDI services |
 | `src/native/TimelineLeftBrowser.tsx` | exact browser source | maps fixture browser data/preferences into the source model |
-| `src/native/TimelineWorkspace.tsx` | timeline workspace | composes exact ArrangementOverview, TimelineRuler and TrackLane around deterministic scrolling/sidebar state |
-| `src/native/TrackLane.tsx` | exact TrackLane source | maps fixture tracks into upstream-shaped types; automation is disabled for this focused slice |
+| `src/native/TimelineWorkspace.tsx` | timeline workspace | composes the source ruler/lane structure around deterministic viewport/sidebar state and the native overview paint leaf |
+| `src/native/TrackLane.tsx` | exact TrackLane source | maps fixture tracks into upstream-shaped types; automation is disabled for this focused slice and the browser gradient grid is painted with retained native lines using the exact source interval math |
 | `src/native/TimelineBottomPanelShell.tsx` | exact bottom shell | native sizing/event adapter around copied source |
 | `src/native/TimelineBottomPanelFooter.tsx` | exact footer | re-export/adapter only |
 
 ## Explicit native visual leaves
 
 The following visible pieces remain native implementations because the pinned browser components require capabilities that `@gpuix/native@0.4.0` cannot faithfully render. They must continue to follow the pinned source's dimensions, ordering and control vocabulary; they are not permission to invent a different design.
+
+### ArrangementOverview paint
+
+Pinned `ArrangementOverview.tsx` draws all overview clips into one SVG with independent per-path `fill` colors. GPUIX 0.4's `<svg>` custom element is designed as a tintable icon surface and applies a single native text-color tint to the SVG, so running that paint path unchanged turns the multicolor clip overview monochrome.
+
+The exact source file remains copied and parity-protected. `src/native/ArrangementOverview.tsx` mirrors its track filtering, normalized 100×40 clip geometry, visible-range rectangle and pointer pan/resize/commit behavior, but paints each source clip rectangle as a retained native div so its real clip color survives. This boundary can disappear once GPUIX exposes untinted/multicolor inline SVG painting.
 
 ### ClipComponent
 
@@ -109,6 +118,8 @@ The source crossover exposed reusable host gaps that are fixed in the Solid host
 - native host elements satisfy `instanceof Element` / `instanceof HTMLElement` in the Node runtime.
 - a small native `window.addEventListener` bridge forwards pointer move/up/down events to global pointer listeners used by unchanged DAW source such as the ruler.
 - a minimal `document.body.classList` facade supports source drag-state bookkeeping without browser DOM mutation.
+- enabled Solid `classList` keys are tokenized exactly like a normal `class` string, including keys that contain multiple utilities.
+- the standalone DAW launcher installs/builds the local Solid 1 package before bundling so an ignored stale `packages/solid1/dist` cannot diverge from the checked-in host source.
 
 These are generic GPUIX Solid capabilities. DAW source should not grow local replacements for them.
 
@@ -119,7 +130,7 @@ The focused fixture exercises:
 - exact transport controls and live BPM
 - browser tabs/tree/search
 - track selection, activation/mute, solo, record-arm and volume
-- exact arrangement overview/ruler/lane composition
+- source arrangement-overview geometry/state with native multicolor paint, exact ruler and exact lane composition
 - ruler playhead scrubbing and loop-region state through the source component
 - clip drag entry, snapping and compatible cross-track movement when native held-pointer continuation is available
 - Effects / Clip bottom-panel switching and hide/show
