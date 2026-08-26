@@ -42,7 +42,7 @@ const TrackSidebarRow = (props: TrackSidebarRowProps): JSX.Element => {
         cursor: "pointer",
       }}
     >
-      <div style={{ width: 99, minWidth: 99, display: "flex", alignItems: "flex-start", gap: 4, overflow: "hidden" }}>
+      <div style={{ width: 92, minWidth: 92, display: "flex", alignItems: "flex-start", gap: 4, overflow: "hidden" }}>
         <div style={{ display: "flex", flexDirection: "row", width: 16, minWidth: 16, height: 28, alignItems: "center", justifyContent: "center" }}>
           <text style={{ ...textXs, color: dawTheme.mutedForeground }}>▼</text>
         </div>
@@ -51,7 +51,7 @@ const TrackSidebarRow = (props: TrackSidebarRowProps): JSX.Element => {
         </div>
       </div>
 
-      <div style={{ width: 104, minWidth: 104, display: "flex", flexDirection: "column", gap: 4 }}>
+      <div style={{ width: 111, minWidth: 111, display: "flex", flexDirection: "column", gap: 4 }}>
         <Show when={props.track.kind !== "group"} fallback={<div style={{ height: 28 }} />}>
           <div style={{ height: 28, minHeight: 28, display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 8, paddingRight: 7, backgroundColor: dawTheme.timelineBackground, borderWidth: 1, borderColor: dawTheme.border }}>
             <text style={{ ...textXs, color: dawTheme.foreground, whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{props.track.outputTarget}</text>
