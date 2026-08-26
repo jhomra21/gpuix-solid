@@ -7,9 +7,12 @@
     "jsxImportSource": "@jhomra21/gpuix-solid1",
     "noEmit": true,
     "paths": {
-      "~/*": ["src/upstream/*"],
+      "solid-js/web": ["src/compat/solid-web.ts"],
+      "~/hooks/useTransportTempoController": ["src/compat/useTransportTempoController.ts"],
+      "~/lib/project-save-status": ["src/compat/project-save-status.ts"],
       "~/lib/timeline-storage": ["src/compat/timeline-storage.ts"],
       "~/lib/timeline-utils": ["src/compat/timeline-utils.ts"],
+      "~/*": ["src/upstream/*"],
       "@daw-browser/shared": ["src/compat/daw-browser-shared.ts"],
       "@kobalte/core": ["../../packages/solid1/src/kobalte/index.tsx"],
       "@kobalte/core/polymorphic": ["../../packages/solid1/src/kobalte/polymorphic.ts"],
