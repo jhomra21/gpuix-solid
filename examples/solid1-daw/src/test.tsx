@@ -42,7 +42,7 @@ if (!hasNativeTestRenderer) {
 
   const browserBounds = app.renderer.boundsTestId("browser-sidebar")
   requireCondition(browserBounds.width >= 275, `browser should preserve ~280px upstream width, got ${browserBounds.width}`)
-  const browserTabBounds = app.renderer.boundsTestId("browser-tab-assets")
+  const browserTabBounds = app.renderer.boundsTextWithinTestId("browser-sidebar", "Assets")
   requireCondition(Math.abs(browserTabBounds.height - 24) <= 1, `browser tabs should preserve upstream 24px rows, got ${browserTabBounds.height}`)
   const timelineBounds = app.renderer.boundsTestId("timeline-surface")
   const sidebarBounds = app.renderer.boundsTestId("track-sidebar")
@@ -68,10 +68,11 @@ if (!hasNativeTestRenderer) {
   requireText(app.renderer.textContent("daw-showcase"), "3.00s", "play advances playhead")
   requireCondition(app.renderer.hasTestId("Pause"), "source play control should expose Pause while playing")
 
-  app.renderer.clickTestId("browser-tab-effects")
-  app.renderer.typeTestId("browser-search", "comp")
-  requireCondition(app.renderer.hasTestId("browser-item-compressor"), "effects search should retain Compressor")
-  requireCondition(!app.renderer.hasTestId("browser-item-eq-eight"), "effects search should filter EQ Eight")
+  app.renderer.clickTextWithinTestId("browser-sidebar", "Effects")
+  app.renderer.typeFirstInputWithinTestId("browser-sidebar", "comp")
+  const browserSearchText = app.renderer.textContent("browser-sidebar")
+  requireText(browserSearchText, "Compressor", "effects search should retain Compressor")
+  requireCondition(!browserSearchText.includes("EQ Eight"), "effects search should filter EQ Eight")
 
   app.renderer.scrollTestId("daw-test-viewport", 0, -260)
   const lowerViewportOffset = app.renderer.scrollOffsetTestId("daw-test-viewport")

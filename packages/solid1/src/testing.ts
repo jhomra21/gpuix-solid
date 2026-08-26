@@ -51,6 +51,15 @@ function findNode(node: NativeTreeNode | null, testId: string): NativeTreeNode |
   return undefined
 }
 
+function findFirstNodeOfType(node: NativeTreeNode, type: string): NativeTreeNode | undefined {
+  if (node.type === type) return node
+  for (const child of node.children ?? []) {
+    const found = findFirstNodeOfType(child, type)
+    if (found) return found
+  }
+  return undefined
+}
+
 function nodeText(node: NativeTreeNode): string {
   let text = node.text ?? ""
   for (const child of node.children ?? []) text += nodeText(child)
@@ -132,6 +141,13 @@ export class TestRenderer implements NativeRenderer {
     this.#native.flush()
   }
 
+  boundsTextWithinTestId(testId: string, text: string): TestBounds {
+    const parent = this.requireTestId(testId)
+    const node = findElementByExactText(parent, text)
+    if (!node) throw new Error(`Expected visible text ${JSON.stringify(text)} inside ${testId}`)
+    return this.boundsNode(node, `${testId} text ${JSON.stringify(text)}`)
+  }
+
   rightClickTestId(testId: string): void {
     const point = insetPoint(this.boundsTestId(testId))
     this.#native.simulateMouseDown(point.x, point.y, 2)
@@ -204,11 +220,14 @@ export class TestRenderer implements NativeRenderer {
 
   typeTestId(testId: string, text: string): void {
     const node = this.requireTestId(testId)
-    this.#native.focusElement(node.id)
-    const keystrokes = [...text].map((character) => character === " " ? "space" : character).join(" ")
-    this.#native.simulateKeystrokes(keystrokes)
-    this.dispatchNativeEvents()
-    this.#native.flush()
+    this.typeNode(node, text)
+  }
+
+  typeFirstInputWithinTestId(testId: string, text: string): void {
+    const parent = this.requireTestId(testId)
+    const input = findFirstNodeOfType(parent, "input")
+    if (!input) throw new Error(`Expected an input inside ${testId}`)
+    this.typeNode(input, text)
   }
 
   hasTestId(testId: string): boolean {
@@ -230,6 +249,14 @@ export class TestRenderer implements NativeRenderer {
   captureScreenshot(path: string): void {
     this.#native.flush()
     this.#native.captureScreenshot(path)
+  }
+
+  private typeNode(node: NativeTreeNode, text: string): void {
+    this.#native.focusElement(node.id)
+    const keystrokes = [...text].map((character) => character === " " ? "space" : character).join(" ")
+    this.#native.simulateKeystrokes(keystrokes)
+    this.dispatchNativeEvents()
+    this.#native.flush()
   }
 
   private boundsNode(node: NativeTreeNode, label: string): TestBounds {

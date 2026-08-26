@@ -8,6 +8,7 @@
   "src/upstream/components/ui/text-field.tsx",
   "src/upstream/components/ui/tooltip.tsx",
   "src/upstream/components/timeline/TransportControls.tsx",
+  "src/upstream/components/timeline/browser/timeline-left-browser.tsx",
   "src/upstream/components/timeline/toolbar-context.tsx",
   "src/upstream/components/timeline/TimelineBottomPanelFooter.tsx",
   "src/upstream/components/timeline/TimelineBottomPanelShell.tsx",
