@@ -1,59 +1,63 @@
-import type { NativeRenderer } from "./types.js"
+import type { DimensionValue, NativeRenderer, StyleDesc } from "./types.js"
 import type { EventRegistry } from "./events.js"
 
 export type MutationValue = string | number | boolean | object | null
 export type Mutation = readonly [name: string, ...args: MutationValue[]]
 
 const APPLY_BATCH_CUSTOM_PROP = "setCustomPropValue"
-const NUMERIC_STYLE_PROPERTIES = new Set([
-  "flexGrow",
-  "flexShrink",
-  "flexBasis",
-  "gap",
-  "rowGap",
-  "columnGap",
-  "gridTemplateColumns",
-  "gridTemplateRows",
-  "width",
-  "height",
-  "minWidth",
-  "minHeight",
-  "maxWidth",
-  "maxHeight",
-  "padding",
-  "paddingTop",
-  "paddingRight",
-  "paddingBottom",
-  "paddingLeft",
-  "margin",
-  "marginTop",
-  "marginRight",
-  "marginBottom",
-  "marginLeft",
-  "top",
-  "right",
-  "bottom",
-  "left",
-  "opacity",
-  "borderWidth",
-  "borderTopWidth",
-  "borderRightWidth",
-  "borderBottomWidth",
-  "borderLeftWidth",
-  "borderRadius",
-  "borderTopLeftRadius",
-  "borderTopRightRadius",
-  "borderBottomLeftRadius",
-  "borderBottomRightRadius",
-  "fontSize",
-  "lineHeight",
-  "lineClamp",
-  "offsetX",
-  "offsetY",
-  "blurRadius",
-  "spreadRadius",
-])
-const NESTED_STYLE_PROPERTIES = new Set(["hover", "active", "boxShadow"])
+
+type DimensionStyleKey =
+  | "width"
+  | "height"
+  | "minWidth"
+  | "minHeight"
+  | "maxWidth"
+  | "maxHeight"
+
+type NumberStyleKey =
+  | "flexGrow"
+  | "flexShrink"
+  | "flexBasis"
+  | "gap"
+  | "rowGap"
+  | "columnGap"
+  | "gridTemplateColumns"
+  | "gridTemplateRows"
+  | "padding"
+  | "paddingTop"
+  | "paddingRight"
+  | "paddingBottom"
+  | "paddingLeft"
+  | "margin"
+  | "marginTop"
+  | "marginRight"
+  | "marginBottom"
+  | "marginLeft"
+  | "top"
+  | "right"
+  | "bottom"
+  | "left"
+  | "opacity"
+  | "borderWidth"
+  | "borderTopWidth"
+  | "borderRightWidth"
+  | "borderBottomWidth"
+  | "borderLeftWidth"
+  | "borderRadius"
+  | "borderTopLeftRadius"
+  | "borderTopRightRadius"
+  | "borderBottomLeftRadius"
+  | "borderBottomRightRadius"
+  | "fontSize"
+  | "lineHeight"
+  | "lineClamp"
+
+type StyleMutationInput = Omit<StyleDesc, DimensionStyleKey | NumberStyleKey | "hover" | "active"> &
+  { [K in DimensionStyleKey]?: DimensionValue } &
+  { [K in NumberStyleKey]?: number | string } & {
+    hover?: StyleMutationInput
+    active?: StyleMutationInput
+  }
 
 export class MutationDriver {
   readonly #renderer: NativeRenderer
@@ -77,8 +81,9 @@ export class MutationDriver {
 
   enqueue(name: string, ...args: MutationValue[]): void {
     if (this.#disposed) throw new Error("GPUix Solid mutation driver is disposed")
-    if (name === "setStyle" && isObjectValue(args[1]) && !Array.isArray(args[1])) {
-      args[1] = normalizeStyleObject(args[1])
+    if (name === "setStyle") {
+      const style = parseStyleMutation(args[1])
+      if (style) args[1] = normalizeStyleMutation(style)
     }
     this.#queue.push([name, ...args])
     this.#schedule()
@@ -177,30 +182,83 @@ function callMutation(renderer: NativeRenderer, name: string, args: MutationValu
   }
 }
 
-function normalizeStyleObject(style: object): object {
-  const normalized: Record<string, unknown> = { ...style as Record<string, unknown> }
-  for (const [property, value] of Object.entries(normalized)) {
-    if (NESTED_STYLE_PROPERTIES.has(property) && isObjectValue(value) && !Array.isArray(value)) {
-      normalized[property] = normalizeStyleObject(value)
-      continue
-    }
-    if (NUMERIC_STYLE_PROPERTIES.has(property)) {
-      normalized[property] = normalizeNumericStyleValue(value)
-    }
-  }
-  return normalized
+function parseStyleMutation(value: MutationValue | undefined): StyleMutationInput | undefined {
+  if (!isObjectValue(value) || Array.isArray(value)) return undefined
+  // SAFETY: setStyle is only enqueued with the renderer-owned StyleDesc object; this parser widens numeric fields solely to accept CSS unit strings at the native boundary.
+  return value as StyleMutationInput
 }
 
-function normalizeNumericStyleValue(value: unknown): unknown {
-  if (typeof value !== "string") return value
+function normalizeStyleMutation(style: StyleMutationInput): StyleDesc {
+  return {
+    ...style,
+    flexGrow: normalizeNumberStyle(style.flexGrow, "flexGrow"),
+    flexShrink: normalizeNumberStyle(style.flexShrink, "flexShrink"),
+    flexBasis: normalizeNumberStyle(style.flexBasis, "flexBasis"),
+    gap: normalizeNumberStyle(style.gap, "gap"),
+    rowGap: normalizeNumberStyle(style.rowGap, "rowGap"),
+    columnGap: normalizeNumberStyle(style.columnGap, "columnGap"),
+    gridTemplateColumns: normalizeNumberStyle(style.gridTemplateColumns, "gridTemplateColumns"),
+    gridTemplateRows: normalizeNumberStyle(style.gridTemplateRows, "gridTemplateRows"),
+    width: normalizeDimensionStyle(style.width),
+    height: normalizeDimensionStyle(style.height),
+    minWidth: normalizeDimensionStyle(style.minWidth),
+    minHeight: normalizeDimensionStyle(style.minHeight),
+    maxWidth: normalizeDimensionStyle(style.maxWidth),
+    maxHeight: normalizeDimensionStyle(style.maxHeight),
+    padding: normalizeNumberStyle(style.padding, "padding"),
+    paddingTop: normalizeNumberStyle(style.paddingTop, "paddingTop"),
+    paddingRight: normalizeNumberStyle(style.paddingRight, "paddingRight"),
+    paddingBottom: normalizeNumberStyle(style.paddingBottom, "paddingBottom"),
+    paddingLeft: normalizeNumberStyle(style.paddingLeft, "paddingLeft"),
+    margin: normalizeNumberStyle(style.margin, "margin"),
+    marginTop: normalizeNumberStyle(style.marginTop, "marginTop"),
+    marginRight: normalizeNumberStyle(style.marginRight, "marginRight"),
+    marginBottom: normalizeNumberStyle(style.marginBottom, "marginBottom"),
+    marginLeft: normalizeNumberStyle(style.marginLeft, "marginLeft"),
+    top: normalizeNumberStyle(style.top, "top"),
+    right: normalizeNumberStyle(style.right, "right"),
+    bottom: normalizeNumberStyle(style.bottom, "bottom"),
+    left: normalizeNumberStyle(style.left, "left"),
+    opacity: normalizeNumberStyle(style.opacity, "opacity"),
+    borderWidth: normalizeNumberStyle(style.borderWidth, "borderWidth"),
+    borderTopWidth: normalizeNumberStyle(style.borderTopWidth, "borderTopWidth"),
+    borderRightWidth: normalizeNumberStyle(style.borderRightWidth, "borderRightWidth"),
+    borderBottomWidth: normalizeNumberStyle(style.borderBottomWidth, "borderBottomWidth"),
+    borderLeftWidth: normalizeNumberStyle(style.borderLeftWidth, "borderLeftWidth"),
+    borderRadius: normalizeNumberStyle(style.borderRadius, "borderRadius"),
+    borderTopLeftRadius: normalizeNumberStyle(style.borderTopLeftRadius, "borderTopLeftRadius"),
+    borderTopRightRadius: normalizeNumberStyle(style.borderTopRightRadius, "borderTopRightRadius"),
+    borderBottomLeftRadius: normalizeNumberStyle(style.borderBottomLeftRadius, "borderBottomLeftRadius"),
+    borderBottomRightRadius: normalizeNumberStyle(style.borderBottomRightRadius, "borderBottomRightRadius"),
+    fontSize: normalizeNumberStyle(style.fontSize, "fontSize"),
+    lineHeight: normalizeNumberStyle(style.lineHeight, "lineHeight"),
+    lineClamp: normalizeNumberStyle(style.lineClamp, "lineClamp"),
+    hover: style.hover ? normalizeStyleMutation(style.hover) : undefined,
+    active: style.active ? normalizeStyleMutation(style.active) : undefined,
+  }
+}
+
+function normalizeNumberStyle(value: number | string | undefined, property: NumberStyleKey): number | undefined {
+  if (value === undefined) return undefined
+  if (typeof value === "number") return value
+  const normalized = parseNumericCssValue(value)
+  if (normalized !== undefined) return normalized
+  throw new TypeError(`Unsupported numeric inline style ${property}: ${JSON.stringify(value)}`)
+}
+
+function normalizeDimensionStyle(value: DimensionValue | undefined): DimensionValue | undefined {
+  if (value === undefined || typeof value === "number") return value
+  return parseNumericCssValue(value) ?? value
+}
+
+function parseNumericCssValue(value: string): number | undefined {
   const trimmed = value.trim()
-  const numeric = trimmed.match(/^-?(?:\d+(?:\.\d+)?|\.\d+)$/)
-  if (numeric) return Number(trimmed)
+  if (/^-?(?:\d+(?:\.\d+)?|\.\d+)$/.test(trimmed)) return Number(trimmed)
   const pixel = trimmed.match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))px$/i)
   if (pixel) return Number(pixel[1])
   const rem = trimmed.match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))rem$/i)
   if (rem) return Number(rem[1]) * 16
-  return value
+  return undefined
 }
 
 function numberArg(args: MutationValue[], index: number): number {
