@@ -522,7 +522,9 @@ function dimensionValue(value, property, candidate) {
 }
 
 function colorValue(value, property, candidate) {
-  if (value === "transparent" || value === "currentColor") return value
+  const keyword = value.toLowerCase()
+  if (keyword === "transparent") return "transparent"
+  if (keyword === "currentcolor") return "currentColor"
   if (/^#[0-9a-f]{3,8}$/i.test(value)) return value
   if (/^oklch\(/i.test(value)) return value
   if (/^color-mix\(/i.test(value)) return value
