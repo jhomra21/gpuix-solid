@@ -60,13 +60,17 @@ if (!hasNativeTestRenderer) {
   const testViewportWidth = app.renderer.boundsTestId("daw-test-viewport").width
   requireText(app.renderer.textContent("daw-showcase"), "2.75s", "initial playhead")
   requireCondition(app.renderer.hasTestId("browser-sidebar"), "browser sidebar should start open")
-  requireCondition(app.renderer.hasTestId("track-sidebar"), "source TrackSidebar should be mounted")
+  requireCondition(app.renderer.hasTestId("track-sidebar"), "source-shaped TrackSidebar should be mounted")
+  requireCondition(app.renderer.hasTestId("master-sidebar"), "Master sidebar row should be mounted in the sticky footer")
+  requireCondition(app.renderer.hasTestId("master-timeline"), "Master timeline row should be mounted in the sticky footer")
   requireCondition(app.renderer.hasTestId("effects-panel"), "effects panel should start open")
+  requireCondition(!app.renderer.textContent("daw-showcase").includes("Drop files here to create a new track"), "fixture must not invent the new-track drop row outside an active file drop")
 
   const browserBounds = app.renderer.boundsTestId("browser-sidebar")
   requireCondition(browserBounds.width >= 275, `browser should preserve ~280px upstream width, got ${browserBounds.width}`)
   const browserTabBounds = app.renderer.boundsTextWithinTestId("browser-sidebar", "Assets")
   requireCondition(Math.abs(browserTabBounds.height - 24) <= 1, `browser tabs should preserve upstream 24px rows, got ${browserTabBounds.height}`)
+  const workspaceBounds = app.renderer.boundsTestId("timeline-workspace")
   const timelineBounds = app.renderer.boundsTestId("timeline-surface")
   const sidebarBounds = app.renderer.boundsTestId("track-sidebar")
   requireCondition(sidebarBounds.width >= 330, `track sidebar should preserve ~336px upstream width, got ${sidebarBounds.width}`)
@@ -74,6 +78,16 @@ if (!hasNativeTestRenderer) {
   requireCondition(sidebarBounds.x > timelineBounds.x, "TrackSidebar must be right of the arrangement like upstream TimelineWorkspace")
   const laneBounds = app.renderer.boundsTestId("lane-synth")
   requireCondition(laneBounds.height >= 92, `timeline lane should preserve ~96px upstream height, got ${laneBounds.height}`)
+
+  const returnLaneBounds = app.renderer.boundsTestId("lane-return-a")
+  const returnSidebarBounds = app.renderer.boundsTestId("track-return-a")
+  const masterTimelineBounds = app.renderer.boundsTestId("master-timeline")
+  const masterSidebarBounds = app.renderer.boundsTestId("master-sidebar")
+  requireCondition(Math.abs(returnLaneBounds.y - returnSidebarBounds.y) <= 2, `return timeline/sidebar rows should align, timeline ${returnLaneBounds.y}, sidebar ${returnSidebarBounds.y}`)
+  requireCondition(Math.abs(masterTimelineBounds.y - masterSidebarBounds.y) <= 2, `master timeline/sidebar rows should align, timeline ${masterTimelineBounds.y}, sidebar ${masterSidebarBounds.y}`)
+  requireCondition(masterTimelineBounds.y >= returnLaneBounds.y + 92, "Master row should follow the Return section instead of scrolling with normal tracks")
+  requireCondition(returnLaneBounds.y > laneBounds.y, "Return row should live below the ordinary scrolling-track area")
+
   const overviewClipStyle = app.renderer.styleTestId("overview-clip-drums-a")
   requireCondition(
     overviewClipStyle.backgroundColor === "#00a76c",
@@ -83,6 +97,10 @@ if (!hasNativeTestRenderer) {
   requireCondition(overviewClipBounds.width > 50, `30s source overview should retain a visible Drum Loop 01 block, got ${overviewClipBounds.width}`)
   const bottomBounds = app.renderer.boundsTestId("bottom-panel")
   requireCondition(bottomBounds.height >= 385, `bottom panel footprint should preserve 360px body + footer/padding, got ${bottomBounds.height}`)
+  requireCondition(
+    bottomBounds.y < workspaceBounds.y + workspaceBounds.height,
+    `bottom panel should overlay the workspace like upstream fixed positioning, panel ${JSON.stringify(bottomBounds)}, workspace ${JSON.stringify(workspaceBounds)}`,
+  )
   const compressorBounds = app.renderer.boundsTestId("compressor-device")
   const compressorStyle = app.renderer.styleTestId("compressor-device")
   const compressorShellWidth = compressorBounds.width
@@ -149,9 +167,15 @@ if (!hasNativeTestRenderer) {
     hideBounds.x >= 0 && hideBounds.x + hideBounds.width <= testViewportWidth,
     `bottom panel HIDE control should be visible after viewport scroll, viewport width ${testViewportWidth}, hide ${JSON.stringify(hideBounds)}`,
   )
+  const workspaceBeforeHide = app.renderer.boundsTestId("timeline-workspace")
+  const returnBeforeHide = app.renderer.boundsTestId("lane-return-a")
   app.renderer.clickTextWithinTestId("bottom-panel", "HIDE")
   requireCondition(app.renderer.hasTestId("bottom-panel-closed"), "hide should collapse bottom panel")
   requireCondition(!app.renderer.hasTestId("bottom-panel"), "collapsed panel should unmount expanded shell")
+  const workspaceAfterHide = app.renderer.boundsTestId("timeline-workspace")
+  const returnAfterHide = app.renderer.boundsTestId("lane-return-a")
+  requireCondition(Math.abs(workspaceAfterHide.height - workspaceBeforeHide.height) <= 1, "fixed bottom panel must not resize TimelineWorkspace when hidden")
+  requireCondition(returnAfterHide.y > returnBeforeHide.y + 300, "sticky Return/Master footer should move down when the fixed bottom panel collapses")
 
   app.renderer.clickTextWithinTestId("bottom-panel-closed", "SHOW")
   requireCondition(app.renderer.hasTestId("bottom-panel"), "show should restore bottom panel")
@@ -164,6 +188,9 @@ if (!hasNativeTestRenderer) {
   app.renderer.captureScreenshot(screenshotPath)
   requireCondition(existsSync(screenshotPath), "DAW port screenshot should exist")
   requireCondition(statSync(screenshotPath).size > 0, "DAW port screenshot should not be empty")
+
+  app.renderer.clickTextWithinTestId("bottom-panel", "HIDE")
+  requireCondition(app.renderer.hasTestId("bottom-panel-closed"), "drag validation should expose the ordinary track area")
 
   const beforeDrag = app.renderer.boundsTestId("clip-vocals-b")
   app.renderer.dragTestId("clip-vocals-b", 96, 0)
