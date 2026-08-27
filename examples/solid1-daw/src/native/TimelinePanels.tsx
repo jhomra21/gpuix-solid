@@ -140,7 +140,6 @@ const TimelinePanels = (props: TimelinePanelsProps): JSX.Element => {
             left: 0,
             height: closedFootprint(),
             minHeight: closedFootprint(),
-            zIndex: 50,
             backgroundColor: dawTheme.background,
             paddingBottom: 4,
           }}
@@ -165,7 +164,7 @@ const TimelinePanels = (props: TimelinePanelsProps): JSX.Element => {
             compressorWet={props.compressorWet}
             onWetChange={props.onWetChange}
             eqEnabled={props.eqEnabled}
-            onToggleEq={props.onToggleEq}
+            onToggleEq={() => props.onToggleEq()}
             eqLowGain={props.eqLowGain}
             onEqLowGain={props.onEqLowGain}
             eqMidGain={props.eqMidGain}
