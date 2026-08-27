@@ -1,5 +1,4 @@
 import type { JSX } from "solid-js"
-import type { EventPayload } from "@jhomra21/gpuix-solid1"
 import NativeClipComponent from "../../../native/ClipComponent"
 import type { RuntimeClip, Track } from "../../../compat/timeline-core-types"
 import type { ClipFades } from "../../../compat/clip-fades"
@@ -32,18 +31,13 @@ type Props = {
   onCommitFades: (clipId: string, fades: ClipFades, baseline: ClipFades) => void
 }
 
-function pointerEvent(event: EventPayload): PointerEvent {
-  // SAFETY: the Solid host EventRegistry dispatches mouse/pointer handlers with its DOM-compatible event facade, including PointerEvent coordinates, button state, targets, and control methods.
-  return event as PointerEvent
-}
-
 const ClipComponent = (props: Props): JSX.Element => (
   <NativeClipComponent
     clip={props.clip}
     selected={props.isSelected}
     pixelsPerSecond={props.pixelsPerSecond}
     onSelect={() => props.contextMenu.selectClip(props.trackId, props.clip.id)}
-    onPointerDown={(event) => props.onPointerDown(props.trackId, props.clip.id, pointerEvent(event))}
+    onPointerDown={(event) => props.onPointerDown(props.trackId, props.clip.id, event)}
   />
 )
 
