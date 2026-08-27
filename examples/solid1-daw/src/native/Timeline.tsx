@@ -1,6 +1,6 @@
 import { createMemo, createSignal, type JSX } from "solid-js"
-import type { EventPayload } from "@jhomra21/gpuix-solid1"
 import { getBottomPanelMountedFootprintPx } from "../upstream/lib/bottom-panel-layout"
+import { useDrag } from "../upstream/hooks/useDrag"
 import { DEFAULT_PIXELS_PER_SECOND } from "../compat/timeline-view"
 import TimelineChrome from "./TimelineChrome"
 import TimelinePanels from "./TimelinePanels"
@@ -108,6 +108,39 @@ export default function Timeline(): JSX.Element {
     setSelectedClipId(clipId)
   }
 
+  const moveClipDrag = (event: PointerEvent): void => {
+    const currentDrag = drag()
+    if (!currentDrag) return
+    const currentTracks = tracks()
+    const movableTracks = draggableTracks(currentTracks)
+    const found = findClip(currentTracks, currentDrag.clipId)
+    if (!found || movableTracks.length === 0) return
+
+    const laneDelta = Math.round((event.clientY - currentDrag.startY) / layout.laneHeight)
+    const candidateIndex = Math.round(clamp(currentDrag.startTrackIndex + laneDelta, 0, movableTracks.length - 1))
+    const candidate = movableTracks[candidateIndex]
+    const source = currentTracks.find((track) => track.id === currentDrag.sourceTrackId)
+    if (!source) return
+    const target = candidate && compatible(found.clip, candidate) ? candidate : source
+    const rawStart = Math.max(0, currentDrag.startSec + (event.clientX - currentDrag.startX) / DEFAULT_PIXELS_PER_SECOND)
+    const startSec = gridEnabled() ? quantizeSecToGrid(rawStart, bpm(), gridDenominator()) : rawStart
+    const movedClip = { ...found.clip, startSec }
+
+    setTracks((current) => current.map((track) => {
+      const without = track.clips.filter((clip) => clip.id !== movedClip.id)
+      if (track.id === target.id) return { ...track, clips: [...without, movedClip] }
+      return without.length === track.clips.length ? track : { ...track, clips: without }
+    }))
+    setSelectedTrackId(target.id)
+  }
+
+  const { onPointerDown: beginPointerDrag } = useDrag({
+    onDragMove: (_position, event) => moveClipDrag(event),
+    onDragEnd: () => setDrag(undefined),
+    onDragCancel: () => setDrag(undefined),
+    dragCursorClass: "cursor-grabbing",
+  })
+
   const beginClipDrag = (trackId: string, clipId: string, event: PointerEvent): void => {
     if (event.button !== 0) return
     const currentTracks = tracks()
@@ -125,32 +158,7 @@ export default function Timeline(): JSX.Element {
       startY: event.clientY,
       startSec: clip.startSec,
     })
-  }
-
-  const moveClipDrag = (event: EventPayload): void => {
-    const currentDrag = drag()
-    if (!currentDrag || event.x === undefined || event.y === undefined) return
-    const currentTracks = tracks()
-    const movableTracks = draggableTracks(currentTracks)
-    const found = findClip(currentTracks, currentDrag.clipId)
-    if (!found || movableTracks.length === 0) return
-
-    const laneDelta = Math.round((event.y - currentDrag.startY) / layout.laneHeight)
-    const candidateIndex = Math.round(clamp(currentDrag.startTrackIndex + laneDelta, 0, movableTracks.length - 1))
-    const candidate = movableTracks[candidateIndex]
-    const source = currentTracks.find((track) => track.id === currentDrag.sourceTrackId)
-    if (!source) return
-    const target = candidate && compatible(found.clip, candidate) ? candidate : source
-    const rawStart = Math.max(0, currentDrag.startSec + (event.x - currentDrag.startX) / DEFAULT_PIXELS_PER_SECOND)
-    const startSec = gridEnabled() ? quantizeSecToGrid(rawStart, bpm(), gridDenominator()) : rawStart
-    const movedClip = { ...found.clip, startSec }
-
-    setTracks((current) => current.map((track) => {
-      const without = track.clips.filter((clip) => clip.id !== movedClip.id)
-      if (track.id === target.id) return { ...track, clips: [...without, movedClip] }
-      return without.length === track.clips.length ? track : { ...track, clips: without }
-    }))
-    setSelectedTrackId(target.id)
+    beginPointerDrag(event)
   }
 
   return (
@@ -231,9 +239,6 @@ export default function Timeline(): JSX.Element {
         }}
         onSelectClip={selectClip}
         onClipMouseDown={beginClipDrag}
-        dragging={drag() !== undefined}
-        onDragMove={moveClipDrag}
-        onDragEnd={() => setDrag(undefined)}
       />
 
       <TimelinePanels
