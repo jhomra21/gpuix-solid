@@ -115,8 +115,10 @@ function TooltipRoot(props: TooltipRootProps): JSX.Element {
   }
   return (
     <TooltipContext.Provider value={context}>
-      <div style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
-        {props.children}
+      <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-start" }}>
+        <div style={{ display: "flex", flexDirection: "row", position: "relative", alignItems: "center" }}>
+          {props.children}
+        </div>
       </div>
     </TooltipContext.Provider>
   )
