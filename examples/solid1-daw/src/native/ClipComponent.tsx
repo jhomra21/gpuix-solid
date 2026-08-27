@@ -8,7 +8,7 @@ export interface ClipComponentProps {
   selected: boolean
   pixelsPerSecond: number
   onSelect: () => void
-  onMouseDown: (event: EventPayload) => void
+  onPointerDown: (event: EventPayload) => void
 }
 
 function visualColor(clip: NativeClip): string {
@@ -22,7 +22,7 @@ const ClipComponent = (props: ClipComponentProps): JSX.Element => {
     <div
       testId={`clip-${props.clip.id}`}
       onClick={props.onSelect}
-      onMouseDown={props.onMouseDown}
+      onPointerDown={props.onPointerDown}
       style={{
         position: "absolute",
         top: 0,
