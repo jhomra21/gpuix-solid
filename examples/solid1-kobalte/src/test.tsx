@@ -33,8 +33,26 @@ if (!hasNativeTestRenderer) {
   requireCondition(app.renderer.hasTestId("avatar-fallback-content"), "Image.Fallback should render without a source")
   requireCondition(app.renderer.styleTestId("context-trigger").width === 300, "ContextMenu target should match the Kobalte example width")
   requireCondition(app.renderer.styleTestId("context-trigger").position === "relative", "ContextMenu target should own its native dashed-frame segments")
+  requireCondition(app.renderer.styleTestId("context-trigger").display === "flex", "ContextMenu target should center its label inside the dashed frame")
   requireCondition(app.renderer.hasTestId("context-dash-top-0"), "ContextMenu target should emulate Kobalte's dashed border rather than falling back to a solid outline")
   requireCondition(app.renderer.hasTestId("menubar-middle-file"), "Menubar should include the real Git, File, Edit three-trigger composition")
+
+  const tooltipBounds = app.renderer.boundsTestId("tooltip-trigger")
+  const dropdownBounds = app.renderer.boundsTestId("dropdown-trigger")
+  const dialogBounds = app.renderer.boundsTestId("dialog-trigger")
+  requireCondition(tooltipBounds.width < 160, "Tooltip trigger should stay intrinsic like Kobalte's inline-flex button")
+  requireCondition(dropdownBounds.width < 190, "DropdownMenu trigger should stay intrinsic instead of stretching across its fixture column")
+  requireCondition(dialogBounds.width < 120, "Dialog trigger should stay intrinsic instead of stretching across its fixture column")
+
+  const contextBounds = app.renderer.boundsTestId("context-trigger")
+  const contextLabelBounds = app.renderer.boundsTestId("context-trigger-label")
+  const contextCenterX = contextBounds.x + contextBounds.width / 2
+  const contextCenterY = contextBounds.y + contextBounds.height / 2
+  const labelCenterX = contextLabelBounds.x + contextLabelBounds.width / 2
+  const labelCenterY = contextLabelBounds.y + contextLabelBounds.height / 2
+  requireCondition(Math.abs(contextCenterX - labelCenterX) <= 2, "ContextMenu label should be horizontally centered like the Kobalte BasicExample")
+  requireCondition(Math.abs(contextCenterY - labelCenterY) <= 2, "ContextMenu label should be vertically centered like the Kobalte BasicExample")
+
   requireCondition(!app.renderer.hasTestId("dropdown-content"), "DropdownMenu.Content should start closed")
   requireCondition(!app.renderer.hasTestId("context-content"), "ContextMenu.Content should start closed")
   requireCondition(!app.renderer.hasTestId("dialog-content"), "Dialog.Content should start closed")
