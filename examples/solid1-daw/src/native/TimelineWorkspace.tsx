@@ -1,5 +1,4 @@
-import { createMemo, For, Show, type JSX } from "solid-js"
-import type { EventPayload } from "@jhomra21/gpuix-solid1"
+import { createMemo, For, type JSX } from "solid-js"
 import UpstreamTimelineRuler from "../upstream/components/timeline/TimelineRuler"
 import type { RuntimeClip, Track } from "../compat/timeline-core-types"
 import { timelineDurationSec } from "../compat/timeline-utils"
@@ -30,9 +29,6 @@ export interface TimelineWorkspaceProps {
   sidebar: Omit<TrackSidebarProps, "tracks" | "selectedTrackId" | "bottomPanelOffsetPx">
   onSelectClip: (trackId: string, clipId: string) => void
   onClipMouseDown: (trackId: string, clipId: string, event: PointerEvent) => void
-  dragging: boolean
-  onDragMove: (event: EventPayload) => void
-  onDragEnd: () => void
 }
 
 interface GridLine {
@@ -244,23 +240,6 @@ const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
           {...props.sidebar}
         />
       </div>
-
-      <Show when={props.dragging}>
-        <div
-          testId="timeline-drag-layer"
-          onMouseMove={props.onDragMove}
-          onMouseUp={props.onDragEnd}
-          style={{
-            position: "absolute",
-            top: layout.headerHeight,
-            right: layout.sidebarWidth,
-            bottom: scrollingBottom(),
-            left: props.browser.open ? layout.browserWidth : 0,
-            backgroundColor: "#00000001",
-            cursor: "grabbing",
-          }}
-        />
-      </Show>
     </div>
   )
 }
