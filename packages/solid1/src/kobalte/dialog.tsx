@@ -126,7 +126,6 @@ function centeredContentNode<T>(
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      pointerEvents: "auto",
     }}>
       {dialogSurface(props, context)}
     </div>
@@ -183,10 +182,9 @@ export function Portal(props: DialogPortalProps): JSX.Element {
           width: "100%",
           height: "100%",
           backgroundColor: "rgba(0, 0, 0, 0.001)",
-          pointerEvents: "auto",
         }}
       >
-        <div style={{ width: "100%", height: "100%", position: "relative", pointerEvents: "auto" }}>
+        <div style={{ width: "100%", height: "100%", position: "relative" }}>
           <DialogPortalContext.Provider value={true}>
             {props.children}
           </DialogPortalContext.Provider>
