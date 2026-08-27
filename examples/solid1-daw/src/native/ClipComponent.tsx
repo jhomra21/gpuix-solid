@@ -1,5 +1,4 @@
 import { For, type JSX } from "solid-js"
-import type { EventPayload } from "@jhomra21/gpuix-solid1"
 import type { NativeClip } from "./model"
 import { dawTheme, layout, textXs } from "./theme"
 
@@ -8,7 +7,7 @@ export interface ClipComponentProps {
   selected: boolean
   pixelsPerSecond: number
   onSelect: () => void
-  onPointerDown: (event: EventPayload) => void
+  onPointerDown: (event: PointerEvent) => void
 }
 
 function visualColor(clip: NativeClip): string {
