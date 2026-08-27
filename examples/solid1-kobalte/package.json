@@ -3,15 +3,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build",
-    "build:test": "vite build --config vite.test.config.ts",
-    "typecheck": "tsc --noEmit",
+    "host:build": "cd ../../packages/solid1 && bun install --no-save && bun run build",
+    "build": "bun run host:build && vite build",
+    "build:test": "bun run host:build && vite build --config vite.test.config.ts",
+    "typecheck": "bun run host:build && tsc --noEmit",
     "test:native": "bun run build:test && bun scripts/run-test.mjs",
     "start": "bun dist/app/index.js",
     "run": "bun run build && bun run start"
   },
   "dependencies": {
-    "@gpuix/native": "^0.4.0",
+    "@gpuix/native": "^0.5.1",
     "@jhomra21/gpuix-solid1": "file:../../packages/solid1",
     "solid-js": "1.9.15"
   },

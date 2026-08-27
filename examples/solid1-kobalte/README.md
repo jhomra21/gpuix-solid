@@ -1,53 +1,71 @@
-# Solid 1 Kobalte compatibility fixture
+# Solid 1 Kobalte compatibility gallery
 
-This example is the manual and automated compatibility gate for the Kobalte-shaped native primitives used by the pinned DAW UI before any Tailwind/class bridge work begins.
+This example is the manual, visual, and automated compatibility gate for the Kobalte-shaped native API published by `@jhomra21/gpuix-solid1`.
 
-It runs on `@jhomra21/gpuix-solid1` and renders directly through GPUIX. The fixture currently covers:
+The gallery imports the components through the root `@jhomra21/gpuix-solid1/kobalte` barrel. The DAW fixture separately exercises the individual Kobalte subpath exports, so both public import styles stay covered.
 
-- Button
-- Image / avatar fallback
-- Separator
-- TextField
-- Tooltip
-- Dialog
-- DropdownMenu
-- ContextMenu
-- Menubar
-- ColorMode
-- polymorphic compatibility types
+## Published surface covered
 
-## Run on macOS
+Every currently exported compatibility area is represented in the native window and exercised by `test:native`:
 
-From the repository root:
+- Button — press, disabled state, Enter and Space activation
+- Image — `Root`, `Img`, and deterministic `Fallback`
+- Separator — horizontal and vertical orientations
+- TextField — `Root`, `Label`, controlled `Input`, controlled `TextArea`, `Description`, invalid `ErrorMessage`, and disabled state
+- Tooltip — hover/focus opening and Escape dismissal through a native anchored layer
+- Dialog — trigger, portal, overlay, content, title, description, Escape/outside dismissal, and close button
+- DropdownMenu — trigger, portal, content, items, disabled item, separator, group/label, checkbox, indicator, radio group/items, and submenu
+- ContextMenu — native right-click positioning, items, disabled item, separator, group/label, and submenu
+- Menubar — multiple menus, triggers, portal/content, disabled item, separator, and submenu
+- ColorMode — provider/hook state plus propagation into native class/style color mode
+- polymorphic compatibility types remain part of the package-level typecheck
+
+The page also acts as an explicit boundary: it is exhaustive for what `gpuix-solid1` currently exports, not a claim that every component in upstream `@kobalte/core` has a native adapter yet. Broader primitives such as Accordion, Checkbox, Combobox, Popover, Select, Slider, Switch, Tabs, Toast, and ToggleButton remain future compatibility work unless and until they are exported here.
+
+## Run from the repository root
 
 ```sh
 bun run example:solid1-kobalte
 ```
 
-The command builds the Solid 1 package and launches the native window:
+The example is self-contained: it installs/builds the local Solid 1 host first, then bundles and launches the gallery against `@gpuix/native ^0.5.1`.
+
+Native window:
 
 - title: `Kobalte Compatibility — Solid 1 + GPUIX`
 - size: 1180 × 820
 
+## Automated gate
+
+```sh
+bun run solid1:kobalte
+```
+
+The native test uses the same 1180 × 820 viewport as the real gallery and captures the untouched dark-mode page to:
+
+```text
+/tmp/gpuix-solid1-kobalte-gallery.png
+```
+
+The test then exercises component behavior, including disabled controls, keyboard activation, controlled text input/textarea, theme switching, floating layers, menu groups and submenus, native right-click context menus, and all dialog dismissal paths.
+
 ## Manual visual and interaction check
 
-Before moving on to the Tailwind/class bridge, verify the native window itself:
+Verify that:
 
-1. The two-column layout is aligned and readable with no controls pinned unexpectedly to the top-left.
-2. Theme toggle changes both the displayed mode and the complete painted palette between dark and light, including fields and popup/dialog surfaces.
-3. Action button responds; disabled button does not.
-4. Hovering or focusing the tooltip trigger opens the anchored tooltip.
-5. TextField editing remains controlled and the invalid field keeps its error message visible.
-6. The `JM` and `FX` avatar fallbacks render cleanly and deterministically.
-7. Dropdown menu opens; checkbox, radio item, and submenu interactions work.
-8. The context menu opens from a real right-click rather than a normal left click.
-9. Menubar menus and submenu open and selections update the last-action status.
-10. Dialog opens above its overlay and closes from its close button or Escape; outside dismissal should behave natively as well.
+1. The support matrix shows all ten published compatibility areas without clipping or overlapping text.
+2. The two-column component area remains aligned and scrollable at 1180 × 820.
+3. Theme switching updates the complete painted palette, including fields and popup/dialog surfaces.
+4. Buttons activate from pointer, Enter, and Space; disabled controls remain inert.
+5. Input and TextArea editing remain controlled; invalid and disabled TextField states are visibly distinct.
+6. Source-backed Image and no-source Fallback states are both visible and deterministic.
+7. Tooltip, DropdownMenu, ContextMenu, Menubar, and Dialog floating layers are positioned coherently and dismiss correctly.
+8. Dropdown checkbox/radio state and menu submenus update without corrupting surrounding state.
+9. ContextMenu opens only from a real right click.
+10. No native runtime errors are printed while opening, closing, and repeatedly interacting with floating content.
 
-## Current compatibility boundary
+## Native compatibility boundary
 
-This is a Kobalte-shaped native compatibility layer, not a DOM implementation of Kobalte. Portal content is represented by native floating/anchored layers rather than browser portals.
+This is a Kobalte-shaped native compatibility layer, not a browser DOM implementation of Kobalte. Portal content is represented by GPUIX native floating/anchored layers.
 
-The current GPUIX `<img>` host does not expose image load/error callbacks, so a failed native image load cannot yet switch a Kobalte-style avatar to fallback from that callback. The visual fixture therefore uses deterministic no-source fallback states instead of deliberately requesting an invalid remote asset. This keeps the checkpoint free of an expected asset-cache failure while preserving the limitation explicitly here.
-
-Tailwind `class`, `className`, and Solid `classList` translation are deliberately out of scope for this gate. That bridge starts only after this native Kobalte fixture is manually accepted.
+The current GPUIX `<img>` host does not expose image load/error callbacks, so a failed image request cannot yet transition to a Kobalte fallback based on an error callback. The gallery therefore tests one deterministic source-backed state and one deterministic no-source fallback state.

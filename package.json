@@ -17,6 +17,7 @@
     "solid1:tailwind": "cd examples/solid1-tailwind && bun install --no-save && bun run typecheck && bun run test:native",
     "solid1:daw": "cd examples/solid1-daw && bun install --no-save && bun run typecheck && bun run test:native",
     "solid1:check": "bun run solid1:package && bun run solid1:kobalte && bun run solid1:tailwind && bun run solid1:daw",
+    "kobalte:check": "bun run solid1:kobalte",
     "release:check": "bun run lint && bun run typecheck && bun run test && bun run build",
     "release:test": "node --test scripts/release.test.mjs",
     "example:counter": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:counter",
@@ -25,7 +26,8 @@
     "example:codeimage": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:codeimage",
     "example:tanstack-kitchen-sink": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:tanstack-kitchen-sink",
     "example:solid1": "cd experiments/solid1 && bun install --no-save && bun run run",
-    "example:solid1-kobalte": "cd packages/solid1 && bun install --no-save && bun run build && cd ../../examples/solid1-kobalte && bun install --no-save && bun run run",
+    "example:solid1-kobalte": "cd examples/solid1-kobalte && bun install --no-save && bun run run",
+    "example:kobalte-gallery": "bun run example:solid1-kobalte",
     "example:solid1-tailwind": "cd packages/solid1 && bun install --no-save && bun run build && cd ../../examples/solid1-tailwind && bun install --no-save && bun run run",
     "example:solid1-daw": "cd examples/solid1-daw && bun install --no-save && bun run run"
   },

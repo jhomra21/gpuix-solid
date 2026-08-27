@@ -88,7 +88,7 @@ function TooltipRoot(props: TooltipRootProps): JSX.Element {
   }
   const scheduleOpen = () => {
     clearClose()
-    clearOpen()
+    if (open() || openTimer) return
     const delay = props.openDelay ?? 250
     if (delay <= 0) setOpen(true)
     else openTimer = setTimeout(() => setOpen(true), delay)
@@ -126,6 +126,7 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, TooltipTriggerP
       testId={props.testId ?? props["aria-label"]}
       tabIndex={props.tabIndex ?? 0}
       onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); context.scheduleOpen() }}
+      onMouseMove={(event: EventPayload) => { props.onMouseMove?.(event); context.scheduleOpen() }}
       onMouseLeave={(event: EventPayload) => { props.onMouseLeave?.(event); context.scheduleClose() }}
       onFocus={(event: EventPayload) => { props.onFocus?.(event); context.setOpen(true) }}
       onBlur={(event: EventPayload) => { props.onBlur?.(event); context.setOpen(false) }}

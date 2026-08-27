@@ -61,6 +61,16 @@ function sourceAwareStyle(
   return mergeStyle(base, props.style)
 }
 
+function fieldState(context: TextFieldContextValue): StyleDesc {
+  const state: StyleDesc = {}
+  if (context.validationState() === "invalid") state.borderColor = "#ef4444"
+  if (context.disabled()) {
+    state.opacity = 0.5
+    state.pointerEvents = "none"
+  }
+  return state
+}
+
 export function Root<T = "div">(props: PolymorphicProps<T, TextFieldRootProps<T>>): JSX.Element {
   const [internalValue, setInternalValue] = createSignal(props.defaultValue ?? props.value ?? "")
   const value = () => props.value ?? internalValue()
@@ -101,7 +111,7 @@ export function Input<T = "input">(props: PolymorphicProps<T, TextFieldInputProp
       borderWidth: 1,
       borderColor: "#34343a",
     },
-    context.validationState() === "invalid" ? { borderColor: "#ef4444" } : {},
+    fieldState(context),
   )
 
   return (
@@ -112,8 +122,10 @@ export function Input<T = "input">(props: PolymorphicProps<T, TextFieldInputProp
       testId={props.testId}
       value={props.value ?? context.value()}
       placeholder={props.placeholder}
-      readOnly={props.readOnly ?? context.readOnly()}
+      readOnly={props.readOnly ?? (context.readOnly() || context.disabled())}
+      tabIndex={context.disabled() ? undefined : props.tabIndex}
       onChange={(event: EventPayload) => {
+        if (context.disabled()) return
         props.onChange?.(event)
         context.setValue(event.value ?? "")
       }}
@@ -137,7 +149,7 @@ export function TextArea<T = "textarea">(props: PolymorphicProps<T, TextFieldTex
       borderWidth: 1,
       borderColor: "#34343a",
     },
-    context.validationState() === "invalid" ? { borderColor: "#ef4444" } : {},
+    fieldState(context),
   )
 
   return (
@@ -148,10 +160,12 @@ export function TextArea<T = "textarea">(props: PolymorphicProps<T, TextFieldTex
       testId={props.testId}
       value={props.value ?? context.value()}
       placeholder={props.placeholder}
-      readOnly={props.readOnly ?? context.readOnly()}
+      readOnly={props.readOnly ?? (context.readOnly() || context.disabled())}
       minRows={props.minRows ?? 3}
       maxRows={props.maxRows ?? 8}
+      tabIndex={context.disabled() ? undefined : props.tabIndex}
       onChange={(event: EventPayload) => {
+        if (context.disabled()) return
         props.onChange?.(event)
         context.setValue(event.value ?? "")
       }}
