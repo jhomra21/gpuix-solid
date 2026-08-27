@@ -116,24 +116,26 @@ export function Root(props: DialogRootProps): JSX.Element {
 export function Trigger<T = "button">(props: PolymorphicProps<T, DialogTriggerProps<T>>): JSX.Element {
   const context = requireContext("Dialog.Trigger")
   return (
-    <div
-      class={props.class}
-      className={props.className}
-      classList={props.classList}
-      testId={props.testId}
-      tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)}
-      onClick={(event: EventPayload) => {
-        if (props.disabled) return
-        props.onClick?.(event)
-        context.setOpen(true)
-      }}
-      onKeyDown={(event: EventPayload) => {
-        if (props.disabled) return
-        props.onKeyDown?.(event)
-        if (event.key === "enter" || event.key === "space") context.setOpen(true)
-      }}
-      style={interactiveStyle(props.disabled, props.style)}
-    >{props.children}</div>
+    <div style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
+      <div
+        class={props.class}
+        className={props.className}
+        classList={props.classList}
+        testId={props.testId}
+        tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)}
+        onClick={(event: EventPayload) => {
+          if (props.disabled) return
+          props.onClick?.(event)
+          context.setOpen(true)
+        }}
+        onKeyDown={(event: EventPayload) => {
+          if (props.disabled) return
+          props.onKeyDown?.(event)
+          if (event.key === "enter" || event.key === "space") context.setOpen(true)
+        }}
+        style={interactiveStyle(props.disabled, props.style)}
+      >{props.children}</div>
+    </div>
   )
 }
 
