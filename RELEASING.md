@@ -10,7 +10,7 @@ GPUix Solid releases are prepared and published by GitHub Actions. Normal releas
 - The publish workflow builds and packs one sanitized npm artifact, smoke-tests that exact tarball in clean npm, Bun, and Solid TSX/Vite consumers, uploads it as a workflow artifact, then publishes those exact bytes without rebuilding.
 - npm registry integrity and the expected `beta`/`latest` dist-tag are verified after publication.
 - The Git tag and GitHub Release are created only after npm succeeds.
-- Publishes are public and use npm provenance.
+- Publishes are public and use npm provenance. The sole exception is the one-time manual `gpuix-solid@0.1.0-beta.4` package-name bootstrap, which predates the Trusted Publisher that could only be attached after that package existed.
 - A recovery run may accept an already-published version only when npm reports the same SHA-512 integrity as the validated artifact.
 - Recovery resolves the main-branch commit that introduced the current package version and keeps the release tag anchored to that commit.
 - Never reuse a version whose npm bytes differ or that has already been published with different content.
@@ -56,7 +56,7 @@ For a beta such as `0.1.0-beta.1`, `beta-next` produces `0.1.0-beta.2`. Promotin
    - verifies the expected dist-tag,
    - creates `v<version>` only after npm succeeds,
    - creates the GitHub Release last.
-9. Run the Release Control `/verify-release` check when an explicit registry-level proof is useful. It validates the current version, dist-tag, SHA-512 integrity, and npm provenance attestation.
+9. Run the Release Control `/verify-release` check when an explicit registry-level proof is useful. It validates the current version, dist-tag, SHA-512 integrity, and npm provenance policy. Provenance is required for every release except the exact one-time `gpuix-solid@0.1.0-beta.4` bootstrap.
 
 ## Original scoped-package bootstrap
 
@@ -81,10 +81,10 @@ Recommended cutover sequence:
 1. Merge the package rename to `main` only after the normal PR completion gates pass.
 2. Prepare and merge `release/v0.1.0-beta.4` through the normal release tooling.
 3. Let **Publish Package** build, validate, smoke-test, and upload the exact `gpuix-solid@0.1.0-beta.4` tarball. The first OIDC publish is expected to stop because the new npm package does not yet have a Trusted Publisher.
-4. Download that exact `npm-package` workflow artifact and publish its single `.tgz` once from an interactive npm maintainer session:
+4. Download that exact `npm-package` workflow artifact and publish its single `.tgz` once from an interactive npm maintainer session. Disable provenance for this workstation-only bootstrap; provenance is supplied by Trusted Publishing for subsequent releases:
 
    ```bash
-   npm publish ./gpuix-solid-0.1.0-beta.4.tgz --tag beta --access public
+   npm publish ./gpuix-solid-0.1.0-beta.4.tgz --tag beta --access public --provenance=false
    ```
 
 5. Confirm the new registry identity before configuring trust:
@@ -107,7 +107,7 @@ Recommended cutover sequence:
 
 7. In npm package settings, set **Publishing access** to **Require two-factor authentication and disallow tokens** after Trusted Publishing is confirmed. The OIDC publisher continues to work without a long-lived token.
 8. Re-run **Publish Package** from `main`. Recovery must observe the same SHA-512 integrity, accept the already-published npm bytes, and then complete the Git tag and GitHub Release.
-9. Run `/verify-release` and confirm `gpuix-solid@0.1.0-beta.4`, the `beta` dist-tag, registry integrity, and provenance are all correct.
+9. Run `/verify-release`. For the exact `gpuix-solid@0.1.0-beta.4` bootstrap, missing provenance is accepted while version, `beta` dist-tag, and registry integrity remain mandatory. No other package or version receives this exception.
 10. Only after the new package is healthy, deprecate the entire old package with an explicit migration message:
 
     ```bash
@@ -117,7 +117,7 @@ Recommended cutover sequence:
 
     Keep the old package published so existing lockfiles and installs remain reproducible. Deprecation is the redirect: npm displays the migration message during installs and on the package page.
 
-After that first `gpuix-solid` publication and trust configuration, all later releases return to the normal tokenless OIDC flow. The old scoped package remains a separate registry entry and should receive no new releases.
+After that first `gpuix-solid` publication and trust configuration, all later releases return to the normal tokenless OIDC flow and must have npm provenance. The old scoped package remains a separate registry entry and should receive no new releases.
 
 ## Trusted Publisher configuration
 
@@ -149,7 +149,7 @@ Issue #31 is the persistent owner-only control surface for release automation. C
 - `/finalize-release`
 - `/verify-release`
 
-The `/release` commands prepare a release from `main`. `/recover-release` dispatches the hardened publisher when a release did not reach a terminal state. `/finalize-release` repairs only a missing GitHub Release after validating npm and tag state. `/verify-release` is read-only with respect to npm: it checks the current version, expected dist-tag, registry SHA-512 integrity, and npm provenance attestation and reports the result back to issue #31.
+The `/release` commands prepare a release from `main`. `/recover-release` dispatches the hardened publisher when a release did not reach a terminal state. `/finalize-release` repairs only a missing GitHub Release after validating npm and tag state. `/verify-release` is read-only with respect to npm: it checks the current version, expected dist-tag, registry SHA-512 integrity, and npm provenance policy and reports the result back to issue #31. Missing provenance is accepted only for the exact `gpuix-solid@0.1.0-beta.4` bootstrap.
 
 ## Manual recovery
 

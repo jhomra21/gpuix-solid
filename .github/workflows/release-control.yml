@@ -51,7 +51,7 @@ jobs:
         shell: bash
         run: npm install --global npm@11.19.0
 
-      - name: Verify registry integrity, dist-tag, and provenance
+      - name: Verify registry integrity, dist-tag, and provenance policy
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -91,12 +91,34 @@ jobs:
             echo "Registry integrity is missing or malformed: ${remote_integrity:-<missing>}"
             exit 1
           fi
-          if [[ "$attestation_url" != https://registry.npmjs.org/-/npm/v1/attestations/* ]]; then
-            echo "npm provenance attestation URL is missing or unexpected: ${attestation_url:-<missing>}"
-            exit 1
-          fi
-          if [[ -z "$provenance_predicate" ]]; then
-            echo "npm provenance predicate is missing."
+
+          provenance_policy=$(node scripts/release-policy.mjs --package "$package" --version "$version")
+          if [[ "$provenance_policy" == "required" ]]; then
+            if [[ "$attestation_url" != https://registry.npmjs.org/-/npm/v1/attestations/* ]]; then
+              echo "npm provenance attestation URL is missing or unexpected: ${attestation_url:-<missing>}"
+              exit 1
+            fi
+            if [[ -z "$provenance_predicate" ]]; then
+              echo "npm provenance predicate is missing."
+              exit 1
+            fi
+            provenance_summary="provenance ${provenance_predicate}; attestation ${attestation_url}"
+          elif [[ "$provenance_policy" == "bootstrap-exception" ]]; then
+            if [[ -n "$attestation_url" || -n "$provenance_predicate" ]]; then
+              if [[ "$attestation_url" != https://registry.npmjs.org/-/npm/v1/attestations/* ]]; then
+                echo "npm provenance attestation URL is malformed for bootstrap release: ${attestation_url:-<missing>}"
+                exit 1
+              fi
+              if [[ -z "$provenance_predicate" ]]; then
+                echo "npm provenance predicate is incomplete for bootstrap release."
+                exit 1
+              fi
+              provenance_summary="provenance ${provenance_predicate}; attestation ${attestation_url}"
+            else
+              provenance_summary="provenance intentionally absent for one-time manual bootstrap ${package}@${version}"
+            fi
+          else
+            echo "Unknown provenance policy result: ${provenance_policy:-<missing>}"
             exit 1
           fi
 
@@ -108,7 +130,7 @@ jobs:
             exit 1
           fi
 
-          gh issue comment 31 --repo "$GITHUB_REPOSITORY" --body "Release verification complete: v${version}; npm ${expected_tag} -> ${version}; registry integrity verified; provenance ${provenance_predicate}; attestation ${attestation_url}."
+          gh issue comment 31 --repo "$GITHUB_REPOSITORY" --body "Release verification complete: v${version}; npm ${expected_tag} -> ${version}; registry integrity verified; ${provenance_summary}."
 
   finalize:
     if: >-
