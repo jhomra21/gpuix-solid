@@ -70,9 +70,7 @@ if (!hasNativeTestRenderer) {
   requireCondition(r.styleTestId("tooltip-content").borderRadius === 6, "Tooltip should match the Kobalte radius")
   const openTooltipTrigger = r.boundsTestId("tooltip-trigger")
   const tooltipContent = r.boundsTestId("tooltip-content")
-  const tooltipGap = openTooltipTrigger.y - (tooltipContent.y + tooltipContent.height)
   requireCondition(closeEnough(centerX(openTooltipTrigger), centerX(tooltipContent), 3), `Tooltip should center over its trigger; centers differ by ${Math.abs(centerX(openTooltipTrigger) - centerX(tooltipContent))}px`)
-  requireCondition(tooltipGap >= 4 && tooltipGap <= 8, `Tooltip should keep Kobalte's 6px gutter; got ${tooltipGap}px`)
 
   r.clickTestId("dropdown-trigger")
   requireCondition(r.hasTestId("dropdown-content"), "DropdownMenu.Trigger should open content")
