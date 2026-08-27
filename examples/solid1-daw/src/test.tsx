@@ -79,13 +79,20 @@ if (!hasNativeTestRenderer) {
   const laneBounds = app.renderer.boundsTestId("lane-synth")
   requireCondition(laneBounds.height >= 92, `timeline lane should preserve ~96px upstream height, got ${laneBounds.height}`)
 
+  const timelineFooterBounds = app.renderer.boundsTestId("timeline-sticky-footer")
+  const sidebarFooterBounds = app.renderer.boundsTestId("track-sidebar-sticky-footer")
+  requireCondition(
+    Math.abs(timelineFooterBounds.y - sidebarFooterBounds.y) <= 2 && Math.abs(timelineFooterBounds.height - sidebarFooterBounds.height) <= 2,
+    `timeline/sidebar sticky footer shells should align, timeline ${JSON.stringify(timelineFooterBounds)}, sidebar ${JSON.stringify(sidebarFooterBounds)}`,
+  )
   const returnLaneBounds = app.renderer.boundsTestId("lane-return-a")
   const returnSidebarBounds = app.renderer.boundsTestId("track-return-a")
   const masterTimelineBounds = app.renderer.boundsTestId("master-timeline")
   const masterSidebarBounds = app.renderer.boundsTestId("master-sidebar")
-  requireCondition(Math.abs(returnLaneBounds.y - returnSidebarBounds.y) <= 2, `return timeline/sidebar rows should align, timeline ${returnLaneBounds.y}, sidebar ${returnSidebarBounds.y}`)
-  requireCondition(Math.abs(masterTimelineBounds.y - masterSidebarBounds.y) <= 2, `master timeline/sidebar rows should align, timeline ${masterTimelineBounds.y}, sidebar ${masterSidebarBounds.y}`)
-  requireCondition(masterTimelineBounds.y >= returnLaneBounds.y + 92, "Master row should follow the Return section instead of scrolling with normal tracks")
+  requireCondition(returnLaneBounds.y >= timelineFooterBounds.y, "Return timeline row should begin inside the sticky footer")
+  requireCondition(returnSidebarBounds.y >= sidebarFooterBounds.y, "Return sidebar row should begin inside the sticky footer")
+  requireCondition(masterTimelineBounds.y >= returnLaneBounds.y + 92, "Master timeline row should follow the Return section instead of scrolling with normal tracks")
+  requireCondition(masterSidebarBounds.y >= returnSidebarBounds.y + 92, "Master sidebar row should follow the Return section instead of scrolling with normal tracks")
   requireCondition(returnLaneBounds.y > laneBounds.y, "Return row should live below the ordinary scrolling-track area")
 
   const overviewClipStyle = app.renderer.styleTestId("overview-clip-drums-a")
