@@ -226,7 +226,11 @@ export function CloseButton<T = "button">(props: PolymorphicProps<T, DialogClose
         if (event.key === "enter" || event.key === "space") context.setOpen(false)
       }}
       style={interactiveStyle(props.disabled, props.style)}
-    >{props.children}</div>
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+        {props.children}
+      </div>
+    </div>
   )
 }
 
