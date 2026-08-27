@@ -76,18 +76,20 @@ export function Root(props: DropdownMenuRootProps): JSX.Element {
 export function Trigger<T = "button">(props: PolymorphicProps<T, DropdownMenuTriggerProps<T>>): JSX.Element {
   const context = requireMenu("DropdownMenu.Trigger")
   return (
-    <div
-      class={props.class}
-      className={props.className}
-      classList={props.classList}
-      testId={props.testId}
-      tabIndex={props.tabIndex ?? 0}
-      onClick={(event: EventPayload) => {
-        props.onClick?.(event)
-        if (!props.disabled) context.setOpen(!context.open())
-      }}
-      style={mergeStyle(triggerBaseStyle, props.style)}
-    >{props.children}</div>
+    <div style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
+      <div
+        class={props.class}
+        className={props.className}
+        classList={props.classList}
+        testId={props.testId}
+        tabIndex={props.tabIndex ?? 0}
+        onClick={(event: EventPayload) => {
+          props.onClick?.(event)
+          if (!props.disabled) context.setOpen(!context.open())
+        }}
+        style={mergeStyle(triggerBaseStyle, props.style)}
+      >{props.children}</div>
+    </div>
   )
 }
 
