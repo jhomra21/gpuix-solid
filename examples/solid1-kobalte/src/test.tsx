@@ -3,6 +3,8 @@ import { KobalteShowcase } from "./app"
 import { SemanticSvgProbe } from "./semantic-svg-probe"
 
 const SCREENSHOT_PATH = "/tmp/gpuix-solid1-kobalte-gallery.png"
+const VIEWPORT_WIDTH = 1180
+const VIEWPORT_HEIGHT = 820
 
 function requireCondition(condition: boolean, message: string): void {
   if (!condition) throw new Error(message)
@@ -17,10 +19,22 @@ function requireValueEnding(app: ReturnType<typeof createTestRoot>, testId: stri
   if (!value.endsWith(suffix)) throw new Error(`${label}: expected ${JSON.stringify(value)} to end with ${JSON.stringify(suffix)}`)
 }
 
+function reveal(app: ReturnType<typeof createTestRoot>, testId: string): void {
+  const bounds = app.renderer.boundsTestId(testId)
+  const current = app.renderer.scrollOffsetTestId("kobalte-showcase") ?? [0, 0]
+  const margin = 12
+  let nextY = current[1]
+  if (bounds.y < margin) nextY += margin - bounds.y
+  else if (bounds.y + bounds.height > VIEWPORT_HEIGHT - margin) {
+    nextY -= bounds.y + bounds.height - (VIEWPORT_HEIGHT - margin)
+  }
+  if (nextY !== current[1]) app.renderer.scrollTestId("kobalte-showcase", current[0], nextY)
+}
+
 if (!hasNativeTestRenderer) {
   console.log("solid1 Kobalte gallery: native TestGpuixRenderer unavailable; skipped")
 } else {
-  const app = createTestRoot({ width: 1180, height: 820 })
+  const app = createTestRoot({ width: VIEWPORT_WIDTH, height: VIEWPORT_HEIGHT })
   app.render(() => <KobalteShowcase />)
 
   requireCondition(app.renderer.hasTestId("kobalte-showcase"), "Kobalte gallery root should render")
@@ -52,32 +66,39 @@ if (!hasNativeTestRenderer) {
 
   app.renderer.captureScreenshot(SCREENSHOT_PATH)
 
+  reveal(app, "button-action")
   app.renderer.clickTestId("button-action")
   requireText(app.renderer.textContent("last-action"), "Button pressed", "Button press")
 
   app.renderer.clickTestId("button-disabled")
   requireText(app.renderer.textContent("last-action"), "Button pressed", "disabled Button")
 
+  reveal(app, "button-keyboard")
   app.renderer.pressKeyTestId("button-keyboard", "enter")
   requireText(app.renderer.textContent("last-action"), "Keyboard button pressed", "Button Enter activation")
   app.renderer.pressKeyTestId("button-keyboard", "space")
   requireText(app.renderer.textContent("last-action"), "Keyboard button pressed", "Button Space activation")
 
+  reveal(app, "text-field-input")
   app.renderer.typeTestId("text-field-input", " X")
   requireValueEnding(app, "text-field-input", " X", "controlled TextField.Input")
+  reveal(app, "text-field-textarea")
   app.renderer.typeTestId("text-field-textarea", "!")
   requireValueEnding(app, "text-field-textarea", "!", "controlled TextField.TextArea")
 
+  reveal(app, "theme-toggle")
   app.renderer.clickTestId("theme-toggle")
   requireText(app.renderer.textContent("theme-toggle"), "Theme: light", "ColorMode toggle")
   requireCondition(app.renderer.styleTestId("kobalte-showcase").backgroundColor === "#f5f5f7", "ColorMode toggle should switch the painted root palette")
   requireCondition(app.renderer.styleTestId("text-field-input").backgroundColor === "#ffffff", "ColorMode toggle should switch controlled input chrome")
 
+  reveal(app, "tooltip-trigger")
   app.renderer.hoverTestId("tooltip-trigger")
   requireCondition(app.renderer.hasTestId("tooltip-content"), "Tooltip should open from native hover")
   app.renderer.pressKeyTestId("tooltip-trigger", "escape")
   requireCondition(!app.renderer.hasTestId("tooltip-content"), "Tooltip should close from Escape")
 
+  reveal(app, "dropdown-trigger")
   app.renderer.clickTestId("dropdown-trigger")
   requireCondition(app.renderer.hasTestId("dropdown-content"), "DropdownMenu.Trigger should open content")
   requireCondition(app.renderer.hasTestId("dropdown-group-label"), "DropdownMenu.GroupLabel should render")
@@ -100,11 +121,13 @@ if (!hasNativeTestRenderer) {
   requireText(app.renderer.textContent("last-action"), "Master routing", "Dropdown submenu selection")
   requireCondition(!app.renderer.hasTestId("dropdown-content"), "submenu item should close the root menu")
 
+  reveal(app, "dropdown-trigger")
   app.renderer.clickTestId("dropdown-trigger")
   app.renderer.clickTestId("dropdown-item")
   requireText(app.renderer.textContent("last-action"), "Insert audio track", "Dropdown item selection")
   requireCondition(!app.renderer.hasTestId("dropdown-content"), "Dropdown item should close root menu")
 
+  reveal(app, "context-trigger")
   app.renderer.clickTestId("context-trigger")
   requireCondition(!app.renderer.hasTestId("context-content"), "ContextMenu must ignore a normal left click")
   app.renderer.rightClickTestId("context-trigger")
@@ -121,11 +144,13 @@ if (!hasNativeTestRenderer) {
   requireText(app.renderer.textContent("last-action"), "Blue clip", "Context submenu selection")
   requireCondition(!app.renderer.hasTestId("context-content"), "Context submenu item should close content")
 
+  reveal(app, "context-trigger")
   app.renderer.rightClickTestId("context-trigger")
   app.renderer.clickTestId("context-duplicate")
   requireText(app.renderer.textContent("last-action"), "Duplicate clip", "Context menu selection")
   requireCondition(!app.renderer.hasTestId("context-content"), "Context menu item should close content")
 
+  reveal(app, "menubar-file")
   app.renderer.clickTestId("menubar-file")
   requireCondition(app.renderer.hasTestId("menubar-file-content"), "Menubar trigger should open its menu")
   app.renderer.clickTestId("menubar-disabled")
@@ -137,11 +162,13 @@ if (!hasNativeTestRenderer) {
   requireText(app.renderer.textContent("last-action"), "Export WAV", "Menubar submenu selection")
   requireCondition(!app.renderer.hasTestId("menubar-file-content"), "Menubar submenu selection should close the menu")
 
+  reveal(app, "menubar-file")
   app.renderer.clickTestId("menubar-file")
   app.renderer.clickTestId("menubar-new")
   requireText(app.renderer.textContent("last-action"), "New project", "Menubar selection")
   requireCondition(!app.renderer.hasTestId("menubar-file-content"), "Menubar item should close menu")
 
+  reveal(app, "dialog-trigger")
   app.renderer.clickTestId("dialog-trigger")
   requireCondition(app.renderer.hasTestId("dialog-overlay"), "Dialog overlay should mount")
   requireCondition(app.renderer.hasTestId("dialog-content"), "Dialog content should mount")
@@ -150,11 +177,13 @@ if (!hasNativeTestRenderer) {
   app.renderer.clickTestId("dialog-overlay")
   requireCondition(!app.renderer.hasTestId("dialog-content"), "Dialog overlay should dismiss content")
 
+  reveal(app, "dialog-trigger")
   app.renderer.clickTestId("dialog-trigger")
   requireCondition(app.renderer.hasTestId("dialog-content"), "Dialog should reopen")
   app.renderer.pressKeyTestId("dialog-content", "escape")
   requireCondition(!app.renderer.hasTestId("dialog-content"), "Dialog should close from Escape")
 
+  reveal(app, "dialog-trigger")
   app.renderer.clickTestId("dialog-trigger")
   requireCondition(app.renderer.hasTestId("dialog-content"), "Dialog should reopen after Escape")
   app.renderer.clickTestId("dialog-close")
