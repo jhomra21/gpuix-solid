@@ -5,7 +5,7 @@ import type { MutationValue } from "./host/mutations.js"
 import type { NativeRenderer, StyleDesc } from "./host/types.js"
 import { createRoot, type Root } from "./root.js"
 
-type NativeTestRendererConstructor = new () => NativeTestRendererApi
+type NativeTestRendererConstructor = new (width?: number, height?: number) => NativeTestRendererApi
 type NativeModule = { TestGpuixRenderer?: NativeTestRendererConstructor }
 
 interface NativeTreeNode {
@@ -23,6 +23,11 @@ export interface TestBounds {
   y: number
   width: number
   height: number
+}
+
+export interface TestViewport {
+  width?: number
+  height?: number
 }
 
 function loadNativeTestRenderer(): NativeTestRendererConstructor | undefined {
@@ -89,9 +94,9 @@ export class TestRenderer implements NativeRenderer {
   readonly #native: NativeTestRendererApi
   #root: Root | undefined
 
-  constructor() {
+  constructor(options: TestViewport = {}) {
     if (!NativeTestRenderer) throw new Error("Native TestGpuixRenderer is unavailable")
-    this.#native = new NativeTestRenderer()
+    this.#native = new NativeTestRenderer(options.width, options.height)
   }
 
   bindRoot(root: Root): void {
@@ -287,8 +292,8 @@ export interface TestRoot {
   unmount(): void
 }
 
-export function createTestRoot(): TestRoot {
-  const renderer = new TestRenderer()
+export function createTestRoot(options: TestViewport = {}): TestRoot {
+  const renderer = new TestRenderer(options)
   const root = createRoot(renderer)
   renderer.bindRoot(root)
   return {
