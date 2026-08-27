@@ -71,11 +71,22 @@ if (!hasNativeTestRenderer) {
   app.renderer.hoverTestId("tooltip-trigger")
   requireCondition(app.renderer.hasTestId("tooltip-content"), "Tooltip should open from native hover")
   requireCondition(app.renderer.styleTestId("tooltip-content").borderRadius === 6, "Tooltip content should match the Kobalte example radius")
+  const openTooltipTrigger = app.renderer.boundsTestId("tooltip-trigger")
+  const tooltipContentBounds = app.renderer.boundsTestId("tooltip-content")
+  const tooltipTriggerCenterX = openTooltipTrigger.x + openTooltipTrigger.width / 2
+  const tooltipContentCenterX = tooltipContentBounds.x + tooltipContentBounds.width / 2
+  const tooltipGap = openTooltipTrigger.y - (tooltipContentBounds.y + tooltipContentBounds.height)
+  requireCondition(Math.abs(tooltipTriggerCenterX - tooltipContentCenterX) <= 3, `Tooltip should center over its trigger like Kobalte; centers differ by ${Math.abs(tooltipTriggerCenterX - tooltipContentCenterX)}px`)
+  requireCondition(tooltipGap >= 4 && tooltipGap <= 8, `Tooltip should keep Kobalte's 6px trigger gutter; got ${tooltipGap}px`)
 
   app.renderer.clickTestId("dropdown-trigger")
   requireCondition(app.renderer.hasTestId("dropdown-content"), "DropdownMenu.Trigger should open content")
   requireCondition(app.renderer.styleTestId("dropdown-content").minWidth === 220, "DropdownMenu content should match the Kobalte example minimum width")
   requireCondition(app.renderer.styleTestId("dropdown-content").padding === 8, "DropdownMenu content should match the Kobalte example padding")
+  const openDropdownTrigger = app.renderer.boundsTestId("dropdown-trigger")
+  const dropdownContentBounds = app.renderer.boundsTestId("dropdown-content")
+  requireCondition(Math.abs(openDropdownTrigger.x - dropdownContentBounds.x) <= 2, "DropdownMenu should stay left-aligned with its Kobalte trigger")
+  requireCondition(dropdownContentBounds.y >= openDropdownTrigger.y + openDropdownTrigger.height, "DropdownMenu content should open below its trigger")
   requireCondition(app.renderer.hasTestId("dropdown-checkbox-indicator"), "checked DropdownMenu.CheckboxItem should render its indicator")
   app.renderer.clickTestId("dropdown-checkbox")
   requireCondition(!app.renderer.hasTestId("dropdown-checkbox-indicator"), "DropdownMenu.CheckboxItem should toggle without closing the menu")
@@ -115,6 +126,19 @@ if (!hasNativeTestRenderer) {
   requireCondition(app.renderer.hasTestId("dialog-content"), "Dialog.Content should mount")
   requireCondition(app.renderer.styleTestId("dialog-content").width === 500, "Dialog content should match the Kobalte BasicExample maximum width")
   requireCondition(app.renderer.styleTestId("dialog-content").borderRadius === 6, "Dialog content should match the Kobalte example radius")
+  const showcaseBounds = app.renderer.boundsTestId("kobalte-showcase")
+  const dialogOverlayBounds = app.renderer.boundsTestId("dialog-overlay")
+  const dialogContentBounds = app.renderer.boundsTestId("dialog-content")
+  requireCondition(Math.abs(showcaseBounds.x - dialogOverlayBounds.x) <= 2, "Dialog overlay should start at the viewport left edge")
+  requireCondition(Math.abs(showcaseBounds.y - dialogOverlayBounds.y) <= 2, "Dialog overlay should start at the viewport top edge")
+  requireCondition(Math.abs(showcaseBounds.width - dialogOverlayBounds.width) <= 2, `Dialog overlay should span the viewport width; got ${dialogOverlayBounds.width}px for ${showcaseBounds.width}px`)
+  requireCondition(Math.abs(showcaseBounds.height - dialogOverlayBounds.height) <= 2, `Dialog overlay should span the viewport height; got ${dialogOverlayBounds.height}px for ${showcaseBounds.height}px`)
+  const dialogOverlayCenterX = dialogOverlayBounds.x + dialogOverlayBounds.width / 2
+  const dialogOverlayCenterY = dialogOverlayBounds.y + dialogOverlayBounds.height / 2
+  const dialogContentCenterX = dialogContentBounds.x + dialogContentBounds.width / 2
+  const dialogContentCenterY = dialogContentBounds.y + dialogContentBounds.height / 2
+  requireCondition(Math.abs(dialogOverlayCenterX - dialogContentCenterX) <= 3, "Dialog content should be horizontally centered in the viewport")
+  requireCondition(Math.abs(dialogOverlayCenterY - dialogContentCenterY) <= 3, "Dialog content should be vertically centered in the viewport")
   app.renderer.pressKeyTestId("dialog-content", "escape")
   requireCondition(!app.renderer.hasTestId("dialog-content"), "Dialog should close from Escape")
 
@@ -128,7 +152,7 @@ if (!hasNativeTestRenderer) {
   const semantic = createTestRoot()
   semantic.render(() => <SemanticSvgProbe />)
   requireCondition(semantic.renderer.hasTestId("inline-svg"), "inline SVG should materialize as the native svg custom element")
-  requireText(semantic.renderer.textContent("semantic-span"), "Semantic span", "semantic span mapping")
+  requireText(semantic.renderer.textContent("semantic-span"), "Semantic span mapping")
   const source = String(semantic.renderer.customPropTestId("inline-svg", "source") ?? "")
   requireCondition(source.includes("M18 6l-12 12"), "inline SVG should serialize path markup into the upstream source prop")
   const src = String(semantic.renderer.customPropTestId("inline-svg", "src") ?? "")
