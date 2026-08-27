@@ -1,0 +1,113 @@
+{
+  "name": "@jhomra21/gpuix-solid1",
+  "version": "0.1.0-beta.0",
+  "description": "Solid 1 bindings for GPUIX and Zed's GPUI framework.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./jsx-runtime": {
+      "types": "./jsx-runtime.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./jsx-dev-runtime": {
+      "types": "./jsx-dev-runtime.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./kobalte": {
+      "types": "./dist/kobalte/index.d.ts",
+      "import": "./dist/kobalte/index.jsx"
+    },
+    "./kobalte/polymorphic": {
+      "types": "./dist/kobalte/polymorphic.d.ts",
+      "import": "./dist/kobalte/polymorphic.js"
+    },
+    "./kobalte/button": {
+      "types": "./dist/kobalte/button.d.ts",
+      "import": "./dist/kobalte/button.jsx"
+    },
+    "./kobalte/image": {
+      "types": "./dist/kobalte/image.d.ts",
+      "import": "./dist/kobalte/image.jsx"
+    },
+    "./kobalte/separator": {
+      "types": "./dist/kobalte/separator.d.ts",
+      "import": "./dist/kobalte/separator.jsx"
+    },
+    "./kobalte/text-field": {
+      "types": "./dist/kobalte/text-field.d.ts",
+      "import": "./dist/kobalte/text-field.jsx"
+    },
+    "./kobalte/tooltip": {
+      "types": "./dist/kobalte/tooltip.d.ts",
+      "import": "./dist/kobalte/tooltip.jsx"
+    },
+    "./kobalte/dialog": {
+      "types": "./dist/kobalte/dialog.d.ts",
+      "import": "./dist/kobalte/dialog.jsx"
+    },
+    "./kobalte/dropdown-menu": {
+      "types": "./dist/kobalte/dropdown-menu.d.ts",
+      "import": "./dist/kobalte/dropdown-menu.jsx"
+    },
+    "./kobalte/context-menu": {
+      "types": "./dist/kobalte/context-menu.d.ts",
+      "import": "./dist/kobalte/context-menu.jsx"
+    },
+    "./kobalte/menubar": {
+      "types": "./dist/kobalte/menubar.d.ts",
+      "import": "./dist/kobalte/menubar.jsx"
+    }
+  },
+  "files": [
+    "dist",
+    "jsx-runtime.d.ts",
+    "jsx-dev-runtime.d.ts"
+  ],
+  "scripts": {
+    "clean": "bun scripts/clean.ts",
+    "build": "bun run clean && tsc -p tsconfig.build.json",
+    "typecheck": "bun run build && tsc --noEmit",
+    "test": "bun scripts/check-host-parity.ts",
+    "validate:package": "node scripts/validate-package.mjs",
+    "smoke:package": "node scripts/smoke-package.mjs"
+  },
+  "dependencies": {
+    "@gpuix/native": "^0.4.0"
+  },
+  "peerDependencies": {
+    "solid-js": ">=1.9.0 <2"
+  },
+  "devDependencies": {
+    "solid-js": "1.9.15",
+    "typescript": "^5.9.2",
+    "@types/node": "^25.3.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jhomra21/gpuix-solid.git",
+    "directory": "packages/solid1"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public",
+    "provenance": true
+  },
+  "keywords": [
+    "solid",
+    "solidjs",
+    "solid1",
+    "gpui",
+    "gpuix",
+    "zed",
+    "desktop",
+    "native"
+  ]
+}

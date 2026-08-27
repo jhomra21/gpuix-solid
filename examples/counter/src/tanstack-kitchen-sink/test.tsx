@@ -4,7 +4,7 @@ import {
   createTestApp,
   createTestRoot,
   hasNativeTestRenderer,
-} from "@jhomra21/gpuix-solid"
+} from "gpuix-solid"
 import { TanStackKitchenSinkNative } from "./app"
 
 const screenshotPath = "/tmp/gpuix-solid-tanstack-kitchen-sink.png"

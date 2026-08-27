@@ -65,7 +65,7 @@ if (publicPackage.scripts !== undefined) throw new Error("Staged package must no
 if (publicPackage.devDependencies !== undefined) {
   throw new Error("Staged package must not publish development dependencies")
 }
-if (publicPackage.name !== "@jhomra21/gpuix-solid") {
+if (publicPackage.name !== "gpuix-solid") {
   throw new Error(`Unexpected staged package name: ${publicPackage.name}`)
 }
 

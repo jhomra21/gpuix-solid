@@ -6,7 +6,7 @@ Solid 2 bindings for [GPUIX](https://github.com/remorses/gpuix), targeting [GPUI
 Solid 2 + TypeScript
         │
         ▼
-@jhomra21/gpuix-solid
+gpuix-solid
   Solid universal renderer
         │
         ▼
@@ -73,7 +73,7 @@ The JS shadow tree exists because Solid's universal reconciler needs synchronous
 ## Usage
 
 ```tsx
-import { animate, render } from "@jhomra21/gpuix-solid"
+import { animate, render } from "gpuix-solid"
 import { createSignal } from "solid-js"
 
 function App() {
@@ -110,9 +110,9 @@ See `examples/counter` for the first fixture.
 The testing API uses the same Solid root, mutation driver, event registry, native retained tree, and GPUI rendering path as a normal app. GPU-backed tests are available when the installed `@gpuix/native` build exports `TestGpuixRenderer`.
 
 ```ts
-import { createElement, insert, insertNode, setProp } from "@jhomra21/gpuix-solid"
-import { createTestRoot } from "@jhomra21/gpuix-solid"
-import { createTestApp } from "@jhomra21/gpuix-solid/automation"
+import { createElement, insert, insertNode, setProp } from "gpuix-solid"
+import { createTestRoot } from "gpuix-solid"
+import { createTestApp } from "gpuix-solid/automation"
 
 const testRoot = createTestRoot()
 
@@ -132,10 +132,10 @@ await app.getByTestId("save").click()
 
 Locators query the native automation tree on demand instead of holding DOM-like element objects. Supported locator operations include `getByTestId`, `getByText`, `getByType`, nested locators, `count`, strict `element`, `bounds`, `click`, `fill`, `press`, `textContent`, and `waitFor`.
 
-The `@jhomra21/gpuix-solid/automation` subpath also provides the live-process transport:
+The `gpuix-solid/automation` subpath also provides the live-process transport:
 
 ```ts
-import { launch } from "@jhomra21/gpuix-solid/automation"
+import { launch } from "gpuix-solid/automation"
 
 const app = await launch({
   command: "bun",

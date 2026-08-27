@@ -19,7 +19,7 @@ import {
   animate,
   type EventPayload,
   type StyleDesc,
-} from "@jhomra21/gpuix-solid"
+} from "gpuix-solid"
 
 type Page = "overview" | "tasks" | "notes" | "weather" | "account"
 type TaskFilter = "all" | "active" | "completed"

@@ -13,7 +13,7 @@
       "name": "gpuix-solid-counter",
       "dependencies": {
         "@gpuix/native": "^0.4.0",
-        "@jhomra21/gpuix-solid": "workspace:*",
+        "gpuix-solid": "workspace:*",
         "solid-js": "^2.0.0-rc.0",
       },
       "devDependencies": {
@@ -23,7 +23,7 @@
       },
     },
     "packages/solid": {
-      "name": "@jhomra21/gpuix-solid",
+      "name": "gpuix-solid",
       "version": "0.0.0",
       "dependencies": {
         "@gpuix/native": "^0.4.0",
@@ -117,7 +117,7 @@
 
     "@gpuix/native-win32-x64-msvc": ["@gpuix/native-win32-x64-msvc@0.4.0", "", { "os": "win32", "cpu": "x64" }, "sha512-T11cRtupmbJOKx+NrbPXdzkebVzl2GzJ24fNwCYpmA9OBgcJZe0AMNCu+KjiTVlZLsZ4yEy/41YQiSAcEy/h4A=="],
 
-    "@jhomra21/gpuix-solid": ["@jhomra21/gpuix-solid@workspace:packages/solid"],
+    "gpuix-solid": ["gpuix-solid@workspace:packages/solid"],
 
     "@jridgewell/gen-mapping": ["@jridgewell/gen-mapping@0.3.13", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.0", "@jridgewell/trace-mapping": "^0.3.24" } }, "sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA=="],
 

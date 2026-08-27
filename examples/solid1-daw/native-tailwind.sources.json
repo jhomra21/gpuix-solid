@@ -1,0 +1,21 @@
+[
+  "src/upstream/components/ui/avatar.tsx",
+  "src/upstream/components/ui/button.tsx",
+  "src/upstream/components/ui/dropdown-menu.tsx",
+  "src/upstream/components/ui/Icon.tsx",
+  "src/upstream/components/ui/menubar.tsx",
+  "src/upstream/components/ui/separator.tsx",
+  "src/upstream/components/ui/text-field.tsx",
+  "src/upstream/components/ui/tooltip.tsx",
+  "src/upstream/components/timeline/TransportControls.tsx",
+  "src/upstream/components/timeline/browser/timeline-left-browser.tsx",
+  "src/upstream/components/timeline/ArrangementOverview.tsx",
+  "src/upstream/components/timeline/TimelineRuler.tsx",
+  "src/upstream/components/timeline/TrackLane.tsx",
+  "src/upstream/components/timeline/toolbar-context.tsx",
+  "src/upstream/components/timeline/TimelineBottomPanelFooter.tsx",
+  "src/upstream/components/timeline/TimelineBottomPanelShell.tsx",
+  "src/upstream/components/timeline/local-save-failure-banner.tsx",
+  "src/upstream-ui-probe.tsx",
+  "src/native-tailwind-runtime-candidates.tsx"
+]

@@ -1,4 +1,4 @@
-import { render, type StyleDesc } from "@jhomra21/gpuix-solid"
+import { render, type StyleDesc } from "gpuix-solid"
 import { For, Show, createSignal } from "solid-js"
 
 const README = `# GPUIX Solid

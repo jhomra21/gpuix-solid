@@ -50,6 +50,15 @@ jobs:
       - run: bun run typecheck
       - run: bun run test
       - run: bun run build
+      - name: Verify Solid 1 package and DAW showcase
+        run: bun run solid1:check
+      - name: Upload native DAW screenshot
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: solid1-daw-native-macos
+          path: /tmp/gpuix-solid1-daw-source-structured.png
+          if-no-files-found: error
       - run: node --test scripts/release.test.mjs
 
   package:
@@ -87,3 +96,12 @@ jobs:
         run: node packages/solid/scripts/validate-package.mjs
       - name: Smoke exact package tarball
         run: node packages/solid/scripts/smoke-package.mjs
+      - name: Build Solid 1 package
+        working-directory: packages/solid1
+        run: bun install --no-save && bun run test && bun run build
+      - name: Validate staged Solid 1 package
+        working-directory: packages/solid1
+        run: bun run validate:package
+      - name: Smoke exact Solid 1 package tarball
+        working-directory: packages/solid1
+        run: bun run smoke:package

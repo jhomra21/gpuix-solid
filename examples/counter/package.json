@@ -31,7 +31,7 @@
   },
   "dependencies": {
     "@gpuix/native": "^0.4.0",
-    "@jhomra21/gpuix-solid": "workspace:*",
+    "gpuix-solid": "workspace:*",
     "solid-js": "^2.0.0-rc.0"
   },
   "devDependencies": {

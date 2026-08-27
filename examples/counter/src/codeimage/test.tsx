@@ -5,7 +5,7 @@ import {
   createTestRoot,
   hasNativeTestRenderer,
   type TestRenderer,
-} from "@jhomra21/gpuix-solid"
+} from "gpuix-solid"
 import { CodeImageNativeDemo } from "./app"
 
 const screenshotPath = "/tmp/gpuix-solid-codeimage-native.png"

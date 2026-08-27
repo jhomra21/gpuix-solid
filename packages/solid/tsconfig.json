@@ -2,7 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "jsx": "preserve",
-    "jsxImportSource": "@jhomra21/gpuix-solid",
+    "jsxImportSource": "gpuix-solid",
     "noEmit": true
   },
   "include": ["src", "test", "*.d.ts"]

@@ -1,0 +1,43 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "baseUrl": ".",
+    "exactOptionalPropertyTypes": false,
+    "jsx": "preserve",
+    "jsxImportSource": "@jhomra21/gpuix-solid1",
+    "noEmit": true,
+    "noImplicitAny": false,
+    "noUncheckedIndexedAccess": false,
+    "paths": {
+      "solid-js/web": ["src/compat/solid-web.ts"],
+      "~/context/app-preferences": ["src/compat/app-preferences.ts"],
+      "~/hooks/useTransportTempoController": ["src/compat/useTransportTempoController.ts"],
+      "~/lib/clip-color": ["src/compat/clip-color.ts"],
+      "~/lib/project-save-status": ["src/compat/project-save-status.ts"],
+      "~/lib/timeline-left-browser-preferences": ["src/compat/timeline-left-browser-preferences.ts"],
+      "~/lib/timeline-range-selection": ["src/compat/timeline-range-selection.ts"],
+      "~/lib/timeline-storage": ["src/compat/timeline-storage.ts"],
+      "~/lib/timeline-track-layout": ["src/compat/timeline-track-layout.ts"],
+      "~/lib/timeline-utils": ["src/compat/timeline-utils.ts"],
+      "~/lib/timeline-view": ["src/compat/timeline-view.ts"],
+      "~/*": ["src/upstream/*"],
+      "@daw-browser/shared": ["src/compat/daw-browser-shared.ts"],
+      "@daw-browser/timeline-core/types": ["src/compat/timeline-core-types.ts"],
+      "@daw-browser/timeline-core/clip-fades": ["src/compat/clip-fades.ts"],
+      "@kobalte/core": ["../../packages/solid1/src/kobalte/index.tsx"],
+      "@kobalte/core/polymorphic": ["../../packages/solid1/src/kobalte/polymorphic.ts"],
+      "@kobalte/core/button": ["../../packages/solid1/src/kobalte/button.tsx"],
+      "@kobalte/core/image": ["../../packages/solid1/src/kobalte/image.tsx"],
+      "@kobalte/core/separator": ["../../packages/solid1/src/kobalte/separator.tsx"],
+      "@kobalte/core/text-field": ["../../packages/solid1/src/kobalte/text-field.tsx"],
+      "@kobalte/core/tooltip": ["../../packages/solid1/src/kobalte/tooltip.tsx"],
+      "@kobalte/core/dialog": ["../../packages/solid1/src/kobalte/dialog.tsx"],
+      "@kobalte/core/dropdown-menu": ["../../packages/solid1/src/kobalte/dropdown-menu.tsx"],
+      "@kobalte/core/context-menu": ["../../packages/solid1/src/kobalte/context-menu.tsx"],
+      "@kobalte/core/menubar": ["../../packages/solid1/src/kobalte/menubar.tsx"]
+    },
+    "types": ["node", "vite/client"]
+  },
+  "include": ["src", "vite*.config.ts", "kobalte-native-aliases.ts"]
+}

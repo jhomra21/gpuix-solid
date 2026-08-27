@@ -55,7 +55,7 @@ export class SseAutomationBackend implements AutomationBackend {
         method: "initialize",
         params: {
           protocolVersion: PROTOCOL_VERSION,
-          client: "@jhomra21/gpuix-solid/automation",
+          client: "gpuix-solid/automation",
         },
       },
       initializeResultSchema,

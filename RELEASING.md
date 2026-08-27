@@ -10,7 +10,7 @@ GPUix Solid releases are prepared and published by GitHub Actions. Normal releas
 - The publish workflow builds and packs one sanitized npm artifact, smoke-tests that exact tarball in clean npm, Bun, and Solid TSX/Vite consumers, uploads it as a workflow artifact, then publishes those exact bytes without rebuilding.
 - npm registry integrity and the expected `beta`/`latest` dist-tag are verified after publication.
 - The Git tag and GitHub Release are created only after npm succeeds.
-- Scoped publishes are public and use npm provenance.
+- Publishes are public and use npm provenance.
 - A recovery run may accept an already-published version only when npm reports the same SHA-512 integrity as the validated artifact.
 - Recovery resolves the main-branch commit that introduced the current package version and keeps the release tag anchored to that commit.
 - Never reuse a version whose npm bytes differ or that has already been published with different content.
@@ -58,21 +58,72 @@ For a beta such as `0.1.0-beta.1`, `beta-next` produces `0.1.0-beta.2`. Promotin
    - creates the GitHub Release last.
 9. Run the Release Control `/verify-release` check when an explicit registry-level proof is useful. It validates the current version, dist-tag, SHA-512 integrity, and npm provenance attestation.
 
-## First publication bootstrap
+## Original scoped-package bootstrap
 
-The one-time bootstrap is complete.
+The original scoped package bootstrap is complete.
 
-`0.1.0-beta.0` was an internal pre-publication candidate and was intentionally never published. `0.1.0-beta.1` was the first public package version. Because npm requires a package to exist before a GitHub Actions trusted publisher can be configured, beta.1 was published once manually from the same sanitized staged tarball used by the release tooling. Registry integrity was verified against that tarball before Trusted Publishing was configured.
+`0.1.0-beta.0` was an internal pre-publication candidate and was intentionally never published. `0.1.0-beta.1` was the first public version of `@jhomra21/gpuix-solid`. Because npm requires a package to exist before a GitHub Actions trusted publisher can be configured, beta.1 was published once manually from the same sanitized staged tarball used by the release tooling. Registry integrity was verified against that tarball before Trusted Publishing was configured.
 
-That manual bootstrap must not be repeated for later versions.
+That bootstrap applies only to the original scoped package.
 
-`0.1.0-beta.2` was the first steady-state tokenless release. It was published through Trusted Publishing/OIDC and the registry exposed a SLSA provenance v1 attestation for the published package.
+`0.1.0-beta.2` was the first steady-state tokenless release for `@jhomra21/gpuix-solid`. It was published through Trusted Publishing/OIDC and the registry exposed a SLSA provenance v1 attestation for the published package.
+
+## `gpuix-solid` package-name migration bootstrap
+
+The Solid 2 npm package now publishes as `gpuix-solid`. This is a new npm package identity; npm does not rename or transfer the existing `@jhomra21/gpuix-solid` package in place.
+
+Because `v0.1.0-beta.3` already belongs to the original scoped package release, do not bootstrap `gpuix-solid` with that version. After the rename reaches `main`, prepare the next beta release so the first unscoped publication is `gpuix-solid@0.1.0-beta.4`.
+
+npm requires a package to exist before a Trusted Publisher can be attached to it. Therefore the first `gpuix-solid` release is a one-time new-package bootstrap: publish the exact sanitized tarball produced by this release tooling once using an interactive npm maintainer session, verify its registry SHA-512 integrity against that tarball, then configure `gpuix-solid` with the Trusted Publisher settings below. Do not add an npm token to GitHub Actions for this bootstrap.
+
+Recommended cutover sequence:
+
+1. Merge the package rename to `main` only after the normal PR completion gates pass.
+2. Prepare and merge `release/v0.1.0-beta.4` through the normal release tooling.
+3. Let **Publish Package** build, validate, smoke-test, and upload the exact `gpuix-solid@0.1.0-beta.4` tarball. The first OIDC publish is expected to stop because the new npm package does not yet have a Trusted Publisher.
+4. Download that exact `npm-package` workflow artifact and publish its single `.tgz` once from an interactive npm maintainer session:
+
+   ```bash
+   npm publish ./gpuix-solid-0.1.0-beta.4.tgz --tag beta --access public
+   ```
+
+5. Confirm the new registry identity before configuring trust:
+
+   ```bash
+   npm view gpuix-solid name version dist-tags repository --json
+   npm owner ls gpuix-solid
+   ```
+
+6. Configure the new package's GitHub Actions Trusted Publisher with npm 11.15.0 or newer and account-level 2FA enabled:
+
+   ```bash
+   npm trust github gpuix-solid \
+     --file publish.yml \
+     --repo jhomra21/gpuix-solid \
+     --env npm-publish \
+     --allow-publish
+   npm trust list gpuix-solid --json
+   ```
+
+7. In npm package settings, set **Publishing access** to **Require two-factor authentication and disallow tokens** after Trusted Publishing is confirmed. The OIDC publisher continues to work without a long-lived token.
+8. Re-run **Publish Package** from `main`. Recovery must observe the same SHA-512 integrity, accept the already-published npm bytes, and then complete the Git tag and GitHub Release.
+9. Run `/verify-release` and confirm `gpuix-solid@0.1.0-beta.4`, the `beta` dist-tag, registry integrity, and provenance are all correct.
+10. Only after the new package is healthy, deprecate the entire old package with an explicit migration message:
+
+    ```bash
+    npm deprecate @jhomra21/gpuix-solid "Package renamed to gpuix-solid. Install with: npm install gpuix-solid"
+    npm view @jhomra21/gpuix-solid@0.1.0-beta.3 deprecated
+    ```
+
+    Keep the old package published so existing lockfiles and installs remain reproducible. Deprecation is the redirect: npm displays the migration message during installs and on the package page.
+
+After that first `gpuix-solid` publication and trust configuration, all later releases return to the normal tokenless OIDC flow. The old scoped package remains a separate registry entry and should receive no new releases.
 
 ## Trusted Publisher configuration
 
-Normal npm publication is tokenless. The npm trusted publisher is:
+Normal npm publication is tokenless after the one-time `gpuix-solid` bootstrap. The npm trusted publisher is:
 
-- package: `@jhomra21/gpuix-solid`
+- package: `gpuix-solid`
 - repository: `jhomra21/gpuix-solid`
 - workflow filename: `publish.yml`
 - GitHub environment: `npm-publish`

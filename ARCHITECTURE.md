@@ -13,7 +13,7 @@ The framework boundary is intentionally above `@gpuix/native`:
                               │
                 ┌─────────────┴─────────────┐
                 │                           │
-          @gpuix/react              @jhomra21/gpuix-solid
+          @gpuix/react              gpuix-solid
           React/Fiber                 Solid 2 universal
 ```
 
