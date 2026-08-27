@@ -13,7 +13,7 @@ function requireText(actual: string, expected: string, label: string): void {
 if (!hasNativeTestRenderer) {
   console.log("solid1 Kobalte showcase: native TestGpuixRenderer unavailable; skipped")
 } else {
-  const app = createTestRoot({ width: 1180, height: 820 })
+  const app = createTestRoot()
   app.render(() => <KobalteShowcase />)
 
   requireCondition(app.renderer.hasTestId("kobalte-showcase"), "Kobalte showcase root should render")
