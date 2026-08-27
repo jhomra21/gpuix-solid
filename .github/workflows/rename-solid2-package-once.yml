@@ -65,15 +65,12 @@ jobs:
               '`0.1.0-beta.2` was the first steady-state tokenless release. It was published through Trusted Publishing/OIDC and the registry exposed a SLSA provenance v1 attestation for the published package.',
               '`0.1.0-beta.2` was the first steady-state tokenless release for the original scoped package. It was published through Trusted Publishing/OIDC and the registry exposed a SLSA provenance v1 attestation for the published package.',
           )
-          migration = '''## `gpuix-solid` package-name migration bootstrap
-
-The Solid 2 npm package now publishes as `gpuix-solid`. This is a new npm package identity; npm does not rename or transfer the existing `@jhomra21/gpuix-solid` package in place.
-
-npm requires a package to exist before a Trusted Publisher can be attached to it. Therefore the first `gpuix-solid` release is a one-time new-package bootstrap: publish the exact sanitized tarball produced by this release tooling once using an interactive npm maintainer session, verify its registry SHA-512 integrity against that tarball, then configure `gpuix-solid` with the Trusted Publisher settings below. Do not add an npm token to GitHub Actions for this bootstrap.
-
-After that first `gpuix-solid` publication and trust configuration, all later releases return to the normal tokenless OIDC flow. The old scoped package remains a separate registry entry; deprecating it is a separate explicit maintenance action after the new package is confirmed healthy.
-
-'''
+          migration = (
+              '## `gpuix-solid` package-name migration bootstrap\n\n'
+              'The Solid 2 npm package now publishes as `gpuix-solid`. This is a new npm package identity; npm does not rename or transfer the existing `@jhomra21/gpuix-solid` package in place.\n\n'
+              'npm requires a package to exist before a Trusted Publisher can be attached to it. Therefore the first `gpuix-solid` release is a one-time new-package bootstrap: publish the exact sanitized tarball produced by this release tooling once using an interactive npm maintainer session, verify its registry SHA-512 integrity against that tarball, then configure `gpuix-solid` with the Trusted Publisher settings below. Do not add an npm token to GitHub Actions for this bootstrap.\n\n'
+              'After that first `gpuix-solid` publication and trust configuration, all later releases return to the normal tokenless OIDC flow. The old scoped package remains a separate registry entry; deprecating it is a separate explicit maintenance action after the new package is confirmed healthy.\n\n'
+          )
           marker = '## Trusted Publisher configuration\n'
           if migration not in releasing:
               if marker not in releasing:
