@@ -21,6 +21,7 @@ export class HostRootNode {
   readonly children: HostNode[] = []
   readonly events: EventRegistry
   readonly driver: MutationDriver
+  portalTarget: HostElementNode | null = null
   #nextId = 1
 
   constructor(renderer: NativeRenderer, events: EventRegistry, driver: MutationDriver) {
@@ -37,6 +38,7 @@ export class HostRootNode {
 export class HostElementNode implements PublicInstance, DomCompatTarget {
   readonly kind = "element" as const
   readonly type: ElementType
+  readonly isPortal: boolean
   readonly children: HostNode[] = []
   parent: HostParent | null = null
   root: HostRootNode | null = null
@@ -51,8 +53,9 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   }
   readonly #capturedPointers = new Set<number>()
 
-  constructor(type: ElementType) {
+  constructor(type: ElementType, isPortal = false) {
     this.type = type
+    this.isPortal = isPortal
   }
 
   get value(): string {
@@ -181,6 +184,10 @@ export function createHostElement(type: string): HostElementNode {
   return new HostElementNode(type)
 }
 
+export function createHostPortal(): HostElementNode {
+  return new HostElementNode("div", true)
+}
+
 export function createHostText(value: string): HostTextNode {
   return new HostTextNode(String(value))
 }
@@ -255,8 +262,10 @@ export function insertHostNode(parent: HostParent, node: HostNode, anchor?: Host
     return
   }
 
-  if (anchor) root.driver.enqueue("insertBefore", parent.id, node.id, anchor.id)
-  else root.driver.enqueue("appendChild", parent.id, node.id)
+  const physicalParent = isPortalNode(node) ? requirePortalTarget(root) : parent
+  const physicalAnchor = findPhysicalAnchor(parent, node, anchor)
+  if (physicalAnchor) root.driver.enqueue("insertBefore", physicalParent.id, node.id, physicalAnchor.id)
+  else root.driver.enqueue("appendChild", physicalParent.id, node.id)
 }
 
 export function removeHostNode(parent: HostParent, node: HostNode): void {
@@ -265,8 +274,12 @@ export function removeHostNode(parent: HostParent, node: HostNode): void {
   node.parent = null
   const root = rootOf(parent)
   if (!root || !node.root) return
+
+  destroyPortalsInSubtree(root, node)
+  if (isPortalNode(node)) return
+
   if (parent.kind === "element") root.driver.enqueue("removeChild", parent.id, node.id)
-  markNativeDead(root, node)
+  markPhysicalNativeDead(root, node)
   root.driver.enqueue("destroyElement", node.id)
 }
 
@@ -323,14 +336,52 @@ function adopt(root: HostRootNode, node: HostNode): void {
 
   for (const child of node.children) {
     adopt(root, child)
-    root.driver.enqueue("appendChild", node.id, child.id)
+    const physicalParent = isPortalNode(child) ? requirePortalTarget(root) : node
+    root.driver.enqueue("appendChild", physicalParent.id, child.id)
   }
 }
 
-function markNativeDead(root: HostRootNode, node: HostNode): void {
+function destroyPortalsInSubtree(root: HostRootNode, node: HostNode): void {
+  if (node.kind === "element") {
+    for (const child of node.children) destroyPortalsInSubtree(root, child)
+    if (!node.isPortal || !node.nativeAlive) return
+    const portalTarget = requirePortalTarget(root)
+    root.driver.enqueue("removeChild", portalTarget.id, node.id)
+    markPhysicalNativeDead(root, node)
+    root.driver.enqueue("destroyElement", node.id)
+  }
+}
+
+function markPhysicalNativeDead(root: HostRootNode, node: HostNode): void {
   node.nativeAlive = false
   root.events.deactivate(node.id)
-  for (const child of node.children) markNativeDead(root, child)
+  for (const child of node.children) {
+    if (isPortalNode(child)) continue
+    markPhysicalNativeDead(root, child)
+  }
+}
+
+function findPhysicalAnchor(parent: HostElementNode, node: HostNode, anchor: HostNode | null | undefined): HostNode | undefined {
+  if (!anchor) return undefined
+  const nodePortaled = isPortalNode(node)
+  const start = parent.children.indexOf(anchor)
+  if (start < 0) return undefined
+  for (let index = start; index < parent.children.length; index += 1) {
+    const candidate = parent.children[index]
+    if (candidate && candidate !== node && isPortalNode(candidate) === nodePortaled && candidate.nativeAlive) {
+      return candidate
+    }
+  }
+  return undefined
+}
+
+function isPortalNode(node: HostNode): node is HostElementNode {
+  return node.kind === "element" && node.isPortal
+}
+
+function requirePortalTarget(root: HostRootNode): HostElementNode {
+  if (!root.portalTarget) throw new Error("GPUIX portal target is not initialized")
+  return root.portalTarget
 }
 
 function rootOf(parent: HostParent): HostRootNode | null {
