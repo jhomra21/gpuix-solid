@@ -93,6 +93,7 @@ if (!hasNativeTestRenderer) {
   requireCondition(app.renderer.styleTestId("text-field-input").backgroundColor === "#ffffff", "ColorMode toggle should switch controlled input chrome")
 
   reveal(app, "tooltip-trigger")
+  app.renderer.hoverTestId("kobalte-showcase")
   app.renderer.hoverTestId("tooltip-trigger")
   requireCondition(app.renderer.hasTestId("tooltip-content"), "Tooltip should open from native hover")
   app.renderer.pressKeyTestId("tooltip-trigger", "escape")
