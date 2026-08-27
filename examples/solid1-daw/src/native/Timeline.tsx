@@ -1,5 +1,6 @@
 import { createMemo, createSignal, type JSX } from "solid-js"
 import type { EventPayload } from "@jhomra21/gpuix-solid1"
+import { getBottomPanelMountedFootprintPx } from "../upstream/lib/bottom-panel-layout"
 import { DEFAULT_PIXELS_PER_SECOND } from "../compat/timeline-view"
 import TimelineChrome from "./TimelineChrome"
 import TimelinePanels from "./TimelinePanels"
@@ -29,6 +30,10 @@ function compatible(clip: NativeClip, track: NativeTrack): boolean {
   if (track.kind === "return" || track.kind === "group") return false
   if (clip.kind === "midi") return track.kind === "midi"
   return track.kind === "audio"
+}
+
+function draggableTracks(tracks: NativeTrack[]): NativeTrack[] {
+  return tracks.filter((track) => track.kind !== "return" && track.kind !== "group")
 }
 
 function findClip(tracks: NativeTrack[], clipId: string): { track: NativeTrack; clip: NativeClip } | undefined {
@@ -61,6 +66,7 @@ export default function Timeline(): JSX.Element {
   const [bottomPanelOpen, setBottomPanelOpen] = createSignal(true)
   const [bottomTab, setBottomTab] = createSignal<BottomTab>("effects")
   const [drag, setDrag] = createSignal<DragState>()
+  const [masterVolume, setMasterVolume] = createSignal(1)
 
   const [compressorEnabled, setCompressorEnabled] = createSignal(true)
   const [compressorRatio, setCompressorRatio] = createSignal(4)
@@ -74,6 +80,10 @@ export default function Timeline(): JSX.Element {
   const [eqHighGain, setEqHighGain] = createSignal(0)
 
   const selectedClip = createMemo(() => findClip(tracks(), selectedClipId())?.clip)
+  const bottomPanelOffsetPx = () => getBottomPanelMountedFootprintPx({
+    open: bottomPanelOpen(),
+    heightPx: layout.bottomPanelHeight,
+  })
 
   const updateTrack = (id: string, update: (track: NativeTrack) => NativeTrack): void => {
     setTracks((current) => current.map((track) => track.id === id ? update(track) : track))
@@ -81,6 +91,13 @@ export default function Timeline(): JSX.Element {
 
   const selectTrack = (id: string): void => {
     setSelectedTrackId(id)
+    setSelectedClipId("")
+    setBottomTab("effects")
+    setBottomPanelOpen(true)
+  }
+
+  const selectMaster = (): void => {
+    setSelectedTrackId("master")
     setSelectedClipId("")
     setBottomTab("effects")
     setBottomPanelOpen(true)
@@ -94,8 +111,10 @@ export default function Timeline(): JSX.Element {
   const beginClipDrag = (trackId: string, clipId: string, event: PointerEvent): void => {
     if (event.button !== 0) return
     const currentTracks = tracks()
-    const sourceTrackIndex = currentTracks.findIndex((track) => track.id === trackId)
-    const clip = currentTracks[sourceTrackIndex]?.clips.find((entry) => entry.id === clipId)
+    const movableTracks = draggableTracks(currentTracks)
+    const sourceTrackIndex = movableTracks.findIndex((track) => track.id === trackId)
+    const sourceTrack = movableTracks[sourceTrackIndex]
+    const clip = sourceTrack?.clips.find((entry) => entry.id === clipId)
     if (!clip || sourceTrackIndex < 0) return
     selectClip(trackId, clipId)
     setDrag({
@@ -112,12 +131,13 @@ export default function Timeline(): JSX.Element {
     const currentDrag = drag()
     if (!currentDrag || event.x === undefined || event.y === undefined) return
     const currentTracks = tracks()
+    const movableTracks = draggableTracks(currentTracks)
     const found = findClip(currentTracks, currentDrag.clipId)
-    if (!found) return
+    if (!found || movableTracks.length === 0) return
 
     const laneDelta = Math.round((event.y - currentDrag.startY) / layout.laneHeight)
-    const candidateIndex = Math.round(clamp(currentDrag.startTrackIndex + laneDelta, 0, currentTracks.length - 1))
-    const candidate = currentTracks[candidateIndex]
+    const candidateIndex = Math.round(clamp(currentDrag.startTrackIndex + laneDelta, 0, movableTracks.length - 1))
+    const candidate = movableTracks[candidateIndex]
     const source = currentTracks.find((track) => track.id === currentDrag.sourceTrackId)
     if (!source) return
     const target = candidate && compatible(found.clip, candidate) ? candidate : source
@@ -134,7 +154,7 @@ export default function Timeline(): JSX.Element {
   }
 
   return (
-    <div testId="daw-showcase" style={{ width: "100%", height: "100%", minWidth: 1180, minHeight: 820, display: "flex", flexDirection: "column", backgroundColor: dawTheme.background, color: dawTheme.foreground, fontFamily: "system-ui", overflow: "hidden" }}>
+    <div testId="daw-showcase" style={{ width: "100%", height: "100%", minWidth: 1180, minHeight: 820, display: "flex", flexDirection: "column", position: "relative", backgroundColor: dawTheme.background, color: dawTheme.foreground, fontFamily: "system-ui", overflow: "hidden" }}>
       <TimelineChrome
         transport={{
           browserOpen: browserOpen(),
@@ -193,17 +213,21 @@ export default function Timeline(): JSX.Element {
         loopEnabled={loopEnabled()}
         loopStartSec={loopStartSec()}
         loopEndSec={loopEndSec()}
+        bottomPanelOffsetPx={bottomPanelOffsetPx()}
         onSetLoopRegion={(startSec, endSec) => {
           setLoopStartSec(startSec)
           setLoopEndSec(endSec)
         }}
         onRulerScrub={setPlayheadSec}
         sidebar={{
+          masterVolume: masterVolume(),
           onSelectTrack: selectTrack,
+          onSelectMaster: selectMaster,
           onToggleMute: (id) => updateTrack(id, (track) => ({ ...track, muted: !track.muted })),
           onToggleSolo: (id) => updateTrack(id, (track) => ({ ...track, soloed: !track.soloed })),
           onToggleArm: (id) => updateTrack(id, (track) => ({ ...track, armed: !track.armed })),
           onVolumeChange: (id, value) => updateTrack(id, (track) => ({ ...track, volume: value })),
+          onMasterVolumeChange: setMasterVolume,
         }}
         onSelectClip={selectClip}
         onClipMouseDown={beginClipDrag}
