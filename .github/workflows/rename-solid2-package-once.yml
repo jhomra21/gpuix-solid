@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   rename:
+    if: ${{ github.actor != 'github-actions[bot]' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -17,7 +18,7 @@ jobs:
           ref: feat/solid1-package-daw-showcase
           fetch-depth: 0
 
-      - name: Rename package identity
+      - name: Rename package identity outside workflow files
         shell: bash
         run: |
           python <<'PY'
@@ -31,6 +32,8 @@ jobs:
           for path in Path('.').rglob('*'):
               if not path.is_file() or '.git' in path.parts:
                   continue
+              if len(path.parts) >= 2 and path.parts[0] == '.github' and path.parts[1] == 'workflows':
+                  continue
               try:
                   text = path.read_text(encoding='utf-8')
               except UnicodeDecodeError:
@@ -40,11 +43,9 @@ jobs:
                   path.write_text(updated, encoding='utf-8')
                   changed.append(str(path))
 
-          print(f'renamed package identity in {len(changed)} files')
+          print(f'renamed package identity in {len(changed)} non-workflow files')
           PY
 
-          rm .github/workflows/rename-solid2-package-once.yml
-          rm -f .rename-solid2-package-trigger
           git diff --check
 
       - name: Commit migration
