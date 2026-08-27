@@ -1,4 +1,5 @@
 import { For, Show, type JSX } from "solid-js"
+import { getBottomPanelMountedFootprintPx } from "../upstream/lib/bottom-panel-layout"
 import EffectsPanel, { type EffectsPanelProps } from "./EffectsPanel"
 import TimelineBottomPanelFooter from "./TimelineBottomPanelFooter"
 import TimelineBottomPanelShell from "./TimelineBottomPanelShell"
@@ -124,11 +125,26 @@ const TimelinePanels = (props: TimelinePanelsProps): JSX.Element => {
     />
   )
 
+  const closedFootprint = () => getBottomPanelMountedFootprintPx({ open: false, heightPx: props.heightPx })
+
   return (
     <Show
       when={props.open}
       fallback={(
-        <div testId="bottom-panel-closed" style={{ backgroundColor: dawTheme.background, paddingBottom: 4 }}>
+        <div
+          testId="bottom-panel-closed"
+          style={{
+            position: "absolute",
+            right: 0,
+            bottom: 0,
+            left: 0,
+            height: closedFootprint(),
+            minHeight: closedFootprint(),
+            zIndex: 50,
+            backgroundColor: dawTheme.background,
+            paddingBottom: 4,
+          }}
+        >
           {footer()}
         </div>
       )}
