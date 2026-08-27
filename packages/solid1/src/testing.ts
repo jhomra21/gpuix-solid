@@ -56,6 +56,16 @@ function findNode(node: NativeTreeNode | null, testId: string): NativeTreeNode |
   return undefined
 }
 
+function findNodePath(node: NativeTreeNode | null, testId: string): NativeTreeNode[] | undefined {
+  if (!node) return undefined
+  if (node.testId === testId) return [node]
+  for (const child of node.children ?? []) {
+    const path = findNodePath(child, testId)
+    if (path) return [node, ...path]
+  }
+  return undefined
+}
+
 function findFirstNodeOfType(node: NativeTreeNode, type: string): NativeTreeNode | undefined {
   if (node.type === type) return node
   for (const child of node.children ?? []) {
@@ -85,6 +95,13 @@ function insetPoint(bounds: TestBounds) {
     x: bounds.x + Math.min(4, bounds.width / 4),
     y: bounds.y + Math.min(4, bounds.height / 4),
   }
+}
+
+function containsPoint(bounds: TestBounds, point: { x: number; y: number }): boolean {
+  return point.x >= bounds.x
+    && point.x <= bounds.x + bounds.width
+    && point.y >= bounds.y
+    && point.y <= bounds.y + bounds.height
 }
 
 const NativeTestRenderer = loadNativeTestRenderer()
@@ -130,7 +147,7 @@ export class TestRenderer implements NativeRenderer {
   }
 
   clickTestId(testId: string): void {
-    const point = insetPoint(this.boundsTestId(testId))
+    const point = this.hitPointTestId(testId)
     this.#native.simulateClick(point.x, point.y)
     this.dispatchNativeEvents()
     this.#native.flush()
@@ -154,7 +171,7 @@ export class TestRenderer implements NativeRenderer {
   }
 
   rightClickTestId(testId: string): void {
-    const point = insetPoint(this.boundsTestId(testId))
+    const point = this.hitPointTestId(testId)
     this.#native.simulateMouseDown(point.x, point.y, 2)
     this.dispatchNativeEvents()
     this.#native.flush()
@@ -164,7 +181,22 @@ export class TestRenderer implements NativeRenderer {
   }
 
   hoverTestId(testId: string): void {
-    const point = insetPoint(this.boundsTestId(testId))
+    const bounds = this.visibleBoundsTestId(testId)
+    const point = insetPoint(bounds)
+    const window = this.#native.getWindowSize()
+    const margin = 4
+    const candidates = [
+      { x: margin, y: margin },
+      { x: Math.max(margin, window.width - margin), y: margin },
+      { x: margin, y: Math.max(margin, window.height - margin) },
+      { x: Math.max(margin, window.width - margin), y: Math.max(margin, window.height - margin) },
+    ]
+    const outside = candidates.find((candidate) => !containsPoint(bounds, candidate))
+    if (outside) {
+      this.#native.simulateMouseMove(outside.x, outside.y)
+      this.dispatchNativeEvents()
+      this.#native.flush()
+    }
     this.#native.simulateMouseMove(point.x, point.y)
     this.dispatchNativeEvents()
     this.#native.flush()
@@ -197,7 +229,7 @@ export class TestRenderer implements NativeRenderer {
   }
 
   dragTestId(testId: string, deltaX: number, deltaY: number): void {
-    const start = insetPoint(this.boundsTestId(testId))
+    const start = this.hitPointTestId(testId)
     const endX = start.x + deltaX
     const endY = start.y + deltaY
 
@@ -262,6 +294,29 @@ export class TestRenderer implements NativeRenderer {
     this.#native.simulateKeystrokes(keystrokes)
     this.dispatchNativeEvents()
     this.#native.flush()
+  }
+
+  private hitPointTestId(testId: string): { x: number; y: number } {
+    return insetPoint(this.visibleBoundsTestId(testId))
+  }
+
+  private visibleBoundsTestId(testId: string): TestBounds {
+    this.#native.flush()
+    const tree = parseTree(this.#native.getTreeJson())
+    const path = findNodePath(tree, testId)
+    if (!path || path.length === 0) throw new Error(`Expected ${testId} in native tree`)
+    const node = path[path.length - 1]
+    if (!node) throw new Error(`Expected ${testId} in native tree`)
+    const bounds = this.boundsNode(node, testId)
+    let x = bounds.x
+    let y = bounds.y
+    for (const ancestor of path.slice(0, -1)) {
+      const offset = this.#native.getScrollOffset(ancestor.id)
+      if (!offset) continue
+      x += offset[0] ?? 0
+      y += offset[1] ?? 0
+    }
+    return { ...bounds, x, y }
   }
 
   private boundsNode(node: NativeTreeNode, label: string): TestBounds {
