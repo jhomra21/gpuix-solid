@@ -181,7 +181,7 @@ if (!hasNativeTestRenderer) {
   app.renderer.clickTestId("Stop")
   requireText(rootText(), "0.00s", "stop resets playhead")
 
-  app.renderer.scrollTestId("daw-test-viewport", -320, 0)
+  app.renderer.scrollTestId("daw-test-viewport", -320, -260)
   app.renderer.clickTextWithinTestId("bottom-panel", "HIDE")
   requireCondition(app.renderer.hasTestId("bottom-panel-closed"), "drag validation should expose the ordinary track area")
   app.renderer.scrollTestId("daw-test-viewport", 0, 0)
