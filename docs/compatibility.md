@@ -6,7 +6,7 @@ GPUix Solid intentionally tracks GPUIX's public native contract instead of vendo
 
 | Layer | Supported / validated range | Notes |
 | --- | --- | --- |
-| `@jhomra21/gpuix-solid` | current `0.x` line | Solid bindings in this repository |
+| `gpuix-solid` | current `0.x` line | Solid bindings in this repository |
 | `@gpuix/native` | `^0.4.0` | Canonical GPUIX native mutation/rendering contract |
 | `solid-js` | `^2.0.0-rc.0` peer | Solid 2 client/universal semantics |
 | `@solidjs/universal` | `2.0.0-rc.0` | Renderer implementation dependency |

@@ -1,4 +1,4 @@
-import { render } from "@jhomra21/gpuix-solid"
+import { render } from "gpuix-solid"
 import { DashboardDemo } from "./app"
 
 render(() => <DashboardDemo />, {

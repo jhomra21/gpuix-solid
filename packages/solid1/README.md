@@ -2,7 +2,7 @@
 
 Solid 1 bindings for GPUIX.
 
-This package targets current Solid 1 applications without weakening the Solid 2 runtime contract of `@jhomra21/gpuix-solid`.
+This package targets current Solid 1 applications without weakening the Solid 2 runtime contract of `gpuix-solid`.
 
 ## Runtime boundary
 

@@ -72,7 +72,7 @@ That manual bootstrap must not be repeated for later versions.
 
 Normal npm publication is tokenless. The npm trusted publisher is:
 
-- package: `@jhomra21/gpuix-solid`
+- package: `gpuix-solid`
 - repository: `jhomra21/gpuix-solid`
 - workflow filename: `publish.yml`
 - GitHub environment: `npm-publish`

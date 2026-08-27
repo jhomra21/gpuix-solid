@@ -1,6 +1,6 @@
 # Solid 1 compatibility experiment
 
-This directory proves that Solid 1 can drive the same retained GPUI host kernel used by `@jhomra21/gpuix-solid` without adding Solid 1 to the Solid 2 workspace dependency graph.
+This directory proves that Solid 1 can drive the same retained GPUI host kernel used by `gpuix-solid` without adding Solid 1 to the Solid 2 workspace dependency graph.
 
 ## Runtime boundary
 

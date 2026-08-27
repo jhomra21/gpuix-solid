@@ -15,7 +15,7 @@ import {
   animate,
   type EventPayload,
   type StyleDesc,
-} from "@jhomra21/gpuix-solid"
+} from "gpuix-solid"
 
 type RootPage = "home" | "dashboard" | "expensive" | "route-a" | "route-b" | "profile" | "login"
 type DashboardTab = "summary" | "invoices" | "users"

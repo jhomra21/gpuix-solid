@@ -6,7 +6,7 @@ export default defineConfig({
     solid({
       solid: {
         generate: "universal",
-        moduleName: "@jhomra21/gpuix-solid",
+        moduleName: "gpuix-solid",
       },
     }),
   ],
@@ -14,7 +14,7 @@ export default defineConfig({
     conditions: ["browser", "development"],
   },
   ssr: {
-    noExternal: ["@jhomra21/gpuix-solid", "@solidjs/universal", "solid-js"],
+    noExternal: ["gpuix-solid", "@solidjs/universal", "solid-js"],
     resolve: {
       conditions: ["browser", "development", "import", "default"],
     },

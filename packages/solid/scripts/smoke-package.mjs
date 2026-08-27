@@ -41,7 +41,7 @@ const packOutput = run(npm, ["pack", ".publish", "--json"], {
 const packed = JSON.parse(packOutput)
 const manifest = Array.isArray(packed) ? packed[0] : packed
 if (!manifest?.filename || !manifest?.integrity) throw new Error("npm pack did not return artifact metadata")
-if (manifest.name !== "@jhomra21/gpuix-solid") {
+if (manifest.name !== "gpuix-solid") {
   throw new Error(`Unexpected packed package name: ${manifest.name}`)
 }
 
@@ -71,8 +71,8 @@ try {
       "--input-type=module",
       "-e",
       `
-        const main = await import("@jhomra21/gpuix-solid")
-        const automation = await import("@jhomra21/gpuix-solid/automation")
+        const main = await import("gpuix-solid")
+        const automation = await import("gpuix-solid/automation")
         for (const key of ["render", "animate", "Tooltip", "Select", "Combobox", "createTestRoot"]) {
           if (!(key in main)) throw new Error("Missing root export: " + key)
         }
@@ -104,8 +104,8 @@ try {
       animate,
       type AnimationStyle,
       type HostProps,
-    } from "@jhomra21/gpuix-solid"
-    import { launch, type AutomationBackend } from "@jhomra21/gpuix-solid/automation"
+    } from "gpuix-solid"
+    import { launch, type AutomationBackend } from "gpuix-solid/automation"
     import { createSignal } from "solid-js"
 
     const animationStyle: AnimationStyle = { width: 120, opacity: 1 }
@@ -177,7 +177,7 @@ try {
           skipLibCheck: false,
           noEmit: true,
           jsx: "preserve",
-          jsxImportSource: "@jhomra21/gpuix-solid",
+          jsxImportSource: "gpuix-solid",
         },
         include: ["src", "vite.config.mjs"],
       },
@@ -187,7 +187,7 @@ try {
   )
   writeFileSync(
     path.join(npmConsumer, "vite.config.mjs"),
-    `import solid from "@solidjs/vite-plugin"\nimport { defineConfig } from "vite"\n\nexport default defineConfig({\n  plugins: [\n    solid({\n      solid: {\n        generate: "universal",\n        moduleName: "@jhomra21/gpuix-solid",\n      },\n    }),\n  ],\n  resolve: {\n    conditions: ["browser", "development"],\n  },\n  ssr: {\n    noExternal: ["@jhomra21/gpuix-solid", "@solidjs/universal", "solid-js"],\n    resolve: {\n      conditions: ["browser", "development", "import", "default"],\n    },\n  },\n  build: {\n    target: "node22",\n    ssr: "src/index.tsx",\n    outDir: "dist",\n    rollupOptions: {\n      external: ["@gpuix/native"],\n    },\n  },\n})\n`,
+    `import solid from "@solidjs/vite-plugin"\nimport { defineConfig } from "vite"\n\nexport default defineConfig({\n  plugins: [\n    solid({\n      solid: {\n        generate: "universal",\n        moduleName: "gpuix-solid",\n      },\n    }),\n  ],\n  resolve: {\n    conditions: ["browser", "development"],\n  },\n  ssr: {\n    noExternal: ["gpuix-solid", "@solidjs/universal", "solid-js"],\n    resolve: {\n      conditions: ["browser", "development", "import", "default"],\n    },\n  },\n  build: {\n    target: "node22",\n    ssr: "src/index.tsx",\n    outDir: "dist",\n    rollupOptions: {\n      external: ["@gpuix/native"],\n    },\n  },\n})\n`,
   )
   run(
     npm,
@@ -223,8 +223,8 @@ try {
     [
       "-e",
       `
-        import * as main from "@jhomra21/gpuix-solid"
-        import * as automation from "@jhomra21/gpuix-solid/automation"
+        import * as main from "gpuix-solid"
+        import * as automation from "gpuix-solid/automation"
         if (!("render" in main) || !("animate" in main)) throw new Error("Bun root import failed")
         if (!("launch" in automation) || !("Locator" in automation)) throw new Error("Bun automation import failed")
         console.log("Bun clean-consumer imports: PASS")

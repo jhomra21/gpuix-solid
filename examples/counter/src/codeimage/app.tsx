@@ -7,7 +7,7 @@ import {
   animate,
   type EventPayload,
   type StyleDesc,
-} from "@jhomra21/gpuix-solid"
+} from "gpuix-solid"
 
 type Tool = "frame" | "code" | "theme"
 type ThemeId = "tokyo" | "rose" | "nord"
