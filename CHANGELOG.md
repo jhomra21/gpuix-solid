@@ -4,6 +4,8 @@
 
 <!-- Add user-facing changes here before preparing a release. -->
 
+## 0.1.0-beta.4 - 2026-08-27
+
 - Rename the Solid 2 npm package from `@jhomra21/gpuix-solid` to `gpuix-solid`, including workspace consumers, JSX compiler configuration, exact-package smoke tests, documentation, and release identity checks.
 - Add a Solid 2 + GPUIX native CodeImage editor example adapted from the MIT-licensed Solid 1.9.12 CodeImage application, including reactive frame/code/theme controls and native TestRenderer screenshot coverage.
 
