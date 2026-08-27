@@ -126,7 +126,7 @@ function centeredContentNode<T>(
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      pointerEvents: "none",
+      pointerEvents: "auto",
     }}>
       {dialogSurface(props, context)}
     </div>
