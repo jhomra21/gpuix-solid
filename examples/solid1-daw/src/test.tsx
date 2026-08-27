@@ -127,6 +127,10 @@ if (!hasNativeTestRenderer) {
   requireText(rootText(), "1/4", "source default grid resolution")
   requireCondition(!rootText().includes("1/32"), "fixture must not invent a 1/32 grid option")
 
+  const screenshotPath = "/tmp/gpuix-solid1-daw-source-structured.png"
+  app.renderer.captureScreenshot(screenshotPath)
+  requireCondition(existsSync(screenshotPath) && statSync(screenshotPath).size > 0, "DAW parity screenshot should exist and be non-empty")
+
   app.renderer.clickTestId("Play")
   requireText(rootText(), "3.00s", "play advances playhead")
   requireCondition(app.renderer.hasTestId("Pause"), "play control should expose Pause while playing")
@@ -176,10 +180,6 @@ if (!hasNativeTestRenderer) {
   app.renderer.scrollTestId("daw-test-viewport", 0, 0)
   app.renderer.clickTestId("Stop")
   requireText(rootText(), "0.00s", "stop resets playhead")
-
-  const screenshotPath = "/tmp/gpuix-solid1-daw-source-structured.png"
-  app.renderer.captureScreenshot(screenshotPath)
-  requireCondition(existsSync(screenshotPath) && statSync(screenshotPath).size > 0, "DAW parity screenshot should exist and be non-empty")
   console.log("solid1 DAW drag validation: deferred to the gpuix-solid core GPUIX 0.5 pointer-capture migration")
 
   app.unmount()
