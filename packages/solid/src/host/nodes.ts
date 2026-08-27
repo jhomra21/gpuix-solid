@@ -102,21 +102,20 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   }
 
   setPointerCapture(pointerId: number): void {
-    const alreadyCaptured = this.#capturedPointers.size > 0
     this.#capturedPointers.add(pointerId)
-    if (alreadyCaptured) return
-    this.setSyntheticNativeEvent("mouseMove", true)
-    this.setSyntheticNativeEvent("mouseUp", true)
   }
 
   releasePointerCapture(pointerId: number): void {
-    if (!this.#capturedPointers.delete(pointerId) || this.#capturedPointers.size > 0) return
-    this.setSyntheticNativeEvent("mouseMove", false)
-    this.setSyntheticNativeEvent("mouseUp", false)
+    this.#capturedPointers.delete(pointerId)
   }
 
   hasPointerCapture(pointerId: number): boolean {
     return this.#capturedPointers.has(pointerId)
+  }
+
+  setPointerCaptureArmed(enabled: boolean): void {
+    this.setSyntheticNativeEvent("mouseMove", enabled)
+    this.setSyntheticNativeEvent("mouseUp", enabled)
   }
 
   hasNativeEvent(eventType: string): boolean {
@@ -239,6 +238,7 @@ export function setHostProperty<T>(
     const handler = isHostEventHandler(value) ? value : undefined
     if (handler) node.events.set(eventType, handler)
     else node.events.delete(eventType)
+    if (name === "onPointerDown") node.setPointerCaptureArmed(Boolean(handler))
     const hasNativeEvent = node.hasNativeEvent(eventType)
 
     if (!node.root || !node.nativeAlive) return
