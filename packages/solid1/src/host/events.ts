@@ -91,10 +91,10 @@ function domCompatibleEvent(event: NativeEventPayload, target: DomCompatTarget |
     clientX: x,
     clientY: y,
     pointerId: 0,
-    shiftKey: false,
-    metaKey: false,
-    altKey: false,
-    ctrlKey: false,
+    shiftKey: event.modifiers?.shift ?? false,
+    metaKey: event.modifiers?.cmd ?? false,
+    altKey: event.modifiers?.alt ?? false,
+    ctrlKey: event.modifiers?.ctrl ?? false,
     preventDefault: () => undefined,
     stopPropagation: () => undefined,
   })
@@ -200,8 +200,12 @@ export class EventRegistry {
 
   dispatch(event: NativeEventPayload): void {
     if (!this.#live.has(event.elementId)) return
-    const domEvent = domCompatibleEvent(event, this.#targets.get(event.elementId))
+    const target = this.#targets.get(event.elementId)
+    const domEvent = domCompatibleEvent(event, target)
     this.#handlers.get(event.elementId)?.get(event.eventType)?.(domEvent)
     dispatchGlobalEvent(domEvent)
+    if (event.eventType === "mouseUp" && target?.hasPointerCapture(0)) {
+      target.releasePointerCapture(0)
+    }
   }
 }

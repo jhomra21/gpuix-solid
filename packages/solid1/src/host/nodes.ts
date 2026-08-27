@@ -50,6 +50,7 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     remove: (..._tokens: string[]): void => undefined,
   }
   readonly #capturedPointers = new Set<number>()
+  readonly #syntheticNativeEvents = new Set<string>()
 
   constructor(type: ElementType) {
     this.type = type
@@ -101,15 +102,29 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   }
 
   setPointerCapture(pointerId: number): void {
+    const alreadyCaptured = this.#capturedPointers.size > 0
     this.#capturedPointers.add(pointerId)
+    if (alreadyCaptured) return
+    this.setSyntheticNativeEvent("mouseMove", true)
+    this.setSyntheticNativeEvent("mouseUp", true)
   }
 
   releasePointerCapture(pointerId: number): void {
-    this.#capturedPointers.delete(pointerId)
+    if (!this.#capturedPointers.delete(pointerId) || this.#capturedPointers.size > 0) return
+    this.setSyntheticNativeEvent("mouseMove", false)
+    this.setSyntheticNativeEvent("mouseUp", false)
   }
 
   hasPointerCapture(pointerId: number): boolean {
     return this.#capturedPointers.has(pointerId)
+  }
+
+  hasNativeEvent(eventType: string): boolean {
+    return this.events.has(eventType) || this.#syntheticNativeEvents.has(eventType)
+  }
+
+  nativeEventTypes(): Set<string> {
+    return new Set([...this.events.keys(), ...this.#syntheticNativeEvents])
   }
 
   closest(_selector: string): HostElementNode | null {
@@ -139,6 +154,17 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     const width = bounds[2] ?? 0
     const height = bounds[3] ?? 0
     return domBounds(x, y, width, height)
+  }
+
+  private setSyntheticNativeEvent(eventType: string, enabled: boolean): void {
+    const hadNativeEvent = this.hasNativeEvent(eventType)
+    if (enabled) this.#syntheticNativeEvents.add(eventType)
+    else this.#syntheticNativeEvents.delete(eventType)
+    const hasNativeEvent = this.hasNativeEvent(eventType)
+    if (hadNativeEvent === hasNativeEvent) return
+    const root = this.root
+    if (!root || !this.nativeAlive) return
+    root.driver.enqueue("setEventListener", this.id, eventType, hasNativeEvent)
   }
 
   private scrollOffset(): number[] | null {
@@ -209,20 +235,22 @@ export function setHostProperty<T>(
 
   const eventType = EVENT_PROP_TO_TYPE.get(name)
   if (eventType) {
-    const oldHandler = isHostEventHandler(previous) ? previous : undefined
+    const hadNativeEvent = node.hasNativeEvent(eventType)
     const handler = isHostEventHandler(value) ? value : undefined
     if (handler) node.events.set(eventType, handler)
     else node.events.delete(eventType)
+    const hasNativeEvent = node.hasNativeEvent(eventType)
 
     if (!node.root || !node.nativeAlive) return
     if (handler) node.root.events.set(node.id, eventType, handler)
     else node.root.events.delete(node.id, eventType)
-    if (Boolean(oldHandler) !== Boolean(handler)) {
-      node.root.driver.enqueue("setEventListener", node.id, eventType, Boolean(handler))
+    if (hadNativeEvent !== hasNativeEvent) {
+      node.root.driver.enqueue("setEventListener", node.id, eventType, hasNativeEvent)
     }
     return
   }
 
+  void previous
   if (value === undefined) node.props.delete(name)
   else node.props.set(name, customPropValue(value))
   if (!node.root || !node.nativeAlive || isReserved(name)) return
@@ -312,6 +340,8 @@ function adopt(root: HostRootNode, node: HostNode): void {
     }
     for (const [eventType, handler] of node.events) {
       root.events.set(node.id, eventType, handler)
+    }
+    for (const eventType of node.nativeEventTypes()) {
       root.driver.enqueue("setEventListener", node.id, eventType, true)
     }
     for (const [name, value] of node.props) {
