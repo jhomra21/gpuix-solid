@@ -43,7 +43,7 @@ const ClipComponent = (props: Props): JSX.Element => (
     selected={props.isSelected}
     pixelsPerSecond={props.pixelsPerSecond}
     onSelect={() => props.contextMenu.selectClip(props.trackId, props.clip.id)}
-    onMouseDown={(event) => props.onPointerDown(props.trackId, props.clip.id, pointerEvent(event))}
+    onPointerDown={(event) => props.onPointerDown(props.trackId, props.clip.id, pointerEvent(event))}
   />
 )
 
