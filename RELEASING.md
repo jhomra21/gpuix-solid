@@ -72,9 +72,52 @@ That bootstrap applies only to the original scoped package.
 
 The Solid 2 npm package now publishes as `gpuix-solid`. This is a new npm package identity; npm does not rename or transfer the existing `@jhomra21/gpuix-solid` package in place.
 
+Because `v0.1.0-beta.3` already belongs to the original scoped package release, do not bootstrap `gpuix-solid` with that version. After the rename reaches `main`, prepare the next beta release so the first unscoped publication is `gpuix-solid@0.1.0-beta.4`.
+
 npm requires a package to exist before a Trusted Publisher can be attached to it. Therefore the first `gpuix-solid` release is a one-time new-package bootstrap: publish the exact sanitized tarball produced by this release tooling once using an interactive npm maintainer session, verify its registry SHA-512 integrity against that tarball, then configure `gpuix-solid` with the Trusted Publisher settings below. Do not add an npm token to GitHub Actions for this bootstrap.
 
-After that first `gpuix-solid` publication and trust configuration, all later releases return to the normal tokenless OIDC flow. The old scoped package remains a separate registry entry; deprecating it is a separate explicit maintenance action after the new package is confirmed healthy.
+Recommended cutover sequence:
+
+1. Merge the package rename to `main` only after the normal PR completion gates pass.
+2. Prepare and merge `release/v0.1.0-beta.4` through the normal release tooling.
+3. Let **Publish Package** build, validate, smoke-test, and upload the exact `gpuix-solid@0.1.0-beta.4` tarball. The first OIDC publish is expected to stop because the new npm package does not yet have a Trusted Publisher.
+4. Download that exact `npm-package` workflow artifact and publish its single `.tgz` once from an interactive npm maintainer session:
+
+   ```bash
+   npm publish ./gpuix-solid-0.1.0-beta.4.tgz --tag beta --access public
+   ```
+
+5. Confirm the new registry identity before configuring trust:
+
+   ```bash
+   npm view gpuix-solid name version dist-tags repository --json
+   npm owner ls gpuix-solid
+   ```
+
+6. Configure the new package's GitHub Actions Trusted Publisher with npm 11.15.0 or newer and account-level 2FA enabled:
+
+   ```bash
+   npm trust github gpuix-solid \
+     --file publish.yml \
+     --repo jhomra21/gpuix-solid \
+     --env npm-publish \
+     --allow-publish
+   npm trust list gpuix-solid --json
+   ```
+
+7. In npm package settings, set **Publishing access** to **Require two-factor authentication and disallow tokens** after Trusted Publishing is confirmed. The OIDC publisher continues to work without a long-lived token.
+8. Re-run **Publish Package** from `main`. Recovery must observe the same SHA-512 integrity, accept the already-published npm bytes, and then complete the Git tag and GitHub Release.
+9. Run `/verify-release` and confirm `gpuix-solid@0.1.0-beta.4`, the `beta` dist-tag, registry integrity, and provenance are all correct.
+10. Only after the new package is healthy, deprecate the entire old package with an explicit migration message:
+
+    ```bash
+    npm deprecate @jhomra21/gpuix-solid "Package renamed to gpuix-solid. Install with: npm install gpuix-solid"
+    npm view @jhomra21/gpuix-solid@0.1.0-beta.3 deprecated
+    ```
+
+    Keep the old package published so existing lockfiles and installs remain reproducible. Deprecation is the redirect: npm displays the migration message during installs and on the package page.
+
+After that first `gpuix-solid` publication and trust configuration, all later releases return to the normal tokenless OIDC flow. The old scoped package remains a separate registry entry and should receive no new releases.
 
 ## Trusted Publisher configuration
 
