@@ -26,11 +26,14 @@ const TimelineBottomPanelShell = (props: TimelineBottomPanelShellProps): JSX.Ele
     <div
       testId="bottom-panel"
       style={{
-        position: "relative",
+        position: "absolute",
+        right: 0,
+        bottom: 0,
+        left: 0,
         width: "100%",
         height: footprint(),
         minHeight: footprint(),
-        flexShrink: 0,
+        zIndex: 50,
       }}
     >
       <UpstreamTimelineBottomPanelShell
