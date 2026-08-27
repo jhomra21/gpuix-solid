@@ -3,7 +3,7 @@ export type { RenderHandle, RenderOptions } from "./runtime.js"
 export { createRoot } from "./root.js"
 export type { Root } from "./root.js"
 export { TestRenderer, createTestRoot, hasNativeTestRenderer } from "./testing.js"
-export type { TestRoot } from "./testing.js"
+export type { TestBounds, TestRoot } from "./testing.js"
 
 export {
   clearNativeStyleManifest,
