@@ -154,6 +154,8 @@ function ShowcaseBody(): JSX.Element {
   const buttonTextColor = () => light() ? "#ffffff" : "rgba(255, 255, 255, 0.9)"
   const contextBorder = () => light() ? "#71717a" : "rgba(255, 255, 255, 0.5)"
   const buttonStyle = () => ({
+    alignSelf: "flex-start",
+    flexShrink: 0,
     height: 40,
     minHeight: 40,
     paddingLeft: 16,
@@ -262,15 +264,18 @@ function ShowcaseBody(): JSX.Element {
             <Menubar.Portal>
               <Menubar.Content testId="menubar-file-content" style={popupStyle()}>
                 <Menubar.Item testId="menubar-new" style={menuItemStyle()} onSelect={() => setLastAction("Commit")}>
-                  <text style={{ fontSize: 16 }}>Commit</text><text style={shortcutStyle()}>⌘↵</text>
+                  <text style={{ fontSize: 16 }}>Commit</text><text style={shortcutStyle()}>⌘+K</text>
                 </Menubar.Item>
-                <Menubar.Item style={menuItemStyle()} onSelect={() => setLastAction("Push")}><text style={{ fontSize: 16 }}>Push</text><text style={shortcutStyle()}>⇧⌘P</text></Menubar.Item>
-                <Menubar.Item disabled style={menuItemStyle()}><text style={{ fontSize: 16 }}>Update Project</text></Menubar.Item>
+                <Menubar.Item style={menuItemStyle()} onSelect={() => setLastAction("Push")}><text style={{ fontSize: 16 }}>Push</text><text style={shortcutStyle()}>⇧+⌘+K</text></Menubar.Item>
+                <Menubar.Item disabled style={menuItemStyle()}><text style={{ fontSize: 16 }}>Update Project</text><text style={shortcutStyle()}>⌘+T</text></Menubar.Item>
                 <Menubar.Sub>
                   <Menubar.SubTrigger testId="menubar-export" style={{ ...menuItemStyle(), justifyContent: "space-between" }}><text style={{ fontSize: 16 }}>GitHub</text><ChevronRight /></Menubar.SubTrigger>
                   <Menubar.SubContent testId="menubar-export-content" style={popupStyle()}>
                     <Menubar.Item style={menuItemStyle()} onSelect={() => setLastAction("Create Pull Request")}><text style={{ fontSize: 16 }}>Create Pull Request…</text></Menubar.Item>
                     <Menubar.Item style={menuItemStyle()} onSelect={() => setLastAction("View Pull Requests")}><text style={{ fontSize: 16 }}>View Pull Requests</text></Menubar.Item>
+                    <Menubar.Item style={menuItemStyle()} onSelect={() => setLastAction("Sync Fork")}><text style={{ fontSize: 16 }}>Sync Fork</text></Menubar.Item>
+                    <Menubar.Separator style={separatorStyle()} />
+                    <Menubar.Item style={menuItemStyle()} onSelect={() => setLastAction("Open on GitHub")}><text style={{ fontSize: 16 }}>Open on GitHub</text></Menubar.Item>
                   </Menubar.SubContent>
                 </Menubar.Sub>
               </Menubar.Content>
@@ -279,16 +284,20 @@ function ShowcaseBody(): JSX.Element {
           <Menubar.Menu value="file">
             <Menubar.Trigger testId="menubar-middle-file" style={menubarTriggerStyle("middle")}><text style={{ fontSize: 16 }}>File</text></Menubar.Trigger>
             <Menubar.Content style={popupStyle()}>
-              <Menubar.Item style={menuItemStyle()} onSelect={() => setLastAction("New File")}><text style={{ fontSize: 16 }}>New File</text><text style={shortcutStyle()}>⌘N</text></Menubar.Item>
-              <Menubar.Item style={menuItemStyle()} onSelect={() => setLastAction("Open File")}><text style={{ fontSize: 16 }}>Open…</text><text style={shortcutStyle()}>⌘O</text></Menubar.Item>
+              <Menubar.Item style={menuItemStyle()} onSelect={() => setLastAction("New Tab")}><text style={{ fontSize: 16 }}>New Tab</text><text style={shortcutStyle()}>⌘+T</text></Menubar.Item>
+              <Menubar.Item style={menuItemStyle()} onSelect={() => setLastAction("New Window")}><text style={{ fontSize: 16 }}>New Window</text><text style={shortcutStyle()}>⌘+N</text></Menubar.Item>
+              <Menubar.Item disabled style={menuItemStyle()}><text style={{ fontSize: 16 }}>New Incognito Window</text></Menubar.Item>
             </Menubar.Content>
           </Menubar.Menu>
           <Menubar.Menu value="edit">
             <Menubar.Trigger testId="menubar-edit" style={menubarTriggerStyle("last")}><text style={{ fontSize: 16 }}>Edit</text></Menubar.Trigger>
             <Menubar.Content testId="menubar-edit-content" style={popupStyle()}>
-              <Menubar.Item style={menuItemStyle()} onSelect={() => setLastAction("Cut")}><text style={{ fontSize: 16 }}>Cut</text><text style={shortcutStyle()}>⌘X</text></Menubar.Item>
-              <Menubar.Item style={menuItemStyle()} onSelect={() => setLastAction("Copy")}><text style={{ fontSize: 16 }}>Copy</text><text style={shortcutStyle()}>⌘C</text></Menubar.Item>
-              <Menubar.Item style={menuItemStyle()} onSelect={() => setLastAction("Paste")}><text style={{ fontSize: 16 }}>Paste</text><text style={shortcutStyle()}>⌘V</text></Menubar.Item>
+              <Menubar.Item style={menuItemStyle()} onSelect={() => setLastAction("Undo")}><text style={{ fontSize: 16 }}>Undo</text><text style={shortcutStyle()}>⌘+Z</text></Menubar.Item>
+              <Menubar.Item style={menuItemStyle()} onSelect={() => setLastAction("Redo")}><text style={{ fontSize: 16 }}>Redo</text><text style={shortcutStyle()}>⇧+⌘+Z</text></Menubar.Item>
+              <Menubar.Separator style={separatorStyle()} />
+              <Menubar.Item style={menuItemStyle()} onSelect={() => setLastAction("Cut")}><text style={{ fontSize: 16 }}>Cut</text></Menubar.Item>
+              <Menubar.Item style={menuItemStyle()} onSelect={() => setLastAction("Copy")}><text style={{ fontSize: 16 }}>Copy</text></Menubar.Item>
+              <Menubar.Item style={menuItemStyle()} onSelect={() => setLastAction("Paste")}><text style={{ fontSize: 16 }}>Paste</text></Menubar.Item>
             </Menubar.Content>
           </Menubar.Menu>
         </Menubar.Root>
@@ -348,14 +357,17 @@ function ShowcaseBody(): JSX.Element {
               <DropdownMenu.Trigger testId="dropdown-trigger" style={buttonStyle()}><text style={{ fontSize: 16, color: buttonTextColor() }}>Git Settings</text><ChevronDown /></DropdownMenu.Trigger>
               <DropdownMenu.Portal>
                 <DropdownMenu.Content testId="dropdown-content" style={popupStyle()}>
-                  <DropdownMenu.Item testId="dropdown-item" style={menuItemStyle()} onSelect={() => setLastAction("Commit")}><text style={{ fontSize: 16 }}>Commit</text><text style={shortcutStyle()}>⌘↵</text></DropdownMenu.Item>
-                  <DropdownMenu.Item style={menuItemStyle()} onSelect={() => setLastAction("Push")}><text style={{ fontSize: 16 }}>Push</text><text style={shortcutStyle()}>⇧⌘P</text></DropdownMenu.Item>
-                  <DropdownMenu.Item disabled style={menuItemStyle()}><text style={{ fontSize: 16 }}>Update Project</text></DropdownMenu.Item>
+                  <DropdownMenu.Item testId="dropdown-item" style={menuItemStyle()} onSelect={() => setLastAction("Commit")}><text style={{ fontSize: 16 }}>Commit</text><text style={shortcutStyle()}>⌘+K</text></DropdownMenu.Item>
+                  <DropdownMenu.Item style={menuItemStyle()} onSelect={() => setLastAction("Push")}><text style={{ fontSize: 16 }}>Push</text><text style={shortcutStyle()}>⇧+⌘+K</text></DropdownMenu.Item>
+                  <DropdownMenu.Item disabled style={menuItemStyle()}><text style={{ fontSize: 16 }}>Update Project</text><text style={shortcutStyle()}>⌘+T</text></DropdownMenu.Item>
                   <DropdownMenu.Sub>
                     <DropdownMenu.SubTrigger testId="dropdown-sub-trigger" style={{ ...menuItemStyle(), justifyContent: "space-between" }}><text style={{ fontSize: 16 }}>GitHub</text><ChevronRight /></DropdownMenu.SubTrigger>
                     <DropdownMenu.SubContent testId="dropdown-sub-content" style={popupStyle()}>
                       <DropdownMenu.Item style={menuItemStyle()} onSelect={() => setLastAction("Create Pull Request")}><text style={{ fontSize: 16 }}>Create Pull Request…</text></DropdownMenu.Item>
                       <DropdownMenu.Item style={menuItemStyle()} onSelect={() => setLastAction("View Pull Requests")}><text style={{ fontSize: 16 }}>View Pull Requests</text></DropdownMenu.Item>
+                      <DropdownMenu.Item style={menuItemStyle()} onSelect={() => setLastAction("Sync Fork")}><text style={{ fontSize: 16 }}>Sync Fork</text></DropdownMenu.Item>
+                      <DropdownMenu.Separator style={separatorStyle()} />
+                      <DropdownMenu.Item style={menuItemStyle()} onSelect={() => setLastAction("Open on GitHub")}><text style={{ fontSize: 16 }}>Open on GitHub</text></DropdownMenu.Item>
                     </DropdownMenu.SubContent>
                   </DropdownMenu.Sub>
                   <DropdownMenu.Separator style={separatorStyle()} />
@@ -382,14 +394,24 @@ function ShowcaseBody(): JSX.Element {
 
           <Demo title="Context Menu">
             <ContextMenu.Root>
-              <ContextMenu.Trigger testId="context-trigger" style={{ position: "relative", width: 300, height: 105, minHeight: 105, alignItems: "center", justifyContent: "center", borderRadius: 4, color: light() ? "#52525b" : "rgba(255, 255, 255, 0.7)", userSelect: "none" }}>
+              <ContextMenu.Trigger testId="context-trigger" style={{ position: "relative", display: "flex", flexDirection: "row", width: 300, height: 105, minHeight: 105, alignItems: "center", justifyContent: "center", borderRadius: 4, color: light() ? "#52525b" : "rgba(255, 255, 255, 0.7)", userSelect: "none" }}>
                 <DashedContextFrame color={contextBorder()} />
-                <text style={{ fontSize: 15, color: light() ? "#52525b" : "rgba(255, 255, 255, 0.7)" }}>Right click here.</text>
+                <text testId="context-trigger-label" style={{ fontSize: 15, color: light() ? "#52525b" : "rgba(255, 255, 255, 0.7)" }}>Right click here.</text>
               </ContextMenu.Trigger>
               <ContextMenu.Content testId="context-content" style={popupStyle()}>
-                <ContextMenu.Item testId="context-duplicate" style={menuItemStyle()} onSelect={() => setLastAction("Commit")}><text style={{ fontSize: 16 }}>Commit</text><text style={shortcutStyle()}>⌘↵</text></ContextMenu.Item>
-                <ContextMenu.Item style={menuItemStyle()} onSelect={() => setLastAction("Push")}><text style={{ fontSize: 16 }}>Push</text><text style={shortcutStyle()}>⇧⌘P</text></ContextMenu.Item>
-                <ContextMenu.Item disabled style={menuItemStyle()}><text style={{ fontSize: 16 }}>Update Project</text></ContextMenu.Item>
+                <ContextMenu.Item testId="context-duplicate" style={menuItemStyle()} onSelect={() => setLastAction("Commit")}><text style={{ fontSize: 16 }}>Commit</text><text style={shortcutStyle()}>⌘+K</text></ContextMenu.Item>
+                <ContextMenu.Item style={menuItemStyle()} onSelect={() => setLastAction("Push")}><text style={{ fontSize: 16 }}>Push</text><text style={shortcutStyle()}>⇧+⌘+K</text></ContextMenu.Item>
+                <ContextMenu.Item disabled style={menuItemStyle()}><text style={{ fontSize: 16 }}>Update Project</text><text style={shortcutStyle()}>⌘+T</text></ContextMenu.Item>
+                <ContextMenu.Sub>
+                  <ContextMenu.SubTrigger style={{ ...menuItemStyle(), justifyContent: "space-between" }}><text style={{ fontSize: 16 }}>GitHub</text><ChevronRight /></ContextMenu.SubTrigger>
+                  <ContextMenu.SubContent style={popupStyle()}>
+                    <ContextMenu.Item style={menuItemStyle()} onSelect={() => setLastAction("Create Pull Request")}><text style={{ fontSize: 16 }}>Create Pull Request…</text></ContextMenu.Item>
+                    <ContextMenu.Item style={menuItemStyle()} onSelect={() => setLastAction("View Pull Requests")}><text style={{ fontSize: 16 }}>View Pull Requests</text></ContextMenu.Item>
+                    <ContextMenu.Item style={menuItemStyle()} onSelect={() => setLastAction("Sync Fork")}><text style={{ fontSize: 16 }}>Sync Fork</text></ContextMenu.Item>
+                    <ContextMenu.Separator style={separatorStyle()} />
+                    <ContextMenu.Item style={menuItemStyle()} onSelect={() => setLastAction("Open on GitHub")}><text style={{ fontSize: 16 }}>Open on GitHub</text></ContextMenu.Item>
+                  </ContextMenu.SubContent>
+                </ContextMenu.Sub>
               </ContextMenu.Content>
             </ContextMenu.Root>
           </Demo>
