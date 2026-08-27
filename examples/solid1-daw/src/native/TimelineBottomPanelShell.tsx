@@ -33,7 +33,6 @@ const TimelineBottomPanelShell = (props: TimelineBottomPanelShellProps): JSX.Ele
         width: "100%",
         height: footprint(),
         minHeight: footprint(),
-        zIndex: 50,
       }}
     >
       <UpstreamTimelineBottomPanelShell
