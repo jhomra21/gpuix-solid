@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
+import { provenancePolicy } from "./release-policy.mjs"
 import {
   compareVersions,
   nextVersion,
@@ -43,4 +44,11 @@ test("moves Unreleased notes into an immutable version section", () => {
   assert.match(after, /## 0\.1\.0-beta\.1 - 2026-08-25\n\n- New thing\./)
   assert.equal(releaseNotes(after, "0.1.0-beta.1"), "- New thing.")
   assert.equal(releaseNotes(after, "0.1.0-beta.0"), "- Initial beta.")
+})
+
+test("allows missing provenance only for the one-time unscoped beta.4 bootstrap", () => {
+  assert.equal(provenancePolicy("gpuix-solid", "0.1.0-beta.4").required, false)
+  assert.equal(provenancePolicy("gpuix-solid", "0.1.0-beta.5").required, true)
+  assert.equal(provenancePolicy("gpuix-solid", "0.1.0").required, true)
+  assert.equal(provenancePolicy("@jhomra21/gpuix-solid", "0.1.0-beta.4").required, true)
 })
