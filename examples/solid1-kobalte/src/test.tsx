@@ -13,7 +13,7 @@ function requireText(actual: string, expected: string, label: string): void {
 if (!hasNativeTestRenderer) {
   console.log("solid1 Kobalte showcase: native TestGpuixRenderer unavailable; skipped")
 } else {
-  const app = createTestRoot()
+  const app = createTestRoot({ width: 1180, height: 820 })
   app.render(() => <KobalteShowcase />)
 
   requireCondition(app.renderer.hasTestId("kobalte-showcase"), "Kobalte showcase root should render")
@@ -40,9 +40,9 @@ if (!hasNativeTestRenderer) {
   const tooltipBounds = app.renderer.boundsTestId("tooltip-trigger")
   const dropdownBounds = app.renderer.boundsTestId("dropdown-trigger")
   const dialogBounds = app.renderer.boundsTestId("dialog-trigger")
-  requireCondition(tooltipBounds.width < 160, "Tooltip trigger should stay intrinsic like Kobalte's inline-flex button")
-  requireCondition(dropdownBounds.width < 190, "DropdownMenu trigger should stay intrinsic instead of stretching across its fixture column")
-  requireCondition(dialogBounds.width < 120, "Dialog trigger should stay intrinsic instead of stretching across its fixture column")
+  requireCondition(tooltipBounds.width < 160, `Tooltip trigger should stay intrinsic like Kobalte's inline-flex button; got ${tooltipBounds.width}px`)
+  requireCondition(dropdownBounds.width < 190, `DropdownMenu trigger should stay intrinsic instead of stretching across its fixture column; got ${dropdownBounds.width}px`)
+  requireCondition(dialogBounds.width < 120, `Dialog trigger should stay intrinsic instead of stretching across its fixture column; got ${dialogBounds.width}px`)
 
   const contextBounds = app.renderer.boundsTestId("context-trigger")
   const contextLabelBounds = app.renderer.boundsTestId("context-trigger-label")
