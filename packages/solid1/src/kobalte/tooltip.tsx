@@ -113,30 +113,34 @@ function TooltipRoot(props: TooltipRootProps): JSX.Element {
     placement: () => props.placement ?? "top",
     gutter: () => props.gutter ?? 6,
   }
-  return <TooltipContext.Provider value={context}>{props.children}</TooltipContext.Provider>
+  return (
+    <TooltipContext.Provider value={context}>
+      <div style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
+        {props.children}
+      </div>
+    </TooltipContext.Provider>
+  )
 }
 
 export function Trigger<T = "button">(props: PolymorphicProps<T, TooltipTriggerProps<T>>): JSX.Element {
   const context = requireContext("Tooltip.Trigger")
   return (
-    <div style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
-      <div
-        class={props.class}
-        className={props.className}
-        classList={props.classList}
-        testId={props.testId ?? props["aria-label"]}
-        tabIndex={props.tabIndex ?? 0}
-        onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); context.scheduleOpen() }}
-        onMouseLeave={(event: EventPayload) => { props.onMouseLeave?.(event); context.scheduleClose() }}
-        onFocus={(event: EventPayload) => { props.onFocus?.(event); context.setOpen(true) }}
-        onBlur={(event: EventPayload) => { props.onBlur?.(event); context.setOpen(false) }}
-        onMouseDown={(event: EventPayload) => { props.onMouseDown?.(event); context.setOpen(false) }}
-        onClick={(event: EventPayload) => { props.onClick?.(event); context.setOpen(false) }}
-        onKeyDown={(event: EventPayload) => { props.onKeyDown?.(event); if (event.key === "escape") context.setOpen(false) }}
-        style={mergeStyle(triggerBaseStyle, props.style)}
-      >
-        {props.children}
-      </div>
+    <div
+      class={props.class}
+      className={props.className}
+      classList={props.classList}
+      testId={props.testId ?? props["aria-label"]}
+      tabIndex={props.tabIndex ?? 0}
+      onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); context.scheduleOpen() }}
+      onMouseLeave={(event: EventPayload) => { props.onMouseLeave?.(event); context.scheduleClose() }}
+      onFocus={(event: EventPayload) => { props.onFocus?.(event); context.setOpen(true) }}
+      onBlur={(event: EventPayload) => { props.onBlur?.(event); context.setOpen(false) }}
+      onMouseDown={(event: EventPayload) => { props.onMouseDown?.(event); context.setOpen(false) }}
+      onClick={(event: EventPayload) => { props.onClick?.(event); context.setOpen(false) }}
+      onKeyDown={(event: EventPayload) => { props.onKeyDown?.(event); if (event.key === "escape") context.setOpen(false) }}
+      style={mergeStyle(triggerBaseStyle, props.style)}
+    >
+      {props.children}
     </div>
   )
 }
