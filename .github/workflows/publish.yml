@@ -186,8 +186,8 @@ jobs:
           integrity=$(node -e 'const p=require("./pack.json"); process.stdout.write(p[0].integrity)')
           expected="${{ needs.detect.outputs.version }}"
 
-          if [[ "$package" != "@jhomra21/gpuix-solid" ]]; then
-            echo "Packed package name ${package} is not @jhomra21/gpuix-solid."
+          if [[ "$package" != "gpuix-solid" ]]; then
+            echo "Packed package name ${package} is not gpuix-solid."
             exit 1
           fi
           if [[ "$version" != "$expected" ]]; then
@@ -280,8 +280,8 @@ jobs:
           integrity=$(node -e 'const p=require("./release-artifact/pack.json")[0]; process.stdout.write(p.integrity)')
           expected="${{ needs.detect.outputs.version }}"
 
-          if [[ "$package" != "@jhomra21/gpuix-solid" || "$version" != "$expected" ]]; then
-            echo "Artifact identity mismatch: ${package}@${version}, expected @jhomra21/gpuix-solid@${expected}."
+          if [[ "$package" != "gpuix-solid" || "$version" != "$expected" ]]; then
+            echo "Artifact identity mismatch: ${package}@${version}, expected gpuix-solid@${expected}."
             exit 1
           fi
 
