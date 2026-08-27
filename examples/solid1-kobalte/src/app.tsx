@@ -225,7 +225,7 @@ function ShowcaseBody(): JSX.Element {
     backgroundColor: light() ? palette().border : "#52525b",
   })
   const indicatorStyle = () => ({ display: "flex", width: 20, minWidth: 20, height: 20, alignItems: "center", justifyContent: "center", color: palette().text })
-  const shortcutStyle = () => ({ marginLeft: "auto", paddingLeft: 20, fontSize: 14, color: palette().subtle })
+  const shortcutStyle = () => ({ flexGrow: 1, textAlign: "right", paddingLeft: 20, fontSize: 14, color: palette().subtle })
   const menubarTriggerStyle = (edge: "first" | "middle" | "last") => ({
     height: 40,
     minHeight: 40,
