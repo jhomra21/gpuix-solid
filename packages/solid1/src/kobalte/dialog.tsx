@@ -2,7 +2,7 @@ import { createContext, createSignal, Show, useContext, type JSX } from "solid-j
 import type { EventPayload } from "@gpuix/native"
 import type { StyleDesc } from "../host/types.js"
 import type { PolymorphicProps } from "./polymorphic.js"
-import { Portal as NativePortal, mergeStyle, triggerBaseStyle, type NativeComponentProps } from "./shared.jsx"
+import { mergeStyle, triggerBaseStyle, type NativeComponentProps } from "./shared.jsx"
 
 export interface DialogRootProps {
   children?: JSX.Element
@@ -54,7 +54,7 @@ function overlayNode<T>(
         right: 0,
         bottom: 0,
         left: 0,
-        backgroundColor: "#00000088",
+        backgroundColor: "rgba(0, 0, 0, 0.2)",
         pointerEvents: "auto",
       }, props.style)}
     />
@@ -66,40 +66,28 @@ function contentNode<T>(
   context: DialogContextValue,
 ): JSX.Element {
   return (
-    <anchored
-      position={{ x: 280, y: 140 }}
-      side="bottom"
-      align="start"
-      gap={0}
-      fit="snap"
-      snapMargin={16}
-      deferred
-      priority={3}
-      occlude
-    >
-      <div
-        class={props.class}
-        className={props.className}
-        classList={props.classList}
-        testId={props.testId}
-        tabIndex={props.tabIndex ?? 0}
-        onMouseDownOutside={(event: EventPayload) => { props.onMouseDownOutside?.(event); context.setOpen(false) }}
-        onKeyDown={(event: EventPayload) => { props.onKeyDown?.(event); if (event.key === "escape") context.setOpen(false) }}
-        style={mergeStyle({
-          width: 600,
-          maxHeight: 520,
-          overflowY: "auto",
-          padding: 18,
-          gap: 12,
-          backgroundColor: "#151518",
-          color: "#fafafa",
-          borderWidth: 1,
-          borderColor: "#34343a",
-          borderRadius: 8,
-          pointerEvents: "auto",
-        }, props.style)}
-      >{props.children}</div>
-    </anchored>
+    <div
+      class={props.class}
+      className={props.className}
+      classList={props.classList}
+      testId={props.testId}
+      tabIndex={props.tabIndex ?? 0}
+      onMouseDownOutside={(event: EventPayload) => { props.onMouseDownOutside?.(event); context.setOpen(false) }}
+      onKeyDown={(event: EventPayload) => { props.onKeyDown?.(event); if (event.key === "escape") context.setOpen(false) }}
+      style={mergeStyle({
+        width: 500,
+        maxHeight: 520,
+        overflowY: "auto",
+        padding: 16,
+        gap: 12,
+        backgroundColor: "#151518",
+        color: "#fafafa",
+        borderWidth: 1,
+        borderColor: "#34343a",
+        borderRadius: 6,
+        pointerEvents: "auto",
+      }, props.style)}
+    >{props.children}</div>
   )
 }
 
@@ -143,9 +131,29 @@ export function Portal(props: DialogPortalProps): JSX.Element {
   const context = requireContext("Dialog.Portal")
   return (
     <Show when={context.open()}>
-      <DialogPortalContext.Provider value={true}>
-        <NativePortal>{props.children}</NativePortal>
-      </DialogPortalContext.Provider>
+      <anchored
+        position={{ x: 0, y: 0 }}
+        anchor="topLeft"
+        fit="snap"
+        snapMargin={0}
+        deferred
+        priority={3}
+        occlude={false}
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          position: "relative",
+          backgroundColor: "rgba(0, 0, 0, 0.001)",
+        }}
+      >
+        <DialogPortalContext.Provider value={true}>
+          {props.children}
+        </DialogPortalContext.Provider>
+      </anchored>
     </Show>
   )
 }
