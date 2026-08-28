@@ -22,6 +22,14 @@ type BoundsCapableRenderer = NativeRenderer & {
   getElementBounds?(elementId: number): number[] | null
 }
 
+type HostStyleDeclaration = StyleDesc & {
+  setProperty(name: string, value: string, priority?: string): void
+  removeProperty(name: string): string
+  getPropertyValue(name: string): string
+}
+
+const customStyleProperties = new WeakMap<HostElementNode, Map<string, string>>()
+
 export class HostRootNode {
   readonly kind = "root" as const
   readonly children: HostNode[] = []
@@ -50,7 +58,7 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   root: HostRootNode | null = null
   id = 0
   nativeAlive = false
-  style: StyleDesc = {}
+  style: HostStyleDeclaration
   readonly props = new Map<string, MutationValue>()
   readonly events = new Map<string, HostEventHandler>()
   readonly classList = {
@@ -63,6 +71,7 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     this.type = type
     this.localName = tagName
     this.tagName = tagName.toUpperCase()
+    this.style = createHostStyleDeclaration(this, {})
   }
 
   get ownerDocument(): Document {
@@ -219,7 +228,7 @@ export function setHostProperty<T>(
   if (name === "children" || name === "ref" || name === "key") return
 
   if (name === "style") {
-    node.style = isStyle(value) ? value : {}
+    node.style = createHostStyleDeclaration(node, isStyle(value) ? value : {})
     if (node.root && node.nativeAlive) node.root.driver.enqueue("setStyle", node.id, node.style)
     return
   }
@@ -351,6 +360,35 @@ function hostTreePath(node: HostNode): HostTreeNode[] {
     parent = parent.kind === "root" ? null : parent.parent
   }
   return path
+}
+
+function createHostStyleDeclaration(node: HostElementNode, style: StyleDesc): HostStyleDeclaration {
+  // SAFETY: methods are installed non-enumerably so native style serialization sees only StyleDesc fields.
+  const declaration = { ...style } as HostStyleDeclaration
+  Object.defineProperties(declaration, {
+    setProperty: {
+      enumerable: false,
+      value: (name: string, value: string, _priority?: string) => {
+        const properties = customStyleProperties.get(node) ?? new Map<string, string>()
+        properties.set(name, String(value))
+        customStyleProperties.set(node, properties)
+      },
+    },
+    removeProperty: {
+      enumerable: false,
+      value: (name: string) => {
+        const properties = customStyleProperties.get(node)
+        const previous = properties?.get(name) ?? ""
+        properties?.delete(name)
+        return previous
+      },
+    },
+    getPropertyValue: {
+      enumerable: false,
+      value: (name: string) => customStyleProperties.get(node)?.get(name) ?? "",
+    },
+  })
+  return declaration
 }
 
 function adopt(root: HostRootNode, node: HostNode): void {
