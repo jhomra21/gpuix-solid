@@ -1,4 +1,4 @@
-import type { JSX } from "solid-js"
+import { splitProps, type JSX } from "solid-js"
 import * as Native from "@jhomra21/gpuix-solid1/kobalte/text-field"
 import type {
   TextFieldRootProps,
@@ -15,14 +15,14 @@ interface TextAreaProps extends TextFieldTextAreaProps {
 }
 
 function Root(props: RootProps): JSX.Element {
-  const { onChange, name: _name, ...rest } = props
-  return onChange
-    ? <Native.Root {...rest} onValueChange={onChange} />
+  const [local, rest] = splitProps(props, ["onChange", "name"])
+  return local.onChange
+    ? <Native.Root {...rest} onValueChange={local.onChange} />
     : <Native.Root {...rest} />
 }
 
 function TextArea(props: TextAreaProps): JSX.Element {
-  const { autoResize: _autoResize, ...rest } = props
+  const [, rest] = splitProps(props, ["autoResize"])
   return <Native.TextArea {...rest} />
 }
 
