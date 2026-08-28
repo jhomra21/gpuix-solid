@@ -11,6 +11,12 @@ import type {
 const RESERVED_PROPS = new Set(["children", "ref", "style", "className", "key"])
 const BUILT_IN_TYPES = new Set<ElementType>(["div", "text"])
 const UNIVERSAL_PROPS = new Set(["autoFocus", "tabIndex", "motion", "testId"])
+const DOCUMENT_POSITION_DISCONNECTED = 0x01
+const DOCUMENT_POSITION_PRECEDING = 0x02
+const DOCUMENT_POSITION_FOLLOWING = 0x04
+const DOCUMENT_POSITION_CONTAINS = 0x08
+const DOCUMENT_POSITION_CONTAINED_BY = 0x10
+const DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC = 0x20
 
 type BoundsCapableRenderer = NativeRenderer & {
   getElementBounds?(elementId: number): number[] | null
@@ -120,6 +126,10 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     return this.#capturedPointers.has(pointerId)
   }
 
+  compareDocumentPosition(other: HostElementNode): number {
+    return compareHostDocumentPosition(this, other)
+  }
+
   closest(_selector: string): HostElementNode | null {
     return null
   }
@@ -183,6 +193,7 @@ export class HostTextNode {
 
 export type HostNode = HostElementNode | HostTextNode
 export type HostParent = HostRootNode | HostElementNode
+type HostTreeNode = HostRootNode | HostNode
 
 export function createHostElement(type: string, tagName = type): HostElementNode {
   if (!isElementType(type)) throw new Error(`Unsupported GPUIX element <${type}>`)
@@ -297,6 +308,53 @@ export function isHostTextNode(node: HostNode | HostParent): node is HostTextNod
   return node.kind === "text"
 }
 
+function compareHostDocumentPosition(reference: HostNode, other: HostNode): number {
+  if (reference === other) return 0
+
+  const referencePath = hostTreePath(reference)
+  const otherPath = hostTreePath(other)
+  if (referencePath[0] !== otherPath[0]) {
+    return DOCUMENT_POSITION_DISCONNECTED | DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC
+  }
+
+  const sharedLength = Math.min(referencePath.length, otherPath.length)
+  let branchIndex = 0
+  while (branchIndex < sharedLength && referencePath[branchIndex] === otherPath[branchIndex]) {
+    branchIndex += 1
+  }
+
+  if (branchIndex === referencePath.length) {
+    return DOCUMENT_POSITION_FOLLOWING | DOCUMENT_POSITION_CONTAINED_BY
+  }
+  if (branchIndex === otherPath.length) {
+    return DOCUMENT_POSITION_PRECEDING | DOCUMENT_POSITION_CONTAINS
+  }
+
+  const sharedParent = referencePath[branchIndex - 1]
+  const referenceBranch = referencePath[branchIndex]
+  const otherBranch = otherPath[branchIndex]
+  if (!sharedParent || !referenceBranch || !otherBranch || referenceBranch.kind === "root" || otherBranch.kind === "root") {
+    return DOCUMENT_POSITION_DISCONNECTED | DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC
+  }
+
+  const referenceIndex = sharedParent.children.indexOf(referenceBranch)
+  const otherIndex = sharedParent.children.indexOf(otherBranch)
+  if (referenceIndex < 0 || otherIndex < 0) {
+    return DOCUMENT_POSITION_DISCONNECTED | DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC
+  }
+  return otherIndex < referenceIndex ? DOCUMENT_POSITION_PRECEDING : DOCUMENT_POSITION_FOLLOWING
+}
+
+function hostTreePath(node: HostNode): HostTreeNode[] {
+  const path: HostTreeNode[] = [node]
+  let parent = node.parent
+  while (parent) {
+    path.unshift(parent)
+    parent = parent.kind === "root" ? null : parent.parent
+  }
+  return path
+}
+
 function adopt(root: HostRootNode, node: HostNode): void {
   if (node.root && node.root !== root) {
     throw new Error("Cannot insert a GPUIX host node into a different root")
@@ -401,7 +459,23 @@ function emptyBounds() {
   return domBounds(0, 0, 0, 0)
 }
 
+class CompatDomNode {
+  static readonly DOCUMENT_POSITION_DISCONNECTED = DOCUMENT_POSITION_DISCONNECTED
+  static readonly DOCUMENT_POSITION_PRECEDING = DOCUMENT_POSITION_PRECEDING
+  static readonly DOCUMENT_POSITION_FOLLOWING = DOCUMENT_POSITION_FOLLOWING
+  static readonly DOCUMENT_POSITION_CONTAINS = DOCUMENT_POSITION_CONTAINS
+  static readonly DOCUMENT_POSITION_CONTAINED_BY = DOCUMENT_POSITION_CONTAINED_BY
+  static readonly DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC = DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC
+}
+
 function installDomConstructors(): void {
+  if (!Object.hasOwn(globalThis, "Node")) {
+    Object.defineProperty(globalThis, "Node", {
+      configurable: true,
+      writable: true,
+      value: CompatDomNode,
+    })
+  }
   if (!Object.hasOwn(globalThis, "Element")) {
     Object.defineProperty(globalThis, "Element", {
       configurable: true,
