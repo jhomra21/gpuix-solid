@@ -1,5 +1,6 @@
 import { createContext, createSignal, Show, useContext, type JSX } from "solid-js"
 import type { EventPayload } from "@gpuix/native"
+import { useGpuixRequired } from "../context.js"
 import type { StyleDesc } from "../host/types.js"
 import type { PolymorphicProps } from "./polymorphic.js"
 import { mergeStyle, triggerBaseStyle, type NativeComponentProps } from "./shared.jsx"
@@ -129,26 +130,41 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, DialogTriggerPr
 
 export function Portal(props: DialogPortalProps): JSX.Element {
   const context = requireContext("Dialog.Portal")
-  const fixedPositioner: StyleDesc = {
-    position: "fixed",
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    pointerEvents: "auto",
+  const renderer = useGpuixRequired()
+  const viewportStyle = (): StyleDesc => {
+    const size = renderer.getWindowSize?.() ?? { width: 800, height: 600 }
+    return {
+      position: "relative",
+      width: size.width,
+      height: size.height,
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "rgba(0, 0, 0, 0.001)",
+      pointerEvents: "auto",
+    }
   }
 
   return (
     <Show when={context.open()}>
-      <div testId="dialog-positioner" style={fixedPositioner}>
+      <anchored
+        testId="dialog-positioner"
+        position={{ x: 0, y: 0 }}
+        side="bottom"
+        align="start"
+        gap={0}
+        fit="snap"
+        snapMargin={0}
+        deferred
+        priority={100}
+        occlude
+        style={viewportStyle()}
+      >
         <DialogPortalContext.Provider value={true}>
           {props.children}
         </DialogPortalContext.Provider>
-      </div>
+      </anchored>
     </Show>
   )
 }
