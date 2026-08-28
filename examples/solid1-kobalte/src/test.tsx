@@ -9,6 +9,10 @@ function requireText(actual: string, expected: string, label: string): void {
   if (!actual.includes(expected)) throw new Error(`${label}: expected ${JSON.stringify(expected)} in ${JSON.stringify(actual)}`)
 }
 
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds))
+}
+
 if (!hasNativeTestRenderer) {
   console.log("solid1 upstream Kobalte fixture: native TestGpuixRenderer unavailable; skipped")
 } else {
@@ -44,25 +48,29 @@ if (!hasNativeTestRenderer) {
 
   r.typeFirstInputWithinTestId("upstream-text-field", "x")
 
-  r.hoverTestId("upstream-tooltip")
+  r.hoverTextWithinTestId("upstream-tooltip", "Trigger")
+  await wait(800)
+  r.flush()
   requireText(r.textContent("upstream-tooltip"), "Tooltip content", "Tooltip hover")
-  r.hoverTestId("upstream-button")
+  r.hoverTextWithinTestId("upstream-button", "Click me")
+  await wait(350)
+  r.flush()
 
-  r.clickTestId("upstream-dropdown")
+  r.clickTextWithinTestId("upstream-dropdown", "Git Settings")
   requireText(r.textContent("upstream-dropdown"), "Commit", "Dropdown pointer open")
   r.clickTextWithinTestId("upstream-dropdown", "Show Git Log")
   requireText(r.textContent("upstream-dropdown"), "Commit", "Dropdown checkbox keeps menu open")
   r.clickTextWithinTestId("upstream-dropdown", "GitHub")
   requireText(r.textContent("upstream-dropdown"), "Create Pull Request…", "Dropdown submenu")
-  r.clickTestId("upstream-button")
+  r.clickTextWithinTestId("upstream-button", "Click me")
 
-  r.clickTestId("upstream-context")
+  r.clickTextWithinTestId("upstream-context", "Right click here.")
   requireCondition(!r.textContent("upstream-context").includes("Back"), "ContextMenu should ignore left click")
-  r.rightClickTestId("upstream-context")
+  r.rightClickTextWithinTestId("upstream-context", "Right click here.")
   requireText(r.textContent("upstream-context"), "Back", "ContextMenu right click")
   r.clickTextWithinTestId("upstream-context", "Show Bookmarks")
   requireText(r.textContent("upstream-context"), "Back", "ContextMenu checkbox keeps menu open")
-  r.clickTestId("upstream-button")
+  r.clickTextWithinTestId("upstream-button", "Click me")
 
   r.clickTextWithinTestId("upstream-menubar", "Git")
   requireText(r.textContent("upstream-menubar"), "Commit", "Menubar Git menu")
@@ -70,9 +78,9 @@ if (!hasNativeTestRenderer) {
   requireText(r.textContent("upstream-menubar"), "New Tab", "Menubar File menu")
   r.clickTextWithinTestId("upstream-menubar", "Edit")
   requireText(r.textContent("upstream-menubar"), "Undo", "Menubar Edit menu")
-  r.clickTestId("upstream-button")
+  r.clickTextWithinTestId("upstream-button", "Click me")
 
-  r.clickTestId("upstream-dialog")
+  r.clickTextWithinTestId("upstream-dialog", "Open")
   requireText(r.textContent("upstream-dialog"), "About Kobalte", "Dialog open")
   r.clickTestId("theme-toggle")
   requireCondition(!r.textContent("upstream-dialog").includes("About Kobalte"), "Dialog overlay should dismiss outside interaction")
