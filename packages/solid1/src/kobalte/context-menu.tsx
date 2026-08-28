@@ -2,10 +2,13 @@ import { createContext, createSignal, onCleanup, Show, useContext, type JSX } fr
 import type { EventPayload, PublicInstance, StyleDesc } from "../host/types.js"
 import type { PolymorphicProps } from "./polymorphic.js"
 import {
+  FloatingLayer,
   Portal,
   createFocusRegistry,
+  mergeComponentStyle,
   mergeStyle,
   popupBaseStyle,
+  type FloatingPosition,
   type FocusKey,
   type FocusRegistry,
   type FocusableInstance,
@@ -19,11 +22,14 @@ export interface ContextMenuItemProps<T = "div"> extends NativeComponentProps { 
 export interface ContextMenuSeparatorProps<T = "hr"> extends NativeComponentProps { as?: T }
 export interface ContextMenuGroupProps { children?: JSX.Element }
 export interface ContextMenuGroupLabelProps<T = "span"> extends NativeComponentProps { as?: T }
-export interface ContextMenuSubProps { children?: JSX.Element; open?: boolean; defaultOpen?: boolean; onOpenChange?: (open: boolean) => void }
+export interface ContextMenuSubProps { children?: JSX.Element; open?: boolean; defaultOpen?: boolean; onOpenChange?: (open: boolean) => void; gutter?: number }
 export interface ContextMenuSubTriggerProps<T = "div"> extends NativeComponentProps { as?: T }
 export interface ContextMenuSubContentProps<T = "div"> extends NativeComponentProps { as?: T }
 
 interface ContextPoint { x: number; y: number }
+type PositionedInstance = FocusableInstance & {
+  getBoundingClientRect: () => { left: number; top: number; right: number; bottom: number }
+}
 type ContextMenuContextValue = {
   open: () => boolean
   setOpen: (open: boolean) => void
@@ -39,8 +45,10 @@ const ContextMenuContext = createContext<ContextMenuContextValue>()
 type SubContextValue = {
   open: () => boolean
   setOpen: (open: boolean) => void
+  gutter: () => number
   setTrigger: (instance: PublicInstance) => void
   focusTrigger: () => void
+  position: () => FloatingPosition | undefined
 }
 const SubContext = createContext<SubContextValue>()
 
@@ -63,13 +71,13 @@ function focusable(instance: PublicInstance): FocusableInstance {
   return instance as FocusableInstance
 }
 
-function focusAfterMount(action: () => void): void {
-  queueMicrotask(action)
+function positioned(instance: PublicInstance): PositionedInstance {
+  // SAFETY: Solid host refs are HostElementNode instances, whose DOM-compat contract implements focus() and getBoundingClientRect().
+  return instance as PositionedInstance
 }
 
-function withHoveredStyle(base: StyleDesc, style: StyleDesc | undefined, hovered: boolean): StyleDesc {
-  const merged = mergeStyle(base, style)
-  return hovered && style?.hover ? mergeStyle(merged, style.hover) : merged
+function focusAfterMount(action: () => void): void {
+  queueMicrotask(action)
 }
 
 export function Root(props: ContextMenuRootProps): JSX.Element {
@@ -170,7 +178,7 @@ export function Content<T = "div">(props: PolymorphicProps<T, ContextMenuContent
               focusAfterMount(context.focusTrigger)
             }
           }}
-          style={mergeStyle(popupBaseStyle, props.style)}
+          style={mergeComponentStyle({ pointerEvents: "auto" }, popupBaseStyle, props)}
         >{props.children}</div>
       </anchored>
     </Show>
@@ -180,7 +188,6 @@ export function Content<T = "div">(props: PolymorphicProps<T, ContextMenuContent
 export function Item<T = "div">(props: PolymorphicProps<T, ContextMenuItemProps<T>>): JSX.Element {
   const context = requireContext("ContextMenu.Item")
   const sub = useContext(SubContext)
-  const [hovered, setHovered] = createSignal(false)
   const focusKey: FocusKey = Symbol("context-item")
   onCleanup(() => context.items.unregister(focusKey))
   const activate = () => {
@@ -189,19 +196,24 @@ export function Item<T = "div">(props: PolymorphicProps<T, ContextMenuItemProps<
     context.setOpen(false)
     focusAfterMount(context.focusTrigger)
   }
-  const style = () => withHoveredStyle({
-    display: "flex",
-    flexDirection: "row",
-    alignItems: "center",
-    minHeight: 26,
-    paddingLeft: 8,
-    paddingRight: 8,
-    gap: 6,
-    cursor: "pointer",
-    opacity: props.disabled ? 0.5 : 1,
-    pointerEvents: props.disabled ? "none" : "auto",
-    hover: { backgroundColor: "#2a2a30" },
-  }, props.style, hovered())
+  const style = (): StyleDesc => mergeComponentStyle(
+    {
+      cursor: "pointer",
+      opacity: props.disabled ? 0.5 : 1,
+      pointerEvents: props.disabled ? "none" : "auto",
+    },
+    {
+      display: "flex",
+      flexDirection: "row",
+      alignItems: "center",
+      minHeight: 26,
+      paddingLeft: 8,
+      paddingRight: 8,
+      gap: 6,
+      hover: { backgroundColor: "#2a2a30" },
+    },
+    props,
+  )
   return (
     <div
       ref={(instance: PublicInstance) => {
@@ -213,8 +225,8 @@ export function Item<T = "div">(props: PolymorphicProps<T, ContextMenuItemProps<
       classList={props.classList}
       testId={props.testId}
       tabIndex={props.disabled ? undefined : (props.tabIndex ?? -1)}
-      onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); if (!props.disabled) setHovered(true) }}
-      onMouseLeave={(event: EventPayload) => { props.onMouseLeave?.(event); setHovered(false) }}
+      onMouseEnter={props.onMouseEnter}
+      onMouseLeave={props.onMouseLeave}
       onClick={(event: EventPayload) => {
         if (props.disabled) return
         props.onClick?.(event)
@@ -242,25 +254,31 @@ export function Item<T = "div">(props: PolymorphicProps<T, ContextMenuItemProps<
 }
 
 export function Separator<T = "hr">(props: PolymorphicProps<T, ContextMenuSeparatorProps<T>>): JSX.Element {
-  return <div class={props.class} className={props.className} classList={props.classList} testId={props.testId} style={mergeStyle({ height: 1, marginTop: 4, marginBottom: 4, backgroundColor: "#34343a" }, props.style)} />
+  return <div class={props.class} className={props.className} classList={props.classList} testId={props.testId} style={mergeComponentStyle({}, { height: 1, marginTop: 4, marginBottom: 4, backgroundColor: "#34343a" }, props)} />
 }
 
 export function Group(props: ContextMenuGroupProps): JSX.Element { return <>{props.children}</> }
 export function GroupLabel<T = "span">(props: PolymorphicProps<T, ContextMenuGroupLabelProps<T>>): JSX.Element {
-  return <text class={props.class} className={props.className} classList={props.classList} testId={props.testId} style={mergeStyle({ fontSize: 11, lineHeight: 16, fontWeight: 700, color: "#a1a1aa", paddingLeft: 8, paddingRight: 8 }, props.style)}>{props.children}</text>
+  return <text class={props.class} className={props.className} classList={props.classList} testId={props.testId} style={mergeComponentStyle({}, { fontSize: 11, lineHeight: 16, fontWeight: 700, color: "#a1a1aa", paddingLeft: 8, paddingRight: 8 }, props)}>{props.children}</text>
 }
 
 export function Sub(props: ContextMenuSubProps): JSX.Element {
   const [internalOpen, setInternalOpen] = createSignal(props.defaultOpen ?? false)
-  let trigger: FocusableInstance | undefined
+  let trigger: PositionedInstance | undefined
   const open = () => props.open ?? internalOpen()
   const setOpen = (next: boolean) => { if (props.open === undefined) setInternalOpen(next); props.onOpenChange?.(next) }
   return (
     <SubContext.Provider value={{
       open,
       setOpen,
-      setTrigger(instance) { trigger = focusable(instance) },
+      gutter: () => props.gutter ?? 4,
+      setTrigger(instance) { trigger = positioned(instance) },
       focusTrigger() { trigger?.focus() },
+      position() {
+        if (!trigger) return undefined
+        const bounds = trigger.getBoundingClientRect()
+        return { x: bounds.right, y: bounds.top }
+      },
     }}>
       {props.children}
     </SubContext.Provider>
@@ -271,21 +289,25 @@ export function SubTrigger<T = "div">(props: PolymorphicProps<T, ContextMenuSubT
   const menu = requireContext("ContextMenu.SubTrigger")
   const context = useContext(SubContext)
   if (!context) throw new Error("ContextMenu.SubTrigger must be used inside ContextMenu.Sub")
-  const [hovered, setHovered] = createSignal(false)
   const focusKey: FocusKey = Symbol("context-sub-trigger")
   onCleanup(() => menu.items.unregister(focusKey))
-  const style = () => withHoveredStyle({
-    display: "flex",
-    flexDirection: "row",
-    alignItems: "center",
-    minHeight: 26,
-    paddingLeft: 8,
-    paddingRight: 8,
-    cursor: "pointer",
-    opacity: props.disabled ? 0.5 : 1,
-    pointerEvents: props.disabled ? "none" : "auto",
-    hover: { backgroundColor: "#2a2a30" },
-  }, props.style, hovered())
+  const style = (): StyleDesc => mergeComponentStyle(
+    {
+      cursor: "pointer",
+      opacity: props.disabled ? 0.5 : 1,
+      pointerEvents: props.disabled ? "none" : "auto",
+    },
+    {
+      display: "flex",
+      flexDirection: "row",
+      alignItems: "center",
+      minHeight: 26,
+      paddingLeft: 8,
+      paddingRight: 8,
+      hover: { backgroundColor: "#2a2a30" },
+    },
+    props,
+  )
   return (
     <div
       ref={(instance: PublicInstance) => {
@@ -301,10 +323,9 @@ export function SubTrigger<T = "div">(props: PolymorphicProps<T, ContextMenuSubT
       onMouseEnter={(event: EventPayload) => {
         props.onMouseEnter?.(event)
         if (props.disabled) return
-        setHovered(true)
         context.setOpen(true)
       }}
-      onMouseLeave={(event: EventPayload) => { props.onMouseLeave?.(event); setHovered(false) }}
+      onMouseLeave={props.onMouseLeave}
       onClick={(event: EventPayload) => { if (props.disabled) return; props.onClick?.(event); context.setOpen(!context.open()) }}
       onKeyDown={(event: EventPayload) => {
         if (props.disabled) return
@@ -330,7 +351,21 @@ export function SubTrigger<T = "div">(props: PolymorphicProps<T, ContextMenuSubT
 export function SubContent<T = "div">(props: PolymorphicProps<T, ContextMenuSubContentProps<T>>): JSX.Element {
   const context = useContext(SubContext)
   if (!context) throw new Error("ContextMenu.SubContent must be used inside ContextMenu.Sub")
-  return <Show when={context.open()}><div class={props.class} className={props.className} classList={props.classList} testId={props.testId} style={mergeStyle(popupBaseStyle, props.style)}>{props.children}</div></Show>
+  return (
+    <Show when={context.open()}>
+      <FloatingLayer
+        class={props.class}
+        className={props.className}
+        classList={props.classList}
+        testId={props.testId}
+        position={context.position()}
+        side="right"
+        align="start"
+        sideOffset={context.gutter()}
+        style={props.style}
+      >{props.children}</FloatingLayer>
+    </Show>
+  )
 }
 
 export const ContextMenu = Object.assign(Root, { Root, Trigger, Portal, Content, Item, Separator, Group, GroupLabel, Sub, SubTrigger, SubContent })
