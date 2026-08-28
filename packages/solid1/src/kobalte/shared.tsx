@@ -127,6 +127,7 @@ export function FloatingLayer(props: FloatingContentProps): JSX.Element {
 
   return (
     <anchored
+      testId={props.testId ? `${props.testId}-positioner` : undefined}
       position={props.position}
       side={side()}
       align={align()}
@@ -137,6 +138,10 @@ export function FloatingLayer(props: FloatingContentProps): JSX.Element {
       deferred
       priority={1}
       occlude
+      // @gpuix/native 0.4 paints an opaque #1A1A1A fallback behind deferred
+      // anchored content when the wrapper has no recognized fill. One alpha byte
+      // is visually transparent but prevents those dark square corners in light mode.
+      style={{ backgroundColor: "#00000001" }}
     >
       <div
         ref={props.ref}
