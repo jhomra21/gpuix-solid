@@ -69,10 +69,9 @@ function isActivationKey(key: string | undefined): boolean {
   return key === "enter" || key === "space"
 }
 
-function focusable(instance: PublicInstance): FocusableInstance | undefined {
-  return typeof (instance as FocusableInstance).focus === "function"
-    ? instance as FocusableInstance
-    : undefined
+function focusable(instance: PublicInstance): FocusableInstance {
+  // SAFETY: Solid host refs are HostElementNode instances, and HostElementNode implements focus().
+  return instance as FocusableInstance
 }
 
 function focusAfterMount(action: () => void): void {
@@ -158,8 +157,7 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, MenubarTriggerP
     <div
       ref={(instance) => {
         menu.setTrigger(instance)
-        const target = focusable(instance)
-        if (target && !props.disabled) root.registerTrigger({ key: menu.key, value: menu.value(), instance: target })
+        if (!props.disabled) root.registerTrigger({ key: menu.key, value: menu.value(), instance: focusable(instance) })
         props.ref?.(instance)
       }}
       class={props.class}
