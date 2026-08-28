@@ -1,9 +1,9 @@
 import { createContext, createSignal, Show, useContext, type JSX } from "solid-js"
 import type { EventPayload } from "@gpuix/native"
 import { useGpuixContextRequired } from "../context.js"
-import type { StyleDesc } from "../host/types.js"
+import type { PublicInstance, StyleDesc } from "../host/types.js"
 import type { PolymorphicProps } from "./polymorphic.js"
-import { mergeStyle, triggerBaseStyle, type NativeComponentProps } from "./shared.jsx"
+import { mergeStyle, triggerBaseStyle, type FocusableInstance, type NativeComponentProps } from "./shared.jsx"
 
 export interface DialogRootProps {
   children?: JSX.Element
@@ -20,7 +20,14 @@ export interface DialogCloseButtonProps<T = "button"> extends NativeComponentPro
 export interface DialogTitleProps<T = "h2"> extends NativeComponentProps { as?: T }
 export interface DialogDescriptionProps<T = "p"> extends NativeComponentProps { as?: T }
 
-type DialogContextValue = { open: () => boolean; setOpen: (open: boolean) => void }
+type DialogContextValue = {
+  open: () => boolean
+  setOpen: (open: boolean) => void
+  setTrigger: (instance: PublicInstance) => void
+  setContent: (instance: PublicInstance) => void
+  focusTrigger: () => void
+  focusContent: () => void
+}
 const DialogContext = createContext<DialogContextValue>()
 const DialogPortalContext = createContext(false)
 
@@ -28,6 +35,16 @@ function requireContext(name: string): DialogContextValue {
   const context = useContext(DialogContext)
   if (!context) throw new Error(`${name} must be used inside Dialog.Root`)
   return context
+}
+
+function focusable(instance: PublicInstance): FocusableInstance | undefined {
+  return typeof (instance as FocusableInstance).focus === "function"
+    ? instance as FocusableInstance
+    : undefined
+}
+
+function focusAfterMount(action: () => void): void {
+  queueMicrotask(action)
 }
 
 function interactiveStyle(disabled: boolean | undefined, override: StyleDesc | undefined): StyleDesc {
@@ -68,13 +85,17 @@ function contentNode<T>(
 ): JSX.Element {
   return (
     <div
+      ref={(instance) => { context.setContent(instance); props.ref?.(instance) }}
       class={props.class}
       className={props.className}
       classList={props.classList}
       testId={props.testId}
       tabIndex={props.tabIndex ?? 0}
       onMouseDownOutside={(event: EventPayload) => { props.onMouseDownOutside?.(event); context.setOpen(false) }}
-      onKeyDown={(event: EventPayload) => { props.onKeyDown?.(event); if (event.key === "escape") context.setOpen(false) }}
+      onKeyDown={(event: EventPayload) => {
+        props.onKeyDown?.(event)
+        if (event.key === "escape") context.setOpen(false)
+      }}
       style={mergeStyle({
         width: 500,
         maxHeight: 520,
@@ -94,19 +115,40 @@ function contentNode<T>(
 
 export function Root(props: DialogRootProps): JSX.Element {
   const [internalOpen, setInternalOpen] = createSignal(props.defaultOpen ?? false)
+  let trigger: FocusableInstance | undefined
+  let content: FocusableInstance | undefined
   const open = () => props.open ?? internalOpen()
+  const focusTrigger = () => trigger?.focus()
+  const focusContent = () => content?.focus()
   const setOpen = (next: boolean) => {
     if (props.open === undefined) setInternalOpen(next)
     props.onOpenChange?.(next)
+    if (!next) focusAfterMount(focusTrigger)
   }
-  return <DialogContext.Provider value={{ open, setOpen }}>{props.children}</DialogContext.Provider>
+  return (
+    <DialogContext.Provider value={{
+      open,
+      setOpen,
+      setTrigger(instance) { trigger = focusable(instance) },
+      setContent(instance) { content = focusable(instance) },
+      focusTrigger,
+      focusContent,
+    }}>
+      {props.children}
+    </DialogContext.Provider>
+  )
 }
 
 export function Trigger<T = "button">(props: PolymorphicProps<T, DialogTriggerProps<T>>): JSX.Element {
   const context = requireContext("Dialog.Trigger")
+  const open = () => {
+    context.setOpen(true)
+    focusAfterMount(context.focusContent)
+  }
   return (
     <div style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
       <div
+        ref={(instance) => { context.setTrigger(instance); props.ref?.(instance) }}
         class={props.class}
         className={props.className}
         classList={props.classList}
@@ -115,12 +157,12 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, DialogTriggerPr
         onClick={(event: EventPayload) => {
           if (props.disabled) return
           props.onClick?.(event)
-          context.setOpen(true)
+          open()
         }}
         onKeyDown={(event: EventPayload) => {
           if (props.disabled) return
           props.onKeyDown?.(event)
-          if (event.key === "enter" || event.key === "space") context.setOpen(!context.open())
+          if (event.key === "enter" || event.key === "space") open()
         }}
         style={interactiveStyle(props.disabled, props.style)}
       >{props.children}</div>
