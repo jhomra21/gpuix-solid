@@ -43,8 +43,33 @@ if (!hasNativeTestRenderer) {
   // the surrounding fixture and module-resolution bridge are ours.
   r.clickTestId("theme-toggle")
   requireText(r.textContent("theme-toggle"), "Theme: light", "light color mode")
+
+  const lightButtonStyle = r.styleTextWithinTestId("upstream-button", "Click me")
+  const lightButtonBounds = r.boundsTextWithinTestId("upstream-button", "Click me")
+  requireCondition(lightButtonStyle.backgroundColor === "#0284c5", `light Button should use Kobalte blue, got ${String(lightButtonStyle.backgroundColor)}`)
+  requireCondition(lightButtonBounds.height === 40, `light Button should be 40px high, got ${lightButtonBounds.height}`)
+
+  const lightMenubarStyle = r.styleTextWithinTestId("upstream-menubar", "Git")
+  const lightMenubarBounds = r.boundsTextWithinTestId("upstream-menubar", "Git")
+  requireCondition(lightMenubarStyle.backgroundColor === "#f6f6f7", `light Menubar trigger should use Kobalte surface, got ${String(lightMenubarStyle.backgroundColor)}`)
+  requireCondition(lightMenubarBounds.height === 40, `light Menubar trigger should be 40px high, got ${lightMenubarBounds.height}`)
+
+  const contextStyle = r.styleTextWithinTestId("upstream-context", "Right click here.")
+  const contextBounds = r.boundsTextWithinTestId("upstream-context", "Right click here.")
+  requireCondition(contextStyle.borderWidth === 2, `ContextMenu target should have a 2px border, got ${String(contextStyle.borderWidth)}`)
+  requireCondition(contextStyle.borderColor === "#71717a", `ContextMenu target should use Kobalte border color, got ${String(contextStyle.borderColor)}`)
+  requireCondition(contextBounds.width === 300, `ContextMenu target should be 300px wide, got ${contextBounds.width}`)
+
+  const separatorAbove = r.boundsTextWithinTestId("upstream-separator", "Content above")
+  const separatorBelow = r.boundsTextWithinTestId("upstream-separator", "Content below")
+  requireCondition(separatorBelow.y > separatorAbove.y, `Separator example should stack vertically: above y=${separatorAbove.y}, below y=${separatorBelow.y}`)
+
   r.clickTestId("theme-toggle")
   requireText(r.textContent("theme-toggle"), "Theme: dark", "dark color mode")
+  const darkButtonStyle = r.styleTextWithinTestId("upstream-button", "Click me")
+  const darkMenubarStyle = r.styleTextWithinTestId("upstream-menubar", "Git")
+  requireCondition(darkButtonStyle.backgroundColor === "#0369a0", `dark Button should use Kobalte blue, got ${String(darkButtonStyle.backgroundColor)}`)
+  requireCondition(darkMenubarStyle.backgroundColor === "#27272a", `dark Menubar trigger should use Kobalte surface, got ${String(darkMenubarStyle.backgroundColor)}`)
 
   r.typeFirstInputWithinTestId("upstream-text-field", "x")
 
