@@ -62,6 +62,11 @@ if (!hasNativeTestRenderer) {
   requireCondition(contextStyle.borderColor === "#71717a", `ContextMenu target should use Kobalte border color, got ${String(contextStyle.borderColor)}`)
   requireCondition(contextBorderBoxWidth === 300, `ContextMenu target should be 300px wide, got ${contextBorderBoxWidth}`)
 
+  const separatorLayoutStyle = r.styleParentOfTextWithinTestId("upstream-separator", "Content above")
+  requireCondition(
+    separatorLayoutStyle.display === "flex" && separatorLayoutStyle.flexDirection === "column" && separatorLayoutStyle.gap === 8,
+    `Separator wrapper should preserve upstream flex column style, got ${JSON.stringify(separatorLayoutStyle)}`,
+  )
   const separatorAbove = r.boundsTextWithinTestId("upstream-separator", "Content above")
   const separatorBelow = r.boundsTextWithinTestId("upstream-separator", "Content below")
   requireCondition(separatorBelow.y > separatorAbove.y, `Separator example should stack vertically: above y=${separatorAbove.y}, below y=${separatorBelow.y}`)
