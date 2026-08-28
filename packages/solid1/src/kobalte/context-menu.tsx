@@ -1,6 +1,5 @@
 import { createContext, createSignal, onCleanup, Show, useContext, type JSX } from "solid-js"
-import type { EventPayload } from "@gpuix/native"
-import type { PublicInstance } from "../host/types.js"
+import type { EventPayload, PublicInstance } from "../host/types.js"
 import type { PolymorphicProps } from "./polymorphic.js"
 import {
   Portal,
@@ -108,7 +107,7 @@ export function Trigger<T = "div">(props: PolymorphicProps<T, ContextMenuTrigger
   const context = requireContext("ContextMenu.Trigger")
   return (
     <div
-      ref={(instance) => { context.setTrigger(instance); props.ref?.(instance) }}
+      ref={(instance: PublicInstance) => { context.setTrigger(instance); props.ref?.(instance) }}
       class={props.class}
       className={props.className}
       classList={props.classList}
@@ -174,7 +173,7 @@ export function Item<T = "div">(props: PolymorphicProps<T, ContextMenuItemProps<
   }
   return (
     <div
-      ref={(instance) => {
+      ref={(instance: PublicInstance) => {
         if (!props.disabled) context.items.register(focusKey, instance)
         props.ref?.(instance)
       }}
@@ -243,7 +242,7 @@ export function SubTrigger<T = "div">(props: PolymorphicProps<T, ContextMenuSubT
   onCleanup(() => menu.items.unregister(focusKey))
   return (
     <div
-      ref={(instance) => {
+      ref={(instance: PublicInstance) => {
         context.setTrigger(instance)
         if (!props.disabled) menu.items.register(focusKey, instance)
         props.ref?.(instance)
