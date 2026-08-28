@@ -71,13 +71,22 @@ export function installDomEventEnvironment(): void {
     windowTarget.Image = CompatImageLoader
   }
   if (!windowTarget.Element) {
-    windowTarget.Element = Element
+    Object.defineProperty(windowTarget, "Element", {
+      configurable: true,
+      get: () => globalThis.Element,
+    })
   }
   if (!windowTarget.HTMLElement) {
-    windowTarget.HTMLElement = HTMLElement
+    Object.defineProperty(windowTarget, "HTMLElement", {
+      configurable: true,
+      get: () => globalThis.HTMLElement,
+    })
   }
   if (!windowTarget.Node) {
-    windowTarget.Node = Node
+    Object.defineProperty(windowTarget, "Node", {
+      configurable: true,
+      get: () => globalThis.Node,
+    })
   }
 
   const getComputedStyle = globals.getComputedStyle ?? defaultComputedStyle
