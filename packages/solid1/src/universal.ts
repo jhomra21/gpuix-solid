@@ -447,12 +447,12 @@ function normalizeNativeInlineStyle(style: NativeInlineStyleInput | undefined): 
   if (cssMaxHeight !== undefined) normalized.maxHeight = normalizeInlineDimension(cssMaxHeight)
   else if (style.maxHeight !== undefined) normalized.maxHeight = normalizeInlineDimension(style.maxHeight)
 
-  normalized.gap = normalizeInlineNumericLength(gap)
-  normalized.rowGap = normalizeInlineNumericLength(cssRowGap ?? rowGap)
-  normalized.columnGap = normalizeInlineNumericLength(cssColumnGap ?? columnGap)
-  if (normalized.gap === undefined) delete normalized.gap
-  if (normalized.rowGap === undefined) delete normalized.rowGap
-  if (normalized.columnGap === undefined) delete normalized.columnGap
+  const parsedGap = normalizeInlineNumericLength(gap)
+  const parsedRowGap = normalizeInlineNumericLength(cssRowGap ?? rowGap)
+  const parsedColumnGap = normalizeInlineNumericLength(cssColumnGap ?? columnGap)
+  if (parsedGap !== undefined) normalized.gap = parsedGap
+  if (parsedRowGap !== undefined) normalized.rowGap = parsedRowGap
+  if (parsedColumnGap !== undefined) normalized.columnGap = parsedColumnGap
 
   return normalized
 }
