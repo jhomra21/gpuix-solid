@@ -23,5 +23,28 @@
     "apps/docs/src/components/index.ts",
     "apps/docs/src/components/icons.tsx",
     "LICENSE.md"
-  ]
+  ],
+  "blobs": {
+    "apps/docs/src/examples/button.tsx": "93bb10db33b10e9ed776afe382be3811e182506e",
+    "apps/docs/src/examples/button.module.css": "d0ebba132a26e913569a5c6990e0f644503dd046",
+    "apps/docs/src/examples/tooltip.tsx": "ff7e8f929d2c33394321805d06170404ef5e9f51",
+    "apps/docs/src/examples/tooltip.module.css": "c9b57e173f25a55ab501e87fdb98856c8eb2ea92",
+    "apps/docs/src/examples/dialog.tsx": "ca423d0148a75620cf57f409c98110761c89367d",
+    "apps/docs/src/examples/dialog.module.css": "964c40f40cd396be4ef48f32798e15a67d841917",
+    "apps/docs/src/examples/dropdown-menu.tsx": "ce76ad9db9ad8e6c4b32d719aa434f7efdb10959",
+    "apps/docs/src/examples/dropdown-menu.module.css": "e084c2f6536d8cf49b699df8551d203fcf09330c",
+    "apps/docs/src/examples/context-menu.tsx": "30c32e63a877d04e49364689f102b1e563d60f2c",
+    "apps/docs/src/examples/context-menu.module.css": "addd393d4d9d8537512a14a82dad163b6e9648ac",
+    "apps/docs/src/examples/menubar.tsx": "0fab23c6643cd7b96194199a3466ddacada95211",
+    "apps/docs/src/examples/menubar.module.css": "d36d5bc550ba3abb961b01eb30017c3e3d604281",
+    "apps/docs/src/examples/text-field.tsx": "be3572f781764116fc8800043572af53a01dd1a1",
+    "apps/docs/src/examples/text-field.module.css": "9ecd4cb40d1ec8f4b6d99f5e5b7743fd9d31248e",
+    "apps/docs/src/examples/image.tsx": "cfbc7e64653153afeca5560211e6d8fd1aaaf4d9",
+    "apps/docs/src/examples/image.module.css": "c45ed8c7dbeba4f00af108d14c50495ff679d2ad",
+    "apps/docs/src/examples/separator.tsx": "077bb02e017e52b1da41ba90fa653dd7ade198ac",
+    "apps/docs/src/examples/separator.module.css": "702f6958e4aef92a33e77c807b4cbd8cd5b2aad9",
+    "apps/docs/src/components/index.ts": "6ef8d54d4164e4df96544ae65ac4b36729aafecf",
+    "apps/docs/src/components/icons.tsx": "b7d71b9bb0f1aef399ab4d2350b7f199231f37dd",
+    "LICENSE.md": "f19ac948a66571c3728ec575b5ea4eaf7f5750e5"
+  }
 }

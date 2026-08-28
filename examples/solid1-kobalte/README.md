@@ -2,14 +2,14 @@
 
 This example proves that real Kobalte documentation source can run on the Solid 1 GPUIX renderer without rewriting the copied application code.
 
-The fixture is pinned to `kobaltedev/kobalte` commit `3d3266348816b492b027538168988703dc1604c0` (August 23, 2026). The exact repository, revision, and copied files are recorded in `upstream-lock.json`.
+The fixture is pinned to `kobaltedev/kobalte` commit `3d3266348816b492b027538168988703dc1604c0` (August 23, 2026). The exact repository, revision, copied files, and upstream Git blob SHAs are recorded in `upstream-lock.json`.
 
 ## Source invariant
 
 The architecture is:
 
 ```text
-verbatim upstream TSX + CSS modules
+verbatim checked-in upstream TSX + CSS modules
         ↓
 module/CSS compatibility layer
         ↓
@@ -18,7 +18,9 @@ Solid universal renderer
 GPUIX native host
 ```
 
-Files under `src/upstream/kobalte/` are generated from the pinned Kobalte repository. Do not patch them to make GPUIX work. `bun run generate` recreates those files from upstream before compilation, so any local edits are intentionally discarded.
+Files under `src/upstream/kobalte/` are checked-in verbatim copies from the pinned Kobalte repository. They are application source, not generated lookalikes and not local GPUIX rewrites. Do not patch them to make GPUIX work.
+
+`bun run source:check` hashes every copied file as a Git blob and compares it with the blob recorded from the pinned upstream commit. Any drift fails immediately with an instruction to fix compatibility underneath the copied source instead.
 
 Kobalte's source keeps its normal imports such as:
 
@@ -29,7 +31,7 @@ import { DropdownMenu } from "@kobalte/core/dropdown-menu";
 
 The Vite resolver redirects those imports to the native Solid 1 compatibility surface. The upstream examples do not know that they are running on GPUIX.
 
-The selected upstream CSS modules are also copied unchanged. `scripts/generate-native-kobalte-css.mjs` compiles their supported selectors into a native class manifest, including deterministic CSS-module scoping, light/dark variants, hover/active rules, and supported data-state selectors.
+The selected upstream CSS modules are also checked in unchanged. `scripts/generate-native-kobalte-css.mjs` compiles their supported selectors into a native class manifest, including deterministic CSS-module scoping, light/dark variants, hover/active rules, and supported data-state selectors.
 
 Kobalte's MIT license is copied alongside the upstream source.
 
@@ -70,17 +72,9 @@ From the repository root:
 bun run solid1:kobalte
 ```
 
-On macOS, where `TestGpuixRenderer` is available, the test interacts with the actual copied examples. It verifies, among other things:
+The check first proves the checked-in Kobalte files still have the exact upstream Git blob SHAs. On macOS, where `TestGpuixRenderer` is available, it then interacts with the actual copied examples and validates native visual geometry/state as well as behavior.
 
-- TextField native input;
-- Kobalte's real 700 ms Tooltip hover delay;
-- DropdownMenu open, checkbox, and submenu behavior;
-- ContextMenu rejecting left-click, opening from right-click, checkbox behavior, and submenu behavior;
-- Menubar switching across Git, File, and Edit;
-- Dialog open and outside dismissal;
-- color-mode changes.
-
-The test intentionally targets the visible text from the pinned upstream source rather than inserting test IDs into copied files.
+The test intentionally targets visible text from the pinned upstream source rather than inserting test IDs into copied files.
 
 ## Run the native window
 
@@ -90,15 +84,18 @@ On macOS:
 bun run example:solid1-kobalte
 ```
 
-The window is titled `Kobalte Upstream Source — Solid 1 + GPUIX` and renders the same copied source used by the automated gate.
+The window is titled `Kobalte Upstream Source — Solid 1 + GPUIX` and renders the same checked-in upstream source used by the automated gate.
 
 ## Updating Kobalte
 
+`bun run sync:upstream` is an explicit source-update operation. Normal builds never replace the checked-in Kobalte files.
+
 To test a newer upstream revision:
 
-1. Change the pinned revision and file list in `upstream-lock.json`.
-2. Run the normal fixture generation/check command.
-3. Fix any newly exposed incompatibility in the renderer, native Kobalte surface, CSS compiler, or module bridge—not in `src/upstream/kobalte/`.
-4. Keep the upstream license and attribution in sync.
+1. Update the pinned commit/file blob SHAs in `upstream-lock.json`.
+2. Run `bun run sync:upstream` to replace the checked-in copies with that exact pin.
+3. Run the normal fixture generation/check command.
+4. Fix newly exposed incompatibilities in the renderer, native Kobalte surface, CSS compiler, or module bridge—not in `src/upstream/kobalte/`.
+5. Keep the upstream license and attribution in sync.
 
 That rule is the important part of this fixture: when upstream code stops working, the compatibility layer moves toward the app rather than the app moving toward GPUIX.

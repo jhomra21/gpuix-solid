@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { readFile } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
@@ -7,20 +8,19 @@ const lock = JSON.parse(await readFile(path.join(root, "upstream-lock.json"), "u
 const upstreamRoot = path.join(root, "src", "upstream", "kobalte")
 
 for (const source of lock.files) {
-  const url = `https://raw.githubusercontent.com/${lock.repository}/${lock.commit}/${source}`
-  const response = await fetch(url)
-  if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.status}`)
-
-  const upstream = normalizeLineEndings(await response.text())
   const relative = source === "LICENSE.md"
     ? "LICENSE.md"
     : source.replace(/^apps\/docs\/src\//, "")
   const localPath = path.join(upstreamRoot, relative)
-  const local = normalizeLineEndings(await readFile(localPath, "utf8"))
+  const content = await readFile(localPath)
+  const actual = gitBlobSha(content)
+  const expected = lock.blobs[source]
 
-  if (local !== upstream) {
+  if (!expected || actual !== expected) {
     throw new Error([
       `${path.relative(root, localPath)} is no longer a verbatim copy of pinned Kobalte source.`,
+      `expected blob: ${expected ?? "missing from upstream-lock.json"}`,
+      `actual blob:   ${actual}`,
       `upstream: ${lock.repository}@${lock.commit}:${source}`,
       "Fix compatibility underneath the copied source instead of editing the Kobalte example.",
     ].join("\n"))
@@ -29,6 +29,9 @@ for (const source of lock.files) {
 
 console.log(`Kobalte verbatim source parity: ${lock.files.length} files match ${lock.commit}`)
 
-function normalizeLineEndings(value) {
-  return value.replaceAll("\r\n", "\n")
+function gitBlobSha(content) {
+  return createHash("sha1")
+    .update(`blob ${content.byteLength}\0`)
+    .update(content)
+    .digest("hex")
 }

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { readFile, rm, mkdir, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
@@ -13,7 +14,13 @@ for (const source of lock.files) {
   const url = `https://raw.githubusercontent.com/${lock.repository}/${lock.commit}/${source}`
   const response = await fetch(url)
   if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.status}`)
-  const content = await response.text()
+  const content = Buffer.from(await response.arrayBuffer())
+  const expected = lock.blobs[source]
+  const actual = gitBlobSha(content)
+  if (!expected || actual !== expected) {
+    throw new Error(`Pinned Kobalte blob mismatch for ${source}: expected ${expected ?? "missing"}, got ${actual}`)
+  }
+
   const relative = source === "LICENSE.md"
     ? "LICENSE.md"
     : source.replace(/^apps\/docs\/src\//, "")
@@ -22,8 +29,11 @@ for (const source of lock.files) {
   await writeFile(destination, content)
 }
 
-await writeFile(
-  path.join(outputRoot, "PINNED.json"),
-  `${JSON.stringify({ repository: lock.repository, commit: lock.commit }, null, 2)}\n`,
-)
-console.log(`synced ${lock.files.length} Kobalte files at ${lock.commit}`)
+console.log(`synced ${lock.files.length} verbatim Kobalte files at ${lock.commit}`)
+
+function gitBlobSha(content) {
+  return createHash("sha1")
+    .update(`blob ${content.byteLength}\0`)
+    .update(content)
+    .digest("hex")
+}
