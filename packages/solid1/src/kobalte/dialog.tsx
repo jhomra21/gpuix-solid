@@ -3,7 +3,7 @@ import type { EventPayload } from "@gpuix/native"
 import { useGpuixContextRequired } from "../context.js"
 import type { PublicInstance, StyleDesc } from "../host/types.js"
 import type { PolymorphicProps } from "./polymorphic.js"
-import { mergeStyle, triggerBaseStyle, type FocusableInstance, type NativeComponentProps } from "./shared.jsx"
+import { mergeComponentStyle, mergeStyle, triggerBaseStyle, type FocusableInstance, type NativeComponentProps } from "./shared.jsx"
 
 export interface DialogRootProps {
   children?: JSX.Element
@@ -65,15 +65,11 @@ function overlayNode<T>(
       classList={props.classList}
       testId={props.testId}
       onClick={(event: EventPayload) => { props.onClick?.(event); context.setOpen(false) }}
-      style={mergeStyle({
-        position: "absolute",
-        top: 0,
-        right: 0,
-        bottom: 0,
-        left: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.2)",
-        pointerEvents: "auto",
-      }, props.style)}
+      style={mergeComponentStyle(
+        { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, pointerEvents: "auto" },
+        { backgroundColor: "rgba(0, 0, 0, 0.2)" },
+        props,
+      )}
     />
   )
 }
@@ -95,19 +91,22 @@ function contentNode<T>(
         props.onKeyDown?.(event)
         if (event.key === "escape") context.setOpen(false)
       }}
-      style={mergeStyle({
-        width: 500,
-        maxHeight: 520,
-        overflowY: "auto",
-        padding: 16,
-        gap: 12,
-        backgroundColor: "#151518",
-        color: "#fafafa",
-        borderWidth: 1,
-        borderColor: "#34343a",
-        borderRadius: 6,
-        pointerEvents: "auto",
-      }, props.style)}
+      style={mergeComponentStyle(
+        { pointerEvents: "auto" },
+        {
+          width: 500,
+          maxHeight: 520,
+          overflowY: "auto",
+          padding: 16,
+          gap: 12,
+          backgroundColor: "#151518",
+          color: "#fafafa",
+          borderWidth: 1,
+          borderColor: "#34343a",
+          borderRadius: 6,
+        },
+        props,
+      )}
     >{props.children}</div>
   )
 }
@@ -260,11 +259,11 @@ export function CloseButton<T = "button">(props: PolymorphicProps<T, DialogClose
 }
 
 export function Title<T = "h2">(props: PolymorphicProps<T, DialogTitleProps<T>>): JSX.Element {
-  return <text class={props.class} className={props.className} classList={props.classList} testId={props.testId} style={mergeStyle({ fontSize: 18, lineHeight: 24, fontWeight: 700, color: "#fafafa" }, props.style)}>{props.children}</text>
+  return <text class={props.class} className={props.className} classList={props.classList} testId={props.testId} style={mergeComponentStyle({}, { fontSize: 18, lineHeight: 24, fontWeight: 700, color: "#fafafa" }, props)}>{props.children}</text>
 }
 
 export function Description<T = "p">(props: PolymorphicProps<T, DialogDescriptionProps<T>>): JSX.Element {
-  return <text class={props.class} className={props.className} classList={props.classList} testId={props.testId} style={mergeStyle({ fontSize: 13, lineHeight: 18, color: "#a1a1aa" }, props.style)}>{props.children}</text>
+  return <text class={props.class} className={props.className} classList={props.classList} testId={props.testId} style={mergeComponentStyle({}, { fontSize: 13, lineHeight: 18, color: "#a1a1aa" }, props)}>{props.children}</text>
 }
 
 export const Dialog = Object.assign(Root, { Root, Trigger, Portal, Overlay, Content, CloseButton, Title, Description })
