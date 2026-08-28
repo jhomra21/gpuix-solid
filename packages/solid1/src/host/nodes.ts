@@ -55,6 +55,10 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     this.type = type
   }
 
+  get ownerDocument(): Document {
+    return document
+  }
+
   get value(): string {
     const value = this.props.get("value")
     return value === null || value === undefined ? "" : String(value)
