@@ -1,4 +1,4 @@
-import type { JSX } from "solid-js"
+import { splitProps, type JSX } from "solid-js"
 import * as Native from "@jhomra21/gpuix-solid1/kobalte/dropdown-menu"
 import type { DropdownMenuSubProps } from "@jhomra21/gpuix-solid1/kobalte/dropdown-menu"
 
@@ -14,7 +14,7 @@ interface VisualProps {
 }
 
 function Sub(props: SubProps): JSX.Element {
-  const { overlap: _overlap, gutter: _gutter, shift: _shift, ...rest } = props
+  const [, rest] = splitProps(props, ["overlap", "gutter", "shift"])
   return <Native.Sub {...rest} />
 }
 
