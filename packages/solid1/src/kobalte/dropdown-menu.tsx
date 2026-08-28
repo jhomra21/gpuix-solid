@@ -37,6 +37,15 @@ export interface DropdownMenuRadioGroupProps { children?: JSX.Element; value?: s
 export interface DropdownMenuRadioItemProps<T = "div"> extends DropdownMenuItemProps<T> { value: string }
 export interface DropdownMenuItemIndicatorProps extends NativeComponentProps {}
 
+type TriggerInstance = FocusableInstance & {
+  getBoundingClientRect: () => {
+    left: number
+    top: number
+    right: number
+    bottom: number
+  }
+}
+
 type MenuContextValue = {
   open: () => boolean
   setOpen: (open: boolean) => void
@@ -44,6 +53,7 @@ type MenuContextValue = {
   items: FocusRegistry
   setTrigger: (instance: PublicInstance) => void
   focusTrigger: () => void
+  isTriggerEvent: (event: EventPayload) => boolean
 }
 const MenuContext = createContext<MenuContextValue>()
 type SubContextValue = {
@@ -88,6 +98,11 @@ function focusable(instance: PublicInstance): FocusableInstance {
   return instance as FocusableInstance
 }
 
+function triggerInstance(instance: PublicInstance): TriggerInstance {
+  // SAFETY: Solid host refs are HostElementNode instances, whose DOM-compat contract implements focus() and getBoundingClientRect().
+  return instance as TriggerInstance
+}
+
 function focusAfterMount(action: () => void): void {
   queueMicrotask(action)
 }
@@ -95,7 +110,7 @@ function focusAfterMount(action: () => void): void {
 export function Root(props: DropdownMenuRootProps): JSX.Element {
   const [internalOpen, setInternalOpen] = createSignal(props.defaultOpen ?? false)
   const items = createFocusRegistry()
-  let trigger: FocusableInstance | undefined
+  let trigger: TriggerInstance | undefined
   const open = () => props.open ?? internalOpen()
   const setOpen = (next: boolean) => {
     if (props.open === undefined) setInternalOpen(next)
@@ -107,8 +122,15 @@ export function Root(props: DropdownMenuRootProps): JSX.Element {
       setOpen,
       gutter: () => props.gutter ?? 4,
       items,
-      setTrigger(instance) { trigger = focusable(instance) },
+      setTrigger(instance) { trigger = triggerInstance(instance) },
       focusTrigger() { trigger?.focus() },
+      isTriggerEvent(event) {
+        const x = event.x
+        const y = event.y
+        if (x === undefined || y === undefined || !trigger) return false
+        const bounds = trigger.getBoundingClientRect()
+        return x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom
+      },
     }}>
       {props.children}
     </MenuContext.Provider>
@@ -161,7 +183,7 @@ export function Content<T = "div">(props: PolymorphicProps<T, DropdownMenuConten
         sideOffset={props.gutter ?? context.gutter()}
         onMouseDownOutside={(event: EventPayload) => {
           props.onMouseDownOutside?.(event)
-          context.setOpen(false)
+          if (!context.isTriggerEvent(event)) context.setOpen(false)
         }}
         onKeyDown={(event: EventPayload) => {
           props.onKeyDown?.(event)
