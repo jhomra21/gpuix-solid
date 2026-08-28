@@ -9,6 +9,7 @@ import {
   mergeStyle,
   popupBaseStyle,
   triggerBaseStyle,
+  type FloatingPosition,
   type FocusKey,
   type FocusRegistry,
   type FocusableInstance,
@@ -25,6 +26,9 @@ export interface MenubarSubProps { children?: JSX.Element; open?: boolean; defau
 export interface MenubarSubTriggerProps<T = "div"> extends NativeComponentProps { as?: T }
 export interface MenubarSubContentProps<T = "div"> extends NativeComponentProps { as?: T }
 
+type PositionedInstance = FocusableInstance & {
+  getBoundingClientRect: () => { left: number; top: number; right: number; bottom: number }
+}
 type TriggerEntry = { key: FocusKey; value: string; instance: FocusableInstance }
 type MenubarContextValue = {
   value: () => string | null | undefined
@@ -43,6 +47,7 @@ type MenuContextValue = {
   items: FocusRegistry
   setTrigger: (instance: PublicInstance) => void
   focusTrigger: () => void
+  position: () => FloatingPosition | undefined
 }
 const MenuContext = createContext<MenuContextValue>()
 type SubContextValue = {
@@ -51,6 +56,7 @@ type SubContextValue = {
   gutter: () => number
   setTrigger: (instance: PublicInstance) => void
   focusTrigger: () => void
+  position: () => FloatingPosition | undefined
 }
 const SubContext = createContext<SubContextValue>()
 
@@ -72,6 +78,11 @@ function isActivationKey(key: string | undefined): boolean {
 function focusable(instance: PublicInstance): FocusableInstance {
   // SAFETY: Solid host refs are HostElementNode instances, and HostElementNode implements focus().
   return instance as FocusableInstance
+}
+
+function positioned(instance: PublicInstance): PositionedInstance {
+  // SAFETY: Solid host refs are HostElementNode instances, whose DOM-compat contract implements focus() and getBoundingClientRect().
+  return instance as PositionedInstance
 }
 
 function focusAfterMount(action: () => void): void {
@@ -123,7 +134,7 @@ export function Menu(props: MenubarMenuProps): JSX.Element {
   const generated = `menu-${Math.random().toString(36).slice(2)}`
   const key: FocusKey = Symbol("menubar-menu")
   const items = createFocusRegistry()
-  let trigger: FocusableInstance | undefined
+  let trigger: PositionedInstance | undefined
   const value = () => props.value ?? generated
   return (
     <MenuContext.Provider value={{
@@ -132,8 +143,13 @@ export function Menu(props: MenubarMenuProps): JSX.Element {
       gutter: () => props.gutter ?? 8,
       shift: () => props.shift ?? -4,
       items,
-      setTrigger(instance) { trigger = focusable(instance) },
+      setTrigger(instance) { trigger = positioned(instance) },
       focusTrigger() { trigger?.focus() },
+      position() {
+        if (!trigger) return undefined
+        const bounds = trigger.getBoundingClientRect()
+        return { x: bounds.left, y: bounds.bottom }
+      },
     }}>
       {props.children}
     </MenuContext.Provider>
@@ -192,6 +208,7 @@ export function Content<T = "div">(props: PolymorphicProps<T, MenubarContentProp
         className={props.className}
         classList={props.classList}
         testId={props.testId}
+        position={menu.position()}
         side="bottom"
         align="start"
         sideOffset={menu.gutter()}
@@ -264,7 +281,7 @@ export function Separator<T = "hr">(props: PolymorphicProps<T, MenubarSeparatorP
 
 export function Sub(props: MenubarSubProps): JSX.Element {
   const [internalOpen, setInternalOpen] = createSignal(props.defaultOpen ?? false)
-  let trigger: FocusableInstance | undefined
+  let trigger: PositionedInstance | undefined
   const open = () => props.open ?? internalOpen()
   const setOpen = (next: boolean) => { if (props.open === undefined) setInternalOpen(next); props.onOpenChange?.(next) }
   return (
@@ -272,8 +289,13 @@ export function Sub(props: MenubarSubProps): JSX.Element {
       open,
       setOpen,
       gutter: () => props.gutter ?? 8,
-      setTrigger(instance) { trigger = focusable(instance) },
+      setTrigger(instance) { trigger = positioned(instance) },
       focusTrigger() { trigger?.focus() },
+      position() {
+        if (!trigger) return undefined
+        const bounds = trigger.getBoundingClientRect()
+        return { x: bounds.right, y: bounds.top }
+      },
     }}>
       {props.children}
     </SubContext.Provider>
@@ -325,7 +347,7 @@ export function SubTrigger<T = "div">(props: PolymorphicProps<T, MenubarSubTrigg
 export function SubContent<T = "div">(props: PolymorphicProps<T, MenubarSubContentProps<T>>): JSX.Element {
   const context = useContext(SubContext)
   if (!context) throw new Error("Menubar.SubContent must be used inside Menubar.Sub")
-  return <Show when={context.open()}><FloatingLayer class={props.class} className={props.className} classList={props.classList} testId={props.testId} side="right" align="start" sideOffset={context.gutter()} style={mergeStyle(popupBaseStyle, props.style)}>{props.children}</FloatingLayer></Show>
+  return <Show when={context.open()}><FloatingLayer class={props.class} className={props.className} classList={props.classList} testId={props.testId} position={context.position()} side="right" align="start" sideOffset={context.gutter()} style={mergeStyle(popupBaseStyle, props.style)}>{props.children}</FloatingLayer></Show>
 }
 
 export const Menubar = Object.assign(Root, { Root, Menu, Trigger, Portal, Content, Item, Separator, Sub, SubTrigger, SubContent })
