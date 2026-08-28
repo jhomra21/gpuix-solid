@@ -84,7 +84,7 @@ function contentNode<T>(
 ): JSX.Element {
   return (
     <div
-      ref={(instance) => { context.setContent(instance); props.ref?.(instance) }}
+      ref={(instance: PublicInstance) => { context.setContent(instance); props.ref?.(instance) }}
       class={props.class}
       className={props.className}
       classList={props.classList}
@@ -147,7 +147,7 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, DialogTriggerPr
   return (
     <div style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
       <div
-        ref={(instance) => { context.setTrigger(instance); props.ref?.(instance) }}
+        ref={(instance: PublicInstance) => { context.setTrigger(instance); props.ref?.(instance) }}
         class={props.class}
         className={props.className}
         classList={props.classList}
