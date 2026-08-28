@@ -3,8 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "source:check": "bun scripts/check-upstream-source-parity.mjs",
     "sync:upstream": "bun scripts/sync-upstream-kobalte.mjs",
-    "generate": "bun run sync:upstream && bun scripts/generate-native-kobalte-css.mjs",
+    "generate": "bun run source:check && bun run sync:upstream && bun scripts/generate-native-kobalte-css.mjs",
     "build": "bun run generate && vite build",
     "build:test": "bun run generate && vite build --config vite.test.config.ts",
     "typecheck": "bun run generate && tsc --noEmit",
