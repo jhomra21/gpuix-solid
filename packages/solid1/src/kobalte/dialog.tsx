@@ -1,4 +1,4 @@
-import { createContext, createSignal, Show, useContext, type JSX } from "solid-js"
+import { createContext, createSignal, onMount, Show, useContext, type JSX } from "solid-js"
 import type { EventPayload } from "@gpuix/native"
 import { useGpuixContextRequired } from "../context.js"
 import type { PublicInstance, StyleDesc } from "../host/types.js"
@@ -172,20 +172,19 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, DialogTriggerPr
 export function Portal(props: DialogPortalProps): JSX.Element {
   const context = requireContext("Dialog.Portal")
   const gpuix = useGpuixContextRequired()
-  const viewportStyle = (): StyleDesc => {
-    const size = gpuix.getViewportSize()
-    return {
-      position: "relative",
-      width: size.width,
-      height: size.height,
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: "rgba(0, 0, 0, 0.001)",
-      pointerEvents: "auto",
-    }
-  }
+  const [viewport, setViewport] = createSignal(gpuix.getViewportSize())
+  onMount(() => setViewport(gpuix.getViewportSize()))
+  const viewportStyle = (): StyleDesc => ({
+    position: "relative",
+    width: viewport().width,
+    height: viewport().height,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.001)",
+    pointerEvents: "auto",
+  })
 
   return (
     <Show when={context.open()}>
