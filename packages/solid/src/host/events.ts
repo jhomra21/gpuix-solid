@@ -80,11 +80,29 @@ function pointerCompatibleTarget(target: DomCompatTarget): DomCompatTarget & Eve
       value: {},
     })
   }
-  return Object.assign(target, {
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-    dispatchEvent: () => true,
-  })
+  if (!Object.hasOwn(target, "addEventListener")) {
+    Object.defineProperty(target, "addEventListener", {
+      configurable: true,
+      enumerable: true,
+      value: () => undefined,
+    })
+  }
+  if (!Object.hasOwn(target, "removeEventListener")) {
+    Object.defineProperty(target, "removeEventListener", {
+      configurable: true,
+      enumerable: true,
+      value: () => undefined,
+    })
+  }
+  if (!Object.hasOwn(target, "dispatchEvent")) {
+    Object.defineProperty(target, "dispatchEvent", {
+      configurable: true,
+      enumerable: true,
+      value: () => true,
+    })
+  }
+  // SAFETY: the three EventTarget methods are either preserved from the host element or installed above before this value is returned.
+  return target as DomCompatTarget & EventTarget
 }
 
 function domCompatibleEvent(event: NativeEventPayload, target: DomCompatTarget | undefined): EventPayload {
