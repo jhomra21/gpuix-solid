@@ -155,7 +155,7 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, MenubarTriggerP
   }
   return (
     <div
-      ref={(instance) => {
+      ref={(instance: PublicInstance) => {
         menu.setTrigger(instance)
         if (!props.disabled) root.registerTrigger({ key: menu.key, value: menu.value(), instance: focusable(instance) })
         props.ref?.(instance)
@@ -224,7 +224,7 @@ export function Item<T = "div">(props: PolymorphicProps<T, MenubarItemProps<T>>)
   }
   return (
     <div
-      ref={(instance) => {
+      ref={(instance: PublicInstance) => {
         if (!props.disabled) menu.items.register(focusKey, instance)
         props.ref?.(instance)
       }}
@@ -289,7 +289,7 @@ export function SubTrigger<T = "div">(props: PolymorphicProps<T, MenubarSubTrigg
   onCleanup(() => menu.items.unregister(focusKey))
   return (
     <div
-      ref={(instance) => {
+      ref={(instance: PublicInstance) => {
         context.setTrigger(instance)
         if (!props.disabled) menu.items.register(focusKey, instance)
         props.ref?.(instance)
