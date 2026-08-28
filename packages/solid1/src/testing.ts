@@ -154,6 +154,13 @@ export class TestRenderer implements NativeRenderer {
     return this.boundsNode(node, `${testId} text ${JSON.stringify(text)}`)
   }
 
+  styleTextWithinTestId(testId: string, text: string): StyleDesc {
+    const parent = this.requireTestId(testId)
+    const node = findElementByExactText(parent, text)
+    if (!node) throw new Error(`Expected visible text ${JSON.stringify(text)} inside ${testId}`)
+    return node.style ?? {}
+  }
+
   rightClickTestId(testId: string): void {
     const point = insetPoint(this.boundsTestId(testId))
     this.#native.simulateMouseDown(point.x, point.y, 2)
