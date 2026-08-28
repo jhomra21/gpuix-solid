@@ -34,6 +34,11 @@ export interface FocusRegistry {
   focusPrevious: (key: FocusKey) => void
 }
 
+export function asFocusableInstance(instance: PublicInstance): FocusableInstance {
+  // SAFETY: Solid host refs are assigned HostElementNode instances, whose public DOM-compat contract implements focus().
+  return instance as FocusableInstance
+}
+
 export function createFocusRegistry(): FocusRegistry {
   const order: FocusKey[] = []
   const instances = new Map<FocusKey, FocusableInstance>()
@@ -48,7 +53,7 @@ export function createFocusRegistry(): FocusRegistry {
   return {
     register(key, instance) {
       if (!order.includes(key)) order.push(key)
-      if (typeof instance.focus === "function") instances.set(key, instance as FocusableInstance)
+      instances.set(key, asFocusableInstance(instance))
     },
     unregister(key) {
       instances.delete(key)
