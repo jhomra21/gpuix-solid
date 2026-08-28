@@ -129,7 +129,7 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, DialogTriggerPr
 
 export function Portal(props: DialogPortalProps): JSX.Element {
   const context = requireContext("Dialog.Portal")
-  const fixedPositioner = {
+  const fixedPositioner: StyleDesc = {
     position: "fixed",
     top: 0,
     right: 0,
@@ -140,7 +140,7 @@ export function Portal(props: DialogPortalProps): JSX.Element {
     alignItems: "center",
     justifyContent: "center",
     pointerEvents: "auto",
-  } as unknown as StyleDesc
+  }
 
   return (
     <Show when={context.open()}>
