@@ -1,6 +1,6 @@
 import type { JSX } from "solid-js"
 import * as Native from "@jhomra21/gpuix-solid1/kobalte/image"
-import type { ImageFallbackProps, ImageImgProps, ImageRootProps } from "@jhomra21/gpuix-solid1/kobalte/image"
+import type { ImageImgProps, ImageRootProps } from "@jhomra21/gpuix-solid1/kobalte/image"
 
 interface RootProps extends ImageRootProps {
   fallbackDelay?: number | undefined
