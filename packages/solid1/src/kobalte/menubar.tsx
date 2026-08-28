@@ -89,6 +89,11 @@ function focusAfterMount(action: () => void): void {
   queueMicrotask(action)
 }
 
+function withHoveredStyle(base: StyleDesc, style: StyleDesc | undefined, hovered: boolean): StyleDesc {
+  const merged = mergeStyle(base, style)
+  return hovered && style?.hover ? mergeStyle(merged, style.hover) : merged
+}
+
 export function Root(props: MenubarRootProps): JSX.Element {
   const [internalValue, setInternalValue] = createSignal<string | null | undefined>(props.defaultValue)
   const triggers: TriggerEntry[] = []
@@ -159,10 +164,18 @@ export function Menu(props: MenubarMenuProps): JSX.Element {
 export function Trigger<T = "button">(props: PolymorphicProps<T, MenubarTriggerProps<T>>): JSX.Element {
   const root = requireRoot("Menubar.Trigger")
   const menu = requireMenu("Menubar.Trigger")
+  const [hovered, setHovered] = createSignal(false)
   const expanded = () => root.value() === menu.value()
   const style = (): StyleDesc => {
-    const base: StyleDesc = { ...triggerBaseStyle, minHeight: 28, paddingLeft: 8, paddingRight: 8 }
-    return expanded() ? { ...base, backgroundColor: "#2a2a30" } : base
+    const base = withHoveredStyle(
+      { ...triggerBaseStyle, minHeight: 28, paddingLeft: 8, paddingRight: 8 },
+      props.style,
+      hovered(),
+    )
+    if (!expanded()) return base
+    return props.style?.hover
+      ? mergeStyle(base, props.style.hover)
+      : mergeStyle(base, { backgroundColor: "#2a2a30" })
   }
   onCleanup(() => root.unregisterTrigger(menu.key))
   const openAndFocus = (edge: "first" | "last") => {
@@ -182,7 +195,13 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, MenubarTriggerP
       testId={props.testId}
       tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)}
       onClick={(event: EventPayload) => { props.onClick?.(event); if (!props.disabled) root.setValue(expanded() ? null : menu.value()) }}
-      onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); if (!props.disabled && root.value() != null) root.setValue(menu.value()) }}
+      onMouseEnter={(event: EventPayload) => {
+        props.onMouseEnter?.(event)
+        if (props.disabled) return
+        setHovered(true)
+        if (root.value() != null) root.setValue(menu.value())
+      }}
+      onMouseLeave={(event: EventPayload) => { props.onMouseLeave?.(event); setHovered(false) }}
       onKeyDown={(event: EventPayload) => {
         props.onKeyDown?.(event)
         if (props.disabled) return
@@ -192,7 +211,7 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, MenubarTriggerP
         else if (event.key === "left") root.focusPreviousTrigger(menu.key)
         else if (event.key === "escape") root.setValue(null)
       }}
-      style={mergeStyle(style(), props.style)}
+      style={style()}
     >{props.children}</div>
   )
 }
@@ -231,6 +250,7 @@ export function Item<T = "div">(props: PolymorphicProps<T, MenubarItemProps<T>>)
   const root = requireRoot("Menubar.Item")
   const menu = requireMenu("Menubar.Item")
   const sub = useContext(SubContext)
+  const [hovered, setHovered] = createSignal(false)
   const focusKey: FocusKey = Symbol("menubar-item")
   onCleanup(() => menu.items.unregister(focusKey))
   const activate = () => {
@@ -239,6 +259,19 @@ export function Item<T = "div">(props: PolymorphicProps<T, MenubarItemProps<T>>)
     root.setValue(null)
     focusAfterMount(menu.focusTrigger)
   }
+  const style = () => withHoveredStyle({
+    display: "flex",
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 26,
+    paddingLeft: 8,
+    paddingRight: 8,
+    gap: 6,
+    cursor: "pointer",
+    opacity: props.disabled ? 0.5 : 1,
+    pointerEvents: props.disabled ? "none" : "auto",
+    hover: { backgroundColor: "#2a2a30" },
+  }, props.style, hovered())
   return (
     <div
       ref={(instance: PublicInstance) => {
@@ -250,6 +283,8 @@ export function Item<T = "div">(props: PolymorphicProps<T, MenubarItemProps<T>>)
       classList={props.classList}
       testId={props.testId}
       tabIndex={props.disabled ? undefined : (props.tabIndex ?? -1)}
+      onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); if (!props.disabled) setHovered(true) }}
+      onMouseLeave={(event: EventPayload) => { props.onMouseLeave?.(event); setHovered(false) }}
       onClick={(event: EventPayload) => { if (props.disabled) return; props.onClick?.(event); activate() }}
       onKeyDown={(event: EventPayload) => {
         if (props.disabled) return
@@ -270,7 +305,7 @@ export function Item<T = "div">(props: PolymorphicProps<T, MenubarItemProps<T>>)
           focusAfterMount(menu.focusTrigger)
         }
       }}
-      style={mergeStyle({ display: "flex", flexDirection: "row", alignItems: "center", minHeight: 26, paddingLeft: 8, paddingRight: 8, gap: 6, cursor: "pointer", opacity: props.disabled ? 0.5 : 1, pointerEvents: props.disabled ? "none" : "auto", hover: { backgroundColor: "#2a2a30" } }, props.style)}
+      style={style()}
     >{props.children}</div>
   )
 }
@@ -307,8 +342,21 @@ export function SubTrigger<T = "div">(props: PolymorphicProps<T, MenubarSubTrigg
   const menu = requireMenu("Menubar.SubTrigger")
   const context = useContext(SubContext)
   if (!context) throw new Error("Menubar.SubTrigger must be used inside Menubar.Sub")
+  const [hovered, setHovered] = createSignal(false)
   const focusKey: FocusKey = Symbol("menubar-sub-trigger")
   onCleanup(() => menu.items.unregister(focusKey))
+  const style = () => withHoveredStyle({
+    display: "flex",
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 26,
+    paddingLeft: 8,
+    paddingRight: 8,
+    cursor: "pointer",
+    opacity: props.disabled ? 0.5 : 1,
+    pointerEvents: props.disabled ? "none" : "auto",
+    hover: { backgroundColor: "#2a2a30" },
+  }, props.style, hovered())
   return (
     <div
       ref={(instance: PublicInstance) => {
@@ -321,7 +369,13 @@ export function SubTrigger<T = "div">(props: PolymorphicProps<T, MenubarSubTrigg
       classList={props.classList}
       testId={props.testId}
       tabIndex={props.disabled ? undefined : (props.tabIndex ?? -1)}
-      onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); if (!props.disabled) context.setOpen(true) }}
+      onMouseEnter={(event: EventPayload) => {
+        props.onMouseEnter?.(event)
+        if (props.disabled) return
+        setHovered(true)
+        context.setOpen(true)
+      }}
+      onMouseLeave={(event: EventPayload) => { props.onMouseLeave?.(event); setHovered(false) }}
       onClick={(event: EventPayload) => { if (props.disabled) return; props.onClick?.(event); context.setOpen(!context.open()) }}
       onKeyDown={(event: EventPayload) => {
         if (props.disabled) return
@@ -339,7 +393,7 @@ export function SubTrigger<T = "div">(props: PolymorphicProps<T, MenubarSubTrigg
           focusAfterMount(menu.focusTrigger)
         }
       }}
-      style={mergeStyle({ display: "flex", flexDirection: "row", alignItems: "center", minHeight: 26, paddingLeft: 8, paddingRight: 8, cursor: "pointer", opacity: props.disabled ? 0.5 : 1, pointerEvents: props.disabled ? "none" : "auto", hover: { backgroundColor: "#2a2a30" } }, props.style)}
+      style={style()}
     >{props.children}</div>
   )
 }
