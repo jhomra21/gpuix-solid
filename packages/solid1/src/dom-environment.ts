@@ -35,7 +35,7 @@ type CompatComputedStyle = {
 type CompatGlobalEnvironment = {
   document?: CompatDocument
   window?: CompatWindow
-  getComputedStyle?: () => CompatComputedStyle
+  getComputedStyle?: (element: Element, pseudoElement?: string | null) => CompatComputedStyle
 }
 
 const listeners = new WeakMap<CompatEventTarget, Map<string, Set<CompatListener>>>()
@@ -81,7 +81,7 @@ export function installDomEventEnvironment(): void {
     Object.defineProperty(globalThis, "getComputedStyle", {
       configurable: true,
       writable: true,
-      value: () => ({
+      value: (_element: Element, _pseudoElement?: string | null) => ({
         animationName: "none",
         animationDuration: "0s",
         transitionDuration: "0s",
