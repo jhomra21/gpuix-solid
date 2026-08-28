@@ -10,23 +10,43 @@ type CompatDocument = CompatEventTarget & {
   body?: CompatEventTarget
 }
 
+type CompatWindow = {
+  setTimeout?: (callback: () => void, delay?: number) => ReturnType<typeof setTimeout>
+  clearTimeout?: (handle: ReturnType<typeof setTimeout>) => void
+}
+
 const listeners = new WeakMap<CompatEventTarget, Map<string, Set<CompatListener>>>()
 
 export function installDomEventEnvironment(): void {
-  // SAFETY: this module owns only the optional browser-compat `document` field and validates each method before installing it.
-  const globals = globalThis as typeof globalThis & { document?: CompatDocument }
+  // SAFETY: this module owns only the optional browser-compat `document` and `window` fields and validates each method before installing it.
+  const globals = globalThis as typeof globalThis & { document?: CompatDocument; window?: CompatWindow }
   const documentTarget = globals.document ?? {}
   const bodyTarget = documentTarget.body ?? {}
+  const windowTarget = globals.window ?? {}
 
   installEventTarget(documentTarget)
   installEventTarget(bodyTarget)
   documentTarget.body = bodyTarget
+
+  if (!windowTarget.setTimeout) {
+    windowTarget.setTimeout = (callback, delay) => globalThis.setTimeout(callback, delay)
+  }
+  if (!windowTarget.clearTimeout) {
+    windowTarget.clearTimeout = (handle) => globalThis.clearTimeout(handle)
+  }
 
   if (!globals.document) {
     Object.defineProperty(globalThis, "document", {
       configurable: true,
       writable: true,
       value: documentTarget,
+    })
+  }
+  if (!globals.window) {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      writable: true,
+      value: windowTarget,
     })
   }
 }
