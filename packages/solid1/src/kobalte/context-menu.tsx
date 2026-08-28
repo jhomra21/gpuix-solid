@@ -1,5 +1,5 @@
 import { createContext, createSignal, onCleanup, Show, useContext, type JSX } from "solid-js"
-import type { EventPayload, PublicInstance } from "../host/types.js"
+import type { EventPayload, PublicInstance, StyleDesc } from "../host/types.js"
 import type { PolymorphicProps } from "./polymorphic.js"
 import {
   Portal,
@@ -65,6 +65,11 @@ function focusable(instance: PublicInstance): FocusableInstance {
 
 function focusAfterMount(action: () => void): void {
   queueMicrotask(action)
+}
+
+function withHoveredStyle(base: StyleDesc, style: StyleDesc | undefined, hovered: boolean): StyleDesc {
+  const merged = mergeStyle(base, style)
+  return hovered && style?.hover ? mergeStyle(merged, style.hover) : merged
 }
 
 export function Root(props: ContextMenuRootProps): JSX.Element {
@@ -138,7 +143,19 @@ export function Content<T = "div">(props: PolymorphicProps<T, ContextMenuContent
   const context = requireContext("ContextMenu.Content")
   return (
     <Show when={context.open()}>
-      <anchored position={context.position()} side="bottom" align="start" gap={context.gutter()} fit="snap" snapMargin={8} deferred priority={2} occlude>
+      <anchored
+        testId={props.testId ? `${props.testId}-positioner` : undefined}
+        position={context.position()}
+        side="bottom"
+        align="start"
+        gap={context.gutter()}
+        fit="snap"
+        snapMargin={8}
+        deferred
+        priority={2}
+        occlude
+        style={{ backgroundColor: "#00000001" }}
+      >
         <div
           class={props.class}
           className={props.className}
@@ -163,6 +180,7 @@ export function Content<T = "div">(props: PolymorphicProps<T, ContextMenuContent
 export function Item<T = "div">(props: PolymorphicProps<T, ContextMenuItemProps<T>>): JSX.Element {
   const context = requireContext("ContextMenu.Item")
   const sub = useContext(SubContext)
+  const [hovered, setHovered] = createSignal(false)
   const focusKey: FocusKey = Symbol("context-item")
   onCleanup(() => context.items.unregister(focusKey))
   const activate = () => {
@@ -171,6 +189,19 @@ export function Item<T = "div">(props: PolymorphicProps<T, ContextMenuItemProps<
     context.setOpen(false)
     focusAfterMount(context.focusTrigger)
   }
+  const style = () => withHoveredStyle({
+    display: "flex",
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 26,
+    paddingLeft: 8,
+    paddingRight: 8,
+    gap: 6,
+    cursor: "pointer",
+    opacity: props.disabled ? 0.5 : 1,
+    pointerEvents: props.disabled ? "none" : "auto",
+    hover: { backgroundColor: "#2a2a30" },
+  }, props.style, hovered())
   return (
     <div
       ref={(instance: PublicInstance) => {
@@ -182,6 +213,8 @@ export function Item<T = "div">(props: PolymorphicProps<T, ContextMenuItemProps<
       classList={props.classList}
       testId={props.testId}
       tabIndex={props.disabled ? undefined : (props.tabIndex ?? -1)}
+      onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); if (!props.disabled) setHovered(true) }}
+      onMouseLeave={(event: EventPayload) => { props.onMouseLeave?.(event); setHovered(false) }}
       onClick={(event: EventPayload) => {
         if (props.disabled) return
         props.onClick?.(event)
@@ -203,7 +236,7 @@ export function Item<T = "div">(props: PolymorphicProps<T, ContextMenuItemProps<
           focusAfterMount(context.focusTrigger)
         }
       }}
-      style={mergeStyle({ display: "flex", flexDirection: "row", alignItems: "center", minHeight: 26, paddingLeft: 8, paddingRight: 8, gap: 6, cursor: "pointer", opacity: props.disabled ? 0.5 : 1, pointerEvents: props.disabled ? "none" : "auto", hover: { backgroundColor: "#2a2a30" } }, props.style)}
+      style={style()}
     >{props.children}</div>
   )
 }
@@ -238,8 +271,21 @@ export function SubTrigger<T = "div">(props: PolymorphicProps<T, ContextMenuSubT
   const menu = requireContext("ContextMenu.SubTrigger")
   const context = useContext(SubContext)
   if (!context) throw new Error("ContextMenu.SubTrigger must be used inside ContextMenu.Sub")
+  const [hovered, setHovered] = createSignal(false)
   const focusKey: FocusKey = Symbol("context-sub-trigger")
   onCleanup(() => menu.items.unregister(focusKey))
+  const style = () => withHoveredStyle({
+    display: "flex",
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 26,
+    paddingLeft: 8,
+    paddingRight: 8,
+    cursor: "pointer",
+    opacity: props.disabled ? 0.5 : 1,
+    pointerEvents: props.disabled ? "none" : "auto",
+    hover: { backgroundColor: "#2a2a30" },
+  }, props.style, hovered())
   return (
     <div
       ref={(instance: PublicInstance) => {
@@ -252,7 +298,13 @@ export function SubTrigger<T = "div">(props: PolymorphicProps<T, ContextMenuSubT
       classList={props.classList}
       testId={props.testId}
       tabIndex={props.disabled ? undefined : (props.tabIndex ?? -1)}
-      onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); if (!props.disabled) context.setOpen(true) }}
+      onMouseEnter={(event: EventPayload) => {
+        props.onMouseEnter?.(event)
+        if (props.disabled) return
+        setHovered(true)
+        context.setOpen(true)
+      }}
+      onMouseLeave={(event: EventPayload) => { props.onMouseLeave?.(event); setHovered(false) }}
       onClick={(event: EventPayload) => { if (props.disabled) return; props.onClick?.(event); context.setOpen(!context.open()) }}
       onKeyDown={(event: EventPayload) => {
         if (props.disabled) return
@@ -270,7 +322,7 @@ export function SubTrigger<T = "div">(props: PolymorphicProps<T, ContextMenuSubT
           focusAfterMount(menu.focusTrigger)
         }
       }}
-      style={mergeStyle({ display: "flex", flexDirection: "row", alignItems: "center", minHeight: 26, paddingLeft: 8, paddingRight: 8, cursor: "pointer", opacity: props.disabled ? 0.5 : 1, pointerEvents: props.disabled ? "none" : "auto", hover: { backgroundColor: "#2a2a30" } }, props.style)}
+      style={style()}
     >{props.children}</div>
   )
 }
