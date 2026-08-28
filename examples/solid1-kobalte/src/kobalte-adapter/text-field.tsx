@@ -16,7 +16,9 @@ interface TextAreaProps extends TextFieldTextAreaProps {
 
 function Root(props: RootProps): JSX.Element {
   const { onChange, name: _name, ...rest } = props
-  return <Native.Root {...rest} onValueChange={onChange} />
+  return onChange
+    ? <Native.Root {...rest} onValueChange={onChange} />
+    : <Native.Root {...rest} />
 }
 
 function TextArea(props: TextAreaProps): JSX.Element {
