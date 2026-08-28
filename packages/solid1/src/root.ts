@@ -56,7 +56,11 @@ export function createRoot(renderer: NativeRenderer): Root {
 
   const flushNative = (): void => driver.flush()
   const clearApp = (): void => {
-    for (const mounted of [...appContainer.children]) removeHostNode(appContainer, mounted)
+    for (;;) {
+      const mounted = appContainer.children[0]
+      if (!mounted) return
+      removeHostNode(appContainer, mounted)
+    }
   }
 
   return {
