@@ -8,6 +8,7 @@ type CompatEventTarget = {
 
 type CompatDocument = CompatEventTarget & {
   body?: CompatEventTarget
+  defaultView?: CompatWindow
 }
 
 type CompatImage = {
@@ -18,12 +19,6 @@ type CompatImage = {
 
 type CompatImageConstructor = new () => CompatImage
 
-type CompatWindow = CompatEventTarget & {
-  setTimeout?: (callback: () => void, delay?: number) => ReturnType<typeof globalThis.setTimeout>
-  clearTimeout?: (handle: ReturnType<typeof globalThis.setTimeout>) => void
-  Image?: CompatImageConstructor
-}
-
 type CompatComputedStyle = {
   animationName: string
   animationDuration: string
@@ -32,10 +27,22 @@ type CompatComputedStyle = {
   display: string
 }
 
+type CompatGetComputedStyle = (element: Element, pseudoElement?: string | null) => CompatComputedStyle
+
+type CompatWindow = CompatEventTarget & {
+  setTimeout?: (callback: () => void, delay?: number) => ReturnType<typeof globalThis.setTimeout>
+  clearTimeout?: (handle: ReturnType<typeof globalThis.setTimeout>) => void
+  Image?: CompatImageConstructor
+  Element?: typeof Element
+  HTMLElement?: typeof HTMLElement
+  Node?: typeof Node
+  getComputedStyle?: CompatGetComputedStyle
+}
+
 type CompatGlobalEnvironment = {
   document?: CompatDocument
   window?: CompatWindow
-  getComputedStyle?: (element: Element, pseudoElement?: string | null) => CompatComputedStyle
+  getComputedStyle?: CompatGetComputedStyle
 }
 
 const listeners = new WeakMap<CompatEventTarget, Map<string, Set<CompatListener>>>()
@@ -52,6 +59,7 @@ export function installDomEventEnvironment(): void {
   installEventTarget(bodyTarget)
   installEventTarget(windowTarget)
   documentTarget.body = bodyTarget
+  documentTarget.defaultView = windowTarget
 
   if (!windowTarget.setTimeout) {
     windowTarget.setTimeout = (callback, delay) => globalThis.setTimeout(callback, delay)
@@ -61,6 +69,27 @@ export function installDomEventEnvironment(): void {
   }
   if (!windowTarget.Image) {
     windowTarget.Image = CompatImageLoader
+  }
+  if (!windowTarget.Element) {
+    windowTarget.Element = Element
+  }
+  if (!windowTarget.HTMLElement) {
+    windowTarget.HTMLElement = HTMLElement
+  }
+  if (!windowTarget.Node) {
+    windowTarget.Node = Node
+  }
+
+  const getComputedStyle = globals.getComputedStyle ?? defaultComputedStyle
+  if (!globals.getComputedStyle) {
+    Object.defineProperty(globalThis, "getComputedStyle", {
+      configurable: true,
+      writable: true,
+      value: getComputedStyle,
+    })
+  }
+  if (!windowTarget.getComputedStyle) {
+    windowTarget.getComputedStyle = getComputedStyle
   }
 
   if (!globals.document) {
@@ -77,18 +106,15 @@ export function installDomEventEnvironment(): void {
       value: windowTarget,
     })
   }
-  if (!globals.getComputedStyle) {
-    Object.defineProperty(globalThis, "getComputedStyle", {
-      configurable: true,
-      writable: true,
-      value: (_element: Element, _pseudoElement?: string | null) => ({
-        animationName: "none",
-        animationDuration: "0s",
-        transitionDuration: "0s",
-        transitionProperty: "none",
-        display: "block",
-      }),
-    })
+}
+
+function defaultComputedStyle(_element: Element, _pseudoElement?: string | null): CompatComputedStyle {
+  return {
+    animationName: "none",
+    animationDuration: "0s",
+    transitionDuration: "0s",
+    transitionProperty: "none",
+    display: "block",
   }
 }
 
