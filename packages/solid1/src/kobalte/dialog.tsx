@@ -1,6 +1,6 @@
 import { createContext, createSignal, Show, useContext, type JSX } from "solid-js"
 import type { EventPayload } from "@gpuix/native"
-import { useGpuixRequired } from "../context.js"
+import { useGpuixContextRequired } from "../context.js"
 import type { StyleDesc } from "../host/types.js"
 import type { PolymorphicProps } from "./polymorphic.js"
 import { mergeStyle, triggerBaseStyle, type NativeComponentProps } from "./shared.jsx"
@@ -120,7 +120,7 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, DialogTriggerPr
         onKeyDown={(event: EventPayload) => {
           if (props.disabled) return
           props.onKeyDown?.(event)
-          if (event.key === "enter" || event.key === "space") context.setOpen(true)
+          if (event.key === "enter" || event.key === "space") context.setOpen(!context.open())
         }}
         style={interactiveStyle(props.disabled, props.style)}
       >{props.children}</div>
@@ -130,9 +130,9 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, DialogTriggerPr
 
 export function Portal(props: DialogPortalProps): JSX.Element {
   const context = requireContext("Dialog.Portal")
-  const renderer = useGpuixRequired()
+  const gpuix = useGpuixContextRequired()
   const viewportStyle = (): StyleDesc => {
-    const size = renderer.getWindowSize?.() ?? { width: 800, height: 600 }
+    const size = gpuix.getViewportSize()
     return {
       position: "relative",
       width: size.width,
