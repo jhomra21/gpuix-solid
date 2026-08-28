@@ -63,6 +63,10 @@ function disabledState(disabled: boolean | undefined): StyleDesc {
     : { opacity: 1, pointerEvents: "auto" }
 }
 
+function isActivationKey(key: string | undefined): boolean {
+  return key === "enter" || key === "space"
+}
+
 export function Root(props: DropdownMenuRootProps): JSX.Element {
   const [internalOpen, setInternalOpen] = createSignal(props.defaultOpen ?? false)
   const open = () => props.open ?? internalOpen()
@@ -82,12 +86,18 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, DropdownMenuTri
         className={props.className}
         classList={props.classList}
         testId={props.testId}
-        tabIndex={props.tabIndex ?? 0}
+        tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)}
         onClick={(event: EventPayload) => {
           props.onClick?.(event)
           if (!props.disabled) context.setOpen(!context.open())
         }}
-        style={mergeStyle(triggerBaseStyle, props.style)}
+        onKeyDown={(event: EventPayload) => {
+          props.onKeyDown?.(event)
+          if (props.disabled) return
+          if (isActivationKey(event.key) || event.key === "down" || event.key === "up") context.setOpen(true)
+          if (event.key === "escape") context.setOpen(false)
+        }}
+        style={mergeStyle({ ...triggerBaseStyle, ...disabledState(props.disabled) }, props.style)}
       >{props.children}</div>
     </div>
   )
@@ -132,6 +142,11 @@ export function Item<T = "div">(props: PolymorphicProps<T, DropdownMenuItemProps
     cursor: "pointer",
     hover: { backgroundColor: "#2a2a30" },
   }
+  const activate = () => {
+    if (props.disabled) return
+    props.onSelect?.()
+    if (props.closeOnSelect !== false) context.setOpen(false)
+  }
   return (
     <div
       class={props.class}
@@ -142,8 +157,13 @@ export function Item<T = "div">(props: PolymorphicProps<T, DropdownMenuItemProps
       onClick={(event: EventPayload) => {
         if (props.disabled) return
         props.onClick?.(event)
-        props.onSelect?.()
-        if (props.closeOnSelect !== false) context.setOpen(false)
+        activate()
+      }}
+      onKeyDown={(event: EventPayload) => {
+        if (props.disabled) return
+        props.onKeyDown?.(event)
+        if (isActivationKey(event.key)) activate()
+        if (event.key === "escape") context.setOpen(false)
       }}
       style={classAwareFallback(props, fallback, disabledState(props.disabled))}
     >{props.children}</div>
@@ -214,14 +234,21 @@ export function SubTrigger<T = "div">(props: PolymorphicProps<T, DropdownMenuSub
       className={props.className}
       classList={props.classList}
       testId={props.testId}
-      tabIndex={props.tabIndex ?? 0}
+      tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)}
       onMouseEnter={(event: EventPayload) => {
         props.onMouseEnter?.(event)
-        context.setOpen(true)
+        if (!props.disabled) context.setOpen(true)
       }}
       onClick={(event: EventPayload) => {
+        if (props.disabled) return
         props.onClick?.(event)
         context.setOpen(!context.open())
+      }}
+      onKeyDown={(event: EventPayload) => {
+        if (props.disabled) return
+        props.onKeyDown?.(event)
+        if (isActivationKey(event.key) || event.key === "right") context.setOpen(true)
+        if (event.key === "left" || event.key === "escape") context.setOpen(false)
       }}
       style={classAwareFallback(props, fallback, disabledState(props.disabled))}
     >{props.children}</div>
