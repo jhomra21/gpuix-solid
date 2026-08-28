@@ -174,8 +174,6 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   }
 }
 
-installDomConstructors()
-
 export class HostTextNode {
   readonly kind = "text" as const
   readonly type = "text" as const
@@ -508,3 +506,5 @@ function isElementType(value: string): value is ElementType {
     "virtual-list",
   ].includes(value)
 }
+
+installDomConstructors()
