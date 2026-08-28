@@ -22,6 +22,7 @@ export type NativeComponentProps = Omit<OptionalUndefined<HostProps>, "children"
 
 export type FloatingSide = "top" | "right" | "bottom" | "left"
 export type FloatingAlign = "start" | "center" | "end"
+export type FloatingPosition = { x: number; y: number }
 export type FocusKey = symbol
 export type FocusableInstance = PublicInstance & { focus: () => void }
 
@@ -114,6 +115,7 @@ export interface FloatingContentProps extends NativeComponentProps {
   align?: FloatingAlign
   alignOffset?: number
   collisionPadding?: number
+  position?: FloatingPosition
 }
 
 export function FloatingLayer(props: FloatingContentProps): JSX.Element {
@@ -125,6 +127,7 @@ export function FloatingLayer(props: FloatingContentProps): JSX.Element {
 
   return (
     <anchored
+      position={props.position}
       side={side()}
       align={align()}
       gap={props.sideOffset ?? 0}
