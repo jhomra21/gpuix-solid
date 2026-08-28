@@ -14,6 +14,8 @@ export type DynamicProps<T extends ValidComponent, P = ComponentProps<T>> = {
   component: T | undefined
 }
 
+type LocalEventListener = (event: Event) => void
+
 export function createDynamic<T extends ValidComponent>(
   component: () => T | undefined,
   props: ComponentProps<T>,
@@ -47,6 +49,7 @@ function isHostTag(component: ValidComponent): component is string {
 function installSemanticTagMetadata(element: ReturnType<typeof createElement>, tagName: string): void {
   const localName = tagName.toLowerCase()
   const nodeName = localName.toUpperCase()
+  const listeners = new Map<string, Set<LocalEventListener>>()
   Object.defineProperties(element, {
     tagName: { configurable: true, enumerable: true, value: nodeName },
     nodeName: { configurable: true, enumerable: true, value: nodeName },
@@ -72,6 +75,34 @@ function installSemanticTagMetadata(element: ReturnType<typeof createElement>, t
           current = parent
         }
         return false
+      },
+    },
+    addEventListener: {
+      configurable: true,
+      enumerable: true,
+      value: (type: string, listener: LocalEventListener | null) => {
+        if (!listener) return
+        const entries = listeners.get(type) ?? new Set<LocalEventListener>()
+        entries.add(listener)
+        listeners.set(type, entries)
+      },
+    },
+    removeEventListener: {
+      configurable: true,
+      enumerable: true,
+      value: (type: string, listener: LocalEventListener | null) => {
+        if (!listener) return
+        const entries = listeners.get(type)
+        entries?.delete(listener)
+        if (entries?.size === 0) listeners.delete(type)
+      },
+    },
+    dispatchEvent: {
+      configurable: true,
+      enumerable: true,
+      value: (event: Event) => {
+        for (const listener of listeners.get(event.type) ?? []) listener(event)
+        return !event.defaultPrevented
       },
     },
   })
