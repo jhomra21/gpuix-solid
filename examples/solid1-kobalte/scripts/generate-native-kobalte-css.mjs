@@ -14,20 +14,26 @@ for (const file of files) {
   const tree = postcss.parse(css, { from: file })
   tree.walkRules((rule) => {
     if (rule.parent?.type === "atrule" && rule.parent.name === "keyframes") return
-    for (const selector of rule.selectors ?? [rule.selector]) compileSelector(selector.trim(), rule)
+    for (const selector of rule.selectors ?? [rule.selector]) compileSelector(file, selector.trim(), rule)
   })
 }
 
 const source = `import type { NativeStyleManifest } from "@jhomra21/gpuix-solid1"\n\nexport const nativeKobalteManifest: NativeStyleManifest = ${JSON.stringify({ classes }, null, 2)}\n`
 await writeFile(output, source)
-console.log(`native Kobalte CSS manifest: ${Object.keys(classes).length} classes from ${files.length} modules`)
+console.log(`native Kobalte CSS manifest: ${Object.keys(classes).length} scoped classes from ${files.length} modules`)
 
-function compileSelector(selector, rule) {
+function scopedClass(file, name) {
+  const moduleName = file.replace(/\.module\.css$/, "").replace(/[^A-Za-z0-9_-]/g, "_")
+  return `kb_${moduleName}_${name}`
+}
+
+function compileSelector(file, selector, rule) {
   if (!selector || selector.includes("::")) return
   const classMatches = [...selector.matchAll(/\.([A-Za-z0-9_-]+)/g)]
   if (classMatches.length === 0) return
-  const className = classMatches.at(-1)?.[1]
-  if (!className) return
+  const localClass = classMatches.at(-1)?.[1]
+  if (!localClass) return
+  const className = scopedClass(file, localClass)
   const entry = classes[className] ??= {}
   const dark = selector.includes('[data-theme*="dark"]')
   const state = selector.includes(":hover") ? "hover"
@@ -48,10 +54,6 @@ function compileSelector(selector, rule) {
   })
   if (Object.keys(style).length === 0) return
 
-  // Native hover is the closest direct equivalent to Kobalte's data-highlighted
-  // state. Other semantic states are already driven by the compatibility
-  // primitives and stay out of the class manifest until the host exposes
-  // generic attribute selectors.
   const nativeState = state === "highlighted" ? "hover" : state
   if (nativeState === "hover" || nativeState === "active") {
     const target = dark ? (entry.dark ??= {}) : (entry.base ??= {})
