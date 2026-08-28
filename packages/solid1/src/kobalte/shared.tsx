@@ -115,7 +115,7 @@ export interface FloatingContentProps extends NativeComponentProps {
   align?: FloatingAlign
   alignOffset?: number
   collisionPadding?: number
-  position?: FloatingPosition
+  position?: FloatingPosition | undefined
 }
 
 export function FloatingLayer(props: FloatingContentProps): JSX.Element {
