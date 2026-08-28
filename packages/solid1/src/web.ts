@@ -66,6 +66,7 @@ function installSemanticTagMetadata(element: ReturnType<typeof createElement>, t
         let current = child
         while (current) {
           if (current === element) return true
+          if (current.kind === "root") return false
           const parent = current.parent
           if (!parent || parent.kind === "root") return false
           current = parent
