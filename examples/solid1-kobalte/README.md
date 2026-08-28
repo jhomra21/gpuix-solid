@@ -1,79 +1,104 @@
-# Solid 1 Kobalte compatibility fixture
+# Verbatim Kobalte docs fixture
 
-This example is the manual and automated compatibility gate for the Kobalte-shaped native primitives used by the pinned DAW UI before any Tailwind/class bridge work begins.
+This example proves that real Kobalte documentation source can run on the Solid 1 GPUIX renderer without rewriting the copied application code.
 
-It runs on `@jhomra21/gpuix-solid1` and renders directly through GPUIX. The fixture currently covers:
+The fixture is pinned to `kobaltedev/kobalte` commit `3d3266348816b492b027538168988703dc1604c0` (August 23, 2026). The exact repository, revision, and copied files are recorded in `upstream-lock.json`.
+
+## Source invariant
+
+The architecture is:
+
+```text
+verbatim upstream TSX + CSS modules
+        ↓
+module/CSS compatibility layer
+        ↓
+Solid universal renderer
+        ↓
+GPUIX native host
+```
+
+Files under `src/upstream/kobalte/` are generated from the pinned Kobalte repository. Do not patch them to make GPUIX work. `bun run generate` recreates those files from upstream before compilation, so any local edits are intentionally discarded.
+
+Kobalte's source keeps its normal imports such as:
+
+```ts
+import { Dialog } from "@kobalte/core/dialog";
+import { DropdownMenu } from "@kobalte/core/dropdown-menu";
+```
+
+The Vite resolver redirects those imports to the native Solid 1 compatibility surface. The upstream examples do not know that they are running on GPUIX.
+
+The selected upstream CSS modules are also copied unchanged. `scripts/generate-native-kobalte-css.mjs` compiles their supported selectors into a native class manifest, including deterministic CSS-module scoping, light/dark variants, hover/active rules, and supported data-state selectors.
+
+Kobalte's MIT license is copied alongside the upstream source.
+
+## Covered upstream examples
+
+The native fixture currently executes Kobalte's actual `BasicExample` source for:
 
 - Button
-- Image / avatar fallback
-- Separator
 - TextField
+- Image
+- Separator
 - Tooltip
-- Dialog
 - DropdownMenu
 - ContextMenu
 - Menubar
-- ColorMode
-- polymorphic compatibility types
+- Dialog
 
-## Visual source of truth
+`src/upstream-app.tsx` only arranges those unchanged examples in one native window, attaches fixture-level test IDs around them, and provides the color-mode environment. It does not reimplement the examples.
 
-The fixture should look like the rendered `BasicExample` components on the real Kobalte documentation site, not like a separate GPUIX demo theme.
+## Native compatibility below the source
 
-The parity pass is pinned to Kobalte `main` revision `3d3266348816b492b027538168988703dc1604c0` (August 23, 2026). Preserve both the component tokens and the example composition from that revision when changing this fixture:
+Differences between browser Kobalte and GPUIX are handled outside the copied source. That includes:
 
-- Button and button-like triggers: intrinsic width like Kobalte's `display: inline-flex; width: auto`, 40px tall, 6px radius, 16px text, Kobalte blue (`hsl(200 98% 39%)` light / `hsl(201 96% 32%)` dark).
-- TextField: 200px input, 6px radius, 14px/500 label, 16px input text, 12px description/error text.
-- Image fallback: 56px circle using the Kobalte light/dark blue fallback treatment. The native fallback child is rounded as well as its root because GPUIX child clipping differs from browser overflow clipping.
-- Tooltip: intrinsic 40px trigger, 6px content radius, 8px padding, 14px content text, inverted light/dark surface treatment.
-- DropdownMenu, ContextMenu and Menubar popups: 220px minimum width, 8px padding, 6px radius, 32px items with 16px text.
-- Menu shortcut copy follows the Kobalte examples (`⌘+K`, `⇧+⌘+K`, `⌘+T`) rather than DAW-specific placeholder shortcuts.
-- Menubar: centered `Git`, `File`, `Edit` three-trigger composition from the real example.
-- ContextMenu trigger: 300px wide, 2px dashed target with centered `Right click here.` copy. Native `StyleDesc` does not expose CSS `border-style`, so the fixture composes small native edge segments to reproduce the dashed frame rather than substituting a solid outline.
-- Dialog trigger: intrinsic 40px button. Dialog content keeps the proven native anchored implementation while matching the Kobalte 500px content surface, 6px radius, 16px padding, 20px/500 title and 16px description.
+- semantic HTML elements mapped to native host elements;
+- inline SVG serialization for Kobalte's copied icons;
+- CSS-module class translation into native `StyleDesc` values;
+- native floating/anchored layers in place of browser portal positioning;
+- event, focus, keyboard, right-click, and outside-pointer behavior;
+- small Kobalte API compatibility surfaces required by the pinned docs revision.
 
-The native renderer uses equivalent sRGB hex/rgba values for Kobalte's HSL colors where needed.
+This is intentionally not a DOM implementation. The goal is source compatibility for Solid applications while preserving native GPUIX rendering.
 
-## Composition rules
-
-Do not wrap each primitive in a generic card or stretch triggers to fill a fixture column. Those choices make the fixture look like a GPUIX component dashboard even when the individual color and size tokens are correct.
-
-GPUIX does not expose CSS `inline-flex`. For this fixture, button-like examples emulate Kobalte's intrinsic inline-flex sizing with a non-stretching native flex item. Native tests assert the resulting painted widths for Tooltip, DropdownMenu and Dialog triggers so a future layout change cannot silently turn them back into full-column bars.
-
-The example intentionally uses open whitespace, intrinsic controls and lightweight labels so the rendered primitives themselves have the same visual hierarchy as Kobalte's docs. Fixture-only controls such as the color-mode toggle are visually subdued and should not be mistaken for a Kobalte `BasicExample`.
-
-## Run on macOS
+## Automated gate
 
 From the repository root:
+
+```sh
+bun run solid1:kobalte
+```
+
+On macOS, where `TestGpuixRenderer` is available, the test interacts with the actual copied examples. It verifies, among other things:
+
+- TextField native input;
+- Kobalte's real 700 ms Tooltip hover delay;
+- DropdownMenu open, checkbox, and submenu behavior;
+- ContextMenu rejecting left-click, opening from right-click, checkbox behavior, and submenu behavior;
+- Menubar switching across Git, File, and Edit;
+- Dialog open and outside dismissal;
+- color-mode changes.
+
+The test intentionally targets the visible text from the pinned upstream source rather than inserting test IDs into copied files.
+
+## Run the native window
+
+On macOS:
 
 ```sh
 bun run example:solid1-kobalte
 ```
 
-The command builds the Solid 1 package and launches the native window:
+The window is titled `Kobalte Upstream Source — Solid 1 + GPUIX` and renders the same copied source used by the automated gate.
 
-- title: `Kobalte Compatibility — Solid 1 + GPUIX`
-- size: 1180 × 820
+## Updating Kobalte
 
-## Manual visual and interaction check
+To test a newer upstream revision:
 
-Before moving on to the Tailwind/class bridge, verify the native window itself:
+1. Change the pinned revision and file list in `upstream-lock.json`.
+2. Run the normal fixture generation/check command.
+3. Fix any newly exposed incompatibility in the renderer, native Kobalte surface, CSS compiler, or module bridge—not in `src/upstream/kobalte/`.
+4. Keep the upstream license and attribution in sync.
 
-1. The fixture reads as a collection of Kobalte documentation examples rather than a custom dashboard: no component cards and no stretched button/menu/dialog triggers.
-2. Theme toggle switches the complete Kobalte example palette between dark and light, including inputs, menus, tooltip and dialog surfaces.
-3. Button and button-like triggers preserve the intrinsic-width 40px Kobalte geometry and interaction colors.
-4. Hovering or focusing the tooltip trigger opens the anchored tooltip with the inverted Kobalte tooltip treatment.
-5. TextField editing remains controlled and the invalid field keeps its error message visible.
-6. The `KB` and `J` image fallbacks render as true 56px circles rather than square fallback children.
-7. Dropdown menu opens; checkbox, radio item, shortcuts and submenu interactions work while retaining the 220px/32px menu geometry.
-8. The context target visibly uses a dashed 300px native frame, centers `Right click here.` in both axes, and opens only from a real right-click.
-9. The Menubar is centered with Git/File/Edit triggers; menus and submenu open and selections update the last-action status.
-10. Dialog opens through the proven native anchored implementation and closes from its close button or Escape.
-
-## Current compatibility boundary
-
-This is a Kobalte-shaped native compatibility layer, not a DOM implementation of Kobalte. Dropdown, context, tooltip, menubar and dialog portal content is represented by native floating/anchored layers rather than browser portals.
-
-The current GPUIX `<img>` host does not expose image load/error callbacks, so a failed native image load cannot yet switch a Kobalte-style image to fallback from that callback. The visual fixture therefore uses deterministic no-source fallback states instead of deliberately requesting an invalid remote asset. This keeps the checkpoint free of an expected asset-cache failure while preserving the limitation explicitly here.
-
-Tailwind `class`, `className`, and Solid `classList` translation are deliberately out of scope for this gate. That bridge starts only after this native Kobalte fixture is manually accepted.
+That rule is the important part of this fixture: when upstream code stops working, the compatibility layer moves toward the app rather than the app moving toward GPUIX.
