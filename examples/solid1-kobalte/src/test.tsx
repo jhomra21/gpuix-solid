@@ -64,12 +64,31 @@ if (!hasNativeTestRenderer) {
   const separatorBelow = r.boundsTextWithinTestId("upstream-separator", "Content below")
   requireCondition(separatorBelow.y > separatorAbove.y, `Separator example should stack vertically: above y=${separatorAbove.y}, below y=${separatorBelow.y}`)
 
+  r.captureScreenshot("/tmp/gpuix-solid1-kobalte-light.png")
+
+  r.clickTextWithinTestId("upstream-menubar", "Git")
+  requireText(r.textContent("upstream-menubar"), "Commit", "light Menubar Git menu")
+  r.captureScreenshot("/tmp/gpuix-solid1-kobalte-light-menubar.png")
+  r.clickTextWithinTestId("upstream-button", "Click me")
+
+  r.rightClickTextWithinTestId("upstream-context", "Right click here.")
+  requireText(r.textContent("upstream-context"), "Commit", "light ContextMenu")
+  r.captureScreenshot("/tmp/gpuix-solid1-kobalte-light-context.png")
+  r.clickTextWithinTestId("upstream-button", "Click me")
+
+  r.clickTextWithinTestId("upstream-dialog", "Open")
+  requireText(r.textContent("upstream-dialog"), "About Kobalte", "light Dialog open")
+  r.captureScreenshot("/tmp/gpuix-solid1-kobalte-light-dialog.png")
+  r.clickTestId("theme-toggle")
+  requireCondition(!r.textContent("upstream-dialog").includes("About Kobalte"), "Dialog overlay should dismiss outside interaction")
+
   r.clickTestId("theme-toggle")
   requireText(r.textContent("theme-toggle"), "Theme: dark", "dark color mode")
   const darkButtonStyle = r.styleTextWithinTestId("upstream-button", "Click me")
   const darkMenubarStyle = r.styleTextWithinTestId("upstream-menubar", "Git")
   requireCondition(darkButtonStyle.backgroundColor === "#0369a0", `dark Button should use Kobalte blue, got ${String(darkButtonStyle.backgroundColor)}`)
   requireCondition(darkMenubarStyle.backgroundColor === "#27272a", `dark Menubar trigger should use Kobalte surface, got ${String(darkMenubarStyle.backgroundColor)}`)
+  r.captureScreenshot("/tmp/gpuix-solid1-kobalte-dark.png")
 
   r.typeFirstInputWithinTestId("upstream-text-field", "x")
 
@@ -106,11 +125,6 @@ if (!hasNativeTestRenderer) {
   r.clickTextWithinTestId("upstream-menubar", "Edit")
   requireText(r.textContent("upstream-menubar"), "Undo", "Menubar Edit menu")
   r.clickTextWithinTestId("upstream-button", "Click me")
-
-  r.clickTextWithinTestId("upstream-dialog", "Open")
-  requireText(r.textContent("upstream-dialog"), "About Kobalte", "Dialog open")
-  r.clickTestId("theme-toggle")
-  requireCondition(!r.textContent("upstream-dialog").includes("About Kobalte"), "Dialog overlay should dismiss outside interaction")
 
   app.unmount()
   console.log("solid1 verbatim upstream Kobalte fixture: passed")
