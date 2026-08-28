@@ -72,6 +72,14 @@ function fallbackTarget(event: NativeEventPayload): DomCompatTarget {
 }
 
 function pointerCompatibleTarget(target: DomCompatTarget): DomCompatTarget & EventTarget {
+  if (!Object.hasOwn(target, "dataset")) {
+    Object.defineProperty(target, "dataset", {
+      configurable: true,
+      enumerable: true,
+      writable: false,
+      value: {},
+    })
+  }
   return Object.assign(target, {
     addEventListener: () => undefined,
     removeEventListener: () => undefined,
@@ -91,6 +99,7 @@ function domCompatibleEvent(event: NativeEventPayload, target: DomCompatTarget |
     clientX: x,
     clientY: y,
     pointerId: 0,
+    pointerType: "mouse",
     shiftKey: event.modifiers?.shift ?? false,
     metaKey: event.modifiers?.cmd ?? false,
     altKey: event.modifiers?.alt ?? false,
