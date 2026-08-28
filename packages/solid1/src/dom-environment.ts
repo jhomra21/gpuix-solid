@@ -11,18 +11,20 @@ type CompatDocument = CompatEventTarget & {
 }
 
 type CompatWindow = {
-  setTimeout?: (callback: () => void, delay?: number) => ReturnType<typeof setTimeout>
-  clearTimeout?: (handle: ReturnType<typeof setTimeout>) => void
+  setTimeout?: (callback: () => void, delay?: number) => ReturnType<typeof globalThis.setTimeout>
+  clearTimeout?: (handle: ReturnType<typeof globalThis.setTimeout>) => void
 }
 
 const listeners = new WeakMap<CompatEventTarget, Map<string, Set<CompatListener>>>()
 
 export function installDomEventEnvironment(): void {
-  // SAFETY: this module owns only the optional browser-compat `document` and `window` fields and validates each method before installing it.
-  const globals = globalThis as typeof globalThis & { document?: CompatDocument; window?: CompatWindow }
+  // SAFETY: this module owns only the optional browser-compat `document` field and validates each method before installing it.
+  const globals = globalThis as typeof globalThis & { document?: CompatDocument }
   const documentTarget = globals.document ?? {}
   const bodyTarget = documentTarget.body ?? {}
-  const windowTarget = globals.window ?? {}
+  const currentWindow = Reflect.get(globalThis, "window")
+  // SAFETY: the compatibility bridge reads an existing global window only as a holder for optional timer methods before installing missing methods.
+  const windowTarget = Object(currentWindow ?? {}) as CompatWindow
 
   installEventTarget(documentTarget)
   installEventTarget(bodyTarget)
@@ -42,7 +44,7 @@ export function installDomEventEnvironment(): void {
       value: documentTarget,
     })
   }
-  if (!globals.window) {
+  if (currentWindow == null) {
     Object.defineProperty(globalThis, "window", {
       configurable: true,
       writable: true,
