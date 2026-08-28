@@ -18,13 +18,12 @@ type CompatWindow = {
 const listeners = new WeakMap<CompatEventTarget, Map<string, Set<CompatListener>>>()
 
 export function installDomEventEnvironment(): void {
-  // SAFETY: this module owns only the optional browser-compat `document` field and validates each method before installing it.
-  const globals = globalThis as typeof globalThis & { document?: CompatDocument }
+  // SAFETY: this module owns only the optional browser-compat `document` and `window` fields and validates each method before installing it.
+  const globals = globalThis as typeof globalThis & { document?: CompatDocument; window?: object }
   const documentTarget = globals.document ?? {}
   const bodyTarget = documentTarget.body ?? {}
-  const currentWindow = Reflect.get(globalThis, "window")
-  // SAFETY: the compatibility bridge reads an existing global window only as a holder for optional timer methods before installing missing methods.
-  const windowTarget = Object(currentWindow ?? {}) as CompatWindow
+  const currentWindow: object | undefined = globals.window
+  const windowTarget = compatWindow(currentWindow ?? {})
 
   installEventTarget(documentTarget)
   installEventTarget(bodyTarget)
@@ -44,13 +43,18 @@ export function installDomEventEnvironment(): void {
       value: documentTarget,
     })
   }
-  if (currentWindow == null) {
+  if (!currentWindow) {
     Object.defineProperty(globalThis, "window", {
       configurable: true,
       writable: true,
       value: windowTarget,
     })
   }
+}
+
+function compatWindow(value: object): CompatWindow {
+  // SAFETY: callers pass only the runtime global window object or a newly created empty object, and this module reads/writes only the two optional timer methods declared above.
+  return value as CompatWindow
 }
 
 function installEventTarget(target: CompatEventTarget): void {
