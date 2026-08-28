@@ -193,7 +193,10 @@ export function Portal(props: DialogPortalProps): JSX.Element {
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.001)",
+    // @gpuix/native 0.4 treats an anchored layer whose alpha quantizes to zero
+    // as unfilled and substitutes an opaque #1A1A1A surface. One alpha byte is
+    // visually transparent while keeping the deferred viewport layer non-fallback.
+    backgroundColor: "#00000001",
     pointerEvents: "auto",
   })
 
@@ -209,7 +212,7 @@ export function Portal(props: DialogPortalProps): JSX.Element {
         snapMargin={0}
         deferred
         priority={100}
-        occlude
+        occlude={false}
         style={viewportStyle()}
       >
         <DialogPortalContext.Provider value={true}>
