@@ -71,12 +71,12 @@ function findElementByExactText(
   text: string,
   parent?: NativeTreeNode,
 ): NativeTreeNode | undefined {
-  if (node.type === "text" && nodeText(node).trim() === text) return parent ?? node
+  if (node.text != null && nodeText(node).trim() === text) return parent ?? node
   for (const child of node.children ?? []) {
     const found = findElementByExactText(child, text, node)
     if (found) return found
   }
-  if (node.type !== "text" && nodeText(node).trim() === text) return node
+  if (node.text == null && nodeText(node).trim() === text) return node
   return undefined
 }
 
