@@ -1,7 +1,7 @@
 import type { JSX } from "solid-js"
 import type { EventPayload } from "@gpuix/native"
 import type { HostProps, PublicInstance, StyleDesc } from "../host/types.js"
-import type { NativeClassList } from "../native-style.js"
+import { resolveNativeClassStyle, type NativeClassList } from "../native-style.js"
 
 type OptionalUndefined<T> = {
   [K in keyof T]: {} extends Pick<T, K> ? T[K] | undefined : T[K]
@@ -95,6 +95,14 @@ export function mergeComponentStyle(
     ? structural
     : mergeStyle(structural, fallbackVisual)
   return mergeStyle(base, props.style)
+}
+
+export function resolveNativeComponentStateStyle(
+  props: Pick<NativeComponentProps, "class" | "className" | "classList">,
+  state: "hover" | "active",
+): Omit<StyleDesc, "hover" | "active"> | undefined {
+  const className = [props.class, props.className].filter(Boolean).join(" ") || undefined
+  return resolveNativeClassStyle(className, props.classList)?.[state]
 }
 
 export function composeHandlers(
