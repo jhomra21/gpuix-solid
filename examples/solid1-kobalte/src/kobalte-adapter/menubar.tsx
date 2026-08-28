@@ -1,4 +1,4 @@
-import { createContext, createSignal, Show, useContext, type JSX } from "solid-js"
+import { createContext, createSignal, Show, splitProps, useContext, type JSX } from "solid-js"
 import * as Native from "@jhomra21/gpuix-solid1/kobalte/menubar"
 import type { MenubarSubProps } from "@jhomra21/gpuix-solid1/kobalte/menubar"
 
@@ -26,7 +26,7 @@ const IndicatorContext = createContext<() => boolean>(() => false)
 const RadioContext = createContext<{ value: () => string | undefined; setValue: (value: string) => void }>()
 
 function Sub(props: SubProps): JSX.Element {
-  const { overlap: _overlap, shift: _shift, ...rest } = props
+  const [, rest] = splitProps(props, ["overlap", "shift"])
   return <Native.Sub {...rest} />
 }
 
