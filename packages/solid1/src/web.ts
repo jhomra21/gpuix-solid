@@ -59,5 +59,19 @@ function installSemanticTagMetadata(element: ReturnType<typeof createElement>, t
         .map((candidate) => candidate.trim().toLowerCase())
         .includes(localName),
     },
+    contains: {
+      configurable: true,
+      enumerable: true,
+      value: (child: ReturnType<typeof createElement> | null) => {
+        let current = child
+        while (current) {
+          if (current === element) return true
+          const parent = current.parent
+          if (!parent || parent.kind === "root") return false
+          current = parent
+        }
+        return false
+      },
+    },
   })
 }
