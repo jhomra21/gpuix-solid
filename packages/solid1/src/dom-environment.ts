@@ -24,9 +24,18 @@ type CompatWindow = CompatEventTarget & {
   Image?: CompatImageConstructor
 }
 
+type CompatComputedStyle = {
+  animationName: string
+  animationDuration: string
+  transitionDuration: string
+  transitionProperty: string
+  display: string
+}
+
 type CompatGlobalEnvironment = {
   document?: CompatDocument
   window?: CompatWindow
+  getComputedStyle?: () => CompatComputedStyle
 }
 
 const listeners = new WeakMap<CompatEventTarget, Map<string, Set<CompatListener>>>()
@@ -66,6 +75,19 @@ export function installDomEventEnvironment(): void {
       configurable: true,
       writable: true,
       value: windowTarget,
+    })
+  }
+  if (!globals.getComputedStyle) {
+    Object.defineProperty(globalThis, "getComputedStyle", {
+      configurable: true,
+      writable: true,
+      value: () => ({
+        animationName: "none",
+        animationDuration: "0s",
+        transitionDuration: "0s",
+        transitionProperty: "none",
+        display: "block",
+      }),
     })
   }
 }
