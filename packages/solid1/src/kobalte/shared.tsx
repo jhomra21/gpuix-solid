@@ -1,6 +1,6 @@
 import type { JSX } from "solid-js"
 import type { EventPayload } from "@gpuix/native"
-import type { HostProps, StyleDesc } from "../host/types.js"
+import type { HostProps, PublicInstance, StyleDesc } from "../host/types.js"
 import type { NativeClassList } from "../native-style.js"
 
 type OptionalUndefined<T> = {
@@ -22,6 +22,51 @@ export type NativeComponentProps = Omit<OptionalUndefined<HostProps>, "children"
 
 export type FloatingSide = "top" | "right" | "bottom" | "left"
 export type FloatingAlign = "start" | "center" | "end"
+export type FocusKey = symbol
+export type FocusableInstance = PublicInstance & { focus: () => void }
+
+export interface FocusRegistry {
+  register: (key: FocusKey, instance: PublicInstance) => void
+  unregister: (key: FocusKey) => void
+  focusFirst: () => void
+  focusLast: () => void
+  focusNext: (key: FocusKey) => void
+  focusPrevious: (key: FocusKey) => void
+}
+
+export function createFocusRegistry(): FocusRegistry {
+  const order: FocusKey[] = []
+  const instances = new Map<FocusKey, FocusableInstance>()
+
+  const focusAt = (index: number): void => {
+    if (order.length === 0) return
+    const normalized = ((index % order.length) + order.length) % order.length
+    const key = order[normalized]
+    if (key) instances.get(key)?.focus()
+  }
+
+  return {
+    register(key, instance) {
+      if (!order.includes(key)) order.push(key)
+      if (typeof instance.focus === "function") instances.set(key, instance as FocusableInstance)
+    },
+    unregister(key) {
+      instances.delete(key)
+      const index = order.indexOf(key)
+      if (index >= 0) order.splice(index, 1)
+    },
+    focusFirst() { focusAt(0) },
+    focusLast() { focusAt(order.length - 1) },
+    focusNext(key) {
+      const index = order.indexOf(key)
+      focusAt(index < 0 ? 0 : index + 1)
+    },
+    focusPrevious(key) {
+      const index = order.indexOf(key)
+      focusAt(index < 0 ? order.length - 1 : index - 1)
+    },
+  }
+}
 
 export function mergeStyle(base: StyleDesc, override: StyleDesc | undefined): StyleDesc {
   if (!override) return base
