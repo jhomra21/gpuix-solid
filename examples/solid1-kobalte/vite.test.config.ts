@@ -1,14 +1,23 @@
+import path from "node:path"
+import { fileURLToPath } from "node:url"
 import solid from "vite-plugin-solid"
 import { defineConfig } from "vite"
 
+const root = path.dirname(fileURLToPath(import.meta.url))
 const solid1Package = /^@jhomra21\/gpuix-solid1(?:\/.*)?$/
+const kobalteCore = /^@kobalte\/core\/(.+)$/
 
 export default defineConfig({
   plugins: [solid({ solid: { generate: "universal", moduleName: "@jhomra21/gpuix-solid1" } })],
-  resolve: { conditions: ["browser", "development"], dedupe: ["solid-js"] },
+  css: { modules: { generateScopedName: (name) => name } },
+  resolve: {
+    conditions: ["solid", "browser", "development"],
+    dedupe: ["solid-js"],
+    alias: [{ find: kobalteCore, replacement: path.resolve(root, "src/kobalte-adapter/$1.tsx") }],
+  },
   ssr: {
     noExternal: [solid1Package, "solid-js"],
-    resolve: { conditions: ["browser", "development", "import", "default"] },
+    resolve: { conditions: ["solid", "browser", "development", "import", "default"] },
   },
   build: {
     target: "node22",
