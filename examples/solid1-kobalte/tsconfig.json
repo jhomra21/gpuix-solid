@@ -7,7 +7,7 @@
     "types": ["node"],
     "baseUrl": ".",
     "paths": {
-      "@kobalte/core/*": ["../../packages/solid1/src/kobalte/*"]
+      "@kobalte/core/*": ["src/kobalte-adapter/*"]
     }
   },
   "include": ["src", "vite*.config.ts"]

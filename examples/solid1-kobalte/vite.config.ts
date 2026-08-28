@@ -13,7 +13,7 @@ export default defineConfig({
   resolve: {
     conditions: ["solid", "browser", "development"],
     dedupe: ["solid-js"],
-    alias: [{ find: kobalteCore, replacement: path.resolve(root, "../../packages/solid1/src/kobalte/$1.tsx") }],
+    alias: [{ find: kobalteCore, replacement: path.resolve(root, "src/kobalte-adapter/$1.tsx") }],
   },
   ssr: {
     noExternal: [solid1Package, "solid-js"],
