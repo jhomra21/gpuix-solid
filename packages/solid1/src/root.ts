@@ -35,8 +35,8 @@ export function createRoot(renderer: NativeRenderer): Root {
     const rootWidth = bounds?.[2] ?? 0
     const rootHeight = bounds?.[3] ?? 0
     return {
-      width: Math.max(nativeSize?.width ?? 0, rootWidth, 1),
-      height: Math.max(nativeSize?.height ?? 0, rootHeight, 1),
+      width: Math.max(nativeSize?.width ?? 800, rootWidth),
+      height: Math.max(nativeSize?.height ?? 600, rootHeight),
     }
   }
 
