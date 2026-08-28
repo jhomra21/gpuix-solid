@@ -1,4 +1,4 @@
-import type { JSX } from "solid-js"
+import { splitProps, type JSX } from "solid-js"
 import * as Native from "@jhomra21/gpuix-solid1/kobalte/image"
 import type { ImageImgProps, ImageRootProps } from "@jhomra21/gpuix-solid1/kobalte/image"
 
@@ -11,7 +11,7 @@ interface ImgProps extends Omit<ImageImgProps, "class"> {
 }
 
 function Root(props: RootProps): JSX.Element {
-  const { fallbackDelay: _fallbackDelay, ...rest } = props
+  const [, rest] = splitProps(props, ["fallbackDelay"])
   return <Native.Root {...rest} />
 }
 
