@@ -168,6 +168,10 @@ export class TestRenderer implements NativeRenderer {
   pressKeyTestId(testId: string, key: string): void {
     const node = this.requireTestId(testId)
     this.#native.focusElement(node.id)
+    this.pressKey(key)
+  }
+
+  pressKey(key: string): void {
     this.#native.simulateKeystrokes(key)
     this.dispatchNativeEvents()
     this.#native.flush()
