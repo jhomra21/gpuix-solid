@@ -124,7 +124,7 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, DropdownMenuTri
   return (
     <div style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
       <div
-        ref={(instance) => { context.setTrigger(instance); props.ref?.(instance) }}
+        ref={(instance: PublicInstance) => { context.setTrigger(instance); props.ref?.(instance) }}
         class={props.class}
         className={props.className}
         classList={props.classList}
@@ -202,7 +202,7 @@ export function Item<T = "div">(props: PolymorphicProps<T, DropdownMenuItemProps
   }
   return (
     <div
-      ref={(instance) => {
+      ref={(instance: PublicInstance) => {
         if (!props.disabled) context.items.register(focusKey, instance)
         props.ref?.(instance)
       }}
@@ -276,7 +276,7 @@ export function SubTrigger<T = "div">(props: PolymorphicProps<T, DropdownMenuSub
   const fallback: StyleDesc = { display: "flex", flexDirection: "row", alignItems: "center", minHeight: 26, paddingLeft: 8, paddingRight: 8, cursor: "pointer", hover: { backgroundColor: "#2a2a30" } }
   return (
     <div
-      ref={(instance) => {
+      ref={(instance: PublicInstance) => {
         context.setTrigger(instance)
         if (!props.disabled) menu.items.register(focusKey, instance)
         props.ref?.(instance)
