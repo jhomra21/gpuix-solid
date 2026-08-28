@@ -6,6 +6,7 @@ import { defineConfig } from "vite"
 const root = path.dirname(fileURLToPath(import.meta.url))
 const solid1Package = /^@jhomra21\/gpuix-solid1(?:\/.*)?$/
 const kobalteCore = /^@kobalte\/core\/(.+)$/
+const kobalteSourceRoot = path.resolve(root, "node_modules/@kobalte/core/src")
 
 function scopedClass(name: string, filename: string): string {
   const moduleName = path.basename(filename).replace(/\.module\.css$/, "").replace(/[^A-Za-z0-9_-]/g, "_")
@@ -18,10 +19,13 @@ export default defineConfig({
   resolve: {
     conditions: ["solid", "browser", "development"],
     dedupe: ["solid-js"],
-    alias: [{ find: kobalteCore, replacement: path.resolve(root, "src/kobalte-adapter/$1.tsx") }],
+    // Compile Kobalte's own published source through the same Solid universal
+    // renderer as the fixture. This keeps @kobalte/core itself upstream rather
+    // than replacing its components with local lookalikes.
+    alias: [{ find: kobalteCore, replacement: `${kobalteSourceRoot}/$1/index.tsx` }],
   },
   ssr: {
-    noExternal: [solid1Package, "solid-js"],
+    noExternal: [solid1Package, /^@kobalte\/core(?:\/.*)?$/, "@kobalte/utils", "solid-js"],
     resolve: { conditions: ["solid", "browser", "development", "import", "default"] },
   },
   build: {
