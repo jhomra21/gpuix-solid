@@ -80,6 +80,15 @@ function findElementByExactText(
   return undefined
 }
 
+function findParentNode(root: NativeTreeNode, childId: number): NativeTreeNode | undefined {
+  for (const child of root.children ?? []) {
+    if (child.id === childId) return root
+    const found = findParentNode(child, childId)
+    if (found) return found
+  }
+  return undefined
+}
+
 function insetPoint(bounds: TestBounds) {
   return {
     x: bounds.x + Math.min(4, bounds.width / 4),
@@ -159,6 +168,15 @@ export class TestRenderer implements NativeRenderer {
     const node = findElementByExactText(parent, text)
     if (!node) throw new Error(`Expected visible text ${JSON.stringify(text)} inside ${testId}`)
     return node.style ?? {}
+  }
+
+  styleParentOfTextWithinTestId(testId: string, text: string): StyleDesc {
+    const root = this.requireTestId(testId)
+    const node = findElementByExactText(root, text)
+    if (!node) throw new Error(`Expected visible text ${JSON.stringify(text)} inside ${testId}`)
+    const parent = findParentNode(root, node.id)
+    if (!parent) throw new Error(`Expected parent for visible text ${JSON.stringify(text)} inside ${testId}`)
+    return parent.style ?? {}
   }
 
   rightClickTestId(testId: string): void {
