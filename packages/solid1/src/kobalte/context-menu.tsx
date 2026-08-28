@@ -21,6 +21,7 @@ type ContextMenuContextValue = {
   position: () => ContextPoint
   gutter: () => number
   openAt: (event: EventPayload) => void
+  openAtPoint: (point: ContextPoint) => void
 }
 const ContextMenuContext = createContext<ContextMenuContextValue>()
 type SubContextValue = { open: () => boolean; setOpen: (open: boolean) => void }
@@ -36,6 +37,10 @@ function isContextClick(event: EventPayload): boolean {
   return event.isRightClick === true || event.button === 2
 }
 
+function isActivationKey(key: string | undefined): boolean {
+  return key === "enter" || key === "space"
+}
+
 export function Root(props: ContextMenuRootProps): JSX.Element {
   const [internalOpen, setInternalOpen] = createSignal(props.defaultOpen ?? false)
   const [position, setPosition] = createSignal<ContextPoint>({ x: 0, y: 0 })
@@ -45,12 +50,15 @@ export function Root(props: ContextMenuRootProps): JSX.Element {
     if (props.open === undefined) setInternalOpen(next)
     props.onOpenChange?.(next)
   }
-  const openAt = (event: EventPayload) => {
-    if (!isContextClick(event)) return
-    setPosition({ x: event.x ?? 0, y: event.y ?? 0 })
+  const openAtPoint = (point: ContextPoint) => {
+    setPosition(point)
     setOpen(true)
   }
-  return <ContextMenuContext.Provider value={{ open, setOpen, position, gutter, openAt }}>{props.children}</ContextMenuContext.Provider>
+  const openAt = (event: EventPayload) => {
+    if (!isContextClick(event)) return
+    openAtPoint({ x: event.x ?? 0, y: event.y ?? 0 })
+  }
+  return <ContextMenuContext.Provider value={{ open, setOpen, position, gutter, openAt, openAtPoint }}>{props.children}</ContextMenuContext.Provider>
 }
 
 export function Trigger<T = "div">(props: PolymorphicProps<T, ContextMenuTriggerProps<T>>): JSX.Element {
@@ -61,7 +69,7 @@ export function Trigger<T = "div">(props: PolymorphicProps<T, ContextMenuTrigger
       className={props.className}
       classList={props.classList}
       testId={props.testId}
-      tabIndex={props.tabIndex}
+      tabIndex={props.tabIndex ?? 0}
       onMouseDown={(event: EventPayload) => {
         props.onMouseDown?.(event)
         context.openAt(event)
@@ -69,6 +77,14 @@ export function Trigger<T = "div">(props: PolymorphicProps<T, ContextMenuTrigger
       onClick={(event: EventPayload) => {
         props.onClick?.(event)
         context.openAt(event)
+      }}
+      onKeyDown={(event: EventPayload) => {
+        props.onKeyDown?.(event)
+        if ((event.key === "f10" && event.shiftKey) || event.key === "contextmenu") {
+          const bounds = event.currentTarget?.getBoundingClientRect()
+          context.openAtPoint({ x: bounds?.left ?? 0, y: bounds?.bottom ?? 0 })
+        }
+        if (event.key === "escape") context.setOpen(false)
       }}
       style={mergeStyle({ userSelect: "none" }, props.style)}
     >{props.children}</div>
@@ -97,6 +113,11 @@ export function Content<T = "div">(props: PolymorphicProps<T, ContextMenuContent
 
 export function Item<T = "div">(props: PolymorphicProps<T, ContextMenuItemProps<T>>): JSX.Element {
   const context = requireContext("ContextMenu.Item")
+  const activate = () => {
+    if (props.disabled) return
+    props.onSelect?.()
+    context.setOpen(false)
+  }
   return (
     <div
       class={props.class}
@@ -107,10 +128,15 @@ export function Item<T = "div">(props: PolymorphicProps<T, ContextMenuItemProps<
       onClick={(event: EventPayload) => {
         if (props.disabled) return
         props.onClick?.(event)
-        props.onSelect?.()
-        context.setOpen(false)
+        activate()
       }}
-      style={mergeStyle({ display: "flex", flexDirection: "row", alignItems: "center", minHeight: 26, paddingLeft: 8, paddingRight: 8, gap: 6, cursor: "pointer", opacity: props.disabled ? 0.5 : 1, hover: { backgroundColor: "#2a2a30" } }, props.style)}
+      onKeyDown={(event: EventPayload) => {
+        if (props.disabled) return
+        props.onKeyDown?.(event)
+        if (isActivationKey(event.key)) activate()
+        if (event.key === "escape") context.setOpen(false)
+      }}
+      style={mergeStyle({ display: "flex", flexDirection: "row", alignItems: "center", minHeight: 26, paddingLeft: 8, paddingRight: 8, gap: 6, cursor: "pointer", opacity: props.disabled ? 0.5 : 1, pointerEvents: props.disabled ? "none" : "auto", hover: { backgroundColor: "#2a2a30" } }, props.style)}
     >{props.children}</div>
   )
 }
@@ -134,7 +160,24 @@ export function Sub(props: ContextMenuSubProps): JSX.Element {
 export function SubTrigger<T = "div">(props: PolymorphicProps<T, ContextMenuSubTriggerProps<T>>): JSX.Element {
   const context = useContext(SubContext)
   if (!context) throw new Error("ContextMenu.SubTrigger must be used inside ContextMenu.Sub")
-  return <div class={props.class} className={props.className} classList={props.classList} testId={props.testId} tabIndex={props.tabIndex ?? 0} onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); context.setOpen(true) }} onClick={(event: EventPayload) => { props.onClick?.(event); context.setOpen(!context.open()) }} style={mergeStyle({ display: "flex", flexDirection: "row", alignItems: "center", minHeight: 26, paddingLeft: 8, paddingRight: 8, cursor: "pointer", hover: { backgroundColor: "#2a2a30" } }, props.style)}>{props.children}</div>
+  return (
+    <div
+      class={props.class}
+      className={props.className}
+      classList={props.classList}
+      testId={props.testId}
+      tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)}
+      onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); if (!props.disabled) context.setOpen(true) }}
+      onClick={(event: EventPayload) => { if (props.disabled) return; props.onClick?.(event); context.setOpen(!context.open()) }}
+      onKeyDown={(event: EventPayload) => {
+        if (props.disabled) return
+        props.onKeyDown?.(event)
+        if (isActivationKey(event.key) || event.key === "right") context.setOpen(true)
+        if (event.key === "left" || event.key === "escape") context.setOpen(false)
+      }}
+      style={mergeStyle({ display: "flex", flexDirection: "row", alignItems: "center", minHeight: 26, paddingLeft: 8, paddingRight: 8, cursor: "pointer", opacity: props.disabled ? 0.5 : 1, pointerEvents: props.disabled ? "none" : "auto", hover: { backgroundColor: "#2a2a30" } }, props.style)}
+    >{props.children}</div>
+  )
 }
 
 export function SubContent<T = "div">(props: PolymorphicProps<T, ContextMenuSubContentProps<T>>): JSX.Element {
