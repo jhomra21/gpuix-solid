@@ -4,7 +4,7 @@ import { GpuixContext, type ViewportSize } from "./context.js"
 import { EventRegistry } from "./host/events.js"
 import { MutationDriver } from "./host/mutations.js"
 import { HostRootNode, removeHostNode } from "./host/nodes.js"
-import type { NativeRenderer } from "./host/types.js"
+import type { DimensionValue, NativeRenderer } from "./host/types.js"
 import { universalRender } from "./universal.js"
 
 export interface Root {
@@ -19,8 +19,15 @@ type BoundsRenderer = NativeRenderer & {
   getElementBounds?(elementId: number): number[] | null
 }
 
-function numericDimension(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0
+function numericDimension(value: DimensionValue | undefined): number {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : 0
+}
+
+function elementBounds(renderer: NativeRenderer, elementId: number): number[] | null | undefined {
+  // SAFETY: production GPUIX renderers and the native test renderer expose the synchronous getElementBounds capability; it remains optional for older bindings.
+  const boundsRenderer = renderer as BoundsRenderer
+  return boundsRenderer.getElementBounds?.(elementId)
 }
 
 export function createRoot(renderer: NativeRenderer): Root {
@@ -34,7 +41,7 @@ export function createRoot(renderer: NativeRenderer): Root {
     const nativeSize = renderer.getWindowSize?.()
     const mounted = container.children[0]
     const bounds = mounted && mounted.kind === "element"
-      ? (renderer as BoundsRenderer).getElementBounds?.(mounted.id)
+      ? elementBounds(renderer, mounted.id)
       : undefined
     const styleWidth = mounted && mounted.kind === "element" ? numericDimension(mounted.style.width) : 0
     const styleHeight = mounted && mounted.kind === "element" ? numericDimension(mounted.style.height) : 0
