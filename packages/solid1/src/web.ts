@@ -4,7 +4,7 @@ import {
   type JSX,
   type ValidComponent,
 } from "solid-js"
-import { createComponent, createElement, spread } from "./universal.js"
+import { createElement, spread } from "./universal.js"
 
 export const isServer = false
 
@@ -25,7 +25,7 @@ export function createDynamic<T extends ValidComponent>(
     spread(element, props)
     return element
   }
-  return createComponent(current, props)
+  return current(props)
 }
 
 export function Dynamic<T extends ValidComponent>(props: DynamicProps<T>) {
