@@ -65,11 +65,13 @@ if (!hasNativeTestRenderer) {
   r.clickTextWithinTestId("upstream-button", "Click me")
 
   r.clickTextWithinTestId("upstream-context", "Right click here.")
-  requireCondition(!r.textContent("upstream-context").includes("Back"), "ContextMenu should ignore left click")
+  requireCondition(!r.textContent("upstream-context").includes("Commit"), "ContextMenu should ignore left click")
   r.rightClickTextWithinTestId("upstream-context", "Right click here.")
-  requireText(r.textContent("upstream-context"), "Back", "ContextMenu right click")
-  r.clickTextWithinTestId("upstream-context", "Show Bookmarks")
-  requireText(r.textContent("upstream-context"), "Back", "ContextMenu checkbox keeps menu open")
+  requireText(r.textContent("upstream-context"), "Commit", "ContextMenu right click")
+  r.clickTextWithinTestId("upstream-context", "Show Git Log")
+  requireText(r.textContent("upstream-context"), "Commit", "ContextMenu checkbox keeps menu open")
+  r.clickTextWithinTestId("upstream-context", "GitHub")
+  requireText(r.textContent("upstream-context"), "Create Pull Request…", "ContextMenu submenu")
   r.clickTextWithinTestId("upstream-button", "Click me")
 
   r.clickTextWithinTestId("upstream-menubar", "Git")
