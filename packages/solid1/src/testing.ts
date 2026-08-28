@@ -164,8 +164,31 @@ export class TestRenderer implements NativeRenderer {
     this.#native.flush()
   }
 
+  rightClickTextWithinTestId(testId: string, text: string): void {
+    const parent = this.requireTestId(testId)
+    const node = findElementByExactText(parent, text)
+    if (!node) throw new Error(`Expected visible text ${JSON.stringify(text)} inside ${testId}`)
+    const point = insetPoint(this.boundsNode(node, `${testId} text ${JSON.stringify(text)}`))
+    this.#native.simulateMouseDown(point.x, point.y, 2)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+    this.#native.simulateMouseUp(point.x, point.y, 2)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+  }
+
   hoverTestId(testId: string): void {
     const point = insetPoint(this.boundsTestId(testId))
+    this.#native.simulateMouseMove(point.x, point.y)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+  }
+
+  hoverTextWithinTestId(testId: string, text: string): void {
+    const parent = this.requireTestId(testId)
+    const node = findElementByExactText(parent, text)
+    if (!node) throw new Error(`Expected visible text ${JSON.stringify(text)} inside ${testId}`)
+    const point = insetPoint(this.boundsNode(node, `${testId} text ${JSON.stringify(text)}`))
     this.#native.simulateMouseMove(point.x, point.y)
     this.dispatchNativeEvents()
     this.#native.flush()
