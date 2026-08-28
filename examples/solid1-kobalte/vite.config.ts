@@ -7,7 +7,7 @@ const root = path.dirname(fileURLToPath(import.meta.url))
 const solid1Package = /^@jhomra21\/gpuix-solid1(?:\/.*)?$/
 const kobalteCore = /^@kobalte\/core\/(.+)$/
 const kobalteSourceRoot = path.resolve(root, "node_modules/@kobalte/core/src")
-const solidWebCompat = path.resolve(root, "../../packages/solid1/src/web.ts")
+const solidWebCompat = path.resolve(root, "../../packages/solid1/dist/web.js")
 
 function scopedClass(name: string, filename: string): string {
   const moduleName = path.basename(filename).replace(/\.module\.css$/, "").replace(/[^A-Za-z0-9_-]/g, "_")
@@ -21,8 +21,8 @@ export default defineConfig({
     conditions: ["solid", "browser", "development"],
     dedupe: ["solid-js"],
     // Compile Kobalte's own published source through the same Solid universal
-    // renderer as the fixture. This keeps @kobalte/core itself upstream rather
-    // than replacing its components with local lookalikes.
+    // renderer as the fixture. The solid-js/web bridge comes from the built
+    // package too, so styling and host state have one shared module instance.
     alias: [
       { find: "solid-js/web", replacement: solidWebCompat },
       { find: kobalteCore, replacement: `${kobalteSourceRoot}/$1/index.tsx` },
