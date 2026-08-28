@@ -7,9 +7,14 @@ const root = path.dirname(fileURLToPath(import.meta.url))
 const solid1Package = /^@jhomra21\/gpuix-solid1(?:\/.*)?$/
 const kobalteCore = /^@kobalte\/core\/(.+)$/
 
+function scopedClass(name: string, filename: string): string {
+  const moduleName = path.basename(filename).replace(/\.module\.css$/, "").replace(/[^A-Za-z0-9_-]/g, "_")
+  return `kb_${moduleName}_${name}`
+}
+
 export default defineConfig({
   plugins: [solid({ solid: { generate: "universal", moduleName: "@jhomra21/gpuix-solid1" } })],
-  css: { modules: { generateScopedName: (name) => name } },
+  css: { modules: { generateScopedName: scopedClass } },
   resolve: {
     conditions: ["solid", "browser", "development"],
     dedupe: ["solid-js"],
