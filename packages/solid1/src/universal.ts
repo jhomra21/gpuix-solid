@@ -365,12 +365,59 @@ function parseNativeClassList<T>(value: T): NativeClassList | undefined {
 function normalizeNativeInlineStyle(style: StyleDesc | undefined): StyleDesc | undefined {
   if (!style) return undefined
   const normalized: StyleDesc = { ...style }
+
+  for (const [name, value] of Object.entries(style)) {
+    if (typeof value !== "string") continue
+    switch (name) {
+      case "flex-direction": normalized.flexDirection = value; break
+      case "flex-wrap": normalized.flexWrap = value; break
+      case "align-items": normalized.alignItems = value; break
+      case "align-self": normalized.alignSelf = value; break
+      case "align-content": normalized.alignContent = value; break
+      case "justify-content": normalized.justifyContent = value; break
+      case "background-color": normalized.backgroundColor = value; break
+      case "font-family": normalized.fontFamily = value; break
+      case "font-weight": normalized.fontWeight = value; break
+      case "text-align": normalized.textAlign = value; break
+      case "white-space": normalized.whiteSpace = value === "nowrap" ? "nowrap" : "normal"; break
+      case "overflow-x": normalized.overflowX = value; break
+      case "overflow-y": normalized.overflowY = value; break
+      case "pointer-events": normalized.pointerEvents = value === "none" ? "none" : "auto"; break
+      case "user-select": normalized.userSelect = value === "none" || value === "text" ? value : "auto"; break
+    }
+  }
+
   if (style.width !== undefined) normalized.width = normalizeInlineDimension(style.width)
   if (style.height !== undefined) normalized.height = normalizeInlineDimension(style.height)
   if (style.minWidth !== undefined) normalized.minWidth = normalizeInlineDimension(style.minWidth)
   if (style.minHeight !== undefined) normalized.minHeight = normalizeInlineDimension(style.minHeight)
   if (style.maxWidth !== undefined) normalized.maxWidth = normalizeInlineDimension(style.maxWidth)
   if (style.maxHeight !== undefined) normalized.maxHeight = normalizeInlineDimension(style.maxHeight)
+
+  for (const [name, value] of Object.entries(style)) {
+    switch (name) {
+      case "min-width": normalized.minWidth = normalizeInlineDimension(value); break
+      case "min-height": normalized.minHeight = normalizeInlineDimension(value); break
+      case "max-width": normalized.maxWidth = normalizeInlineDimension(value); break
+      case "max-height": normalized.maxHeight = normalizeInlineDimension(value); break
+      case "gap": {
+        const length = normalizeInlineNumericLength(value)
+        if (length !== undefined) normalized.gap = length
+        break
+      }
+      case "row-gap": {
+        const length = normalizeInlineNumericLength(value)
+        if (length !== undefined) normalized.rowGap = length
+        break
+      }
+      case "column-gap": {
+        const length = normalizeInlineNumericLength(value)
+        if (length !== undefined) normalized.columnGap = length
+        break
+      }
+    }
+  }
+
   return normalized
 }
 
@@ -382,6 +429,13 @@ function normalizeInlineDimension(value: DimensionValue): DimensionValue {
   const rem = trimmed.match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))rem$/i)
   if (rem) return Number(rem[1]) * 16
   return value
+}
+
+function normalizeInlineNumericLength(value: unknown): number | undefined {
+  if (typeof value === "number") return Number.isFinite(value) ? value : undefined
+  if (typeof value !== "string") return undefined
+  const normalized = normalizeInlineDimension(value)
+  return typeof normalized === "number" ? normalized : undefined
 }
 
 function nativeStyleState(node: HostElementNode): NativeStyleState {
