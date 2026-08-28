@@ -32,11 +32,11 @@ function compileSelector(selector, rule) {
   const dark = selector.includes('[data-theme*="dark"]')
   const state = selector.includes(":hover") ? "hover"
     : selector.includes(":active") ? "active"
-      : selector.includes("[data-disabled]") ? "disabled"
-        : selector.includes("[data-highlighted") ? "highlighted"
-          : selector.includes("[data-expanded") ? "expanded"
-            : selector.includes("[data-invalid]") ? "invalid"
-              : selector.includes('[data-orientation="horizontal"]') ? "orientation-horizontal"
+      : selector.includes("[data-highlighted") ? "highlighted"
+        : selector.includes('[data-orientation="horizontal"]') ? "orientation-horizontal"
+          : selector.includes("[data-disabled]") ? "disabled"
+            : selector.includes("[data-expanded") ? "expanded"
+              : selector.includes("[data-invalid]") ? "invalid"
                 : undefined
   if (selector.includes(":focus-visible") || selector.includes(":first-child") || selector.includes(":last-child") || selector.includes(":not(")) return
   if (classMatches.length > 1 || /[>+~]/.test(selector)) return
@@ -48,17 +48,22 @@ function compileSelector(selector, rule) {
   })
   if (Object.keys(style).length === 0) return
 
-  if (state === "hover" || state === "active") {
+  // Native hover is the closest direct equivalent to Kobalte's data-highlighted
+  // state. Other semantic states are already driven by the compatibility
+  // primitives and stay out of the class manifest until the host exposes
+  // generic attribute selectors.
+  const nativeState = state === "highlighted" ? "hover" : state
+  if (nativeState === "hover" || nativeState === "active") {
     const target = dark ? (entry.dark ??= {}) : (entry.base ??= {})
-    target[state] = { ...(target[state] ?? {}), ...style }
+    const existing = target[nativeState]
+    target[nativeState] = existing ? { ...existing, ...style } : style
     return
   }
-  if (state) {
-    const states = entry.states ??= {}
-    const variant = states[state] ??= {}
-    Object.assign(dark ? (variant.dark ??= {}) : (variant.base ??= {}), style)
+  if (nativeState === "orientation-horizontal") {
+    Object.assign(dark ? (entry.dark ??= {}) : (entry.base ??= {}), style)
     return
   }
+  if (nativeState) return
   Object.assign(dark ? (entry.dark ??= {}) : (entry.base ??= {}), style)
 }
 
