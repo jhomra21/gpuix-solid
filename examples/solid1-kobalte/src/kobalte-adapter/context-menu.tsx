@@ -3,9 +3,8 @@ import * as Native from "@jhomra21/gpuix-solid1/kobalte/context-menu"
 import type { ContextMenuSubProps } from "@jhomra21/gpuix-solid1/kobalte/context-menu"
 
 interface SubProps extends ContextMenuSubProps {
-  overlap?: boolean | undefined
-  gutter?: number | undefined
-  shift?: number | undefined
+  overlap?: boolean
+  shift?: number
 }
 
 interface SelectableProps {
@@ -40,7 +39,7 @@ const IndicatorContext = createContext<() => boolean>(() => false)
 const RadioContext = createContext<{ value: () => string | undefined; setValue: (value: string) => void }>()
 
 function Sub(props: SubProps): JSX.Element {
-  const [, rest] = splitProps(props, ["overlap", "gutter", "shift"])
+  const [, rest] = splitProps(props, ["overlap", "shift"])
   return <Native.Sub {...rest} />
 }
 
