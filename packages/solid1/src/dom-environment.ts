@@ -1,4 +1,4 @@
-type CompatListener = ((event: Event) => void) | { handleEvent(event: Event): void }
+type CompatListener = (event: Event) => void
 
 type CompatEventTarget = {
   addEventListener?: (type: string, listener: CompatListener | null) => void
@@ -10,9 +10,10 @@ type CompatDocument = CompatEventTarget & {
   body?: CompatEventTarget
 }
 
-const listeners = new WeakMap<object, Map<string, Set<CompatListener>>>()
+const listeners = new WeakMap<CompatEventTarget, Map<string, Set<CompatListener>>>()
 
 export function installDomEventEnvironment(): void {
+  // SAFETY: this module owns only the optional browser-compat `document` field and validates each method before installing it.
   const globals = globalThis as typeof globalThis & { document?: CompatDocument }
   const documentTarget = globals.document ?? {}
   const bodyTarget = documentTarget.body ?? {}
@@ -31,14 +32,13 @@ export function installDomEventEnvironment(): void {
 }
 
 function installEventTarget(target: CompatEventTarget): void {
-  const object = target as object
   if (!target.addEventListener) {
     target.addEventListener = (type, listener) => {
       if (!listener) return
-      let byType = listeners.get(object)
+      let byType = listeners.get(target)
       if (!byType) {
         byType = new Map()
-        listeners.set(object, byType)
+        listeners.set(target, byType)
       }
       let entries = byType.get(type)
       if (!entries) {
@@ -51,15 +51,12 @@ function installEventTarget(target: CompatEventTarget): void {
   if (!target.removeEventListener) {
     target.removeEventListener = (type, listener) => {
       if (!listener) return
-      listeners.get(object)?.get(type)?.delete(listener)
+      listeners.get(target)?.get(type)?.delete(listener)
     }
   }
   if (!target.dispatchEvent) {
     target.dispatchEvent = (event) => {
-      for (const listener of listeners.get(object)?.get(event.type) ?? []) {
-        if (typeof listener === "function") listener(event)
-        else listener.handleEvent(event)
-      }
+      for (const listener of listeners.get(target)?.get(event.type) ?? []) listener(event)
       return !event.defaultPrevented
     }
   }
