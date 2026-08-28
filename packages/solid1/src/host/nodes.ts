@@ -37,6 +37,8 @@ export class HostRootNode {
 export class HostElementNode implements PublicInstance, DomCompatTarget {
   readonly kind = "element" as const
   readonly type: ElementType
+  readonly tagName: string
+  readonly localName: string
   readonly children: HostNode[] = []
   parent: HostParent | null = null
   root: HostRootNode | null = null
@@ -51,8 +53,10 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   }
   readonly #capturedPointers = new Set<number>()
 
-  constructor(type: ElementType) {
+  constructor(type: ElementType, tagName = type) {
     this.type = type
+    this.localName = tagName
+    this.tagName = tagName.toUpperCase()
   }
 
   get ownerDocument(): Document {
@@ -180,9 +184,9 @@ export class HostTextNode {
 export type HostNode = HostElementNode | HostTextNode
 export type HostParent = HostRootNode | HostElementNode
 
-export function createHostElement(type: string): HostElementNode {
+export function createHostElement(type: string, tagName = type): HostElementNode {
   if (!isElementType(type)) throw new Error(`Unsupported GPUIX element <${type}>`)
-  return new HostElementNode(type)
+  return new HostElementNode(type, tagName)
 }
 
 export function createHostText(value: string): HostTextNode {
