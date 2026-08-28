@@ -1,3 +1,5 @@
+import "./dom-environment.js"
+
 export { render } from "./runtime.js"
 export type { RenderHandle, RenderOptions } from "./runtime.js"
 export { createRoot } from "./root.js"
