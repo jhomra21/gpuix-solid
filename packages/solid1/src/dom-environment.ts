@@ -15,15 +15,20 @@ type CompatWindow = {
   clearTimeout?: (handle: ReturnType<typeof globalThis.setTimeout>) => void
 }
 
+type CompatGlobalEnvironment = {
+  document?: CompatDocument
+  window?: CompatWindow
+}
+
 const listeners = new WeakMap<CompatEventTarget, Map<string, Set<CompatListener>>>()
 
 export function installDomEventEnvironment(): void {
-  // SAFETY: this module owns only the optional browser-compat `document` and `window` fields and validates each method before installing it.
-  const globals = globalThis as typeof globalThis & { document?: CompatDocument; window?: object }
+  // SAFETY: this module reads and installs only the optional browser-compat fields declared by CompatGlobalEnvironment.
+  const globals = globalThis as CompatGlobalEnvironment
   const documentTarget = globals.document ?? {}
   const bodyTarget = documentTarget.body ?? {}
-  const currentWindow: object | undefined = globals.window
-  const windowTarget = compatWindow(currentWindow ?? {})
+  const currentWindow = globals.window
+  const windowTarget: CompatWindow = currentWindow ?? {}
 
   installEventTarget(documentTarget)
   installEventTarget(bodyTarget)
@@ -50,11 +55,6 @@ export function installDomEventEnvironment(): void {
       value: windowTarget,
     })
   }
-}
-
-function compatWindow(value: object): CompatWindow {
-  // SAFETY: callers pass only the runtime global window object or a newly created empty object, and this module reads/writes only the two optional timer methods declared above.
-  return value as CompatWindow
 }
 
 function installEventTarget(target: CompatEventTarget): void {
