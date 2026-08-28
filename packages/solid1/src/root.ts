@@ -1,10 +1,11 @@
 import type { EventPayload } from "@gpuix/native"
 import type { JSX } from "solid-js"
+import { GpuixContext } from "./context.js"
 import { EventRegistry } from "./host/events.js"
 import { MutationDriver } from "./host/mutations.js"
 import { HostRootNode, removeHostNode } from "./host/nodes.js"
 import type { NativeRenderer } from "./host/types.js"
-import { universalRender } from "./universal.js"
+import { createComponent, universalRender } from "./universal.js"
 
 export interface Root {
   render(code: () => JSX.Element): void
@@ -33,7 +34,15 @@ export function createRoot(renderer: NativeRenderer): Root {
         events.clear()
       }
 
-      dispose = universalRender(code, container)
+      dispose = universalRender(
+        () => createComponent(GpuixContext.Provider, {
+          value: { renderer },
+          get children() {
+            return code()
+          },
+        }),
+        container,
+      )
       flushNative()
     },
     flush: flushNative,
