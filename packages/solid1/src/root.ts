@@ -3,7 +3,7 @@ import type { JSX } from "solid-js"
 import { GpuixContext } from "./context.js"
 import { EventRegistry } from "./host/events.js"
 import { MutationDriver } from "./host/mutations.js"
-import { HostRootNode, removeHostNode } from "./host/nodes.js"
+import { HostRootNode, removeHostNode, type HostNode } from "./host/nodes.js"
 import type { NativeRenderer } from "./host/types.js"
 import { createComponent, universalRender } from "./universal.js"
 
@@ -34,8 +34,15 @@ export function createRoot(renderer: NativeRenderer): Root {
         events.clear()
       }
 
+      type UniversalNode = HostRootNode | HostNode
+      type ContextProps = { value: { renderer: NativeRenderer }; readonly children: JSX.Element }
+      const Context = (props: ContextProps): UniversalNode => {
+        // SAFETY: the Solid context provider returns the active renderer's host child.
+        return GpuixContext(props) as UniversalNode
+      }
+
       dispose = universalRender(
-        () => createComponent(GpuixContext.Provider, {
+        () => createComponent(Context, {
           value: { renderer },
           get children() {
             return code()
