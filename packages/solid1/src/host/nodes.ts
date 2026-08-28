@@ -210,10 +210,9 @@ export function setHostProperty<T>(
 
   if (name === "style") {
     const style = isStyle(value) ? value : {}
-    const position = (style as { position?: unknown }).position
-    if (position === "fixed") {
+    if (style.position === "fixed") {
       node.isPortal = true
-      node.style = { ...style, position: "absolute" } as StyleDesc
+      node.style = { ...style, position: "absolute" }
     } else {
       node.style = style
     }
