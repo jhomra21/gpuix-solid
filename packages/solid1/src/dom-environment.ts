@@ -10,7 +10,7 @@ type CompatDocument = CompatEventTarget & {
   body?: CompatEventTarget
 }
 
-type CompatWindow = {
+type CompatWindow = CompatEventTarget & {
   setTimeout?: (callback: () => void, delay?: number) => ReturnType<typeof globalThis.setTimeout>
   clearTimeout?: (handle: ReturnType<typeof globalThis.setTimeout>) => void
 }
@@ -32,6 +32,7 @@ export function installDomEventEnvironment(): void {
 
   installEventTarget(documentTarget)
   installEventTarget(bodyTarget)
+  installEventTarget(windowTarget)
   documentTarget.body = bodyTarget
 
   if (!windowTarget.setTimeout) {
