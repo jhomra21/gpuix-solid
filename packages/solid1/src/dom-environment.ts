@@ -10,9 +10,18 @@ type CompatDocument = CompatEventTarget & {
   body?: CompatEventTarget
 }
 
+type CompatImage = {
+  onload: (() => void) | null
+  onerror: (() => void) | null
+  src: string
+}
+
+type CompatImageConstructor = new () => CompatImage
+
 type CompatWindow = CompatEventTarget & {
   setTimeout?: (callback: () => void, delay?: number) => ReturnType<typeof globalThis.setTimeout>
   clearTimeout?: (handle: ReturnType<typeof globalThis.setTimeout>) => void
+  Image?: CompatImageConstructor
 }
 
 type CompatGlobalEnvironment = {
@@ -41,6 +50,9 @@ export function installDomEventEnvironment(): void {
   if (!windowTarget.clearTimeout) {
     windowTarget.clearTimeout = (handle) => globalThis.clearTimeout(handle)
   }
+  if (!windowTarget.Image) {
+    windowTarget.Image = CompatImageLoader
+  }
 
   if (!globals.document) {
     Object.defineProperty(globalThis, "document", {
@@ -56,6 +68,28 @@ export function installDomEventEnvironment(): void {
       value: windowTarget,
     })
   }
+}
+
+class CompatImageLoader implements CompatImage {
+  onload: (() => void) | null = null
+  onerror: (() => void) | null = null
+  #src = ""
+
+  get src(): string {
+    return this.#src
+  }
+
+  set src(value: string) {
+    this.#src = value
+    queueMicrotask(() => {
+      if (supportsNativeImageSource(value)) this.onload?.()
+      else this.onerror?.()
+    })
+  }
+}
+
+function supportsNativeImageSource(src: string): boolean {
+  return src.startsWith("data:") || src.startsWith("file:")
 }
 
 function installEventTarget(target: CompatEventTarget): void {
