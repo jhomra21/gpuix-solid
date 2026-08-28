@@ -83,10 +83,9 @@ function isActivationKey(key: string | undefined): boolean {
   return key === "enter" || key === "space"
 }
 
-function focusable(instance: PublicInstance): FocusableInstance | undefined {
-  return typeof (instance as FocusableInstance).focus === "function"
-    ? instance as FocusableInstance
-    : undefined
+function focusable(instance: PublicInstance): FocusableInstance {
+  // SAFETY: Solid host refs are HostElementNode instances, and HostElementNode implements focus().
+  return instance as FocusableInstance
 }
 
 function focusAfterMount(action: () => void): void {
@@ -239,38 +238,13 @@ export function Item<T = "div">(props: PolymorphicProps<T, DropdownMenuItemProps
 }
 
 export function Separator<T = "hr">(props: PolymorphicProps<T, DropdownMenuSeparatorProps<T>>): JSX.Element {
-  return (
-    <div
-      class={props.class}
-      className={props.className}
-      classList={props.classList}
-      testId={props.testId}
-      style={classAwareFallback(props, { height: 1, marginTop: 4, marginBottom: 4, backgroundColor: "#34343a" })}
-    />
-  )
+  return <div class={props.class} className={props.className} classList={props.classList} testId={props.testId} style={classAwareFallback(props, { height: 1, marginTop: 4, marginBottom: 4, backgroundColor: "#34343a" })} />
 }
 
-export function Group(props: DropdownMenuGroupProps): JSX.Element {
-  return <>{props.children}</>
-}
+export function Group(props: DropdownMenuGroupProps): JSX.Element { return <>{props.children}</> }
 
 export function GroupLabel<T = "span">(props: PolymorphicProps<T, DropdownMenuGroupLabelProps<T>>): JSX.Element {
-  return (
-    <text
-      class={props.class}
-      className={props.className}
-      classList={props.classList}
-      testId={props.testId}
-      style={classAwareFallback(props, {
-        fontSize: 11,
-        lineHeight: 16,
-        fontWeight: 700,
-        color: "#a1a1aa",
-        paddingLeft: 8,
-        paddingRight: 8,
-      })}
-    >{props.children}</text>
-  )
+  return <text class={props.class} className={props.className} classList={props.classList} testId={props.testId} style={classAwareFallback(props, { fontSize: 11, lineHeight: 16, fontWeight: 700, color: "#a1a1aa", paddingLeft: 8, paddingRight: 8 })}>{props.children}</text>
 }
 
 export function Sub(props: DropdownMenuSubProps): JSX.Element {
@@ -299,16 +273,7 @@ export function SubTrigger<T = "div">(props: PolymorphicProps<T, DropdownMenuSub
   if (!context) throw new Error("DropdownMenu.SubTrigger must be used inside DropdownMenu.Sub")
   const focusKey: FocusKey = Symbol("dropdown-sub-trigger")
   onCleanup(() => menu.items.unregister(focusKey))
-  const fallback: StyleDesc = {
-    display: "flex",
-    flexDirection: "row",
-    alignItems: "center",
-    minHeight: 26,
-    paddingLeft: 8,
-    paddingRight: 8,
-    cursor: "pointer",
-    hover: { backgroundColor: "#2a2a30" },
-  }
+  const fallback: StyleDesc = { display: "flex", flexDirection: "row", alignItems: "center", minHeight: 26, paddingLeft: 8, paddingRight: 8, cursor: "pointer", hover: { backgroundColor: "#2a2a30" } }
   return (
     <div
       ref={(instance) => {
@@ -321,15 +286,8 @@ export function SubTrigger<T = "div">(props: PolymorphicProps<T, DropdownMenuSub
       classList={props.classList}
       testId={props.testId}
       tabIndex={props.disabled ? undefined : (props.tabIndex ?? -1)}
-      onMouseEnter={(event: EventPayload) => {
-        props.onMouseEnter?.(event)
-        if (!props.disabled) context.setOpen(true)
-      }}
-      onClick={(event: EventPayload) => {
-        if (props.disabled) return
-        props.onClick?.(event)
-        context.setOpen(!context.open())
-      }}
+      onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); if (!props.disabled) context.setOpen(true) }}
+      onClick={(event: EventPayload) => { if (props.disabled) return; props.onClick?.(event); context.setOpen(!context.open()) }}
       onKeyDown={(event: EventPayload) => {
         if (props.disabled) return
         props.onKeyDown?.(event)
@@ -354,20 +312,7 @@ export function SubTrigger<T = "div">(props: PolymorphicProps<T, DropdownMenuSub
 export function SubContent<T = "div">(props: PolymorphicProps<T, DropdownMenuSubContentProps<T>>): JSX.Element {
   const context = useContext(SubContext)
   if (!context) throw new Error("DropdownMenu.SubContent must be used inside DropdownMenu.Sub")
-  return (
-    <Show when={context.open()}>
-      <FloatingLayer
-        class={props.class}
-        className={props.className}
-        classList={props.classList}
-        testId={props.testId}
-        side="right"
-        align="start"
-        sideOffset={4}
-        style={classAwareFallback(props, popupBaseStyle)}
-      >{props.children}</FloatingLayer>
-    </Show>
-  )
+  return <Show when={context.open()}><FloatingLayer class={props.class} className={props.className} classList={props.classList} testId={props.testId} side="right" align="start" sideOffset={4} style={classAwareFallback(props, popupBaseStyle)}>{props.children}</FloatingLayer></Show>
 }
 
 export function CheckboxItem<T = "div">(props: PolymorphicProps<T, DropdownMenuCheckboxItemProps<T>>): JSX.Element {
@@ -380,31 +325,14 @@ export function CheckboxItem<T = "div">(props: PolymorphicProps<T, DropdownMenuC
   const { checked: _checked, defaultChecked: _defaultChecked, onChange: _onChange, ...itemProps } = props
   return (
     <IndicatorContext.Provider value={{ selected: checked }}>
-      <Item
-        {...itemProps}
-        closeOnSelect={false}
-        onSelect={() => {
-          setChecked(!checked())
-          props.onSelect?.()
-        }}
-      >{props.children}</Item>
+      <Item {...itemProps} closeOnSelect={false} onSelect={() => { setChecked(!checked()); props.onSelect?.() }}>{props.children}</Item>
     </IndicatorContext.Provider>
   )
 }
 
 export function ItemIndicator(props: DropdownMenuItemIndicatorProps): JSX.Element {
   const context = useContext(IndicatorContext)
-  return (
-    <Show when={context?.selected()}>
-      <div
-        class={props.class}
-        className={props.className}
-        classList={props.classList}
-        testId={props.testId}
-        style={props.style}
-      >{props.children}</div>
-    </Show>
-  )
+  return <Show when={context?.selected()}><div class={props.class} className={props.className} classList={props.classList} testId={props.testId} style={props.style}>{props.children}</div></Show>
 }
 
 export function RadioGroup(props: DropdownMenuRadioGroupProps): JSX.Element {
@@ -423,14 +351,7 @@ export function RadioItem<T = "div">(props: PolymorphicProps<T, DropdownMenuRadi
   const selected = () => radio.value() === props.value
   return (
     <IndicatorContext.Provider value={{ selected }}>
-      <Item
-        {...props}
-        closeOnSelect={false}
-        onSelect={() => {
-          radio.setValue(props.value)
-          props.onSelect?.()
-        }}
-      >{props.children}</Item>
+      <Item {...props} closeOnSelect={false} onSelect={() => { radio.setValue(props.value); props.onSelect?.() }}>{props.children}</Item>
     </IndicatorContext.Provider>
   )
 }
