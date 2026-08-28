@@ -242,7 +242,7 @@ if (!hasNativeTestRenderer) {
   r.pressKey("left")
   r.pressKey("left")
   requireCondition(r.hasTestId("menubar-file-content"), "Menubar ArrowLeft should move back across top-level menus")
-  r.clickTestId("button-action")
+  r.clickTestId("kobalte-showcase")
   requireCondition(!r.hasTestId("menubar-file-content"), "Menubar should close from outside pointer interaction")
 
   // Dialog: pointer/keyboard opening, full overlay structure, overlay dismissal,
