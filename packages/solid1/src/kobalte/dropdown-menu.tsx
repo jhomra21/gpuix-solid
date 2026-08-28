@@ -107,6 +107,11 @@ function focusAfterMount(action: () => void): void {
   queueMicrotask(action)
 }
 
+function withHoveredStyle(base: StyleDesc, style: StyleDesc | undefined, hovered: boolean): StyleDesc {
+  const merged = mergeStyle(base, style)
+  return hovered && style?.hover ? mergeStyle(merged, style.hover) : merged
+}
+
 export function Root(props: DropdownMenuRootProps): JSX.Element {
   const [internalOpen, setInternalOpen] = createSignal(props.defaultOpen ?? false)
   const items = createFocusRegistry()
@@ -201,6 +206,7 @@ export function Content<T = "div">(props: PolymorphicProps<T, DropdownMenuConten
 export function Item<T = "div">(props: PolymorphicProps<T, DropdownMenuItemProps<T>>): JSX.Element {
   const context = requireMenu("DropdownMenu.Item")
   const sub = useContext(SubContext)
+  const [hovered, setHovered] = createSignal(false)
   const focusKey: FocusKey = Symbol("dropdown-item")
   onCleanup(() => context.items.unregister(focusKey))
   const fallback: StyleDesc = {
@@ -222,6 +228,10 @@ export function Item<T = "div">(props: PolymorphicProps<T, DropdownMenuItemProps
       focusAfterMount(context.focusTrigger)
     }
   }
+  const style = () => {
+    const base = classAwareFallback(props, fallback, disabledState(props.disabled))
+    return hovered() && props.style?.hover ? mergeStyle(base, props.style.hover) : base
+  }
   return (
     <div
       ref={(instance: PublicInstance) => {
@@ -233,6 +243,8 @@ export function Item<T = "div">(props: PolymorphicProps<T, DropdownMenuItemProps
       classList={props.classList}
       testId={props.testId}
       tabIndex={props.disabled ? undefined : (props.tabIndex ?? -1)}
+      onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); if (!props.disabled) setHovered(true) }}
+      onMouseLeave={(event: EventPayload) => { props.onMouseLeave?.(event); setHovered(false) }}
       onClick={(event: EventPayload) => {
         if (props.disabled) return
         props.onClick?.(event)
@@ -254,7 +266,7 @@ export function Item<T = "div">(props: PolymorphicProps<T, DropdownMenuItemProps
           focusAfterMount(context.focusTrigger)
         }
       }}
-      style={classAwareFallback(props, fallback, disabledState(props.disabled))}
+      style={style()}
     >{props.children}</div>
   )
 }
@@ -293,9 +305,14 @@ export function SubTrigger<T = "div">(props: PolymorphicProps<T, DropdownMenuSub
   const menu = requireMenu("DropdownMenu.SubTrigger")
   const context = useContext(SubContext)
   if (!context) throw new Error("DropdownMenu.SubTrigger must be used inside DropdownMenu.Sub")
+  const [hovered, setHovered] = createSignal(false)
   const focusKey: FocusKey = Symbol("dropdown-sub-trigger")
   onCleanup(() => menu.items.unregister(focusKey))
   const fallback: StyleDesc = { display: "flex", flexDirection: "row", alignItems: "center", minHeight: 26, paddingLeft: 8, paddingRight: 8, cursor: "pointer", hover: { backgroundColor: "#2a2a30" } }
+  const style = () => {
+    const base = classAwareFallback(props, fallback, disabledState(props.disabled))
+    return hovered() && props.style?.hover ? mergeStyle(base, props.style.hover) : base
+  }
   return (
     <div
       ref={(instance: PublicInstance) => {
@@ -308,7 +325,13 @@ export function SubTrigger<T = "div">(props: PolymorphicProps<T, DropdownMenuSub
       classList={props.classList}
       testId={props.testId}
       tabIndex={props.disabled ? undefined : (props.tabIndex ?? -1)}
-      onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); if (!props.disabled) context.setOpen(true) }}
+      onMouseEnter={(event: EventPayload) => {
+        props.onMouseEnter?.(event)
+        if (props.disabled) return
+        setHovered(true)
+        context.setOpen(true)
+      }}
+      onMouseLeave={(event: EventPayload) => { props.onMouseLeave?.(event); setHovered(false) }}
       onClick={(event: EventPayload) => { if (props.disabled) return; props.onClick?.(event); context.setOpen(!context.open()) }}
       onKeyDown={(event: EventPayload) => {
         if (props.disabled) return
@@ -326,7 +349,7 @@ export function SubTrigger<T = "div">(props: PolymorphicProps<T, DropdownMenuSub
           focusAfterMount(menu.focusTrigger)
         }
       }}
-      style={classAwareFallback(props, fallback, disabledState(props.disabled))}
+      style={style()}
     >{props.children}</div>
   )
 }
