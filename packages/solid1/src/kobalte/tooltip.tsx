@@ -139,7 +139,10 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, TooltipTriggerP
       onBlur={(event: EventPayload) => { props.onBlur?.(event); context.setOpen(false) }}
       onMouseDown={(event: EventPayload) => { props.onMouseDown?.(event); context.setOpen(false) }}
       onClick={(event: EventPayload) => { props.onClick?.(event); context.setOpen(false) }}
-      onKeyDown={(event: EventPayload) => { props.onKeyDown?.(event); if (event.key === "escape") context.setOpen(false) }}
+      onKeyDown={(event: EventPayload) => {
+        props.onKeyDown?.(event)
+        if (event.key === "escape" || event.key === "space" || event.key === "enter") context.setOpen(false)
+      }}
       style={mergeStyle(triggerBaseStyle, props.style)}
     >
       {props.children}
