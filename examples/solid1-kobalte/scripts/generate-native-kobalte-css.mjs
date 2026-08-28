@@ -166,7 +166,10 @@ function box(style, prefix, value) {
 function border(style, value, side = "") {
   const parts = value.split(/\s+/)
   const width = parts.find((part) => part.endsWith("px") || part === "0")
-  const color = parts.find((part) => part.startsWith("#") || part.startsWith("rgb") || part.startsWith("hsl") || /^[a-z]+$/i.test(part) && part !== "solid" && part !== "dashed" && part !== "none")
+  const functionalColor = value.match(/(?:oklch|hsla?|rgba?)\([^)]*\)/i)?.[0]
+  const hexColor = value.match(/#[0-9a-f]{3,8}\b/i)?.[0]
+  const namedColor = parts.find((part) => /^[a-z]+$/i.test(part) && part !== "solid" && part !== "dashed" && part !== "none")
+  const color = functionalColor ?? hexColor ?? namedColor
   if (width) style[`border${side}Width`] = length(width)
   if (color) style.borderColor = color
 }
