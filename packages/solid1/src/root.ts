@@ -19,6 +19,10 @@ type BoundsRenderer = NativeRenderer & {
   getElementBounds?(elementId: number): number[] | null
 }
 
+function numericDimension(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0
+}
+
 export function createRoot(renderer: NativeRenderer): Root {
   const events = new EventRegistry()
   const driver = new MutationDriver(renderer, events)
@@ -32,11 +36,11 @@ export function createRoot(renderer: NativeRenderer): Root {
     const bounds = mounted && mounted.kind === "element"
       ? (renderer as BoundsRenderer).getElementBounds?.(mounted.id)
       : undefined
-    const rootWidth = bounds?.[2] ?? 0
-    const rootHeight = bounds?.[3] ?? 0
+    const styleWidth = mounted && mounted.kind === "element" ? numericDimension(mounted.style.width) : 0
+    const styleHeight = mounted && mounted.kind === "element" ? numericDimension(mounted.style.height) : 0
     return {
-      width: Math.max(nativeSize?.width ?? 800, rootWidth),
-      height: Math.max(nativeSize?.height ?? 600, rootHeight),
+      width: Math.max(nativeSize?.width ?? 800, bounds?.[2] ?? 0, styleWidth),
+      height: Math.max(nativeSize?.height ?? 600, bounds?.[3] ?? 0, styleHeight),
     }
   }
 
