@@ -51,5 +51,13 @@ function installSemanticTagMetadata(element: ReturnType<typeof createElement>, t
     tagName: { configurable: true, enumerable: true, value: nodeName },
     nodeName: { configurable: true, enumerable: true, value: nodeName },
     localName: { configurable: true, enumerable: true, value: localName },
+    matches: {
+      configurable: true,
+      enumerable: true,
+      value: (selector: string) => selector
+        .split(",")
+        .map((candidate) => candidate.trim().toLowerCase())
+        .includes(localName),
+    },
   })
 }
