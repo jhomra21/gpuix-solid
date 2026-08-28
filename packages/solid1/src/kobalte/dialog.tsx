@@ -37,10 +37,9 @@ function requireContext(name: string): DialogContextValue {
   return context
 }
 
-function focusable(instance: PublicInstance): FocusableInstance | undefined {
-  return typeof (instance as FocusableInstance).focus === "function"
-    ? instance as FocusableInstance
-    : undefined
+function focusable(instance: PublicInstance): FocusableInstance {
+  // SAFETY: Solid host refs are HostElementNode instances, and HostElementNode implements focus().
+  return instance as FocusableInstance
 }
 
 function focusAfterMount(action: () => void): void {
