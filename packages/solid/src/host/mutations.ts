@@ -248,7 +248,16 @@ function normalizeNumberStyle(value: number | string | undefined, property: Numb
 
 function normalizeDimensionStyle(value: DimensionValue | undefined): DimensionValue | undefined {
   if (value === undefined || isNumberValue(value)) return value
-  return parseNumericCssValue(value) ?? value
+  const trimmed = value.trim()
+  if (isIntrinsicCssDimension(trimmed)) return "auto"
+  return parseNumericCssValue(trimmed) ?? value
+}
+
+function isIntrinsicCssDimension(value: string): boolean {
+  return value === "max-content"
+    || value === "min-content"
+    || value === "fit-content"
+    || value.startsWith("fit-content(")
 }
 
 function normalizeOverflowStyle(value: string | undefined): string | undefined {
