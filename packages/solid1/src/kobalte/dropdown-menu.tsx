@@ -1,14 +1,18 @@
-import { createContext, createSignal, Show, useContext, type JSX } from "solid-js"
+import { createContext, createSignal, onCleanup, Show, useContext, type JSX } from "solid-js"
 import type { EventPayload } from "@gpuix/native"
-import type { StyleDesc } from "../host/types.js"
+import type { PublicInstance, StyleDesc } from "../host/types.js"
 import type { PolymorphicProps } from "./polymorphic.js"
 import {
   FloatingLayer,
   Portal,
+  createFocusRegistry,
   hasNativeClassStyle,
   mergeStyle,
   popupBaseStyle,
   triggerBaseStyle,
+  type FocusKey,
+  type FocusRegistry,
+  type FocusableInstance,
   type NativeComponentProps,
 } from "./shared.jsx"
 
@@ -33,9 +37,21 @@ export interface DropdownMenuRadioGroupProps { children?: JSX.Element; value?: s
 export interface DropdownMenuRadioItemProps<T = "div"> extends DropdownMenuItemProps<T> { value: string }
 export interface DropdownMenuItemIndicatorProps extends NativeComponentProps {}
 
-type MenuContextValue = { open: () => boolean; setOpen: (open: boolean) => void; gutter: () => number }
+type MenuContextValue = {
+  open: () => boolean
+  setOpen: (open: boolean) => void
+  gutter: () => number
+  items: FocusRegistry
+  setTrigger: (instance: PublicInstance) => void
+  focusTrigger: () => void
+}
 const MenuContext = createContext<MenuContextValue>()
-type SubContextValue = { open: () => boolean; setOpen: (open: boolean) => void }
+type SubContextValue = {
+  open: () => boolean
+  setOpen: (open: boolean) => void
+  setTrigger: (instance: PublicInstance) => void
+  focusTrigger: () => void
+}
 const SubContext = createContext<SubContextValue>()
 type RadioContextValue = { value: () => string | undefined; setValue: (value: string) => void }
 const RadioContext = createContext<RadioContextValue>()
@@ -67,21 +83,49 @@ function isActivationKey(key: string | undefined): boolean {
   return key === "enter" || key === "space"
 }
 
+function focusable(instance: PublicInstance): FocusableInstance | undefined {
+  return typeof (instance as FocusableInstance).focus === "function"
+    ? instance as FocusableInstance
+    : undefined
+}
+
+function focusAfterMount(action: () => void): void {
+  queueMicrotask(action)
+}
+
 export function Root(props: DropdownMenuRootProps): JSX.Element {
   const [internalOpen, setInternalOpen] = createSignal(props.defaultOpen ?? false)
+  const items = createFocusRegistry()
+  let trigger: FocusableInstance | undefined
   const open = () => props.open ?? internalOpen()
   const setOpen = (next: boolean) => {
     if (props.open === undefined) setInternalOpen(next)
     props.onOpenChange?.(next)
   }
-  return <MenuContext.Provider value={{ open, setOpen, gutter: () => props.gutter ?? 4 }}>{props.children}</MenuContext.Provider>
+  return (
+    <MenuContext.Provider value={{
+      open,
+      setOpen,
+      gutter: () => props.gutter ?? 4,
+      items,
+      setTrigger(instance) { trigger = focusable(instance) },
+      focusTrigger() { trigger?.focus() },
+    }}>
+      {props.children}
+    </MenuContext.Provider>
+  )
 }
 
 export function Trigger<T = "button">(props: PolymorphicProps<T, DropdownMenuTriggerProps<T>>): JSX.Element {
   const context = requireMenu("DropdownMenu.Trigger")
+  const openAndFocus = (edge: "first" | "last") => {
+    context.setOpen(true)
+    focusAfterMount(edge === "first" ? context.items.focusFirst : context.items.focusLast)
+  }
   return (
     <div style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
       <div
+        ref={(instance) => { context.setTrigger(instance); props.ref?.(instance) }}
         class={props.class}
         className={props.className}
         classList={props.classList}
@@ -94,8 +138,9 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, DropdownMenuTri
         onKeyDown={(event: EventPayload) => {
           props.onKeyDown?.(event)
           if (props.disabled) return
-          if (isActivationKey(event.key) || event.key === "down" || event.key === "up") context.setOpen(true)
-          if (event.key === "escape") context.setOpen(false)
+          if (event.key === "up") openAndFocus("last")
+          else if (isActivationKey(event.key) || event.key === "down") openAndFocus("first")
+          else if (event.key === "escape") context.setOpen(false)
         }}
         style={mergeStyle({ ...triggerBaseStyle, ...disabledState(props.disabled) }, props.style)}
       >{props.children}</div>
@@ -121,7 +166,10 @@ export function Content<T = "div">(props: PolymorphicProps<T, DropdownMenuConten
         }}
         onKeyDown={(event: EventPayload) => {
           props.onKeyDown?.(event)
-          if (event.key === "escape") context.setOpen(false)
+          if (event.key === "escape") {
+            context.setOpen(false)
+            focusAfterMount(context.focusTrigger)
+          }
         }}
         style={classAwareFallback(props, popupBaseStyle)}
       >{props.children}</FloatingLayer>
@@ -131,6 +179,9 @@ export function Content<T = "div">(props: PolymorphicProps<T, DropdownMenuConten
 
 export function Item<T = "div">(props: PolymorphicProps<T, DropdownMenuItemProps<T>>): JSX.Element {
   const context = requireMenu("DropdownMenu.Item")
+  const sub = useContext(SubContext)
+  const focusKey: FocusKey = Symbol("dropdown-item")
+  onCleanup(() => context.items.unregister(focusKey))
   const fallback: StyleDesc = {
     display: "flex",
     flexDirection: "row",
@@ -145,15 +196,22 @@ export function Item<T = "div">(props: PolymorphicProps<T, DropdownMenuItemProps
   const activate = () => {
     if (props.disabled) return
     props.onSelect?.()
-    if (props.closeOnSelect !== false) context.setOpen(false)
+    if (props.closeOnSelect !== false) {
+      context.setOpen(false)
+      focusAfterMount(context.focusTrigger)
+    }
   }
   return (
     <div
+      ref={(instance) => {
+        if (!props.disabled) context.items.register(focusKey, instance)
+        props.ref?.(instance)
+      }}
       class={props.class}
       className={props.className}
       classList={props.classList}
       testId={props.testId}
-      tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)}
+      tabIndex={props.disabled ? undefined : (props.tabIndex ?? -1)}
       onClick={(event: EventPayload) => {
         if (props.disabled) return
         props.onClick?.(event)
@@ -163,7 +221,17 @@ export function Item<T = "div">(props: PolymorphicProps<T, DropdownMenuItemProps
         if (props.disabled) return
         props.onKeyDown?.(event)
         if (isActivationKey(event.key)) activate()
-        if (event.key === "escape") context.setOpen(false)
+        else if (event.key === "down") context.items.focusNext(focusKey)
+        else if (event.key === "up") context.items.focusPrevious(focusKey)
+        else if (event.key === "home") context.items.focusFirst()
+        else if (event.key === "end") context.items.focusLast()
+        else if (event.key === "left" && sub) {
+          sub.setOpen(false)
+          focusAfterMount(sub.focusTrigger)
+        } else if (event.key === "escape") {
+          context.setOpen(false)
+          focusAfterMount(context.focusTrigger)
+        }
       }}
       style={classAwareFallback(props, fallback, disabledState(props.disabled))}
     >{props.children}</div>
@@ -207,17 +275,30 @@ export function GroupLabel<T = "span">(props: PolymorphicProps<T, DropdownMenuGr
 
 export function Sub(props: DropdownMenuSubProps): JSX.Element {
   const [internalOpen, setInternalOpen] = createSignal(props.defaultOpen ?? false)
+  let trigger: FocusableInstance | undefined
   const open = () => props.open ?? internalOpen()
   const setOpen = (next: boolean) => {
     if (props.open === undefined) setInternalOpen(next)
     props.onOpenChange?.(next)
   }
-  return <SubContext.Provider value={{ open, setOpen }}>{props.children}</SubContext.Provider>
+  return (
+    <SubContext.Provider value={{
+      open,
+      setOpen,
+      setTrigger(instance) { trigger = focusable(instance) },
+      focusTrigger() { trigger?.focus() },
+    }}>
+      {props.children}
+    </SubContext.Provider>
+  )
 }
 
 export function SubTrigger<T = "div">(props: PolymorphicProps<T, DropdownMenuSubTriggerProps<T>>): JSX.Element {
+  const menu = requireMenu("DropdownMenu.SubTrigger")
   const context = useContext(SubContext)
   if (!context) throw new Error("DropdownMenu.SubTrigger must be used inside DropdownMenu.Sub")
+  const focusKey: FocusKey = Symbol("dropdown-sub-trigger")
+  onCleanup(() => menu.items.unregister(focusKey))
   const fallback: StyleDesc = {
     display: "flex",
     flexDirection: "row",
@@ -230,11 +311,16 @@ export function SubTrigger<T = "div">(props: PolymorphicProps<T, DropdownMenuSub
   }
   return (
     <div
+      ref={(instance) => {
+        context.setTrigger(instance)
+        if (!props.disabled) menu.items.register(focusKey, instance)
+        props.ref?.(instance)
+      }}
       class={props.class}
       className={props.className}
       classList={props.classList}
       testId={props.testId}
-      tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)}
+      tabIndex={props.disabled ? undefined : (props.tabIndex ?? -1)}
       onMouseEnter={(event: EventPayload) => {
         props.onMouseEnter?.(event)
         if (!props.disabled) context.setOpen(true)
@@ -247,8 +333,18 @@ export function SubTrigger<T = "div">(props: PolymorphicProps<T, DropdownMenuSub
       onKeyDown={(event: EventPayload) => {
         if (props.disabled) return
         props.onKeyDown?.(event)
-        if (isActivationKey(event.key) || event.key === "right") context.setOpen(true)
-        if (event.key === "left" || event.key === "escape") context.setOpen(false)
+        if (isActivationKey(event.key) || event.key === "right") {
+          context.setOpen(true)
+          focusAfterMount(() => menu.items.focusNext(focusKey))
+        } else if (event.key === "down") menu.items.focusNext(focusKey)
+        else if (event.key === "up") menu.items.focusPrevious(focusKey)
+        else if (event.key === "home") menu.items.focusFirst()
+        else if (event.key === "end") menu.items.focusLast()
+        else if (event.key === "left") context.setOpen(false)
+        else if (event.key === "escape") {
+          menu.setOpen(false)
+          focusAfterMount(menu.focusTrigger)
+        }
       }}
       style={classAwareFallback(props, fallback, disabledState(props.disabled))}
     >{props.children}</div>
