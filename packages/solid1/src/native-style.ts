@@ -191,17 +191,30 @@ function normalizeNestedColors(
 }
 
 function normalizePublishedNativeColor(value: string): string {
-  const parsed = parseOklch(value.trim())
-  if (!parsed) return value
-  const [red, green, blue] = oklchToSrgb(parsed.lightness, parsed.chroma, parsed.hue)
-  if (parsed.alpha >= 0.999999) return rgbHex(red, green, blue)
-  return `rgba(${red}, ${green}, ${blue}, ${formatAlpha(parsed.alpha)})`
+  const trimmed = value.trim()
+  const oklch = parseOklch(trimmed)
+  if (oklch) {
+    const [red, green, blue] = oklchToSrgb(oklch.lightness, oklch.chroma, oklch.hue)
+    return formatSrgbColor(red, green, blue, oklch.alpha)
+  }
+
+  const hsl = parseHsl(trimmed)
+  if (!hsl) return value
+  const [red, green, blue] = hslToSrgb(hsl.hue, hsl.saturation, hsl.lightness)
+  return formatSrgbColor(red, green, blue, hsl.alpha)
 }
 
 interface ParsedOklch {
   lightness: number
   chroma: number
   hue: number
+  alpha: number
+}
+
+interface ParsedHsl {
+  hue: number
+  saturation: number
+  lightness: number
   alpha: number
 }
 
@@ -223,6 +236,29 @@ function parseOklch(value: string): ParsedOklch | undefined {
   }
 }
 
+function parseHsl(value: string): ParsedHsl | undefined {
+  const match = value.match(/^hsla?\(\s*(.*?)\s*\)$/i)
+  if (!match?.[1]) return undefined
+  const parts = match[1]
+    .replace(/\s*\/\s*/g, " ")
+    .replaceAll(",", " ")
+    .trim()
+    .split(/\s+/)
+  if (parts.length < 3 || parts.length > 4) return undefined
+
+  const hue = hueDegrees(parts[0])
+  const saturation = percentageOrNumber(parts[1], 1)
+  const lightness = percentageOrNumber(parts[2], 1)
+  const alpha = parts[3] === undefined ? 1 : percentageOrNumber(parts[3], 1)
+  if (![hue, saturation, lightness, alpha].every(Number.isFinite)) return undefined
+  return {
+    hue,
+    saturation: clamp(saturation, 0, 1),
+    lightness: clamp(lightness, 0, 1),
+    alpha: clamp(alpha, 0, 1),
+  }
+}
+
 function percentageOrNumber(value: string | undefined, percentageScale: number): number {
   if (value === undefined) return Number.NaN
   if (value.endsWith("%")) return Number(value.slice(0, -1)) * percentageScale / 100
@@ -240,6 +276,34 @@ function hueDegrees(value: string | undefined): number {
     case "turn": return amount * 360
     default: return amount
   }
+}
+
+function hslToSrgb(hue: number, saturation: number, lightness: number): [number, number, number] {
+  const normalizedHue = ((hue % 360) + 360) % 360 / 360
+  if (saturation <= 0) {
+    const gray = Math.round(lightness * 255)
+    return [gray, gray, gray]
+  }
+
+  const q = lightness < 0.5
+    ? lightness * (1 + saturation)
+    : lightness + saturation - lightness * saturation
+  const p = 2 * lightness - q
+  return [
+    Math.round(hueToSrgbChannel(p, q, normalizedHue + 1 / 3) * 255),
+    Math.round(hueToSrgbChannel(p, q, normalizedHue) * 255),
+    Math.round(hueToSrgbChannel(p, q, normalizedHue - 1 / 3) * 255),
+  ]
+}
+
+function hueToSrgbChannel(p: number, q: number, hue: number): number {
+  let normalized = hue
+  if (normalized < 0) normalized += 1
+  if (normalized > 1) normalized -= 1
+  if (normalized < 1 / 6) return p + (q - p) * 6 * normalized
+  if (normalized < 1 / 2) return q
+  if (normalized < 2 / 3) return p + (q - p) * (2 / 3 - normalized) * 6
+  return p
 }
 
 function oklchToSrgb(lightness: number, chroma: number, hue: number): [number, number, number] {
@@ -267,6 +331,11 @@ function srgbChannel(linear: number): number {
     ? 12.92 * linear
     : 1.055 * Math.max(0, linear) ** (1 / 2.4) - 0.055
   return Math.round(clamp(encoded, 0, 1) * 255)
+}
+
+function formatSrgbColor(red: number, green: number, blue: number, alpha: number): string {
+  if (alpha >= 0.999999) return rgbHex(red, green, blue)
+  return `rgba(${red}, ${green}, ${blue}, ${formatAlpha(alpha)})`
 }
 
 function rgbHex(red: number, green: number, blue: number): string {
