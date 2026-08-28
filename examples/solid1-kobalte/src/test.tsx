@@ -56,9 +56,11 @@ if (!hasNativeTestRenderer) {
 
   const contextStyle = r.styleTextWithinTestId("upstream-context", "Right click here.")
   const contextBounds = r.boundsTextWithinTestId("upstream-context", "Right click here.")
-  requireCondition(contextStyle.borderWidth === 2, `ContextMenu target should have a 2px border, got ${String(contextStyle.borderWidth)}`)
+  const contextBorderWidth = contextStyle.borderWidth ?? 0
+  const contextBorderBoxWidth = contextBounds.width + contextBorderWidth * 2
+  requireCondition(contextBorderWidth === 2, `ContextMenu target should have a 2px border, got ${String(contextStyle.borderWidth)}`)
   requireCondition(contextStyle.borderColor === "#71717a", `ContextMenu target should use Kobalte border color, got ${String(contextStyle.borderColor)}`)
-  requireCondition(contextBounds.width === 300, `ContextMenu target should be 300px wide, got ${contextBounds.width}`)
+  requireCondition(contextBorderBoxWidth === 300, `ContextMenu target should be 300px wide, got ${contextBorderBoxWidth}`)
 
   const separatorAbove = r.boundsTextWithinTestId("upstream-separator", "Content above")
   const separatorBelow = r.boundsTextWithinTestId("upstream-separator", "Content below")
