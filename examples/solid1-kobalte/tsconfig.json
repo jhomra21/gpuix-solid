@@ -5,10 +5,7 @@
     "jsxImportSource": "@jhomra21/gpuix-solid1",
     "noEmit": true,
     "types": ["node"],
-    "baseUrl": ".",
-    "paths": {
-      "@kobalte/core/*": ["src/kobalte-adapter/*"]
-    }
+    "baseUrl": "."
   },
   "include": ["src", "vite*.config.ts"]
 }
