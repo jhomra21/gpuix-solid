@@ -199,9 +199,14 @@ function normalizePublishedNativeColor(value: string): string {
   }
 
   const hsl = parseHsl(trimmed)
-  if (!hsl) return value
-  const [red, green, blue] = hslToSrgb(hsl.hue, hsl.saturation, hsl.lightness)
-  return formatSrgbColor(red, green, blue, hsl.alpha)
+  if (hsl) {
+    const [red, green, blue] = hslToSrgb(hsl.hue, hsl.saturation, hsl.lightness)
+    return formatSrgbColor(red, green, blue, hsl.alpha)
+  }
+
+  const rgb = parseRgb(trimmed)
+  if (!rgb) return value
+  return formatSrgbColor(rgb.red, rgb.green, rgb.blue, rgb.alpha)
 }
 
 interface ParsedOklch {
@@ -215,6 +220,13 @@ interface ParsedHsl {
   hue: number
   saturation: number
   lightness: number
+  alpha: number
+}
+
+interface ParsedRgb {
+  red: number
+  green: number
+  blue: number
   alpha: number
 }
 
@@ -239,11 +251,7 @@ function parseOklch(value: string): ParsedOklch | undefined {
 function parseHsl(value: string): ParsedHsl | undefined {
   const match = value.match(/^hsla?\(\s*(.*?)\s*\)$/i)
   if (!match?.[1]) return undefined
-  const parts = match[1]
-    .replace(/\s*\/\s*/g, " ")
-    .replaceAll(",", " ")
-    .trim()
-    .split(/\s+/)
+  const parts = functionalColorParts(match[1])
   if (parts.length < 3 || parts.length > 4) return undefined
 
   const hue = hueDegrees(parts[0])
@@ -257,6 +265,39 @@ function parseHsl(value: string): ParsedHsl | undefined {
     lightness: clamp(lightness, 0, 1),
     alpha: clamp(alpha, 0, 1),
   }
+}
+
+function parseRgb(value: string): ParsedRgb | undefined {
+  const match = value.match(/^rgba?\(\s*(.*?)\s*\)$/i)
+  if (!match?.[1]) return undefined
+  const parts = functionalColorParts(match[1])
+  if (parts.length < 3 || parts.length > 4) return undefined
+
+  const red = rgbChannelValue(parts[0])
+  const green = rgbChannelValue(parts[1])
+  const blue = rgbChannelValue(parts[2])
+  const alpha = parts[3] === undefined ? 1 : percentageOrNumber(parts[3], 1)
+  if (![red, green, blue, alpha].every(Number.isFinite)) return undefined
+  return {
+    red: Math.round(clamp(red, 0, 255)),
+    green: Math.round(clamp(green, 0, 255)),
+    blue: Math.round(clamp(blue, 0, 255)),
+    alpha: clamp(alpha, 0, 1),
+  }
+}
+
+function functionalColorParts(value: string): string[] {
+  return value
+    .replace(/\s*\/\s*/g, " ")
+    .replaceAll(",", " ")
+    .trim()
+    .split(/\s+/)
+}
+
+function rgbChannelValue(value: string | undefined): number {
+  if (value === undefined) return Number.NaN
+  if (value.endsWith("%")) return Number(value.slice(0, -1)) * 255 / 100
+  return Number(value)
 }
 
 function percentageOrNumber(value: string | undefined, percentageScale: number): number {
