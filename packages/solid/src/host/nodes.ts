@@ -53,7 +53,7 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   }
   readonly #capturedPointers = new Set<number>()
 
-  constructor(type: ElementType, tagName = type) {
+  constructor(type: ElementType, tagName: string = type) {
     this.type = type
     this.localName = tagName
     this.tagName = tagName.toUpperCase()
