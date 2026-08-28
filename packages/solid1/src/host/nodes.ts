@@ -38,7 +38,7 @@ export class HostRootNode {
 export class HostElementNode implements PublicInstance, DomCompatTarget {
   readonly kind = "element" as const
   readonly type: ElementType
-  readonly isPortal: boolean
+  isPortal: boolean
   readonly children: HostNode[] = []
   parent: HostParent | null = null
   root: HostRootNode | null = null
@@ -209,7 +209,14 @@ export function setHostProperty<T>(
   if (name === "children" || name === "ref" || name === "key") return
 
   if (name === "style") {
-    node.style = isStyle(value) ? value : {}
+    const style = isStyle(value) ? value : {}
+    const position = (style as { position?: unknown }).position
+    if (position === "fixed") {
+      node.isPortal = true
+      node.style = { ...style, position: "absolute" } as StyleDesc
+    } else {
+      node.style = style
+    }
     if (node.root && node.nativeAlive) node.root.driver.enqueue("setStyle", node.id, node.style)
     return
   }
