@@ -129,31 +129,26 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, DialogTriggerPr
 
 export function Portal(props: DialogPortalProps): JSX.Element {
   const context = requireContext("Dialog.Portal")
+  const fixedPositioner = {
+    position: "fixed",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    pointerEvents: "auto",
+  } as unknown as StyleDesc
+
   return (
     <Show when={context.open()}>
-      <anchored
-        position={{ x: 0, y: 0 }}
-        anchor="topLeft"
-        fit="snap"
-        snapMargin={0}
-        deferred
-        priority={3}
-        occlude={false}
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          position: "relative",
-          backgroundColor: "rgba(0, 0, 0, 0.001)",
-        }}
-      >
+      <div testId="dialog-positioner" style={fixedPositioner}>
         <DialogPortalContext.Provider value={true}>
           {props.children}
         </DialogPortalContext.Provider>
-      </anchored>
+      </div>
     </Show>
   )
 }
