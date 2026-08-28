@@ -1,6 +1,5 @@
 import { createContext, createSignal, onCleanup, Show, useContext, type JSX } from "solid-js"
 import type { EventPayload } from "@gpuix/native"
-import type { PublicInstance } from "../host/types.js"
 import type { PolymorphicProps } from "./polymorphic.js"
 import {
   FloatingLayer,
@@ -39,25 +38,13 @@ interface ParsedTooltipPlacement {
   align: FloatingAlign
 }
 
-interface TooltipBounds {
-  left: number
-  top: number
-  right: number
-  bottom: number
-}
-
-type TooltipElementInstance = PublicInstance & {
-  getBoundingClientRect: () => TooltipBounds
-}
-
 type TooltipContextValue = {
   open: () => boolean
   setOpen: (open: boolean) => void
   scheduleOpen: () => void
-  scheduleClose: (event: EventPayload) => void
+  scheduleClose: () => void
+  scheduleTransitClose: () => void
   cancelClose: () => void
-  setTrigger: (instance: PublicInstance) => void
-  setContent: (instance: PublicInstance) => void
   placement: () => TooltipPlacement
   gutter: () => number
 }
@@ -86,75 +73,10 @@ function requireContext(name: string): TooltipContextValue {
   return context
 }
 
-function tooltipElement(instance: PublicInstance): TooltipElementInstance {
-  // SAFETY: Solid host refs are HostElementNode instances, whose DOM-compat contract implements getBoundingClientRect().
-  return instance as TooltipElementInstance
-}
-
-function containsPoint(bounds: TooltipBounds, x: number, y: number): boolean {
-  return x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom
-}
-
-function pointInPolygon(x: number, y: number, points: ReadonlyArray<readonly [number, number]>): boolean {
-  let inside = false
-  for (let index = 0, previous = points.length - 1; index < points.length; previous = index++) {
-    const a = points[index]
-    const b = points[previous]
-    if (!a || !b) continue
-    const [ax, ay] = a
-    const [bx, by] = b
-    const crosses = (ay > y) !== (by > y)
-    if (!crosses) continue
-    const edgeX = ((bx - ax) * (y - ay)) / (by - ay) + ax
-    if (x < edgeX) inside = !inside
-  }
-  return inside
-}
-
-function transitPolygon(
-  side: FloatingSide,
-  trigger: TooltipBounds,
-  content: TooltipBounds,
-): ReadonlyArray<readonly [number, number]> {
-  const margin = 4
-  if (side === "top") {
-    return [
-      [content.left - margin, content.bottom + margin],
-      [content.right + margin, content.bottom + margin],
-      [trigger.right + margin, trigger.top - margin],
-      [trigger.left - margin, trigger.top - margin],
-    ]
-  }
-  if (side === "bottom") {
-    return [
-      [trigger.left - margin, trigger.bottom + margin],
-      [trigger.right + margin, trigger.bottom + margin],
-      [content.right + margin, content.top - margin],
-      [content.left - margin, content.top - margin],
-    ]
-  }
-  if (side === "left") {
-    return [
-      [content.right + margin, content.top - margin],
-      [trigger.left - margin, trigger.top - margin],
-      [trigger.left - margin, trigger.bottom + margin],
-      [content.right + margin, content.bottom + margin],
-    ]
-  }
-  return [
-    [trigger.right + margin, trigger.top - margin],
-    [content.left - margin, content.top - margin],
-    [content.left - margin, content.bottom + margin],
-    [trigger.right + margin, trigger.bottom + margin],
-  ]
-}
-
 function TooltipRoot(props: TooltipRootProps): JSX.Element {
   const [internalOpen, setInternalOpen] = createSignal(props.defaultOpen ?? false)
   let openTimer: ReturnType<typeof setTimeout> | undefined
   let closeTimer: ReturnType<typeof setTimeout> | undefined
-  let trigger: TooltipElementInstance | undefined
-  let content: TooltipElementInstance | undefined
   const open = () => props.open ?? internalOpen()
   const clearOpen = () => { if (openTimer) clearTimeout(openTimer); openTimer = undefined }
   const clearClose = () => { if (closeTimer) clearTimeout(closeTimer); closeTimer = undefined }
@@ -172,29 +94,16 @@ function TooltipRoot(props: TooltipRootProps): JSX.Element {
     if (delay <= 0) setOpen(true)
     else openTimer = setTimeout(() => setOpen(true), delay)
   }
-  const isSafeTransit = (event: EventPayload): boolean => {
-    const x = event.x
-    const y = event.y
-    if (x === undefined || y === undefined || !trigger || !content) return false
-    const triggerBounds = trigger.getBoundingClientRect()
-    const contentBounds = content.getBoundingClientRect()
-    if (containsPoint(triggerBounds, x, y) || containsPoint(contentBounds, x, y)) return true
-    const { side } = parsePlacement(props.placement ?? "top")
-    return pointInPolygon(x, y, transitPolygon(side, triggerBounds, contentBounds))
-  }
-  const scheduleClose = (event: EventPayload) => {
+  const scheduleCloseAfter = (delay: number) => {
     clearOpen()
     clearClose()
+    if (delay <= 0) setOpen(false)
+    else closeTimer = setTimeout(() => setOpen(false), delay)
+  }
+  const scheduleClose = () => scheduleCloseAfter(props.closeDelay ?? 300)
+  const scheduleTransitClose = () => {
     const delay = props.closeDelay ?? 300
-    if (delay > 0) {
-      closeTimer = setTimeout(() => setOpen(false), delay)
-      return
-    }
-    if (isSafeTransit(event)) {
-      closeTimer = setTimeout(() => setOpen(false), 75)
-      return
-    }
-    setOpen(false)
+    scheduleCloseAfter(delay > 0 ? delay : 75)
   }
   onCleanup(() => {
     clearOpen()
@@ -205,9 +114,8 @@ function TooltipRoot(props: TooltipRootProps): JSX.Element {
     setOpen,
     scheduleOpen,
     scheduleClose,
+    scheduleTransitClose,
     cancelClose: clearClose,
-    setTrigger(instance) { trigger = tooltipElement(instance) },
-    setContent(instance) { content = tooltipElement(instance) },
     placement: () => props.placement ?? "top",
     gutter: () => props.gutter ?? 6,
   }
@@ -226,14 +134,13 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, TooltipTriggerP
   const context = requireContext("Tooltip.Trigger")
   return (
     <div
-      ref={(instance: PublicInstance) => { context.setTrigger(instance); props.ref?.(instance) }}
       class={props.class}
       className={props.className}
       classList={props.classList}
       testId={props.testId ?? props["aria-label"]}
       tabIndex={props.tabIndex ?? 0}
       onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); context.scheduleOpen() }}
-      onMouseLeave={(event: EventPayload) => { props.onMouseLeave?.(event); context.scheduleClose(event) }}
+      onMouseLeave={(event: EventPayload) => { props.onMouseLeave?.(event); context.scheduleTransitClose() }}
       onFocus={(event: EventPayload) => { props.onFocus?.(event); context.setOpen(true) }}
       onBlur={(event: EventPayload) => { props.onBlur?.(event); context.setOpen(false) }}
       onMouseDown={(event: EventPayload) => { props.onMouseDown?.(event); context.setOpen(false) }}
@@ -260,7 +167,7 @@ export function Content<T = "div">(props: PolymorphicProps<T, TooltipContentProp
   return (
     <Show when={context.open()}>
       <FloatingLayer
-        ref={(instance: PublicInstance) => { context.setContent(instance); props.ref?.(instance) }}
+        ref={props.ref}
         class={props.class}
         className={props.className}
         classList={props.classList}
@@ -269,7 +176,7 @@ export function Content<T = "div">(props: PolymorphicProps<T, TooltipContentProp
         align={placement().align}
         sideOffset={props.gutter ?? context.gutter()}
         onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); context.cancelClose() }}
-        onMouseLeave={(event: EventPayload) => { props.onMouseLeave?.(event); context.scheduleClose(event) }}
+        onMouseLeave={(event: EventPayload) => { props.onMouseLeave?.(event); context.scheduleClose() }}
         style={style()}
       >
         {props.children}
