@@ -38,7 +38,9 @@ export function createDynamic<T extends ValidComponent>(
 
 export function Dynamic<T extends ValidComponent>(props: DynamicProps<T>): JSX.Element {
   const [, others] = splitProps(props, ["component"])
-  return createDynamic(() => props.component, others as ComponentProps<T>)
+  // SAFETY: splitProps removes only the synthetic `component` key, leaving the exact ComponentProps<T> payload passed to Dynamic.
+  const componentProps = others as ComponentProps<T>
+  return createDynamic(() => props.component, componentProps)
 }
 
 export function Portal(props: { children: JSX.Element }): JSX.Element {
