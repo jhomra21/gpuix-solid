@@ -111,6 +111,7 @@ export class TestRenderer implements NativeRenderer {
   commitMutations(): void { this.#native.commitMutations() }
   applyBatch(json: string): number[] { return this.#native.applyBatch(json) }
   focusElement(elementId: number): void { this.#native.focusElement(elementId) }
+  getElementBounds(elementId: number): number[] | null { return this.#native.getElementBounds(elementId) }
 
   flush(): void { this.#native.flush() }
 
