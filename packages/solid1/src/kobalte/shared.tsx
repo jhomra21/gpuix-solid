@@ -136,6 +136,7 @@ export function FloatingLayer(props: FloatingContentProps): JSX.Element {
       occlude
     >
       <div
+        ref={props.ref}
         class={props.class}
         className={props.className}
         classList={props.classList}
