@@ -1,0 +1,27 @@
+{
+  "repository": "kobaltedev/kobalte",
+  "commit": "3d3266348816b492b027538168988703dc1604c0",
+  "files": [
+    "apps/docs/src/examples/button.tsx",
+    "apps/docs/src/examples/button.module.css",
+    "apps/docs/src/examples/tooltip.tsx",
+    "apps/docs/src/examples/tooltip.module.css",
+    "apps/docs/src/examples/dialog.tsx",
+    "apps/docs/src/examples/dialog.module.css",
+    "apps/docs/src/examples/dropdown-menu.tsx",
+    "apps/docs/src/examples/dropdown-menu.module.css",
+    "apps/docs/src/examples/context-menu.tsx",
+    "apps/docs/src/examples/context-menu.module.css",
+    "apps/docs/src/examples/menubar.tsx",
+    "apps/docs/src/examples/menubar.module.css",
+    "apps/docs/src/examples/text-field.tsx",
+    "apps/docs/src/examples/text-field.module.css",
+    "apps/docs/src/examples/image.tsx",
+    "apps/docs/src/examples/image.module.css",
+    "apps/docs/src/examples/separator.tsx",
+    "apps/docs/src/examples/separator.module.css",
+    "apps/docs/src/components/index.ts",
+    "apps/docs/src/components/icons.tsx",
+    "LICENSE.md"
+  ]
+}
