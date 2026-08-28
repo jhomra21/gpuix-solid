@@ -22,6 +22,7 @@ export function createDynamic<T extends ValidComponent>(
   if (current === undefined) return undefined
   if (isHostTag(current)) {
     const element = createElement(current)
+    installSemanticTagMetadata(element, current)
     spread(element, props)
     return element
   }
@@ -41,4 +42,14 @@ export function Portal(props: { children: JSX.Element }): JSX.Element {
 
 function isHostTag(component: ValidComponent): component is string {
   return typeof component === "string"
+}
+
+function installSemanticTagMetadata(element: ReturnType<typeof createElement>, tagName: string): void {
+  const localName = tagName.toLowerCase()
+  const nodeName = localName.toUpperCase()
+  Object.defineProperties(element, {
+    tagName: { configurable: true, enumerable: true, value: nodeName },
+    nodeName: { configurable: true, enumerable: true, value: nodeName },
+    localName: { configurable: true, enumerable: true, value: localName },
+  })
 }
