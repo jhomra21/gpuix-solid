@@ -66,9 +66,14 @@ function nodeText(node: NativeTreeNode): string {
   return text
 }
 
-function findElementByExactText(node: NativeTreeNode, text: string): NativeTreeNode | undefined {
+function findElementByExactText(
+  node: NativeTreeNode,
+  text: string,
+  parent?: NativeTreeNode,
+): NativeTreeNode | undefined {
+  if (node.type === "text" && nodeText(node).trim() === text) return parent ?? node
   for (const child of node.children ?? []) {
-    const found = findElementByExactText(child, text)
+    const found = findElementByExactText(child, text, node)
     if (found) return found
   }
   if (node.type !== "text" && nodeText(node).trim() === text) return node
