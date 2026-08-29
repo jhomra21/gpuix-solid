@@ -7,8 +7,8 @@ import {
   type ValidComponent,
 } from "solid-js"
 import { EventRegistry } from "./host/events.js"
-import { HostElementNode, type HostRootNode } from "./host/nodes.js"
-import { createElement, spread } from "./universal.js"
+import { HostElementNode, setHostProperty, type HostRootNode } from "./host/nodes.js"
+import { createElement, insert, spread } from "./universal.js"
 
 export const isServer = false
 
@@ -50,6 +50,8 @@ type BrowserBounds = {
   height: number
 }
 
+const popperAnchors = new WeakMap<HostElementNode, HostElementNode>()
+
 installElementConstructorCompatibility()
 installElementQueryCompatibility()
 installDocumentContainmentCompatibility()
@@ -86,7 +88,29 @@ export function Dynamic<T extends ValidComponent>(props: DynamicProps<T>) {
 }
 
 export function Portal(props: { children: JSX.Element }): JSX.Element {
-  return props.children
+  const children = props.children
+  const positioner = kobaltePopperPositioner(children)
+  if (!positioner) return children
+
+  const anchor = createElement("anchored")
+  if (!(anchor instanceof HostElementNode)) {
+    throw new Error("Expected native anchored element for Kobalte popper")
+  }
+  setHostProperty(anchor, "style", { backgroundColor: "rgba(0, 0, 0, 0.001)" })
+  setHostProperty(anchor, "position", { x: 0, y: 0 })
+  setHostProperty(anchor, "fit", "snap")
+  setHostProperty(anchor, "snapMargin", 0)
+  setHostProperty(anchor, "deferred", true)
+  setHostProperty(anchor, "priority", 10)
+  setHostProperty(anchor, "occlude", false)
+  popperAnchors.set(positioner, anchor)
+  insert(anchor, positioner)
+  return anchor
+}
+
+function kobaltePopperPositioner(children: JSX.Element): HostElementNode | undefined {
+  if (!(children instanceof HostElementNode)) return undefined
+  return children.props.has("data-popper-positioner") ? children : undefined
 }
 
 function isHostTag(component: ValidComponent): component is string {
@@ -154,7 +178,10 @@ function syncBrowserStyleMutation(element: HostElementNode, style: BrowserStyleD
   const nativeStyle = { ...style }
   const parentBounds = browserParentBounds(element)
   const translation = browserTranslation(style.transform)
-  if (translation) {
+  const popperAnchor = popperAnchors.get(element)
+  if (translation && popperAnchor) {
+    setHostProperty(popperAnchor, "position", translation)
+  } else if (translation) {
     nativeStyle.left = translation.x - parentBounds.left
     nativeStyle.top = translation.y - parentBounds.top
   }
