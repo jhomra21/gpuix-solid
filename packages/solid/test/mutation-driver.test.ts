@@ -32,6 +32,20 @@ describe("MutationDriver", () => {
     ])
   })
 
+  it("canonicalizes CSS font-size before resolving em dimensions", () => {
+    const renderer = new FakeRenderer()
+    const driver = new MutationDriver(renderer, new EventRegistry())
+
+    driver.enqueue("setStyle", 1, { fontSize: 14, "font-size": "30px", width: "1em", height: "1em" })
+    driver.flush()
+
+    expect(renderer.batches[0]?.[0]).toEqual([
+      "setStyle",
+      1,
+      { fontSize: 30, width: 30, height: 30 },
+    ])
+  })
+
   it("omits legacy removeChild when destroy unlinks its parent", () => {
     const renderer = new FakeRenderer()
     useDestroyUnlinksParentBatch(renderer)
