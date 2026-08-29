@@ -139,9 +139,8 @@ if (!hasNativeTestRenderer) {
     if (!(contextSubTrigger instanceof HTMLElement)) {
       throw new Error("ContextMenu submenu trigger should exist in host DOM")
     }
-    contextSubTrigger.setAttribute("testId", "context-submenu-trigger")
-    r.flush()
-    r.pressKeyTestId("context-submenu-trigger", "enter")
+    contextSubTrigger.focus()
+    r.pressKey("enter")
   }
   requireText(r.textContent("upstream-context"), "Create Pull Request…", "ContextMenu submenu")
   r.clickTextWithinTestId("upstream-button", "Click me")
