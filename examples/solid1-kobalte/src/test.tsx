@@ -104,7 +104,8 @@ if (!hasNativeTestRenderer) {
   await wait(0)
   r.flush()
 
-  const outsideTarget = document.body.querySelectorAll('[id="theme-toggle-target"]')[0]
+  const outsideTarget = document.body.querySelector('[id="theme-toggle-target"]')
+  if (!outsideTarget) throw new Error("Expected theme-toggle host element in document")
   requireCondition(outsideTarget instanceof Element, "theme toggle should be a DOM-compatible Element")
   requireCondition(document.contains(outsideTarget), "document should contain the theme-toggle host element")
   dispatchPointerDown(outsideTarget)
