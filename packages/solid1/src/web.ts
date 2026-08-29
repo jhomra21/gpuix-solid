@@ -24,10 +24,6 @@ type CompatDocumentStyle = {
   removeProperty(name: string): string
 }
 
-type CompatDocumentStyleTarget = {
-  style?: CompatDocumentStyle
-}
-
 installDocumentStyleCompatibility()
 
 export function createDynamic<T extends ValidComponent>(
@@ -62,8 +58,12 @@ function isHostTag(component: ValidComponent): component is string {
 
 function installDocumentStyleCompatibility(): void {
   for (const target of [globalThis.document.body, globalThis.document.documentElement]) {
-    const node = target as unknown as CompatDocumentStyleTarget
-    if (!node.style) node.style = createDocumentStyle()
+    if ("style" in target) continue
+    Object.defineProperty(target, "style", {
+      configurable: true,
+      enumerable: true,
+      value: createDocumentStyle(),
+    })
   }
 }
 
