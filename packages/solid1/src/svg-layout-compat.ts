@@ -47,14 +47,17 @@ function syncSvgLayout(node: HostElementNode): void {
     }
   }
 
-  const needsWidth = node.style.width === undefined && width !== undefined
-  const needsHeight = node.style.height === undefined && height !== undefined
-  if (!needsWidth && !needsHeight) return
-
   const nativeStyle: StyleDesc = { ...node.style }
-  if (needsWidth) nativeStyle.width = width
-  if (needsHeight) nativeStyle.height = height
-  setHostProperty(node, "style", nativeStyle)
+  let changed = false
+  if (node.style.width === undefined && width !== undefined) {
+    nativeStyle.width = width
+    changed = true
+  }
+  if (node.style.height === undefined && height !== undefined) {
+    nativeStyle.height = height
+    changed = true
+  }
+  if (changed) setHostProperty(node, "style", nativeStyle)
 }
 
 function attribute(source: string, name: string): string | undefined {
