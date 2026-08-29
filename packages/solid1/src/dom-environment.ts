@@ -750,6 +750,9 @@ function addCompatListener(target: CompatListenerTarget, type: string, listener:
     byType.set(type, entries)
   }
   entries.add(listener)
+  if (target === globalThis.document && type === "pointerdown") {
+    console.log(`[gpuix-solid1:dom-diagnostic] document pointerdown listeners=${entries.size}`)
+  }
 }
 
 function removeCompatListener(target: CompatListenerTarget, type: string, listener: CompatListener | null): void {
@@ -758,7 +761,11 @@ function removeCompatListener(target: CompatListenerTarget, type: string, listen
 }
 
 function dispatchCompatEvent(target: CompatListenerTarget, event: Event): boolean {
-  for (const listener of listeners.get(target)?.get(event.type) ?? []) listener(event)
+  const entries = listeners.get(target)?.get(event.type) ?? []
+  if (target === globalThis.document && event.type === "pointerdown") {
+    console.log(`[gpuix-solid1:dom-diagnostic] document pointerdown dispatch listeners=${Array.from(entries).length}`)
+  }
+  for (const listener of entries) listener(event)
   return !event.defaultPrevented
 }
 
