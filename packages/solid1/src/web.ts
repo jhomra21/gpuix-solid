@@ -76,6 +76,9 @@ export function createDynamic<T extends ValidComponent>(
     installSemanticTagMetadata(element, current)
     if (hasPopperPositionerProp(props)) promoteNativePopperPositioner(element)
     spread(element, props)
+    if (nativePopperPositioners.has(element)) {
+      queueMicrotask(() => syncBrowserStyleMutation(element, element.style))
+    }
     return element
   }
   return current(props)
