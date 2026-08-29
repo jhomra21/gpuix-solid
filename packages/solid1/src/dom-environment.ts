@@ -32,6 +32,8 @@ type CompatDocumentNode = CompatEventTarget & {
   clientHeight: number
   clientLeft: number
   clientTop: number
+  scrollWidth: number
+  scrollHeight: number
   scrollLeft: number
   scrollTop: number
   getBoundingClientRect(): CompatRect
@@ -51,11 +53,28 @@ type CompatComputedStyle = {
   transitionDuration: string
   transitionProperty: string
   display: string
+  direction: string
+  position: string
+  overflow: string
+  overflowX: string
+  overflowY: string
+  width: string
+  height: string
+  paddingLeft: string
+  paddingTop: string
+  transform: string
+  perspective: string
+  containerType: string
+  backdropFilter: string
+  filter: string
+  willChange: string
+  contain: string
 }
 
 type CompatGetComputedStyle = (element: Element, pseudoElement?: string | null) => CompatComputedStyle
 
 type CompatWindow = CompatEventTarget & {
+  document?: CompatDocument
   setTimeout?: (callback: () => void, delay?: number) => ReturnType<typeof globalThis.setTimeout>
   clearTimeout?: (handle: ReturnType<typeof globalThis.setTimeout>) => void
   Image?: CompatImageConstructor
@@ -103,6 +122,7 @@ export function installDomEventEnvironment(): void {
   documentTarget.body = bodyTarget
   documentTarget.documentElement = documentElementTarget
   documentTarget.defaultView = windowTarget
+  windowTarget.document = documentTarget
 
   if (!windowTarget.setTimeout) {
     windowTarget.setTimeout = (callback, delay) => globalThis.setTimeout(callback, delay)
@@ -179,6 +199,12 @@ function createDocumentNode(
     },
     clientLeft: 0,
     clientTop: 0,
+    get scrollWidth() {
+      return windowTarget.innerWidth ?? 800
+    },
+    get scrollHeight() {
+      return windowTarget.innerHeight ?? 600
+    },
     scrollLeft: 0,
     scrollTop: 0,
     getBoundingClientRect() {
@@ -205,6 +231,22 @@ function defaultComputedStyle(_element: Element, _pseudoElement?: string | null)
     transitionDuration: "0s",
     transitionProperty: "none",
     display: "block",
+    direction: "ltr",
+    position: "static",
+    overflow: "visible",
+    overflowX: "visible",
+    overflowY: "visible",
+    width: "0px",
+    height: "0px",
+    paddingLeft: "0px",
+    paddingTop: "0px",
+    transform: "none",
+    perspective: "none",
+    containerType: "normal",
+    backdropFilter: "none",
+    filter: "none",
+    willChange: "auto",
+    contain: "none",
   }
 }
 
