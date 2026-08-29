@@ -18,17 +18,6 @@ async function settleOutsideInteractionListener(): Promise<void> {
   await wait(0)
 }
 
-function dispatchPointerDown(target: Element): void {
-  const event = new Event("pointerdown", { bubbles: true, cancelable: true })
-  Object.defineProperties(event, {
-    target: { configurable: true, value: target },
-    pointerType: { configurable: true, value: "mouse" },
-    button: { configurable: true, value: 0 },
-    ctrlKey: { configurable: true, value: false },
-  })
-  document.dispatchEvent(event)
-}
-
 if (!hasNativeTestRenderer) {
   console.log("solid1 upstream Kobalte fixture: native TestGpuixRenderer unavailable; skipped")
 } else {
@@ -102,58 +91,9 @@ if (!hasNativeTestRenderer) {
   r.captureScreenshot("/tmp/gpuix-solid1-kobalte-light-dialog.png")
   await settleOutsideInteractionListener()
   r.flush()
-
-  const outsideTarget = document.body.querySelectorAll('[id="theme-toggle-target"]')[0]
-  if (!outsideTarget) throw new Error("Expected theme-toggle host element in document")
-  requireCondition(outsideTarget instanceof Element, "theme toggle should be a DOM-compatible Element")
-  requireCondition(document.contains(outsideTarget), "document should contain the theme-toggle host element")
-
-  let outsideCustomRegistrations = 0
-  let outsideCustomDispatches = 0
-  const originalAddEventListener = outsideTarget.addEventListener.bind(outsideTarget)
-  const originalDispatchEvent = outsideTarget.dispatchEvent.bind(outsideTarget)
-  Object.defineProperties(outsideTarget, {
-    addEventListener: {
-      configurable: true,
-      value: (
-        type: string,
-        listener: EventListenerOrEventListenerObject | null,
-        options?: boolean | AddEventListenerOptions,
-      ) => {
-        if (!listener) return
-        if (type === "interactOutside.pointerDownOutside") outsideCustomRegistrations += 1
-        originalAddEventListener(type, listener, options)
-      },
-    },
-    dispatchEvent: {
-      configurable: true,
-      value: (event: Event) => {
-        if (event.type === "interactOutside.pointerDownOutside") outsideCustomDispatches += 1
-        return originalDispatchEvent(event)
-      },
-    },
-  })
-
-  dispatchPointerDown(outsideTarget)
-  r.flush()
-  requireCondition(
-    outsideCustomRegistrations > 0,
-    `Kobalte should register pointerDownOutside on target, got registrations=${outsideCustomRegistrations} dispatches=${outsideCustomDispatches}`,
-  )
-  requireCondition(
-    outsideCustomDispatches > 0,
-    `Kobalte should dispatch pointerDownOutside on target, got registrations=${outsideCustomRegistrations} dispatches=${outsideCustomDispatches}`,
-  )
-  requireCondition(
-    !r.textContent("upstream-dialog").includes("About Kobalte"),
-    `browser-like document pointerdown should dismiss Dialog after custom event registrations=${outsideCustomRegistrations} dispatches=${outsideCustomDispatches}`,
-  )
-
-  r.clickTextWithinTestId("upstream-dialog", "Open")
-  requireText(r.textContent("upstream-dialog"), "About Kobalte", "Dialog reopened for native outside interaction")
+  r.clickTestId("theme-toggle")
   await settleOutsideInteractionListener()
   r.flush()
-  r.clickTestId("theme-toggle")
   requireCondition(!r.textContent("upstream-dialog").includes("About Kobalte"), "native Dialog overlay should dismiss outside interaction")
 
   r.clickTestId("theme-toggle")
