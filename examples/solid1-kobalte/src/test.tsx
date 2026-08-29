@@ -117,12 +117,11 @@ if (!hasNativeTestRenderer) {
   requireText(r.textContent("upstream-dropdown"), "Commit", "Dropdown pointer open")
   r.clickTextWithinTestId("upstream-dropdown", "Show Git Log")
   requireText(r.textContent("upstream-dropdown"), "Commit", "Dropdown checkbox keeps menu open")
-  r.clickTextWithinTestId("upstream-dropdown", "GitHub")
-  await settleEffects(() => {
-    app.root.flush()
-    r.flush()
-  })
-  requireText(r.textContent("upstream-dropdown"), "Create Pull Request…", "Dropdown submenu")
+  r.hoverTextWithinTestId("upstream-dropdown", "GitHub")
+  await wait(150)
+  app.root.flush()
+  r.flush()
+  requireText(r.textContent("upstream-dropdown"), "Create Pull Request…", "Dropdown submenu hover")
   r.clickTextWithinTestId("upstream-button", "Click me")
 
   r.clickTextWithinTestId("upstream-context", "Right click here.")
