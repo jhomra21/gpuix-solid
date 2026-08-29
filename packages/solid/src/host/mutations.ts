@@ -5,6 +5,7 @@ export type MutationValue = string | number | boolean | object | null
 export type Mutation = readonly [name: string, ...args: MutationValue[]]
 
 const APPLY_BATCH_CUSTOM_PROP = "setCustomProp"
+const DESTROY_UNLINKS_PARENT = new WeakSet<NativeRenderer>()
 
 type DimensionStyleKey =
   | "width"
@@ -67,6 +68,10 @@ type BoxShorthand = {
   left?: number
 }
 
+export function useDestroyUnlinksParentBatch(renderer: NativeRenderer): void {
+  DESTROY_UNLINKS_PARENT.add(renderer)
+}
+
 export class MutationDriver {
   readonly #renderer: NativeRenderer
   readonly #events: EventRegistry
@@ -104,9 +109,9 @@ export class MutationDriver {
 
     try {
       if (this.#renderer.applyBatch) {
-        const batch = supportsLegacyRemoveChild(this.#renderer)
-          ? queue
-          : queue.filter(([name]) => name !== "removeChild")
+        const batch = DESTROY_UNLINKS_PARENT.has(this.#renderer)
+          ? queue.filter(([name]) => name !== "removeChild")
+          : queue
         const destroyed = this.#renderer.applyBatch(JSON.stringify(batch))
         this.#queue = []
         this.#scheduled = false
@@ -161,10 +166,6 @@ export class MutationDriver {
       }
     })
   }
-}
-
-function supportsLegacyRemoveChild(renderer: NativeRenderer): boolean {
-  return "removeChild" in renderer
 }
 
 function callMutation(renderer: NativeRenderer, name: string, args: MutationValue[]): void {
