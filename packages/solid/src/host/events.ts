@@ -141,13 +141,44 @@ function globalEventName(eventType: string): string | undefined {
   if (eventType === "mouseMove") return "pointermove"
   if (eventType === "mouseUp") return "pointerup"
   if (eventType === "mouseDown") return "pointerdown"
+  if (eventType === "click") return "click"
   return undefined
+}
+
+function createGlobalDomEvent(name: string, event: EventPayload, currentTarget: EventTarget): Event {
+  const domEvent = new Event(name, { bubbles: true, cancelable: true })
+  const target = event.target ?? null
+  Object.defineProperties(domEvent, {
+    target: { configurable: true, value: target },
+    currentTarget: { configurable: true, value: currentTarget },
+    clientX: { configurable: true, value: event.clientX ?? 0 },
+    clientY: { configurable: true, value: event.clientY ?? 0 },
+    pointerId: { configurable: true, value: event.pointerId ?? 0 },
+    pointerType: { configurable: true, value: event.pointerType ?? "mouse" },
+    button: { configurable: true, value: event.button ?? 0 },
+    shiftKey: { configurable: true, value: event.shiftKey ?? false },
+    metaKey: { configurable: true, value: event.metaKey ?? false },
+    altKey: { configurable: true, value: event.altKey ?? false },
+    ctrlKey: { configurable: true, value: event.ctrlKey ?? false },
+    composedPath: {
+      configurable: true,
+      value: () => target ? [target, currentTarget] : [currentTarget],
+    },
+  })
+  return domEvent
 }
 
 function dispatchGlobalEvent(event: EventPayload): void {
   const name = globalEventName(event.eventType)
   if (!name) return
   for (const handler of globalListeners.get(name) ?? []) handler(event)
+
+  if (typeof globalThis.document?.dispatchEvent === "function") {
+    globalThis.document.dispatchEvent(createGlobalDomEvent(name, event, globalThis.document))
+  }
+  if (typeof globalThis.window?.dispatchEvent === "function") {
+    globalThis.window.dispatchEvent(createGlobalDomEvent(name, event, globalThis.window))
+  }
 }
 
 function installNativeDomGlobals(): void {
