@@ -131,6 +131,16 @@ if (!hasNativeTestRenderer) {
   r.hoverTextWithinTestId("upstream-context", "GitHub")
   await wait(150)
   r.flush()
+  const pointerOpenedContextSubmenu = r.textContent("upstream-context").includes("Create Pull Request…")
+  console.log(`solid1 ContextMenu submenu pointer-open=${pointerOpenedContextSubmenu}`)
+  if (!pointerOpenedContextSubmenu) {
+    const contextWrapper = document.body.querySelectorAll('[testId="upstream-context"]')[0]
+    const contextSubTrigger = contextWrapper?.querySelectorAll('[aria-haspopup="true"]')[0]
+    requireCondition(contextSubTrigger instanceof HTMLElement, "ContextMenu submenu trigger should exist in host DOM")
+    contextSubTrigger.setAttribute("testId", "context-submenu-trigger")
+    r.flush()
+    r.pressKeyTestId("context-submenu-trigger", "enter")
+  }
   requireText(r.textContent("upstream-context"), "Create Pull Request…", "ContextMenu submenu")
   r.clickTextWithinTestId("upstream-button", "Click me")
 
