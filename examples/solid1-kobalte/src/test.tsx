@@ -14,9 +14,6 @@ function wait(milliseconds: number): Promise<void> {
 }
 
 async function settleOutsideInteractionListener(): Promise<void> {
-  // Solid can mount the dismissable-layer effect on the first task. Kobalte
-  // intentionally defers its document pointerdown listener by one more task so
-  // the interaction that opened the layer cannot immediately dismiss it.
   await wait(0)
   await wait(0)
 }
@@ -58,8 +55,6 @@ if (!hasNativeTestRenderer) {
   requireText(r.textContent("upstream-dialog"), "Open", "upstream Dialog source")
   requireText(r.textContent("upstream-menubar"), "Git", "upstream Menubar source")
 
-  // These interactions operate on the verbatim Kobalte docs examples. Only
-  // the surrounding fixture and module-resolution bridge are ours.
   r.clickTestId("theme-toggle")
   requireText(r.textContent("theme-toggle"), "Theme: light", "light color mode")
 
@@ -112,9 +107,34 @@ if (!hasNativeTestRenderer) {
   if (!outsideTarget) throw new Error("Expected theme-toggle host element in document")
   requireCondition(outsideTarget instanceof Element, "theme toggle should be a DOM-compatible Element")
   requireCondition(document.contains(outsideTarget), "document should contain the theme-toggle host element")
+
+  let outsideCustomRegistrations = 0
+  let outsideCustomDispatches = 0
+  const originalAddEventListener = outsideTarget.addEventListener.bind(outsideTarget)
+  const originalDispatchEvent = outsideTarget.dispatchEvent.bind(outsideTarget)
+  outsideTarget.addEventListener = (type, listener, options) => {
+    if (type === "interactOutside.pointerDownOutside") outsideCustomRegistrations += 1
+    originalAddEventListener(type, listener, options)
+  }
+  outsideTarget.dispatchEvent = (event) => {
+    if (event.type === "interactOutside.pointerDownOutside") outsideCustomDispatches += 1
+    return originalDispatchEvent(event)
+  }
+
   dispatchPointerDown(outsideTarget)
   r.flush()
-  requireCondition(!r.textContent("upstream-dialog").includes("About Kobalte"), "browser-like document pointerdown should dismiss Dialog")
+  requireCondition(
+    outsideCustomRegistrations > 0,
+    `Kobalte should register pointerDownOutside on target, got registrations=${outsideCustomRegistrations} dispatches=${outsideCustomDispatches}`,
+  )
+  requireCondition(
+    outsideCustomDispatches > 0,
+    `Kobalte should dispatch pointerDownOutside on target, got registrations=${outsideCustomRegistrations} dispatches=${outsideCustomDispatches}`,
+  )
+  requireCondition(
+    !r.textContent("upstream-dialog").includes("About Kobalte"),
+    `browser-like document pointerdown should dismiss Dialog after custom event registrations=${outsideCustomRegistrations} dispatches=${outsideCustomDispatches}`,
+  )
 
   r.clickTextWithinTestId("upstream-dialog", "Open")
   requireText(r.textContent("upstream-dialog"), "About Kobalte", "Dialog reopened for native outside interaction")
