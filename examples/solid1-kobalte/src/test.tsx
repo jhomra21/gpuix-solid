@@ -86,6 +86,12 @@ if (!hasNativeTestRenderer) {
   r.clickTextWithinTestId("upstream-dialog", "Open")
   requireText(r.textContent("upstream-dialog"), "About Kobalte", "light Dialog open")
   r.captureScreenshot("/tmp/gpuix-solid1-kobalte-light-dialog.png")
+  // Kobalte intentionally installs its pointerdown-outside listener on the
+  // next task so the interaction that opened a layer cannot dismiss it again.
+  // A real user interaction naturally crosses that task boundary; the native
+  // test driver is synchronous, so model the same boundary explicitly.
+  await wait(0)
+  r.flush()
   r.clickTestId("theme-toggle")
   requireCondition(!r.textContent("upstream-dialog").includes("About Kobalte"), "Dialog overlay should dismiss outside interaction")
 
