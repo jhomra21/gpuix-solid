@@ -87,7 +87,7 @@ export function Dynamic<T extends ValidComponent>(props: DynamicProps<T>) {
   return createDynamic(() => props.component, componentProps)
 }
 
-export function Portal(props: { children: JSX.Element }): JSX.Element {
+export function Portal(props: { children: JSX.Element }) {
   const children = props.children
   const positioner = kobaltePopperPositioner(children)
   if (!positioner) return children
