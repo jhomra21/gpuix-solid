@@ -104,7 +104,10 @@ export class MutationDriver {
 
     try {
       if (this.#renderer.applyBatch) {
-        const destroyed = this.#renderer.applyBatch(JSON.stringify(queue))
+        const batch = supportsLegacyRemoveChild(this.#renderer)
+          ? queue
+          : queue.filter(([name]) => name !== "removeChild")
+        const destroyed = this.#renderer.applyBatch(JSON.stringify(batch))
         this.#queue = []
         this.#scheduled = false
         for (const id of destroyed) this.#events.deleteDestroyed(id)
@@ -158,6 +161,10 @@ export class MutationDriver {
       }
     })
   }
+}
+
+function supportsLegacyRemoveChild(renderer: NativeRenderer): boolean {
+  return "removeChild" in renderer
 }
 
 function callMutation(renderer: NativeRenderer, name: string, args: MutationValue[]): void {
