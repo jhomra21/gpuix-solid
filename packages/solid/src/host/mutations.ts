@@ -59,6 +59,14 @@ type StyleMutationInput = Omit<StyleDesc, DimensionStyleKey | NumberStyleKey | "
     active?: StyleMutationInput
   }
 
+type BoxShorthand = {
+  value?: number
+  top?: number
+  right?: number
+  bottom?: number
+  left?: number
+}
+
 export class MutationDriver {
   readonly #renderer: NativeRenderer
   readonly #events: EventRegistry
@@ -184,6 +192,8 @@ function callMutation(renderer: NativeRenderer, name: string, args: MutationValu
 }
 
 function normalizeStyleMutation(style: StyleMutationInput): StyleDesc {
+  const padding = normalizeBoxShorthand(style.padding, "padding")
+  const margin = normalizeBoxShorthand(style.margin, "margin")
   const normalized = {
     ...style,
     flexGrow: normalizeNumberStyle(style.flexGrow, "flexGrow"),
@@ -200,16 +210,16 @@ function normalizeStyleMutation(style: StyleMutationInput): StyleDesc {
     minHeight: normalizeDimensionStyle(style.minHeight),
     maxWidth: normalizeDimensionStyle(style.maxWidth),
     maxHeight: normalizeDimensionStyle(style.maxHeight),
-    padding: normalizeNumberStyle(style.padding, "padding"),
-    paddingTop: normalizeNumberStyle(style.paddingTop, "paddingTop"),
-    paddingRight: normalizeNumberStyle(style.paddingRight, "paddingRight"),
-    paddingBottom: normalizeNumberStyle(style.paddingBottom, "paddingBottom"),
-    paddingLeft: normalizeNumberStyle(style.paddingLeft, "paddingLeft"),
-    margin: normalizeNumberStyle(style.margin, "margin"),
-    marginTop: normalizeNumberStyle(style.marginTop, "marginTop"),
-    marginRight: normalizeNumberStyle(style.marginRight, "marginRight"),
-    marginBottom: normalizeNumberStyle(style.marginBottom, "marginBottom"),
-    marginLeft: normalizeNumberStyle(style.marginLeft, "marginLeft"),
+    padding: padding.value,
+    paddingTop: normalizeNumberStyle(style.paddingTop, "paddingTop") ?? padding.top,
+    paddingRight: normalizeNumberStyle(style.paddingRight, "paddingRight") ?? padding.right,
+    paddingBottom: normalizeNumberStyle(style.paddingBottom, "paddingBottom") ?? padding.bottom,
+    paddingLeft: normalizeNumberStyle(style.paddingLeft, "paddingLeft") ?? padding.left,
+    margin: margin.value,
+    marginTop: normalizeNumberStyle(style.marginTop, "marginTop") ?? margin.top,
+    marginRight: normalizeNumberStyle(style.marginRight, "marginRight") ?? margin.right,
+    marginBottom: normalizeNumberStyle(style.marginBottom, "marginBottom") ?? margin.bottom,
+    marginLeft: normalizeNumberStyle(style.marginLeft, "marginLeft") ?? margin.left,
     top: normalizeNumberStyle(style.top, "top"),
     right: normalizeNumberStyle(style.right, "right"),
     bottom: normalizeNumberStyle(style.bottom, "bottom"),
@@ -236,6 +246,33 @@ function normalizeStyleMutation(style: StyleMutationInput): StyleDesc {
   }
   // SAFETY: every widened numeric StyleMutationInput field above is converted to the corresponding StyleDesc number contract before this object crosses the native boundary; undefined optional fields are omitted by JSON serialization.
   return normalized as StyleDesc
+}
+
+function normalizeBoxShorthand(
+  value: number | string | undefined,
+  property: "padding" | "margin",
+): BoxShorthand {
+  if (value === undefined) return {}
+  if (isNumberValue(value)) return { value }
+
+  const scalar = parseNumericCssValue(value)
+  if (scalar !== undefined) return { value: scalar }
+
+  const parts = value.trim().split(/\s+/)
+  if (parts.length < 2 || parts.length > 4) {
+    throw new TypeError(`Unsupported numeric inline style ${property}: ${JSON.stringify(value)}`)
+  }
+
+  const values = parts.map(parseNumericCssValue)
+  if (values.some((part) => part === undefined)) {
+    throw new TypeError(`Unsupported numeric inline style ${property}: ${JSON.stringify(value)}`)
+  }
+
+  const top = values[0]!
+  const right = values[1]!
+  const bottom = values.length >= 3 ? values[2]! : top
+  const left = values.length === 4 ? values[3]! : right
+  return { top, right, bottom, left }
 }
 
 function normalizeNumberStyle(value: number | string | undefined, property: NumberStyleKey): number | undefined {
