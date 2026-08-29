@@ -13,6 +13,10 @@ function requireMenuState(actual: string, expected: string, absent: string[], la
   }
 }
 
+function requireActiveElement(expected: HTMLElement, label: string): void {
+  requireCondition(document.activeElement === expected, `${label}: focus moved back to a stale menubar trigger`)
+}
+
 function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
 }
@@ -30,6 +34,10 @@ if (hasNativeTestRenderer) {
 
   const menuTriggers = Array.from(document.body.querySelectorAll<HTMLElement>("[data-kb-menu-value-trigger]"))
   requireCondition(menuTriggers.length === 3, `Expected three menubar triggers, got ${menuTriggers.length}`)
+  const gitTrigger = menuTriggers[0]
+  const fileTrigger = menuTriggers[1]
+  const editTrigger = menuTriggers[2]
+  if (!gitTrigger || !fileTrigger || !editTrigger) throw new Error("Menubar trigger lookup failed")
   for (const trigger of menuTriggers) {
     requireCondition(
       trigger.matches("button:not([disabled]):not([hidden])"),
@@ -44,14 +52,17 @@ if (hasNativeTestRenderer) {
     r.hoverTextWithinTestId("upstream-menubar", "File")
     await settle()
     requireMenuState(r.textContent("upstream-menubar"), "New Tab", ["Commit", "Undo"], `cycle ${cycle} File hover`)
+    requireActiveElement(fileTrigger, `cycle ${cycle} File hover`)
 
     r.hoverTextWithinTestId("upstream-menubar", "Edit")
     await settle()
     requireMenuState(r.textContent("upstream-menubar"), "Undo", ["Commit", "New Tab"], `cycle ${cycle} Edit hover`)
+    requireActiveElement(editTrigger, `cycle ${cycle} Edit hover`)
 
     r.hoverTextWithinTestId("upstream-menubar", "Git")
     await settle()
     requireMenuState(r.textContent("upstream-menubar"), "Commit", ["New Tab", "Undo"], `cycle ${cycle} Git hover`)
+    requireActiveElement(gitTrigger, `cycle ${cycle} Git hover`)
 
     r.clickTextWithinTestId("upstream-menubar", "File")
     await settle()
