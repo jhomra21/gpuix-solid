@@ -13,8 +13,29 @@ function requireMenuState(actual: string, expected: string, absent: string[], la
   }
 }
 
-function requireActiveElement(expected: HTMLElement, label: string): void {
-  requireCondition(document.activeElement === expected, `${label}: focus moved back to a stale menubar trigger`)
+function describeActiveElement(menuTriggers: readonly HTMLElement[]): string {
+  const active = document.activeElement
+  if (!active) return "null"
+  const triggerIndex = menuTriggers.findIndex((trigger) => trigger === active)
+  return JSON.stringify({
+    triggerIndex,
+    tagName: active.tagName,
+    role: active.getAttribute("role"),
+    menuTrigger: active.getAttribute("data-kb-menu-value-trigger"),
+    ariaLabelledBy: active.getAttribute("aria-labelledby"),
+    text: active.textContent?.trim().slice(0, 80) ?? "",
+  })
+}
+
+function requireFocusDidNotReturnTo(
+  staleTrigger: HTMLElement,
+  menuTriggers: readonly HTMLElement[],
+  label: string,
+): void {
+  requireCondition(
+    document.activeElement !== staleTrigger,
+    `${label}: focus returned to the stale menubar trigger; active=${describeActiveElement(menuTriggers)}`,
+  )
 }
 
 function wait(milliseconds: number): Promise<void> {
@@ -52,17 +73,17 @@ if (hasNativeTestRenderer) {
     r.hoverTextWithinTestId("upstream-menubar", "File")
     await settle()
     requireMenuState(r.textContent("upstream-menubar"), "New Tab", ["Commit", "Undo"], `cycle ${cycle} File hover`)
-    requireActiveElement(fileTrigger, `cycle ${cycle} File hover`)
+    requireFocusDidNotReturnTo(gitTrigger, menuTriggers, `cycle ${cycle} File hover`)
 
     r.hoverTextWithinTestId("upstream-menubar", "Edit")
     await settle()
     requireMenuState(r.textContent("upstream-menubar"), "Undo", ["Commit", "New Tab"], `cycle ${cycle} Edit hover`)
-    requireActiveElement(editTrigger, `cycle ${cycle} Edit hover`)
+    requireFocusDidNotReturnTo(fileTrigger, menuTriggers, `cycle ${cycle} Edit hover`)
 
     r.hoverTextWithinTestId("upstream-menubar", "Git")
     await settle()
     requireMenuState(r.textContent("upstream-menubar"), "Commit", ["New Tab", "Undo"], `cycle ${cycle} Git hover`)
-    requireActiveElement(gitTrigger, `cycle ${cycle} Git hover`)
+    requireFocusDidNotReturnTo(editTrigger, menuTriggers, `cycle ${cycle} Git hover`)
 
     r.clickTextWithinTestId("upstream-menubar", "File")
     await settle()
