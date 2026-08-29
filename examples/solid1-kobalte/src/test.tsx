@@ -120,6 +120,7 @@ if (!hasNativeTestRenderer) {
         listener: EventListenerOrEventListenerObject | null,
         options?: boolean | AddEventListenerOptions,
       ) => {
+        if (!listener) return
         if (type === "interactOutside.pointerDownOutside") outsideCustomRegistrations += 1
         originalAddEventListener(type, listener, options)
       },
