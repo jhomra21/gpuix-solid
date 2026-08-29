@@ -78,6 +78,10 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     return document
   }
 
+  get offsetParent(): HostElementNode | null {
+    return null
+  }
+
   get value(): string {
     const value = this.props.get("value")
     return value === null || value === undefined ? "" : String(value)
