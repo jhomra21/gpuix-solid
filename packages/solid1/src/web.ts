@@ -8,7 +8,7 @@ import {
 } from "solid-js"
 import { EventRegistry } from "./host/events.js"
 import { HostElementNode, setHostProperty, type HostRootNode } from "./host/nodes.js"
-import { createElement, insert, spread } from "./universal.js"
+import { createElement, spread } from "./universal.js"
 
 export const isServer = false
 
@@ -50,7 +50,7 @@ type BrowserBounds = {
   height: number
 }
 
-const popperAnchors = new WeakMap<HostElementNode, HostElementNode>()
+const nativePopperPositioners = new WeakSet<HostElementNode>()
 
 installElementConstructorCompatibility()
 installElementQueryCompatibility()
@@ -74,6 +74,7 @@ export function createDynamic<T extends ValidComponent>(
     }
     installBrowserStyleMutationCompatibility(element)
     installSemanticTagMetadata(element, current)
+    if (hasPopperPositionerProp(props)) promoteNativePopperPositioner(element)
     spread(element, props)
     return element
   }
@@ -87,38 +88,32 @@ export function Dynamic<T extends ValidComponent>(props: DynamicProps<T>) {
   return createDynamic(() => props.component, componentProps)
 }
 
-export function Portal(props: { children: JSX.Element }) {
-  const children = props.children
-  const positioner = kobaltePopperPositioner(children)
-  if (!positioner) return children
-
-  const anchor = createElement("anchored")
-  if (!(anchor instanceof HostElementNode)) {
-    throw new Error("Expected native anchored element for Kobalte popper")
-  }
-  setHostProperty(anchor, "style", { backgroundColor: "rgba(0, 0, 0, 0.001)" })
-  setHostProperty(anchor, "testId", "__gpuix-kobalte-popper-anchor")
-  setHostProperty(anchor, "position", { x: 0, y: 0 })
-  setHostProperty(anchor, "fit", "snap")
-  setHostProperty(anchor, "snapMargin", 0)
-  setHostProperty(anchor, "deferred", true)
-  setHostProperty(anchor, "priority", 10)
-  setHostProperty(anchor, "occlude", false)
-  popperAnchors.set(positioner, anchor)
-
-  // SAFETY: Kobalte's positioner is a HostElementNode whose style proxy accepts these browser-only transform and inset fields at this compatibility boundary.
-  const style = positioner.style as BrowserStyleDeclaration
-  const translation = browserTranslation(style.transform)
-  if (translation) setHostProperty(anchor, "position", translation)
-
-  insert(anchor, positioner)
-  queueMicrotask(() => syncBrowserStyleMutation(positioner, style))
-  return anchor
+export function Portal(props: { children: JSX.Element }): JSX.Element {
+  return props.children
 }
 
-function kobaltePopperPositioner(children: JSX.Element): HostElementNode | undefined {
-  if (!(children instanceof HostElementNode)) return undefined
-  return children.props.has("data-popper-positioner") ? children : undefined
+function hasPopperPositionerProp<T>(props: T): boolean {
+  return props !== null && typeof props === "object" && "data-popper-positioner" in props
+}
+
+function promoteNativePopperPositioner(element: HostElementNode): void {
+  if (element.root || element.nativeAlive) {
+    throw new Error("Kobalte popper positioner must be promoted before native adoption")
+  }
+  // SAFETY: HostElementNode.type is writable at runtime while detached; changing it before adoption controls only the native createElement opcode while semantic div metadata remains unchanged for Kobalte.
+  Object.defineProperty(element, "type", {
+    configurable: true,
+    enumerable: true,
+    writable: false,
+    value: "anchored",
+  })
+  nativePopperPositioners.add(element)
+  setHostProperty(element, "position", { x: 0, y: 0 })
+  setHostProperty(element, "fit", "snap")
+  setHostProperty(element, "snapMargin", 0)
+  setHostProperty(element, "deferred", true)
+  setHostProperty(element, "priority", 10)
+  setHostProperty(element, "occlude", false)
 }
 
 function isHostTag(component: ValidComponent): component is string {
@@ -186,9 +181,8 @@ function syncBrowserStyleMutation(element: HostElementNode, style: BrowserStyleD
   const nativeStyle = { ...style }
   const parentBounds = browserParentBounds(element)
   const translation = browserTranslation(style.transform)
-  const popperAnchor = popperAnchors.get(element)
-  if (popperAnchor) {
-    if (translation) setHostProperty(popperAnchor, "position", translation)
+  if (nativePopperPositioners.has(element)) {
+    if (translation) setHostProperty(element, "position", translation)
     delete nativeStyle.position
     delete nativeStyle.left
     delete nativeStyle.right
