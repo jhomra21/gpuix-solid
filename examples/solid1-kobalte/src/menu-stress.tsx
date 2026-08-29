@@ -13,6 +13,12 @@ function requireMenuState(actual: string, expected: string, absent: string[], la
   }
 }
 
+function requireElement(selector: string): HTMLElement {
+  const element = document.body.querySelector<HTMLElement>(selector)
+  if (!element) throw new Error(`Expected browser-compatible element ${JSON.stringify(selector)}`)
+  return element
+}
+
 function describeActiveElement(menuTriggers: readonly HTMLElement[]): string {
   const active = document.activeElement
   if (!active) return "null"
@@ -51,7 +57,7 @@ if (hasNativeTestRenderer) {
     r.flush()
   }
 
-  app.render(() => <UpstreamKobalteShowcase />)
+  app.render(() => <div testId="kobalte-stress-root"><UpstreamKobalteShowcase /></div>)
 
   const menuTriggers = Array.from(document.body.querySelectorAll<HTMLElement>("[data-kb-menu-value-trigger]"))
   requireCondition(menuTriggers.length === 3, `Expected three menubar triggers, got ${menuTriggers.length}`)
@@ -67,44 +73,81 @@ if (hasNativeTestRenderer) {
   }
 
   r.clickTextWithinTestId("upstream-menubar", "Git")
-  requireMenuState(r.textContent("upstream-menubar"), "Commit", ["New Tab", "Undo"], "initial Git menu")
+  requireMenuState(r.textContent("kobalte-stress-root"), "Commit", ["New Tab", "Undo"], "initial Git menu")
+
+  const githubBounds = r.boundsTextWithinTestId("kobalte-stress-root", "GitHub")
+  r.hoverTextWithinTestId("kobalte-stress-root", "GitHub")
+  await wait(200)
+  await settle()
+  const submenuBounds = r.boundsTextWithinTestId("kobalte-stress-root", "Create Pull Request…")
+  requireCondition(
+    submenuBounds.x >= githubBounds.x + githubBounds.width - 40,
+    `GitHub submenu should open beside its row, got trigger=${JSON.stringify(githubBounds)} submenu=${JSON.stringify(submenuBounds)}`,
+  )
+  r.hoverTextWithinTestId("upstream-menubar", "Git")
+  await settle()
 
   for (let cycle = 0; cycle < 20; cycle += 1) {
     r.hoverTextWithinTestId("upstream-menubar", "File")
     await settle()
-    requireMenuState(r.textContent("upstream-menubar"), "New Tab", ["Commit", "Undo"], `cycle ${cycle} File hover`)
+    requireMenuState(r.textContent("kobalte-stress-root"), "New Tab", ["Commit", "Undo"], `cycle ${cycle} File hover`)
     requireFocusDidNotReturnTo(gitTrigger, menuTriggers, `cycle ${cycle} File hover`)
 
     r.hoverTextWithinTestId("upstream-menubar", "Edit")
     await settle()
-    requireMenuState(r.textContent("upstream-menubar"), "Undo", ["Commit", "New Tab"], `cycle ${cycle} Edit hover`)
+    requireMenuState(r.textContent("kobalte-stress-root"), "Undo", ["Commit", "New Tab"], `cycle ${cycle} Edit hover`)
     requireFocusDidNotReturnTo(fileTrigger, menuTriggers, `cycle ${cycle} Edit hover`)
 
     r.hoverTextWithinTestId("upstream-menubar", "Git")
     await settle()
-    requireMenuState(r.textContent("upstream-menubar"), "Commit", ["New Tab", "Undo"], `cycle ${cycle} Git hover`)
+    requireMenuState(r.textContent("kobalte-stress-root"), "Commit", ["New Tab", "Undo"], `cycle ${cycle} Git hover`)
     requireFocusDidNotReturnTo(editTrigger, menuTriggers, `cycle ${cycle} Git hover`)
 
     r.clickTextWithinTestId("upstream-menubar", "File")
     await settle()
-    requireMenuState(r.textContent("upstream-menubar"), "New Tab", ["Commit", "Undo"], `cycle ${cycle} File click`)
+    requireMenuState(r.textContent("kobalte-stress-root"), "New Tab", ["Commit", "Undo"], `cycle ${cycle} File click`)
 
     r.clickTextWithinTestId("upstream-menubar", "Edit")
     await settle()
-    requireMenuState(r.textContent("upstream-menubar"), "Undo", ["Commit", "New Tab"], `cycle ${cycle} Edit click`)
+    requireMenuState(r.textContent("kobalte-stress-root"), "Undo", ["Commit", "New Tab"], `cycle ${cycle} Edit click`)
 
     r.clickTextWithinTestId("upstream-menubar", "Git")
     await settle()
-    requireMenuState(r.textContent("upstream-menubar"), "Commit", ["New Tab", "Undo"], `cycle ${cycle} Git click`)
+    requireMenuState(r.textContent("kobalte-stress-root"), "Commit", ["New Tab", "Undo"], `cycle ${cycle} Git click`)
   }
 
   r.clickTestId("upstream-separator")
   await settle()
-  const closed = r.textContent("upstream-menubar")
+  const closed = r.textContent("kobalte-stress-root")
   requireCondition(
     !closed.includes("Commit") && !closed.includes("New Tab") && !closed.includes("Undo"),
     "Menubar should close after clicking a non-interactive outside region",
   )
+
+  r.clickTextWithinTestId("upstream-dialog", "Open")
+  await settle()
+  const rootBounds = r.boundsTestId("kobalte-stress-root")
+  const overlayBounds = requireElement(".kb_dialog_dialog__overlay").getBoundingClientRect()
+  const positionerBounds = requireElement(".kb_dialog_dialog__positioner").getBoundingClientRect()
+  const contentBounds = requireElement(".kb_dialog_dialog__content").getBoundingClientRect()
+  requireCondition(
+    overlayBounds.width >= rootBounds.width - 2 && overlayBounds.height >= rootBounds.height - 2,
+    `Dialog overlay should span the native root, got root=${JSON.stringify(rootBounds)} overlay=${JSON.stringify(overlayBounds)}`,
+  )
+  requireCondition(
+    positionerBounds.width >= rootBounds.width - 2 && positionerBounds.height >= rootBounds.height - 2,
+    `Dialog positioner should span the native root, got root=${JSON.stringify(rootBounds)} positioner=${JSON.stringify(positionerBounds)}`,
+  )
+  const rootCenterX = rootBounds.x + rootBounds.width / 2
+  const rootCenterY = rootBounds.y + rootBounds.height / 2
+  const contentCenterX = contentBounds.left + contentBounds.width / 2
+  const contentCenterY = contentBounds.top + contentBounds.height / 2
+  requireCondition(
+    Math.abs(contentCenterX - rootCenterX) <= 8 && Math.abs(contentCenterY - rootCenterY) <= 8,
+    `Dialog content should be centered in the native root, got root=${JSON.stringify(rootBounds)} content=${JSON.stringify(contentBounds)}`,
+  )
+  r.pressKey("escape")
+  await settle()
 
   app.render(() => (
     <div>
@@ -124,5 +167,5 @@ if (hasNativeTestRenderer) {
   )
 
   app.unmount()
-  console.log("solid1 Kobalte menubar focus, switch, and SVG stress: passed")
+  console.log("solid1 Kobalte portal, focus, switch, and SVG stress: passed")
 }
