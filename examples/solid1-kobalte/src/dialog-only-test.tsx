@@ -1,4 +1,5 @@
 import { configureNativeStyleManifest, createTestRoot, hasNativeTestRenderer } from "@jhomra21/gpuix-solid1"
+import { layerStack } from "kobalte-layer-stack-probe"
 import { nativeKobalteManifest } from "./native-kobalte.generated"
 import { BasicExample as DialogExample } from "./upstream/kobalte/examples/dialog"
 
@@ -37,16 +38,24 @@ if (!hasNativeTestRenderer) {
 
   const dialogContent = document.body.querySelectorAll('[role="dialog"]')[0]
   if (!(dialogContent instanceof HTMLElement)) throw new Error("Expected HTMLElement-compatible Dialog content")
+  const outside = document.body.querySelectorAll('[id="dialog-probe-outside"]')[0]
+  if (!(outside instanceof HTMLElement)) throw new Error("Expected HTMLElement-compatible outside target")
 
   const pointerTargets: Element[] = []
+  let outsideCustomEvents = 0
   const captureTarget = (event: Event) => {
     if (pointerTargets.length === 0 && event.target instanceof Element) pointerTargets.push(event.target)
   }
+  const captureOutside = () => {
+    outsideCustomEvents += 1
+  }
   document.addEventListener("pointerdown", captureTarget, true)
+  outside.addEventListener("interactOutside.pointerDownOutside", captureOutside)
 
   renderer.clickTestId("dialog-probe-outside")
   await settle(renderer)
   document.removeEventListener("pointerdown", captureTarget, true)
+  outside.removeEventListener("interactOutside.pointerDownOutside", captureOutside)
 
   if (renderer.textContent("dialog-probe").includes("About Kobalte")) {
     const target = pointerTargets[0]
@@ -54,7 +63,7 @@ if (!hasNativeTestRenderer) {
       ? `${target.localName}#${target.getAttribute("id") ?? ""}[role=${target.getAttribute("role") ?? ""}]`
       : "none"
     throw new Error(
-      `first native outside interaction should dismiss a freshly mounted Dialog; firstTarget=${label}; insideDialog=${target ? dialogContent.contains(target) : false}`,
+      `first native outside interaction should dismiss a freshly mounted Dialog; firstTarget=${label}; insideDialog=${target ? dialogContent.contains(target) : false}; customEvents=${outsideCustomEvents}; layers=${layerStack.layers.length}; topmost=${layerStack.isTopMostLayer(dialogContent)}; belowBlocker=${layerStack.isBelowPointerBlockingLayer(dialogContent)}`,
     )
   }
 
