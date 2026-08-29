@@ -1,4 +1,3 @@
-import type { MutationDriver } from "./host/mutations.js"
 import { setHostProperty, type HostElementNode, type HostNode, type HostRootNode } from "./host/nodes.js"
 import type { DimensionValue, StyleDesc } from "./host/types.js"
 
@@ -15,25 +14,6 @@ interface SvgViewBox {
  */
 export function syncNativeSvgLayoutCompatibility(root: HostRootNode): void {
   for (const child of root.children) syncSvgNode(child)
-}
-
-/**
- * Host APIs such as focus() and getBoundingClientRect() can force a mutation
- * flush from inside a Solid effect. Resolve inline SVG layout at the driver
- * boundary so those mid-effect flushes cannot expose a zero-size SVG to GPUI.
- */
-export function installNativeSvgLayoutPreflushCompatibility(
-  root: HostRootNode,
-  driver: MutationDriver,
-): void {
-  const flush = driver.flush.bind(driver)
-  Object.defineProperty(driver, "flush", {
-    configurable: true,
-    value: () => {
-      syncNativeSvgLayoutCompatibility(root)
-      flush()
-    },
-  })
 }
 
 function syncSvgNode(node: HostNode): void {
