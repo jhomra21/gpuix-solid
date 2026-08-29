@@ -175,7 +175,7 @@ let hostDomCompatibilityInstalled = false
 
 export function installDomEventEnvironment(): void {
   // SAFETY: this module reads and installs only the optional browser-compat fields declared by CompatGlobalEnvironment.
-  const globals = globalThis as CompatGlobalEnvironment
+  const globals = globalThis as unknown as CompatGlobalEnvironment
   const documentTarget = globals.document ?? {}
   const currentWindow = globals.window
   const windowTarget: CompatWindow = currentWindow ?? {}
