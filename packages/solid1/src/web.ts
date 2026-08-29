@@ -1,3 +1,4 @@
+import type { EventPayload as NativeEventPayload } from "@gpuix/native"
 import "./dom-environment.js"
 import {
   splitProps,
@@ -5,6 +6,7 @@ import {
   type JSX,
   type ValidComponent,
 } from "solid-js"
+import { EventRegistry } from "./host/events.js"
 import { HostElementNode, type HostRootNode } from "./host/nodes.js"
 import { createElement, spread } from "./universal.js"
 
@@ -31,6 +33,7 @@ installDocumentStyleCompatibility()
 installComputedStyleCompatibility()
 installDocumentFocusCompatibility()
 installDocumentPointerCaptureCompatibility()
+installBrowserKeyboardEventCompatibility()
 
 export function createDynamic<T extends ValidComponent>(
   component: () => T | undefined,
@@ -231,6 +234,35 @@ function installDocumentPointerCaptureCompatibility(): void {
       },
     },
   })
+}
+
+function installBrowserKeyboardEventCompatibility(): void {
+  const nativeDispatch = EventRegistry.prototype.dispatch
+  EventRegistry.prototype.dispatch = function dispatch(event: NativeEventPayload): void {
+    const key = browserKeyboardKey(event.key)
+    nativeDispatch.call(this, key === undefined || key === event.key ? event : { ...event, key })
+  }
+}
+
+function browserKeyboardKey(key: string | undefined): string | undefined {
+  switch (key) {
+    case "enter": return "Enter"
+    case "escape": return "Escape"
+    case "space": return " "
+    case "tab": return "Tab"
+    case "backspace": return "Backspace"
+    case "delete": return "Delete"
+    case "insert": return "Insert"
+    case "home": return "Home"
+    case "end": return "End"
+    case "pageup": return "PageUp"
+    case "pagedown": return "PageDown"
+    case "up": return "ArrowUp"
+    case "down": return "ArrowDown"
+    case "left": return "ArrowLeft"
+    case "right": return "ArrowRight"
+    default: return key
+  }
 }
 
 function syncNativePointerDownObservation(active: boolean): void {
