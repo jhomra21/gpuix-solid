@@ -39,7 +39,7 @@ describe("MutationDriver", () => {
 
     driver.enqueue("createElement", 1, "img")
     driver.enqueue("setStyle", 1, { padding: 8 })
-    driver.enqueue("setCustomPropValue", 1, "src", "image.png")
+    driver.enqueue("setCustomProp", 1, "src", "image.png")
     driver.flush()
 
     expect(renderer.direct).toEqual([
