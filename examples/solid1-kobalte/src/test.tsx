@@ -13,6 +13,17 @@ function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
 }
 
+function dispatchPointerDown(target: Element): void {
+  const event = new Event("pointerdown", { bubbles: true, cancelable: true })
+  Object.defineProperties(event, {
+    target: { configurable: true, value: target },
+    pointerType: { configurable: true, value: "mouse" },
+    button: { configurable: true, value: 0 },
+    ctrlKey: { configurable: true, value: false },
+  })
+  document.dispatchEvent(event)
+}
+
 if (!hasNativeTestRenderer) {
   console.log("solid1 upstream Kobalte fixture: native TestGpuixRenderer unavailable; skipped")
 } else {
@@ -92,8 +103,20 @@ if (!hasNativeTestRenderer) {
   // test driver is synchronous, so model the same boundary explicitly.
   await wait(0)
   r.flush()
+
+  const outsideTarget = document.body.querySelectorAll('[id="theme-toggle-target"]')[0]
+  requireCondition(outsideTarget instanceof Element, "theme toggle should be a DOM-compatible Element")
+  requireCondition(document.contains(outsideTarget), "document should contain the theme-toggle host element")
+  dispatchPointerDown(outsideTarget)
+  r.flush()
+  requireCondition(!r.textContent("upstream-dialog").includes("About Kobalte"), "browser-like document pointerdown should dismiss Dialog")
+
+  r.clickTextWithinTestId("upstream-dialog", "Open")
+  requireText(r.textContent("upstream-dialog"), "About Kobalte", "Dialog reopened for native outside interaction")
+  await wait(0)
+  r.flush()
   r.clickTestId("theme-toggle")
-  requireCondition(!r.textContent("upstream-dialog").includes("About Kobalte"), "Dialog overlay should dismiss outside interaction")
+  requireCondition(!r.textContent("upstream-dialog").includes("About Kobalte"), "native Dialog overlay should dismiss outside interaction")
 
   r.clickTestId("theme-toggle")
   requireText(r.textContent("theme-toggle"), "Theme: dark", "dark color mode")
