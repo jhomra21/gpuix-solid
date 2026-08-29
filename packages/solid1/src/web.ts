@@ -104,7 +104,13 @@ export function Portal(props: { children: JSX.Element }) {
   setHostProperty(anchor, "priority", 10)
   setHostProperty(anchor, "occlude", false)
   popperAnchors.set(positioner, anchor)
+
+  const style = positioner.style as BrowserStyleDeclaration
+  const translation = browserTranslation(style.transform)
+  if (translation) setHostProperty(anchor, "position", translation)
+
   insert(anchor, positioner)
+  queueMicrotask(() => syncBrowserStyleMutation(positioner, style))
   return anchor
 }
 
