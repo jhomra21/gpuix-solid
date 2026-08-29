@@ -92,7 +92,22 @@ if (!hasNativeTestRenderer) {
   renderer.clickTextWithinTestId("dialog-probe", "Open")
   requireText(renderer.textContent("dialog-probe"), "About Kobalte", "dialog-only native reopen")
   await settleDialog(renderer)
+
+  const nativeDialogContent = document.body.querySelectorAll('[role="dialog"]')[0]
+  if (!(nativeDialogContent instanceof HTMLElement)) throw new Error("Expected dialog content before native outside interaction")
+  let nativePointerTarget: Element | null = null
+  const captureNativePointerTarget = (event: Event) => {
+    nativePointerTarget = event.target instanceof Element ? event.target : null
+  }
+  document.addEventListener("pointerdown", captureNativePointerTarget, true)
   renderer.clickTestId("dialog-probe-outside")
+  document.removeEventListener("pointerdown", captureNativePointerTarget, true)
+
+  requireCondition(nativePointerTarget !== null, "native outside interaction should dispatch a document pointerdown target")
+  requireCondition(
+    nativePointerTarget !== null && !nativeDialogContent.contains(nativePointerTarget),
+    `native outside coordinates should hit outside Dialog content, got target ${nativePointerTarget?.localName ?? "unknown"}`,
+  )
   await settlePresence(renderer)
   requireCondition(!renderer.textContent("dialog-probe").includes("About Kobalte"), "fresh Dialog should dismiss from native outside interaction")
 
