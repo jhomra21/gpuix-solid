@@ -28,6 +28,7 @@ type CompatDocumentStyle = {
 installElementConstructorCompatibility()
 installDocumentContainmentCompatibility()
 installDocumentStyleCompatibility()
+installDocumentFocusCompatibility()
 installDocumentPointerCaptureCompatibility()
 
 export function createDynamic<T extends ValidComponent>(
@@ -91,6 +92,49 @@ function installDocumentStyleCompatibility(): void {
       enumerable: true,
       value: createDocumentStyle(),
     })
+  }
+}
+
+function installDocumentFocusCompatibility(): void {
+  const documentTarget = globalThis.document
+  let activeElement: Element | null = documentTarget.body
+  const originalFocus = HostElementNode.prototype.focus
+  const originalBlur = HostElementNode.prototype.blur
+
+  Object.defineProperty(documentTarget, "activeElement", {
+    configurable: true,
+    enumerable: true,
+    get: () => activeElement,
+  })
+
+  HostElementNode.prototype.focus = function focus(): void {
+    activeElement = this
+    originalFocus.call(this)
+  }
+  HostElementNode.prototype.blur = function blur(): void {
+    if (activeElement === this) activeElement = documentTarget.body
+    originalBlur.call(this)
+  }
+
+  for (const target of [documentTarget.body, documentTarget.documentElement]) {
+    if (!("focus" in target)) {
+      Object.defineProperty(target, "focus", {
+        configurable: true,
+        enumerable: true,
+        value: () => {
+          activeElement = target
+        },
+      })
+    }
+    if (!("blur" in target)) {
+      Object.defineProperty(target, "blur", {
+        configurable: true,
+        enumerable: true,
+        value: () => {
+          if (activeElement === target) activeElement = documentTarget.body
+        },
+      })
+    }
   }
 }
 
