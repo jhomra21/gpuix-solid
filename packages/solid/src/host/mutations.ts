@@ -4,7 +4,7 @@ import type { EventRegistry } from "./events.js"
 export type MutationValue = string | number | boolean | object | null
 export type Mutation = readonly [name: string, ...args: MutationValue[]]
 
-const APPLY_BATCH_CUSTOM_PROP = "setCustomPropValue"
+const APPLY_BATCH_CUSTOM_PROP = "setCustomProp"
 
 type DimensionStyleKey =
   | "width"
