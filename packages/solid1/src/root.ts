@@ -8,6 +8,7 @@ import { EventRegistry } from "./host/events.js"
 import { MutationDriver } from "./host/mutations.js"
 import { HostRootNode, removeHostNode } from "./host/nodes.js"
 import type { DimensionValue, NativeRenderer } from "./host/types.js"
+import { registerNativePortalRoot, unregisterNativePortalRoot } from "./native-portal.js"
 import { universalRender } from "./universal.js"
 
 export interface Root {
@@ -58,6 +59,7 @@ export function createRoot(renderer: NativeRenderer): Root {
       height: Math.max(nativeSize?.height ?? 600, bounds?.[3] ?? 0, styleHeight),
     }
   }
+  registerNativePortalRoot(renderer, container, getViewportSize)
 
   return {
     render(code) {
@@ -101,6 +103,7 @@ export function createRoot(renderer: NativeRenderer): Root {
       dispose = undefined
       const mounted = container.children[0]
       if (mounted) removeHostNode(container, mounted)
+      unregisterNativePortalRoot(renderer)
       flushNative()
       events.clear()
       driver.dispose()
