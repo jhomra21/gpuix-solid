@@ -1,5 +1,5 @@
 import { setHostProperty, type HostElementNode, type HostNode, type HostRootNode } from "./host/nodes.js"
-import type { DimensionValue } from "./host/types.js"
+import type { DimensionValue, StyleDesc } from "./host/types.js"
 
 interface SvgViewBox {
   width: number
@@ -51,11 +51,10 @@ function syncSvgLayout(node: HostElementNode): void {
   const needsHeight = node.style.height === undefined && height !== undefined
   if (!needsWidth && !needsHeight) return
 
-  setHostProperty(node, "style", {
-    ...node.style,
-    ...(needsWidth ? { width } : {}),
-    ...(needsHeight ? { height } : {}),
-  })
+  const nativeStyle: StyleDesc = { ...node.style }
+  if (needsWidth) nativeStyle.width = width
+  if (needsHeight) nativeStyle.height = height
+  setHostProperty(node, "style", nativeStyle)
 }
 
 function attribute(source: string, name: string): string | undefined {
