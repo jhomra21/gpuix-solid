@@ -62,8 +62,12 @@ if (!hasNativeTestRenderer) {
     const label = target
       ? `${target.localName}#${target.getAttribute("id") ?? ""}[role=${target.getAttribute("role") ?? ""}]`
       : "none"
+    const documentContains = target ? document.contains(target) : false
+    const topLayerAncestor = target ? target.closest("[data-kb-top-layer]") : null
+    const sameOutside = target === outside
+    const sameDocument = target?.ownerDocument === document
     throw new Error(
-      `first native outside interaction should dismiss a freshly mounted Dialog; firstTarget=${label}; insideDialog=${target ? dialogContent.contains(target) : false}; customEvents=${outsideCustomEvents}; layers=${layerStack.layers.length}; topmost=${layerStack.isTopMostLayer(dialogContent)}; belowBlocker=${layerStack.isBelowPointerBlockingLayer(dialogContent)}`,
+      `first native outside interaction should dismiss a freshly mounted Dialog; firstTarget=${label}; sameOutside=${sameOutside}; sameDocument=${sameDocument}; documentContains=${documentContains}; topLayerAncestor=${topLayerAncestor !== null}; insideDialog=${target ? dialogContent.contains(target) : false}; customEvents=${outsideCustomEvents}; layers=${layerStack.layers.length}; topmost=${layerStack.isTopMostLayer(dialogContent)}; belowBlocker=${layerStack.isBelowPointerBlockingLayer(dialogContent)}`,
     )
   }
 
