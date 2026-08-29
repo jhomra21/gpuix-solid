@@ -296,8 +296,13 @@ export function setHostProperty<T>(
     if (!node.root || !node.nativeAlive) return
     if (handler) node.root.events.set(node.id, eventType, handler)
     else node.root.events.delete(node.id, eventType)
-    if (Boolean(oldHandler) !== Boolean(handler)) {
-      node.root.driver.enqueue("setEventListener", node.id, eventType, Boolean(handler))
+
+    const nativeType = nativeEventType(eventType)
+    const hasNativeHandler = nativeType === "mouseUp"
+      ? node.root.events.has(node.id, "mouseUp") || node.root.events.has(node.id, "contextMenu")
+      : node.root.events.has(node.id, nativeType)
+    if (Boolean(oldHandler) !== Boolean(handler) || eventType === "contextMenu" || eventType === "mouseUp") {
+      node.root.driver.enqueue("setEventListener", node.id, nativeType, hasNativeHandler)
     }
     return
   }
@@ -462,11 +467,15 @@ function adopt(root: HostRootNode, node: HostNode): void {
     root.driver.enqueue("setText", node.id, node.text)
   } else {
     root.events.setTarget(node.id, node)
+    const nativeEventTypes = new Set<string>()
     if (Object.keys(node.style).length > 0) {
       root.driver.enqueue("setStyle", node.id, node.style)
     }
     for (const [eventType, handler] of node.events) {
       root.events.set(node.id, eventType, handler)
+      nativeEventTypes.add(nativeEventType(eventType))
+    }
+    for (const eventType of nativeEventTypes) {
       root.driver.enqueue("setEventListener", node.id, eventType, true)
     }
     for (const [name, value] of node.props) {
@@ -480,6 +489,10 @@ function adopt(root: HostRootNode, node: HostNode): void {
     adopt(root, child)
     root.driver.enqueue("appendChild", node.id, child.id)
   }
+}
+
+function nativeEventType(eventType: string): string {
+  return eventType === "contextMenu" ? "mouseUp" : eventType
 }
 
 function markNativeDead(root: HostRootNode, node: HostNode): void {

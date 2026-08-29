@@ -128,6 +128,15 @@ function domCompatibleEvent(event: NativeEventPayload, target: DomCompatTarget |
   })
 }
 
+function contextMenuEvent(event: EventPayload): EventPayload {
+  return {
+    ...event,
+    eventType: "contextMenu",
+    button: 2,
+    isRightClick: true,
+  }
+}
+
 function globalEventName(eventType: string): string | undefined {
   if (eventType === "mouseMove") return "pointermove"
   if (eventType === "mouseUp") return "pointerup"
@@ -229,7 +238,11 @@ export class EventRegistry {
   dispatch(event: NativeEventPayload): void {
     if (!this.#live.has(event.elementId)) return
     const domEvent = domCompatibleEvent(event, this.#targets.get(event.elementId))
-    this.#handlers.get(event.elementId)?.get(event.eventType)?.(domEvent)
+    const handlers = this.#handlers.get(event.elementId)
+    handlers?.get(event.eventType)?.(domEvent)
+    if (event.eventType === "mouseUp" && event.button === 2) {
+      handlers?.get("contextMenu")?.(contextMenuEvent(domEvent))
+    }
     dispatchGlobalEvent(domEvent)
   }
 }
