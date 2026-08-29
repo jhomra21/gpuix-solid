@@ -5,6 +5,8 @@ import { BasicExample as DialogExample } from "./upstream/kobalte/examples/dialo
 
 configureNativeStyleManifest(nativeKobalteManifest)
 
+const OUTSIDE_EVENT = "interactOutside.pointerDownOutside"
+
 function requireText(actual: string, expected: string, label: string): void {
   if (!actual.includes(expected)) throw new Error(`${label}: expected ${JSON.stringify(expected)} in ${JSON.stringify(actual)}`)
 }
@@ -45,6 +47,8 @@ if (!hasNativeTestRenderer) {
 
   const pointerTargets: Element[] = []
   let outsideCustomEvents = 0
+  let kobalteCustomListenerAdds = 0
+  let kobalteCustomDispatches = 0
   const captureTarget = (event: Event) => {
     if (pointerTargets.length === 0 && event.target instanceof Element) pointerTargets.push(event.target)
   }
@@ -52,12 +56,35 @@ if (!hasNativeTestRenderer) {
     outsideCustomEvents += 1
   }
   document.addEventListener("pointerdown", captureTarget, true)
-  outside.addEventListener("interactOutside.pointerDownOutside", captureOutside)
+  outside.addEventListener(OUTSIDE_EVENT, captureOutside)
+
+  const originalOutsideAdd = outside.addEventListener.bind(outside)
+  const originalOutsideDispatch = outside.dispatchEvent.bind(outside)
+  Object.defineProperties(outside, {
+    addEventListener: {
+      configurable: true,
+      value: (
+        type: string,
+        listener: EventListenerOrEventListenerObject | null,
+        options?: boolean | AddEventListenerOptions,
+      ) => {
+        if (type === OUTSIDE_EVENT) kobalteCustomListenerAdds += 1
+        if (listener) originalOutsideAdd(type, listener, options)
+      },
+    },
+    dispatchEvent: {
+      configurable: true,
+      value: (event: Event) => {
+        if (event.type === OUTSIDE_EVENT) kobalteCustomDispatches += 1
+        return originalOutsideDispatch(event)
+      },
+    },
+  })
 
   renderer.clickTestId("dialog-probe-outside")
   await settle(renderer)
   document.removeEventListener("pointerdown", captureTarget, true)
-  outside.removeEventListener("interactOutside.pointerDownOutside", captureOutside)
+  outside.removeEventListener(OUTSIDE_EVENT, captureOutside)
 
   if (renderer.textContent("dialog-probe").includes("About Kobalte")) {
     const target = pointerTargets[0]
@@ -70,7 +97,7 @@ if (!hasNativeTestRenderer) {
     const sameDocument = target?.ownerDocument === document
     const triggerContains = target ? trigger.contains(target) : false
     throw new Error(
-      `first native outside interaction should dismiss a freshly mounted Dialog; firstTarget=${label}; sameOutside=${sameOutside}; sameDocument=${sameDocument}; documentContains=${documentContains}; topLayerAncestor=${topLayerAncestor !== null}; insideDialog=${target ? dialogContent.contains(target) : false}; triggerContains=${triggerContains}; customEvents=${outsideCustomEvents}; layers=${layerStack.layers.length}; topmost=${layerStack.isTopMostLayer(dialogContent)}; belowBlocker=${layerStack.isBelowPointerBlockingLayer(dialogContent)}`,
+      `first native outside interaction should dismiss a freshly mounted Dialog; firstTarget=${label}; sameOutside=${sameOutside}; sameDocument=${sameDocument}; documentContains=${documentContains}; topLayerAncestor=${topLayerAncestor !== null}; insideDialog=${target ? dialogContent.contains(target) : false}; triggerContains=${triggerContains}; customListenerAdds=${kobalteCustomListenerAdds}; customDispatches=${kobalteCustomDispatches}; customEvents=${outsideCustomEvents}; layers=${layerStack.layers.length}; topmost=${layerStack.isTopMostLayer(dialogContent)}; belowBlocker=${layerStack.isBelowPointerBlockingLayer(dialogContent)}`,
     )
   }
 
