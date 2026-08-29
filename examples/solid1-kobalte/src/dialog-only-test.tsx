@@ -41,6 +41,10 @@ async function settlePresence(renderer: { flush(): void }): Promise<void> {
   renderer.flush()
 }
 
+function selectorContains(selector: string, element: Element): boolean {
+  return Array.from(document.body.querySelectorAll(selector)).includes(element)
+}
+
 if (!hasNativeTestRenderer) {
   console.log("solid1 dialog-only Kobalte probe: native TestGpuixRenderer unavailable; skipped")
 } else {
@@ -78,11 +82,11 @@ if (!hasNativeTestRenderer) {
   dismiss?.()
   renderer.flush()
   requireCondition(
-    document.body.querySelectorAll('[role="dialog"][data-closed]')?.length > 0 || document.body.querySelectorAll('[data-closed]')?.includes(dialogContent),
+    selectorContains("[data-closed]", dialogContent),
     "registered layer dismiss callback should flip Dialog to its closed state before presence unmount",
   )
   requireCondition(
-    document.body.querySelectorAll('[role="dialog"][data-expanded]')?.length === 0 && !document.body.querySelectorAll('[data-expanded]')?.includes(dialogContent),
+    !selectorContains("[data-expanded]", dialogContent),
     "closed Dialog should no longer expose data-expanded",
   )
   await settlePresence(renderer)
