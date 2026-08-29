@@ -13,6 +13,56 @@ function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
 }
 
+function isFiniteRect(rect: DOMRect): boolean {
+  return Number.isFinite(rect.x)
+    && Number.isFinite(rect.y)
+    && Number.isFinite(rect.width)
+    && Number.isFinite(rect.height)
+    && Number.isFinite(rect.left)
+    && Number.isFinite(rect.top)
+    && Number.isFinite(rect.right)
+    && Number.isFinite(rect.bottom)
+}
+
+const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect
+HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect(): DOMRect {
+  const rect = originalGetBoundingClientRect.call(this)
+  if (!isFiniteRect(rect)) {
+    console.error(`[gpuix-solid1:geometry-diagnostic] non-finite rect tag=${this.localName} id=${this.id} rect=${JSON.stringify(rect.toJSON?.() ?? rect)}`)
+  }
+  return rect
+}
+
+function logFloatingGeometry(label: string): void {
+  for (const element of Array.from(document.body.querySelectorAll("*"))) {
+    if (!(element instanceof HTMLElement)) continue
+    const style = element.style
+    if (style.position !== "absolute" && !style.transform) continue
+    const rect = element.getBoundingClientRect()
+    console.error(`[gpuix-solid1:geometry-diagnostic] ${label} tag=${element.localName} id=${element.id} style=${JSON.stringify({
+      position: style.position,
+      left: style.left,
+      right: style.right,
+      top: style.top,
+      bottom: style.bottom,
+      width: style.width,
+      height: style.height,
+      transform: style.transform,
+    })} metrics=${JSON.stringify({
+      clientWidth: element.clientWidth,
+      clientHeight: element.clientHeight,
+      offsetWidth: element.offsetWidth,
+      offsetHeight: element.offsetHeight,
+      rect: {
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+      },
+    })}`)
+  }
+}
+
 async function settleOutsideInteractionListener(): Promise<void> {
   await wait(0)
   await wait(0)
@@ -119,6 +169,7 @@ if (!hasNativeTestRenderer) {
   r.clickTextWithinTestId("upstream-dropdown", "Show Git Log")
   requireText(r.textContent("upstream-dropdown"), "Commit", "Dropdown checkbox keeps menu open")
   r.clickTextWithinTestId("upstream-dropdown", "GitHub")
+  logFloatingGeometry("Dropdown submenu")
   requireText(r.textContent("upstream-dropdown"), "Create Pull Request…", "Dropdown submenu")
   r.clickTextWithinTestId("upstream-button", "Click me")
 
@@ -132,6 +183,7 @@ if (!hasNativeTestRenderer) {
   await wait(150)
   app.root.flush()
   r.flush()
+  logFloatingGeometry("Context submenu")
   requireText(r.textContent("upstream-context"), "Create Pull Request…", "ContextMenu submenu hover")
   r.clickTextWithinTestId("upstream-button", "Click me")
 
