@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { EventRegistry } from "../src/host/events.js"
-import { MutationDriver } from "../src/host/mutations.js"
+import { MutationDriver, useDestroyUnlinksParentBatch } from "../src/host/mutations.js"
 import { FakeRenderer } from "./fake-renderer.js"
 
 describe("MutationDriver", () => {
@@ -30,6 +30,18 @@ describe("MutationDriver", () => {
       1,
       { fontSize: 12, width: 18, height: 24 },
     ])
+  })
+
+  it("omits legacy removeChild when destroy unlinks its parent", () => {
+    const renderer = new FakeRenderer()
+    useDestroyUnlinksParentBatch(renderer)
+    const driver = new MutationDriver(renderer, new EventRegistry())
+
+    driver.enqueue("removeChild", 1, 2)
+    driver.enqueue("destroyElement", 2)
+    driver.flush()
+
+    expect(renderer.batches.at(-1)).toEqual([["destroyElement", 2]])
   })
 
   it("serializes structured values for the direct N-API fallback", () => {
