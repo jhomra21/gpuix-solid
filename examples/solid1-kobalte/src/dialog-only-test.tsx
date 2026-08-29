@@ -40,6 +40,8 @@ if (!hasNativeTestRenderer) {
   if (!(dialogContent instanceof HTMLElement)) throw new Error("Expected HTMLElement-compatible Dialog content")
   const outside = document.body.querySelectorAll('[id="dialog-probe-outside"]')[0]
   if (!(outside instanceof HTMLElement)) throw new Error("Expected HTMLElement-compatible outside target")
+  const trigger = document.body.querySelectorAll('[aria-haspopup="dialog"]')[0]
+  if (!(trigger instanceof HTMLElement)) throw new Error("Expected HTMLElement-compatible Dialog trigger")
 
   const pointerTargets: Element[] = []
   let outsideCustomEvents = 0
@@ -66,8 +68,9 @@ if (!hasNativeTestRenderer) {
     const topLayerAncestor = target ? target.closest("[data-kb-top-layer]") : null
     const sameOutside = target === outside
     const sameDocument = target?.ownerDocument === document
+    const triggerContains = target ? trigger.contains(target) : false
     throw new Error(
-      `first native outside interaction should dismiss a freshly mounted Dialog; firstTarget=${label}; sameOutside=${sameOutside}; sameDocument=${sameDocument}; documentContains=${documentContains}; topLayerAncestor=${topLayerAncestor !== null}; insideDialog=${target ? dialogContent.contains(target) : false}; customEvents=${outsideCustomEvents}; layers=${layerStack.layers.length}; topmost=${layerStack.isTopMostLayer(dialogContent)}; belowBlocker=${layerStack.isBelowPointerBlockingLayer(dialogContent)}`,
+      `first native outside interaction should dismiss a freshly mounted Dialog; firstTarget=${label}; sameOutside=${sameOutside}; sameDocument=${sameDocument}; documentContains=${documentContains}; topLayerAncestor=${topLayerAncestor !== null}; insideDialog=${target ? dialogContent.contains(target) : false}; triggerContains=${triggerContains}; customEvents=${outsideCustomEvents}; layers=${layerStack.layers.length}; topmost=${layerStack.isTopMostLayer(dialogContent)}; belowBlocker=${layerStack.isBelowPointerBlockingLayer(dialogContent)}`,
     )
   }
 
