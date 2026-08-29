@@ -91,7 +91,7 @@ if (!hasNativeTestRenderer) {
   r.captureScreenshot("/tmp/gpuix-solid1-kobalte-light-dialog.png")
   await settleOutsideInteractionListener()
   r.flush()
-  r.clickTestId("theme-toggle")
+  r.clickTestId("upstream-button")
   await settleOutsideInteractionListener()
   r.flush()
   requireCondition(!r.textContent("upstream-dialog").includes("About Kobalte"), "native Dialog overlay should dismiss outside interaction")
