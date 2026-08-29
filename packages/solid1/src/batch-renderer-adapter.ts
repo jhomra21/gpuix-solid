@@ -1,3 +1,4 @@
+import type { MutationValue } from "./host/mutations.js"
 import type {
   DebugFrameOverlayMode,
   DebugFrameOverlayStats,
@@ -48,7 +49,7 @@ export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRen
       applyOne(["insertBefore", parentId, childId, beforeId])
     },
     setStyle(id, styleJson) {
-      applyOne(["setStyle", id, parseJson(styleJson)])
+      applyOne(["setStyle", id, parseMutationValue(styleJson)])
     },
     setText(id, content) {
       applyOne(["setText", id, content])
@@ -60,7 +61,7 @@ export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRen
       applyOne(["setRoot", id])
     },
     setCustomProp(id, key, valueJson) {
-      applyOne(["setCustomProp", id, key, parseJson(valueJson)])
+      applyOne(["setCustomProp", id, key, parseMutationValue(valueJson)])
     },
     commitMutations() {
       // Single-operation compatibility calls above already commit through applyBatch.
@@ -89,6 +90,12 @@ export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRen
   return adapted
 }
 
-function parseJson(value: string): unknown {
-  return JSON.parse(value) as unknown
+function parseMutationValue(value: string): MutationValue {
+  const parsed: unknown = JSON.parse(value)
+  if (parsed === null) return parsed
+  if (typeof parsed === "string") return parsed
+  if (typeof parsed === "number") return parsed
+  if (typeof parsed === "boolean") return parsed
+  if (typeof parsed === "object") return parsed
+  throw new TypeError("Expected a JSON mutation value")
 }
