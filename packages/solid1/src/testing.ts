@@ -1,8 +1,9 @@
 import { createRequire } from "node:module"
 import type { EventPayload, TestGpuixRenderer as NativeTestRendererApi } from "@gpuix/native"
 import type { JSX } from "solid-js"
+import { adaptBatchRenderer } from "./batch-renderer-adapter.js"
 import { useDestroyUnlinksParentBatch, type MutationValue } from "./host/mutations.js"
-import type { NativeRenderer, StyleDesc } from "./host/types.js"
+import type { StyleDesc } from "./host/types.js"
 import { createRoot, type Root } from "./root.js"
 
 type NativeTestRendererConstructor = new () => NativeTestRendererApi
@@ -99,14 +100,13 @@ function insetPoint(bounds: TestBounds) {
 const NativeTestRenderer = loadNativeTestRenderer()
 export const hasNativeTestRenderer = NativeTestRenderer !== undefined
 
-export class TestRenderer implements NativeRenderer {
+export class TestRenderer {
   readonly #native: NativeTestRendererApi
   #root: Root | undefined
 
   constructor() {
     if (!NativeTestRenderer) throw new Error("Native TestGpuixRenderer is unavailable")
     this.#native = new NativeTestRenderer()
-    useDestroyUnlinksParentBatch(this)
   }
 
   bindRoot(root: Root): void {
@@ -337,7 +337,9 @@ export interface TestRoot {
 
 export function createTestRoot(): TestRoot {
   const renderer = new TestRenderer()
-  const root = createRoot(renderer)
+  const hostRenderer = adaptBatchRenderer(renderer)
+  useDestroyUnlinksParentBatch(hostRenderer)
+  const root = createRoot(hostRenderer)
   renderer.bindRoot(root)
   return {
     root,
