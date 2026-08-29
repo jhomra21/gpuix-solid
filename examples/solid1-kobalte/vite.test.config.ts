@@ -8,7 +8,6 @@ const solid1Package = /^@jhomra21\/gpuix-solid1(?:\/.*)?$/
 const kobalteCore = /^@kobalte\/core\/(.+)$/
 const kobalteSourceRoot = path.resolve(root, "node_modules/@kobalte/core/src")
 const solidWebCompat = path.resolve(root, "../../packages/solid1/dist/web.js")
-const kobalteLayerStackProbe = path.resolve(kobalteSourceRoot, "dismissable-layer/layer-stack.tsx")
 
 function scopedClass(name: string, filename: string): string {
   const moduleName = path.basename(filename).replace(/\.module\.css$/, "").replace(/[^A-Za-z0-9_-]/g, "_")
@@ -23,17 +22,16 @@ export default defineConfig({
     dedupe: ["solid-js"],
     alias: [
       { find: "solid-js/web", replacement: solidWebCompat },
-      { find: "kobalte-layer-stack-probe", replacement: kobalteLayerStackProbe },
       { find: kobalteCore, replacement: `${kobalteSourceRoot}/$1/index.tsx` },
     ],
   },
   ssr: {
-    noExternal: [solid1Package, /^@kobalte\/core(?:\/.*)?$/, "@kobalte/utils", "solid-js", "kobalte-layer-stack-probe"],
+    noExternal: [solid1Package, /^@kobalte\/core(?:\/.*)?$/, "@kobalte/utils", "solid-js"],
     resolve: { conditions: ["solid", "browser", "development", "import", "default"] },
   },
   build: {
     target: "node22",
-    ssr: "src/dialog-only-test.tsx",
+    ssr: "src/test.tsx",
     outDir: "dist/test",
     rollupOptions: {
       external: ["@gpuix/native"],
