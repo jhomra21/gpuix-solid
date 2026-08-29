@@ -91,11 +91,6 @@ export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRen
 }
 
 function parseMutationValue(value: string): MutationValue {
-  const parsed: unknown = JSON.parse(value)
-  if (parsed === null) return parsed
-  if (typeof parsed === "string") return parsed
-  if (typeof parsed === "number") return parsed
-  if (typeof parsed === "boolean") return parsed
-  if (typeof parsed === "object") return parsed
-  throw new TypeError("Expected a JSON mutation value")
+  // SAFETY: legacy host methods receive JSON produced from renderer-owned styles and custom props, whose wire values are exactly MutationValue.
+  return JSON.parse(value) as MutationValue
 }
