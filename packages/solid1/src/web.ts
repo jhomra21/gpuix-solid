@@ -28,6 +28,7 @@ type CompatDocumentStyle = {
 }
 
 installElementConstructorCompatibility()
+installElementQueryCompatibility()
 installDocumentContainmentCompatibility()
 installDocumentStyleCompatibility()
 installComputedStyleCompatibility()
@@ -73,6 +74,25 @@ function installElementConstructorCompatibility(): void {
       value: HostElementNode,
     })
   }
+}
+
+function installElementQueryCompatibility(): void {
+  Object.defineProperty(HostElementNode.prototype, "querySelector", {
+    configurable: true,
+    value(this: HostElementNode, selector: string): HostElementNode | null {
+      // Accessing ownerDocument registers this retained-tree root with the DOM compatibility layer.
+      void this.ownerDocument
+      for (const candidate of Array.from(globalThis.document.body.querySelectorAll(selector))) {
+        if (!(candidate instanceof HostElementNode)) continue
+        let parent = candidate.parent
+        while (parent) {
+          if (parent === this) return candidate
+          parent = parent.kind === "root" ? null : parent.parent
+        }
+      }
+      return null
+    },
+  })
 }
 
 function installDocumentContainmentCompatibility(): void {
