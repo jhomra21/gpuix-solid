@@ -75,8 +75,8 @@ function describePlatformElement(value: Element | Window | null): string {
 
 function installFloatingPlatformDiagnostics(): void {
   const getElementRects = floatingPlatform.getElementRects
-  floatingPlatform.getElementRects = async (args) => {
-    const rects = await getElementRects(args)
+  floatingPlatform.getElementRects = async function getElementRectsDiagnostic(args) {
+    const rects = await getElementRects.call(this, args)
     if (traceFloatingPlatform) {
       console.error(`[gpuix-solid1:floating-platform] elementRects reference=${describePlatformElement(args.reference instanceof Element ? args.reference : null)} floating=${describePlatformElement(args.floating)} rects=${JSON.stringify(rects)}`)
     }
@@ -84,8 +84,8 @@ function installFloatingPlatformDiagnostics(): void {
   }
 
   const getDimensions = floatingPlatform.getDimensions
-  floatingPlatform.getDimensions = async (element) => {
-    const dimensions = await getDimensions(element)
+  floatingPlatform.getDimensions = async function getDimensionsDiagnostic(element) {
+    const dimensions = await getDimensions.call(this, element)
     if (traceFloatingPlatform) {
       console.error(`[gpuix-solid1:floating-platform] dimensions element=${describePlatformElement(element)} value=${JSON.stringify(dimensions)}`)
     }
@@ -94,8 +94,8 @@ function installFloatingPlatformDiagnostics(): void {
 
   const getOffsetParent = floatingPlatform.getOffsetParent
   if (getOffsetParent) {
-    floatingPlatform.getOffsetParent = async (element) => {
-      const parent = await getOffsetParent(element)
+    floatingPlatform.getOffsetParent = async function getOffsetParentDiagnostic(element) {
+      const parent = await getOffsetParent.call(this, element)
       if (traceFloatingPlatform) {
         console.error(`[gpuix-solid1:floating-platform] offsetParent element=${describePlatformElement(element)} parent=${describePlatformElement(parent)}`)
       }
@@ -104,8 +104,8 @@ function installFloatingPlatformDiagnostics(): void {
   }
 
   const getClippingRect = floatingPlatform.getClippingRect
-  floatingPlatform.getClippingRect = async (args) => {
-    const rect = await getClippingRect(args)
+  floatingPlatform.getClippingRect = async function getClippingRectDiagnostic(args) {
+    const rect = await getClippingRect.call(this, args)
     if (traceFloatingPlatform) {
       console.error(`[gpuix-solid1:floating-platform] clippingRect element=${describePlatformElement(args.element)} value=${JSON.stringify(rect)}`)
     }
