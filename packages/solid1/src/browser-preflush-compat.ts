@@ -1,3 +1,4 @@
+import { syncAnchoredSurfaceCompatibility } from "./anchored-surface-compat.js"
 import { syncBrowserSelectorCompatibility } from "./browser-selector-compat.js"
 import type { MutationDriver } from "./host/mutations.js"
 import type { HostRootNode } from "./host/nodes.js"
@@ -17,6 +18,7 @@ export function installBrowserPreflushCompatibility(
     configurable: true,
     value: () => {
       syncBrowserSelectorCompatibility(root)
+      syncAnchoredSurfaceCompatibility(root)
       syncNativeSvgLayoutCompatibility(root)
       flush()
     },
