@@ -35,7 +35,10 @@ async function settle(renderer: { flush(): void }): Promise<void> {
   renderer.flush()
 }
 
-function openDialog(renderer: typeof app.renderer): void {
+function openDialog(renderer: {
+  clickTextWithinTestId(testId: string, text: string): void
+  textContent(testId: string): string
+}): void {
   renderer.clickTextWithinTestId("dialog-probe", "Open")
   requireText(renderer.textContent("dialog-probe"), "About Kobalte", "Dialog open")
 }
