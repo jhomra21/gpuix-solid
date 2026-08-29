@@ -95,7 +95,7 @@ describe("native capabilities", () => {
 
     root.render(() => createComponent(App, {}))
     expect(renderer.batches[0]).toContainEqual([
-      "setCustomPropValue",
+      "setCustomProp",
       1,
       "motion",
       {
@@ -108,7 +108,7 @@ describe("native capabilities", () => {
     root.flushSync(() => setOpacity(1))
     expect(renderer.batches.at(-1)).toEqual([
       [
-        "setCustomPropValue",
+        "setCustomProp",
         1,
         "motion",
         {
