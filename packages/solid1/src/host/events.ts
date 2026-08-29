@@ -21,6 +21,7 @@ export const EVENT_PROPS = [
   ["onPointerCancel", "mouseUp"],
   ["onLostPointerCapture", "mouseUp"],
   ["onMouseEnter", "mouseEnter"],
+  ["onPointerEnter", "mouseEnter"],
   ["onMouseLeave", "mouseLeave"],
   ["onPointerLeave", "mouseLeave"],
   ["onMouseMove", "mouseMove"],
