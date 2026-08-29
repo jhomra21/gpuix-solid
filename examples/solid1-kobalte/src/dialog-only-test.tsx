@@ -34,6 +34,13 @@ async function settleDialog(renderer: { flush(): void }): Promise<void> {
   renderer.flush()
 }
 
+async function settlePresence(renderer: { flush(): void }): Promise<void> {
+  await wait(0)
+  renderer.flush()
+  await wait(0)
+  renderer.flush()
+}
+
 if (!hasNativeTestRenderer) {
   console.log("solid1 dialog-only Kobalte probe: native TestGpuixRenderer unavailable; skipped")
 } else {
@@ -70,7 +77,16 @@ if (!hasNativeTestRenderer) {
   requireCondition(Boolean(dismiss), "fresh Dialog layer should expose its dismiss callback")
   dismiss?.()
   renderer.flush()
-  requireCondition(!renderer.textContent("dialog-probe").includes("About Kobalte"), "registered layer dismiss callback should close Dialog")
+  requireCondition(
+    document.body.querySelectorAll('[role="dialog"][data-closed]')?.length > 0 || document.body.querySelectorAll('[data-closed]')?.includes(dialogContent),
+    "registered layer dismiss callback should flip Dialog to its closed state before presence unmount",
+  )
+  requireCondition(
+    document.body.querySelectorAll('[role="dialog"][data-expanded]')?.length === 0 && !document.body.querySelectorAll('[data-expanded]')?.includes(dialogContent),
+    "closed Dialog should no longer expose data-expanded",
+  )
+  await settlePresence(renderer)
+  requireCondition(!renderer.textContent("dialog-probe").includes("About Kobalte"), "registered layer dismiss callback should unmount Dialog after presence settles")
 
   renderer.clickTextWithinTestId("dialog-probe", "Open")
   requireText(renderer.textContent("dialog-probe"), "About Kobalte", "dialog reopened for browser-like interaction")
@@ -78,12 +94,14 @@ if (!hasNativeTestRenderer) {
 
   dispatchPointerDown(outside)
   renderer.flush()
+  await settlePresence(renderer)
   requireCondition(!renderer.textContent("dialog-probe").includes("About Kobalte"), "fresh Dialog should dismiss from browser-like outside pointerdown")
 
   renderer.clickTextWithinTestId("dialog-probe", "Open")
   requireText(renderer.textContent("dialog-probe"), "About Kobalte", "dialog-only native reopen")
   await settleDialog(renderer)
   renderer.clickTestId("dialog-probe-outside")
+  await settlePresence(renderer)
   requireCondition(!renderer.textContent("dialog-probe").includes("About Kobalte"), "fresh Dialog should dismiss from native outside interaction")
 
   app.unmount()
