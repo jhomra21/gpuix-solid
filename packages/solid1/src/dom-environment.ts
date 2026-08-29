@@ -1,4 +1,4 @@
-import { HostElementNode, setHostProperty, type HostNode } from "./host/nodes.js"
+import { HostElementNode, setHostProperty } from "./host/nodes.js"
 
 type CompatListener = (event: Event) => void
 
@@ -19,7 +19,10 @@ type CompatRect = {
   height: number
 }
 
-type CompatDataset = Record<string, string>
+type CompatDataset = {
+  liveAnnouncer: string | undefined
+  reactAriaTopLayer: string | undefined
+}
 
 type CompatTreeElement = HostElementNode | CompatDocumentNode
 
@@ -335,7 +338,8 @@ function createDocumentNode(
       attributes.delete(name)
     },
     contains(candidate) {
-      return candidate === node || descendantsOf(node).includes(candidate as HostElementNode)
+      if (candidate === node) return true
+      return candidate instanceof HostElementNode && descendantsOf(node).includes(candidate)
     },
     querySelectorAll(selector) {
       return queryDescendants(node, selector)
@@ -436,10 +440,12 @@ function installHostDomCompatibility(ownerDocument: CompatDocument): void {
 
   HostElementNode.prototype.closest = function closest(selector: string): HostElementNode | null {
     registerKnownRoot(this)
-    let current: HostElementNode | null = this
-    while (current) {
-      if (matchesSelector(current, selector)) return current
-      current = current.parentElement
+    if (matchesSelector(this, selector)) return this
+
+    let parent = this.parentElement
+    while (parent) {
+      if (matchesSelector(parent, selector)) return parent
+      parent = parent.parentElement
     }
     return null
   }
@@ -466,9 +472,8 @@ function registerKnownRoot(node: HostElementNode): void {
 }
 
 function childElements(node: CompatTreeElement): HostElementNode[] {
-  const children = node.children
   const elements: HostElementNode[] = []
-  for (const child of children) {
+  for (const child of node.children) {
     if (child instanceof HostElementNode) elements.push(child)
   }
   return elements
@@ -527,26 +532,18 @@ function unquote(value: string): string {
   return value
 }
 
-function datasetFromHost(node: HostElementNode): CompatDataset {
-  const dataset: CompatDataset = {}
-  for (const [name, value] of node.props) {
-    if (!name.startsWith("data-") || value === undefined || value === null) continue
-    dataset[dataAttributeKey(name.slice(5))] = String(value)
-  }
-  return dataset
+function datasetFromHost(node: HostElementNode) {
+  return {
+    liveAnnouncer: hostAttribute(node, "data-live-announcer") ?? undefined,
+    reactAriaTopLayer: hostAttribute(node, "data-react-aria-top-layer") ?? undefined,
+  } satisfies CompatDataset
 }
 
-function datasetFromAttributes(attributes: ReadonlyMap<string, string>): CompatDataset {
-  const dataset: CompatDataset = {}
-  for (const [name, value] of attributes) {
-    if (!name.startsWith("data-")) continue
-    dataset[dataAttributeKey(name.slice(5))] = value
-  }
-  return dataset
-}
-
-function dataAttributeKey(value: string): string {
-  return value.replace(/-([a-z])/g, (_match, character: string) => character.toUpperCase())
+function datasetFromAttributes(attributes: ReadonlyMap<string, string>) {
+  return {
+    liveAnnouncer: attributes.get("data-live-announcer"),
+    reactAriaTopLayer: attributes.get("data-react-aria-top-layer"),
+  } satisfies CompatDataset
 }
 
 function createCompatTreeWalker(
