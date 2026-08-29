@@ -231,6 +231,7 @@ function installComputedStyleCompatibility(): void {
     value: (element: Element, pseudoElement?: string | null) => {
       const computed = originalGetComputedStyle(element, pseudoElement)
       if (!(element instanceof HostElementNode)) return computed
+      reflectHostComputedStyle(element, computed)
       Object.defineProperty(computed, "getPropertyValue", {
         configurable: true,
         enumerable: false,
@@ -244,6 +245,25 @@ function installComputedStyleCompatibility(): void {
     writable: true,
     value: globalThis.getComputedStyle,
   })
+}
+
+function reflectHostComputedStyle(element: HostElementNode, computed: CSSStyleDeclaration): void {
+  const style: BrowserStyleDeclaration = element.style
+  if (style.display !== undefined) computed.display = style.display
+  if (style.position !== undefined) computed.position = style.position
+  if (style.overflow !== undefined) computed.overflow = style.overflow
+  if (style.overflowX !== undefined) computed.overflowX = style.overflowX
+  if (style.overflowY !== undefined) computed.overflowY = style.overflowY
+  computed.width = cssComputedValue(style.width, computed.width)
+  computed.height = cssComputedValue(style.height, computed.height)
+  computed.paddingLeft = cssComputedValue(style.paddingLeft, computed.paddingLeft)
+  computed.paddingTop = cssComputedValue(style.paddingTop, computed.paddingTop)
+  if (style.transform !== undefined) computed.transform = style.transform
+}
+
+function cssComputedValue(value: string | number | undefined, fallback: string): string {
+  if (value === undefined) return fallback
+  return typeof value === "number" ? `${value}px` : value
 }
 
 function hostComputedProperty(element: HostElementNode, name: string): string {
@@ -266,6 +286,18 @@ function hostComputedProperty(element: HostElementNode, name: string): string {
       return cssPixelValue(element.style.borderBottomWidth ?? element.style.borderWidth)
     case "border-left-width":
       return cssPixelValue(element.style.borderLeftWidth ?? element.style.borderWidth)
+    case "position":
+      return String(element.style.position ?? "static")
+    case "overflow":
+      return String(element.style.overflow ?? "visible")
+    case "overflow-x":
+      return String(element.style.overflowX ?? element.style.overflow ?? "visible")
+    case "overflow-y":
+      return String(element.style.overflowY ?? element.style.overflow ?? "visible")
+    case "width":
+      return cssComputedValue(element.style.width, "0px")
+    case "height":
+      return cssComputedValue(element.style.height, "0px")
     default:
       return ""
   }
