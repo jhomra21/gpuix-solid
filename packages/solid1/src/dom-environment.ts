@@ -14,6 +14,8 @@ type CompatEventTarget = {
   dispatchEvent?: (event: Event) => boolean
 }
 
+type CompatListenerTarget = CompatEventTarget | HostElementNode
+
 type CompatRect = {
   x: number
   y: number
@@ -159,7 +161,7 @@ type CompatWindow = CompatEventTarget & {
 
 type CompatMutationSnapshot = Map<HostElementNode, CompatTreeElement>
 
-const listeners = new WeakMap<CompatEventTarget, Map<string, Set<CompatListener>>>()
+const listeners = new WeakMap<CompatListenerTarget, Map<string, Set<CompatListener>>>()
 const knownRoots = new Set<HostElementNode>()
 const NODE_FILTER: CompatNodeFilter = {
   FILTER_ACCEPT: 1,
@@ -735,7 +737,7 @@ function supportsNativeImageSource(src: string): boolean {
   return src.startsWith("data:") || src.startsWith("file:")
 }
 
-function addCompatListener(target: CompatEventTarget, type: string, listener: CompatListener | null): void {
+function addCompatListener(target: CompatListenerTarget, type: string, listener: CompatListener | null): void {
   if (!listener) return
   let byType = listeners.get(target)
   if (!byType) {
@@ -750,12 +752,12 @@ function addCompatListener(target: CompatEventTarget, type: string, listener: Co
   entries.add(listener)
 }
 
-function removeCompatListener(target: CompatEventTarget, type: string, listener: CompatListener | null): void {
+function removeCompatListener(target: CompatListenerTarget, type: string, listener: CompatListener | null): void {
   if (!listener) return
   listeners.get(target)?.get(type)?.delete(listener)
 }
 
-function dispatchCompatEvent(target: CompatEventTarget, event: Event): boolean {
+function dispatchCompatEvent(target: CompatListenerTarget, event: Event): boolean {
   for (const listener of listeners.get(target)?.get(event.type) ?? []) listener(event)
   return !event.defaultPrevented
 }
