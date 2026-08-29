@@ -31,7 +31,7 @@ export default defineConfig({
   },
   build: {
     target: "node22",
-    ssr: "src/test.tsx",
+    ssr: "src/dialog-only-test.tsx",
     outDir: "dist/test",
     rollupOptions: { external: ["@gpuix/native"] },
   },
