@@ -79,6 +79,13 @@ if (!hasNativeTestRenderer) {
 
   r.clickTextWithinTestId("upstream-menubar", "Git")
   requireText(r.textContent("upstream-menubar"), "Commit", "light Menubar Git menu")
+  const popperAnchorTestId = "__gpuix-kobalte-popper-anchor"
+  console.log(
+    `[gpuix-solid1:popper-diagnostic] present=${String(r.hasTestId(popperAnchorTestId))}`,
+    r.hasTestId(popperAnchorTestId)
+      ? `position=${JSON.stringify(r.customPropTestId(popperAnchorTestId, "position"))} bounds=${JSON.stringify(r.boundsTestId(popperAnchorTestId))}`
+      : "",
+  )
   r.captureScreenshot("/tmp/gpuix-solid1-kobalte-light-menubar.png")
   r.clickTextWithinTestId("upstream-button", "Click me")
 
