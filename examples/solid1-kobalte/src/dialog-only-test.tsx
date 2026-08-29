@@ -115,6 +115,14 @@ if (!hasNativeTestRenderer) {
     nativePointerTarget !== nativeDialogTrigger,
     "native outside coordinates should not hit the excluded Dialog trigger",
   )
+  requireCondition(
+    document.contains(nativePointerTarget),
+    "native pointer target should belong to the active document",
+  )
+  requireCondition(
+    nativePointerTarget.closest("[data-kb-top-layer]") === null,
+    "native pointer target should not belong to a Kobalte top layer",
+  )
   await settlePresence(renderer)
   requireCondition(renderer.textContent("dialog-probe").includes("About Kobalte"), "native outside interaction should remain open before target replay")
 
