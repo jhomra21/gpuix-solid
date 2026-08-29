@@ -25,9 +25,14 @@ type CompatDocumentStyle = {
   removeProperty(name: string): string
 }
 
+type ComputedStyleWithLookup = CSSStyleDeclaration & {
+  getPropertyValue(name: string): string
+}
+
 installElementConstructorCompatibility()
 installDocumentContainmentCompatibility()
 installDocumentStyleCompatibility()
+installComputedStyleCompatibility()
 installDocumentFocusCompatibility()
 installDocumentPointerCaptureCompatibility()
 
@@ -95,11 +100,69 @@ function installDocumentStyleCompatibility(): void {
   }
 }
 
+function installComputedStyleCompatibility(): void {
+  const originalGetComputedStyle = globalThis.getComputedStyle
+  Object.defineProperty(globalThis, "getComputedStyle", {
+    configurable: true,
+    writable: true,
+    value: (element: Element, pseudoElement?: string | null) => {
+      const computed = originalGetComputedStyle(element, pseudoElement) as ComputedStyleWithLookup
+      if (!(element instanceof HostElementNode)) return computed
+      Object.defineProperty(computed, "getPropertyValue", {
+        configurable: true,
+        enumerable: false,
+        value: (name: string) => hostComputedProperty(element, name),
+      })
+      return computed
+    },
+  })
+  Object.defineProperty(globalThis.window, "getComputedStyle", {
+    configurable: true,
+    writable: true,
+    value: globalThis.getComputedStyle,
+  })
+}
+
+function hostComputedProperty(element: HostElementNode, name: string): string {
+  const custom = element.style.getPropertyValue(name)
+  if (custom) return custom
+
+  switch (name) {
+    case "background-color":
+      return String(element.style.backgroundColor ?? "")
+    case "border-top-color":
+      return String(element.style.borderTopColor ?? element.style.borderColor ?? "")
+    case "border-right-color":
+      return String(element.style.borderRightColor ?? element.style.borderColor ?? "")
+    case "border-bottom-color":
+      return String(element.style.borderBottomColor ?? element.style.borderColor ?? "")
+    case "border-left-color":
+      return String(element.style.borderLeftColor ?? element.style.borderColor ?? "")
+    case "border-top-width":
+      return cssPixelValue(element.style.borderTopWidth ?? element.style.borderWidth)
+    case "border-right-width":
+      return cssPixelValue(element.style.borderRightWidth ?? element.style.borderWidth)
+    case "border-bottom-width":
+      return cssPixelValue(element.style.borderBottomWidth ?? element.style.borderWidth)
+    case "border-left-width":
+      return cssPixelValue(element.style.borderLeftWidth ?? element.style.borderWidth)
+    default:
+      return ""
+  }
+}
+
+function cssPixelValue(value: number | undefined): string {
+  return value === undefined ? "" : `${value}px`
+}
+
 function installDocumentFocusCompatibility(): void {
   const documentTarget = globalThis.document
   let activeElement: object | null = documentTarget.body
   const originalFocus = HostElementNode.prototype.focus
   const originalBlur = HostElementNode.prototype.blur
+  const recordActiveElement = (element: object): void => {
+    activeElement = element
+  }
 
   Object.defineProperty(documentTarget, "activeElement", {
     configurable: true,
@@ -108,7 +171,7 @@ function installDocumentFocusCompatibility(): void {
   })
 
   HostElementNode.prototype.focus = function focus(): void {
-    activeElement = this
+    recordActiveElement(this)
     originalFocus.call(this)
   }
   HostElementNode.prototype.blur = function blur(): void {
