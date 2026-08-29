@@ -12,8 +12,8 @@
       "import": "./dist/index.js"
     },
     "./web": {
-      "types": "./dist/web.d.ts",
-      "import": "./dist/web.js"
+      "types": "./dist/web-entry.d.ts",
+      "import": "./dist/web-entry.js"
     },
     "./jsx-runtime": {
       "types": "./jsx-runtime.d.ts",
