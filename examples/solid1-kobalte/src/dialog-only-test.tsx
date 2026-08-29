@@ -119,8 +119,15 @@ if (!hasNativeTestRenderer) {
   requireCondition(renderer.textContent("dialog-probe").includes("About Kobalte"), "native outside interaction should remain open before target replay")
   requireCondition(layerStack.layers.length === 1, `open Dialog should still have one layer after native outside interaction, got ${layerStack.layers.length}`)
 
+  let replayOutsideEvents = 0
+  const observeReplayOutside = () => {
+    replayOutsideEvents += 1
+  }
+  nativePointerTarget.addEventListener("interactOutside.pointerDownOutside", observeReplayOutside)
   dispatchPointerDown(nativePointerTarget)
+  nativePointerTarget.removeEventListener("interactOutside.pointerDownOutside", observeReplayOutside)
   renderer.flush()
+  requireCondition(replayOutsideEvents > 0, "synthetic replay should emit Kobalte pointerDownOutside on the captured native target")
   await settlePresence(renderer)
   requireCondition(!renderer.textContent("dialog-probe").includes("About Kobalte"), "synthetic replay at native target should dismiss Dialog")
 
