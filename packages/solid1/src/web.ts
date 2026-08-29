@@ -27,7 +27,13 @@ type CompatDocumentStyle = {
   removeProperty(name: string): string
 }
 
-type BrowserStyleDeclaration = HostElementNode["style"] & {
+type BrowserInset = "top" | "right" | "bottom" | "left"
+
+type BrowserStyleDeclaration = Omit<HostElementNode["style"], BrowserInset> & {
+  top?: string | number
+  right?: string | number
+  bottom?: string | number
+  left?: string | number
   transform?: string
   zIndex?: string | number
 }
@@ -43,8 +49,6 @@ type BrowserBounds = {
   width: number
   height: number
 }
-
-type BrowserInset = "top" | "right" | "bottom" | "left"
 
 installElementConstructorCompatibility()
 installElementQueryCompatibility()
@@ -129,13 +133,12 @@ function installBrowserStyleMutationCompatibility(element: HostElementNode): voi
 
 function createBrowserStyleProxy(
   element: HostElementNode,
-  style: HostElementNode["style"],
-): HostElementNode["style"] {
-  const target = style as BrowserStyleDeclaration
-  return new Proxy(target, {
+  style: BrowserStyleDeclaration,
+): BrowserStyleDeclaration {
+  return new Proxy(style, {
     set(current, property, value, receiver) {
       const updated = Reflect.set(current, property, value, receiver)
-      if (updated && typeof property === "string") syncBrowserStyleMutation(element, current)
+      if (updated && isStringValue(property)) syncBrowserStyleMutation(element, current)
       return updated
     },
   })
@@ -145,7 +148,7 @@ function syncBrowserStyleMutation(element: HostElementNode, style: BrowserStyleD
   const root = element.root
   if (!root || !element.nativeAlive) return
 
-  const nativeStyle = { ...style } as BrowserStyleDeclaration
+  const nativeStyle = { ...style }
   const parentBounds = browserParentBounds(element)
   const translation = browserTranslation(style.transform)
   if (translation) {
@@ -179,14 +182,18 @@ function browserTranslation(transform: string | undefined): BrowserTranslation |
 }
 
 function normalizeBrowserInset(style: BrowserStyleDeclaration, property: BrowserInset, basis: number): void {
-  const value = Reflect.get(style, property)
+  const value = style[property]
   if (value === "") {
-    Reflect.set(style, property, undefined)
+    style[property] = undefined
     return
   }
-  if (typeof value !== "string") return
+  if (!isStringValue(value)) return
   const percent = value.trim().match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))%$/)
-  if (percent) Reflect.set(style, property, basis * Number(percent[1]) / 100)
+  if (percent) style[property] = basis * Number(percent[1]) / 100
+}
+
+function isStringValue<T>(value: T): value is T & string {
+  return typeof value === "string"
 }
 
 function installDocumentContainmentCompatibility(): void {
