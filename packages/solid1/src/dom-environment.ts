@@ -150,16 +150,6 @@ type CompatWindow = CompatEventTarget & {
   pageYOffset?: number
 }
 
-type CompatGlobalEnvironment = {
-  document?: CompatDocument
-  window?: CompatWindow
-  NodeFilter?: CompatNodeFilter
-  MutationObserver?: CompatMutationObserverConstructor
-  requestAnimationFrame?: CompatAnimationFrameRequest
-  cancelAnimationFrame?: CompatAnimationFrameCancel
-  getComputedStyle?: CompatGetComputedStyle
-}
-
 type CompatMutationSnapshot = Map<HostElementNode, CompatTreeElement>
 
 const listeners = new WeakMap<CompatEventTarget, Map<string, Set<CompatListener>>>()
@@ -172,23 +162,24 @@ const NODE_FILTER: CompatNodeFilter = {
 }
 let activeBody: CompatDocumentNode | undefined
 let hostDomCompatibilityInstalled = false
+let nativeDomEnvironmentInstalled = false
 
 export function installDomEventEnvironment(): void {
-  // SAFETY: this module reads and installs only the optional browser-compat fields declared by CompatGlobalEnvironment.
-  const globals = globalThis as unknown as CompatGlobalEnvironment
-  const documentTarget = globals.document ?? {}
-  const currentWindow = globals.window
-  const windowTarget: CompatWindow = currentWindow ?? {}
+  if (nativeDomEnvironmentInstalled) return
+  nativeDomEnvironmentInstalled = true
 
-  if (windowTarget.innerWidth === undefined) windowTarget.innerWidth = 800
-  if (windowTarget.innerHeight === undefined) windowTarget.innerHeight = 600
-  if (windowTarget.scrollX === undefined) windowTarget.scrollX = 0
-  if (windowTarget.scrollY === undefined) windowTarget.scrollY = 0
-  if (windowTarget.pageXOffset === undefined) windowTarget.pageXOffset = 0
-  if (windowTarget.pageYOffset === undefined) windowTarget.pageYOffset = 0
+  const documentTarget: CompatDocument = {}
+  const windowTarget: CompatWindow = {
+    innerWidth: 800,
+    innerHeight: 600,
+    scrollX: 0,
+    scrollY: 0,
+    pageXOffset: 0,
+    pageYOffset: 0,
+  }
 
-  const bodyTarget = documentTarget.body ?? createDocumentNode("body", documentTarget, windowTarget)
-  const documentElementTarget = documentTarget.documentElement ?? createDocumentNode("html", documentTarget, windowTarget)
+  const bodyTarget = createDocumentNode("body", documentTarget, windowTarget)
+  const documentElementTarget = createDocumentNode("html", documentTarget, windowTarget)
   activeBody = bodyTarget
   connectDocumentTree(bodyTarget, documentElementTarget)
   installHostDomCompatibility(documentTarget)
@@ -200,96 +191,64 @@ export function installDomEventEnvironment(): void {
   documentTarget.body = bodyTarget
   documentTarget.documentElement = documentElementTarget
   documentTarget.defaultView = windowTarget
-  documentTarget.createTreeWalker ??= createCompatTreeWalker
+  documentTarget.createTreeWalker = createCompatTreeWalker
   windowTarget.document = documentTarget
+  windowTarget.setTimeout = (callback, delay) => globalThis.setTimeout(callback, delay)
+  windowTarget.clearTimeout = (handle) => globalThis.clearTimeout(handle)
+  windowTarget.requestAnimationFrame = defaultRequestAnimationFrame
+  windowTarget.cancelAnimationFrame = (handle) => globalThis.clearTimeout(handle)
+  windowTarget.MutationObserver = CompatMutationObserver
+  windowTarget.NodeFilter = NODE_FILTER
+  windowTarget.Image = CompatImageLoader
+  windowTarget.getComputedStyle = defaultComputedStyle
+  Object.defineProperty(windowTarget, "Element", {
+    configurable: true,
+    get: () => globalThis.Element,
+  })
+  Object.defineProperty(windowTarget, "HTMLElement", {
+    configurable: true,
+    get: () => globalThis.HTMLElement,
+  })
+  Object.defineProperty(windowTarget, "Node", {
+    configurable: true,
+    get: () => globalThis.Node,
+  })
 
-  if (!windowTarget.setTimeout) {
-    windowTarget.setTimeout = (callback, delay) => globalThis.setTimeout(callback, delay)
-  }
-  if (!windowTarget.clearTimeout) {
-    windowTarget.clearTimeout = (handle) => globalThis.clearTimeout(handle)
-  }
-  if (!windowTarget.requestAnimationFrame) {
-    windowTarget.requestAnimationFrame = defaultRequestAnimationFrame
-  }
-  if (!windowTarget.cancelAnimationFrame) {
-    windowTarget.cancelAnimationFrame = (handle) => globalThis.clearTimeout(handle)
-  }
-  if (!windowTarget.MutationObserver) windowTarget.MutationObserver = CompatMutationObserver
-  if (!windowTarget.NodeFilter) windowTarget.NodeFilter = NODE_FILTER
-  if (!windowTarget.Image) windowTarget.Image = CompatImageLoader
-  if (!windowTarget.Element) {
-    Object.defineProperty(windowTarget, "Element", {
-      configurable: true,
-      get: () => globalThis.Element,
-    })
-  }
-  if (!windowTarget.HTMLElement) {
-    Object.defineProperty(windowTarget, "HTMLElement", {
-      configurable: true,
-      get: () => globalThis.HTMLElement,
-    })
-  }
-  if (!windowTarget.Node) {
-    Object.defineProperty(windowTarget, "Node", {
-      configurable: true,
-      get: () => globalThis.Node,
-    })
-  }
-
-  const getComputedStyle = globals.getComputedStyle ?? defaultComputedStyle
-  if (!globals.getComputedStyle) {
-    Object.defineProperty(globalThis, "getComputedStyle", {
-      configurable: true,
-      writable: true,
-      value: getComputedStyle,
-    })
-  }
-  if (!windowTarget.getComputedStyle) windowTarget.getComputedStyle = getComputedStyle
-
-  if (!globals.NodeFilter) {
-    Object.defineProperty(globalThis, "NodeFilter", {
-      configurable: true,
-      writable: true,
-      value: NODE_FILTER,
-    })
-  }
-  if (!globals.MutationObserver) {
-    Object.defineProperty(globalThis, "MutationObserver", {
-      configurable: true,
-      writable: true,
-      value: CompatMutationObserver,
-    })
-  }
-  if (!globals.requestAnimationFrame) {
-    Object.defineProperty(globalThis, "requestAnimationFrame", {
-      configurable: true,
-      writable: true,
-      value: defaultRequestAnimationFrame,
-    })
-  }
-  if (!globals.cancelAnimationFrame) {
-    Object.defineProperty(globalThis, "cancelAnimationFrame", {
-      configurable: true,
-      writable: true,
-      value: (handle: ReturnType<typeof globalThis.setTimeout>) => globalThis.clearTimeout(handle),
-    })
-  }
-
-  if (!globals.document) {
-    Object.defineProperty(globalThis, "document", {
-      configurable: true,
-      writable: true,
-      value: documentTarget,
-    })
-  }
-  if (!currentWindow) {
-    Object.defineProperty(globalThis, "window", {
-      configurable: true,
-      writable: true,
-      value: windowTarget,
-    })
-  }
+  Object.defineProperty(globalThis, "document", {
+    configurable: true,
+    writable: true,
+    value: documentTarget,
+  })
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    writable: true,
+    value: windowTarget,
+  })
+  Object.defineProperty(globalThis, "getComputedStyle", {
+    configurable: true,
+    writable: true,
+    value: defaultComputedStyle,
+  })
+  Object.defineProperty(globalThis, "NodeFilter", {
+    configurable: true,
+    writable: true,
+    value: NODE_FILTER,
+  })
+  Object.defineProperty(globalThis, "MutationObserver", {
+    configurable: true,
+    writable: true,
+    value: CompatMutationObserver,
+  })
+  Object.defineProperty(globalThis, "requestAnimationFrame", {
+    configurable: true,
+    writable: true,
+    value: defaultRequestAnimationFrame,
+  })
+  Object.defineProperty(globalThis, "cancelAnimationFrame", {
+    configurable: true,
+    writable: true,
+    value: (handle: ReturnType<typeof globalThis.setTimeout>) => globalThis.clearTimeout(handle),
+  })
 }
 
 function createDocumentNode(
