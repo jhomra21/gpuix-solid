@@ -46,8 +46,8 @@ export function render(code: () => JSX.Element, options: RenderOptions = {}): Re
     onEvent?.(event)
   })
   nativeRenderer.init(windowOptions)
-  // SAFETY: GPUIX 0.4+ exposes applyBatch plus the capability methods consumed by this host; the legacy per-mutation methods in NativeRenderer are never reached when applyBatch is present.
-  const renderer = nativeRenderer as unknown as NativeRenderer
+  // SAFETY: GPUIX 0.4+ and this host share the applyBatch mutation transport and all capability methods used below; legacy direct mutation members are bypassed whenever applyBatch exists.
+  const renderer = nativeRenderer as NativeRenderer
   applyDebugFrameOverlay(renderer, debugFrameOverlay)
   root = createRoot(renderer)
   root.render(code)
