@@ -97,6 +97,7 @@ export function Portal(props: { children: JSX.Element }) {
     throw new Error("Expected native anchored element for Kobalte popper")
   }
   setHostProperty(anchor, "style", { backgroundColor: "rgba(0, 0, 0, 0.001)" })
+  setHostProperty(anchor, "testId", "__gpuix-kobalte-popper-anchor")
   setHostProperty(anchor, "position", { x: 0, y: 0 })
   setHostProperty(anchor, "fit", "snap")
   setHostProperty(anchor, "snapMargin", 0)
