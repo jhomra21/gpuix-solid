@@ -107,35 +107,13 @@ function pointerCompatibleTarget(target: DomCompatTarget): DomCompatTarget & Eve
   return target as DomCompatTarget & EventTarget
 }
 
-function browserKey(key: string | undefined): string | undefined {
-  switch (key) {
-    case "enter": return "Enter"
-    case "escape": return "Escape"
-    case "space": return " "
-    case "tab": return "Tab"
-    case "backspace": return "Backspace"
-    case "delete": return "Delete"
-    case "insert": return "Insert"
-    case "home": return "Home"
-    case "end": return "End"
-    case "pageup": return "PageUp"
-    case "pagedown": return "PageDown"
-    case "up": return "ArrowUp"
-    case "down": return "ArrowDown"
-    case "left": return "ArrowLeft"
-    case "right": return "ArrowRight"
-    default: return key
-  }
-}
-
 function domCompatibleEvent(event: NativeEventPayload, target: DomCompatTarget | undefined): EventPayload {
   const x = event.x ?? 0
   const y = event.y ?? 0
   const currentTarget = pointerCompatibleTarget(target ?? fallbackTarget(event))
-  const key = browserKey(event.key)
   if (event.value !== undefined) currentTarget.value = event.value
 
-  return Object.assign({}, event, key === undefined ? {} : { key }, {
+  return Object.assign({}, event, {
     currentTarget,
     target: currentTarget,
     clientX: x,
