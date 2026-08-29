@@ -108,8 +108,9 @@ function installDocumentPointerCaptureCompatibility(): void {
         listener: EventListenerOrEventListenerObject | null,
         options?: boolean | AddEventListenerOptions,
       ) => {
+        if (!listener) return
         originalAddEventListener(type, listener, options)
-        if (type !== "pointerdown" || !listener) return
+        if (type !== "pointerdown") return
         const wasInactive = pointerDownListeners.size === 0
         pointerDownListeners.add(listener)
         if (wasInactive) syncNativePointerDownObservation(true)
@@ -122,8 +123,9 @@ function installDocumentPointerCaptureCompatibility(): void {
         listener: EventListenerOrEventListenerObject | null,
         options?: boolean | EventListenerOptions,
       ) => {
+        if (!listener) return
         originalRemoveEventListener(type, listener, options)
-        if (type !== "pointerdown" || !listener) return
+        if (type !== "pointerdown") return
         pointerDownListeners.delete(listener)
         if (pointerDownListeners.size === 0) syncNativePointerDownObservation(false)
       },
