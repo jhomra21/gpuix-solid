@@ -39,13 +39,28 @@ if (!hasNativeTestRenderer) {
   requireText(renderer.textContent("dialog-probe"), "About Kobalte", "fresh Dialog open")
   await settle(renderer)
 
+  const dialogContent = document.body.querySelectorAll('[role="dialog"]')[0]
+  if (!(dialogContent instanceof HTMLElement)) throw new Error("Expected HTMLElement-compatible Dialog content")
+
+  let firstPointerTarget: Element | null = null
+  const captureTarget = (event: Event) => {
+    if (!firstPointerTarget && event.target instanceof Element) firstPointerTarget = event.target
+  }
+  document.addEventListener("pointerdown", captureTarget, true)
+
   renderer.clickTestId("dialog-probe-outside")
   await settle(renderer)
+  document.removeEventListener("pointerdown", captureTarget, true)
 
-  requireCondition(
-    !renderer.textContent("dialog-probe").includes("About Kobalte"),
-    "first native outside interaction should dismiss a freshly mounted Dialog",
-  )
+  if (renderer.textContent("dialog-probe").includes("About Kobalte")) {
+    const target = firstPointerTarget
+    const label = target
+      ? `${target.localName}#${target.getAttribute("id") ?? ""}[role=${target.getAttribute("role") ?? ""}]`
+      : "none"
+    throw new Error(
+      `first native outside interaction should dismiss a freshly mounted Dialog; firstTarget=${label}; insideDialog=${target ? dialogContent.contains(target) : false}`,
+    )
+  }
 
   app.unmount()
   console.log("solid1 fresh native Dialog probe: passed")
