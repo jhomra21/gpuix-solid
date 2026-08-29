@@ -111,6 +111,7 @@ function promoteNativePopperPositioner(element: HostElementNode): void {
     value: "anchored",
   })
   nativePopperPositioners.add(element)
+  setHostProperty(element, "testId", "__gpuix-kobalte-popper-positioner")
   setHostProperty(element, "position", { x: 0, y: 0 })
   setHostProperty(element, "fit", "snap")
   setHostProperty(element, "snapMargin", 0)
