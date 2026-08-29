@@ -179,8 +179,13 @@ function syncBrowserStyleMutation(element: HostElementNode, style: BrowserStyleD
   const parentBounds = browserParentBounds(element)
   const translation = browserTranslation(style.transform)
   const popperAnchor = popperAnchors.get(element)
-  if (translation && popperAnchor) {
-    setHostProperty(popperAnchor, "position", translation)
+  if (popperAnchor) {
+    if (translation) setHostProperty(popperAnchor, "position", translation)
+    delete nativeStyle.position
+    delete nativeStyle.left
+    delete nativeStyle.right
+    delete nativeStyle.top
+    delete nativeStyle.bottom
   } else if (translation) {
     nativeStyle.left = translation.x - parentBounds.left
     nativeStyle.top = translation.y - parentBounds.top
