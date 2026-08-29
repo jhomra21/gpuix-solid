@@ -417,7 +417,9 @@ function installHostDomCompatibility(ownerDocument: CompatDocument): void {
       configurable: true,
       get(this: HostElementNode): number {
         const value = this.props.get("tabIndex")
-        return typeof value === "number" ? value : -1
+        if (value === undefined || value === null) return -1
+        const parsed = Number(value)
+        return Number.isFinite(parsed) ? parsed : -1
       },
       set(this: HostElementNode, value: number): void {
         setHostProperty(this, "tabIndex", value)
