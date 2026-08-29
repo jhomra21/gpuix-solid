@@ -36,7 +36,7 @@ export function render(code: () => JSX.Element, options: RenderOptions = {}): Re
   }
 
   let root: Root | undefined
-  const nativeRenderer = new GpuixRenderer((error, event) => {
+  const renderer = new GpuixRenderer((error, event) => {
     if (error) {
       console.error("[gpuix-solid1] native event error", error)
       return
@@ -45,9 +45,7 @@ export function render(code: () => JSX.Element, options: RenderOptions = {}): Re
     root?.dispatch(event)
     onEvent?.(event)
   })
-  nativeRenderer.init(windowOptions)
-  // SAFETY: GPUIX 0.4+ and this host share the applyBatch mutation transport and all capability methods used below; legacy direct mutation members are bypassed whenever applyBatch exists.
-  const renderer = nativeRenderer as NativeRenderer
+  renderer.init(windowOptions)
   applyDebugFrameOverlay(renderer, debugFrameOverlay)
   root = createRoot(renderer)
   root.render(code)
