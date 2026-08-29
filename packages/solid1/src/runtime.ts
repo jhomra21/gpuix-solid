@@ -1,5 +1,6 @@
 import { GpuixRenderer, type EventPayload, type WindowOptions } from "@gpuix/native"
 import type { JSX } from "solid-js"
+import { adaptBatchRenderer } from "./batch-renderer-adapter.js"
 import { applyDebugFrameOverlay } from "./capabilities.js"
 import { startFrameLoop, type FrameLoop } from "./frame-loop.js"
 import { useDestroyUnlinksParentBatch } from "./host/mutations.js"
@@ -37,7 +38,7 @@ export function render(code: () => JSX.Element, options: RenderOptions = {}): Re
   }
 
   let root: Root | undefined
-  const renderer = new GpuixRenderer((error, event) => {
+  const nativeRenderer = new GpuixRenderer((error, event) => {
     if (error) {
       console.error("[gpuix-solid1] native event error", error)
       return
@@ -46,12 +47,13 @@ export function render(code: () => JSX.Element, options: RenderOptions = {}): Re
     root?.dispatch(event)
     onEvent?.(event)
   })
-  renderer.init(windowOptions)
+  nativeRenderer.init(windowOptions)
+  const renderer = adaptBatchRenderer(nativeRenderer)
   useDestroyUnlinksParentBatch(renderer)
   applyDebugFrameOverlay(renderer, debugFrameOverlay)
   root = createRoot(renderer)
   root.render(code)
-  const loop = startFrameLoop(renderer, {
+  const loop = startFrameLoop(nativeRenderer, {
     onTerminated() {
       process.exitCode = 0
     },
