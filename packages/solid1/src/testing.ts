@@ -153,6 +153,13 @@ export class TestRenderer {
     return this.boundsNode(node, `${testId} text ${JSON.stringify(text)}`)
   }
 
+  boundsFirstTypeWithinTestId(testId: string, type: string): TestBounds {
+    const parent = this.requireTestId(testId)
+    const node = findFirstNodeOfType(parent, type)
+    if (!node) throw new Error(`Expected <${type}> inside ${testId}`)
+    return this.boundsNode(node, `${testId} <${type}>`)
+  }
+
   styleTextWithinTestId(testId: string, text: string): StyleDesc {
     const parent = this.requireTestId(testId)
     const node = findElementByExactText(parent, text)
