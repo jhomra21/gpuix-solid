@@ -136,7 +136,9 @@ if (!hasNativeTestRenderer) {
   if (!pointerOpenedContextSubmenu) {
     const contextWrapper = document.body.querySelectorAll('[testId="upstream-context"]')[0]
     const contextSubTrigger = contextWrapper?.querySelectorAll('[aria-haspopup="true"]')[0]
-    requireCondition(contextSubTrigger instanceof HTMLElement, "ContextMenu submenu trigger should exist in host DOM")
+    if (!(contextSubTrigger instanceof HTMLElement)) {
+      throw new Error("ContextMenu submenu trigger should exist in host DOM")
+    }
     contextSubTrigger.setAttribute("testId", "context-submenu-trigger")
     r.flush()
     r.pressKeyTestId("context-submenu-trigger", "enter")
