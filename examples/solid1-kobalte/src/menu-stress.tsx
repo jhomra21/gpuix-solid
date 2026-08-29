@@ -1,5 +1,6 @@
 import { createTestRoot, hasNativeTestRenderer } from "@jhomra21/gpuix-solid1"
 import { UpstreamKobalteShowcase } from "./upstream-app"
+import { CheckIcon, ChevronRightIcon } from "./upstream/kobalte/components"
 
 function requireCondition(condition: boolean, message: string): void {
   if (!condition) throw new Error(message)
@@ -63,6 +64,23 @@ if (hasNativeTestRenderer) {
     "Menubar should close after clicking a non-interactive outside region",
   )
 
+  app.render(() => (
+    <div>
+      <CheckIcon testId="svg-viewbox-probe" />
+      <ChevronRightIcon testId="svg-explicit-probe" width={20} height={20} />
+    </div>
+  ))
+  const viewBoxBounds = r.boundsTestId("svg-viewbox-probe")
+  requireCondition(
+    viewBoxBounds.width > 0 && viewBoxBounds.height > 0,
+    `Unsized upstream SVG should have native bounds, got ${JSON.stringify(viewBoxBounds)}`,
+  )
+  const explicitBounds = r.boundsTestId("svg-explicit-probe")
+  requireCondition(
+    explicitBounds.width === 20 && explicitBounds.height === 20,
+    `Explicit upstream SVG should preserve 20x20 native bounds, got ${JSON.stringify(explicitBounds)}`,
+  )
+
   app.unmount()
-  console.log("solid1 Kobalte menubar switch stress: passed")
+  console.log("solid1 Kobalte menubar switch and SVG stress: passed")
 }
