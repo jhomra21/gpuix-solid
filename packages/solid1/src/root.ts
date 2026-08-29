@@ -7,6 +7,7 @@ import { EventRegistry } from "./host/events.js"
 import { MutationDriver } from "./host/mutations.js"
 import { HostRootNode, removeHostNode } from "./host/nodes.js"
 import type { DimensionValue, NativeRenderer } from "./host/types.js"
+import { syncNativeSvgLayoutCompatibility } from "./svg-layout-compat.js"
 import { universalRender } from "./universal.js"
 
 export interface Root {
@@ -40,7 +41,10 @@ export function createRoot(renderer: NativeRenderer): Root {
   const container = new HostRootNode(renderer, events, driver)
   let dispose: (() => void) | undefined
 
-  const flushNative = (): void => driver.flush()
+  const flushNative = (): void => {
+    syncNativeSvgLayoutCompatibility(container)
+    driver.flush()
+  }
   const getViewportSize = (): ViewportSize => {
     const nativeSize = renderer.getWindowSize?.()
     const mounted = container.children[0]
