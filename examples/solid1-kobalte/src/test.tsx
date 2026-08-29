@@ -19,11 +19,28 @@ async function settleEffects(flush: () => void): Promise<void> {
   flush()
 }
 
+async function waitForCondition(
+  label: string,
+  condition: () => boolean,
+  flush: () => void,
+): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    flush()
+    if (condition()) return
+    await wait(10)
+  }
+  throw new Error(`Timed out waiting for ${label}`)
+}
+
 if (!hasNativeTestRenderer) {
   console.log("solid1 upstream Kobalte fixture: native TestGpuixRenderer unavailable; skipped")
 } else {
   const app = createTestRoot()
   const r = app.renderer
+  const flushNative = (): void => {
+    app.root.flush()
+    r.flush()
+  }
   app.render(() => <UpstreamKobalteShowcase />)
 
   for (const testId of [
@@ -79,23 +96,47 @@ if (!hasNativeTestRenderer) {
 
   r.clickTextWithinTestId("upstream-menubar", "Git")
   requireText(r.textContent("upstream-menubar"), "Commit", "light Menubar Git menu")
-  await wait(200)
-  app.root.flush()
-  r.flush()
-  const popperPositionerTestId = "__gpuix-kobalte-popper-positioner"
-  console.log(
-    `[gpuix-solid1:popper-diagnostic] present=${String(r.hasTestId(popperPositionerTestId))}`,
-    r.hasTestId(popperPositionerTestId)
-      ? `position=${JSON.stringify(r.customPropTestId(popperPositionerTestId, "position"))} bounds=${JSON.stringify(r.boundsTestId(popperPositionerTestId))}`
-      : "",
+  await waitForCondition(
+    "Menubar popup placement",
+    () => {
+      const popup = r.boundsTextWithinTestId("upstream-menubar", "Commit")
+      return Math.abs(popup.x - lightMenubarBounds.x) < 80
+        && popup.y >= lightMenubarBounds.y + lightMenubarBounds.height - 4
+    },
+    flushNative,
+  )
+  const lightMenubarPopupBounds = r.boundsTextWithinTestId("upstream-menubar", "Commit")
+  requireCondition(
+    Math.abs(lightMenubarPopupBounds.x - lightMenubarBounds.x) < 80,
+    `Menubar popup should align with Git trigger: trigger x=${lightMenubarBounds.x}, popup x=${lightMenubarPopupBounds.x}`,
+  )
+  requireCondition(
+    lightMenubarPopupBounds.y >= lightMenubarBounds.y + lightMenubarBounds.height - 4,
+    `Menubar popup should render below Git trigger: trigger bottom=${lightMenubarBounds.y + lightMenubarBounds.height}, popup y=${lightMenubarPopupBounds.y}`,
   )
   r.captureScreenshot("/tmp/gpuix-solid1-kobalte-light-menubar.png")
   r.clickTextWithinTestId("upstream-button", "Click me")
+  await settleEffects(flushNative)
 
   r.rightClickTextWithinTestId("upstream-context", "Right click here.")
   requireText(r.textContent("upstream-context"), "Commit", "light ContextMenu")
+  const contextCenterX = contextBounds.x + contextBounds.width / 2
+  await waitForCondition(
+    "ContextMenu popup placement",
+    () => {
+      const popup = r.boundsTextWithinTestId("upstream-context", "Commit")
+      return Math.abs(popup.x - contextCenterX) < 80 && popup.y >= contextBounds.y
+    },
+    flushNative,
+  )
+  const lightContextPopupBounds = r.boundsTextWithinTestId("upstream-context", "Commit")
+  requireCondition(
+    Math.abs(lightContextPopupBounds.x - contextCenterX) < 80,
+    `ContextMenu popup should align with the right-click point: target center x=${contextCenterX}, popup x=${lightContextPopupBounds.x}`,
+  )
   r.captureScreenshot("/tmp/gpuix-solid1-kobalte-light-context.png")
   r.clickTextWithinTestId("upstream-button", "Click me")
+  await settleEffects(flushNative)
 
   r.clickTextWithinTestId("upstream-dialog", "Open")
   requireText(r.textContent("upstream-dialog"), "About Kobalte", "light Dialog open")
@@ -129,23 +170,21 @@ if (!hasNativeTestRenderer) {
   requireText(r.textContent("upstream-dropdown"), "Commit", "Dropdown checkbox keeps menu open")
   r.hoverTextWithinTestId("upstream-dropdown", "GitHub")
   await wait(150)
-  app.root.flush()
-  r.flush()
+  flushNative()
   requireText(r.textContent("upstream-dropdown"), "Create Pull Request…", "Dropdown submenu hover")
   r.clickTextWithinTestId("upstream-button", "Click me")
-  await settleEffects(() => r.flush())
+  await settleEffects(flushNative)
 
   r.clickTextWithinTestId("upstream-context", "Right click here.")
   requireCondition(!r.textContent("upstream-context").includes("Commit"), "ContextMenu should ignore left click")
-  await settleEffects(() => r.flush())
+  await settleEffects(flushNative)
   r.rightClickTextWithinTestId("upstream-context", "Right click here.")
   requireText(r.textContent("upstream-context"), "Commit", "ContextMenu right click")
   r.clickTextWithinTestId("upstream-context", "Show Git Log")
   requireText(r.textContent("upstream-context"), "Commit", "ContextMenu checkbox keeps menu open")
   r.hoverTextWithinTestId("upstream-context", "GitHub")
   await wait(150)
-  app.root.flush()
-  r.flush()
+  flushNative()
   requireText(r.textContent("upstream-context"), "Create Pull Request…", "ContextMenu submenu hover")
   r.clickTextWithinTestId("upstream-button", "Click me")
 
