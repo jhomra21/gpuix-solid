@@ -106,28 +106,18 @@ if (!hasNativeTestRenderer) {
 
   const nativePointerTarget = nativePointerTargets[0]
   if (!nativePointerTarget) throw new Error("native outside interaction should dispatch a document pointerdown target")
-  requireCondition(
-    !nativeDialogContent.contains(nativePointerTarget),
-    "native outside coordinates should hit outside Dialog content",
-  )
-  requireCondition(
-    !nativeDialogTrigger.contains(nativePointerTarget),
-    "native outside coordinates should not hit inside the excluded Dialog trigger subtree",
-  )
-  requireCondition(
-    outside === nativePointerTarget || outside.contains(nativePointerTarget),
-    "native outside coordinates should resolve inside the requested outside test target",
-  )
-  requireCondition(
-    document.contains(nativePointerTarget),
-    "native pointer target should belong to the active document",
-  )
-  requireCondition(
-    nativePointerTarget.closest("[data-kb-top-layer]") === null,
-    "native pointer target should not belong to a Kobalte top layer",
-  )
+  requireCondition(!nativeDialogContent.contains(nativePointerTarget), "native outside coordinates should hit outside Dialog content")
+  requireCondition(!nativeDialogTrigger.contains(nativePointerTarget), "native outside coordinates should not hit inside the excluded Dialog trigger subtree")
+  requireCondition(outside === nativePointerTarget || outside.contains(nativePointerTarget), "native outside coordinates should resolve inside the requested outside test target")
+  requireCondition(document.contains(nativePointerTarget), "native pointer target should belong to the active document")
+  requireCondition(nativePointerTarget.closest("[data-kb-top-layer]") === null, "native pointer target should not belong to a Kobalte top layer")
+  requireCondition(layerStack.layers.length === 1, `native outside click should leave one present Dialog layer before presence settles, got ${layerStack.layers.length}`)
+  requireCondition(layerStack.layers[0]?.node === nativeDialogContent, "native outside click should retain the same present Dialog layer before presence settles")
+  requireCondition(layerStack.isTopMostLayer(nativeDialogContent), "native outside click should leave Dialog layer topmost before presence settles")
+
   await settlePresence(renderer)
   requireCondition(renderer.textContent("dialog-probe").includes("About Kobalte"), "native outside interaction should remain open before target replay")
+  requireCondition(layerStack.layers.length === 1, `open Dialog should still have one layer after native outside interaction, got ${layerStack.layers.length}`)
 
   dispatchPointerDown(nativePointerTarget)
   renderer.flush()
