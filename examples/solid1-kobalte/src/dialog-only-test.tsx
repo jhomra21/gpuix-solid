@@ -28,6 +28,12 @@ function dispatchPointerDown(target: Element): void {
   document.dispatchEvent(event)
 }
 
+async function settleDialog(renderer: { flush(): void }): Promise<void> {
+  await wait(0)
+  await wait(0)
+  renderer.flush()
+}
+
 if (!hasNativeTestRenderer) {
   console.log("solid1 dialog-only Kobalte probe: native TestGpuixRenderer unavailable; skipped")
 } else {
@@ -42,9 +48,7 @@ if (!hasNativeTestRenderer) {
 
   renderer.clickTextWithinTestId("dialog-probe", "Open")
   requireText(renderer.textContent("dialog-probe"), "About Kobalte", "dialog-only open")
-  await wait(0)
-  await wait(0)
-  renderer.flush()
+  await settleDialog(renderer)
 
   const outside = document.body.querySelectorAll('[id="dialog-probe-outside"]')[0]
   if (!outside) throw new Error("Expected dialog-only outside target")
@@ -62,15 +66,23 @@ if (!hasNativeTestRenderer) {
   requireCondition(layerStack.isTopMostLayer(dialogContent), "fresh Dialog content should be topmost")
   requireCondition(!layerStack.isBelowPointerBlockingLayer(dialogContent), "fresh Dialog content should not be below pointer blocker")
 
+  const dismiss = layerStack.layers[0]?.dismiss
+  requireCondition(Boolean(dismiss), "fresh Dialog layer should expose its dismiss callback")
+  dismiss?.()
+  renderer.flush()
+  requireCondition(!renderer.textContent("dialog-probe").includes("About Kobalte"), "registered layer dismiss callback should close Dialog")
+
+  renderer.clickTextWithinTestId("dialog-probe", "Open")
+  requireText(renderer.textContent("dialog-probe"), "About Kobalte", "dialog reopened for browser-like interaction")
+  await settleDialog(renderer)
+
   dispatchPointerDown(outside)
   renderer.flush()
   requireCondition(!renderer.textContent("dialog-probe").includes("About Kobalte"), "fresh Dialog should dismiss from browser-like outside pointerdown")
 
   renderer.clickTextWithinTestId("dialog-probe", "Open")
   requireText(renderer.textContent("dialog-probe"), "About Kobalte", "dialog-only native reopen")
-  await wait(0)
-  await wait(0)
-  renderer.flush()
+  await settleDialog(renderer)
   renderer.clickTestId("dialog-probe-outside")
   requireCondition(!renderer.textContent("dialog-probe").includes("About Kobalte"), "fresh Dialog should dismiss from native outside interaction")
 
