@@ -79,6 +79,9 @@ if (!hasNativeTestRenderer) {
 
   r.clickTextWithinTestId("upstream-menubar", "Git")
   requireText(r.textContent("upstream-menubar"), "Commit", "light Menubar Git menu")
+  await wait(200)
+  app.root.flush()
+  r.flush()
   const popperPositionerTestId = "__gpuix-kobalte-popper-positioner"
   console.log(
     `[gpuix-solid1:popper-diagnostic] present=${String(r.hasTestId(popperPositionerTestId))}`,
