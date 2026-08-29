@@ -7,7 +7,7 @@ const root = path.dirname(fileURLToPath(import.meta.url))
 const solid1Package = /^@jhomra21\/gpuix-solid1(?:\/.*)?$/
 const kobalteCore = /^@kobalte\/core\/(.+)$/
 const kobalteSourceRoot = path.resolve(root, "node_modules/@kobalte/core/src")
-const solidWebCompat = path.resolve(root, "../../packages/solid1/dist/web.js")
+const solidWebCompat = path.resolve(root, "../../packages/solid1/dist/web-entry.js")
 
 function scopedClass(name: string, filename: string): string {
   const moduleName = path.basename(filename).replace(/\.module\.css$/, "").replace(/[^A-Za-z0-9_-]/g, "_")
