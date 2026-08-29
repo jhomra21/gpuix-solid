@@ -66,16 +66,16 @@ if (hasNativeTestRenderer) {
 
   app.render(() => (
     <div>
-      <CheckIcon testId="svg-viewbox-probe" />
-      <ChevronRightIcon testId="svg-explicit-probe" width={20} height={20} />
+      <div testId="svg-viewbox-probe"><CheckIcon /></div>
+      <div testId="svg-explicit-probe"><ChevronRightIcon width={20} height={20} /></div>
     </div>
   ))
-  const viewBoxBounds = r.boundsTestId("svg-viewbox-probe")
+  const viewBoxBounds = r.boundsFirstTypeWithinTestId("svg-viewbox-probe", "svg")
   requireCondition(
     viewBoxBounds.width > 0 && viewBoxBounds.height > 0,
     `Unsized upstream SVG should have native bounds, got ${JSON.stringify(viewBoxBounds)}`,
   )
-  const explicitBounds = r.boundsTestId("svg-explicit-probe")
+  const explicitBounds = r.boundsFirstTypeWithinTestId("svg-explicit-probe", "svg")
   requireCondition(
     explicitBounds.width === 20 && explicitBounds.height === 20,
     `Explicit upstream SVG should preserve 20x20 native bounds, got ${JSON.stringify(explicitBounds)}`,
