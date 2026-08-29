@@ -1,5 +1,6 @@
 import type { EventPayload } from "@gpuix/native"
 import type { JSX } from "solid-js"
+import { installBrowserElementIdentity } from "./browser-element-identity.js"
 import { GpuixContext, type ViewportSize } from "./context.js"
 import { EventRegistry } from "./host/events.js"
 import { MutationDriver } from "./host/mutations.js"
@@ -31,6 +32,7 @@ function elementBounds(renderer: NativeRenderer, elementId: number): number[] | 
 }
 
 export function createRoot(renderer: NativeRenderer): Root {
+  installBrowserElementIdentity()
   const events = new EventRegistry()
   const driver = new MutationDriver(renderer, events)
   const container = new HostRootNode(renderer, events, driver)
