@@ -6,9 +6,35 @@ type CompatEventTarget = {
   dispatchEvent?: (event: Event) => boolean
 }
 
+type CompatRect = {
+  x: number
+  y: number
+  left: number
+  top: number
+  right: number
+  bottom: number
+  width: number
+  height: number
+}
+
 type CompatDocument = CompatEventTarget & {
-  body?: CompatEventTarget
+  body?: CompatDocumentNode
+  documentElement?: CompatDocumentNode
   defaultView?: CompatWindow
+}
+
+type CompatDocumentNode = CompatEventTarget & {
+  ownerDocument: CompatDocument
+  nodeName: string
+  tagName: string
+  localName: string
+  clientWidth: number
+  clientHeight: number
+  clientLeft: number
+  clientTop: number
+  scrollLeft: number
+  scrollTop: number
+  getBoundingClientRect(): CompatRect
 }
 
 type CompatImage = {
@@ -37,6 +63,12 @@ type CompatWindow = CompatEventTarget & {
   HTMLElement?: typeof HTMLElement
   Node?: typeof Node
   getComputedStyle?: CompatGetComputedStyle
+  innerWidth?: number
+  innerHeight?: number
+  scrollX?: number
+  scrollY?: number
+  pageXOffset?: number
+  pageYOffset?: number
 }
 
 type CompatGlobalEnvironment = {
@@ -51,14 +83,25 @@ export function installDomEventEnvironment(): void {
   // SAFETY: this module reads and installs only the optional browser-compat fields declared by CompatGlobalEnvironment.
   const globals = globalThis as CompatGlobalEnvironment
   const documentTarget = globals.document ?? {}
-  const bodyTarget = documentTarget.body ?? {}
   const currentWindow = globals.window
   const windowTarget: CompatWindow = currentWindow ?? {}
 
+  if (windowTarget.innerWidth === undefined) windowTarget.innerWidth = 800
+  if (windowTarget.innerHeight === undefined) windowTarget.innerHeight = 600
+  if (windowTarget.scrollX === undefined) windowTarget.scrollX = 0
+  if (windowTarget.scrollY === undefined) windowTarget.scrollY = 0
+  if (windowTarget.pageXOffset === undefined) windowTarget.pageXOffset = 0
+  if (windowTarget.pageYOffset === undefined) windowTarget.pageYOffset = 0
+
+  const bodyTarget = documentTarget.body ?? createDocumentNode("body", documentTarget, windowTarget)
+  const documentElementTarget = documentTarget.documentElement ?? createDocumentNode("html", documentTarget, windowTarget)
+
   installEventTarget(documentTarget)
   installEventTarget(bodyTarget)
+  installEventTarget(documentElementTarget)
   installEventTarget(windowTarget)
   documentTarget.body = bodyTarget
+  documentTarget.documentElement = documentElementTarget
   documentTarget.defaultView = windowTarget
 
   if (!windowTarget.setTimeout) {
@@ -114,6 +157,44 @@ export function installDomEventEnvironment(): void {
       writable: true,
       value: windowTarget,
     })
+  }
+}
+
+function createDocumentNode(
+  tagName: "html" | "body",
+  ownerDocument: CompatDocument,
+  windowTarget: CompatWindow,
+): CompatDocumentNode {
+  const upperTagName = tagName.toUpperCase()
+  return {
+    ownerDocument,
+    nodeName: upperTagName,
+    tagName: upperTagName,
+    localName: tagName,
+    get clientWidth() {
+      return windowTarget.innerWidth ?? 800
+    },
+    get clientHeight() {
+      return windowTarget.innerHeight ?? 600
+    },
+    clientLeft: 0,
+    clientTop: 0,
+    scrollLeft: 0,
+    scrollTop: 0,
+    getBoundingClientRect() {
+      const width = windowTarget.innerWidth ?? 800
+      const height = windowTarget.innerHeight ?? 600
+      return {
+        x: 0,
+        y: 0,
+        left: 0,
+        top: 0,
+        right: width,
+        bottom: height,
+        width,
+        height,
+      }
+    },
   }
 }
 
