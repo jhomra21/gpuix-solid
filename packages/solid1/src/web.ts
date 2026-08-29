@@ -76,6 +76,7 @@ function installDocumentContainmentCompatibility(): void {
     enumerable: true,
     value: (node: Node | null) => {
       if (node === globalThis.document.body || node === globalThis.document.documentElement) return true
+      if (node instanceof HostElementNode) return node.nativeAlive && node.root !== null
       return globalThis.document.body.contains(node)
     },
   })
