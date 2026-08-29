@@ -55,10 +55,13 @@ if (hasNativeTestRenderer) {
     requireMenuState(r.textContent("upstream-menubar"), "Commit", ["New Tab", "Undo"], `cycle ${cycle} Git click`)
   }
 
-  r.clickTextWithinTestId("upstream-button", "Click me")
+  r.clickTestId("upstream-separator")
   await settle()
   const closed = r.textContent("upstream-menubar")
-  requireCondition(!closed.includes("Commit") && !closed.includes("New Tab") && !closed.includes("Undo"), "Menubar should close after an outside element click")
+  requireCondition(
+    !closed.includes("Commit") && !closed.includes("New Tab") && !closed.includes("Undo"),
+    "Menubar should close after clicking a non-interactive outside region",
+  )
 
   app.unmount()
   console.log("solid1 Kobalte menubar switch stress: passed")
