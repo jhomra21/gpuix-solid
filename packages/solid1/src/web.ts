@@ -67,6 +67,9 @@ export function createDynamic<T extends ValidComponent>(
   if (current === undefined) return undefined
   if (isHostTag(current)) {
     const element = createElement(current)
+    if (!(element instanceof HostElementNode)) {
+      throw new Error(`Expected host element for <${current}>`)
+    }
     installBrowserStyleMutationCompatibility(element)
     installSemanticTagMetadata(element, current)
     spread(element, props)
@@ -184,7 +187,7 @@ function browserTranslation(transform: string | undefined): BrowserTranslation |
 function normalizeBrowserInset(style: BrowserStyleDeclaration, property: BrowserInset, basis: number): void {
   const value = style[property]
   if (value === "") {
-    style[property] = undefined
+    delete style[property]
     return
   }
   if (!isStringValue(value)) return
