@@ -1,3 +1,5 @@
+import { HostElementNode, setHostProperty, type HostNode } from "./host/nodes.js"
+
 type CompatListener = (event: Event) => void
 
 type CompatEventTarget = {
@@ -17,10 +19,27 @@ type CompatRect = {
   height: number
 }
 
+type CompatDataset = Record<string, string>
+
+type CompatTreeElement = HostElementNode | CompatDocumentNode
+
+type CompatTreeWalkerFilter = {
+  acceptNode(node: HostElementNode): number
+}
+
+type CompatTreeWalker = {
+  nextNode(): HostElementNode | null
+}
+
 type CompatDocument = CompatEventTarget & {
   body?: CompatDocumentNode
   documentElement?: CompatDocumentNode
   defaultView?: CompatWindow
+  createTreeWalker?: (
+    root: CompatTreeElement,
+    whatToShow: number,
+    filter: CompatTreeWalkerFilter,
+  ) => CompatTreeWalker
 }
 
 type CompatDocumentNode = CompatEventTarget & {
@@ -28,6 +47,9 @@ type CompatDocumentNode = CompatEventTarget & {
   nodeName: string
   tagName: string
   localName: string
+  parentElement: CompatDocumentNode | null
+  readonly children: readonly CompatTreeElement[]
+  readonly dataset: CompatDataset
   clientWidth: number
   clientHeight: number
   clientLeft: number
@@ -36,6 +58,11 @@ type CompatDocumentNode = CompatEventTarget & {
   scrollHeight: number
   scrollLeft: number
   scrollTop: number
+  getAttribute(name: string): string | null
+  setAttribute(name: string, value: string): void
+  removeAttribute(name: string): void
+  contains(node: CompatTreeElement): boolean
+  querySelectorAll(selector: string): HostElementNode[]
   getBoundingClientRect(): CompatRect
 }
 
@@ -73,10 +100,40 @@ type CompatComputedStyle = {
 
 type CompatGetComputedStyle = (element: Element, pseudoElement?: string | null) => CompatComputedStyle
 
+type CompatNodeFilter = {
+  readonly FILTER_ACCEPT: 1
+  readonly FILTER_REJECT: 2
+  readonly FILTER_SKIP: 3
+  readonly SHOW_ELEMENT: 1
+}
+
+type CompatMutationRecord = {
+  type: "childList"
+  target: CompatTreeElement
+  addedNodes: HostElementNode[]
+  removedNodes: HostElementNode[]
+}
+
+type CompatMutationCallback = (records: CompatMutationRecord[]) => void
+
+type CompatMutationObserverConstructor = new (callback: CompatMutationCallback) => CompatMutationObserver
+
+type CompatMutationObserverOptions = {
+  childList?: boolean
+  subtree?: boolean
+}
+
+type CompatAnimationFrameRequest = (callback: (time: number) => void) => ReturnType<typeof globalThis.setTimeout>
+type CompatAnimationFrameCancel = (handle: ReturnType<typeof globalThis.setTimeout>) => void
+
 type CompatWindow = CompatEventTarget & {
   document?: CompatDocument
   setTimeout?: (callback: () => void, delay?: number) => ReturnType<typeof globalThis.setTimeout>
   clearTimeout?: (handle: ReturnType<typeof globalThis.setTimeout>) => void
+  requestAnimationFrame?: CompatAnimationFrameRequest
+  cancelAnimationFrame?: CompatAnimationFrameCancel
+  MutationObserver?: CompatMutationObserverConstructor
+  NodeFilter?: CompatNodeFilter
   Image?: CompatImageConstructor
   Element?: typeof Element
   HTMLElement?: typeof HTMLElement
@@ -93,10 +150,25 @@ type CompatWindow = CompatEventTarget & {
 type CompatGlobalEnvironment = {
   document?: CompatDocument
   window?: CompatWindow
+  NodeFilter?: CompatNodeFilter
+  MutationObserver?: CompatMutationObserverConstructor
+  requestAnimationFrame?: CompatAnimationFrameRequest
+  cancelAnimationFrame?: CompatAnimationFrameCancel
   getComputedStyle?: CompatGetComputedStyle
 }
 
+type CompatMutationSnapshot = Map<HostElementNode, CompatTreeElement>
+
 const listeners = new WeakMap<CompatEventTarget, Map<string, Set<CompatListener>>>()
+const knownRoots = new Set<HostElementNode>()
+const NODE_FILTER: CompatNodeFilter = {
+  FILTER_ACCEPT: 1,
+  FILTER_REJECT: 2,
+  FILTER_SKIP: 3,
+  SHOW_ELEMENT: 1,
+}
+let activeBody: CompatDocumentNode | undefined
+let hostDomCompatibilityInstalled = false
 
 export function installDomEventEnvironment(): void {
   // SAFETY: this module reads and installs only the optional browser-compat fields declared by CompatGlobalEnvironment.
@@ -114,6 +186,9 @@ export function installDomEventEnvironment(): void {
 
   const bodyTarget = documentTarget.body ?? createDocumentNode("body", documentTarget, windowTarget)
   const documentElementTarget = documentTarget.documentElement ?? createDocumentNode("html", documentTarget, windowTarget)
+  activeBody = bodyTarget
+  connectDocumentTree(bodyTarget, documentElementTarget)
+  installHostDomCompatibility(documentTarget)
 
   installEventTarget(documentTarget)
   installEventTarget(bodyTarget)
@@ -122,6 +197,7 @@ export function installDomEventEnvironment(): void {
   documentTarget.body = bodyTarget
   documentTarget.documentElement = documentElementTarget
   documentTarget.defaultView = windowTarget
+  documentTarget.createTreeWalker ??= createCompatTreeWalker
   windowTarget.document = documentTarget
 
   if (!windowTarget.setTimeout) {
@@ -130,9 +206,15 @@ export function installDomEventEnvironment(): void {
   if (!windowTarget.clearTimeout) {
     windowTarget.clearTimeout = (handle) => globalThis.clearTimeout(handle)
   }
-  if (!windowTarget.Image) {
-    windowTarget.Image = CompatImageLoader
+  if (!windowTarget.requestAnimationFrame) {
+    windowTarget.requestAnimationFrame = defaultRequestAnimationFrame
   }
+  if (!windowTarget.cancelAnimationFrame) {
+    windowTarget.cancelAnimationFrame = (handle) => globalThis.clearTimeout(handle)
+  }
+  if (!windowTarget.MutationObserver) windowTarget.MutationObserver = CompatMutationObserver
+  if (!windowTarget.NodeFilter) windowTarget.NodeFilter = NODE_FILTER
+  if (!windowTarget.Image) windowTarget.Image = CompatImageLoader
   if (!windowTarget.Element) {
     Object.defineProperty(windowTarget, "Element", {
       configurable: true,
@@ -160,8 +242,35 @@ export function installDomEventEnvironment(): void {
       value: getComputedStyle,
     })
   }
-  if (!windowTarget.getComputedStyle) {
-    windowTarget.getComputedStyle = getComputedStyle
+  if (!windowTarget.getComputedStyle) windowTarget.getComputedStyle = getComputedStyle
+
+  if (!globals.NodeFilter) {
+    Object.defineProperty(globalThis, "NodeFilter", {
+      configurable: true,
+      writable: true,
+      value: NODE_FILTER,
+    })
+  }
+  if (!globals.MutationObserver) {
+    Object.defineProperty(globalThis, "MutationObserver", {
+      configurable: true,
+      writable: true,
+      value: CompatMutationObserver,
+    })
+  }
+  if (!globals.requestAnimationFrame) {
+    Object.defineProperty(globalThis, "requestAnimationFrame", {
+      configurable: true,
+      writable: true,
+      value: defaultRequestAnimationFrame,
+    })
+  }
+  if (!globals.cancelAnimationFrame) {
+    Object.defineProperty(globalThis, "cancelAnimationFrame", {
+      configurable: true,
+      writable: true,
+      value: (handle: ReturnType<typeof globalThis.setTimeout>) => globalThis.clearTimeout(handle),
+    })
   }
 
   if (!globals.document) {
@@ -186,11 +295,20 @@ function createDocumentNode(
   windowTarget: CompatWindow,
 ): CompatDocumentNode {
   const upperTagName = tagName.toUpperCase()
-  return {
+  const attributes = new Map<string, string>()
+  const node: CompatDocumentNode = {
     ownerDocument,
     nodeName: upperTagName,
     tagName: upperTagName,
     localName: tagName,
+    parentElement: null,
+    get children() {
+      if (tagName === "body") return activeDomRoots()
+      return activeBody ? [activeBody] : []
+    },
+    get dataset() {
+      return datasetFromAttributes(attributes)
+    },
     get clientWidth() {
       return windowTarget.innerWidth ?? 800
     },
@@ -207,6 +325,21 @@ function createDocumentNode(
     },
     scrollLeft: 0,
     scrollTop: 0,
+    getAttribute(name) {
+      return attributes.get(name) ?? null
+    },
+    setAttribute(name, value) {
+      attributes.set(name, String(value))
+    },
+    removeAttribute(name) {
+      attributes.delete(name)
+    },
+    contains(candidate) {
+      return candidate === node || descendantsOf(node).includes(candidate as HostElementNode)
+    },
+    querySelectorAll(selector) {
+      return queryDescendants(node, selector)
+    },
     getBoundingClientRect() {
       const width = windowTarget.innerWidth ?? 800
       const height = windowTarget.innerHeight ?? 600
@@ -222,6 +355,309 @@ function createDocumentNode(
       }
     },
   }
+  return node
+}
+
+function connectDocumentTree(body: CompatDocumentNode, documentElement: CompatDocumentNode): void {
+  body.parentElement = documentElement
+  documentElement.parentElement = null
+}
+
+function installHostDomCompatibility(ownerDocument: CompatDocument): void {
+  if (hostDomCompatibilityInstalled) return
+  hostDomCompatibilityInstalled = true
+
+  const originalBounds = HostElementNode.prototype.getBoundingClientRect
+  Object.defineProperties(HostElementNode.prototype, {
+    ownerDocument: {
+      configurable: true,
+      get(this: HostElementNode) {
+        registerKnownRoot(this)
+        return ownerDocument
+      },
+    },
+    getAttribute: {
+      configurable: true,
+      value(this: HostElementNode, name: string): string | null {
+        registerKnownRoot(this)
+        const value = this.props.get(name)
+        return value === undefined || value === null ? null : String(value)
+      },
+    },
+    setAttribute: {
+      configurable: true,
+      value(this: HostElementNode, name: string, value: string): void {
+        registerKnownRoot(this)
+        setHostProperty(this, name, String(value))
+      },
+    },
+    removeAttribute: {
+      configurable: true,
+      value(this: HostElementNode, name: string): void {
+        registerKnownRoot(this)
+        setHostProperty(this, name, undefined)
+      },
+    },
+    contains: {
+      configurable: true,
+      value(this: HostElementNode, candidate: HostElementNode): boolean {
+        registerKnownRoot(this)
+        if (candidate === this) return true
+        let parent = candidate.parent
+        while (parent) {
+          if (parent === this) return true
+          parent = parent.kind === "root" ? null : parent.parent
+        }
+        return false
+      },
+    },
+    querySelectorAll: {
+      configurable: true,
+      value(this: HostElementNode, selector: string): HostElementNode[] {
+        registerKnownRoot(this)
+        return queryDescendants(this, selector)
+      },
+    },
+    matches: {
+      configurable: true,
+      value(this: HostElementNode, selector: string): boolean {
+        registerKnownRoot(this)
+        return matchesSelector(this, selector)
+      },
+    },
+    dataset: {
+      configurable: true,
+      get(this: HostElementNode): CompatDataset {
+        registerKnownRoot(this)
+        return datasetFromHost(this)
+      },
+    },
+  })
+
+  HostElementNode.prototype.closest = function closest(selector: string): HostElementNode | null {
+    registerKnownRoot(this)
+    let current: HostElementNode | null = this
+    while (current) {
+      if (matchesSelector(current, selector)) return current
+      current = current.parentElement
+    }
+    return null
+  }
+
+  HostElementNode.prototype.getBoundingClientRect = function getBoundingClientRect() {
+    registerKnownRoot(this)
+    return originalBounds.call(this)
+  }
+}
+
+function activeDomRoots(): HostElementNode[] {
+  const roots: HostElementNode[] = []
+  for (const node of knownRoots) {
+    if (node.parent?.kind === "root") roots.push(node)
+    else knownRoots.delete(node)
+  }
+  return roots
+}
+
+function registerKnownRoot(node: HostElementNode): void {
+  let current = node
+  while (current.parent?.kind === "element") current = current.parent
+  if (current.parent?.kind === "root") knownRoots.add(current)
+}
+
+function childElements(node: CompatTreeElement): HostElementNode[] {
+  const children = node.children
+  const elements: HostElementNode[] = []
+  for (const child of children) {
+    if (child instanceof HostElementNode) elements.push(child)
+  }
+  return elements
+}
+
+function descendantsOf(root: CompatTreeElement): HostElementNode[] {
+  const descendants: HostElementNode[] = []
+  const pending = [...childElements(root)].reverse()
+  while (pending.length > 0) {
+    const node = pending.pop()
+    if (!node) continue
+    descendants.push(node)
+    const children = childElements(node)
+    for (let index = children.length - 1; index >= 0; index -= 1) pending.push(children[index]!)
+  }
+  return descendants
+}
+
+function queryDescendants(root: CompatTreeElement, selector: string): HostElementNode[] {
+  return descendantsOf(root).filter((node) => matchesSelector(node, selector))
+}
+
+function matchesSelector(node: HostElementNode, selector: string): boolean {
+  for (const rawPart of selector.split(",")) {
+    const part = rawPart.trim()
+    if (!part) continue
+    if (part === "*") return true
+    if (part.startsWith("[") && part.endsWith("]")) {
+      const expression = part.slice(1, -1).trim()
+      const separator = expression.indexOf("=")
+      if (separator < 0) {
+        if (hostAttribute(node, expression) !== null) return true
+        continue
+      }
+      const name = expression.slice(0, separator).trim()
+      const expected = unquote(expression.slice(separator + 1).trim())
+      if (hostAttribute(node, name) === expected) return true
+      continue
+    }
+    if (node.localName === part.toLowerCase()) return true
+  }
+  return false
+}
+
+function hostAttribute(node: HostElementNode, name: string): string | null {
+  const value = node.props.get(name)
+  return value === undefined || value === null ? null : String(value)
+}
+
+function unquote(value: string): string {
+  if (value.length >= 2) {
+    const first = value[0]
+    const last = value[value.length - 1]
+    if ((first === '"' && last === '"') || (first === "'" && last === "'")) return value.slice(1, -1)
+  }
+  return value
+}
+
+function datasetFromHost(node: HostElementNode): CompatDataset {
+  const dataset: CompatDataset = {}
+  for (const [name, value] of node.props) {
+    if (!name.startsWith("data-") || value === undefined || value === null) continue
+    dataset[dataAttributeKey(name.slice(5))] = String(value)
+  }
+  return dataset
+}
+
+function datasetFromAttributes(attributes: ReadonlyMap<string, string>): CompatDataset {
+  const dataset: CompatDataset = {}
+  for (const [name, value] of attributes) {
+    if (!name.startsWith("data-")) continue
+    dataset[dataAttributeKey(name.slice(5))] = value
+  }
+  return dataset
+}
+
+function dataAttributeKey(value: string): string {
+  return value.replace(/-([a-z])/g, (_match, character: string) => character.toUpperCase())
+}
+
+function createCompatTreeWalker(
+  root: CompatTreeElement,
+  _whatToShow: number,
+  filter: CompatTreeWalkerFilter,
+): CompatTreeWalker {
+  const pending = [...childElements(root)].reverse()
+  return {
+    nextNode() {
+      while (pending.length > 0) {
+        const node = pending.pop()
+        if (!node) continue
+        const decision = filter.acceptNode(node)
+        if (decision !== NODE_FILTER.FILTER_REJECT) {
+          const children = childElements(node)
+          for (let index = children.length - 1; index >= 0; index -= 1) pending.push(children[index]!)
+        }
+        if (decision === NODE_FILTER.FILTER_ACCEPT) return node
+      }
+      return null
+    },
+  }
+}
+
+class CompatMutationObserver {
+  readonly #callback: CompatMutationCallback
+  #target: CompatTreeElement | undefined
+  #options: CompatMutationObserverOptions = {}
+  #snapshot: CompatMutationSnapshot = new Map()
+  #timer: ReturnType<typeof globalThis.setTimeout> | undefined
+
+  constructor(callback: CompatMutationCallback) {
+    this.#callback = callback
+  }
+
+  observe(target: CompatTreeElement, options: CompatMutationObserverOptions = {}): void {
+    this.disconnect()
+    this.#target = target
+    this.#options = options
+    this.#snapshot = mutationSnapshot(target, Boolean(options.subtree))
+    this.schedule()
+  }
+
+  disconnect(): void {
+    if (this.#timer !== undefined) globalThis.clearTimeout(this.#timer)
+    this.#timer = undefined
+    this.#target = undefined
+    this.#snapshot = new Map()
+  }
+
+  private schedule(): void {
+    if (!this.#target) return
+    this.#timer = globalThis.setTimeout(() => this.check(), 16)
+  }
+
+  private check(): void {
+    const target = this.#target
+    if (!target) return
+    const next = mutationSnapshot(target, Boolean(this.#options.subtree))
+    const records = mutationDiff(this.#snapshot, next)
+    this.#snapshot = next
+    if (records.length > 0 && this.#options.childList !== false) this.#callback(records)
+    this.schedule()
+  }
+}
+
+function mutationSnapshot(root: CompatTreeElement, subtree: boolean): CompatMutationSnapshot {
+  const snapshot: CompatMutationSnapshot = new Map()
+  const direct = childElements(root)
+  for (const child of direct) snapshot.set(child, root)
+  if (!subtree) return snapshot
+
+  const pending = [...direct]
+  while (pending.length > 0) {
+    const parent = pending.pop()
+    if (!parent) continue
+    for (const child of childElements(parent)) {
+      snapshot.set(child, parent)
+      pending.push(child)
+    }
+  }
+  return snapshot
+}
+
+function mutationDiff(
+  previous: CompatMutationSnapshot,
+  next: CompatMutationSnapshot,
+): CompatMutationRecord[] {
+  const records = new Map<CompatTreeElement, CompatMutationRecord>()
+  for (const [node, parent] of previous) {
+    if (next.has(node)) continue
+    const record = records.get(parent) ?? mutationRecord(parent)
+    record.removedNodes.push(node)
+    records.set(parent, record)
+  }
+  for (const [node, parent] of next) {
+    if (previous.has(node)) continue
+    const record = records.get(parent) ?? mutationRecord(parent)
+    record.addedNodes.push(node)
+    records.set(parent, record)
+  }
+  return [...records.values()]
+}
+
+function mutationRecord(target: CompatTreeElement): CompatMutationRecord {
+  return { type: "childList", target, addedNodes: [], removedNodes: [] }
+}
+
+function defaultRequestAnimationFrame(callback: (time: number) => void): ReturnType<typeof globalThis.setTimeout> {
+  return globalThis.setTimeout(() => callback(Date.now()), 0)
 }
 
 function defaultComputedStyle(_element: Element, _pseudoElement?: string | null): CompatComputedStyle {
