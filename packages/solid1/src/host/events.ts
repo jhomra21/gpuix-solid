@@ -13,6 +13,7 @@ export const EVENT_PROPS = [
   ["onInput", "change"],
   ["onSubmit", "submit"],
   ["onClick", "click"],
+  ["onContextMenu", "contextMenu"],
   ["onMouseDown", "mouseDown"],
   ["onPointerDown", "mouseDown"],
   ["onMouseUp", "mouseUp"],
