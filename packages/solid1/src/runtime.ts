@@ -2,6 +2,7 @@ import { GpuixRenderer, type EventPayload, type WindowOptions } from "@gpuix/nat
 import type { JSX } from "solid-js"
 import { applyDebugFrameOverlay } from "./capabilities.js"
 import { startFrameLoop, type FrameLoop } from "./frame-loop.js"
+import { useDestroyUnlinksParentBatch } from "./host/mutations.js"
 import type { DebugFrameOverlayMode, NativeRenderer } from "./host/types.js"
 import { createRoot, type Root } from "./root.js"
 
@@ -46,6 +47,7 @@ export function render(code: () => JSX.Element, options: RenderOptions = {}): Re
     onEvent?.(event)
   })
   renderer.init(windowOptions)
+  useDestroyUnlinksParentBatch(renderer)
   applyDebugFrameOverlay(renderer, debugFrameOverlay)
   root = createRoot(renderer)
   root.render(code)
