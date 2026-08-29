@@ -111,7 +111,6 @@ function promoteNativePopperPositioner(element: HostElementNode): void {
     value: "anchored",
   })
   nativePopperPositioners.add(element)
-  setHostProperty(element, "testId", "__gpuix-kobalte-popper-positioner")
   setHostProperty(element, "position", { x: 0, y: 0 })
   setHostProperty(element, "fit", "snap")
   setHostProperty(element, "snapMargin", 0)
@@ -172,11 +171,6 @@ function createBrowserStyleProxy(
   return new Proxy(style, {
     set(current, property, value, receiver) {
       const updated = Reflect.set(current, property, value, receiver)
-      if (nativePopperPositioners.has(element) && property === "transform" && isStringValue(value)) {
-        console.log(
-          `[gpuix-solid1:popper-transform] alive=${String(element.nativeAlive)} value=${value} parsed=${JSON.stringify(browserTranslation(value))}`,
-        )
-      }
       if (updated && isStringValue(property)) syncBrowserStyleMutation(element, current)
       return updated
     },
