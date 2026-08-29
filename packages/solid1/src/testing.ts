@@ -113,17 +113,6 @@ export class TestRenderer implements NativeRenderer {
     this.#root = root
   }
 
-  createElement(id: number, elementType: string): void { this.#native.createElement(id, elementType) }
-  destroyElement(id: number): number[] { return this.#native.destroyElement(id) }
-  appendChild(parentId: number, childId: number): void { this.#native.appendChild(parentId, childId) }
-  removeChild(parentId: number, childId: number): void { this.#native.removeChild(parentId, childId) }
-  insertBefore(parentId: number, childId: number, beforeId: number): void { this.#native.insertBefore(parentId, childId, beforeId) }
-  setStyle(id: number, styleJson: string): void { this.#native.setStyle(id, styleJson) }
-  setText(id: number, content: string): void { this.#native.setText(id, content) }
-  setEventListener(id: number, eventType: string, hasHandler: boolean): void { this.#native.setEventListener(id, eventType, hasHandler) }
-  setRoot(id: number): void { this.#native.setRoot(id) }
-  setCustomProp(id: number, key: string, valueJson: string): void { this.#native.setCustomProp(id, key, valueJson) }
-  commitMutations(): void { this.#native.commitMutations() }
   applyBatch(json: string): number[] { return this.#native.applyBatch(json) }
   focusElement(elementId: number): void { this.#native.focusElement(elementId) }
   getElementBounds(elementId: number): number[] | null { return this.#native.getElementBounds(elementId) }
