@@ -27,6 +27,25 @@ type CompatDocumentStyle = {
   removeProperty(name: string): string
 }
 
+type BrowserStyleDeclaration = HostElementNode["style"] & {
+  transform?: string
+  zIndex?: string | number
+}
+
+type BrowserTranslation = {
+  x: number
+  y: number
+}
+
+type BrowserBounds = {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+type BrowserInset = "top" | "right" | "bottom" | "left"
+
 installElementConstructorCompatibility()
 installElementQueryCompatibility()
 installDocumentContainmentCompatibility()
@@ -44,6 +63,7 @@ export function createDynamic<T extends ValidComponent>(
   if (current === undefined) return undefined
   if (isHostTag(current)) {
     const element = createElement(current)
+    installBrowserStyleMutationCompatibility(element)
     installSemanticTagMetadata(element, current)
     spread(element, props)
     return element
@@ -93,6 +113,80 @@ function installElementQueryCompatibility(): void {
       return null
     },
   })
+}
+
+function installBrowserStyleMutationCompatibility(element: HostElementNode): void {
+  let declaration = createBrowserStyleProxy(element, element.style)
+  Object.defineProperty(element, "style", {
+    configurable: true,
+    enumerable: true,
+    get: () => declaration,
+    set: (style: HostElementNode["style"]) => {
+      declaration = createBrowserStyleProxy(element, style)
+    },
+  })
+}
+
+function createBrowserStyleProxy(
+  element: HostElementNode,
+  style: HostElementNode["style"],
+): HostElementNode["style"] {
+  const target = style as BrowserStyleDeclaration
+  return new Proxy(target, {
+    set(current, property, value, receiver) {
+      const updated = Reflect.set(current, property, value, receiver)
+      if (updated && typeof property === "string") syncBrowserStyleMutation(element, current)
+      return updated
+    },
+  })
+}
+
+function syncBrowserStyleMutation(element: HostElementNode, style: BrowserStyleDeclaration): void {
+  const root = element.root
+  if (!root || !element.nativeAlive) return
+
+  const nativeStyle = { ...style } as BrowserStyleDeclaration
+  const parentBounds = browserParentBounds(element)
+  const translation = browserTranslation(style.transform)
+  if (translation) {
+    nativeStyle.left = translation.x - parentBounds.left
+    nativeStyle.top = translation.y - parentBounds.top
+  }
+
+  normalizeBrowserInset(nativeStyle, "left", parentBounds.width)
+  normalizeBrowserInset(nativeStyle, "right", parentBounds.width)
+  normalizeBrowserInset(nativeStyle, "top", parentBounds.height)
+  normalizeBrowserInset(nativeStyle, "bottom", parentBounds.height)
+  delete nativeStyle.transform
+  delete nativeStyle.zIndex
+  root.driver.enqueue("setStyle", element.id, nativeStyle)
+}
+
+function browserParentBounds(element: HostElementNode): BrowserBounds {
+  const parent = element.parent
+  if (!parent || parent.kind === "root") return { left: 0, top: 0, width: 0, height: 0 }
+  const bounds = parent.getBoundingClientRect()
+  return { left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height }
+}
+
+function browserTranslation(transform: string | undefined): BrowserTranslation | undefined {
+  if (!transform) return undefined
+  const number = "(-?(?:\\d+(?:\\.\\d+)?|\\.\\d+))"
+  const translate3d = transform.trim().match(new RegExp(`^translate3d\\(\\s*${number}px\\s*,\\s*${number}px\\s*,\\s*0(?:px)?\\s*\\)$`, "i"))
+  if (translate3d) return { x: Number(translate3d[1]), y: Number(translate3d[2]) }
+  const translate = transform.trim().match(new RegExp(`^translate\\(\\s*${number}px\\s*,\\s*${number}px\\s*\\)$`, "i"))
+  return translate ? { x: Number(translate[1]), y: Number(translate[2]) } : undefined
+}
+
+function normalizeBrowserInset(style: BrowserStyleDeclaration, property: BrowserInset, basis: number): void {
+  const value = Reflect.get(style, property)
+  if (value === "") {
+    Reflect.set(style, property, undefined)
+    return
+  }
+  if (typeof value !== "string") return
+  const percent = value.trim().match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))%$/)
+  if (percent) Reflect.set(style, property, basis * Number(percent[1]) / 100)
 }
 
 function installDocumentContainmentCompatibility(): void {
