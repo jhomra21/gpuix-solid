@@ -6,6 +6,7 @@ import {
   type ValidComponent,
 } from "solid-js"
 import { HostElementNode, type HostRootNode } from "./host/nodes.js"
+import { MutationDriver, type MutationValue } from "./host/mutations.js"
 import { createElement, spread } from "./universal.js"
 
 export const isServer = false
@@ -29,10 +30,22 @@ type ComputedStyleWithLookup = CSSStyleDeclaration & {
   getPropertyValue(name: string): string
 }
 
+type RelativeLengthStyle = Record<string, unknown> & {
+  width?: unknown
+  height?: unknown
+  minWidth?: unknown
+  minHeight?: unknown
+  maxWidth?: unknown
+  maxHeight?: unknown
+  fontSize?: unknown
+  "font-size"?: unknown
+}
+
 installElementConstructorCompatibility()
 installDocumentContainmentCompatibility()
 installDocumentStyleCompatibility()
 installComputedStyleCompatibility()
+installRelativeLengthCompatibility()
 installDocumentFocusCompatibility()
 installDocumentPointerCaptureCompatibility()
 
@@ -153,6 +166,47 @@ function hostComputedProperty(element: HostElementNode, name: string): string {
 
 function cssPixelValue(value: number | undefined): string {
   return value === undefined ? "" : `${value}px`
+}
+
+function installRelativeLengthCompatibility(): void {
+  const originalEnqueue = MutationDriver.prototype.enqueue
+  MutationDriver.prototype.enqueue = function enqueue(name: string, ...args: MutationValue[]): void {
+    if (name !== "setStyle") {
+      originalEnqueue.call(this, name, ...args)
+      return
+    }
+
+    // SAFETY: the mutation driver contract enqueues setStyle with the renderer style object as arg 1; this wrapper only normalizes CSS relative lengths before the existing driver validation runs.
+    const style = args[1] as RelativeLengthStyle
+    const normalized = { ...style }
+    const fontSize = cssLengthPixels(style.fontSize ?? style["font-size"]) ?? 16
+    normalized.fontSize = cssLengthPixels(style.fontSize ?? style["font-size"]) ?? style.fontSize
+    delete normalized["font-size"]
+    normalized.width = resolveEmLength(style.width, fontSize)
+    normalized.height = resolveEmLength(style.height, fontSize)
+    normalized.minWidth = resolveEmLength(style.minWidth, fontSize)
+    normalized.minHeight = resolveEmLength(style.minHeight, fontSize)
+    normalized.maxWidth = resolveEmLength(style.maxWidth, fontSize)
+    normalized.maxHeight = resolveEmLength(style.maxHeight, fontSize)
+    args[1] = normalized
+    originalEnqueue.call(this, name, ...args)
+  }
+}
+
+function cssLengthPixels(value: unknown): number | undefined {
+  if (typeof value === "number") return Number.isFinite(value) ? value : undefined
+  if (typeof value !== "string") return undefined
+  const trimmed = value.trim()
+  const numeric = trimmed.match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))(?:px)?$/i)
+  if (numeric) return Number(numeric[1])
+  const rem = trimmed.match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))rem$/i)
+  return rem ? Number(rem[1]) * 16 : undefined
+}
+
+function resolveEmLength(value: unknown, fontSize: number): unknown {
+  if (typeof value !== "string") return value
+  const em = value.trim().match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))em$/i)
+  return em ? Number(em[1]) * fontSize : value
 }
 
 function installDocumentFocusCompatibility(): void {
