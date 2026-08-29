@@ -95,6 +95,8 @@ if (!hasNativeTestRenderer) {
 
   const nativeDialogContent = document.body.querySelectorAll('[role="dialog"]')[0]
   if (!(nativeDialogContent instanceof HTMLElement)) throw new Error("Expected dialog content before native outside interaction")
+  const nativeDialogTrigger = document.body.querySelectorAll('[aria-haspopup="dialog"]')[0]
+  if (!(nativeDialogTrigger instanceof HTMLElement)) throw new Error("Expected dialog trigger before native outside interaction")
   const nativePointerTargets: Element[] = []
   const captureNativePointerTarget = (event: Event) => {
     if (event.target instanceof Element) nativePointerTargets.push(event.target)
@@ -108,6 +110,10 @@ if (!hasNativeTestRenderer) {
   requireCondition(
     !nativeDialogContent.contains(nativePointerTarget),
     "native outside coordinates should hit outside Dialog content",
+  )
+  requireCondition(
+    nativePointerTarget !== nativeDialogTrigger,
+    "native outside coordinates should not hit the excluded Dialog trigger",
   )
   await settlePresence(renderer)
   requireCondition(renderer.textContent("dialog-probe").includes("About Kobalte"), "native outside interaction should remain open before target replay")
