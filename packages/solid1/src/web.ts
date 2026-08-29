@@ -1,3 +1,4 @@
+import "./dom-environment.js"
 import {
   splitProps,
   type ComponentProps,
@@ -15,6 +16,19 @@ export type DynamicProps<T extends ValidComponent, P = ComponentProps<T>> = {
 }
 
 type LocalEventListener = (event: Event) => void
+
+type CompatDocumentStyle = {
+  pointerEvents: string
+  getPropertyValue(name: string): string
+  setProperty(name: string, value: string): void
+  removeProperty(name: string): string
+}
+
+type CompatDocumentStyleTarget = {
+  style?: CompatDocumentStyle
+}
+
+installDocumentStyleCompatibility()
 
 export function createDynamic<T extends ValidComponent>(
   component: () => T | undefined,
@@ -44,6 +58,37 @@ export function Portal(props: { children: JSX.Element }): JSX.Element {
 
 function isHostTag(component: ValidComponent): component is string {
   return typeof component === "string"
+}
+
+function installDocumentStyleCompatibility(): void {
+  for (const target of [globalThis.document.body, globalThis.document.documentElement]) {
+    const node = target as unknown as CompatDocumentStyleTarget
+    if (!node.style) node.style = createDocumentStyle()
+  }
+}
+
+function createDocumentStyle(): CompatDocumentStyle {
+  let pointerEvents = ""
+  return {
+    get pointerEvents() {
+      return pointerEvents
+    },
+    set pointerEvents(value: string) {
+      pointerEvents = String(value)
+    },
+    getPropertyValue(name: string) {
+      return name === "pointer-events" ? pointerEvents : ""
+    },
+    setProperty(name: string, value: string) {
+      if (name === "pointer-events") pointerEvents = String(value)
+    },
+    removeProperty(name: string) {
+      if (name !== "pointer-events") return ""
+      const previous = pointerEvents
+      pointerEvents = ""
+      return previous
+    },
+  }
 }
 
 function installSemanticTagMetadata(element: ReturnType<typeof createElement>, tagName: string): void {
