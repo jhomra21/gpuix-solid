@@ -128,6 +128,10 @@ function domCompatibleEvent(event: NativeEventPayload, target: DomCompatTarget |
   })
 }
 
+function pointerDownFromClick(event: EventPayload): EventPayload {
+  return { ...event, eventType: "mouseDown" }
+}
+
 function contextMenuEvent(event: EventPayload): EventPayload {
   return {
     ...event,
@@ -215,6 +219,7 @@ export class EventRegistry {
   readonly #handlers = new Map<number, Map<string, HostEventHandler>>()
   readonly #live = new Set<number>()
   readonly #targets = new Map<number, DomCompatTarget>()
+  readonly #nativePointerDown = new Set<number>()
 
   activate(id: number): void {
     this.#live.add(id)
@@ -228,6 +233,7 @@ export class EventRegistry {
     this.#live.delete(id)
     this.#handlers.delete(id)
     this.#targets.delete(id)
+    this.#nativePointerDown.delete(id)
   }
 
   set(id: number, eventType: string, handler: HostEventHandler): void {
@@ -249,6 +255,7 @@ export class EventRegistry {
     if (!this.#live.has(id)) {
       this.#handlers.delete(id)
       this.#targets.delete(id)
+      this.#nativePointerDown.delete(id)
     }
   }
 
@@ -256,6 +263,7 @@ export class EventRegistry {
     this.#handlers.clear()
     this.#live.clear()
     this.#targets.clear()
+    this.#nativePointerDown.clear()
   }
 
   has(id: number, eventType: string): boolean {
@@ -266,6 +274,14 @@ export class EventRegistry {
     if (!this.#live.has(event.elementId)) return
     const domEvent = domCompatibleEvent(event, this.#targets.get(event.elementId))
     const handlers = this.#handlers.get(event.elementId)
+
+    if (event.eventType === "mouseDown") {
+      this.#nativePointerDown.add(event.elementId)
+      queueMicrotask(() => this.#nativePointerDown.delete(event.elementId))
+    } else if (event.eventType === "click" && !this.#nativePointerDown.has(event.elementId)) {
+      dispatchGlobalEvent(pointerDownFromClick(domEvent))
+    }
+
     handlers?.get(event.eventType)?.(domEvent)
     if (event.eventType === "mouseUp" && event.button === 2) {
       handlers?.get("contextMenu")?.(contextMenuEvent(domEvent))
