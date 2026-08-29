@@ -49,6 +49,13 @@ export class HostRootNode {
 }
 
 export class HostElementNode implements PublicInstance, DomCompatTarget {
+  static readonly DOCUMENT_POSITION_DISCONNECTED = DOCUMENT_POSITION_DISCONNECTED
+  static readonly DOCUMENT_POSITION_PRECEDING = DOCUMENT_POSITION_PRECEDING
+  static readonly DOCUMENT_POSITION_FOLLOWING = DOCUMENT_POSITION_FOLLOWING
+  static readonly DOCUMENT_POSITION_CONTAINS = DOCUMENT_POSITION_CONTAINS
+  static readonly DOCUMENT_POSITION_CONTAINED_BY = DOCUMENT_POSITION_CONTAINED_BY
+  static readonly DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC = DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC
+
   readonly kind = "element" as const
   readonly type: ElementType
   readonly tagName: string
@@ -499,21 +506,12 @@ function emptyBounds() {
   return domBounds(0, 0, 0, 0)
 }
 
-class CompatDomNode {
-  static readonly DOCUMENT_POSITION_DISCONNECTED = DOCUMENT_POSITION_DISCONNECTED
-  static readonly DOCUMENT_POSITION_PRECEDING = DOCUMENT_POSITION_PRECEDING
-  static readonly DOCUMENT_POSITION_FOLLOWING = DOCUMENT_POSITION_FOLLOWING
-  static readonly DOCUMENT_POSITION_CONTAINS = DOCUMENT_POSITION_CONTAINS
-  static readonly DOCUMENT_POSITION_CONTAINED_BY = DOCUMENT_POSITION_CONTAINED_BY
-  static readonly DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC = DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC
-}
-
 function installDomConstructors(): void {
   if (!Object.hasOwn(globalThis, "Node")) {
     Object.defineProperty(globalThis, "Node", {
       configurable: true,
       writable: true,
-      value: CompatDomNode,
+      value: HostElementNode,
     })
   }
   if (!Object.hasOwn(globalThis, "Element")) {
