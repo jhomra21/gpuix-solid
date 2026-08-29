@@ -263,7 +263,7 @@ function reflectHostComputedStyle(element: HostElementNode, computed: CSSStyleDe
 
 function cssComputedValue(value: string | number | undefined, fallback: string): string {
   if (value === undefined) return fallback
-  return typeof value === "number" ? `${value}px` : value
+  return isStringValue(value) ? value : `${value}px`
 }
 
 function hostComputedProperty(element: HostElementNode, name: string): string {
