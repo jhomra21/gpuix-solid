@@ -112,14 +112,26 @@ if (!hasNativeTestRenderer) {
   let outsideCustomDispatches = 0
   const originalAddEventListener = outsideTarget.addEventListener.bind(outsideTarget)
   const originalDispatchEvent = outsideTarget.dispatchEvent.bind(outsideTarget)
-  outsideTarget.addEventListener = (type, listener, options) => {
-    if (type === "interactOutside.pointerDownOutside") outsideCustomRegistrations += 1
-    originalAddEventListener(type, listener, options)
-  }
-  outsideTarget.dispatchEvent = (event) => {
-    if (event.type === "interactOutside.pointerDownOutside") outsideCustomDispatches += 1
-    return originalDispatchEvent(event)
-  }
+  Object.defineProperties(outsideTarget, {
+    addEventListener: {
+      configurable: true,
+      value: (
+        type: string,
+        listener: EventListenerOrEventListenerObject | null,
+        options?: boolean | AddEventListenerOptions,
+      ) => {
+        if (type === "interactOutside.pointerDownOutside") outsideCustomRegistrations += 1
+        originalAddEventListener(type, listener, options)
+      },
+    },
+    dispatchEvent: {
+      configurable: true,
+      value: (event: Event) => {
+        if (event.type === "interactOutside.pointerDownOutside") outsideCustomDispatches += 1
+        return originalDispatchEvent(event)
+      },
+    },
+  })
 
   dispatchPointerDown(outsideTarget)
   r.flush()
