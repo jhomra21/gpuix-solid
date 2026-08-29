@@ -172,13 +172,8 @@ function dispatchGlobalEvent(event: EventPayload): void {
   const name = globalEventName(event.eventType)
   if (!name) return
   for (const handler of globalListeners.get(name) ?? []) handler(event)
-
-  if (typeof globalThis.document?.dispatchEvent === "function") {
-    globalThis.document.dispatchEvent(createGlobalDomEvent(name, event, globalThis.document))
-  }
-  if (typeof globalThis.window?.dispatchEvent === "function") {
-    globalThis.window.dispatchEvent(createGlobalDomEvent(name, event, globalThis.window))
-  }
+  globalThis.document.dispatchEvent(createGlobalDomEvent(name, event, globalThis.document))
+  globalThis.window.dispatchEvent(createGlobalDomEvent(name, event, globalThis.window))
 }
 
 function installNativeDomGlobals(): void {
@@ -198,6 +193,7 @@ function installNativeDomGlobals(): void {
           handlers?.delete(handler)
           if (handlers?.size === 0) globalListeners.delete(type)
         },
+        dispatchEvent: () => true,
       },
     })
   }
@@ -210,7 +206,7 @@ function installNativeDomGlobals(): void {
     Object.defineProperty(globalThis, "document", {
       configurable: true,
       writable: true,
-      value: { body: { classList } },
+      value: { body: { classList }, dispatchEvent: () => true },
     })
   }
 }
