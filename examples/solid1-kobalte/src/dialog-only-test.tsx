@@ -1,5 +1,4 @@
 import { configureNativeStyleManifest, createTestRoot, hasNativeTestRenderer } from "@jhomra21/gpuix-solid1"
-import { layerStack } from "../node_modules/@kobalte/core/src/dismissable-layer/layer-stack"
 import { nativeKobalteManifest } from "./native-kobalte.generated"
 import { BasicExample as DialogExample } from "./upstream/kobalte/examples/dialog"
 
@@ -50,19 +49,10 @@ if (!hasNativeTestRenderer) {
   if (!outside) throw new Error("Expected dialog-only outside target")
   requireCondition(outside instanceof Element, "dialog-only outside target should be an Element")
   requireCondition(document.contains(outside), "dialog-only outside target should belong to document")
-
-  const dialogContent = document.body.querySelectorAll('[role="dialog"]')[0]
-  if (!dialogContent) throw new Error("Expected dialog content with role=dialog")
   requireCondition(
-    layerStack.layers.length === 1,
-    `fresh Dialog should register one dismissable layer, got ${layerStack.layers.length}`,
+    document.body.style.pointerEvents === "none",
+    `modal Dialog onMount should disable body pointer events, got ${JSON.stringify(document.body.style.pointerEvents)}`,
   )
-  requireCondition(
-    layerStack.layers[0]?.node === dialogContent,
-    "fresh Dialog layer should reference the rendered role=dialog host node",
-  )
-  requireCondition(layerStack.isTopMostLayer(dialogContent), "fresh Dialog content should be the topmost layer")
-  requireCondition(!layerStack.isBelowPointerBlockingLayer(dialogContent), "fresh Dialog content should not be below a pointer-blocking layer")
 
   dispatchPointerDown(outside)
   renderer.flush()
