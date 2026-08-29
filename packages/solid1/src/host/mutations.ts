@@ -97,6 +97,9 @@ export class MutationDriver {
     if (name === "setStyle" && isObjectValue(args[1]) && !Array.isArray(args[1])) {
       // SAFETY: setStyle is only enqueued with the renderer-owned StyleDesc object; this boundary widens numeric fields solely to accept CSS unit strings before native serialization.
       const style = args[1] as StyleMutationInput
+      if (containsNonFiniteCssValue(style)) {
+        console.error(`[gpuix-solid:style-diagnostic] element=${String(args[0])} style=${JSON.stringify(style)}`)
+      }
       args[1] = normalizeStyleMutation(style)
     }
     this.#queue.push([name, ...args])
@@ -323,6 +326,10 @@ function parseNumericCssValue(value: string): number | undefined {
   const rem = trimmed.match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))rem$/i)
   if (rem) return Number(rem[1]) * 16
   return undefined
+}
+
+function containsNonFiniteCssValue(style: StyleMutationInput): boolean {
+  return Object.values(style).some((value) => isStringValue(value) && /(?:^|[^a-z])(?:NaN|Infinity)(?:px|rem|em|%|$)/i.test(value))
 }
 
 function numberArg(args: MutationValue[], index: number): number {
