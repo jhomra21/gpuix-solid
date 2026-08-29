@@ -120,19 +120,25 @@ if (!hasNativeTestRenderer) {
 
   r.rightClickTextWithinTestId("upstream-context", "Right click here.")
   requireText(r.textContent("upstream-context"), "Commit", "light ContextMenu")
-  const contextCenterX = contextBounds.x + contextBounds.width / 2
+  const contextPointerX = contextBounds.x + Math.min(4, contextBounds.width / 4)
+  const contextPointerY = contextBounds.y + Math.min(4, contextBounds.height / 4)
   await waitForCondition(
     "ContextMenu popup placement",
     () => {
       const popup = r.boundsTextWithinTestId("upstream-context", "Commit")
-      return Math.abs(popup.x - contextCenterX) < 80 && popup.y >= contextBounds.y
+      return Math.abs(popup.x + popup.width - contextPointerX) < 32
+        && popup.y >= contextPointerY
     },
     flushNative,
   )
   const lightContextPopupBounds = r.boundsTextWithinTestId("upstream-context", "Commit")
   requireCondition(
-    Math.abs(lightContextPopupBounds.x - contextCenterX) < 80,
-    `ContextMenu popup should align with the right-click point: target center x=${contextCenterX}, popup x=${lightContextPopupBounds.x}`,
+    Math.abs(lightContextPopupBounds.x + lightContextPopupBounds.width - contextPointerX) < 32,
+    `ContextMenu popup should align its right edge with the right-click point: pointer x=${contextPointerX}, popup right=${lightContextPopupBounds.x + lightContextPopupBounds.width}`,
+  )
+  requireCondition(
+    lightContextPopupBounds.y >= contextPointerY,
+    `ContextMenu popup should render below the right-click point: pointer y=${contextPointerY}, popup y=${lightContextPopupBounds.y}`,
   )
   r.captureScreenshot("/tmp/gpuix-solid1-kobalte-light-context.png")
   r.clickTextWithinTestId("upstream-button", "Click me")
