@@ -60,6 +60,7 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   readonly type: ElementType
   readonly tagName: string
   readonly localName: string
+  readonly nodeName: string
   readonly children: HostNode[] = []
   parent: HostParent | null = null
   root: HostRootNode | null = null
@@ -78,6 +79,7 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     this.type = type
     this.localName = tagName
     this.tagName = tagName.toUpperCase()
+    this.nodeName = this.tagName
     this.style = createHostStyleDeclaration(this, {})
   }
 
@@ -87,6 +89,46 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
 
   get offsetParent(): HostElementNode | null {
     return null
+  }
+
+  get parentNode(): HostElementNode | null {
+    return this.parent?.kind === "element" ? this.parent : null
+  }
+
+  get parentElement(): HostElementNode | null {
+    return this.parentNode
+  }
+
+  get clientWidth(): number {
+    return this.getBoundingClientRect().width
+  }
+
+  get clientHeight(): number {
+    return this.getBoundingClientRect().height
+  }
+
+  get clientLeft(): number {
+    return 0
+  }
+
+  get clientTop(): number {
+    return 0
+  }
+
+  get offsetWidth(): number {
+    return this.getBoundingClientRect().width
+  }
+
+  get offsetHeight(): number {
+    return this.getBoundingClientRect().height
+  }
+
+  get scrollWidth(): number {
+    return this.clientWidth
+  }
+
+  get scrollHeight(): number {
+    return this.clientHeight
   }
 
   get value(): string {
