@@ -1,4 +1,5 @@
 import { configureNativeStyleManifest, createTestRoot, hasNativeTestRenderer } from "@jhomra21/gpuix-solid1"
+import { layerStack } from "kobalte-layer-stack-probe"
 import { nativeKobalteManifest } from "./native-kobalte.generated"
 import { BasicExample as DialogExample } from "./upstream/kobalte/examples/dialog"
 
@@ -53,6 +54,13 @@ if (!hasNativeTestRenderer) {
     document.body.style.pointerEvents === "none",
     `modal Dialog onMount should disable body pointer events, got ${JSON.stringify(document.body.style.pointerEvents)}`,
   )
+
+  const dialogContent = document.body.querySelectorAll('[role="dialog"]')[0]
+  if (!(dialogContent instanceof HTMLElement)) throw new Error("Expected HTMLElement-compatible dialog content")
+  requireCondition(layerStack.layers.length === 1, `fresh Dialog should register one layer, got ${layerStack.layers.length}`)
+  requireCondition(layerStack.layers[0]?.node === dialogContent, "fresh Dialog layer should reference rendered dialog content")
+  requireCondition(layerStack.isTopMostLayer(dialogContent), "fresh Dialog content should be topmost")
+  requireCondition(!layerStack.isBelowPointerBlockingLayer(dialogContent), "fresh Dialog content should not be below pointer blocker")
 
   dispatchPointerDown(outside)
   renderer.flush()
