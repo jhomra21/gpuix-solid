@@ -1,3 +1,4 @@
+import { platform as floatingPlatform } from "@floating-ui/dom"
 import { createTestRoot, hasNativeTestRenderer } from "@jhomra21/gpuix-solid1"
 import { UpstreamKobalteShowcase } from "./upstream-app"
 
@@ -62,6 +63,57 @@ function logFloatingGeometry(label: string): void {
     })}`)
   }
 }
+
+let traceFloatingPlatform = false
+
+function describePlatformElement(value: Element | Window | null): string {
+  if (value === window) return "window"
+  if (value instanceof HTMLElement) return `${value.localName}#${value.id}`
+  if (value instanceof Element) return value.localName
+  return "null"
+}
+
+function installFloatingPlatformDiagnostics(): void {
+  const getElementRects = floatingPlatform.getElementRects
+  floatingPlatform.getElementRects = async (args) => {
+    const rects = await getElementRects(args)
+    if (traceFloatingPlatform) {
+      console.error(`[gpuix-solid1:floating-platform] elementRects reference=${describePlatformElement(args.reference instanceof Element ? args.reference : null)} floating=${describePlatformElement(args.floating)} rects=${JSON.stringify(rects)}`)
+    }
+    return rects
+  }
+
+  const getDimensions = floatingPlatform.getDimensions
+  floatingPlatform.getDimensions = async (element) => {
+    const dimensions = await getDimensions(element)
+    if (traceFloatingPlatform) {
+      console.error(`[gpuix-solid1:floating-platform] dimensions element=${describePlatformElement(element)} value=${JSON.stringify(dimensions)}`)
+    }
+    return dimensions
+  }
+
+  const getOffsetParent = floatingPlatform.getOffsetParent
+  if (getOffsetParent) {
+    floatingPlatform.getOffsetParent = async (element) => {
+      const parent = await getOffsetParent(element)
+      if (traceFloatingPlatform) {
+        console.error(`[gpuix-solid1:floating-platform] offsetParent element=${describePlatformElement(element)} parent=${describePlatformElement(parent)}`)
+      }
+      return parent
+    }
+  }
+
+  const getClippingRect = floatingPlatform.getClippingRect
+  floatingPlatform.getClippingRect = async (args) => {
+    const rect = await getClippingRect(args)
+    if (traceFloatingPlatform) {
+      console.error(`[gpuix-solid1:floating-platform] clippingRect element=${describePlatformElement(args.element)} value=${JSON.stringify(rect)}`)
+    }
+    return rect
+  }
+}
+
+installFloatingPlatformDiagnostics()
 
 async function settleOutsideInteractionListener(): Promise<void> {
   await wait(0)
@@ -164,12 +216,14 @@ if (!hasNativeTestRenderer) {
   await wait(350)
   r.flush()
 
+  traceFloatingPlatform = true
   r.clickTextWithinTestId("upstream-dropdown", "Git Settings")
   requireText(r.textContent("upstream-dropdown"), "Commit", "Dropdown pointer open")
   r.clickTextWithinTestId("upstream-dropdown", "Show Git Log")
   requireText(r.textContent("upstream-dropdown"), "Commit", "Dropdown checkbox keeps menu open")
   r.clickTextWithinTestId("upstream-dropdown", "GitHub")
   logFloatingGeometry("Dropdown submenu")
+  traceFloatingPlatform = false
   requireText(r.textContent("upstream-dropdown"), "Create Pull Request…", "Dropdown submenu")
   r.clickTextWithinTestId("upstream-button", "Click me")
 
