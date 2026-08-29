@@ -311,7 +311,7 @@ export function setHostProperty<T>(
   else node.props.set(name, customPropValue(value))
   if (!node.root || !node.nativeAlive || isReserved(name)) return
   if (BUILT_IN_TYPES.has(node.type) && !UNIVERSAL_PROPS.has(name)) return
-  node.root.driver.enqueue("setCustomPropValue", node.id, name, customPropValue(value))
+  node.root.driver.enqueue("setCustomProp", node.id, name, customPropValue(value))
 }
 
 export function insertHostNode(parent: HostParent, node: HostNode, anchor?: HostNode | null): void {
@@ -481,7 +481,7 @@ function adopt(root: HostRootNode, node: HostNode): void {
     for (const [name, value] of node.props) {
       if (isReserved(name)) continue
       if (BUILT_IN_TYPES.has(node.type) && !UNIVERSAL_PROPS.has(name)) continue
-      root.driver.enqueue("setCustomPropValue", node.id, name, customPropValue(value))
+      root.driver.enqueue("setCustomProp", node.id, name, customPropValue(value))
     }
   }
 
