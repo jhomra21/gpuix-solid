@@ -93,7 +93,7 @@ export function Portal(props: { children: JSX.Element }): JSX.Element {
 }
 
 function hasPopperPositionerProp<T>(props: T): boolean {
-  return props !== null && typeof props === "object" && "data-popper-positioner" in props
+  return Reflect.has(Object(props), "data-popper-positioner")
 }
 
 function promoteNativePopperPositioner(element: HostElementNode): void {
