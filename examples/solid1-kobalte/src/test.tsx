@@ -133,9 +133,11 @@ if (!hasNativeTestRenderer) {
   r.flush()
   requireText(r.textContent("upstream-dropdown"), "Create Pull Request…", "Dropdown submenu hover")
   r.clickTextWithinTestId("upstream-button", "Click me")
+  await settleEffects(() => r.flush())
 
   r.clickTextWithinTestId("upstream-context", "Right click here.")
   requireCondition(!r.textContent("upstream-context").includes("Commit"), "ContextMenu should ignore left click")
+  await settleEffects(() => r.flush())
   r.rightClickTextWithinTestId("upstream-context", "Right click here.")
   requireText(r.textContent("upstream-context"), "Commit", "ContextMenu right click")
   r.clickTextWithinTestId("upstream-context", "Show Git Log")
