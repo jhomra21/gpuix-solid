@@ -97,7 +97,7 @@ function installDocumentStyleCompatibility(): void {
 
 function installDocumentFocusCompatibility(): void {
   const documentTarget = globalThis.document
-  let activeElement: Element | null = documentTarget.body
+  let activeElement: object | null = documentTarget.body
   const originalFocus = HostElementNode.prototype.focus
   const originalBlur = HostElementNode.prototype.blur
 
