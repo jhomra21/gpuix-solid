@@ -27,6 +27,16 @@ if (hasNativeTestRenderer) {
   }
 
   app.render(() => <UpstreamKobalteShowcase />)
+
+  const menuTriggers = Array.from(document.body.querySelectorAll<HTMLElement>("[data-kb-menu-value-trigger]"))
+  requireCondition(menuTriggers.length === 3, `Expected three menubar triggers, got ${menuTriggers.length}`)
+  for (const trigger of menuTriggers) {
+    requireCondition(
+      trigger.matches("button:not([disabled]):not([hidden])"),
+      "Menubar trigger should satisfy Kobalte's browser focusability selector",
+    )
+  }
+
   r.clickTextWithinTestId("upstream-menubar", "Git")
   requireMenuState(r.textContent("upstream-menubar"), "Commit", ["New Tab", "Undo"], "initial Git menu")
 
@@ -82,5 +92,5 @@ if (hasNativeTestRenderer) {
   )
 
   app.unmount()
-  console.log("solid1 Kobalte menubar switch and SVG stress: passed")
+  console.log("solid1 Kobalte menubar focus, switch, and SVG stress: passed")
 }
