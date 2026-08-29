@@ -132,10 +132,10 @@ function domCompatibleEvent(event: NativeEventPayload, target: DomCompatTarget |
   const x = event.x ?? 0
   const y = event.y ?? 0
   const currentTarget = pointerCompatibleTarget(target ?? fallbackTarget(event))
+  const key = browserKey(event.key)
   if (event.value !== undefined) currentTarget.value = event.value
 
-  return Object.assign({}, event, {
-    key: browserKey(event.key),
+  return Object.assign({}, event, key === undefined ? {} : { key }, {
     currentTarget,
     target: currentTarget,
     clientX: x,
