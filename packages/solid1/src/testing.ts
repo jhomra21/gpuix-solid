@@ -1,7 +1,7 @@
 import { createRequire } from "node:module"
 import type { EventPayload, TestGpuixRenderer as NativeTestRendererApi } from "@gpuix/native"
 import type { JSX } from "solid-js"
-import type { MutationValue } from "./host/mutations.js"
+import { useDestroyUnlinksParentBatch, type MutationValue } from "./host/mutations.js"
 import type { NativeRenderer, StyleDesc } from "./host/types.js"
 import { createRoot, type Root } from "./root.js"
 
@@ -106,6 +106,7 @@ export class TestRenderer implements NativeRenderer {
   constructor() {
     if (!NativeTestRenderer) throw new Error("Native TestGpuixRenderer is unavailable")
     this.#native = new NativeTestRenderer()
+    useDestroyUnlinksParentBatch(this)
   }
 
   bindRoot(root: Root): void {
