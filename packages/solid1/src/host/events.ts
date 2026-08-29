@@ -73,7 +73,7 @@ function fallbackTarget(event: NativeEventPayload): DomCompatTarget {
 }
 
 function pointerCompatibleTarget(target: DomCompatTarget): DomCompatTarget & EventTarget {
-  if (!Object.hasOwn(target, "dataset")) {
+  if (!("dataset" in target)) {
     Object.defineProperty(target, "dataset", {
       configurable: true,
       enumerable: true,
@@ -81,21 +81,21 @@ function pointerCompatibleTarget(target: DomCompatTarget): DomCompatTarget & Eve
       value: {},
     })
   }
-  if (!Object.hasOwn(target, "addEventListener")) {
+  if (!("addEventListener" in target)) {
     Object.defineProperty(target, "addEventListener", {
       configurable: true,
       enumerable: true,
       value: () => undefined,
     })
   }
-  if (!Object.hasOwn(target, "removeEventListener")) {
+  if (!("removeEventListener" in target)) {
     Object.defineProperty(target, "removeEventListener", {
       configurable: true,
       enumerable: true,
       value: () => undefined,
     })
   }
-  if (!Object.hasOwn(target, "dispatchEvent")) {
+  if (!("dispatchEvent" in target)) {
     Object.defineProperty(target, "dispatchEvent", {
       configurable: true,
       enumerable: true,
