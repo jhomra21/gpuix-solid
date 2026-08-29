@@ -5,7 +5,7 @@ import {
   type JSX,
   type ValidComponent,
 } from "solid-js"
-import { HostElementNode } from "./host/nodes.js"
+import { HostElementNode, type HostRootNode } from "./host/nodes.js"
 import { createElement, spread } from "./universal.js"
 
 export const isServer = false
@@ -28,6 +28,7 @@ type CompatDocumentStyle = {
 installElementConstructorCompatibility()
 installDocumentContainmentCompatibility()
 installDocumentStyleCompatibility()
+installDocumentPointerCaptureCompatibility()
 
 export function createDynamic<T extends ValidComponent>(
   component: () => T | undefined,
@@ -91,6 +92,60 @@ function installDocumentStyleCompatibility(): void {
       value: createDocumentStyle(),
     })
   }
+}
+
+function installDocumentPointerCaptureCompatibility(): void {
+  const documentTarget = globalThis.document
+  const originalAddEventListener = documentTarget.addEventListener.bind(documentTarget)
+  const originalRemoveEventListener = documentTarget.removeEventListener.bind(documentTarget)
+  const pointerDownListeners = new Set<EventListenerOrEventListenerObject>()
+
+  Object.defineProperties(documentTarget, {
+    addEventListener: {
+      configurable: true,
+      value: (
+        type: string,
+        listener: EventListenerOrEventListenerObject | null,
+        options?: boolean | AddEventListenerOptions,
+      ) => {
+        originalAddEventListener(type, listener, options)
+        if (type !== "pointerdown" || !listener) return
+        const wasInactive = pointerDownListeners.size === 0
+        pointerDownListeners.add(listener)
+        if (wasInactive) syncNativePointerDownObservation(true)
+      },
+    },
+    removeEventListener: {
+      configurable: true,
+      value: (
+        type: string,
+        listener: EventListenerOrEventListenerObject | null,
+        options?: boolean | EventListenerOptions,
+      ) => {
+        originalRemoveEventListener(type, listener, options)
+        if (type !== "pointerdown" || !listener) return
+        pointerDownListeners.delete(listener)
+        if (pointerDownListeners.size === 0) syncNativePointerDownObservation(false)
+      },
+    },
+  })
+}
+
+function syncNativePointerDownObservation(active: boolean): void {
+  const roots = new Set<HostRootNode>()
+  for (const candidate of Array.from(globalThis.document.body.querySelectorAll("*"))) {
+    if (!(candidate instanceof HostElementNode)) continue
+    const root = candidate.root
+    if (!root || !candidate.nativeAlive) continue
+    roots.add(root)
+    root.driver.enqueue(
+      "setEventListener",
+      candidate.id,
+      "mouseDown",
+      active || candidate.events.has("mouseDown"),
+    )
+  }
+  for (const root of roots) root.driver.flush()
 }
 
 function createDocumentStyle(): CompatDocumentStyle {
