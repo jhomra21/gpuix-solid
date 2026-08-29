@@ -1,10 +1,32 @@
-import { setHostProperty, type HostElementNode, type HostNode, type HostRootNode } from "./host/nodes.js"
+import {
+  setHostProperty,
+  type HostElementNode,
+  type HostNode,
+  type HostParent,
+  type HostRootNode,
+} from "./host/nodes.js"
 import type { DimensionValue, StyleDesc } from "./host/types.js"
 
 interface SvgViewBox {
   width: number
   height: number
 }
+
+interface SvgPresentationStyle {
+  fill?: string
+  stroke?: string
+  strokeWidth?: string | number
+  "stroke-width"?: string | number
+}
+
+interface SvgSourceState {
+  base: string
+  rendered: string
+}
+
+type SvgPresentationProperty = "fill" | "stroke" | "stroke-width"
+
+const svgSourceStates = new WeakMap<HostElementNode, SvgSourceState>()
 
 /**
  * GPUI's native SVG leaf needs layout dimensions before paint. Browser inline
@@ -27,12 +49,7 @@ function syncSvgNode(node: HostNode): void {
 function syncSvgLayout(node: HostElementNode): void {
   const sourceValue = node.props.get("source")
   if (sourceValue == null) return
-  const originalSource = String(sourceValue)
-  const source = withInheritedPresentation(node, originalSource)
-  if (source !== originalSource) {
-    setHostProperty(node, "source", source)
-    setHostProperty(node, "src", `data:image/svg+xml,${encodeURIComponent(source)}`)
-  }
+  const source = syncSvgSourcePresentation(node, String(sourceValue))
 
   const viewBox = parseViewBox(attribute(source, "viewBox"))
   let width = parseDimension(attribute(source, "width"))
@@ -68,33 +85,60 @@ function syncSvgLayout(node: HostElementNode): void {
   if (changed) setHostProperty(node, "style", nativeStyle)
 }
 
+function syncSvgSourcePresentation(node: HostElementNode, currentSource: string): string {
+  const previous = svgSourceStates.get(node)
+  const base = previous && currentSource === previous.rendered ? previous.base : currentSource
+  const rendered = withInheritedPresentation(node, base)
+  svgSourceStates.set(node, { base, rendered })
+
+  if (rendered !== currentSource) {
+    setHostProperty(node, "source", rendered)
+    setHostProperty(node, "src", `data:image/svg+xml,${encodeURIComponent(rendered)}`)
+  }
+  return rendered
+}
+
 function withInheritedPresentation(node: HostElementNode, source: string): string {
   let result = source
-  for (const [attributeName, styleNames] of [
-    ["fill", ["fill"]],
-    ["stroke", ["stroke"]],
-    ["stroke-width", ["stroke-width", "strokeWidth"]],
-  ] as const) {
-    if (attribute(result, attributeName) !== undefined) continue
-    const value = inheritedStyleValue(node, styleNames)
-    if (value !== undefined) result = addRootAttribute(result, attributeName, value)
+  for (const property of ["fill", "stroke", "stroke-width"] as const) {
+    if (attribute(result, property) !== undefined) continue
+    const value = inheritedPresentationValue(node, property)
+    if (value !== undefined) result = addRootAttribute(result, property, value)
   }
   return result
 }
 
-function inheritedStyleValue(node: HostElementNode, names: readonly string[]): string | undefined {
+function inheritedPresentationValue(
+  node: HostElementNode,
+  property: SvgPresentationProperty,
+): string | undefined {
   let current: HostElementNode | null = node
   while (current) {
-    for (const name of names) {
-      const direct = Reflect.get(current.style, name)
-      if (direct !== undefined && direct !== "") return String(direct)
-      const custom = current.style.getPropertyValue(name)
-      if (custom) return custom
-    }
-    const parent = current.parent
+    const style = svgPresentationStyle(current)
+    const direct = directPresentationValue(style, property)
+    if (direct !== undefined && direct !== "") return String(direct)
+    const custom = current.style.getPropertyValue(property)
+    if (custom) return custom
+    const parent: HostParent | null = current.parent
     current = parent && parent.kind === "element" ? parent : null
   }
   return undefined
+}
+
+function directPresentationValue(
+  style: SvgPresentationStyle,
+  property: SvgPresentationProperty,
+): string | number | undefined {
+  switch (property) {
+    case "fill": return style.fill
+    case "stroke": return style.stroke
+    case "stroke-width": return style.strokeWidth ?? style["stroke-width"]
+  }
+}
+
+function svgPresentationStyle(node: HostElementNode): SvgPresentationStyle {
+  // SAFETY: the browser-style bridge can carry CSS SVG presentation keys that are valid upstream CSS but intentionally absent from GPUIX's native StyleDesc.
+  return node.style as StyleDesc & SvgPresentationStyle
 }
 
 function addRootAttribute(source: string, name: string, value: string): string {
