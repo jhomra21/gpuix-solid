@@ -69,6 +69,20 @@ type BoxShorthand = {
   left?: number
 }
 
+type LegacyMutationRenderer = NativeRenderer & {
+  createElement(id: number, elementType: string): void
+  destroyElement(id: number): number[]
+  appendChild(parentId: number, childId: number): void
+  removeChild(parentId: number, childId: number): void
+  insertBefore(parentId: number, childId: number, beforeId: number): void
+  setStyle(id: number, styleJson: string): void
+  setText(id: number, content: string): void
+  setEventListener(id: number, eventType: string, hasHandler: boolean): void
+  setRoot(id: number): void
+  setCustomProp(id: number, key: string, valueJson: string): void
+  commitMutations(): void
+}
+
 export function useDestroyUnlinksParentBatch(renderer: NativeRenderer): void {
   DESTROY_UNLINKS_PARENT.add(renderer)
 }
@@ -120,23 +134,25 @@ export class MutationDriver {
         return
       }
 
+      // SAFETY: only pre-applyBatch renderers reach this branch; those legacy renderers expose the direct mutation methods described by this internal compatibility shape.
+      const legacyRenderer = this.#renderer as LegacyMutationRenderer
       const destroyed: number[] = []
       for (const [name, ...args] of queue) {
         if (name === "destroyElement") {
-          destroyed.push(...this.#renderer.destroyElement(numberArg(args, 0)))
+          destroyed.push(...legacyRenderer.destroyElement(numberArg(args, 0)))
           continue
         }
         if (name === APPLY_BATCH_CUSTOM_PROP) {
-          this.#renderer.setCustomProp(
+          legacyRenderer.setCustomProp(
             numberArg(args, 0),
             stringArg(args, 1),
             JSON.stringify(args[2] ?? null),
           )
           continue
         }
-        callMutation(this.#renderer, name, args)
+        callMutation(legacyRenderer, name, args)
       }
-      this.#renderer.commitMutations()
+      legacyRenderer.commitMutations()
       this.#queue = []
       this.#scheduled = false
       for (const id of destroyed) this.#events.deleteDestroyed(id)
@@ -169,7 +185,7 @@ export class MutationDriver {
   }
 }
 
-function callMutation(renderer: NativeRenderer, name: string, args: MutationValue[]): void {
+function callMutation(renderer: LegacyMutationRenderer, name: string, args: MutationValue[]): void {
   switch (name) {
     case "createElement":
       renderer.createElement(numberArg(args, 0), stringArg(args, 1))
