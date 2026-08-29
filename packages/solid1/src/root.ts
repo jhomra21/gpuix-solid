@@ -2,12 +2,12 @@ import type { EventPayload } from "@gpuix/native"
 import type { JSX } from "solid-js"
 import { installBrowserElementIdentity } from "./browser-element-identity.js"
 import { installBrowserEventCompatibility } from "./browser-event-compat.js"
+import { installBrowserPreflushCompatibility } from "./browser-preflush-compat.js"
 import { GpuixContext, type ViewportSize } from "./context.js"
 import { EventRegistry } from "./host/events.js"
 import { MutationDriver } from "./host/mutations.js"
 import { HostRootNode, removeHostNode } from "./host/nodes.js"
 import type { DimensionValue, NativeRenderer } from "./host/types.js"
-import { installNativeSvgLayoutPreflushCompatibility } from "./svg-layout-compat.js"
 import { universalRender } from "./universal.js"
 
 export interface Root {
@@ -39,7 +39,7 @@ export function createRoot(renderer: NativeRenderer): Root {
   const events = new EventRegistry()
   const driver = new MutationDriver(renderer, events)
   const container = new HostRootNode(renderer, events, driver)
-  installNativeSvgLayoutPreflushCompatibility(container, driver)
+  installBrowserPreflushCompatibility(container, driver)
   let dispose: (() => void) | undefined
 
   const flushNative = (): void => {
