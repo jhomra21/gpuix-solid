@@ -5,6 +5,7 @@ import {
   type JSX,
   type ValidComponent,
 } from "solid-js"
+import { HostElementNode } from "./host/nodes.js"
 import { createElement, spread } from "./universal.js"
 
 export const isServer = false
@@ -24,6 +25,7 @@ type CompatDocumentStyle = {
   removeProperty(name: string): string
 }
 
+installElementConstructorCompatibility()
 installDocumentStyleCompatibility()
 
 export function createDynamic<T extends ValidComponent>(
@@ -54,6 +56,16 @@ export function Portal(props: { children: JSX.Element }): JSX.Element {
 
 function isHostTag(component: ValidComponent): component is string {
   return typeof component === "string"
+}
+
+function installElementConstructorCompatibility(): void {
+  for (const name of ["Element", "HTMLElement"] as const) {
+    Object.defineProperty(globalThis, name, {
+      configurable: true,
+      writable: true,
+      value: HostElementNode,
+    })
+  }
 }
 
 function installDocumentStyleCompatibility(): void {
