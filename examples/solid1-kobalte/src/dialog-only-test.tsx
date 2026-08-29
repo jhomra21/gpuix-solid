@@ -95,21 +95,27 @@ if (!hasNativeTestRenderer) {
 
   const nativeDialogContent = document.body.querySelectorAll('[role="dialog"]')[0]
   if (!(nativeDialogContent instanceof HTMLElement)) throw new Error("Expected dialog content before native outside interaction")
-  let nativePointerTarget: Element | null = null
+  const nativePointerTargets: Element[] = []
   const captureNativePointerTarget = (event: Event) => {
-    nativePointerTarget = event.target instanceof Element ? event.target : null
+    if (event.target instanceof Element) nativePointerTargets.push(event.target)
   }
   document.addEventListener("pointerdown", captureNativePointerTarget, true)
   renderer.clickTestId("dialog-probe-outside")
   document.removeEventListener("pointerdown", captureNativePointerTarget, true)
 
-  requireCondition(nativePointerTarget !== null, "native outside interaction should dispatch a document pointerdown target")
+  const nativePointerTarget = nativePointerTargets[0]
+  if (!nativePointerTarget) throw new Error("native outside interaction should dispatch a document pointerdown target")
   requireCondition(
-    nativePointerTarget !== null && !nativeDialogContent.contains(nativePointerTarget),
+    !nativeDialogContent.contains(nativePointerTarget),
     "native outside coordinates should hit outside Dialog content",
   )
   await settlePresence(renderer)
-  requireCondition(!renderer.textContent("dialog-probe").includes("About Kobalte"), "fresh Dialog should dismiss from native outside interaction")
+  requireCondition(renderer.textContent("dialog-probe").includes("About Kobalte"), "native outside interaction should remain open before target replay")
+
+  dispatchPointerDown(nativePointerTarget)
+  renderer.flush()
+  await settlePresence(renderer)
+  requireCondition(!renderer.textContent("dialog-probe").includes("About Kobalte"), "synthetic replay at native target should dismiss Dialog")
 
   app.unmount()
   console.log("solid1 dialog-only Kobalte probe: passed")
