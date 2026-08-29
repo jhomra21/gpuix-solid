@@ -4,10 +4,6 @@ import { BasicExample as DialogExample } from "./upstream/kobalte/examples/dialo
 
 configureNativeStyleManifest(nativeKobalteManifest)
 
-function requireCondition(condition: boolean, message: string): void {
-  if (!condition) throw new Error(message)
-}
-
 function requireText(actual: string, expected: string, label: string): void {
   if (!actual.includes(expected)) throw new Error(`${label}: expected ${JSON.stringify(expected)} in ${JSON.stringify(actual)}`)
 }
@@ -42,9 +38,9 @@ if (!hasNativeTestRenderer) {
   const dialogContent = document.body.querySelectorAll('[role="dialog"]')[0]
   if (!(dialogContent instanceof HTMLElement)) throw new Error("Expected HTMLElement-compatible Dialog content")
 
-  let firstPointerTarget: Element | null = null
+  const pointerTargets: Element[] = []
   const captureTarget = (event: Event) => {
-    if (!firstPointerTarget && event.target instanceof Element) firstPointerTarget = event.target
+    if (pointerTargets.length === 0 && event.target instanceof Element) pointerTargets.push(event.target)
   }
   document.addEventListener("pointerdown", captureTarget, true)
 
@@ -53,7 +49,7 @@ if (!hasNativeTestRenderer) {
   document.removeEventListener("pointerdown", captureTarget, true)
 
   if (renderer.textContent("dialog-probe").includes("About Kobalte")) {
-    const target = firstPointerTarget
+    const target = pointerTargets[0]
     const label = target
       ? `${target.localName}#${target.getAttribute("id") ?? ""}[role=${target.getAttribute("role") ?? ""}]`
       : "none"
