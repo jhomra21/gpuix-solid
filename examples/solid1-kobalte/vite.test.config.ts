@@ -33,6 +33,9 @@ export default defineConfig({
     target: "node22",
     ssr: "src/dialog-only-test.tsx",
     outDir: "dist/test",
-    rollupOptions: { external: ["@gpuix/native"] },
+    rollupOptions: {
+      external: ["@gpuix/native"],
+      output: { entryFileNames: "test.js" },
+    },
   },
 })
