@@ -111,7 +111,6 @@ if (!hasNativeTestRenderer) {
   let outsideCustomRegistrations = 0
   let outsideCustomDispatches = 0
   const originalAddEventListener = outsideTarget.addEventListener.bind(outsideTarget)
-  const originalRemoveEventListener = outsideTarget.removeEventListener.bind(outsideTarget)
   const originalDispatchEvent = outsideTarget.dispatchEvent.bind(outsideTarget)
   Object.defineProperties(outsideTarget, {
     addEventListener: {
@@ -123,17 +122,7 @@ if (!hasNativeTestRenderer) {
       ) => {
         if (!listener) return
         if (type === "interactOutside.pointerDownOutside") outsideCustomRegistrations += 1
-        const once = typeof options === "object" && options?.once === true
-        if (!once) {
-          originalAddEventListener(type, listener, options)
-          return
-        }
-        const wrapped: EventListener = (event) => {
-          originalRemoveEventListener(type, wrapped, options)
-          if (typeof listener === "function") listener.call(outsideTarget, event)
-          else listener.handleEvent(event)
-        }
-        originalAddEventListener(type, wrapped, options)
+        originalAddEventListener(type, listener, options)
       },
     },
     dispatchEvent: {
@@ -157,7 +146,7 @@ if (!hasNativeTestRenderer) {
   )
   requireCondition(
     !r.textContent("upstream-dialog").includes("About Kobalte"),
-    `browser-like document pointerdown should dismiss Dialog with one-shot target listeners after registrations=${outsideCustomRegistrations} dispatches=${outsideCustomDispatches}`,
+    `browser-like document pointerdown should dismiss Dialog after custom event registrations=${outsideCustomRegistrations} dispatches=${outsideCustomDispatches}`,
   )
 
   r.clickTextWithinTestId("upstream-dialog", "Open")
