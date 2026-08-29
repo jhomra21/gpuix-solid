@@ -26,6 +26,7 @@ type CompatDocumentStyle = {
 }
 
 installElementConstructorCompatibility()
+installDocumentContainmentCompatibility()
 installDocumentStyleCompatibility()
 
 export function createDynamic<T extends ValidComponent>(
@@ -66,6 +67,18 @@ function installElementConstructorCompatibility(): void {
       value: HostElementNode,
     })
   }
+}
+
+function installDocumentContainmentCompatibility(): void {
+  if ("contains" in globalThis.document) return
+  Object.defineProperty(globalThis.document, "contains", {
+    configurable: true,
+    enumerable: true,
+    value: (node: Node | null) => {
+      if (node === globalThis.document.body || node === globalThis.document.documentElement) return true
+      return globalThis.document.body.contains(node)
+    },
+  })
 }
 
 function installDocumentStyleCompatibility(): void {
