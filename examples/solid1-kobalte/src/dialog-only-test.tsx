@@ -58,8 +58,7 @@ if (!hasNativeTestRenderer) {
   await settleDialog(renderer)
 
   const outside = document.body.querySelectorAll('[id="dialog-probe-outside"]')[0]
-  if (!outside) throw new Error("Expected dialog-only outside target")
-  requireCondition(outside instanceof Element, "dialog-only outside target should be an Element")
+  if (!(outside instanceof HTMLElement)) throw new Error("Expected dialog-only outside target")
   requireCondition(document.contains(outside), "dialog-only outside target should belong to document")
   requireCondition(
     document.body.style.pointerEvents === "none",
@@ -112,8 +111,12 @@ if (!hasNativeTestRenderer) {
     "native outside coordinates should hit outside Dialog content",
   )
   requireCondition(
-    nativePointerTarget !== nativeDialogTrigger,
-    "native outside coordinates should not hit the excluded Dialog trigger",
+    !nativeDialogTrigger.contains(nativePointerTarget),
+    "native outside coordinates should not hit inside the excluded Dialog trigger subtree",
+  )
+  requireCondition(
+    outside === nativePointerTarget || outside.contains(nativePointerTarget),
+    "native outside coordinates should resolve inside the requested outside test target",
   )
   requireCondition(
     document.contains(nativePointerTarget),
