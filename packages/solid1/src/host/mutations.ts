@@ -194,6 +194,7 @@ function callMutation(renderer: NativeRenderer, name: string, args: MutationValu
 function normalizeStyleMutation(style: StyleMutationInput): StyleDesc {
   const padding = normalizeBoxShorthand(style.padding, "padding")
   const margin = normalizeBoxShorthand(style.margin, "margin")
+  const fontSize = normalizeNumberStyle(style.fontSize, "fontSize")
   const normalized = {
     ...style,
     flexGrow: normalizeNumberStyle(style.flexGrow, "flexGrow"),
@@ -204,12 +205,12 @@ function normalizeStyleMutation(style: StyleMutationInput): StyleDesc {
     columnGap: normalizeNumberStyle(style.columnGap, "columnGap"),
     gridTemplateColumns: normalizeNumberStyle(style.gridTemplateColumns, "gridTemplateColumns"),
     gridTemplateRows: normalizeNumberStyle(style.gridTemplateRows, "gridTemplateRows"),
-    width: normalizeDimensionStyle(style.width),
-    height: normalizeDimensionStyle(style.height),
-    minWidth: normalizeDimensionStyle(style.minWidth),
-    minHeight: normalizeDimensionStyle(style.minHeight),
-    maxWidth: normalizeDimensionStyle(style.maxWidth),
-    maxHeight: normalizeDimensionStyle(style.maxHeight),
+    width: normalizeDimensionStyle(style.width, fontSize ?? 16),
+    height: normalizeDimensionStyle(style.height, fontSize ?? 16),
+    minWidth: normalizeDimensionStyle(style.minWidth, fontSize ?? 16),
+    minHeight: normalizeDimensionStyle(style.minHeight, fontSize ?? 16),
+    maxWidth: normalizeDimensionStyle(style.maxWidth, fontSize ?? 16),
+    maxHeight: normalizeDimensionStyle(style.maxHeight, fontSize ?? 16),
     padding: padding.value,
     paddingTop: normalizeNumberStyle(style.paddingTop, "paddingTop") ?? padding.top,
     paddingRight: normalizeNumberStyle(style.paddingRight, "paddingRight") ?? padding.right,
@@ -235,7 +236,7 @@ function normalizeStyleMutation(style: StyleMutationInput): StyleDesc {
     borderTopRightRadius: normalizeNumberStyle(style.borderTopRightRadius, "borderTopRightRadius"),
     borderBottomLeftRadius: normalizeNumberStyle(style.borderBottomLeftRadius, "borderBottomLeftRadius"),
     borderBottomRightRadius: normalizeNumberStyle(style.borderBottomRightRadius, "borderBottomRightRadius"),
-    fontSize: normalizeNumberStyle(style.fontSize, "fontSize"),
+    fontSize,
     lineHeight: normalizeNumberStyle(style.lineHeight, "lineHeight"),
     lineClamp: normalizeNumberStyle(style.lineClamp, "lineClamp"),
     overflow: normalizeOverflowStyle(style.overflow),
@@ -283,10 +284,15 @@ function normalizeNumberStyle(value: number | string | undefined, property: Numb
   throw new TypeError(`Unsupported numeric inline style ${property}: ${JSON.stringify(value)}`)
 }
 
-function normalizeDimensionStyle(value: DimensionValue | undefined): DimensionValue | undefined {
+function normalizeDimensionStyle(
+  value: DimensionValue | undefined,
+  fontSize: number,
+): DimensionValue | undefined {
   if (value === undefined || isNumberValue(value)) return value
   const trimmed = value.trim()
   if (isIntrinsicCssDimension(trimmed)) return "auto"
+  const em = trimmed.match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))em$/i)
+  if (em) return Number(em[1]) * fontSize
   return parseNumericCssValue(trimmed) ?? value
 }
 

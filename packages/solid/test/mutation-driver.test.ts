@@ -18,6 +18,20 @@ describe("MutationDriver", () => {
     expect(renderer.batches[0]).toHaveLength(3)
   })
 
+  it("resolves em dimensions against the element font size", () => {
+    const renderer = new FakeRenderer()
+    const driver = new MutationDriver(renderer, new EventRegistry())
+
+    driver.enqueue("setStyle", 1, { fontSize: "12px", width: "1.5em", height: "2em" })
+    driver.flush()
+
+    expect(renderer.batches[0]?.[0]).toEqual([
+      "setStyle",
+      1,
+      { fontSize: 12, width: 18, height: 24 },
+    ])
+  })
+
   it("serializes structured values for the direct N-API fallback", () => {
     const renderer = new FakeRenderer()
     Object.defineProperty(renderer, "applyBatch", { value: undefined })
