@@ -96,7 +96,7 @@ if (publicPackage.devDependencies !== undefined) {
 if (publicPackage.peerDependencies?.["solid-js"] !== ">=1.9.0 <2") {
   throw new Error(`Unexpected Solid peer range: ${publicPackage.peerDependencies?.["solid-js"]}`)
 }
-if (publicPackage.dependencies?.["@gpuix/native"] !== "^0.4.0") {
+if (publicPackage.dependencies?.["@gpuix/native"] !== "^0.6.0") {
   throw new Error(`Unexpected GPUIX native dependency: ${publicPackage.dependencies?.["@gpuix/native"]}`)
 }
 
