@@ -128,7 +128,9 @@ if (!hasNativeTestRenderer) {
   requireText(r.textContent("upstream-context"), "Commit", "ContextMenu right click")
   r.clickTextWithinTestId("upstream-context", "Show Git Log")
   requireText(r.textContent("upstream-context"), "Commit", "ContextMenu checkbox keeps menu open")
-  r.clickTextWithinTestId("upstream-context", "GitHub")
+  r.hoverTextWithinTestId("upstream-context", "GitHub")
+  await wait(150)
+  r.flush()
   requireText(r.textContent("upstream-context"), "Create Pull Request…", "ContextMenu submenu")
   r.clickTextWithinTestId("upstream-button", "Click me")
 
