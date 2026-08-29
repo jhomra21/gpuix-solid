@@ -13,6 +13,14 @@ function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
 }
 
+async function settleOutsideInteractionListener(): Promise<void> {
+  // Solid can mount the dismissable-layer effect on the first task. Kobalte
+  // intentionally defers its document pointerdown listener by one more task so
+  // the interaction that opened the layer cannot immediately dismiss it.
+  await wait(0)
+  await wait(0)
+}
+
 function dispatchPointerDown(target: Element): void {
   const event = new Event("pointerdown", { bubbles: true, cancelable: true })
   Object.defineProperties(event, {
@@ -97,11 +105,7 @@ if (!hasNativeTestRenderer) {
   r.clickTextWithinTestId("upstream-dialog", "Open")
   requireText(r.textContent("upstream-dialog"), "About Kobalte", "light Dialog open")
   r.captureScreenshot("/tmp/gpuix-solid1-kobalte-light-dialog.png")
-  // Kobalte intentionally installs its pointerdown-outside listener on the
-  // next task so the interaction that opened a layer cannot dismiss it again.
-  // A real user interaction naturally crosses that task boundary; the native
-  // test driver is synchronous, so model the same boundary explicitly.
-  await wait(0)
+  await settleOutsideInteractionListener()
   r.flush()
 
   const outsideTarget = document.body.querySelectorAll('[id="theme-toggle-target"]')[0]
@@ -114,7 +118,7 @@ if (!hasNativeTestRenderer) {
 
   r.clickTextWithinTestId("upstream-dialog", "Open")
   requireText(r.textContent("upstream-dialog"), "About Kobalte", "Dialog reopened for native outside interaction")
-  await wait(0)
+  await settleOutsideInteractionListener()
   r.flush()
   r.clickTestId("theme-toggle")
   requireCondition(!r.textContent("upstream-dialog").includes("About Kobalte"), "native Dialog overlay should dismiss outside interaction")
