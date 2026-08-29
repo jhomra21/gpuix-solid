@@ -56,6 +56,7 @@ type NumberStyleKey =
 type StyleMutationInput = Omit<StyleDesc, DimensionStyleKey | NumberStyleKey | "hover" | "active"> &
   { [K in DimensionStyleKey]?: DimensionValue } &
   { [K in NumberStyleKey]?: number | string } & {
+    "font-size"?: number | string
     hover?: StyleMutationInput
     active?: StyleMutationInput
   }
@@ -203,11 +204,12 @@ function callMutation(renderer: NativeRenderer, name: string, args: MutationValu
 }
 
 function normalizeStyleMutation(style: StyleMutationInput): StyleDesc {
+  const { "font-size": cssFontSize, ...canonicalStyle } = style
   const padding = normalizeBoxShorthand(style.padding, "padding")
   const margin = normalizeBoxShorthand(style.margin, "margin")
-  const fontSize = normalizeNumberStyle(style.fontSize, "fontSize")
+  const fontSize = normalizeNumberStyle(cssFontSize ?? style.fontSize, "fontSize")
   const normalized = {
-    ...style,
+    ...canonicalStyle,
     flexGrow: normalizeNumberStyle(style.flexGrow, "flexGrow"),
     flexShrink: normalizeNumberStyle(style.flexShrink, "flexShrink"),
     flexBasis: normalizeNumberStyle(style.flexBasis, "flexBasis"),
