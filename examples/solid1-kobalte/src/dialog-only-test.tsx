@@ -106,7 +106,7 @@ if (!hasNativeTestRenderer) {
   requireCondition(nativePointerTarget !== null, "native outside interaction should dispatch a document pointerdown target")
   requireCondition(
     nativePointerTarget !== null && !nativeDialogContent.contains(nativePointerTarget),
-    `native outside coordinates should hit outside Dialog content, got target ${nativePointerTarget?.localName ?? "unknown"}`,
+    "native outside coordinates should hit outside Dialog content",
   )
   await settlePresence(renderer)
   requireCondition(!renderer.textContent("dialog-probe").includes("About Kobalte"), "fresh Dialog should dismiss from native outside interaction")
