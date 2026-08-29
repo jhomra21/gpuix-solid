@@ -36,7 +36,7 @@ export function render(code: () => JSX.Element, options: RenderOptions = {}): Re
   }
 
   let root: Root | undefined
-  const renderer = new GpuixRenderer((error, event) => {
+  const nativeRenderer = new GpuixRenderer((error, event) => {
     if (error) {
       console.error("[gpuix-solid1] native event error", error)
       return
@@ -45,7 +45,9 @@ export function render(code: () => JSX.Element, options: RenderOptions = {}): Re
     root?.dispatch(event)
     onEvent?.(event)
   })
-  renderer.init(windowOptions)
+  nativeRenderer.init(windowOptions)
+  // SAFETY: GPUIX 0.4+ exposes applyBatch plus the capability methods consumed by this host; the legacy per-mutation methods in NativeRenderer are never reached when applyBatch is present.
+  const renderer = nativeRenderer as unknown as NativeRenderer
   applyDebugFrameOverlay(renderer, debugFrameOverlay)
   root = createRoot(renderer)
   root.render(code)
