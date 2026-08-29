@@ -1,4 +1,10 @@
-import { HostElementNode, setHostProperty } from "./host/nodes.js"
+import {
+  HostElementNode,
+  createHostElement,
+  insertHostNode,
+  removeHostNode,
+  setHostProperty,
+} from "./host/nodes.js"
 
 type CompatListener = (event: Event) => void
 
@@ -38,6 +44,7 @@ type CompatDocument = CompatEventTarget & {
   body?: CompatDocumentNode
   documentElement?: CompatDocumentNode
   defaultView?: CompatWindow
+  createElement?: (tagName: string) => HostElementNode
   createTreeWalker?: (
     root: CompatTreeElement,
     whatToShow: number,
@@ -191,6 +198,7 @@ export function installDomEventEnvironment(): void {
   documentTarget.body = bodyTarget
   documentTarget.documentElement = documentElementTarget
   documentTarget.defaultView = windowTarget
+  documentTarget.createElement = createCompatElement
   documentTarget.createTreeWalker = createCompatTreeWalker
   windowTarget.document = documentTarget
   windowTarget.setTimeout = (callback, delay) => globalThis.setTimeout(callback, delay)
@@ -321,6 +329,10 @@ function createDocumentNode(
   return node
 }
 
+function createCompatElement(tagName: string): HostElementNode {
+  return createHostElement("div", tagName.toLowerCase())
+}
+
 function connectDocumentTree(body: CompatDocumentNode, documentElement: CompatDocumentNode): void {
   body.parentElement = documentElement
   documentElement.parentElement = null
@@ -343,8 +355,14 @@ function installHostDomCompatibility(ownerDocument: CompatDocument): void {
       configurable: true,
       value(this: HostElementNode, name: string): string | null {
         registerKnownRoot(this)
-        const value = this.props.get(name)
-        return value === undefined || value === null ? null : String(value)
+        return hostAttribute(this, name)
+      },
+    },
+    hasAttribute: {
+      configurable: true,
+      value(this: HostElementNode, name: string): boolean {
+        registerKnownRoot(this)
+        return hostAttribute(this, name) !== null
       },
     },
     setAttribute: {
@@ -393,6 +411,57 @@ function installHostDomCompatibility(ownerDocument: CompatDocument): void {
       get(this: HostElementNode): CompatDataset {
         registerKnownRoot(this)
         return datasetFromHost(this)
+      },
+    },
+    tabIndex: {
+      configurable: true,
+      get(this: HostElementNode): number {
+        const value = this.props.get("tabIndex")
+        return typeof value === "number" ? value : -1
+      },
+      set(this: HostElementNode, value: number): void {
+        setHostProperty(this, "tabIndex", value)
+      },
+    },
+    addEventListener: {
+      configurable: true,
+      value(this: HostElementNode, type: string, listener: CompatListener | null): void {
+        addCompatListener(this, type, listener)
+      },
+    },
+    removeEventListener: {
+      configurable: true,
+      value(this: HostElementNode, type: string, listener: CompatListener | null): void {
+        removeCompatListener(this, type, listener)
+      },
+    },
+    dispatchEvent: {
+      configurable: true,
+      value(this: HostElementNode, event: Event): boolean {
+        return dispatchCompatEvent(this, event)
+      },
+    },
+    insertAdjacentElement: {
+      configurable: true,
+      value(this: HostElementNode, position: string, element: HostElementNode): HostElementNode | null {
+        registerKnownRoot(this)
+        if (position === "afterbegin") {
+          insertHostNode(this, element, this.children[0] ?? null)
+          return element
+        }
+        if (position === "beforeend") {
+          insertHostNode(this, element)
+          return element
+        }
+        return null
+      },
+    },
+    remove: {
+      configurable: true,
+      value(this: HostElementNode): void {
+        const parent = this.parent
+        if (!parent) return
+        removeHostNode(parent, this)
       },
     },
   })
@@ -664,34 +733,40 @@ function supportsNativeImageSource(src: string): boolean {
   return src.startsWith("data:") || src.startsWith("file:")
 }
 
+function addCompatListener(target: CompatEventTarget, type: string, listener: CompatListener | null): void {
+  if (!listener) return
+  let byType = listeners.get(target)
+  if (!byType) {
+    byType = new Map()
+    listeners.set(target, byType)
+  }
+  let entries = byType.get(type)
+  if (!entries) {
+    entries = new Set()
+    byType.set(type, entries)
+  }
+  entries.add(listener)
+}
+
+function removeCompatListener(target: CompatEventTarget, type: string, listener: CompatListener | null): void {
+  if (!listener) return
+  listeners.get(target)?.get(type)?.delete(listener)
+}
+
+function dispatchCompatEvent(target: CompatEventTarget, event: Event): boolean {
+  for (const listener of listeners.get(target)?.get(event.type) ?? []) listener(event)
+  return !event.defaultPrevented
+}
+
 function installEventTarget(target: CompatEventTarget): void {
   if (!target.addEventListener) {
-    target.addEventListener = (type, listener) => {
-      if (!listener) return
-      let byType = listeners.get(target)
-      if (!byType) {
-        byType = new Map()
-        listeners.set(target, byType)
-      }
-      let entries = byType.get(type)
-      if (!entries) {
-        entries = new Set()
-        byType.set(type, entries)
-      }
-      entries.add(listener)
-    }
+    target.addEventListener = (type, listener) => addCompatListener(target, type, listener)
   }
   if (!target.removeEventListener) {
-    target.removeEventListener = (type, listener) => {
-      if (!listener) return
-      listeners.get(target)?.get(type)?.delete(listener)
-    }
+    target.removeEventListener = (type, listener) => removeCompatListener(target, type, listener)
   }
   if (!target.dispatchEvent) {
-    target.dispatchEvent = (event) => {
-      for (const listener of listeners.get(target)?.get(event.type) ?? []) listener(event)
-      return !event.defaultPrevented
-    }
+    target.dispatchEvent = (event) => dispatchCompatEvent(target, event)
   }
 }
 
