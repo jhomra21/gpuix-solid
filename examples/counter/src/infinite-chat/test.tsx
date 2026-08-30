@@ -96,8 +96,10 @@ async function evictsTheFarPageAfterFivePages(): Promise<void> {
     assert.equal(await app.getByTestId("message-message-053").count(), 1)
     assert.equal(await app.getByTestId("message-message-054").count(), 0)
     assert.equal(await app.getByTestId("message-message-059").count(), 0)
+    assert.equal(await app.getByTestId("edge-previous").count(), 1)
+    assert.equal(await app.getByTestId("edge-next").count(), 1)
     const list = requiredElement(root.renderer.findByType("virtual-list")[0], "infinite transcript")
-    assert.equal(list.children.length, 31)
+    assert.equal(list.children.length, 32)
   } finally {
     await close(root, app)
   }
