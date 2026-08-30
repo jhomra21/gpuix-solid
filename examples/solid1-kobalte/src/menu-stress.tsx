@@ -14,7 +14,7 @@ function requireMenuState(actual: string, expected: string, absent: string[], la
 }
 
 function requireElement(selector: string): HTMLElement {
-  const element = document.body.querySelector<HTMLElement>(selector)
+  const element = document.body.querySelectorAll<HTMLElement>(selector)[0]
   if (!element) throw new Error(`Expected browser-compatible element ${JSON.stringify(selector)}`)
   return element
 }
