@@ -177,9 +177,9 @@ describe("host tree", () => {
     insertHostNode(root, node)
     driver.flush()
 
-    expect(renderer.batches[0]).toContainEqual(["setCustomPropValue", 1, "testId", "target"])
-    expect(renderer.batches[0]).not.toContainEqual(["setCustomPropValue", 1, "src", "ignored.png"])
-    expect(renderer.batches[0]).not.toContainEqual(["setCustomPropValue", 1, "className", "ignored"])
+    expect(renderer.batches[0]).toContainEqual(["setCustomProp", 1, "testId", "target"])
+    expect(renderer.batches[0]).not.toContainEqual(["setCustomProp", 1, "src", "ignored.png"])
+    expect(renderer.batches[0]).not.toContainEqual(["setCustomProp", 1, "className", "ignored"])
   })
 
   it("forwards custom element props and removes them with null", () => {
@@ -192,7 +192,7 @@ describe("host tree", () => {
     setHostProperty(image, "src", undefined, "one.png")
     driver.flush()
 
-    expect(renderer.batches[0]).toContainEqual(["setCustomPropValue", 1, "src", "one.png"])
-    expect(renderer.batches.at(-1)).toEqual([["setCustomPropValue", 1, "src", null]])
+    expect(renderer.batches[0]).toContainEqual(["setCustomProp", 1, "src", "one.png"])
+    expect(renderer.batches.at(-1)).toEqual([["setCustomProp", 1, "src", null]])
   })
 })

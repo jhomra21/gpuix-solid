@@ -1,8 +1,9 @@
 import { createRequire } from "node:module"
 import type { EventPayload, TestGpuixRenderer as NativeTestRendererApi } from "@gpuix/native"
 import type { JSX } from "solid-js"
-import type { MutationValue } from "./host/mutations.js"
-import type { NativeRenderer, StyleDesc } from "./host/types.js"
+import { adaptBatchRenderer } from "./batch-renderer-adapter.js"
+import { useDestroyUnlinksParentBatch, type MutationValue } from "./host/mutations.js"
+import type { StyleDesc } from "./host/types.js"
 import { createRoot, type Root } from "./root.js"
 
 type NativeTestRendererConstructor = new () => NativeTestRendererApi
@@ -66,12 +67,26 @@ function nodeText(node: NativeTreeNode): string {
   return text
 }
 
-function findElementByExactText(node: NativeTreeNode, text: string): NativeTreeNode | undefined {
+function findElementByExactText(
+  node: NativeTreeNode,
+  text: string,
+  parent?: NativeTreeNode,
+): NativeTreeNode | undefined {
+  if (node.text != null && nodeText(node).trim() === text) return parent ?? node
   for (const child of node.children ?? []) {
-    const found = findElementByExactText(child, text)
+    const found = findElementByExactText(child, text, node)
     if (found) return found
   }
-  if (node.type !== "text" && nodeText(node).trim() === text) return node
+  if (node.text == null && nodeText(node).trim() === text) return node
+  return undefined
+}
+
+function findParentNode(root: NativeTreeNode, childId: number): NativeTreeNode | undefined {
+  for (const child of root.children ?? []) {
+    if (child.id === childId) return root
+    const found = findParentNode(child, childId)
+    if (found) return found
+  }
   return undefined
 }
 
@@ -85,7 +100,7 @@ function insetPoint(bounds: TestBounds) {
 const NativeTestRenderer = loadNativeTestRenderer()
 export const hasNativeTestRenderer = NativeTestRenderer !== undefined
 
-export class TestRenderer implements NativeRenderer {
+export class TestRenderer {
   readonly #native: NativeTestRendererApi
   #root: Root | undefined
 
@@ -98,19 +113,9 @@ export class TestRenderer implements NativeRenderer {
     this.#root = root
   }
 
-  createElement(id: number, elementType: string): void { this.#native.createElement(id, elementType) }
-  destroyElement(id: number): number[] { return this.#native.destroyElement(id) }
-  appendChild(parentId: number, childId: number): void { this.#native.appendChild(parentId, childId) }
-  removeChild(parentId: number, childId: number): void { this.#native.removeChild(parentId, childId) }
-  insertBefore(parentId: number, childId: number, beforeId: number): void { this.#native.insertBefore(parentId, childId, beforeId) }
-  setStyle(id: number, styleJson: string): void { this.#native.setStyle(id, styleJson) }
-  setText(id: number, content: string): void { this.#native.setText(id, content) }
-  setEventListener(id: number, eventType: string, hasHandler: boolean): void { this.#native.setEventListener(id, eventType, hasHandler) }
-  setRoot(id: number): void { this.#native.setRoot(id) }
-  setCustomProp(id: number, key: string, valueJson: string): void { this.#native.setCustomProp(id, key, valueJson) }
-  commitMutations(): void { this.#native.commitMutations() }
   applyBatch(json: string): number[] { return this.#native.applyBatch(json) }
   focusElement(elementId: number): void { this.#native.focusElement(elementId) }
+  getElementBounds(elementId: number): number[] | null { return this.#native.getElementBounds(elementId) }
 
   flush(): void { this.#native.flush() }
 
@@ -131,6 +136,14 @@ export class TestRenderer implements NativeRenderer {
     this.#native.flush()
   }
 
+  clickText(text: string): void {
+    const node = this.requireText(text)
+    const point = insetPoint(this.boundsNode(node, `root text ${JSON.stringify(text)}`))
+    this.#native.simulateClick(point.x, point.y)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+  }
+
   clickTextWithinTestId(testId: string, text: string): void {
     const parent = this.requireTestId(testId)
     const node = findElementByExactText(parent, text)
@@ -141,6 +154,10 @@ export class TestRenderer implements NativeRenderer {
     this.#native.flush()
   }
 
+  boundsText(text: string): TestBounds {
+    return this.boundsNode(this.requireText(text), `root text ${JSON.stringify(text)}`)
+  }
+
   boundsTextWithinTestId(testId: string, text: string): TestBounds {
     const parent = this.requireTestId(testId)
     const node = findElementByExactText(parent, text)
@@ -148,8 +165,44 @@ export class TestRenderer implements NativeRenderer {
     return this.boundsNode(node, `${testId} text ${JSON.stringify(text)}`)
   }
 
+  boundsFirstTypeWithinTestId(testId: string, type: string): TestBounds {
+    const parent = this.requireTestId(testId)
+    const node = findFirstNodeOfType(parent, type)
+    if (!node) throw new Error(`Expected <${type}> inside ${testId}`)
+    return this.boundsNode(node, `${testId} <${type}>`)
+  }
+
+  styleTextWithinTestId(testId: string, text: string): StyleDesc {
+    const parent = this.requireTestId(testId)
+    const node = findElementByExactText(parent, text)
+    if (!node) throw new Error(`Expected visible text ${JSON.stringify(text)} inside ${testId}`)
+    return node.style ?? {}
+  }
+
+  styleParentOfTextWithinTestId(testId: string, text: string): StyleDesc {
+    const root = this.requireTestId(testId)
+    const node = findElementByExactText(root, text)
+    if (!node) throw new Error(`Expected visible text ${JSON.stringify(text)} inside ${testId}`)
+    const parent = findParentNode(root, node.id)
+    if (!parent) throw new Error(`Expected parent for visible text ${JSON.stringify(text)} inside ${testId}`)
+    return parent.style ?? {}
+  }
+
   rightClickTestId(testId: string): void {
     const point = insetPoint(this.boundsTestId(testId))
+    this.#native.simulateMouseDown(point.x, point.y, 2)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+    this.#native.simulateMouseUp(point.x, point.y, 2)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+  }
+
+  rightClickTextWithinTestId(testId: string, text: string): void {
+    const parent = this.requireTestId(testId)
+    const node = findElementByExactText(parent, text)
+    if (!node) throw new Error(`Expected visible text ${JSON.stringify(text)} inside ${testId}`)
+    const point = insetPoint(this.boundsNode(node, `${testId} text ${JSON.stringify(text)}`))
     this.#native.simulateMouseDown(point.x, point.y, 2)
     this.dispatchNativeEvents()
     this.#native.flush()
@@ -165,9 +218,31 @@ export class TestRenderer implements NativeRenderer {
     this.#native.flush()
   }
 
+  hoverText(text: string): void {
+    const node = this.requireText(text)
+    const point = insetPoint(this.boundsNode(node, `root text ${JSON.stringify(text)}`))
+    this.#native.simulateMouseMove(point.x, point.y)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+  }
+
+  hoverTextWithinTestId(testId: string, text: string): void {
+    const parent = this.requireTestId(testId)
+    const node = findElementByExactText(parent, text)
+    if (!node) throw new Error(`Expected visible text ${JSON.stringify(text)} inside ${testId}`)
+    const point = insetPoint(this.boundsNode(node, `${testId} text ${JSON.stringify(text)}`))
+    this.#native.simulateMouseMove(point.x, point.y)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+  }
+
   pressKeyTestId(testId: string, key: string): void {
     const node = this.requireTestId(testId)
     this.#native.focusElement(node.id)
+    this.pressKey(key)
+  }
+
+  pressKey(key: string): void {
     this.#native.simulateKeystrokes(key)
     this.dispatchNativeEvents()
     this.#native.flush()
@@ -238,6 +313,11 @@ export class TestRenderer implements NativeRenderer {
     return nodeText(this.requireTestId(testId))
   }
 
+  textContentRoot(): string {
+    const root = parseTree(this.#native.getTreeJson())
+    return root ? nodeText(root) : ""
+  }
+
   styleTestId(testId: string): StyleDesc {
     return this.requireTestId(testId).style ?? {}
   }
@@ -273,6 +353,14 @@ export class TestRenderer implements NativeRenderer {
     return { x, y, width, height }
   }
 
+  private requireText(text: string): NativeTreeNode {
+    const root = parseTree(this.#native.getTreeJson())
+    if (!root) throw new Error("Expected a native tree")
+    const node = findElementByExactText(root, text)
+    if (!node) throw new Error(`Expected visible text ${JSON.stringify(text)} in native tree`)
+    return node
+  }
+
   private requireTestId(testId: string): NativeTreeNode {
     const node = findNode(parseTree(this.#native.getTreeJson()), testId)
     if (!node) throw new Error(`Expected ${testId} in native tree`)
@@ -289,7 +377,9 @@ export interface TestRoot {
 
 export function createTestRoot(): TestRoot {
   const renderer = new TestRenderer()
-  const root = createRoot(renderer)
+  const hostRenderer = adaptBatchRenderer(renderer)
+  useDestroyUnlinksParentBatch(hostRenderer)
+  const root = createRoot(hostRenderer)
   renderer.bindRoot(root)
   return {
     root,

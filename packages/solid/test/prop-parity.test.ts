@@ -80,16 +80,16 @@ describe("React host prop forwarding parity", () => {
 
     expect(renderer.batches[0]).toEqual([
       ["createElement", 1, "div"],
-      ["setCustomPropValue", 1, "autoFocus", true],
-      ["setCustomPropValue", 1, "tabIndex", 0],
-      ["setCustomPropValue", 1, "motion", motion],
-      ["setCustomPropValue", 1, "testId", "counter"],
+      ["setCustomProp", 1, "autoFocus", true],
+      ["setCustomProp", 1, "tabIndex", 0],
+      ["setCustomProp", 1, "motion", motion],
+      ["setCustomProp", 1, "testId", "counter"],
       ["setRoot", 1],
     ])
 
     setHostProperty(node, "testId", undefined, "counter")
     driver.flush()
-    expect(renderer.batches.at(-1)).toEqual([["setCustomPropValue", 1, "testId", null]])
+    expect(renderer.batches.at(-1)).toEqual([["setCustomProp", 1, "testId", null]])
   })
 
   it("forwards custom-element values and serializes unsupported values as null", () => {
@@ -106,15 +106,15 @@ describe("React host prop forwarding parity", () => {
 
     expect(renderer.batches[0]).toEqual([
       ["createElement", 1, "img"],
-      ["setCustomPropValue", 1, "src", "image.png"],
-      ["setCustomPropValue", 1, "objectFit", "contain"],
-      ["setCustomPropValue", 1, "metadata", metadata],
-      ["setCustomPropValue", 1, "callback", null],
+      ["setCustomProp", 1, "src", "image.png"],
+      ["setCustomProp", 1, "objectFit", "contain"],
+      ["setCustomProp", 1, "metadata", metadata],
+      ["setCustomProp", 1, "callback", null],
       ["setRoot", 1],
     ])
 
     setHostProperty(node, "src", undefined, "image.png")
     driver.flush()
-    expect(renderer.batches.at(-1)).toEqual([["setCustomPropValue", 1, "src", null]])
+    expect(renderer.batches.at(-1)).toEqual([["setCustomProp", 1, "src", null]])
   })
 })

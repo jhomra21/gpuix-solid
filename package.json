@@ -13,7 +13,7 @@
     "test": "bun run --filter 'gpuix-solid' test && bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' test:dashboard && bun run --filter 'gpuix-solid-counter' test:codeimage && bun run --filter 'gpuix-solid-counter' test:tanstack-kitchen-sink",
     "lint": "oxlint .",
     "solid1:package": "cd packages/solid1 && bun install --no-save && bun run test && bun run typecheck",
-    "solid1:kobalte": "cd examples/solid1-kobalte && bun install --no-save && bun run typecheck && bun run test:native",
+    "solid1:kobalte": "cd packages/solid1 && bun install --no-save && bun run build && cd ../../examples/solid1-kobalte && bun install --no-save && bun run typecheck && bun run test:native",
     "solid1:tailwind": "cd examples/solid1-tailwind && bun install --no-save && bun run typecheck && bun run test:native",
     "solid1:daw": "cd examples/solid1-daw && bun install --no-save && bun run typecheck && bun run test:native",
     "solid1:check": "bun run solid1:package && bun run solid1:kobalte && bun run solid1:tailwind && bun run solid1:daw",

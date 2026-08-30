@@ -4,7 +4,8 @@
     "jsx": "preserve",
     "jsxImportSource": "@jhomra21/gpuix-solid1",
     "noEmit": true,
-    "types": ["node"]
+    "types": ["node"],
+    "baseUrl": "."
   },
   "include": ["src", "vite*.config.ts"]
 }

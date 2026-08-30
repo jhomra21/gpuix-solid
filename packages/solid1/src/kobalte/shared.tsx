@@ -1,7 +1,7 @@
 import type { JSX } from "solid-js"
 import type { EventPayload } from "@gpuix/native"
-import type { HostProps, StyleDesc } from "../host/types.js"
-import type { NativeClassList } from "../native-style.js"
+import type { HostProps, PublicInstance, StyleDesc } from "../host/types.js"
+import { resolveNativeClassStyle, type NativeClassList } from "../native-style.js"
 
 type OptionalUndefined<T> = {
   [K in keyof T]: {} extends Pick<T, K> ? T[K] | undefined : T[K]
@@ -22,6 +22,57 @@ export type NativeComponentProps = Omit<OptionalUndefined<HostProps>, "children"
 
 export type FloatingSide = "top" | "right" | "bottom" | "left"
 export type FloatingAlign = "start" | "center" | "end"
+export type FloatingPosition = { x: number; y: number }
+export type FocusKey = symbol
+export type FocusableInstance = PublicInstance & { focus: () => void }
+
+export interface FocusRegistry {
+  register: (key: FocusKey, instance: PublicInstance) => void
+  unregister: (key: FocusKey) => void
+  focusFirst: () => void
+  focusLast: () => void
+  focusNext: (key: FocusKey) => void
+  focusPrevious: (key: FocusKey) => void
+}
+
+export function asFocusableInstance(instance: PublicInstance): FocusableInstance {
+  // SAFETY: Solid host refs are assigned HostElementNode instances, whose public DOM-compat contract implements focus().
+  return instance as FocusableInstance
+}
+
+export function createFocusRegistry(): FocusRegistry {
+  const order: FocusKey[] = []
+  const instances = new Map<FocusKey, FocusableInstance>()
+
+  const focusAt = (index: number): void => {
+    if (order.length === 0) return
+    const normalized = ((index % order.length) + order.length) % order.length
+    const key = order[normalized]
+    if (key) instances.get(key)?.focus()
+  }
+
+  return {
+    register(key, instance) {
+      if (!order.includes(key)) order.push(key)
+      instances.set(key, asFocusableInstance(instance))
+    },
+    unregister(key) {
+      instances.delete(key)
+      const index = order.indexOf(key)
+      if (index >= 0) order.splice(index, 1)
+    },
+    focusFirst() { focusAt(0) },
+    focusLast() { focusAt(order.length - 1) },
+    focusNext(key) {
+      const index = order.indexOf(key)
+      focusAt(index < 0 ? 0 : index + 1)
+    },
+    focusPrevious(key) {
+      const index = order.indexOf(key)
+      focusAt(index < 0 ? order.length - 1 : index - 1)
+    },
+  }
+}
 
 export function mergeStyle(base: StyleDesc, override: StyleDesc | undefined): StyleDesc {
   if (!override) return base
@@ -46,6 +97,14 @@ export function mergeComponentStyle(
   return mergeStyle(base, props.style)
 }
 
+export function resolveNativeComponentStateStyle(
+  props: Pick<NativeComponentProps, "class" | "className" | "classList">,
+  state: "hover" | "active",
+): Omit<StyleDesc, "hover" | "active"> | undefined {
+  const className = [props.class, props.className].filter(Boolean).join(" ") || undefined
+  return resolveNativeClassStyle(className, props.classList)?.[state]
+}
+
 export function composeHandlers(
   first: ((event: EventPayload) => void) | undefined,
   second: ((event: EventPayload) => void) | undefined,
@@ -64,6 +123,7 @@ export interface FloatingContentProps extends NativeComponentProps {
   align?: FloatingAlign
   alignOffset?: number
   collisionPadding?: number
+  position?: FloatingPosition | undefined
 }
 
 export function FloatingLayer(props: FloatingContentProps): JSX.Element {
@@ -75,6 +135,8 @@ export function FloatingLayer(props: FloatingContentProps): JSX.Element {
 
   return (
     <anchored
+      testId={props.testId ? `${props.testId}-positioner` : undefined}
+      position={props.position}
       side={side()}
       align={align()}
       gap={props.sideOffset ?? 0}
@@ -84,8 +146,13 @@ export function FloatingLayer(props: FloatingContentProps): JSX.Element {
       deferred
       priority={1}
       occlude
+      // @gpuix/native 0.4 paints an opaque #1A1A1A fallback behind deferred
+      // anchored content when the wrapper has no recognized fill. One alpha byte
+      // is visually transparent but prevents those dark square corners in light mode.
+      style={{ backgroundColor: "#00000001" }}
     >
       <div
+        ref={props.ref}
         class={props.class}
         className={props.className}
         classList={props.classList}

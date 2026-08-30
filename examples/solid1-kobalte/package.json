@@ -3,20 +3,25 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build",
-    "build:test": "vite build --config vite.test.config.ts",
-    "typecheck": "tsc --noEmit",
+    "source:check": "bun scripts/check-upstream-source-parity.mjs",
+    "sync:upstream": "bun scripts/sync-upstream-kobalte.mjs",
+    "generate": "bun run source:check && bun scripts/generate-native-kobalte-css.mjs",
+    "build": "bun run generate && vite build",
+    "build:test": "bun run generate && vite build --config vite.test.config.ts",
+    "typecheck": "bun run generate && tsc --noEmit",
     "test:native": "bun run build:test && bun scripts/run-test.mjs",
     "start": "bun dist/app/index.js",
     "run": "bun run build && bun run start"
   },
   "dependencies": {
-    "@gpuix/native": "^0.4.0",
+    "@gpuix/native": "^0.6.0",
     "@jhomra21/gpuix-solid1": "file:../../packages/solid1",
+    "@kobalte/core": "0.13.13",
     "solid-js": "1.9.15"
   },
   "devDependencies": {
     "@types/node": "^25.3.3",
+    "postcss": "^8.5.6",
     "typescript": "^5.9.2",
     "vite": "^8.1.5",
     "vite-plugin-solid": "^2.11.14"

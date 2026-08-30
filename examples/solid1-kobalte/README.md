@@ -1,53 +1,101 @@
-# Solid 1 Kobalte compatibility fixture
+# Verbatim Kobalte docs fixture
 
-This example is the manual and automated compatibility gate for the Kobalte-shaped native primitives used by the pinned DAW UI before any Tailwind/class bridge work begins.
+This example proves that real Kobalte documentation source can run on the Solid 1 GPUIX renderer without rewriting the copied application code.
 
-It runs on `@jhomra21/gpuix-solid1` and renders directly through GPUIX. The fixture currently covers:
+The fixture is pinned to `kobaltedev/kobalte` commit `3d3266348816b492b027538168988703dc1604c0` (August 23, 2026). The exact repository, revision, copied files, and upstream Git blob SHAs are recorded in `upstream-lock.json`.
+
+## Source invariant
+
+The architecture is:
+
+```text
+verbatim checked-in upstream docs TSX + CSS modules
+        ↓ normal @kobalte/core/* imports
+published @kobalte/core source compiled by Vite
+        ↓
+Solid universal renderer + browser compatibility
+        ↓
+GPUIX native host
+```
+
+Files under `src/upstream/kobalte/` are checked-in verbatim copies from the pinned Kobalte repository. They are application source, not generated lookalikes and not local GPUIX rewrites. Do not patch them to make GPUIX work.
+
+`bun run source:check` hashes every copied file as a Git blob and compares it with the blob recorded from the pinned upstream commit. Any drift fails immediately with an instruction to fix compatibility underneath the copied source instead.
+
+Kobalte's source keeps its normal imports such as:
+
+```ts
+import { Dialog } from "@kobalte/core/dialog";
+import { DropdownMenu } from "@kobalte/core/dropdown-menu";
+```
+
+The Vite resolver points those imports at the installed `@kobalte/core` package source under `node_modules/@kobalte/core/src`. Kobalte itself is then compiled through the same Solid universal renderer as the fixture, with `solid-js/web` bridged to GPUIX's browser-compatibility surface. The upstream examples do not know that they are running on GPUIX.
+
+The selected upstream CSS modules are also checked in unchanged. `scripts/generate-native-kobalte-css.mjs` compiles their supported selectors into a native class manifest, including deterministic CSS-module scoping, light/dark variants, hover/active rules, and supported data-state selectors.
+
+Kobalte's MIT license is copied alongside the upstream source.
+
+## Covered upstream examples
+
+The native fixture currently executes Kobalte's actual `BasicExample` source for:
 
 - Button
-- Image / avatar fallback
-- Separator
 - TextField
+- Image
+- Separator
 - Tooltip
-- Dialog
 - DropdownMenu
 - ContextMenu
 - Menubar
-- ColorMode
-- polymorphic compatibility types
+- Dialog
 
-## Run on macOS
+`src/upstream-app.tsx` only arranges those unchanged examples in one native window, attaches fixture-level test IDs around them, and provides the color-mode environment. It does not reimplement the examples.
+
+## Native compatibility below the source
+
+Differences between browser Kobalte and GPUIX are handled outside the copied source and outside Kobalte itself. That includes:
+
+- semantic HTML elements mapped to native host elements;
+- inline SVG serialization for Kobalte's copied icons;
+- CSS-module class translation into native `StyleDesc` values;
+- native portal and anchored-surface behavior for floating content;
+- browser-compatible document, selector, element-identity, viewport, and preflush behavior;
+- event, focus, keyboard, right-click, and outside-pointer behavior.
+
+This is intentionally not a DOM implementation. The goal is source compatibility for Solid applications while preserving native GPUIX rendering.
+
+## Automated gate
 
 From the repository root:
+
+```sh
+bun run solid1:kobalte
+```
+
+The check first proves the checked-in Kobalte files still have the exact upstream Git blob SHAs. On macOS, where `TestGpuixRenderer` is available, it then interacts with the actual copied examples and validates native visual geometry/state as well as behavior.
+
+The test intentionally targets visible text from the pinned upstream source rather than inserting test IDs into copied files.
+
+## Run the native window
+
+On macOS:
 
 ```sh
 bun run example:solid1-kobalte
 ```
 
-The command builds the Solid 1 package and launches the native window:
+The window is titled `Kobalte Upstream Source — Solid 1 + GPUIX` and renders the same checked-in upstream source used by the automated gate.
 
-- title: `Kobalte Compatibility — Solid 1 + GPUIX`
-- size: 1180 × 820
+## Updating Kobalte
 
-## Manual visual and interaction check
+`bun run sync:upstream` is an explicit source-update operation. Normal builds never replace the checked-in Kobalte files.
 
-Before moving on to the Tailwind/class bridge, verify the native window itself:
+To test a newer upstream revision:
 
-1. The two-column layout is aligned and readable with no controls pinned unexpectedly to the top-left.
-2. Theme toggle changes both the displayed mode and the complete painted palette between dark and light, including fields and popup/dialog surfaces.
-3. Action button responds; disabled button does not.
-4. Hovering or focusing the tooltip trigger opens the anchored tooltip.
-5. TextField editing remains controlled and the invalid field keeps its error message visible.
-6. The `JM` and `FX` avatar fallbacks render cleanly and deterministically.
-7. Dropdown menu opens; checkbox, radio item, and submenu interactions work.
-8. The context menu opens from a real right-click rather than a normal left click.
-9. Menubar menus and submenu open and selections update the last-action status.
-10. Dialog opens above its overlay and closes from its close button or Escape; outside dismissal should behave natively as well.
+1. Update the pinned commit/file blob SHAs in `upstream-lock.json`.
+2. Run `bun run sync:upstream` to replace the checked-in copies with that exact pin.
+3. Run the normal fixture generation/check command.
+4. Fix newly exposed incompatibilities in the renderer, browser-compatibility layer, CSS compiler, or module bridge—not in `src/upstream/kobalte/` or Kobalte's installed source.
+5. Keep the upstream license and attribution in sync.
 
-## Current compatibility boundary
-
-This is a Kobalte-shaped native compatibility layer, not a DOM implementation of Kobalte. Portal content is represented by native floating/anchored layers rather than browser portals.
-
-The current GPUIX `<img>` host does not expose image load/error callbacks, so a failed native image load cannot yet switch a Kobalte-style avatar to fallback from that callback. The visual fixture therefore uses deterministic no-source fallback states instead of deliberately requesting an invalid remote asset. This keeps the checkpoint free of an expected asset-cache failure while preserving the limitation explicitly here.
-
-Tailwind `class`, `className`, and Solid `classList` translation are deliberately out of scope for this gate. That bridge starts only after this native Kobalte fixture is manually accepted.
+That rule is the important part of this fixture: when upstream code stops working, the compatibility layer moves toward the app rather than the app moving toward GPUIX.

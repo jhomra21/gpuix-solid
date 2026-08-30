@@ -1,6 +1,6 @@
 import type { JSX } from "solid-js"
 import type { PolymorphicProps } from "./polymorphic.js"
-import { mergeStyle, type NativeComponentProps } from "./shared.jsx"
+import { mergeComponentStyle, type NativeComponentProps } from "./shared.jsx"
 
 export interface SeparatorRootProps<T = "hr"> extends NativeComponentProps {
   as?: T
@@ -15,11 +15,12 @@ export function Root<T = "hr">(props: PolymorphicProps<T, SeparatorRootProps<T>>
       className={props.className}
       classList={props.classList}
       testId={props.testId}
-      style={mergeStyle(
+      style={mergeComponentStyle(
         vertical()
-          ? { width: 1, minWidth: 1, height: "100%", backgroundColor: "#34343a", flexShrink: 0 }
-          : { height: 1, minHeight: 1, width: "100%", backgroundColor: "#34343a", flexShrink: 0 },
-        props.style,
+          ? { width: 1, minWidth: 1, height: "100%", flexShrink: 0 }
+          : { height: 1, minHeight: 1, width: "100%", flexShrink: 0 },
+        { backgroundColor: "#34343a" },
+        props,
       )}
     />
   )

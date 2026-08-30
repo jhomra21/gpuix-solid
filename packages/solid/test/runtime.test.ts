@@ -25,13 +25,13 @@ describe("root lifecycle", () => {
     expect(renderer.batches).toEqual([
       [
         ["createElement", 1, "div"],
-        ["setCustomPropValue", 1, "testId", "first"],
+        ["setCustomProp", 1, "testId", "first"],
         ["setRoot", 1],
       ],
       [["destroyElement", 1]],
       [
         ["createElement", 2, "div"],
-        ["setCustomPropValue", 2, "testId", "second"],
+        ["setCustomProp", 2, "testId", "second"],
         ["setRoot", 2],
       ],
     ])
@@ -96,7 +96,7 @@ describe("root lifecycle", () => {
     ).toThrow("expected failure")
 
     expect(renderer.batches.at(-1)).toEqual([
-      ["setCustomPropValue", 1, "testId", "after-error"],
+      ["setCustomProp", 1, "testId", "after-error"],
     ])
   })
 

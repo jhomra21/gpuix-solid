@@ -34,6 +34,33 @@ interface NativeStyleState {
   inlineStyle: StyleDesc | undefined
 }
 
+type NativeInlineStyleInput = Omit<StyleDesc, "gap" | "rowGap" | "columnGap"> & {
+  gap?: DimensionValue
+  rowGap?: DimensionValue
+  columnGap?: DimensionValue
+  "row-gap"?: DimensionValue
+  "column-gap"?: DimensionValue
+  "min-width"?: DimensionValue
+  "min-height"?: DimensionValue
+  "max-width"?: DimensionValue
+  "max-height"?: DimensionValue
+  "flex-direction"?: string
+  "flex-wrap"?: string
+  "align-items"?: string
+  "align-self"?: string
+  "align-content"?: string
+  "justify-content"?: string
+  "background-color"?: string
+  "font-family"?: string
+  "font-weight"?: string | number
+  "text-align"?: string
+  "white-space"?: "normal" | "nowrap"
+  "overflow-x"?: string
+  "overflow-y"?: string
+  "pointer-events"?: "auto" | "none"
+  "user-select"?: "text" | "none" | "auto"
+}
+
 type SvgAttributeValue = string
 
 const styleStates = new WeakMap<HostElementNode, NativeStyleState>()
@@ -63,6 +90,7 @@ const TEXT_SEMANTIC_TAGS = new Set([
 
 const DIV_SEMANTIC_TAGS = new Set([
   "button",
+  "hr",
   "section",
   "main",
   "header",
@@ -176,8 +204,8 @@ const runtime = createRenderer<HostNode | HostParent>({
       }
 
       if (name === "style") {
-        // SAFETY: Our JSX host contract types the `style` property as StyleDesc; this is the universal renderer boundary for that property.
-        const inlineStyle = value as StyleDesc | undefined
+        // SAFETY: Solid's DOM-style object reaches this host boundary after JSX typing; this contract adds the CSS kebab-case aliases used by upstream Solid source.
+        const inlineStyle = value as NativeInlineStyleInput | undefined
         setNativeInlineStyle(node, normalizeNativeInlineStyle(inlineStyle))
         return
       }
@@ -362,15 +390,71 @@ function parseNativeClassList<T>(value: T): NativeClassList | undefined {
   return parsed
 }
 
-function normalizeNativeInlineStyle(style: StyleDesc | undefined): StyleDesc | undefined {
+function normalizeNativeInlineStyle(style: NativeInlineStyleInput | undefined): StyleDesc | undefined {
   if (!style) return undefined
-  const normalized: StyleDesc = { ...style }
+  const {
+    gap,
+    rowGap,
+    columnGap,
+    "row-gap": cssRowGap,
+    "column-gap": cssColumnGap,
+    "min-width": cssMinWidth,
+    "min-height": cssMinHeight,
+    "max-width": cssMaxWidth,
+    "max-height": cssMaxHeight,
+    "flex-direction": cssFlexDirection,
+    "flex-wrap": cssFlexWrap,
+    "align-items": cssAlignItems,
+    "align-self": cssAlignSelf,
+    "align-content": cssAlignContent,
+    "justify-content": cssJustifyContent,
+    "background-color": cssBackgroundColor,
+    "font-family": cssFontFamily,
+    "font-weight": cssFontWeight,
+    "text-align": cssTextAlign,
+    "white-space": cssWhiteSpace,
+    "overflow-x": cssOverflowX,
+    "overflow-y": cssOverflowY,
+    "pointer-events": cssPointerEvents,
+    "user-select": cssUserSelect,
+    ...nativeStyle
+  } = style
+  const normalized: StyleDesc = { ...nativeStyle }
+
+  if (cssFlexDirection !== undefined) normalized.flexDirection = cssFlexDirection
+  if (cssFlexWrap !== undefined) normalized.flexWrap = cssFlexWrap
+  if (cssAlignItems !== undefined) normalized.alignItems = cssAlignItems
+  if (cssAlignSelf !== undefined) normalized.alignSelf = cssAlignSelf
+  if (cssAlignContent !== undefined) normalized.alignContent = cssAlignContent
+  if (cssJustifyContent !== undefined) normalized.justifyContent = cssJustifyContent
+  if (cssBackgroundColor !== undefined) normalized.backgroundColor = cssBackgroundColor
+  if (cssFontFamily !== undefined) normalized.fontFamily = cssFontFamily
+  if (cssFontWeight !== undefined) normalized.fontWeight = cssFontWeight
+  if (cssTextAlign !== undefined) normalized.textAlign = cssTextAlign
+  if (cssWhiteSpace !== undefined) normalized.whiteSpace = cssWhiteSpace
+  if (cssOverflowX !== undefined) normalized.overflowX = cssOverflowX
+  if (cssOverflowY !== undefined) normalized.overflowY = cssOverflowY
+  if (cssPointerEvents !== undefined) normalized.pointerEvents = cssPointerEvents
+  if (cssUserSelect !== undefined) normalized.userSelect = cssUserSelect
+
   if (style.width !== undefined) normalized.width = normalizeInlineDimension(style.width)
   if (style.height !== undefined) normalized.height = normalizeInlineDimension(style.height)
-  if (style.minWidth !== undefined) normalized.minWidth = normalizeInlineDimension(style.minWidth)
-  if (style.minHeight !== undefined) normalized.minHeight = normalizeInlineDimension(style.minHeight)
-  if (style.maxWidth !== undefined) normalized.maxWidth = normalizeInlineDimension(style.maxWidth)
-  if (style.maxHeight !== undefined) normalized.maxHeight = normalizeInlineDimension(style.maxHeight)
+  if (cssMinWidth !== undefined) normalized.minWidth = normalizeInlineDimension(cssMinWidth)
+  else if (style.minWidth !== undefined) normalized.minWidth = normalizeInlineDimension(style.minWidth)
+  if (cssMinHeight !== undefined) normalized.minHeight = normalizeInlineDimension(cssMinHeight)
+  else if (style.minHeight !== undefined) normalized.minHeight = normalizeInlineDimension(style.minHeight)
+  if (cssMaxWidth !== undefined) normalized.maxWidth = normalizeInlineDimension(cssMaxWidth)
+  else if (style.maxWidth !== undefined) normalized.maxWidth = normalizeInlineDimension(style.maxWidth)
+  if (cssMaxHeight !== undefined) normalized.maxHeight = normalizeInlineDimension(cssMaxHeight)
+  else if (style.maxHeight !== undefined) normalized.maxHeight = normalizeInlineDimension(style.maxHeight)
+
+  const parsedGap = normalizeInlineNumericLength(gap)
+  const parsedRowGap = normalizeInlineNumericLength(cssRowGap ?? rowGap)
+  const parsedColumnGap = normalizeInlineNumericLength(cssColumnGap ?? columnGap)
+  if (parsedGap !== undefined) normalized.gap = parsedGap
+  if (parsedRowGap !== undefined) normalized.rowGap = parsedRowGap
+  if (parsedColumnGap !== undefined) normalized.columnGap = parsedColumnGap
+
   return normalized
 }
 
@@ -382,6 +466,13 @@ function normalizeInlineDimension(value: DimensionValue): DimensionValue {
   const rem = trimmed.match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))rem$/i)
   if (rem) return Number(rem[1]) * 16
   return value
+}
+
+function normalizeInlineNumericLength(value: DimensionValue | undefined): number | undefined {
+  if (value === undefined) return undefined
+  const normalized = normalizeInlineDimension(value)
+  const number = Number(normalized)
+  return Number.isFinite(number) ? number : undefined
 }
 
 function nativeStyleState(node: HostElementNode): NativeStyleState {

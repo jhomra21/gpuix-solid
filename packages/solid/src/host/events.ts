@@ -13,6 +13,7 @@ export const EVENT_PROPS = [
   ["onInput", "change"],
   ["onSubmit", "submit"],
   ["onClick", "click"],
+  ["onContextMenu", "contextMenu"],
   ["onMouseDown", "mouseDown"],
   ["onPointerDown", "mouseDown"],
   ["onMouseUp", "mouseUp"],
@@ -20,6 +21,7 @@ export const EVENT_PROPS = [
   ["onPointerCancel", "mouseUp"],
   ["onLostPointerCapture", "mouseUp"],
   ["onMouseEnter", "mouseEnter"],
+  ["onPointerEnter", "mouseEnter"],
   ["onMouseLeave", "mouseLeave"],
   ["onPointerLeave", "mouseLeave"],
   ["onMouseMove", "mouseMove"],
@@ -72,11 +74,37 @@ function fallbackTarget(event: NativeEventPayload): DomCompatTarget {
 }
 
 function pointerCompatibleTarget(target: DomCompatTarget): DomCompatTarget & EventTarget {
-  return Object.assign(target, {
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-    dispatchEvent: () => true,
-  })
+  if (!("dataset" in target)) {
+    Object.defineProperty(target, "dataset", {
+      configurable: true,
+      enumerable: true,
+      writable: false,
+      value: {},
+    })
+  }
+  if (!("addEventListener" in target)) {
+    Object.defineProperty(target, "addEventListener", {
+      configurable: true,
+      enumerable: true,
+      value: () => undefined,
+    })
+  }
+  if (!("removeEventListener" in target)) {
+    Object.defineProperty(target, "removeEventListener", {
+      configurable: true,
+      enumerable: true,
+      value: () => undefined,
+    })
+  }
+  if (!("dispatchEvent" in target)) {
+    Object.defineProperty(target, "dispatchEvent", {
+      configurable: true,
+      enumerable: true,
+      value: () => true,
+    })
+  }
+  // SAFETY: the three EventTarget methods are either preserved from the host element or installed above before this value is returned.
+  return target as DomCompatTarget & EventTarget
 }
 
 function domCompatibleEvent(event: NativeEventPayload, target: DomCompatTarget | undefined): EventPayload {
@@ -91,26 +119,66 @@ function domCompatibleEvent(event: NativeEventPayload, target: DomCompatTarget |
     clientX: x,
     clientY: y,
     pointerId: 0,
-    shiftKey: false,
-    metaKey: false,
-    altKey: false,
-    ctrlKey: false,
+    pointerType: "mouse",
+    shiftKey: event.modifiers?.shift ?? false,
+    metaKey: event.modifiers?.cmd ?? false,
+    altKey: event.modifiers?.alt ?? false,
+    ctrlKey: event.modifiers?.ctrl ?? false,
     preventDefault: () => undefined,
     stopPropagation: () => undefined,
   })
+}
+
+function pointerDownFromClick(event: EventPayload): EventPayload {
+  return { ...event, eventType: "mouseDown" }
+}
+
+function contextMenuEvent(event: EventPayload): EventPayload {
+  return {
+    ...event,
+    eventType: "contextMenu",
+    button: 2,
+    isRightClick: true,
+  }
 }
 
 function globalEventName(eventType: string): string | undefined {
   if (eventType === "mouseMove") return "pointermove"
   if (eventType === "mouseUp") return "pointerup"
   if (eventType === "mouseDown") return "pointerdown"
+  if (eventType === "click") return "click"
   return undefined
+}
+
+function createGlobalDomEvent(name: string, event: EventPayload, currentTarget: EventTarget): Event {
+  const domEvent = new Event(name, { bubbles: true, cancelable: true })
+  const target = event.target ?? null
+  Object.defineProperties(domEvent, {
+    target: { configurable: true, value: target },
+    currentTarget: { configurable: true, value: currentTarget },
+    clientX: { configurable: true, value: event.clientX ?? 0 },
+    clientY: { configurable: true, value: event.clientY ?? 0 },
+    pointerId: { configurable: true, value: event.pointerId ?? 0 },
+    pointerType: { configurable: true, value: event.pointerType ?? "mouse" },
+    button: { configurable: true, value: event.button ?? 0 },
+    shiftKey: { configurable: true, value: event.shiftKey ?? false },
+    metaKey: { configurable: true, value: event.metaKey ?? false },
+    altKey: { configurable: true, value: event.altKey ?? false },
+    ctrlKey: { configurable: true, value: event.ctrlKey ?? false },
+    composedPath: {
+      configurable: true,
+      value: () => target ? [target, currentTarget] : [currentTarget],
+    },
+  })
+  return domEvent
 }
 
 function dispatchGlobalEvent(event: EventPayload): void {
   const name = globalEventName(event.eventType)
   if (!name) return
   for (const handler of globalListeners.get(name) ?? []) handler(event)
+  globalThis.document.dispatchEvent(createGlobalDomEvent(name, event, globalThis.document))
+  globalThis.window.dispatchEvent(createGlobalDomEvent(name, event, globalThis.window))
 }
 
 function installNativeDomGlobals(): void {
@@ -130,6 +198,7 @@ function installNativeDomGlobals(): void {
           handlers?.delete(handler)
           if (handlers?.size === 0) globalListeners.delete(type)
         },
+        dispatchEvent: () => true,
       },
     })
   }
@@ -142,7 +211,7 @@ function installNativeDomGlobals(): void {
     Object.defineProperty(globalThis, "document", {
       configurable: true,
       writable: true,
-      value: { body: { classList } },
+      value: { body: { classList }, dispatchEvent: () => true },
     })
   }
 }
@@ -151,6 +220,7 @@ export class EventRegistry {
   readonly #handlers = new Map<number, Map<string, HostEventHandler>>()
   readonly #live = new Set<number>()
   readonly #targets = new Map<number, DomCompatTarget>()
+  readonly #nativePointerDown = new Set<number>()
 
   activate(id: number): void {
     this.#live.add(id)
@@ -164,6 +234,7 @@ export class EventRegistry {
     this.#live.delete(id)
     this.#handlers.delete(id)
     this.#targets.delete(id)
+    this.#nativePointerDown.delete(id)
   }
 
   set(id: number, eventType: string, handler: HostEventHandler): void {
@@ -185,6 +256,7 @@ export class EventRegistry {
     if (!this.#live.has(id)) {
       this.#handlers.delete(id)
       this.#targets.delete(id)
+      this.#nativePointerDown.delete(id)
     }
   }
 
@@ -192,6 +264,7 @@ export class EventRegistry {
     this.#handlers.clear()
     this.#live.clear()
     this.#targets.clear()
+    this.#nativePointerDown.clear()
   }
 
   has(id: number, eventType: string): boolean {
@@ -201,7 +274,19 @@ export class EventRegistry {
   dispatch(event: NativeEventPayload): void {
     if (!this.#live.has(event.elementId)) return
     const domEvent = domCompatibleEvent(event, this.#targets.get(event.elementId))
-    this.#handlers.get(event.elementId)?.get(event.eventType)?.(domEvent)
+    const handlers = this.#handlers.get(event.elementId)
+
+    if (event.eventType === "mouseDown") {
+      this.#nativePointerDown.add(event.elementId)
+      queueMicrotask(() => this.#nativePointerDown.delete(event.elementId))
+    } else if (event.eventType === "click" && !this.#nativePointerDown.has(event.elementId)) {
+      dispatchGlobalEvent(pointerDownFromClick(domEvent))
+    }
+
+    handlers?.get(event.eventType)?.(domEvent)
+    if (event.eventType === "mouseUp" && event.button === 2) {
+      handlers?.get("contextMenu")?.(contextMenuEvent(domEvent))
+    }
     dispatchGlobalEvent(domEvent)
   }
 }
