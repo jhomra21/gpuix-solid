@@ -22,6 +22,7 @@
     "release:test": "node --test scripts/release.test.mjs",
     "example:counter": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:counter",
     "example:native-text": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:native-text",
+    "example:blurred-window": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:blurred-window",
     "example:dashboard": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:dashboard",
     "example:codeimage": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:codeimage",
     "example:tanstack-kitchen-sink": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:tanstack-kitchen-sink",
