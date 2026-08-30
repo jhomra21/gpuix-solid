@@ -9,10 +9,12 @@ export const EVENT_PROPS = [
   ["onLineClick", "lineClick"],
   ["onLinkClick", "linkClick"],
   ["onVisibleRange", "visibleRange"],
+  ["onHighlight", "highlight"],
   ["onChange", "change"],
   ["onInput", "change"],
   ["onSubmit", "submit"],
   ["onClick", "click"],
+  ["onAuxClick", "auxClick"],
   ["onContextMenu", "contextMenu"],
   ["onMouseDown", "mouseDown"],
   ["onPointerDown", "mouseDown"],
@@ -251,8 +253,6 @@ export class EventRegistry {
   }
 
   deleteDestroyed(id: number): void {
-    // A node can be destroyed and recreated with the same root-scoped ID in
-    // one native batch. Preserve handlers if the JS host node is live again.
     if (!this.#live.has(id)) {
       this.#handlers.delete(id)
       this.#targets.delete(id)

@@ -10,7 +10,7 @@ import type {
 
 const RESERVED_PROPS = new Set(["children", "ref", "style", "className", "key"])
 const BUILT_IN_TYPES = new Set<ElementType>(["div", "text"])
-const UNIVERSAL_PROPS = new Set(["autoFocus", "tabIndex", "motion", "testId"])
+const UNIVERSAL_PROPS = new Set(["autoFocus", "tabIndex", "motion", "testId", "highlight"])
 const DOCUMENT_POSITION_DISCONNECTED = 0x01
 const DOCUMENT_POSITION_PRECEDING = 0x02
 const DOCUMENT_POSITION_FOLLOWING = 0x04
@@ -143,7 +143,6 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   focus(): void {
     const root = this.root
     if (!root || !this.nativeAlive) return
-    // Browser document/window keyboard listeners have no host element of their own. A focused native element is the source that must carry those key events back into the browser compatibility layer.
     root.driver.enqueue("setEventListener", this.id, "keyDown", true)
     root.driver.enqueue("setEventListener", this.id, "keyUp", true)
     root.driver.flush()
@@ -221,7 +220,6 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     const y = bounds[1] ?? 0
     const width = bounds[2] ?? 0
     const height = bounds[3] ?? 0
-    // GPUIX measures divs with an inner full-size tracker: its size is the outer box, but its origin starts after the div's own padding.
     const paddingLeft = this.type === "div" ? this.style.paddingLeft ?? this.style.padding ?? 0 : 0
     const paddingTop = this.type === "div" ? this.style.paddingTop ?? this.style.padding ?? 0 : 0
     return domBounds(x - paddingLeft, y - paddingTop, width, height)
