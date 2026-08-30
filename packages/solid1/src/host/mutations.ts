@@ -4,7 +4,8 @@ import type { EventRegistry } from "./events.js"
 export type MutationValue = string | number | boolean | object | null
 export type Mutation = readonly [name: string, ...args: MutationValue[]]
 
-const APPLY_BATCH_CUSTOM_PROP = "setCustomPropValue"
+const APPLY_BATCH_CUSTOM_PROP = "setCustomProp"
+const DESTROY_UNLINKS_PARENT = new WeakSet<NativeRenderer>()
 
 type DimensionStyleKey =
   | "width"
@@ -55,9 +56,36 @@ type NumberStyleKey =
 type StyleMutationInput = Omit<StyleDesc, DimensionStyleKey | NumberStyleKey | "hover" | "active"> &
   { [K in DimensionStyleKey]?: DimensionValue } &
   { [K in NumberStyleKey]?: number | string } & {
+    "font-size"?: number | string
     hover?: StyleMutationInput
     active?: StyleMutationInput
   }
+
+type BoxShorthand = {
+  value?: number
+  top?: number
+  right?: number
+  bottom?: number
+  left?: number
+}
+
+type LegacyMutationRenderer = NativeRenderer & {
+  createElement(id: number, elementType: string): void
+  destroyElement(id: number): number[]
+  appendChild(parentId: number, childId: number): void
+  removeChild(parentId: number, childId: number): void
+  insertBefore(parentId: number, childId: number, beforeId: number): void
+  setStyle(id: number, styleJson: string): void
+  setText(id: number, content: string): void
+  setEventListener(id: number, eventType: string, hasHandler: boolean): void
+  setRoot(id: number): void
+  setCustomProp(id: number, key: string, valueJson: string): void
+  commitMutations(): void
+}
+
+export function useDestroyUnlinksParentBatch(renderer: NativeRenderer): void {
+  DESTROY_UNLINKS_PARENT.add(renderer)
+}
 
 export class MutationDriver {
   readonly #renderer: NativeRenderer
@@ -96,30 +124,35 @@ export class MutationDriver {
 
     try {
       if (this.#renderer.applyBatch) {
-        const destroyed = this.#renderer.applyBatch(JSON.stringify(queue))
+        const batch = DESTROY_UNLINKS_PARENT.has(this.#renderer)
+          ? queue.filter(([name]) => name !== "removeChild")
+          : queue
+        const destroyed = this.#renderer.applyBatch(JSON.stringify(batch))
         this.#queue = []
         this.#scheduled = false
         for (const id of destroyed) this.#events.deleteDestroyed(id)
         return
       }
 
+      // SAFETY: only pre-applyBatch renderers reach this branch; those legacy renderers expose the direct mutation methods described by this internal compatibility shape.
+      const legacyRenderer = this.#renderer as LegacyMutationRenderer
       const destroyed: number[] = []
       for (const [name, ...args] of queue) {
         if (name === "destroyElement") {
-          destroyed.push(...this.#renderer.destroyElement(numberArg(args, 0)))
+          destroyed.push(...legacyRenderer.destroyElement(numberArg(args, 0)))
           continue
         }
         if (name === APPLY_BATCH_CUSTOM_PROP) {
-          this.#renderer.setCustomProp(
+          legacyRenderer.setCustomProp(
             numberArg(args, 0),
             stringArg(args, 1),
             JSON.stringify(args[2] ?? null),
           )
           continue
         }
-        callMutation(this.#renderer, name, args)
+        callMutation(legacyRenderer, name, args)
       }
-      this.#renderer.commitMutations()
+      legacyRenderer.commitMutations()
       this.#queue = []
       this.#scheduled = false
       for (const id of destroyed) this.#events.deleteDestroyed(id)
@@ -152,7 +185,7 @@ export class MutationDriver {
   }
 }
 
-function callMutation(renderer: NativeRenderer, name: string, args: MutationValue[]): void {
+function callMutation(renderer: LegacyMutationRenderer, name: string, args: MutationValue[]): void {
   switch (name) {
     case "createElement":
       renderer.createElement(numberArg(args, 0), stringArg(args, 1))
@@ -184,8 +217,12 @@ function callMutation(renderer: NativeRenderer, name: string, args: MutationValu
 }
 
 function normalizeStyleMutation(style: StyleMutationInput): StyleDesc {
+  const { "font-size": cssFontSize, ...canonicalStyle } = style
+  const padding = normalizeBoxShorthand(style.padding, "padding")
+  const margin = normalizeBoxShorthand(style.margin, "margin")
+  const fontSize = normalizeNumberStyle(cssFontSize ?? style.fontSize, "fontSize")
   const normalized = {
-    ...style,
+    ...canonicalStyle,
     flexGrow: normalizeNumberStyle(style.flexGrow, "flexGrow"),
     flexShrink: normalizeNumberStyle(style.flexShrink, "flexShrink"),
     flexBasis: normalizeNumberStyle(style.flexBasis, "flexBasis"),
@@ -194,22 +231,22 @@ function normalizeStyleMutation(style: StyleMutationInput): StyleDesc {
     columnGap: normalizeNumberStyle(style.columnGap, "columnGap"),
     gridTemplateColumns: normalizeNumberStyle(style.gridTemplateColumns, "gridTemplateColumns"),
     gridTemplateRows: normalizeNumberStyle(style.gridTemplateRows, "gridTemplateRows"),
-    width: normalizeDimensionStyle(style.width),
-    height: normalizeDimensionStyle(style.height),
-    minWidth: normalizeDimensionStyle(style.minWidth),
-    minHeight: normalizeDimensionStyle(style.minHeight),
-    maxWidth: normalizeDimensionStyle(style.maxWidth),
-    maxHeight: normalizeDimensionStyle(style.maxHeight),
-    padding: normalizeNumberStyle(style.padding, "padding"),
-    paddingTop: normalizeNumberStyle(style.paddingTop, "paddingTop"),
-    paddingRight: normalizeNumberStyle(style.paddingRight, "paddingRight"),
-    paddingBottom: normalizeNumberStyle(style.paddingBottom, "paddingBottom"),
-    paddingLeft: normalizeNumberStyle(style.paddingLeft, "paddingLeft"),
-    margin: normalizeNumberStyle(style.margin, "margin"),
-    marginTop: normalizeNumberStyle(style.marginTop, "marginTop"),
-    marginRight: normalizeNumberStyle(style.marginRight, "marginRight"),
-    marginBottom: normalizeNumberStyle(style.marginBottom, "marginBottom"),
-    marginLeft: normalizeNumberStyle(style.marginLeft, "marginLeft"),
+    width: normalizeDimensionStyle(style.width, fontSize ?? 16),
+    height: normalizeDimensionStyle(style.height, fontSize ?? 16),
+    minWidth: normalizeDimensionStyle(style.minWidth, fontSize ?? 16),
+    minHeight: normalizeDimensionStyle(style.minHeight, fontSize ?? 16),
+    maxWidth: normalizeDimensionStyle(style.maxWidth, fontSize ?? 16),
+    maxHeight: normalizeDimensionStyle(style.maxHeight, fontSize ?? 16),
+    padding: padding.value,
+    paddingTop: normalizeNumberStyle(style.paddingTop, "paddingTop") ?? padding.top,
+    paddingRight: normalizeNumberStyle(style.paddingRight, "paddingRight") ?? padding.right,
+    paddingBottom: normalizeNumberStyle(style.paddingBottom, "paddingBottom") ?? padding.bottom,
+    paddingLeft: normalizeNumberStyle(style.paddingLeft, "paddingLeft") ?? padding.left,
+    margin: margin.value,
+    marginTop: normalizeNumberStyle(style.marginTop, "marginTop") ?? margin.top,
+    marginRight: normalizeNumberStyle(style.marginRight, "marginRight") ?? margin.right,
+    marginBottom: normalizeNumberStyle(style.marginBottom, "marginBottom") ?? margin.bottom,
+    marginLeft: normalizeNumberStyle(style.marginLeft, "marginLeft") ?? margin.left,
     top: normalizeNumberStyle(style.top, "top"),
     right: normalizeNumberStyle(style.right, "right"),
     bottom: normalizeNumberStyle(style.bottom, "bottom"),
@@ -225,7 +262,7 @@ function normalizeStyleMutation(style: StyleMutationInput): StyleDesc {
     borderTopRightRadius: normalizeNumberStyle(style.borderTopRightRadius, "borderTopRightRadius"),
     borderBottomLeftRadius: normalizeNumberStyle(style.borderBottomLeftRadius, "borderBottomLeftRadius"),
     borderBottomRightRadius: normalizeNumberStyle(style.borderBottomRightRadius, "borderBottomRightRadius"),
-    fontSize: normalizeNumberStyle(style.fontSize, "fontSize"),
+    fontSize,
     lineHeight: normalizeNumberStyle(style.lineHeight, "lineHeight"),
     lineClamp: normalizeNumberStyle(style.lineClamp, "lineClamp"),
     overflow: normalizeOverflowStyle(style.overflow),
@@ -238,6 +275,33 @@ function normalizeStyleMutation(style: StyleMutationInput): StyleDesc {
   return normalized as StyleDesc
 }
 
+function normalizeBoxShorthand(
+  value: number | string | undefined,
+  property: "padding" | "margin",
+): BoxShorthand {
+  if (value === undefined) return {}
+  if (isNumberValue(value)) return { value }
+
+  const scalar = parseNumericCssValue(value)
+  if (scalar !== undefined) return { value: scalar }
+
+  const parts = value.trim().split(/\s+/)
+  if (parts.length < 2 || parts.length > 4) {
+    throw new TypeError(`Unsupported numeric inline style ${property}: ${JSON.stringify(value)}`)
+  }
+
+  const values = parts.map(parseNumericCssValue)
+  if (values.some((part) => part === undefined)) {
+    throw new TypeError(`Unsupported numeric inline style ${property}: ${JSON.stringify(value)}`)
+  }
+
+  const top = values[0]!
+  const right = values[1]!
+  const bottom = values.length >= 3 ? values[2]! : top
+  const left = values.length === 4 ? values[3]! : right
+  return { top, right, bottom, left }
+}
+
 function normalizeNumberStyle(value: number | string | undefined, property: NumberStyleKey): number | undefined {
   if (value === undefined) return undefined
   if (isNumberValue(value)) return value
@@ -246,9 +310,23 @@ function normalizeNumberStyle(value: number | string | undefined, property: Numb
   throw new TypeError(`Unsupported numeric inline style ${property}: ${JSON.stringify(value)}`)
 }
 
-function normalizeDimensionStyle(value: DimensionValue | undefined): DimensionValue | undefined {
+function normalizeDimensionStyle(
+  value: DimensionValue | undefined,
+  fontSize: number,
+): DimensionValue | undefined {
   if (value === undefined || isNumberValue(value)) return value
-  return parseNumericCssValue(value) ?? value
+  const trimmed = value.trim()
+  if (isIntrinsicCssDimension(trimmed)) return "auto"
+  const em = trimmed.match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))em$/i)
+  if (em) return Number(em[1]) * fontSize
+  return parseNumericCssValue(trimmed) ?? value
+}
+
+function isIntrinsicCssDimension(value: string): boolean {
+  return value === "max-content"
+    || value === "min-content"
+    || value === "fit-content"
+    || value.startsWith("fit-content(")
 }
 
 function normalizeOverflowStyle(value: string | undefined): string | undefined {

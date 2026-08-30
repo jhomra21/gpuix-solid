@@ -90,6 +90,7 @@ const TEXT_SEMANTIC_TAGS = new Set([
 
 const DIV_SEMANTIC_TAGS = new Set([
   "button",
+  "hr",
   "section",
   "main",
   "header",

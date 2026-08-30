@@ -14,8 +14,9 @@
     "run": "bun run build && bun run start"
   },
   "dependencies": {
-    "@gpuix/native": "^0.4.0",
+    "@gpuix/native": "^0.6.0",
     "@jhomra21/gpuix-solid1": "file:../../packages/solid1",
+    "@kobalte/core": "0.13.13",
     "solid-js": "1.9.15"
   },
   "devDependencies": {
