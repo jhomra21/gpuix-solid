@@ -10,7 +10,7 @@
   "scripts": {
     "build": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' build",
     "typecheck": "bun run --filter 'gpuix-solid' typecheck && bun run --filter 'gpuix-solid-counter' typecheck",
-    "test": "bun run --filter 'gpuix-solid' test && bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' test:dashboard && bun run --filter 'gpuix-solid-counter' test:codeimage && bun run --filter 'gpuix-solid-counter' test:tanstack-kitchen-sink",
+    "test": "bun run --filter 'gpuix-solid' test && bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' test:todo && bun run --filter 'gpuix-solid-counter' test:dashboard && bun run --filter 'gpuix-solid-counter' test:codeimage && bun run --filter 'gpuix-solid-counter' test:tanstack-kitchen-sink",
     "lint": "oxlint .",
     "solid1:package": "cd packages/solid1 && bun install --no-save && bun run test && bun run typecheck",
     "solid1:kobalte": "cd packages/solid1 && bun install --no-save && bun run build && cd ../../examples/solid1-kobalte && bun install --no-save && bun run typecheck && bun run test:native",
@@ -23,6 +23,7 @@
     "example:counter": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:counter",
     "example:native-text": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:native-text",
     "example:blurred-window": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:blurred-window",
+    "example:todo": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:todo",
     "example:dashboard": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:dashboard",
     "example:codeimage": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:codeimage",
     "example:tanstack-kitchen-sink": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:tanstack-kitchen-sink",
