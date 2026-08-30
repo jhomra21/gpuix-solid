@@ -17,6 +17,7 @@ import {
 export interface LiveAutomationRenderer {
   tick(): boolean
   simulateClick(x: number, y: number, button?: number): void
+  simulateKeystrokes(keystrokes: string): void
   focusElement(elementId: number): void
   blur(): void
   scrollTo(elementId: number, x: number, y: number): void
@@ -54,11 +55,10 @@ export class LiveAutomationBackend implements AutomationBackend {
     this.#renderer.tick()
   }
 
-  keystrokes(_elementId: number, _keys: string): never {
-    throw new AutomationError(
-      "Unsupported",
-      "Live GPUIX does not expose keystroke injection yet",
-    )
+  keystrokes(elementId: number, keys: string): void {
+    this.#renderer.focusElement(elementId)
+    this.#renderer.simulateKeystrokes(keys)
+    this.#renderer.tick()
   }
 
   screenshot(path: string): void {

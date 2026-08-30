@@ -2,7 +2,9 @@ import type { MutationValue } from "./host/mutations.js"
 import type {
   DebugFrameOverlayMode,
   DebugFrameOverlayStats,
+  HighlightMatch,
   NativeRenderer,
+  NativeWindowInsets,
 } from "./host/types.js"
 
 type BoundsCapableRenderer = NativeRenderer & {
@@ -14,11 +16,15 @@ export interface BatchRendererApi {
   focusElement?(elementId: number): void
   blur?(): void
   scrollTo?(elementId: number, x: number, y: number): void
-  scrollToItem?(elementId: number, index: number): void
+  scrollToItem?(elementId: number, index: number, offsetInItem?: number): void
   getScrollOffset?(elementId: number): number[] | null
+  getListScrollTop?(elementId: number): number[] | null
   getSelectedText?(): string | null
   clearSelection?(): void
+  getPaintedHighlights?(): HighlightMatch[]
   getWindowSize?(): { width: number; height: number }
+  getWindowInsets?(): NativeWindowInsets
+  activateWindow?(): void
   setWindowTitle?(title: string): void
   setDebugFrameOverlay?(mode: DebugFrameOverlayMode): string
   getDebugFrameOverlay?(): string
@@ -76,9 +82,13 @@ export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRen
   if (renderer.scrollTo) adapted.scrollTo = renderer.scrollTo.bind(renderer)
   if (renderer.scrollToItem) adapted.scrollToItem = renderer.scrollToItem.bind(renderer)
   if (renderer.getScrollOffset) adapted.getScrollOffset = renderer.getScrollOffset.bind(renderer)
+  if (renderer.getListScrollTop) adapted.getListScrollTop = renderer.getListScrollTop.bind(renderer)
   if (renderer.getSelectedText) adapted.getSelectedText = renderer.getSelectedText.bind(renderer)
   if (renderer.clearSelection) adapted.clearSelection = renderer.clearSelection.bind(renderer)
+  if (renderer.getPaintedHighlights) adapted.getPaintedHighlights = renderer.getPaintedHighlights.bind(renderer)
   if (renderer.getWindowSize) adapted.getWindowSize = renderer.getWindowSize.bind(renderer)
+  if (renderer.getWindowInsets) adapted.getWindowInsets = renderer.getWindowInsets.bind(renderer)
+  if (renderer.activateWindow) adapted.activateWindow = renderer.activateWindow.bind(renderer)
   if (renderer.setWindowTitle) adapted.setWindowTitle = renderer.setWindowTitle.bind(renderer)
   if (renderer.setDebugFrameOverlay) adapted.setDebugFrameOverlay = renderer.setDebugFrameOverlay.bind(renderer)
   if (renderer.getDebugFrameOverlay) adapted.getDebugFrameOverlay = renderer.getDebugFrameOverlay.bind(renderer)

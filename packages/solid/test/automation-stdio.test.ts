@@ -189,6 +189,8 @@ describe("automation stdio protocol", () => {
 
 class FakeLiveRenderer implements LiveAutomationRenderer {
   clicks: Array<[number, number]> = []
+  focus: number[] = []
+  keys: string[] = []
   ticks = 0
 
   tick(): boolean {
@@ -200,7 +202,14 @@ class FakeLiveRenderer implements LiveAutomationRenderer {
     this.clicks.push([x, y])
   }
 
-  focusElement(): void {}
+  simulateKeystrokes(keys: string): void {
+    this.keys.push(keys)
+  }
+
+  focusElement(elementId: number): void {
+    this.focus.push(elementId)
+  }
+
   blur(): void {}
   scrollTo(): void {}
   getScrollOffset(): number[] | null { return null }
@@ -229,9 +238,13 @@ describe("live automation backend", () => {
     expect(backend.getBounds(2)).toEqual({ x: 10, y: 20, width: 100, height: 40 })
   })
 
-  it("reports live keystrokes as unsupported instead of simulating them in JS", () => {
-    const backend = new LiveAutomationBackend(new FakeLiveRenderer())
-    expect(() => backend.keystrokes(3, "a")).toThrowError(AutomationError)
-    expect(() => backend.keystrokes(3, "a")).toThrow(/does not expose keystroke injection/)
+  it("focuses the requested element and injects live native keystrokes", () => {
+    const renderer = new FakeLiveRenderer()
+    const backend = new LiveAutomationBackend(renderer)
+
+    backend.keystrokes(3, "cmd-a h i")
+    expect(renderer.focus).toEqual([3])
+    expect(renderer.keys).toEqual(["cmd-a h i"])
+    expect(renderer.ticks).toBe(1)
   })
 })
