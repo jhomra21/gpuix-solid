@@ -701,16 +701,18 @@ export function ChatApp(props: ChatAppProps = {}): SolidElement {
 
   const title = createMemo(() => CONVERSATIONS.find((conversation) => conversation.id === activeId())?.title ?? "")
 
-  createEffect(() => {
-    const count = turns().length + (props.includeSafeMdx ? 1 : 0)
-    if (firstTranscriptCommit) {
-      firstTranscriptCommit = false
-      return
-    }
-    const currentList = listRef
-    if (!currentList || count === 0) return
-    queueMicrotask(() => renderer.scrollToItem?.(currentList.id, count - 1))
-  })
+  createEffect(
+    () => turns().length + (props.includeSafeMdx ? 1 : 0),
+    (count) => {
+      if (firstTranscriptCommit) {
+        firstTranscriptCommit = false
+        return
+      }
+      const currentList = listRef
+      if (!currentList || count === 0) return
+      queueMicrotask(() => renderer.scrollToItem?.(currentList.id, count - 1))
+    },
+  )
 
   const send = (text: string): void => {
     liveTurn += 1
