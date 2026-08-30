@@ -20,7 +20,7 @@ const TRACK_COUNT = 12
 const PX_PER_SECOND = 24
 const project = createProject({ trackCount: TRACK_COUNT })
 
-function grantedViewport(): { width: number; height: number } {
+function grantedViewport() {
   if (!hasNativeTestRenderer) return REQUESTED
   const probe = createTestRoot(REQUESTED.width, REQUESTED.height)
   try {
@@ -57,7 +57,7 @@ function rowCenterY(trackId: string): number {
   throw new Error(`Unknown track ${trackId}`)
 }
 
-function emptyPointOn(trackId: string): { x: number; y: number } {
+function emptyPointOn(trackId: string) {
   const clips = project.clips
     .filter((clip) => clip.trackId === trackId)
     .sort((a, b) => a.start - b.start)
