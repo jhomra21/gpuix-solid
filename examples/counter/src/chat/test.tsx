@@ -7,7 +7,7 @@ import {
   type TestElement,
   type TestRoot,
 } from "gpuix-solid"
-import { ChatApp, SafeMdxContent, SafeMdxTranscript } from "./app"
+import { ChatApp, SafeMdxContent, SafeMdxTranscript } from "./shell"
 
 const WIDTH = 1180
 const HEIGHT = 820
