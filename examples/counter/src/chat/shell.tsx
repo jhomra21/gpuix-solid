@@ -495,14 +495,24 @@ function TranscriptRow(props: { children: SolidElement; first: boolean; last: bo
 }
 
 function Transcript(props: { turns: readonly Turn[]; includeSafeMdx: boolean; setListRef(instance: PublicInstance): void }): SolidElement {
+  const rows = () => (
+    <For each={props.turns}>
+      {(turn, index) => <TranscriptRow first={!props.includeSafeMdx && index() === 0} last={index() === props.turns.length - 1}><TurnContent turn={turn} /></TranscriptRow>}
+    </For>
+  )
+
+  if (props.includeSafeMdx) {
+    return (
+      <virtual-list ref={props.setListRef} overdraw={240} estimatedItemHeight={220} style={{ flexGrow: 1, minHeight: 0, width: "100%" }}>
+        <TranscriptRow first last={props.turns.length === 0}><SafeMdxTranscript /></TranscriptRow>
+        {rows()}
+      </virtual-list>
+    )
+  }
+
   return (
     <virtual-list ref={props.setListRef} overdraw={240} estimatedItemHeight={220} style={{ flexGrow: 1, minHeight: 0, width: "100%" }}>
-      <Show when={props.includeSafeMdx}>
-        <TranscriptRow first last={props.turns.length === 0}><SafeMdxTranscript /></TranscriptRow>
-      </Show>
-      <For each={props.turns}>
-        {(turn, index) => <TranscriptRow first={!props.includeSafeMdx && index() === 0} last={index() === props.turns.length - 1}><TurnContent turn={turn} /></TranscriptRow>}
-      </For>
+      {rows()}
     </virtual-list>
   )
 }
