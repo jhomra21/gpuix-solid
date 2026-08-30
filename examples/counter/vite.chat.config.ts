@@ -1,5 +1,9 @@
+import { createRequire } from "node:module"
 import solid from "@solidjs/vite-plugin"
 import { defineConfig } from "vite"
+
+const require = createRequire(import.meta.url)
+const decodeNamedCharacterReference = require.resolve("decode-named-character-reference")
 
 export default defineConfig({
   plugins: [
@@ -11,6 +15,12 @@ export default defineConfig({
     }),
   ],
   resolve: {
+    alias: [
+      {
+        find: /^decode-named-character-reference$/,
+        replacement: decodeNamedCharacterReference,
+      },
+    ],
     conditions: ["browser", "development"],
   },
   ssr: {
