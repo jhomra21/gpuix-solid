@@ -37,11 +37,12 @@ if (!hasNativeTestRenderer) {
 } else {
   const app = createTestRoot()
   const r = app.renderer
+  const fixtureRoot = "kobalte-fixture-root"
   const flushNative = (): void => {
     app.root.flush()
     r.flush()
   }
-  app.render(() => <UpstreamKobalteShowcase />)
+  app.render(() => <div testId={fixtureRoot}><UpstreamKobalteShowcase /></div>)
 
   for (const testId of [
     "upstream-menubar",
@@ -95,17 +96,17 @@ if (!hasNativeTestRenderer) {
   r.captureScreenshot("/tmp/gpuix-solid1-kobalte-light.png")
 
   r.clickTextWithinTestId("upstream-menubar", "Git")
-  requireText(r.textContent("upstream-menubar"), "Commit", "light Menubar Git menu")
+  requireText(r.textContent(fixtureRoot), "Commit", "light Menubar Git menu")
   await waitForCondition(
     "Menubar popup placement",
     () => {
-      const popup = r.boundsTextWithinTestId("upstream-menubar", "Commit")
+      const popup = r.boundsTextWithinTestId(fixtureRoot, "Commit")
       return Math.abs(popup.x - lightMenubarBounds.x) < 80
         && popup.y >= lightMenubarBounds.y + lightMenubarBounds.height - 4
     },
     flushNative,
   )
-  const lightMenubarPopupBounds = r.boundsTextWithinTestId("upstream-menubar", "Commit")
+  const lightMenubarPopupBounds = r.boundsTextWithinTestId(fixtureRoot, "Commit")
   requireCondition(
     Math.abs(lightMenubarPopupBounds.x - lightMenubarBounds.x) < 80,
     `Menubar popup should align with Git trigger: trigger x=${lightMenubarBounds.x}, popup x=${lightMenubarPopupBounds.x}`,
@@ -119,16 +120,16 @@ if (!hasNativeTestRenderer) {
   await settleEffects(flushNative)
 
   r.rightClickTextWithinTestId("upstream-context", "Right click here.")
-  requireText(r.textContent("upstream-context"), "Commit", "light ContextMenu")
+  requireText(r.textContent(fixtureRoot), "Commit", "light ContextMenu")
   await waitForCondition(
     "ContextMenu popup placement",
     () => {
-      const popup = r.boundsTextWithinTestId("upstream-context", "Commit")
+      const popup = r.boundsTextWithinTestId(fixtureRoot, "Commit")
       return popup.x > contextBounds.x / 2 && popup.y > contextBounds.y / 2
     },
     flushNative,
   )
-  const lightContextPopupBounds = r.boundsTextWithinTestId("upstream-context", "Commit")
+  const lightContextPopupBounds = r.boundsTextWithinTestId(fixtureRoot, "Commit")
   requireCondition(
     lightContextPopupBounds.x > contextBounds.x / 2 && lightContextPopupBounds.y > contextBounds.y / 2,
     `ContextMenu popup should leave the overlay origin near its target: target=${JSON.stringify(contextBounds)}, popup=${JSON.stringify(lightContextPopupBounds)}`,
@@ -138,12 +139,12 @@ if (!hasNativeTestRenderer) {
   await settleEffects(flushNative)
 
   r.clickTextWithinTestId("upstream-dialog", "Open")
-  requireText(r.textContent("upstream-dialog"), "About Kobalte", "light Dialog open")
+  requireText(r.textContent(fixtureRoot), "About Kobalte", "light Dialog open")
   r.captureScreenshot("/tmp/gpuix-solid1-kobalte-light-dialog.png")
   await settleEffects(() => r.flush())
   r.clickTestId("upstream-button")
   await settleEffects(() => r.flush())
-  requireCondition(!r.textContent("upstream-dialog").includes("About Kobalte"), "native Dialog overlay should dismiss outside interaction")
+  requireCondition(!r.textContent(fixtureRoot).includes("About Kobalte"), "native Dialog overlay should dismiss outside interaction")
 
   r.clickTestId("theme-toggle")
   requireText(r.textContent("theme-toggle"), "Theme: dark", "dark color mode")
@@ -158,41 +159,41 @@ if (!hasNativeTestRenderer) {
   r.hoverTextWithinTestId("upstream-tooltip", "Trigger")
   await wait(800)
   r.flush()
-  requireText(r.textContent("upstream-tooltip"), "Tooltip content", "Tooltip hover")
+  requireText(r.textContent(fixtureRoot), "Tooltip content", "Tooltip hover")
   r.hoverTextWithinTestId("upstream-button", "Click me")
   await wait(350)
   r.flush()
 
   r.clickTextWithinTestId("upstream-dropdown", "Git Settings")
-  requireText(r.textContent("upstream-dropdown"), "Commit", "Dropdown pointer open")
-  r.clickTextWithinTestId("upstream-dropdown", "Show Git Log")
-  requireText(r.textContent("upstream-dropdown"), "Commit", "Dropdown checkbox keeps menu open")
-  r.hoverTextWithinTestId("upstream-dropdown", "GitHub")
+  requireText(r.textContent(fixtureRoot), "Commit", "Dropdown pointer open")
+  r.clickTextWithinTestId(fixtureRoot, "Show Git Log")
+  requireText(r.textContent(fixtureRoot), "Commit", "Dropdown checkbox keeps menu open")
+  r.hoverTextWithinTestId(fixtureRoot, "GitHub")
   await wait(150)
   flushNative()
-  requireText(r.textContent("upstream-dropdown"), "Create Pull Request…", "Dropdown submenu hover")
+  requireText(r.textContent(fixtureRoot), "Create Pull Request…", "Dropdown submenu hover")
   r.clickTextWithinTestId("upstream-button", "Click me")
   await settleEffects(flushNative)
 
   r.clickTextWithinTestId("upstream-context", "Right click here.")
-  requireCondition(!r.textContent("upstream-context").includes("Commit"), "ContextMenu should ignore left click")
+  requireCondition(!r.textContent(fixtureRoot).includes("Commit"), "ContextMenu should ignore left click")
   await settleEffects(flushNative)
   r.rightClickTextWithinTestId("upstream-context", "Right click here.")
-  requireText(r.textContent("upstream-context"), "Commit", "ContextMenu right click")
-  r.clickTextWithinTestId("upstream-context", "Show Git Log")
-  requireText(r.textContent("upstream-context"), "Commit", "ContextMenu checkbox keeps menu open")
-  r.hoverTextWithinTestId("upstream-context", "GitHub")
+  requireText(r.textContent(fixtureRoot), "Commit", "ContextMenu right click")
+  r.clickTextWithinTestId(fixtureRoot, "Show Git Log")
+  requireText(r.textContent(fixtureRoot), "Commit", "ContextMenu checkbox keeps menu open")
+  r.hoverTextWithinTestId(fixtureRoot, "GitHub")
   await wait(150)
   flushNative()
-  requireText(r.textContent("upstream-context"), "Create Pull Request…", "ContextMenu submenu hover")
+  requireText(r.textContent(fixtureRoot), "Create Pull Request…", "ContextMenu submenu hover")
   r.clickTextWithinTestId("upstream-button", "Click me")
 
   r.clickTextWithinTestId("upstream-menubar", "Git")
-  requireText(r.textContent("upstream-menubar"), "Commit", "Menubar Git menu")
+  requireText(r.textContent(fixtureRoot), "Commit", "Menubar Git menu")
   r.clickTextWithinTestId("upstream-menubar", "File")
-  requireText(r.textContent("upstream-menubar"), "New Tab", "Menubar File menu")
+  requireText(r.textContent(fixtureRoot), "New Tab", "Menubar File menu")
   r.clickTextWithinTestId("upstream-menubar", "Edit")
-  requireText(r.textContent("upstream-menubar"), "Undo", "Menubar Edit menu")
+  requireText(r.textContent(fixtureRoot), "Undo", "Menubar Edit menu")
   r.clickTextWithinTestId("upstream-button", "Click me")
 
   app.unmount()
