@@ -107,12 +107,12 @@ function benchmarkHighlight(): void {
     root.render(() => <HighlightHarness controller={controller} />)
     sampleFlushes(root, WARMUP)
 
-    root.flushSync(() => controller.setQuery?.("p"))
+    root.root.flushSync(() => controller.setQuery?.("p"))
     const word = "performance of the renderer"
     const querySamples: number[] = []
     for (let length = 2; length <= word.length; length += 1) {
       const started = performance.now()
-      root.flushSync(() => controller.setQuery?.(word.slice(0, length)))
+      root.root.flushSync(() => controller.setQuery?.(word.slice(0, length)))
       querySamples.push(performance.now() - started)
     }
     report("chat.perf", "highlight keystroke", querySamples)
@@ -120,7 +120,7 @@ function benchmarkHighlight(): void {
     const cursorSamples: number[] = []
     for (let index = 0; index < 20; index += 1) {
       const started = performance.now()
-      root.flushSync(() => controller.setActiveIndex?.(index))
+      root.root.flushSync(() => controller.setActiveIndex?.(index))
       cursorSamples.push(performance.now() - started)
     }
     report("chat.perf", "highlight cursor", cursorSamples)
