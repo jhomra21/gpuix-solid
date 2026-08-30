@@ -1,0 +1,69 @@
+name: Chat virtual-list children fix
+
+on:
+  push:
+    branches:
+      - experiment/chat-virtual-list-children
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: true
+      - name: Remove false Show row from virtual-list
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("examples/counter/src/chat/shell.tsx")
+          source = path.read_text()
+          old = '''function Transcript(props: { turns: readonly Turn[]; includeSafeMdx: boolean; setListRef(instance: PublicInstance): void }): SolidElement {
+  return (
+    <virtual-list ref={props.setListRef} overdraw={240} estimatedItemHeight={220} style={{ flexGrow: 1, minHeight: 0, width: "100%" }}>
+      <Show when={props.includeSafeMdx}>
+        <TranscriptRow first last={props.turns.length === 0}><SafeMdxTranscript /></TranscriptRow>
+      </Show>
+      <For each={props.turns}>
+        {(turn, index) => <TranscriptRow first={!props.includeSafeMdx && index() === 0} last={index() === props.turns.length - 1}><TurnContent turn={turn} /></TranscriptRow>}
+      </For>
+    </virtual-list>
+  )
+}'''
+          new = '''function Transcript(props: { turns: readonly Turn[]; includeSafeMdx: boolean; setListRef(instance: PublicInstance): void }): SolidElement {
+  const rows = () => (
+    <For each={props.turns}>
+      {(turn, index) => <TranscriptRow first={!props.includeSafeMdx && index() === 0} last={index() === props.turns.length - 1}><TurnContent turn={turn} /></TranscriptRow>}
+    </For>
+  )
+
+  if (props.includeSafeMdx) {
+    return (
+      <virtual-list ref={props.setListRef} overdraw={240} estimatedItemHeight={220} style={{ flexGrow: 1, minHeight: 0, width: "100%" }}>
+        <TranscriptRow first last={props.turns.length === 0}><SafeMdxTranscript /></TranscriptRow>
+        {rows()}
+      </virtual-list>
+    )
+  }
+
+  return (
+    <virtual-list ref={props.setListRef} overdraw={240} estimatedItemHeight={220} style={{ flexGrow: 1, minHeight: 0, width: "100%" }}>
+      {rows()}
+    </virtual-list>
+  )
+}'''
+          if old not in source:
+              raise SystemExit("Transcript block not found")
+          path.write_text(source.replace(old, new, 1))
+          PY
+          git rm .github/workflows/chat-virtual-list-children.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add examples/counter/src/chat/shell.tsx
+          git commit -m "Keep Chat virtual-list rows element-only"
+          git push origin HEAD:experiment/chat-virtual-list-children
