@@ -13,8 +13,13 @@ export {
 export type { MacCpuThrottle } from "./cpu-throttle.js"
 export { findRanges, useTextSearch } from "./hooks/use-text-search.js"
 export type { FindRangesOptions, TextSearch, TextSearchOptions } from "./hooks/use-text-search.js"
-export { useWindowSize } from "./hooks/use-window-size.js"
-export type { WindowSize } from "./hooks/use-window-size.js"
+export { useWindowInsets, useWindowSize } from "./hooks/use-window-size.js"
+export type {
+  WindowInsets,
+  WindowInsetsOptions,
+  WindowSize,
+  WindowSizeOptions,
+} from "./hooks/use-window-size.js"
 export type { SlotRenderer } from "./components/floating.js"
 
 export {
