@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import type { EventPayload } from "../src/host/types.js"
 import { findRanges } from "../src/hooks/use-text-search.js"
 import {
   createElement,
@@ -53,7 +54,7 @@ describe("text search parity", () => {
       const root = createElement("div")
       setProp(root, "style", { width: 400, height: 140, padding: 20 })
       setProp(root, "highlight", { query })
-      setProp(root, "onHighlight", (event) => counts.push(event.matchCount ?? -1))
+      setProp(root, "onHighlight", (event: EventPayload) => counts.push(event.matchCount ?? -1))
       const text = createElement("text")
       setProp(text, "style", { color: "#ffffff", fontSize: 20 })
       insert(text, "fox fox dog")
