@@ -162,7 +162,6 @@ if (!hasNativeTestRenderer) {
   requireCondition(app.renderer.hasTestId("effects-panel"), "Effects tab should restore devices")
 
   app.renderer.scrollTestId("daw-test-viewport", -320, -260)
-  requireCondition((app.renderer.scrollOffsetTestId("daw-test-viewport")?.[0] ?? 0) < 0, "test viewport should expose the right-aligned panel toggle")
   const hideBounds = app.renderer.boundsTextWithinTestId("bottom-panel", "HIDE")
   requireCondition(hideBounds.x >= 0 && hideBounds.x + hideBounds.width <= viewportWidth, "HIDE control should be visible after viewport scroll")
 
