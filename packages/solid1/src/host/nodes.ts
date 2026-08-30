@@ -143,6 +143,9 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   focus(): void {
     const root = this.root
     if (!root || !this.nativeAlive) return
+    // Browser document/window keyboard listeners have no host element of their own. A focused native element is the source that must carry those key events back into the browser compatibility layer.
+    root.driver.enqueue("setEventListener", this.id, "keyDown", true)
+    root.driver.enqueue("setEventListener", this.id, "keyUp", true)
     root.driver.flush()
     root.driver.renderer.focusElement?.(this.id)
   }
