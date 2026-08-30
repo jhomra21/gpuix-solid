@@ -33,16 +33,19 @@ export function useTextSearch(options: TextSearchOptions): TextSearch {
   })
   const highlight = createMemo<HighlightSpec | null>(() => {
     if (options.query.length === 0) return null
-    return {
+
+    const spec: HighlightSpec = {
       query: options.query,
-      caseSensitive: options.caseSensitive,
-      wholeWord: options.wholeWord,
-      color: options.color,
-      activeColor: options.activeColor,
-      radius: options.radius,
       activeIndex: active(),
-      matchIndexOffset: options.matches?.indexOffset,
     }
+    if (options.caseSensitive !== undefined) spec.caseSensitive = options.caseSensitive
+    if (options.wholeWord !== undefined) spec.wholeWord = options.wholeWord
+    if (options.color !== undefined) spec.color = options.color
+    if (options.activeColor !== undefined) spec.activeColor = options.activeColor
+    if (options.radius !== undefined) spec.radius = options.radius
+    const indexOffset = options.matches?.indexOffset
+    if (indexOffset !== undefined) spec.matchIndexOffset = indexOffset
+    return spec
   })
 
   const onHighlight = (event: EventPayload): void => {
