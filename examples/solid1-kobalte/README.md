@@ -9,11 +9,11 @@ The fixture is pinned to `kobaltedev/kobalte` commit `3d3266348816b492b027538168
 The architecture is:
 
 ```text
-verbatim checked-in upstream TSX + CSS modules
+verbatim checked-in upstream docs TSX + CSS modules
+        ↓ normal @kobalte/core/* imports
+published @kobalte/core source compiled by Vite
         ↓
-module/CSS compatibility layer
-        ↓
-Solid universal renderer
+Solid universal renderer + browser compatibility
         ↓
 GPUIX native host
 ```
@@ -29,7 +29,7 @@ import { Dialog } from "@kobalte/core/dialog";
 import { DropdownMenu } from "@kobalte/core/dropdown-menu";
 ```
 
-The Vite resolver redirects those imports to the native Solid 1 compatibility surface. The upstream examples do not know that they are running on GPUIX.
+The Vite resolver points those imports at the installed `@kobalte/core` package source under `node_modules/@kobalte/core/src`. Kobalte itself is then compiled through the same Solid universal renderer as the fixture, with `solid-js/web` bridged to GPUIX's browser-compatibility surface. The upstream examples do not know that they are running on GPUIX.
 
 The selected upstream CSS modules are also checked in unchanged. `scripts/generate-native-kobalte-css.mjs` compiles their supported selectors into a native class manifest, including deterministic CSS-module scoping, light/dark variants, hover/active rules, and supported data-state selectors.
 
@@ -53,14 +53,14 @@ The native fixture currently executes Kobalte's actual `BasicExample` source for
 
 ## Native compatibility below the source
 
-Differences between browser Kobalte and GPUIX are handled outside the copied source. That includes:
+Differences between browser Kobalte and GPUIX are handled outside the copied source and outside Kobalte itself. That includes:
 
 - semantic HTML elements mapped to native host elements;
 - inline SVG serialization for Kobalte's copied icons;
 - CSS-module class translation into native `StyleDesc` values;
-- native floating/anchored layers in place of browser portal positioning;
-- event, focus, keyboard, right-click, and outside-pointer behavior;
-- small Kobalte API compatibility surfaces required by the pinned docs revision.
+- native portal and anchored-surface behavior for floating content;
+- browser-compatible document, selector, element-identity, viewport, and preflush behavior;
+- event, focus, keyboard, right-click, and outside-pointer behavior.
 
 This is intentionally not a DOM implementation. The goal is source compatibility for Solid applications while preserving native GPUIX rendering.
 
@@ -95,7 +95,7 @@ To test a newer upstream revision:
 1. Update the pinned commit/file blob SHAs in `upstream-lock.json`.
 2. Run `bun run sync:upstream` to replace the checked-in copies with that exact pin.
 3. Run the normal fixture generation/check command.
-4. Fix newly exposed incompatibilities in the renderer, native Kobalte surface, CSS compiler, or module bridge—not in `src/upstream/kobalte/`.
+4. Fix newly exposed incompatibilities in the renderer, browser-compatibility layer, CSS compiler, or module bridge—not in `src/upstream/kobalte/` or Kobalte's installed source.
 5. Keep the upstream license and attribution in sync.
 
 That rule is the important part of this fixture: when upstream code stops working, the compatibility layer moves toward the app rather than the app moving toward GPUIX.
