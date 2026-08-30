@@ -194,6 +194,7 @@ type ChatMdxBlock =
   | MdxYaml
 
 type ChatMdxTextNode = ChatMdxBlock | MdxListItem | MdxTableRow | MdxTableCell
+type LinkHandler = (href: string) => void
 
 type ChatMdxRoot = Omit<Root, "children"> & {
   children: ChatMdxBlock[]
@@ -248,7 +249,11 @@ function jsxAttribute(node: MdxJsxFlowElement, name: string): string | undefined
   return node.attributes.find((attribute) => attribute.name === name)?.value ?? undefined
 }
 
-function renderInline(node: ChatMdxInline, key: string): SolidElement {
+function renderInline(
+  node: ChatMdxInline,
+  key: string,
+  onLinkClick?: LinkHandler,
+): SolidElement {
   switch (node.type) {
     case "text":
       return <text testId={`mdx-${key}`} style={MD_TEXT}>{node.value}</text>
@@ -275,8 +280,19 @@ function renderInline(node: ChatMdxInline, key: string): SolidElement {
       return <text style={{ ...MD_TEXT, color: C.secondary }}>{inlineText(node)}</text>
     case "delete":
       return <text style={{ ...MD_TEXT, color: C.ghost }}>{inlineText(node)}</text>
-    case "link":
-      return <text style={{ ...MD_TEXT, color: C.accent }}>{inlineText(node)}</text>
+    case "link": {
+      const text = inlineText(node)
+      if (!onLinkClick) return <text style={{ ...MD_TEXT, color: C.accent }}>{text}</text>
+      return (
+        <text
+          testId={`mdx-link-${key}`}
+          onClick={() => onLinkClick(node.url)}
+          style={{ ...MD_TEXT, color: C.accent, cursor: "pointer" }}
+        >
+          {text}
+        </text>
+      )
+    }
     case "break":
       return <text style={MD_TEXT}>{"\n"}</text>
     case "mdxJsxTextElement":
@@ -338,7 +354,11 @@ function renderTable(node: MdxTable, key: string): SolidElement {
   )
 }
 
-function renderBlock(node: ChatMdxBlock, key: string): SolidElement {
+function renderBlock(
+  node: ChatMdxBlock,
+  key: string,
+  onLinkClick?: LinkHandler,
+): SolidElement {
   switch (node.type) {
     case "heading": {
       const size = node.depth === 1 ? 22 : node.depth === 2 ? 18 : 16
@@ -371,7 +391,9 @@ function renderBlock(node: ChatMdxBlock, key: string): SolidElement {
             minWidth: 0,
           }}
         >
-          {node.children.map((child, index) => renderInline(child, `${key}-${index}`))}
+          {node.children.map((child, index) =>
+            renderInline(child, `${key}-${index}`, onLinkClick),
+          )}
         </div>
       )
     case "blockquote":
@@ -379,7 +401,9 @@ function renderBlock(node: ChatMdxBlock, key: string): SolidElement {
         <div style={{ display: "flex", flexDirection: "row", gap: 12, width: "100%", minWidth: 0 }}>
           <div style={{ width: 3, flexShrink: 0, backgroundColor: C.accent }} />
           <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0, gap: 6 }}>
-            {node.children.map((child, index) => renderBlock(child, `${key}-${index}`))}
+            {node.children.map((child, index) =>
+              renderBlock(child, `${key}-${index}`, onLinkClick),
+            )}
           </div>
         </div>
       )
@@ -388,7 +412,9 @@ function renderBlock(node: ChatMdxBlock, key: string): SolidElement {
     case "list":
       return (
         <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%" }}>
-          {node.children.map((child, index) => renderListItem(child, `${key}-${index}`))}
+          {node.children.map((child, index) =>
+            renderListItem(child, `${key}-${index}`, onLinkClick),
+          )}
         </div>
       )
     case "table":
@@ -397,7 +423,9 @@ function renderBlock(node: ChatMdxBlock, key: string): SolidElement {
       return <CodeBlock code={node.value} language={node.lang ?? undefined} />
     case "mdxJsxFlowElement":
       if (node.name !== "Callout") {
-        return <>{node.children.map((child, index) => renderBlock(child, `${key}-${index}`))}</>
+        return <>{node.children.map((child, index) =>
+          renderBlock(child, `${key}-${index}`, onLinkClick),
+        )}</>
       }
       return (
         <div
@@ -416,7 +444,9 @@ function renderBlock(node: ChatMdxBlock, key: string): SolidElement {
           <text style={{ fontSize: 13, fontWeight: 700, color: C.accent }}>
             {jsxAttribute(node, "title") ?? "Callout"}
           </text>
-          {node.children.map((child, index) => renderBlock(child, `${key}-${index}`))}
+          {node.children.map((child, index) =>
+            renderBlock(child, `${key}-${index}`, onLinkClick),
+          )}
         </div>
       )
     case "html":
@@ -425,13 +455,19 @@ function renderBlock(node: ChatMdxBlock, key: string): SolidElement {
   }
 }
 
-function renderListItem(node: MdxListItem, key: string): SolidElement {
+function renderListItem(
+  node: MdxListItem,
+  key: string,
+  onLinkClick?: LinkHandler,
+): SolidElement {
   const marker = node.checked == null ? "•" : node.checked ? "✓" : "○"
   return (
     <div style={{ display: "flex", flexDirection: "row", gap: 9, width: "100%", minWidth: 0 }}>
       <text style={{ fontSize: 15, lineHeight: 26, color: C.secondary, flexShrink: 0 }}>{marker}</text>
       <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0 }}>
-        {node.children.map((child, index) => renderBlock(child, `${key}-${index}`))}
+        {node.children.map((child, index) =>
+          renderBlock(child, `${key}-${index}`, onLinkClick),
+        )}
       </div>
     </div>
   )
@@ -504,6 +540,7 @@ function cachedMdx(source: string): ChatMdxRoot {
 
 export interface SafeMdxContentProps {
   source: string
+  onLinkClick?: LinkHandler | undefined
 }
 
 export function SafeMdxContent(props: SafeMdxContentProps): SolidElement {
@@ -518,7 +555,9 @@ export function SafeMdxContent(props: SafeMdxContentProps): SolidElement {
         minWidth: 0,
       }}
     >
-      {tree().children.map((node, index) => renderBlock(node, `root-${index}`))}
+      {tree().children.map((node, index) =>
+        renderBlock(node, `root-${index}`, props.onLinkClick),
+      )}
     </div>
   )
 }
