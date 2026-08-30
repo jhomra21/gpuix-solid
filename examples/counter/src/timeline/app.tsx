@@ -49,12 +49,24 @@ const C = {
   selection: "#FFFFFF",
 } as const
 
-const CLIP_COLORS: Record<ClipKind, { fill: string; hover: string; text: string }> = {
-  video: { fill: "#38455C", hover: "#43516B", text: "#DCE4F2" },
-  text: { fill: "#3A4356", hover: "#454F66", text: "#DCE4F2" },
-  shape: { fill: "#8E4038", hover: "#A04A41", text: "#F6DEDB" },
-  audio: { fill: "#1E6B52", hover: "#237B5E", text: "#D6F2E7" },
-  caption: { fill: "#8E3670", hover: "#A03F7F", text: "#F7DCEE" },
+interface ClipColor {
+  fill: string
+  hover: string
+  text: string
+}
+
+const CLIP_COLORS = new Map<ClipKind, ClipColor>([
+  ["video", { fill: "#38455C", hover: "#43516B", text: "#DCE4F2" }],
+  ["text", { fill: "#3A4356", hover: "#454F66", text: "#DCE4F2" }],
+  ["shape", { fill: "#8E4038", hover: "#A04A41", text: "#F6DEDB" }],
+  ["audio", { fill: "#1E6B52", hover: "#237B5E", text: "#D6F2E7" }],
+  ["caption", { fill: "#8E3670", hover: "#A03F7F", text: "#F7DCEE" }],
+])
+
+function clipColor(kind: ClipKind): ClipColor {
+  const color = CLIP_COLORS.get(kind)
+  if (!color) throw new Error(`Missing timeline clip color for ${kind}`)
+  return color
 }
 
 export const HEADER_WIDTH = 220
@@ -501,7 +513,7 @@ interface ClipViewProps {
 }
 
 function ClipView(props: ClipViewProps) {
-  const color = () => CLIP_COLORS[props.clip.kind]
+  const color = () => clipColor(props.clip.kind)
   const width = () => Math.max(2, props.clip.duration * props.pxPerSecond)
 
   return (
@@ -985,10 +997,9 @@ export function TimelineApp(props: TimelineAppProps = {}) {
   })
 
   const selectedClip = createMemo(() => {
-    const first = selection().values().next().value as string | undefined
-    return first
-      ? project().clips.find((clip) => clip.id === first) ?? null
-      : null
+    const selected = selection().values().next()
+    if (selected.done) return null
+    return project().clips.find((clip) => clip.id === selected.value) ?? null
   })
 
   const readout = createMemo(() => {
