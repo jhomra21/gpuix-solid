@@ -4,13 +4,29 @@ import { createRoot, type NativeRenderer } from "gpuix-solid"
 import { ChatApp } from "../chat/shell"
 import { median } from "./stats"
 
-type Op = unknown[]
+type JsonPrimitive = string | number | boolean | null
+interface JsonObject {
+  [key: string]: JsonValue
+}
+type JsonValue = JsonPrimitive | JsonObject | JsonValue[]
+type Op = JsonValue[]
+
+function parseMutationBatch(json: string): Op[] {
+  // JSON.parse can only produce JSON values. MutationDriver sends a top-level
+  // array whose entries are mutation tuple arrays, so validate those two
+  // structural boundaries before the benchmark owns the result.
+  const parsed: JsonValue = JSON.parse(json)
+  if (!Array.isArray(parsed) || !parsed.every(Array.isArray)) {
+    throw new Error("Expected an applyBatch mutation array")
+  }
+  return parsed
+}
 
 class CaptureRenderer implements NativeRenderer {
   readonly ops: Op[] = []
 
   applyBatch(json: string): number[] {
-    this.ops.push(...(JSON.parse(json) as Op[]))
+    this.ops.push(...parseMutationBatch(json))
     return []
   }
 
@@ -58,7 +74,7 @@ class CaptureRenderer implements NativeRenderer {
     throw new Error("CaptureRenderer expected applyBatch for setCustomProp")
   }
 
-  getWindowSize(): { width: number; height: number } {
+  getWindowSize() {
     return { width: 1_280, height: 800 }
   }
 }
@@ -72,13 +88,24 @@ function captureOps(turnCount: number, includeSafeMdx: boolean): Op[] {
   return ops
 }
 
-function canonical(value: unknown): string {
-  if (value === null || typeof value !== "object") return JSON.stringify(value)
+function quote(value: string): string {
+  const encoded = JSON.stringify(value)
+  if (encoded === undefined) throw new Error("JSON string encoding returned undefined")
+  return encoded
+}
+
+function canonical(value: JsonValue): string {
+  if (value === null) return "null"
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`
-  const entries = Object.entries(value as Record<string, unknown>).sort(([left], [right]) =>
-    left < right ? -1 : left > right ? 1 : 0,
-  )
-  return `{${entries.map(([key, inner]) => `${JSON.stringify(key)}:${canonical(inner)}`).join(",")}}`
+  if (typeof value === "string") return quote(value)
+  if (typeof value === "number" || typeof value === "boolean") return String(value)
+
+  const keys = Object.keys(value).sort()
+  return `{${keys.map((key) => `${quote(key)}:${canonical(value[key] ?? null)}`).join(",")}}`
+}
+
+function at(op: readonly JsonValue[], index: number): JsonValue {
+  return op[index] ?? null
 }
 
 function internStyles(ops: readonly Op[]): Op[] {
@@ -89,14 +116,60 @@ function internStyles(ops: readonly Op[]): Op[] {
       output.push(op)
       continue
     }
-    const key = canonical(op[2])
+    const style = at(op, 2)
+    const key = canonical(style)
     let id = ids.get(key)
     if (id === undefined) {
       id = ids.size
       ids.set(key, id)
-      output.push(["defineStyle", id, op[2]])
+      output.push(["defineStyle", id, style])
     }
-    output.push(["setStyleRef", op[1], id])
+    output.push(["setStyleRef", at(op, 1), id])
+  }
+  return output
+}
+
+function countStrings(value: JsonValue, counts: Map<string, number>): void {
+  if (typeof value === "string") {
+    counts.set(value, (counts.get(value) ?? 0) + 1)
+    return
+  }
+  if (value === null || typeof value === "number" || typeof value === "boolean") return
+  if (Array.isArray(value)) {
+    for (const inner of value) countStrings(inner, counts)
+    return
+  }
+  for (const key of Object.keys(value)) countStrings(value[key] ?? null, counts)
+}
+
+interface StringTable {
+  ids: Map<string, number>
+  values: string[]
+}
+
+function swapRepeatedString(
+  value: JsonValue,
+  counts: ReadonlyMap<string, number>,
+  table: StringTable,
+): JsonValue {
+  if (typeof value === "string") {
+    if ((counts.get(value) ?? 0) < 2 || Buffer.byteLength(value) > 256) return value
+    let id = table.ids.get(value)
+    if (id === undefined) {
+      id = table.values.length
+      table.ids.set(value, id)
+      table.values.push(value)
+    }
+    return { $: id }
+  }
+  if (value === null || typeof value === "number" || typeof value === "boolean") return value
+  if (Array.isArray(value)) {
+    return value.map((inner) => swapRepeatedString(inner, counts, table))
+  }
+
+  const output: JsonObject = {}
+  for (const key of Object.keys(value)) {
+    output[key] = swapRepeatedString(value[key] ?? null, counts, table)
   }
   return output
 }
@@ -104,42 +177,17 @@ function internStyles(ops: readonly Op[]): Op[] {
 function internRepeatedStrings(ops: readonly Op[]): Op[] {
   const styled = internStyles(ops)
   const counts = new Map<string, number>()
-  const countStrings = (value: unknown): void => {
-    if (typeof value === "string") {
-      counts.set(value, (counts.get(value) ?? 0) + 1)
-      return
-    }
-    if (!value || typeof value !== "object") return
-    for (const inner of Object.values(value as Record<string, unknown>)) countStrings(inner)
-  }
   for (const op of styled) {
-    for (const value of op.slice(1)) countStrings(value)
+    for (const value of op.slice(1)) countStrings(value, counts)
   }
 
-  const ids = new Map<string, number>()
-  const table: string[] = []
-  const swap = (value: unknown): unknown => {
-    if (typeof value === "string") {
-      if ((counts.get(value) ?? 0) < 2 || Buffer.byteLength(value) > 256) return value
-      let id = ids.get(value)
-      if (id === undefined) {
-        id = table.length
-        ids.set(value, id)
-        table.push(value)
-      }
-      return { $: id }
-    }
-    if (!value || typeof value !== "object") return value
-    if (Array.isArray(value)) return value.map(swap)
-    const output: Record<string, unknown> = {}
-    for (const [key, inner] of Object.entries(value as Record<string, unknown>)) {
-      output[key] = swap(inner)
-    }
-    return output
-  }
-
-  const body = styled.map((op) => [op[0], ...op.slice(1).map(swap)])
-  return [["strings", table], ...body]
+  const table: StringTable = { ids: new Map<string, number>(), values: [] }
+  const body = styled.map((op) =>
+    op.map((value, index) =>
+      index === 0 ? value : swapRepeatedString(value, counts, table),
+    ),
+  )
+  return [["strings", table.values], ...body]
 }
 
 interface BenchRow {
@@ -149,25 +197,52 @@ interface BenchRow {
   bytes: number
 }
 
-function benchJson(label: string, ops: readonly Op[], iterations: number, asBuffer: boolean): BenchRow {
-  const encodeSamples: number[] = []
-  const decodeSamples: number[] = []
-  let bytes = 0
-
+function warmJson(ops: readonly Op[]): void {
   for (let index = 0; index < 3; index += 1) {
     const text = JSON.stringify(ops)
     JSON.parse(text)
   }
+}
+
+function benchJsonString(label: string, ops: readonly Op[], iterations: number): BenchRow {
+  warmJson(ops)
+  const encodeSamples: number[] = []
+  const decodeSamples: number[] = []
+  let bytes = 0
 
   for (let index = 0; index < iterations; index += 1) {
     const encodeStarted = performance.now()
-    const text = JSON.stringify(ops)
-    const payload = asBuffer ? Buffer.from(text, "utf8") : text
+    const payload = JSON.stringify(ops)
     encodeSamples.push(performance.now() - encodeStarted)
-    bytes = typeof payload === "string" ? Buffer.byteLength(payload) : payload.byteLength
+    bytes = Buffer.byteLength(payload)
 
     const decodeStarted = performance.now()
-    JSON.parse(typeof payload === "string" ? payload : payload.toString("utf8"))
+    JSON.parse(payload)
+    decodeSamples.push(performance.now() - decodeStarted)
+  }
+
+  return {
+    label,
+    encodeMs: median(encodeSamples),
+    decodeMs: median(decodeSamples),
+    bytes,
+  }
+}
+
+function benchJsonBuffer(label: string, ops: readonly Op[], iterations: number): BenchRow {
+  warmJson(ops)
+  const encodeSamples: number[] = []
+  const decodeSamples: number[] = []
+  let bytes = 0
+
+  for (let index = 0; index < iterations; index += 1) {
+    const encodeStarted = performance.now()
+    const payload = Buffer.from(JSON.stringify(ops), "utf8")
+    encodeSamples.push(performance.now() - encodeStarted)
+    bytes = payload.byteLength
+
+    const decodeStarted = performance.now()
+    JSON.parse(payload.toString("utf8"))
     decodeSamples.push(performance.now() - decodeStarted)
   }
 
@@ -187,14 +262,15 @@ function inlineStyleInterning(ops: readonly Op[]): string {
       output.push(op)
       continue
     }
-    const key = JSON.stringify(op[2])
+    const style = at(op, 2)
+    const key = JSON.stringify(style)
     let id = ids.get(key)
     if (id === undefined) {
       id = ids.size
       ids.set(key, id)
-      output.push(["defineStyle", id, op[2]])
+      output.push(["defineStyle", id, style])
     }
-    output.push(["setStyleRef", op[1], id])
+    output.push(["setStyleRef", at(op, 1), id])
   }
   return JSON.stringify(output)
 }
@@ -246,10 +322,10 @@ function main(): void {
   const styled = internStyles(ops)
   const allInterned = internRepeatedStrings(ops)
   const rows = [
-    benchJson("JSON.stringify", ops, iterations, false),
-    benchJson("JSON -> utf8 Buffer", ops, iterations, true),
-    benchJson("style refs + JSON", styled, iterations, false),
-    benchJson("style/string refs + JSON", allInterned, iterations, false),
+    benchJsonString("JSON.stringify", ops, iterations),
+    benchJsonBuffer("JSON -> utf8 Buffer", ops, iterations),
+    benchJsonString("style refs + JSON", styled, iterations),
+    benchJsonString("style/string refs + JSON", allInterned, iterations),
   ]
   const baseline = rows[0]?.bytes ?? 1
 
@@ -265,7 +341,7 @@ function main(): void {
   benchInlineInterning(ops, iterations)
   console.log(
     "\nThis is the Solid-side applyBatch workload. Upstream's Rust serde half lives in remorses/gpuix native source, " +
-      "so this repository does not pretend to benchmark a Rust decoder it does not own.",
+      "so this repository does not claim a Rust decoder benchmark it does not own.",
   )
 }
 
