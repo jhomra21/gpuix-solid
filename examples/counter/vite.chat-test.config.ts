@@ -3,7 +3,8 @@ import solid from "@solidjs/vite-plugin"
 import { defineConfig } from "vite"
 
 const require = createRequire(import.meta.url)
-const decodeNamedCharacterReference = require.resolve("decode-named-character-reference")
+const safeMdxRequire = createRequire(require.resolve("safe-mdx/parse"))
+const decodeNamedCharacterReference = safeMdxRequire.resolve("decode-named-character-reference")
 
 export default defineConfig({
   plugins: [
