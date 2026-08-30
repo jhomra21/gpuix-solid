@@ -86,13 +86,13 @@ if (hasNativeTestRenderer) {
   }
 
   r.clickTextWithinTestId("upstream-menubar", "Git")
-  requireMenuState(r.textContent("kobalte-stress-root"), "Commit", ["New Tab", "Undo"], "initial Git menu")
+  requireMenuState(r.textContentRoot(), "Commit", ["New Tab", "Undo"], "initial Git menu")
 
-  const githubBounds = r.boundsTextWithinTestId("kobalte-stress-root", "GitHub")
-  r.hoverTextWithinTestId("kobalte-stress-root", "GitHub")
+  const githubBounds = r.boundsText("GitHub")
+  r.hoverText("GitHub")
   await wait(200)
   await settle()
-  const submenuBounds = r.boundsTextWithinTestId("kobalte-stress-root", "Create Pull Request…")
+  const submenuBounds = r.boundsText("Create Pull Request…")
   requireCondition(
     submenuBounds.x >= githubBounds.x + githubBounds.width - 40,
     `GitHub submenu should open beside its row, got trigger=${JSON.stringify(githubBounds)} submenu=${JSON.stringify(submenuBounds)}`,
@@ -103,35 +103,35 @@ if (hasNativeTestRenderer) {
   for (let cycle = 0; cycle < 20; cycle += 1) {
     r.hoverTextWithinTestId("upstream-menubar", "File")
     await settle()
-    requireMenuState(r.textContent("kobalte-stress-root"), "New Tab", ["Commit", "Undo"], `cycle ${cycle} File hover`)
+    requireMenuState(r.textContentRoot(), "New Tab", ["Commit", "Undo"], `cycle ${cycle} File hover`)
     requireFocusDidNotReturnTo(gitTrigger, menuTriggers, `cycle ${cycle} File hover`)
 
     r.hoverTextWithinTestId("upstream-menubar", "Edit")
     await settle()
-    requireMenuState(r.textContent("kobalte-stress-root"), "Undo", ["Commit", "New Tab"], `cycle ${cycle} Edit hover`)
+    requireMenuState(r.textContentRoot(), "Undo", ["Commit", "New Tab"], `cycle ${cycle} Edit hover`)
     requireFocusDidNotReturnTo(fileTrigger, menuTriggers, `cycle ${cycle} Edit hover`)
 
     r.hoverTextWithinTestId("upstream-menubar", "Git")
     await settle()
-    requireMenuState(r.textContent("kobalte-stress-root"), "Commit", ["New Tab", "Undo"], `cycle ${cycle} Git hover`)
+    requireMenuState(r.textContentRoot(), "Commit", ["New Tab", "Undo"], `cycle ${cycle} Git hover`)
     requireFocusDidNotReturnTo(editTrigger, menuTriggers, `cycle ${cycle} Git hover`)
 
     r.clickTextWithinTestId("upstream-menubar", "File")
     await settle()
-    requireMenuState(r.textContent("kobalte-stress-root"), "New Tab", ["Commit", "Undo"], `cycle ${cycle} File click`)
+    requireMenuState(r.textContentRoot(), "New Tab", ["Commit", "Undo"], `cycle ${cycle} File click`)
 
     r.clickTextWithinTestId("upstream-menubar", "Edit")
     await settle()
-    requireMenuState(r.textContent("kobalte-stress-root"), "Undo", ["Commit", "New Tab"], `cycle ${cycle} Edit click`)
+    requireMenuState(r.textContentRoot(), "Undo", ["Commit", "New Tab"], `cycle ${cycle} Edit click`)
 
     r.clickTextWithinTestId("upstream-menubar", "Git")
     await settle()
-    requireMenuState(r.textContent("kobalte-stress-root"), "Commit", ["New Tab", "Undo"], `cycle ${cycle} Git click`)
+    requireMenuState(r.textContentRoot(), "Commit", ["New Tab", "Undo"], `cycle ${cycle} Git click`)
   }
 
   r.clickTestId("upstream-separator")
   await settle()
-  const closed = r.textContent("kobalte-stress-root")
+  const closed = r.textContentRoot()
   requireCondition(
     !closed.includes("Commit") && !closed.includes("New Tab") && !closed.includes("Undo"),
     "Menubar should close after clicking a non-interactive outside region",
