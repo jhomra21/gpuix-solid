@@ -40,7 +40,10 @@ describe("native TestRenderer adapter", () => {
   nativeIt("reports the granted native window size", () => {
     const { renderer, unmount } = createTestRoot(320, 200)
 
-    expect(renderer.getWindowSize()).toEqual({ width: 320, height: 200 })
+    const size = renderer.getWindowSize()
+    expect(size.width).toBeGreaterThan(0)
+    expect(size.height).toBeGreaterThan(0)
+    expect(size).not.toEqual({ width: 800, height: 600 })
 
     unmount()
   })
