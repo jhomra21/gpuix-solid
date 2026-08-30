@@ -152,13 +152,20 @@ if (hasNativeTestRenderer) {
     positionerBounds.width >= rootBounds.width - 2 && positionerBounds.height >= rootBounds.height - 2,
     `Dialog positioner should span the native root, got root=${JSON.stringify(rootBounds)} positioner=${JSON.stringify(positionerBounds)}`,
   )
-  const rootCenterX = rootBounds.x + rootBounds.width / 2
-  const rootCenterY = rootBounds.y + rootBounds.height / 2
+  requireCondition(
+    Math.abs(overlayBounds.left - positionerBounds.left) <= 2
+      && Math.abs(overlayBounds.top - positionerBounds.top) <= 2
+      && Math.abs(overlayBounds.width - positionerBounds.width) <= 2
+      && Math.abs(overlayBounds.height - positionerBounds.height) <= 2,
+    `Dialog overlay and positioner should share the portal viewport, got overlay=${JSON.stringify(overlayBounds)} positioner=${JSON.stringify(positionerBounds)}`,
+  )
+  const viewportCenterX = positionerBounds.left + positionerBounds.width / 2
+  const viewportCenterY = positionerBounds.top + positionerBounds.height / 2
   const contentCenterX = contentBounds.left + contentBounds.width / 2
   const contentCenterY = contentBounds.top + contentBounds.height / 2
   requireCondition(
-    Math.abs(contentCenterX - rootCenterX) <= 8 && Math.abs(contentCenterY - rootCenterY) <= 8,
-    `Dialog content should be centered in the native root, got root=${JSON.stringify(rootBounds)} content=${JSON.stringify(contentBounds)}`,
+    Math.abs(contentCenterX - viewportCenterX) <= 8 && Math.abs(contentCenterY - viewportCenterY) <= 8,
+    `Dialog content should be centered in its portal viewport, got positioner=${JSON.stringify(positionerBounds)} content=${JSON.stringify(contentBounds)}`,
   )
   r.pressKey("escape")
   await settle()
