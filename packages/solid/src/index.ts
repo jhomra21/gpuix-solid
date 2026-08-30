@@ -5,6 +5,12 @@ export type { Root } from "./root.js"
 export { startFrameLoop } from "./frame-loop.js"
 export type { FrameLoop, TickRenderer } from "./frame-loop.js"
 export { GpuixContext, useGpuix, useGpuixRequired } from "./context.js"
+export {
+  MAC_CPU_THROTTLES,
+  applyMacCpuThrottleFromEnv,
+  readMacCpuThrottle,
+} from "./cpu-throttle.js"
+export type { MacCpuThrottle } from "./cpu-throttle.js"
 export { findRanges, useTextSearch } from "./hooks/use-text-search.js"
 export type { FindRangesOptions, TextSearch, TextSearchOptions } from "./hooks/use-text-search.js"
 export { useWindowSize } from "./hooks/use-window-size.js"
