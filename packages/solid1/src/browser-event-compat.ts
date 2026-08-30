@@ -1,7 +1,7 @@
 import type { EventPayload } from "@gpuix/native"
 import { EVENT_PROP_TO_TYPE } from "./host/events.js"
 
-const BROWSER_KEY_NAMES = new Map([
+const BROWSER_KEY_NAMES = new Map<string, string>([
   ["alt", "Alt"],
   ["backspace", "Backspace"],
   ["cmd", "Meta"],
@@ -21,7 +21,7 @@ const BROWSER_KEY_NAMES = new Map([
   ["space", " "],
   ["tab", "Tab"],
   ["up", "ArrowUp"],
-] as const)
+])
 
 /**
  * Browser-only event names used by upstream component libraries that GPUIX
