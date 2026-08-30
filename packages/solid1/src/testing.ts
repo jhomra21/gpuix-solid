@@ -136,6 +136,14 @@ export class TestRenderer {
     this.#native.flush()
   }
 
+  clickText(text: string): void {
+    const node = this.requireText(text)
+    const point = insetPoint(this.boundsNode(node, `root text ${JSON.stringify(text)}`))
+    this.#native.simulateClick(point.x, point.y)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+  }
+
   clickTextWithinTestId(testId: string, text: string): void {
     const parent = this.requireTestId(testId)
     const node = findElementByExactText(parent, text)
@@ -144,6 +152,10 @@ export class TestRenderer {
     this.#native.simulateClick(point.x, point.y)
     this.dispatchNativeEvents()
     this.#native.flush()
+  }
+
+  boundsText(text: string): TestBounds {
+    return this.boundsNode(this.requireText(text), `root text ${JSON.stringify(text)}`)
   }
 
   boundsTextWithinTestId(testId: string, text: string): TestBounds {
@@ -201,6 +213,14 @@ export class TestRenderer {
 
   hoverTestId(testId: string): void {
     const point = insetPoint(this.boundsTestId(testId))
+    this.#native.simulateMouseMove(point.x, point.y)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+  }
+
+  hoverText(text: string): void {
+    const node = this.requireText(text)
+    const point = insetPoint(this.boundsNode(node, `root text ${JSON.stringify(text)}`))
     this.#native.simulateMouseMove(point.x, point.y)
     this.dispatchNativeEvents()
     this.#native.flush()
@@ -293,6 +313,11 @@ export class TestRenderer {
     return nodeText(this.requireTestId(testId))
   }
 
+  textContentRoot(): string {
+    const root = parseTree(this.#native.getTreeJson())
+    return root ? nodeText(root) : ""
+  }
+
   styleTestId(testId: string): StyleDesc {
     return this.requireTestId(testId).style ?? {}
   }
@@ -326,6 +351,14 @@ export class TestRenderer {
       throw new Error(`${label} returned incomplete bounds`)
     }
     return { x, y, width, height }
+  }
+
+  private requireText(text: string): NativeTreeNode {
+    const root = parseTree(this.#native.getTreeJson())
+    if (!root) throw new Error("Expected a native tree")
+    const node = findElementByExactText(root, text)
+    if (!node) throw new Error(`Expected visible text ${JSON.stringify(text)} in native tree`)
+    return node
   }
 
   private requireTestId(testId: string): NativeTreeNode {
