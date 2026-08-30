@@ -173,17 +173,10 @@ function WordDiffTokens(props: {
           const isHighlighted =
             (props.mode === "remove" && part.removed) ||
             (props.mode === "add" && part.added)
-          return (
-            <text
-              style={{
-                color: CODE_FG,
-                whiteSpace: "nowrap",
-                ...(isHighlighted ? { backgroundColor: highlightBg } : {}),
-              }}
-            >
-              {part.value}
-            </text>
-          )
+          const style = isHighlighted
+            ? { color: CODE_FG, whiteSpace: "nowrap" as const, backgroundColor: highlightBg }
+            : { color: CODE_FG, whiteSpace: "nowrap" as const }
+          return <text style={style}>{part.value}</text>
         }}
       </For>
     </div>
