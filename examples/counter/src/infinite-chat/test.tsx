@@ -12,7 +12,12 @@ import { InfiniteChatApp, createFakeMessageApi, type MessageApi } from "./app"
 const WIDTH = 920
 const HEIGHT = 760
 
-function mount(api: MessageApi): { root: TestRoot; app: App } {
+interface MountedInfiniteChat {
+  root: TestRoot
+  app: App
+}
+
+function mount(api: MessageApi): MountedInfiniteChat {
   const root = createTestRoot(WIDTH, HEIGHT)
   root.render(() => <InfiniteChatApp api={api} />)
   return { root, app: createTestApp(root.renderer) }
