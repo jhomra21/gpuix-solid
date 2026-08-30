@@ -91,6 +91,11 @@ export interface FindRangesOptions {
   wholeWord?: boolean
 }
 
+interface FoldedText {
+  folded: string
+  map: number[]
+}
+
 const WORD_CHAR = /[\p{Alphabetic}\p{N}_]/u
 
 function wordCharBefore(text: string, end: number): boolean {
@@ -107,7 +112,7 @@ function wordCharAt(text: string, start: number): boolean {
   return WORD_CHAR.test(String.fromCodePoint(codePoint))
 }
 
-function fold(text: string): { folded: string; map: number[] } {
+function fold(text: string): FoldedText {
   let folded = ""
   const map: number[] = []
   for (let index = 0; index < text.length;) {
