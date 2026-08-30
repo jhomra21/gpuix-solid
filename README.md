@@ -1,196 +1,337 @@
 # GPUix Solid
 
-Solid 2 bindings for [GPUIX](https://github.com/remorses/gpuix), targeting [GPUI](https://github.com/zed-industries/zed/tree/main/crates/gpui), Zed's GPU-accelerated UI framework.
+Solid bindings for [GPUIX](https://github.com/remorses/gpuix), which targets [GPUI](https://github.com/zed-industries/zed/tree/main/crates/gpui), Zed's GPU UI framework.
+
+Build native desktop apps with Solid and TypeScript. Components render through GPUI to Metal, DirectX, or Vulkan. There is no Electron layer and no web view.
 
 ```text
-Solid 2 + TypeScript
-        │
-        ▼
+Solid + TypeScript
+      |
+      v
 gpuix-solid
-  Solid universal renderer
-        │
-        ▼
+Solid universal renderer
+      |
+      v
 @gpuix/native
-        │ napi-rs
-        ▼
-GPUI / Zed
-        │
-        ▼
+      |
+      v
+GPUI
+      |
+      v
 Metal / DirectX / Vulkan
 ```
 
-This project is an independently implemented Solid renderer built against GPUIX's public native mutation contract. It intentionally keeps the native GPUI bridge in `@gpuix/native` rather than forking the Rust layer.
+The primary package is `gpuix-solid` for Solid 2. This repository also contains `@jhomra21/gpuix-solid1` for Solid 1.9.x and uses it to run Kobalte, Tailwind v4, a DAW UI slice, and the native blurred-window example.
 
-## Status
+GPUix Solid does not fork GPUIX's Rust renderer. It consumes `@gpuix/native` and implements the Solid side of the host tree, mutation batching, events, testing, and automation.
 
-M0 through M6 are complete. The renderer, native element surface, native capabilities, Solid-native component layer, testing/automation foundation, and release pipeline are implemented and parity-tested:
+## Quickstart
 
-- Solid 2 universal renderer integration
-- root-scoped JS shadow host tree
-- retained-tree mutation protocol and batched N-API writes
-- event registry, refs, lifecycle, and hot remount behavior
-- GPUIX intrinsic JSX types and native element parity
-- focus, scroll, selection, window, debug-overlay, and animation capabilities
-- Solid-native `Tooltip`, `Select`, and `Combobox`
-- Solid-native `as` slot renderer contract
-- unified `animate.*` declarative animation API backed by native GPUI animation frames
-- GPU-backed native TestRenderer adapter
-- retained-tree, event/input, selection/layout, and screenshot parity coverage
-- deterministic native animation-clock coverage
-- Playwright-like `App` / `Locator` automation API over the native automation tree
-- typed live stdio launch/connect automation transport
-- cross-platform CI plus exact-tarball clean npm, Bun, and Solid TSX/Vite consumer validation
-- tokenless npm Trusted Publishing/OIDC with registry integrity, dist-tag, SLSA provenance, immutable tag, and GitHub Release verification
+GPUIX upstream has a CLI scaffold. GPUix Solid does not have one yet. A Solid app currently uses Vite so the Solid compiler can target the universal renderer and bundle Solid's client reactive runtime for native execution.
 
-`0.1.0-beta.2` is the first release published entirely through the steady-state Trusted Publishing/OIDC pipeline. M7 now focuses on real-consumer stabilization and the remaining live-automation gap. Production `GpuixRenderer` does not yet expose native keystroke injection, so live `fill()` / `press()` remains blocked upstream and is tracked in issue #35.
+### 1. Install the Solid 2 packages
 
-## Why a native Solid renderer
-
-This is not a React compatibility layer and does not use a virtual DOM. Solid's compiler targets a custom universal runtime. Signals update the affected host properties or children directly, those mutations are reflected immediately in a small JS shadow tree, and native writes are batched into GPUIX's retained Rust tree.
-
-```text
-signal write
-   │
-   ▼
-Solid computation
-   │
-   ├── update JS host node immediately
-   │
-   └── enqueue native mutation
-              │
-              ▼
-          applyBatch()
-              │
-              ▼
-       Rust RetainedTree
-              │
-              ▼
-            GPUI
+```bash
+bun add gpuix-solid@beta solid-js@^2.0.0-rc.0
+bun add -d @solidjs/vite-plugin@^3.0.0-next.29 vite@^8 typescript@^5.9 @types/node
 ```
 
-The JS shadow tree exists because Solid's universal reconciler needs synchronous `parent`, `firstChild`, and `nextSibling` answers while reconciling arrays. Native GPUI state can therefore remain batched without becoming the JS reconciler's query path.
+`gpuix-solid` depends on `@gpuix/native`, so the native renderer for the current platform comes with the package.
 
-## Usage
+### 2. Point TypeScript at GPUix Solid JSX
+
+Create `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "preserve",
+    "jsxImportSource": "gpuix-solid",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["src", "vite.config.ts"]
+}
+```
+
+`jsxImportSource` is required. Without it TypeScript uses the wrong JSX element types.
+
+### 3. Configure the Solid universal compiler
+
+Create `vite.config.ts`:
+
+```ts
+import solid from "@solidjs/vite-plugin"
+import { defineConfig } from "vite"
+
+export default defineConfig({
+  plugins: [
+    solid({
+      solid: {
+        generate: "universal",
+        moduleName: "gpuix-solid",
+      },
+    }),
+  ],
+  resolve: {
+    conditions: ["browser", "development"],
+  },
+  ssr: {
+    noExternal: ["gpuix-solid", "@solidjs/universal", "solid-js"],
+    resolve: {
+      conditions: ["browser", "development", "import", "default"],
+    },
+  },
+  build: {
+    target: "node22",
+    ssr: "src/index.tsx",
+    outDir: "dist/app",
+    rollupOptions: {
+      external: ["@gpuix/native"],
+    },
+  },
+})
+```
+
+The `browser` condition here selects Solid's live client runtime. The built JavaScript still runs under Bun as a native desktop process. `@gpuix/native` stays external so Bun can load the platform addon normally.
+
+### 4. Write the entry file
+
+Create `src/index.tsx`:
 
 ```tsx
-import { animate, render } from "gpuix-solid"
+import { render } from "gpuix-solid"
 import { createSignal } from "solid-js"
 
 function App() {
   const [count, setCount] = createSignal(0)
 
   return (
-    <div style={{ padding: 24, gap: 12, flexDirection: "column" }}>
-      <text>Count: {count()}</text>
-      <div onClick={() => setCount(count() + 1)}>
-        <text>Increment</text>
-      </div>
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        padding: 24,
+        gap: 12,
+        flexDirection: "column",
+        backgroundColor: "#181818",
+      }}
+    >
+      <text style={{ color: "#f5f5f5", fontSize: 20 }}>
+        Count: {count()}
+      </text>
 
-      <animate.div
-        initial={{ opacity: 0, width: 80 }}
-        to={{ opacity: 1, width: 180 }}
-        transition={{ duration: 0.25, ease: "easeOut" }}
-        style={{ height: 44 }}
+      <div
+        onClick={() => setCount((value) => value + 1)}
+        style={{
+          width: 140,
+          padding: 12,
+          borderRadius: 8,
+          cursor: "pointer",
+          backgroundColor: "#2a2a2a",
+          hover: { backgroundColor: "#343434" },
+        }}
       >
-        <text>Native GPUI animation</text>
-      </animate.div>
+        <text style={{ color: "#f5f5f5" }}>Increment</text>
+      </div>
     </div>
   )
 }
 
-render(() => <App />, { title: "Solid GPUIX" })
+render(() => <App />, {
+  title: "Solid GPUIX",
+  width: 800,
+  height: 600,
+})
 ```
 
-`animate.*` is the public animation surface. The underlying GPUIX `motion` descriptor remains an internal wire-format detail so animation frames stay in Rust/GPUI rather than running through a JavaScript frame loop.
+Give native `<text>` nodes an explicit `color`. GPUI does not inherit text color from a parent the way browser CSS does.
 
-See `examples/counter` for the first fixture.
+### 5. Build and run it
+
+Add scripts to `package.json`:
+
+```json
+{
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "start": "bun dist/app/index.js",
+    "dev": "bun run build && bun run start"
+  }
+}
+```
+
+Then run:
+
+```bash
+bun run dev
+```
+
+The documented Solid path is Vite plus Bun. This repository does not yet provide a Solid-specific `gpuix new` scaffold or wrap GPUIX's browser WebAssembly renderer.
+
+## Solid 1 support
+
+`packages/solid1` contains the Solid 1 renderer package named `@jhomra21/gpuix-solid1`.
+
+Its peer range is `solid-js >=1.9.0 <2`, and it uses `@gpuix/native ^0.6.0`. The Solid 1 renderer has the same native host contract as the Solid 2 package, plus compatibility code needed by browser-oriented Solid libraries such as Kobalte.
+
+That compatibility code does not turn GPUIX into a browser DOM. It provides the browser behaviors that the tested Solid libraries read while their visible output still goes through native GPUIX elements.
+
+## Examples
+
+Run these commands from the repository root.
+
+| Example | Run | What it covers |
+| --- | --- | --- |
+| [Counter](./examples/counter/src/index.tsx) | `bun run example:counter` | Solid 2 signals, click events, hover state, and repeated native updates |
+| [Native text](./examples/counter/src/native-text.tsx) | `bun run example:native-text` | Native `<markdown>`, `<code>`, and `<diff>` elements, tabs, scrolling, selection, and link events |
+| [Dashboard](./examples/counter/src/dashboard) | `bun run example:dashboard` | A multi-page Solid 2 app with inputs, textarea, lists, `Select`, `Tooltip`, native animations, and screenshot tests |
+| [CodeImage](./examples/counter/src/codeimage) | `bun run example:codeimage` | A Solid 2 native editor UI with frame, code, theme, input, and export controls |
+| [TanStack kitchen sink](./examples/counter/src/tanstack-kitchen-sink) | `bun run example:tanstack-kitchen-sink` | An adaptation of the TanStack Router Solid 2 kitchen-sink shell with local deterministic route data |
+| [Blurred window](./examples/solid1-blurred-window) | `bun run example:solid1-blurred-window` | Solid 1 with GPUIX 0.6 native macOS blur, a transparent titlebar, and custom traffic-light placement |
+| [Kobalte](./examples/solid1-kobalte) | `bun run example:solid1-kobalte` | Real `@kobalte/core@0.13.13` source, pinned upstream docs TSX and CSS, portals, menus, dialogs, focus, keyboard input, and SVG icons |
+| [Tailwind v4](./examples/solid1-tailwind) | `bun run example:solid1-tailwind` | Tailwind v4 classes compiled into native style data, theme tokens, hover and active states, and reactive `classList` changes |
+| [DAW](./examples/solid1-daw) | `bun run example:solid1-daw` | A source-first Solid 1 port of a browser DAW slice with transport controls, tracks, ruler, bottom panels, Tailwind classes, and native adapters |
+
+The Solid 2 examples live under `examples/counter` because that directory started as the smallest parity fixture and later grew into several application-sized checks. The Solid 1 examples have separate directories because each one owns its own compiler or compatibility setup.
+
+### Kobalte runs through the native host
+
+The Kobalte fixture is not a local copy of Kobalte components rewritten for GPUIX.
+
+Files under `examples/solid1-kobalte/src/upstream/kobalte` are pinned copies of Kobalte documentation examples. Their normal imports still look like this:
+
+```ts
+import { Dialog } from "@kobalte/core/dialog"
+import { DropdownMenu } from "@kobalte/core/dropdown-menu"
+```
+
+Vite resolves those imports to the installed `@kobalte/core` source. Kobalte and the fixture compile through the Solid universal renderer, while `solid-js/web` resolves to GPUix Solid's compatibility module.
+
+The current native fixture covers Button, TextField, Image, Separator, Tooltip, DropdownMenu, ContextMenu, Menubar, and Dialog. Tests also cover portal placement, outside click, focus restoration, menu switching, keyboard behavior, and dialog geometry.
+
+The copied upstream TSX and CSS are hash checked. Compatibility changes belong under the renderer and compatibility modules, not inside the copied Kobalte source.
+
+## Architecture
+
+Solid compiles JSX against a custom universal runtime instead of the browser DOM.
+
+```text
+Solid signal update
+        |
+        v
+Solid computation
+        |
+        v
+JS host node update
+        |
+        v
+batched native mutations
+        |
+        v
+@gpuix/native applyBatch
+        |
+        v
+Rust retained tree
+        |
+        v
+GPUI frame
+```
+
+The JavaScript host tree keeps the synchronous parent, child, and sibling information that Solid needs while reconciling arrays and conditional children. Native state stays in GPUIX's retained Rust tree.
+
+Solid updates do not pass through React or `react-reconciler`. The renderer sends accepted host mutations to `@gpuix/native`, which applies them in batches.
+
+GPUI then lays out and paints the retained tree. Native animations stay on the GPUI side after Solid sends their targets.
+
+## Packages
+
+`gpuix-solid` is the Solid 2 renderer. It exports the renderer, JSX runtime, native components, testing helpers, animation API, and `gpuix-solid/automation`.
+
+`@jhomra21/gpuix-solid1` is the Solid 1 renderer in `packages/solid1`. It also exports `./web` compatibility and Kobalte-oriented helper entry points used by the Solid 1 examples.
+
+`@gpuix/native` comes from the upstream [remorses/gpuix](https://github.com/remorses/gpuix) project. This repository depends on it instead of carrying a Rust fork.
+
+There is no GPUix Solid CLI package today.
 
 ## Testing and automation
 
-The testing API uses the same Solid root, mutation driver, event registry, native retained tree, and GPUI rendering path as a normal app. GPU-backed tests are available when the installed `@gpuix/native` build exports `TestGpuixRenderer`.
+`TestGpuixRenderer` drives the same retained native tree used by normal applications. Tests can inspect native tree state, dispatch real native input, read layout bounds, control the native animation clock, and capture screenshots.
+
+The Solid 2 package also exports a Playwright-like automation API:
 
 ```ts
-import { createElement, insert, insertNode, setProp } from "gpuix-solid"
-import { createTestRoot } from "gpuix-solid"
 import { createTestApp } from "gpuix-solid/automation"
+import { createTestRoot } from "gpuix-solid"
 
 const testRoot = createTestRoot()
-
-testRoot.render(() => {
-  const root = createElement("div")
-  const action = createElement("div")
-  setProp(action, "testId", "save")
-  setProp(action, "style", { width: 120, height: 40 })
-  insert(action, "Save")
-  insertNode(root, action)
-  return root
-})
-
 const app = createTestApp(testRoot.renderer)
-await app.getByTestId("save").click()
-```
-
-Locators query the native automation tree on demand instead of holding DOM-like element objects. Supported locator operations include `getByTestId`, `getByText`, `getByType`, nested locators, `count`, strict `element`, `bounds`, `click`, `fill`, `press`, `textContent`, and `waitFor`.
-
-The `gpuix-solid/automation` subpath also provides the live-process transport:
-
-```ts
-import { launch } from "gpuix-solid/automation"
-
-const app = await launch({
-  command: "bun",
-  args: ["run", "./dist/my-gpuix-app.js"],
-})
 
 await app.getByTestId("save").click()
-await app.close()
+await app.getByTestId("name").fill("New name")
 ```
 
-A renderer launched with piped stdin exposes the typed SSE-over-stdio automation protocol automatically; normal TTY-launched apps are unchanged. Live tree queries, painted bounds, pointer click, screenshots, and deterministic clock operations are supported. `fill()` and `press()` currently return a typed `Unsupported` error for live production renderers because `GpuixRenderer` does not yet expose native keystroke injection. They remain fully supported through `TestGpuixRenderer`.
+Locators query the current native automation tree each time. They support test ID, text, and type queries, nested locators, bounds, click, fill, press, text reads, counts, and waits.
+
+`gpuix-solid/automation` also has a typed stdio transport for controlling a launched native process. See the package source and tests for the live transport contract.
+
+CI has verify jobs on macOS, Ubuntu, and Windows, plus a separate exact-package smoke job. The current GPUIX 0.6 line passes frozen install, lint, typecheck, tests, builds, Solid 1 package checks, the Kobalte fixture, the Tailwind fixture, the DAW fixture, release tests, and package smoke validation.
 
 ## Compatibility
 
-See [docs/compatibility.md](./docs/compatibility.md) for the validated Solid, GPUIX native, toolchain, and operating-system matrix.
+The current repository contract is:
 
-## Reference projects
+| Layer | Current contract |
+| --- | --- |
+| Solid 2 package | `gpuix-solid`, `solid-js ^2.0.0-rc.0`, `@solidjs/universal 2.0.0-rc.0` |
+| Solid 1 package | `@jhomra21/gpuix-solid1`, `solid-js >=1.9.0 <2` |
+| Native renderer | `@gpuix/native ^0.6.0` |
+| Bun | `1.3.14` in repository CI |
+| TypeScript | `^5.9.2` in the published package line |
 
-The implementation is guided by four sources, for different reasons:
+The root lockfile currently resolves GPUIX 0.6 desktop bindings for macOS arm64, Linux x64 GNU, and Windows x64 MSVC. Repository CI validates one runner in each OS family.
 
-- **GPUIX by remorses** — canonical behavior, native mutation protocol, supported host elements, events, layout semantics, testing and automation behavior.
-- **Mesurer Solid** — prior Solid 2 porting work: keep framework-neutral contracts separate from the renderer, prefer instance-owned state, use the Solid universal compiler directly, and preserve behavior rather than redesigning during a framework port.
-- **Pi** — small explicit package boundaries and codebase guidance that makes the system easy for humans and coding agents to modify.
-- **OpenCode v2** — strict dependency direction, explicit architecture contracts, narrow ownership boundaries, and agent-facing repository instructions.
-
-These projects are references, not bundled source dependencies except for `@gpuix/native` and Solid itself. See [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
-
-## Design rules
-
-1. Preserve GPUIX behavior unless a Solid semantic requires a different implementation.
-2. Never route Solid updates through React or `react-reconciler`.
-3. Native renderer ownership is per root; no module-global active renderer.
-4. The JS shadow tree is structural only. Rust remains the native retained rendering source of truth.
-5. One synchronous Solid update burst should cross N-API as few times as practical.
-6. Native animations remain native. Solid sends targets; Rust owns animation frames.
-7. Test behavior at the retained-tree/event boundary, then add screenshot parity against upstream fixtures.
-8. Automation attaches to a specific renderer/backend instance; locators do not create a module-global active app.
+See [docs/compatibility.md](./docs/compatibility.md) for the longer compatibility notes.
 
 ## Development
 
-The repository uses Bun workspaces.
+This repository uses Bun.
 
 ```bash
-bun install
+bun install --frozen-lockfile
+bun run lint
 bun run typecheck
 bun run test
 bun run build
+bun run solid1:check
+node --test scripts/release.test.mjs
 ```
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) and [AGENTS.md](./AGENTS.md) before making renderer changes. Release contributors should also read [RELEASING.md](./RELEASING.md).
+`bun run solid1:check` builds and validates the Solid 1 package plus the Kobalte, blurred-window, Tailwind, and DAW examples.
+
+Read [ARCHITECTURE.md](./ARCHITECTURE.md) before changing renderer ownership or mutation behavior. [AGENTS.md](./AGENTS.md) records repository rules for human and agent contributors. Release work is documented in [RELEASING.md](./RELEASING.md).
+
+## Relationship to GPUIX
+
+[GPUIX](https://github.com/remorses/gpuix) defines the native renderer contract this project targets. GPUix Solid follows its element model, style and event behavior, window options, retained-tree mutations, native testing behavior, and automation conventions where they apply to Solid.
+
+The projects differ in the JavaScript framework layer. GPUIX upstream uses React and `react-reconciler`. GPUix Solid uses Solid's universal compiler and keeps a small synchronous host tree for Solid reconciliation.
+
+GPUIX upstream also has `@gpuix/cli`, a browser WebAssembly renderer, an example-app scaffold, and documented single-binary builds. GPUix Solid does not wrap those paths yet.
+
+For Solid 1, this repository also carries browser-compatibility code so source written for Kobalte and similar Solid libraries can run against the native host without changing the upstream application files.
 
 ## Credits
 
-GPUix Solid exists because of [remorses/gpuix](https://github.com/remorses/gpuix) and its GPUI bindings. The native bridge, retained-tree design, element model, style/event semantics, and much of the behavioral target originate there.
+The native renderer, retained-tree contract, element model, window behavior, and much of the testing behavior come from [remorses/gpuix](https://github.com/remorses/gpuix).
 
-GPUI itself is developed as part of [Zed](https://github.com/zed-industries/zed). Solid is developed by the [SolidJS](https://github.com/solidjs/solid) project.
+[GPUI](https://github.com/zed-industries/zed/tree/main/crates/gpui) is part of Zed. [Solid](https://github.com/solidjs/solid) provides the compiler and reactive runtime.
 
-This repository is not an official GPUIX, Zed, or SolidJS project.
+The application fixtures cite their own upstream sources and licenses in their example directories and in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
+
+This repository is not an official GPUIX, Zed, Kobalte, Tailwind, TanStack, or Solid project.

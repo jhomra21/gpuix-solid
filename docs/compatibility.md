@@ -1,41 +1,60 @@
 # Compatibility
 
-GPUix Solid intentionally tracks GPUIX's public native contract instead of vendoring or forking the Rust renderer.
+GPUix Solid tracks GPUIX's published native contract instead of vendoring or forking the Rust renderer.
 
 ## Validated dependency contract
 
-| Layer | Supported / validated range | Notes |
+| Layer | Current contract | Notes |
 | --- | --- | --- |
-| `gpuix-solid` | current `0.x` line | Solid bindings in this repository |
-| `@gpuix/native` | `^0.4.0` | Canonical GPUIX native mutation/rendering contract |
-| `solid-js` | `^2.0.0-rc.0` peer | Solid 2 client/universal semantics |
-| `@solidjs/universal` | `2.0.0-rc.0` | Renderer implementation dependency |
-| Bun | `1.3.14` | Repository install/build/test toolchain |
-| TypeScript | `^5.9.2` | Package type/build validation |
+| `gpuix-solid` | current `0.1.0-beta.x` line | Solid 2 renderer in `packages/solid` |
+| `@jhomra21/gpuix-solid1` | current `0.1.0-beta.x` line in this repository | Solid 1 renderer in `packages/solid1` |
+| `@gpuix/native` | `^0.6.0` | GPUIX desktop renderer contract used by both Solid packages |
+| `solid-js` for Solid 2 | `^2.0.0-rc.0` peer | Compiled with the Solid universal renderer |
+| `@solidjs/universal` | `2.0.0-rc.0` | Solid 2 renderer dependency |
+| `solid-js` for Solid 1 | `>=1.9.0 <2` peer | Used by the Solid 1 compatibility package |
+| Bun | `1.3.14` | Repository install, build, test, and release toolchain |
+| TypeScript | `^5.9.2` | Package type and build validation |
 
-The native GPUIX contract is the behavioral baseline. When `@gpuix/native` changes its element, style, event, automation, or motion contract, update parity tests before widening the supported native range.
+When `@gpuix/native` changes its element, style, event, window, testing, or automation behavior, parity tests should move first. The package range should only widen after those tests pass.
 
-## Operating systems
+## Desktop targets
 
-`@gpuix/native@0.4.0` publishes native targets for:
+The root lockfile currently resolves the GPUIX 0.6 native packages for:
 
-- macOS arm64 and x64
-- Linux arm64 and x64 GNU
-- Windows arm64 and x64 MSVC
+- macOS arm64
+- Linux x64 GNU
+- Windows x64 MSVC
 
-GPUix Solid CI runs frozen install, lint, typecheck, platform-independent tests, and builds on one GitHub-hosted runner for each OS family: macOS, Linux, and Windows.
+Repository CI runs a native verification job on macOS, Ubuntu, and Windows. The current 0.6 line passes frozen install, lint, typecheck, tests, builds, Solid 1 package checks, Kobalte, Tailwind, DAW, release tests, and the separate exact-package smoke job.
 
-Native `TestGpuixRenderer` coverage is currently validated in CI on macOS and Linux. The Ubuntu runner installs the GPUI runtime libraries required by the published Linux binding, so native event/input, layout, screenshot, animation, retained-tree, and dashboard dogfood coverage execute there instead of being skipped.
+The blurred-window example uses GPUIX's macOS native blur support. The other examples should not be read as a promise that every GPUI window option behaves identically on every operating system.
 
-The published `@gpuix/native@0.4.0` Windows x64 MSVC binding currently fails to load on GitHub-hosted Windows Server 2025 with `ERR_DLOPEN_FAILED` (`The specified procedure could not be found`). Windows CI therefore remains a lint, typecheck, build, and platform-independent-test gate, while the native dashboard execution is skipped on Windows CI only. This does not disable local Windows attempts; `bun run test` outside CI still tries to load and exercise the native binding.
+## Solid runtime conditions
 
-## Solid 2 conditions
+A native Bun process still needs Solid's live client reactive runtime. It must not resolve Solid's SSR implementation just because the output runs outside a browser.
 
-Native Bun/Node execution must resolve Solid's client/browser implementation, not its SSR implementation. The Vitest configuration therefore resolves browser/client conditions and inlines `solid-js` / `@solidjs/universal` for native renderer tests.
+The Solid 2 Vite examples therefore:
 
-## Compatibility policy
+- compile JSX with `generate: "universal"` and `moduleName: "gpuix-solid"`
+- resolve Solid with the `browser` condition while bundling
+- inline `gpuix-solid`, `@solidjs/universal`, and `solid-js`
+- keep `@gpuix/native` external so Bun loads the platform addon normally
 
-- Do not claim support for a new `@gpuix/native` minor until the parity suite passes against it.
-- Do not loosen the `solid-js` peer range independently of the `@solidjs/universal` renderer dependency.
-- Keep package behavior framework-native: no React compatibility layer and no native Rust fork.
-- Release notes should call out any intentional compatibility-range change.
+The Solid 1 Vite examples follow the same runtime rule with `vite-plugin-solid` and `@jhomra21/gpuix-solid1`.
+
+## Solid 1 browser compatibility
+
+The Solid 1 package includes a `./web` entry used by source that imports `solid-js/web`. This exists for libraries such as Kobalte that expect browser helper functions.
+
+It is not a browser DOM implementation. Visible elements still map to the GPUIX native host. The compatibility code supplies the tested document, selector, event, focus, portal, viewport, and element-identity behavior needed by the current Solid 1 fixtures.
+
+The Kobalte fixture compiles the installed `@kobalte/core@0.13.13` source through this path and protects its copied upstream docs TSX and CSS with source hashes.
+
+## Policy
+
+- Keep the Solid 2 and Solid 1 peer ranges separate.
+- Do not claim a new GPUIX native minor before the cross-platform suite passes against it.
+- Keep `@gpuix/native` external at runtime.
+- Do not add React or `react-reconciler` to the Solid renderer path.
+- Record operating-system-specific behavior in examples or tests instead of assuming browser CSS behavior.
+- Call out dependency-range changes in release notes.
