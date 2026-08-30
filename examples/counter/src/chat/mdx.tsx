@@ -193,6 +193,8 @@ type ChatMdxBlock =
   | MdxHtml
   | MdxYaml
 
+type ChatMdxTextNode = ChatMdxBlock | MdxListItem | MdxTableRow | MdxTableCell
+
 type ChatMdxRoot = Omit<Root, "children"> & {
   children: ChatMdxBlock[]
 }
@@ -219,24 +221,20 @@ function inlineText(node: ChatMdxInline): string {
   }
 }
 
-function blockText(node: ChatMdxBlock): string {
+function blockText(node: ChatMdxTextNode): string {
   switch (node.type) {
     case "heading":
     case "paragraph":
+    case "tableCell":
       return node.children.map(inlineText).join("")
     case "blockquote":
     case "mdxJsxFlowElement":
-      return node.children.map(blockText).join("")
-    case "list":
-      return node.children.map(blockText).join("")
     case "listItem":
       return node.children.map(blockText).join("")
+    case "list":
     case "table":
-      return node.children.map(blockText).join("")
     case "tableRow":
       return node.children.map(blockText).join("")
-    case "tableCell":
-      return node.children.map(inlineText).join("")
     case "code":
     case "html":
     case "yaml":
