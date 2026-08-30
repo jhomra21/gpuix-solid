@@ -20,34 +20,40 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
 
           path = Path("examples/counter/src/chat/shell.tsx")
           source = path.read_text()
-          old = '''  createEffect(() => {
-            const count = turns().length + (props.includeSafeMdx ? 1 : 0)
-            if (firstTranscriptCommit) {
-              firstTranscriptCommit = false
-              return
-            }
-            const currentList = listRef
-            if (!currentList || count === 0) return
-            queueMicrotask(() => renderer.scrollToItem?.(currentList.id, count - 1))
-          })'''
-          new = '''  createEffect(
-            () => turns().length + (props.includeSafeMdx ? 1 : 0),
-            (count) => {
-              if (firstTranscriptCommit) {
-                firstTranscriptCommit = false
-                return
-              }
-              const currentList = listRef
-              if (!currentList || count === 0) return
-              queueMicrotask(() => renderer.scrollToItem?.(currentList.id, count - 1))
-            },
-          )'''
-          if old not in source:
-              raise SystemExit("Chat effect block not found")
-          path.write_text(source.replace(old, new, 1))
+          pattern = re.compile(
+              r"  createEffect\(\(\) => \{\n"
+              r"    const count = turns\(\)\.length \+ \(props\.includeSafeMdx \? 1 : 0\)\n"
+              r"    if \(firstTranscriptCommit\) \{\n"
+              r"      firstTranscriptCommit = false\n"
+              r"      return\n"
+              r"    \}\n"
+              r"    const currentList = listRef\n"
+              r"    if \(!currentList \|\| count === 0\) return\n"
+              r"    queueMicrotask\(\(\) => renderer\.scrollToItem\?\.\(currentList\.id, count - 1\)\)\n"
+              r"  \}\)"
+          )
+          replacement = (
+              "  createEffect(\n"
+              "    () => turns().length + (props.includeSafeMdx ? 1 : 0),\n"
+              "    (count) => {\n"
+              "      if (firstTranscriptCommit) {\n"
+              "        firstTranscriptCommit = false\n"
+              "        return\n"
+              "      }\n"
+              "      const currentList = listRef\n"
+              "      if (!currentList || count === 0) return\n"
+              "      queueMicrotask(() => renderer.scrollToItem?.(currentList.id, count - 1))\n"
+              "    },\n"
+              "  )"
+          )
+          source, count = pattern.subn(replacement, source, count=1)
+          if count != 1:
+              raise SystemExit(f"Chat effect replacement count: {count}")
+          path.write_text(source)
           PY
           git rm .github/workflows/chat-solid2-effect.yml
           git config user.name "github-actions[bot]"
