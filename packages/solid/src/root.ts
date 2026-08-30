@@ -1,6 +1,6 @@
 import type { EventPayload } from "@gpuix/native"
 import { flush as flushSolid, type Element as SolidElement } from "solid-js"
-import { GpuixContext } from "./context.js"
+import { GpuixContext, type GpuixContextValue } from "./context.js"
 import { EventRegistry } from "./host/events.js"
 import { MutationDriver } from "./host/mutations.js"
 import { HostRootNode, removeHostNode, type HostNode } from "./host/nodes.js"
@@ -26,6 +26,14 @@ export function createRoot(renderer: NativeRenderer): Root {
     flushSolid()
     flushNative()
   }
+  const flushSync = <T,>(fn: () => T): T => {
+    try {
+      return flushSolid(fn)
+    } finally {
+      flushNative()
+    }
+  }
+  const contextValue: GpuixContextValue = { renderer, flushSync }
 
   return {
     render(code) {
@@ -39,7 +47,7 @@ export function createRoot(renderer: NativeRenderer): Root {
       }
 
       type UniversalNode = HostRootNode | HostNode
-      type ContextProps = { value: { renderer: NativeRenderer }; readonly children: SolidElement }
+      type ContextProps = { value: GpuixContextValue; readonly children: SolidElement }
       const Context = (props: ContextProps): UniversalNode => {
         // SAFETY: the Solid context provider returns the active renderer's host child.
         return GpuixContext(props) as UniversalNode
@@ -48,7 +56,7 @@ export function createRoot(renderer: NativeRenderer): Root {
       dispose = universalRender(
         () =>
           createComponent(Context, {
-            value: { renderer },
+            value: contextValue,
             get children() {
               return code()
             },
@@ -58,13 +66,7 @@ export function createRoot(renderer: NativeRenderer): Root {
       flush()
     },
     flush,
-    flushSync(fn) {
-      try {
-        return flushSolid(fn)
-      } finally {
-        flushNative()
-      }
-    },
+    flushSync,
     dispatch(event) {
       try {
         flushSolid(() => events.dispatch(event))
