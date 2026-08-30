@@ -3,12 +3,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bun run build:counter && bun run build:native-text && bun run build:blurred-window && bun run build:todo && bun run build:dashboard && bun run build:codeimage && bun run build:tanstack-kitchen-sink",
+    "build": "bun run build:counter && bun run build:native-text && bun run build:blurred-window && bun run build:todo && bun run build:diff && bun run build:dashboard && bun run build:codeimage && bun run build:tanstack-kitchen-sink",
     "build:counter": "vite build",
     "build:native-text": "vite build --config vite.native-text.config.ts",
     "build:blurred-window": "vite build --config vite.blurred-window.config.ts",
     "build:todo": "vite build --config vite.todo.config.ts",
     "build:todo-test": "vite build --config vite.todo-test.config.ts",
+    "build:diff": "vite build --config vite.diff.config.ts",
+    "build:diff-test": "vite build --config vite.diff-test.config.ts",
     "build:dashboard": "vite build --config vite.dashboard.config.ts",
     "build:dashboard-test": "vite build --config vite.dashboard-test.config.ts",
     "build:codeimage": "vite build --config vite.codeimage.config.ts",
@@ -17,6 +19,7 @@
     "build:tanstack-kitchen-sink-test": "vite build --config vite.tanstack-kitchen-sink-test.config.ts",
     "typecheck": "tsc --noEmit",
     "test:todo": "bun run build:todo-test && bun dist/todo-test/test.js",
+    "test:diff": "bun run build:diff-test && bun dist/diff-test/test.js",
     "test:dashboard": "bun run build:dashboard-test && bun scripts/run-dashboard-test.mjs",
     "test:codeimage": "bun run build:codeimage-test && bun scripts/run-codeimage-test.mjs",
     "test:tanstack-kitchen-sink": "bun run build:tanstack-kitchen-sink-test && bun scripts/run-tanstack-kitchen-sink-test.mjs",
@@ -25,6 +28,7 @@
     "start:native-text": "bun dist/native-text/native-text.js",
     "start:blurred-window": "bun dist/blurred-window/blurred-window.js",
     "start:todo": "bun dist/todo/index.js",
+    "start:diff": "bun dist/diff/index.js",
     "start:dashboard": "bun dist/dashboard/index.js",
     "start:codeimage": "bun dist/codeimage/index.js",
     "start:tanstack-kitchen-sink": "bun dist/tanstack-kitchen-sink/index.js",
@@ -33,13 +37,16 @@
     "run:native-text": "bun run build:native-text && bun run start:native-text",
     "run:blurred-window": "bun run build:blurred-window && bun run start:blurred-window",
     "run:todo": "bun run build:todo && bun run start:todo",
+    "run:diff": "bun run build:diff && bun run start:diff",
     "run:dashboard": "bun run build:dashboard && bun run start:dashboard",
     "run:codeimage": "bun run build:codeimage && bun run start:codeimage",
     "run:tanstack-kitchen-sink": "bun run build:tanstack-kitchen-sink && bun run start:tanstack-kitchen-sink"
   },
   "dependencies": {
     "@gpuix/native": "^0.6.0",
+    "diff": "^7.0.0",
     "gpuix-solid": "workspace:*",
+    "shiki": "^3.0.0",
     "solid-js": "^2.0.0-rc.0"
   },
   "devDependencies": {
