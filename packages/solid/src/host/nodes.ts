@@ -218,7 +218,10 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     const y = bounds[1] ?? 0
     const width = bounds[2] ?? 0
     const height = bounds[3] ?? 0
-    return domBounds(x, y, width, height)
+    // GPUIX measures divs with an inner full-size tracker: its size is the outer box, but its origin starts after the div's own padding.
+    const paddingLeft = this.type === "div" ? this.style.paddingLeft ?? this.style.padding ?? 0 : 0
+    const paddingTop = this.type === "div" ? this.style.paddingTop ?? this.style.padding ?? 0 : 0
+    return domBounds(x - paddingLeft, y - paddingTop, width, height)
   }
 
   private scrollOffset(): number[] | null {
