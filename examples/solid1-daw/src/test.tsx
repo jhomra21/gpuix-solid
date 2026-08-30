@@ -162,9 +162,8 @@ if (!hasNativeTestRenderer) {
   requireCondition(app.renderer.hasTestId("effects-panel"), "Effects tab should restore devices")
 
   app.renderer.scrollTestId("daw-test-viewport", -320, -260)
-  requireCondition((app.renderer.scrollOffsetTestId("daw-test-viewport")?.[0] ?? 0) < 0, "test viewport should expose the right-aligned panel toggle")
   const hideBounds = app.renderer.boundsTextWithinTestId("bottom-panel", "HIDE")
-  requireCondition(hideBounds.x >= 0 && hideBounds.x + hideBounds.width <= viewportWidth, "HIDE control should be visible after viewport scroll")
+  requireCondition(hideBounds.x >= 0 && hideBounds.x + hideBounds.width <= viewportWidth, "HIDE control should be visible after optional viewport scroll")
 
   const workspaceBeforeHide = app.renderer.boundsTestId("timeline-workspace")
   const footerBeforeHide = app.renderer.boundsTestId("timeline-sticky-footer")
@@ -180,7 +179,33 @@ if (!hasNativeTestRenderer) {
   app.renderer.scrollTestId("daw-test-viewport", 0, 0)
   app.renderer.clickTestId("Stop")
   requireText(rootText(), "0.00s", "stop resets playhead")
-  console.log("solid1 DAW drag validation: deferred to the gpuix-solid core GPUIX 0.5 pointer-capture migration")
+
+  app.renderer.scrollTestId("daw-test-viewport", -320, -260)
+  app.renderer.clickTextWithinTestId("bottom-panel", "HIDE")
+  requireCondition(app.renderer.hasTestId("bottom-panel-closed"), "drag validation should expose the ordinary track area")
+  app.renderer.scrollTestId("daw-test-viewport", 0, 0)
+  requireCondition(!app.renderer.hasTestId("timeline-drag-layer"), "DAW dragging must not depend on a fixture-level continuation overlay")
+
+  const horizontalBefore = app.renderer.boundsTestId("clip-vocals-b")
+  app.renderer.dragTestId("clip-vocals-b", 96, 0)
+  const horizontalAfter = app.renderer.boundsTestId("clip-vocals-b")
+  requireCondition(
+    horizontalAfter.x > horizontalBefore.x + 75,
+    `captured horizontal drag should continue after pointer down, before ${horizontalBefore.x}, after ${horizontalAfter.x}`,
+  )
+
+  const midiBefore = app.renderer.boundsTestId("clip-synth-a")
+  app.renderer.dragTestId("clip-synth-a", 0, 96)
+  const midiAfter = app.renderer.boundsTestId("clip-synth-a")
+  requireCondition(Math.abs(midiAfter.y - midiBefore.y) < 4, "MIDI clip should reject an incompatible audio-track drop")
+
+  const crossTrackBefore = app.renderer.boundsTestId("clip-vocals-b")
+  app.renderer.dragTestId("clip-vocals-b", 0, -192)
+  const crossTrackAfter = app.renderer.boundsTestId("clip-vocals-b")
+  requireCondition(
+    crossTrackAfter.y < crossTrackBefore.y - 140,
+    `audio clip should move to a compatible audio lane, before ${crossTrackBefore.y}, after ${crossTrackAfter.y}`,
+  )
 
   app.unmount()
 

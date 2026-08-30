@@ -27,6 +27,7 @@ const copiedSources = [
   ["src/upstream/components/timeline/grid-options.ts", "src/components/timeline/grid-options.ts", "6fb7bf39c0535502ee0fae794a30ce7569a9d85e"],
   ["src/upstream/components/timeline/local-save-failure-banner.tsx", "src/components/timeline/local-save-failure-banner.tsx", "7c44e05d51bdd203bcad05d52de3bafec6bc42ed"],
   ["src/upstream/components/timeline/toolbar-context.tsx", "src/components/timeline/toolbar-context.tsx", "01202ad367494f81f4a10b394d08ddf39673f07c"],
+  ["src/upstream/hooks/useDrag.ts", "src/hooks/useDrag.ts", "a0fa4e76b10dd504a3ca3204cf9135ff50e73243"],
   ["src/upstream/lib/bottom-panel-layout.ts", "src/lib/bottom-panel-layout.ts", "aa7e348a31969ba8a1c16957464ddc9e2a3fb884"],
   ["src/upstream/lib/bottom-panel-preferences.ts", "src/lib/bottom-panel-preferences.ts", "b91be08986cffe7cab1d21a7f9790bb897f7098f"],
   ["src/compat/timeline-view.ts", "src/lib/timeline-view.ts", "9457d9d86a9cea1a9931c9a4f4aa2137bd239976"],
