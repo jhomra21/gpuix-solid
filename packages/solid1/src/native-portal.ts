@@ -36,6 +36,8 @@ export function unregisterNativePortalRoot(renderer: NativeRenderer): void {
  * absolutely positioned sibling inside that top-level element instead. The
  * layer itself spans the native viewport, making fixed overlays and nested
  * poppers use window coordinates without changing the application's layout.
+ * The wrapper has no hitbox so clicks outside its interactive descendants fall
+ * through to the underlying application, matching a browser portal container.
  */
 export function Portal(props: { children: JSX.Element }): JSX.Element {
   const { renderer } = useGpuixContextRequired()
@@ -67,6 +69,7 @@ function createNativePortalLayer(renderer: NativeRenderer): HostElementNode {
     left: 0,
     width: viewport.width,
     height: viewport.height,
+    pointerEvents: "none",
   })
   insertHostNode(mounted, layer)
   return layer
