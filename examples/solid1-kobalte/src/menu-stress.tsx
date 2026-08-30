@@ -19,6 +19,13 @@ function requireMenuState(actual: string, expected: string, absent: string[], la
   }
 }
 
+function requireSubmenuOpensRight(trigger: { x: number; width: number }, submenu: { x: number }, label: string): void {
+  requireCondition(
+    submenu.x >= trigger.x + trigger.width / 2,
+    `${label} should open to the right when the native viewport has room, got trigger=${JSON.stringify(trigger)} submenu=${JSON.stringify(submenu)}`,
+  )
+}
+
 function requireOpenDialogElements(): OpenDialogElements {
   const content = document.body.querySelectorAll<HTMLElement>("[role=dialog]")[0]
   if (!content) throw new Error("Expected open dialog content")
@@ -70,7 +77,13 @@ if (hasNativeTestRenderer) {
     r.flush()
   }
 
-  app.render(() => <div testId="kobalte-stress-root"><UpstreamKobalteShowcase /></div>)
+  // Keep the verbatim fixture narrower than the native 1024px test viewport so
+  // the submenu direction assertion has an unambiguous roomy right-hand side.
+  app.render(() => (
+    <div testId="kobalte-stress-root" style={{ width: 800 }}>
+      <UpstreamKobalteShowcase />
+    </div>
+  ))
 
   const menuTriggers = Array.from(document.body.querySelectorAll<HTMLElement>("[data-kb-menu-value-trigger]"))
   requireCondition(menuTriggers.length === 3, `Expected three menubar triggers, got ${menuTriggers.length}`)
@@ -92,11 +105,19 @@ if (hasNativeTestRenderer) {
   r.hoverText("GitHub")
   await wait(200)
   await settle()
-  const submenuBounds = r.boundsText("Create Pull Request…")
-  requireCondition(
-    submenuBounds.x >= githubBounds.x + githubBounds.width - 40,
-    `GitHub submenu should open beside its row, got trigger=${JSON.stringify(githubBounds)} submenu=${JSON.stringify(submenuBounds)}`,
-  )
+  const githubSubmenuBounds = r.boundsText("Create Pull Request…")
+  requireSubmenuOpensRight(githubBounds, githubSubmenuBounds, "GitHub submenu")
+
+  r.hoverTextWithinTestId("upstream-menubar", "File")
+  await settle()
+  requireMenuState(r.textContentRoot(), "New Tab", ["Commit", "Undo"], "File submenu direction setup")
+  const shareBounds = r.boundsText("Share")
+  r.hoverText("Share")
+  await wait(200)
+  await settle()
+  const shareSubmenuBounds = r.boundsText("Email Link")
+  requireSubmenuOpensRight(shareBounds, shareSubmenuBounds, "File Share submenu")
+
   r.hoverTextWithinTestId("upstream-menubar", "Git")
   await settle()
 
@@ -169,6 +190,10 @@ if (hasNativeTestRenderer) {
   )
   r.pressKey("escape")
   await settle()
+  requireCondition(
+    document.body.querySelectorAll<HTMLElement>("[role=dialog]").length === 0,
+    "Native GPUIX escape keydown should dismiss the real upstream Kobalte Dialog",
+  )
 
   app.render(() => (
     <div>
@@ -188,5 +213,5 @@ if (hasNativeTestRenderer) {
   )
 
   app.unmount()
-  console.log("solid1 Kobalte portal, focus, switch, and SVG stress: passed")
+  console.log("solid1 Kobalte portal, focus, switch, submenu direction, escape, and SVG stress: passed")
 }

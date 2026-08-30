@@ -1,8 +1,13 @@
 import type { EventPayload } from "@gpuix/native"
 import type { JSX } from "solid-js"
 import { installBrowserElementIdentity } from "./browser-element-identity.js"
-import { installBrowserEventCompatibility } from "./browser-event-compat.js"
+import {
+  browserCompatibleNativeEvent,
+  dispatchBrowserKeyboardEvent,
+  installBrowserEventCompatibility,
+} from "./browser-event-compat.js"
 import { installBrowserPreflushCompatibility } from "./browser-preflush-compat.js"
+import { syncBrowserViewportSize } from "./browser-viewport-compat.js"
 import { GpuixContext, type ViewportSize } from "./context.js"
 import { EventRegistry } from "./host/events.js"
 import { MutationDriver } from "./host/mutations.js"
@@ -43,9 +48,6 @@ export function createRoot(renderer: NativeRenderer): Root {
   installBrowserPreflushCompatibility(container, driver)
   let dispose: (() => void) | undefined
 
-  const flushNative = (): void => {
-    driver.flush()
-  }
   const getViewportSize = (): ViewportSize => {
     const nativeSize = renderer.getWindowSize?.()
     const mounted = container.children[0]
@@ -54,12 +56,19 @@ export function createRoot(renderer: NativeRenderer): Root {
       : undefined
     const styleWidth = mounted && mounted.kind === "element" ? numericDimension(mounted.style.width) : 0
     const styleHeight = mounted && mounted.kind === "element" ? numericDimension(mounted.style.height) : 0
-    return {
+    const size = {
       width: Math.max(nativeSize?.width ?? 800, bounds?.[2] ?? 0, styleWidth),
       height: Math.max(nativeSize?.height ?? 600, bounds?.[3] ?? 0, styleHeight),
     }
+    syncBrowserViewportSize(size)
+    return size
+  }
+  const flushNative = (): void => {
+    driver.flush()
+    getViewportSize()
   }
   registerNativePortalRoot(renderer, container, getViewportSize)
+  getViewportSize()
 
   return {
     render(code) {
@@ -93,7 +102,9 @@ export function createRoot(renderer: NativeRenderer): Root {
     },
     dispatch(event) {
       try {
-        events.dispatch(event)
+        const browserEvent = browserCompatibleNativeEvent(event)
+        events.dispatch(browserEvent)
+        dispatchBrowserKeyboardEvent(browserEvent)
       } finally {
         flushNative()
       }
