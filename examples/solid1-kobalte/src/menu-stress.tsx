@@ -13,10 +13,21 @@ function requireMenuState(actual: string, expected: string, absent: string[], la
   }
 }
 
-function requireElement(selector: string): HTMLElement {
-  const element = document.body.querySelectorAll<HTMLElement>(selector)[0]
-  if (!element) throw new Error(`Expected browser-compatible element ${JSON.stringify(selector)}`)
-  return element
+function requireOpenDialogElements(): {
+  overlay: HTMLElement
+  positioner: HTMLElement
+  content: HTMLElement
+} {
+  const content = document.body.querySelectorAll<HTMLElement>("[role=dialog]")[0]
+  if (!content) throw new Error("Expected open dialog content")
+  const positioner = content.parentElement
+  if (!positioner) throw new Error("Expected dialog content positioner")
+  const portalLayer = positioner.parentElement
+  if (!portalLayer) throw new Error("Expected dialog portal layer")
+  const overlay = Array.from(document.body.querySelectorAll<HTMLElement>("[data-expanded]"))
+    .find((candidate) => candidate !== content && candidate.parentElement === portalLayer)
+  if (!overlay) throw new Error("Expected dialog overlay beside its positioner")
+  return { overlay, positioner, content }
 }
 
 function describeActiveElement(menuTriggers: readonly HTMLElement[]): string {
@@ -127,9 +138,10 @@ if (hasNativeTestRenderer) {
   r.clickTextWithinTestId("upstream-dialog", "Open")
   await settle()
   const rootBounds = r.boundsTestId("kobalte-stress-root")
-  const overlayBounds = requireElement(".kb_dialog_dialog__overlay").getBoundingClientRect()
-  const positionerBounds = requireElement(".kb_dialog_dialog__positioner").getBoundingClientRect()
-  const contentBounds = requireElement(".kb_dialog_dialog__content").getBoundingClientRect()
+  const dialog = requireOpenDialogElements()
+  const overlayBounds = dialog.overlay.getBoundingClientRect()
+  const positionerBounds = dialog.positioner.getBoundingClientRect()
+  const contentBounds = dialog.content.getBoundingClientRect()
   requireCondition(
     overlayBounds.width >= rootBounds.width - 2 && overlayBounds.height >= rootBounds.height - 2,
     `Dialog overlay should span the native root, got root=${JSON.stringify(rootBounds)} overlay=${JSON.stringify(overlayBounds)}`,
