@@ -279,6 +279,11 @@ export class TestRenderer implements NativeRenderer {
     return [x, y]
   }
 
+  getWindowSize(): { width: number; height: number } {
+    this.#native.flush()
+    return this.#native.getWindowSize()
+  }
+
   getListScrollTop(elementId: number): [number, number, number] | null {
     this.#native.flush()
     const anchor = this.#native.getListScrollTop(elementId)
