@@ -1,27 +1,27 @@
 import type { EventPayload } from "@gpuix/native"
 import { EVENT_PROP_TO_TYPE } from "./host/events.js"
 
-const BROWSER_KEY_NAMES: Readonly<Record<string, string>> = {
-  alt: "Alt",
-  backspace: "Backspace",
-  cmd: "Meta",
-  ctrl: "Control",
-  delete: "Delete",
-  down: "ArrowDown",
-  end: "End",
-  enter: "Enter",
-  escape: "Escape",
-  home: "Home",
-  insert: "Insert",
-  left: "ArrowLeft",
-  pagedown: "PageDown",
-  pageup: "PageUp",
-  right: "ArrowRight",
-  shift: "Shift",
-  space: " ",
-  tab: "Tab",
-  up: "ArrowUp",
-}
+const BROWSER_KEY_NAMES = new Map([
+  ["alt", "Alt"],
+  ["backspace", "Backspace"],
+  ["cmd", "Meta"],
+  ["ctrl", "Control"],
+  ["delete", "Delete"],
+  ["down", "ArrowDown"],
+  ["end", "End"],
+  ["enter", "Enter"],
+  ["escape", "Escape"],
+  ["home", "Home"],
+  ["insert", "Insert"],
+  ["left", "ArrowLeft"],
+  ["pagedown", "PageDown"],
+  ["pageup", "PageUp"],
+  ["right", "ArrowRight"],
+  ["shift", "Shift"],
+  ["space", " "],
+  ["tab", "Tab"],
+  ["up", "ArrowUp"],
+] as const)
 
 /**
  * Browser-only event names used by upstream component libraries that GPUIX
@@ -61,7 +61,7 @@ export function dispatchBrowserKeyboardEvent(event: EventPayload): void {
 
 function browserKeyName(key: string): string {
   const normalized = key.toLowerCase()
-  const named = BROWSER_KEY_NAMES[normalized]
+  const named = BROWSER_KEY_NAMES.get(normalized)
   if (named !== undefined) return named
   if (/^f\d{1,2}$/.test(normalized)) return normalized.toUpperCase()
   return key
