@@ -78,9 +78,73 @@ export class SseAutomationBackend implements AutomationBackend {
     return result.bounds
   }
 
-  async click(x: number, y: number): Promise<void> {
+  async click(x: number, y: number, button?: number, modifiers?: string): Promise<void> {
+    const params: { x: number; y: number; button?: number; modifiers?: string } = { x, y }
+    if (button !== undefined) params.button = button
+    if (modifiers !== undefined) params.modifiers = modifiers
     await this.#request(
-      { id: this.#nextId++, method: "click", params: { x, y } },
+      { id: this.#nextId++, method: "click", params },
+      okResultSchema,
+    )
+  }
+
+  async mouseMove(
+    x: number,
+    y: number,
+    pressedButton?: number,
+    modifiers?: string,
+  ): Promise<void> {
+    const params: {
+      x: number
+      y: number
+      pressedButton?: number
+      modifiers?: string
+    } = { x, y }
+    if (pressedButton !== undefined) params.pressedButton = pressedButton
+    if (modifiers !== undefined) params.modifiers = modifiers
+    await this.#request(
+      { id: this.#nextId++, method: "mouseMove", params },
+      okResultSchema,
+    )
+  }
+
+  async mouseDown(x: number, y: number, button?: number, modifiers?: string): Promise<void> {
+    const params: { x: number; y: number; button?: number; modifiers?: string } = { x, y }
+    if (button !== undefined) params.button = button
+    if (modifiers !== undefined) params.modifiers = modifiers
+    await this.#request(
+      { id: this.#nextId++, method: "mouseDown", params },
+      okResultSchema,
+    )
+  }
+
+  async mouseUp(x: number, y: number, button?: number, modifiers?: string): Promise<void> {
+    const params: { x: number; y: number; button?: number; modifiers?: string } = { x, y }
+    if (button !== undefined) params.button = button
+    if (modifiers !== undefined) params.modifiers = modifiers
+    await this.#request(
+      { id: this.#nextId++, method: "mouseUp", params },
+      okResultSchema,
+    )
+  }
+
+  async scrollWheel(
+    x: number,
+    y: number,
+    deltaX: number,
+    deltaY: number,
+    modifiers?: string,
+  ): Promise<void> {
+    const params: {
+      x: number
+      y: number
+      deltaX: number
+      deltaY: number
+      modifiers?: string
+    } = { x, y, deltaX, deltaY }
+    if (modifiers !== undefined) params.modifiers = modifiers
+    await this.#request(
+      { id: this.#nextId++, method: "scrollWheel", params },
       okResultSchema,
     )
   }

@@ -187,9 +187,14 @@ export class TestRenderer implements NativeRenderer {
     this.#native.flush()
   }
 
-  nativeSimulateClick(x: number, y: number): void {
+  nativeSimulateClick(
+    x: number,
+    y: number,
+    button?: number,
+    modifiers?: string,
+  ): void {
     this.#native.flush()
-    this.#native.simulateClick(x, y)
+    this.#native.simulateClick(x, y, button, modifiers)
     this.dispatchNativeEvents()
     this.#native.flush()
   }
@@ -199,30 +204,46 @@ export class TestRenderer implements NativeRenderer {
     y: number,
     deltaX: number,
     deltaY: number,
+    modifiers?: string,
   ): void {
     this.#native.flush()
-    this.#native.simulateScrollWheel(x, y, deltaX, deltaY)
+    this.#native.simulateScrollWheel(x, y, deltaX, deltaY, modifiers)
     this.dispatchNativeEvents()
     this.#native.flush()
   }
 
-  nativeSimulateMouseMove(x: number, y: number, pressedButton?: number): void {
+  nativeSimulateMouseMove(
+    x: number,
+    y: number,
+    pressedButton?: number,
+    modifiers?: string,
+  ): void {
     this.#native.flush()
-    this.#native.simulateMouseMove(x, y, pressedButton)
+    this.#native.simulateMouseMove(x, y, pressedButton, modifiers)
     this.dispatchNativeEvents()
     this.#native.flush()
   }
 
-  nativeSimulateMouseDown(x: number, y: number, button = 0): void {
+  nativeSimulateMouseDown(
+    x: number,
+    y: number,
+    button = 0,
+    modifiers?: string,
+  ): void {
     this.#native.flush()
-    this.#native.simulateMouseDown(x, y, button)
+    this.#native.simulateMouseDown(x, y, button, modifiers)
     this.dispatchNativeEvents()
     this.#native.flush()
   }
 
-  nativeSimulateMouseUp(x: number, y: number, button = 0): void {
+  nativeSimulateMouseUp(
+    x: number,
+    y: number,
+    button = 0,
+    modifiers?: string,
+  ): void {
     this.#native.flush()
-    this.#native.simulateMouseUp(x, y, button)
+    this.#native.simulateMouseUp(x, y, button, modifiers)
     this.dispatchNativeEvents()
     this.#native.flush()
   }

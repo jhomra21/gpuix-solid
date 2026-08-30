@@ -91,13 +91,13 @@ function Icon(props: { name: IconName; size?: number; color: string }) {
 function IconButton(props: {
   icon: IconName
   onClick?: () => void
-  testId?: string
+  testId: string
   color?: string
 }) {
   return (
     <div
       testId={props.testId}
-      onClick={props.onClick}
+      onClick={() => props.onClick?.()}
       style={{
         width: 28,
         height: 28,
@@ -126,7 +126,7 @@ function SidebarRow(props: {
   return (
     <div
       testId={`view-${props.label.toLowerCase()}`}
-      onClick={props.onClick}
+      onClick={() => props.onClick?.()}
       style={{
         display: "flex",
         flexDirection: "row",
@@ -137,8 +137,8 @@ function SidebarRow(props: {
         paddingRight: 8,
         borderRadius: 7,
         cursor: "pointer",
-        backgroundColor: props.active ? C.overlayStrong : undefined,
-        hover: props.active ? undefined : { backgroundColor: C.overlay },
+        backgroundColor: props.active ? C.overlayStrong : "#00000000",
+        hover: { backgroundColor: props.active ? C.overlayStrong : C.overlay },
       }}
     >
       <Icon name={props.icon} size={14} color={props.active ? C.text : C.secondary} />
@@ -159,7 +159,7 @@ function SidebarRow(props: {
   )
 }
 
-function Checkbox(props: { done: boolean; onToggle: () => void; testId?: string }) {
+function Checkbox(props: { done: boolean; onToggle: () => void; testId: string }) {
   return (
     <div
       testId={props.testId}
@@ -171,7 +171,7 @@ function Checkbox(props: { done: boolean; onToggle: () => void; testId?: string 
         borderRadius: 10,
         borderWidth: 1.5,
         borderColor: props.done ? C.accent : C.ghost,
-        backgroundColor: props.done ? C.accent : undefined,
+        backgroundColor: props.done ? C.accent : "#00000000",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -461,7 +461,7 @@ export function TodoApp() {
             {String(visible().length)}
           </text>
           <div style={{ flexGrow: 1 }} />
-          <IconButton icon="search" />
+          <IconButton icon="search" testId="search" />
         </div>
 
         <Show when={visible().length > 0} fallback={<EmptyState view={view()} />}>

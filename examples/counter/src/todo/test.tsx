@@ -8,7 +8,7 @@ async function main(): Promise<void> {
     return
   }
 
-  const testRoot = createTestRoot({ width: 940, height: 660 })
+  const testRoot = createTestRoot(940, 660)
   testRoot.renderer.clockPause()
   testRoot.render(() => <TodoApp />)
   const app = createTestApp(testRoot.renderer)

@@ -16,7 +16,17 @@ import {
 
 export interface LiveAutomationRenderer {
   tick(): boolean
-  simulateClick(x: number, y: number, button?: number): void
+  simulateClick(x: number, y: number, button?: number, modifiers?: string): void
+  simulateMouseMove(x: number, y: number, pressedButton?: number, modifiers?: string): void
+  simulateMouseDown(x: number, y: number, button?: number, modifiers?: string): void
+  simulateMouseUp(x: number, y: number, button?: number, modifiers?: string): void
+  simulateScrollWheel(
+    x: number,
+    y: number,
+    deltaX: number,
+    deltaY: number,
+    modifiers?: string,
+  ): void
   simulateKeystrokes(keystrokes: string): void
   focusElement(elementId: number): void
   blur(): void
@@ -50,8 +60,34 @@ export class LiveAutomationBackend implements AutomationBackend {
     return parseBounds(this.#renderer.getElementBounds(elementId))
   }
 
-  click(x: number, y: number): void {
-    this.#renderer.simulateClick(x, y)
+  click(x: number, y: number, button?: number, modifiers?: string): void {
+    this.#renderer.simulateClick(x, y, button, modifiers)
+    this.#renderer.tick()
+  }
+
+  mouseMove(x: number, y: number, pressedButton?: number, modifiers?: string): void {
+    this.#renderer.simulateMouseMove(x, y, pressedButton, modifiers)
+    this.#renderer.tick()
+  }
+
+  mouseDown(x: number, y: number, button?: number, modifiers?: string): void {
+    this.#renderer.simulateMouseDown(x, y, button, modifiers)
+    this.#renderer.tick()
+  }
+
+  mouseUp(x: number, y: number, button?: number, modifiers?: string): void {
+    this.#renderer.simulateMouseUp(x, y, button, modifiers)
+    this.#renderer.tick()
+  }
+
+  scrollWheel(
+    x: number,
+    y: number,
+    deltaX: number,
+    deltaY: number,
+    modifiers?: string,
+  ): void {
+    this.#renderer.simulateScrollWheel(x, y, deltaX, deltaY, modifiers)
     this.#renderer.tick()
   }
 
@@ -117,7 +153,45 @@ async function dispatch(
         bounds: await backend.getBounds(request.params.elementId),
       }))
     case "click":
-      await backend.click(request.params.x, request.params.y)
+      await backend.click(
+        request.params.x,
+        request.params.y,
+        request.params.button,
+        request.params.modifiers,
+      )
+      return success(request.id, { ok: true })
+    case "mouseMove":
+      await backend.mouseMove(
+        request.params.x,
+        request.params.y,
+        request.params.pressedButton,
+        request.params.modifiers,
+      )
+      return success(request.id, { ok: true })
+    case "mouseDown":
+      await backend.mouseDown(
+        request.params.x,
+        request.params.y,
+        request.params.button,
+        request.params.modifiers,
+      )
+      return success(request.id, { ok: true })
+    case "mouseUp":
+      await backend.mouseUp(
+        request.params.x,
+        request.params.y,
+        request.params.button,
+        request.params.modifiers,
+      )
+      return success(request.id, { ok: true })
+    case "scrollWheel":
+      await backend.scrollWheel(
+        request.params.x,
+        request.params.y,
+        request.params.deltaX,
+        request.params.deltaY,
+        request.params.modifiers,
+      )
       return success(request.id, { ok: true })
     case "keystrokes":
       await backend.keystrokes(request.params.elementId, request.params.keys)

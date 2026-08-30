@@ -18,6 +18,8 @@ export const automationErrorCodes = [
 
 const errorCodeSchema = z.enum(automationErrorCodes)
 const idSchema = z.number().int()
+const mouseButtonSchema = z.number().int().optional()
+const modifiersSchema = z.string().optional()
 
 const initializeRequestSchema = z.object({
   id: idSchema,
@@ -40,7 +42,53 @@ const getBoundsRequestSchema = z.object({
 const clickRequestSchema = z.object({
   id: idSchema,
   method: z.literal("click"),
-  params: z.object({ x: z.number(), y: z.number() }),
+  params: z.object({
+    x: z.number(),
+    y: z.number(),
+    button: mouseButtonSchema,
+    modifiers: modifiersSchema,
+  }),
+})
+const mouseMoveRequestSchema = z.object({
+  id: idSchema,
+  method: z.literal("mouseMove"),
+  params: z.object({
+    x: z.number(),
+    y: z.number(),
+    pressedButton: mouseButtonSchema,
+    modifiers: modifiersSchema,
+  }),
+})
+const mouseDownRequestSchema = z.object({
+  id: idSchema,
+  method: z.literal("mouseDown"),
+  params: z.object({
+    x: z.number(),
+    y: z.number(),
+    button: mouseButtonSchema,
+    modifiers: modifiersSchema,
+  }),
+})
+const mouseUpRequestSchema = z.object({
+  id: idSchema,
+  method: z.literal("mouseUp"),
+  params: z.object({
+    x: z.number(),
+    y: z.number(),
+    button: mouseButtonSchema,
+    modifiers: modifiersSchema,
+  }),
+})
+const scrollWheelRequestSchema = z.object({
+  id: idSchema,
+  method: z.literal("scrollWheel"),
+  params: z.object({
+    x: z.number(),
+    y: z.number(),
+    deltaX: z.number(),
+    deltaY: z.number(),
+    modifiers: modifiersSchema,
+  }),
 })
 const keystrokesRequestSchema = z.object({
   id: idSchema,
@@ -78,6 +126,10 @@ export const automationRequestSchema = z.discriminatedUnion("method", [
   getTreeRequestSchema,
   getBoundsRequestSchema,
   clickRequestSchema,
+  mouseMoveRequestSchema,
+  mouseDownRequestSchema,
+  mouseUpRequestSchema,
+  scrollWheelRequestSchema,
   keystrokesRequestSchema,
   screenshotRequestSchema,
   clockPauseRequestSchema,
