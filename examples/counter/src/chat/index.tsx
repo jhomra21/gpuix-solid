@@ -1,5 +1,5 @@
 import { applyMacCpuThrottleFromEnv, render } from "gpuix-solid"
-import { ChatApp } from "./app"
+import { ChatApp } from "./shell"
 
 applyMacCpuThrottleFromEnv()
 
