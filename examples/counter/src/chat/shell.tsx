@@ -315,15 +315,15 @@ function IconButton(props: IconButtonProps): SolidElement {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    cursor: props.dimmed ? undefined : "pointer",
+    cursor: "pointer",
     opacity: props.dimmed ? 0.35 : 1,
-    hover: props.dimmed ? undefined : { backgroundColor: C.overlay },
-    active: props.dimmed ? undefined : { backgroundColor: C.overlayStrong },
+    hover: { backgroundColor: props.dimmed ? "#00000000" : C.overlay },
+    active: { backgroundColor: props.dimmed ? "#00000000" : C.overlayStrong },
   }
   if (props.testId !== undefined) {
-    return <div testId={props.testId} style={style} onClick={props.onClick}>{icon}</div>
+    return <div testId={props.testId} style={style} onClick={() => props.onClick?.()}>{icon}</div>
   }
-  return <div style={style} onClick={props.onClick}>{icon}</div>
+  return <div style={style} onClick={() => props.onClick?.()}>{icon}</div>
 }
 
 function SidebarAction(props: { icon: IconName; label: string }): SolidElement {
@@ -625,7 +625,7 @@ function Composer(props: ComposerProps): SolidElement {
           <AccessPicker value={props.access} onChange={props.onAccessChange} />
           <ModeToggle value={props.mode} onChange={props.onModeChange} />
           <div style={{ flexGrow: 1 }} />
-          <div testId="send" style={{ width: 26, height: 26, borderRadius: 13, display: "flex", alignItems: "center", justifyContent: "center", cursor: ready() ? "pointer" : undefined, backgroundColor: ready() ? C.inverse : C.overlayStrong }} onClick={() => send(props.value)}><Icon name="send" size={16} color={ready() ? C.onInverse : C.ghost} /></div>
+          <div testId="send" style={{ width: 26, height: 26, borderRadius: 13, display: "flex", alignItems: "center", justifyContent: "center", cursor: ready() ? "pointer" : "default", backgroundColor: ready() ? C.inverse : C.overlayStrong }} onClick={() => send(props.value)}><Icon name="send" size={16} color={ready() ? C.onInverse : C.ghost} /></div>
         </div>
       </div>
     </div>
@@ -707,8 +707,9 @@ export function ChatApp(props: ChatAppProps = {}): SolidElement {
       firstTranscriptCommit = false
       return
     }
-    if (!listRef || count === 0) return
-    queueMicrotask(() => renderer.scrollToItem?.(listRef.id, count - 1))
+    const currentList = listRef
+    if (!currentList || count === 0) return
+    queueMicrotask(() => renderer.scrollToItem?.(currentList.id, count - 1))
   })
 
   const send = (text: string): void => {
