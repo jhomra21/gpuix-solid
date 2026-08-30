@@ -27,6 +27,7 @@ import {
   type Clip,
   type ClipKind,
   type Project,
+  type ProjectOptions,
   type Track,
 } from "./data"
 
@@ -703,17 +704,19 @@ export interface TimelineAppProps {
   cull?: boolean
 }
 
+function createTimelineProject(props: TimelineAppProps): Project {
+  const options: ProjectOptions = {}
+  if (props.trackCount !== undefined) options.trackCount = props.trackCount
+  if (props.durationSeconds !== undefined) options.durationSeconds = props.durationSeconds
+  return createProject(options)
+}
+
 export function TimelineApp(props: TimelineAppProps = {}) {
   const windowSize = useWindowSize()
   const viewportWidth = createMemo(() => props.viewportWidth ?? windowSize.width)
   const viewportHeight = createMemo(() => props.viewportHeight ?? windowSize.height)
 
-  const [project, setProject] = createSignal<Project>(
-    createProject({
-      trackCount: props.trackCount,
-      durationSeconds: props.durationSeconds,
-    }),
-  )
+  const [project, setProject] = createSignal<Project>(createTimelineProject(props))
   const [viewport, setViewport] = createSignal<Viewport>({
     scrollX: 0,
     scrollY: 0,
@@ -776,6 +779,10 @@ export function TimelineApp(props: TimelineAppProps = {}) {
           playhead: playhead(),
         })
       : null
+  })
+  const marqueeDrag = createMemo(() => {
+    const current = drag()
+    return current?.kind === "marquee" && current.moved ? current : null
   })
 
   const onWheel = (event: EventPayload): void => {
@@ -1255,27 +1262,23 @@ export function TimelineApp(props: TimelineAppProps = {}) {
                 }}
               />
             </div>
-            <Show when={drag()?.kind === "marquee" && drag()?.moved}>
-              {() => {
-                const current = drag()
-                if (!current) return null
-                return (
-                  <div
-                    testId="marquee"
-                    style={{
-                      position: "absolute",
-                      left: Math.min(current.originX, current.x) - geometry().gridLeft,
-                      top: Math.min(current.originY, current.y) - geometry().gridTop,
-                      width: Math.abs(current.x - current.originX),
-                      height: Math.abs(current.y - current.originY),
-                      backgroundColor: C.marquee,
-                      borderWidth: 1,
-                      borderColor: C.accent,
-                      pointerEvents: "none",
-                    }}
-                  />
-                )
-              }}
+            <Show when={marqueeDrag()}>
+              {(current) => (
+                <div
+                  testId="marquee"
+                  style={{
+                    position: "absolute",
+                    left: Math.min(current().originX, current().x) - geometry().gridLeft,
+                    top: Math.min(current().originY, current().y) - geometry().gridTop,
+                    width: Math.abs(current().x - current().originX),
+                    height: Math.abs(current().y - current().originY),
+                    backgroundColor: C.marquee,
+                    borderWidth: 1,
+                    borderColor: C.accent,
+                    pointerEvents: "none",
+                  }}
+                />
+              )}
             </Show>
           </div>
         </div>
