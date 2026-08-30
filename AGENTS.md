@@ -8,6 +8,17 @@ Build idiomatic Solid 2 bindings for GPUIX while preserving the native behavior 
 
 This is a framework port, not a redesign of GPUIX.
 
+## Pre-launch Evolution
+This project has not launched and has no production users or production data. Revisit this policy before the first production deployment:
+- Optimize for the smallest coherent design that represents the product today.
+- Remove obsolete code, schemas, APIs, configuration, aliases, and transitional paths directly.
+- Do not add backward-compatibility shims, legacy aliases, dual-read or dual-write paths, or data-preserving backfills unless the user explicitly asks for them.
+- Internal interfaces are not public compatibility contracts. Update their callers and tests atomically when they change.
+- Development and test data are disposable. Prefer recreating those databases over complicating the product to preserve local data.
+- Treat migration history as a replaceable development baseline, but keep the checked-in migration chain and setup workflow coherent. Do not rewrite an already-applied migration without also resetting affected development and test databases.
+- Preserve database invariants, transactional safety, migration idempotence, and deterministic setup. These are correctness properties, not backward-compatibility requirements.
+- Consolidate the migration baseline only as an explicit, coordinated change rather than as incidental work in a feature branch.
+
 ## Canonical references
 
 Use references in this order when a behavior or architecture question arises:
