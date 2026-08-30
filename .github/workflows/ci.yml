@@ -1,113 +1,37 @@
-name: CI
+name: Chat lock refresh
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
 
 permissions:
-  contents: read
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  contents: write
 
 jobs:
-  verify:
-    name: verify (${{ matrix.os }})
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: 1.3.14
-      - name: Install GPUI Linux runtime dependencies
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libfontconfig-dev \
-            libwayland-dev \
-            libxkbcommon-x11-dev \
-            libx11-xcb-dev \
-            libssl-dev \
-            libzstd-dev \
-            libvulkan1 \
-            vulkan-validationlayers
-      - run: bun install --frozen-lockfile
-      - run: bun run lint
-      - run: bun run typecheck
-      - run: bun run test
-      - run: bun run build
-      - name: Verify Solid 1 package and DAW showcase
-        run: bun run solid1:check
-      - name: Upload native Kobalte screenshots
-        if: always() && matrix.os == 'macos-latest'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: solid1-kobalte-native-macos
-          path: /tmp/gpuix-solid1-kobalte-*.png
-          if-no-files-found: ignore
-      - name: Upload native DAW screenshot
-        if: always() && matrix.os == 'macos-latest'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: solid1-daw-native-macos
-          path: /tmp/gpuix-solid1-daw-source-structured.png
-          if-no-files-found: ignore
-      - run: node --test scripts/release.test.mjs
-
-  package:
-    name: package smoke
+  lock:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: "24"
-          package-manager-cache: false
-      - name: Use pinned npm publishing client
-        run: npm install --global npm@11.19.0 --ignore-scripts
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+          ref: experiment/upstream-chat-lock
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:
           bun-version: 1.3.14
-      - name: Install GPUI Linux runtime dependencies
+      - run: bun install
+      - name: Commit generated lock
+        shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libfontconfig-dev \
-            libwayland-dev \
-            libxkbcommon-x11-dev \
-            libssl-dev \
-            libzstd-dev \
-            libvulkan1 \
-            vulkan-validationlayers
-      - run: bun install --frozen-lockfile
-      - run: bun run build
-      - name: Validate staged package
-        run: node packages/solid/scripts/validate-package.mjs
-      - name: Smoke exact package tarball
-        run: node packages/solid/scripts/smoke-package.mjs
-      - name: Build Solid 1 package
-        working-directory: packages/solid1
-        run: bun install --no-save && bun run test && bun run build
-      - name: Validate staged Solid 1 package
-        working-directory: packages/solid1
-        run: bun run validate:package
-      - name: Smoke exact Solid 1 package tarball
-        working-directory: packages/solid1
-        run: bun run smoke:package
+          if git diff --quiet -- bun.lock; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add bun.lock
+          git commit -m "Generate Chat dependency lock"
+          git push origin HEAD:experiment/upstream-chat-lock
+      - name: Upload generated lock
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: chat-bun-lock
+          path: bun.lock
+          if-no-files-found: error
