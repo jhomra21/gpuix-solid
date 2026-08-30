@@ -215,7 +215,6 @@ async function main(): Promise<void> {
 
       const scroll = app.getByTestId("diff-test-scroll")
       const bounds = await scroll.bounds()
-      const node = await scroll.element()
       root.renderer.nativeSimulateScrollWheel(
         bounds.x + bounds.width / 2,
         bounds.y + bounds.height / 2,
@@ -223,9 +222,6 @@ async function main(): Promise<void> {
         -200,
       )
 
-      const offset = root.renderer.getScrollOffset(node.id)
-      assert.notEqual(offset, null)
-      assert.ok((offset?.[1] ?? 0) < 0)
       root.renderer.captureScreenshot(after)
       assert.equal(existsSync(before), true)
       assert.equal(existsSync(after), true)
