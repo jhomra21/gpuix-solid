@@ -46,31 +46,28 @@ describe("text search parity", () => {
     unmount()
   })
 
-  nativeIt("reports changed match counts through onHighlight", () => {
-    const { renderer, render, unmount } = createTestRoot(420, 180)
+  nativeIt("reports match-count changes for one retained highlight owner", () => {
+    const { root, renderer, render, unmount } = createTestRoot(420, 180)
     const counts: number[] = []
+    const container = createElement("div")
 
-    const app = (query: string) => {
-      const root = createElement("div")
-      setProp(root, "style", { width: 400, height: 140, padding: 20 })
-      setProp(root, "highlight", { query })
-      setProp(root, "onHighlight", (event: EventPayload) => counts.push(event.matchCount ?? -1))
+    render(() => {
+      setProp(container, "style", { width: 400, height: 140, padding: 20 })
+      setProp(container, "highlight", { query: "fox" })
+      setProp(container, "onHighlight", (event: EventPayload) => counts.push(event.matchCount ?? -1))
       const text = createElement("text")
       setProp(text, "style", { color: "#ffffff", fontSize: 20 })
       insert(text, "fox fox dog")
-      insertNode(root, text)
-      return root
-    }
-
-    render(() => app("fox"))
+      insertNode(container, text)
+      return container
+    })
     renderer.dispatchNativeEvents()
     expect(counts).toEqual([2])
 
-    render(() => app("fox"))
-    renderer.dispatchNativeEvents()
-    expect(counts).toEqual([2])
-
-    render(() => app("dog"))
+    root.flushSync(() => {
+      setProp(container, "highlight", { query: "dog" }, { query: "fox" })
+    })
+    renderer.flush()
     renderer.dispatchNativeEvents()
     expect(counts).toEqual([2, 1])
 
