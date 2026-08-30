@@ -187,7 +187,12 @@ function toKeystrokes(text: string): string {
     .join(" ")
 }
 
-export type PointTarget = { x: number; y: number } | Locator
+export interface Point {
+  x: number
+  y: number
+}
+
+export type PointTarget = Point | Locator
 
 export interface MouseOptions {
   button?: number
@@ -196,10 +201,10 @@ export interface MouseOptions {
 
 export interface DragOptions extends MouseOptions {
   steps?: number
-  offset?: { x: number; y: number }
+  offset?: Point
 }
 
-function centerOf(bounds: ElementBounds): { x: number; y: number } {
+function centerOf(bounds: ElementBounds): Point {
   return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }
 }
 
@@ -255,7 +260,7 @@ export class Locator {
     return bounds
   }
 
-  async center(): Promise<{ x: number; y: number }> {
+  async center(): Promise<Point> {
     return centerOf(await this.bounds())
   }
 
@@ -390,7 +395,7 @@ export class App {
     }
   }
 
-  async #resolvePoint(target: PointTarget): Promise<{ x: number; y: number }> {
+  async #resolvePoint(target: PointTarget): Promise<Point> {
     return target instanceof Locator ? await target.center() : target
   }
 

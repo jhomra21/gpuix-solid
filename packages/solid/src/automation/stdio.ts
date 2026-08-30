@@ -24,6 +24,25 @@ import {
 
 type PendingResponse = (response: AutomationResponse) => void
 
+interface PointerParams {
+  x: number
+  y: number
+  modifiers?: string
+}
+
+interface ButtonParams extends PointerParams {
+  button?: number
+}
+
+interface MoveParams extends PointerParams {
+  pressedButton?: number
+}
+
+interface WheelParams extends PointerParams {
+  deltaX: number
+  deltaY: number
+}
+
 export class SseAutomationBackend implements AutomationBackend {
   readonly #write: (chunk: string) => void
   readonly #onClose: (() => Promise<void>) | undefined
@@ -79,7 +98,7 @@ export class SseAutomationBackend implements AutomationBackend {
   }
 
   async click(x: number, y: number, button?: number, modifiers?: string): Promise<void> {
-    const params: { x: number; y: number; button?: number; modifiers?: string } = { x, y }
+    const params: ButtonParams = { x, y }
     if (button !== undefined) params.button = button
     if (modifiers !== undefined) params.modifiers = modifiers
     await this.#request(
@@ -94,12 +113,7 @@ export class SseAutomationBackend implements AutomationBackend {
     pressedButton?: number,
     modifiers?: string,
   ): Promise<void> {
-    const params: {
-      x: number
-      y: number
-      pressedButton?: number
-      modifiers?: string
-    } = { x, y }
+    const params: MoveParams = { x, y }
     if (pressedButton !== undefined) params.pressedButton = pressedButton
     if (modifiers !== undefined) params.modifiers = modifiers
     await this.#request(
@@ -109,7 +123,7 @@ export class SseAutomationBackend implements AutomationBackend {
   }
 
   async mouseDown(x: number, y: number, button?: number, modifiers?: string): Promise<void> {
-    const params: { x: number; y: number; button?: number; modifiers?: string } = { x, y }
+    const params: ButtonParams = { x, y }
     if (button !== undefined) params.button = button
     if (modifiers !== undefined) params.modifiers = modifiers
     await this.#request(
@@ -119,7 +133,7 @@ export class SseAutomationBackend implements AutomationBackend {
   }
 
   async mouseUp(x: number, y: number, button?: number, modifiers?: string): Promise<void> {
-    const params: { x: number; y: number; button?: number; modifiers?: string } = { x, y }
+    const params: ButtonParams = { x, y }
     if (button !== undefined) params.button = button
     if (modifiers !== undefined) params.modifiers = modifiers
     await this.#request(
@@ -135,13 +149,7 @@ export class SseAutomationBackend implements AutomationBackend {
     deltaY: number,
     modifiers?: string,
   ): Promise<void> {
-    const params: {
-      x: number
-      y: number
-      deltaX: number
-      deltaY: number
-      modifiers?: string
-    } = { x, y, deltaX, deltaY }
+    const params: WheelParams = { x, y, deltaX, deltaY }
     if (modifiers !== undefined) params.modifiers = modifiers
     await this.#request(
       { id: this.#nextId++, method: "scrollWheel", params },
