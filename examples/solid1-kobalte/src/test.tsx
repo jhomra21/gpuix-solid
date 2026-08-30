@@ -118,6 +118,7 @@ if (!hasNativeTestRenderer) {
   r.captureScreenshot("/tmp/gpuix-solid1-kobalte-light-menubar.png")
   r.clickTextWithinTestId("upstream-button", "Click me")
   await settleEffects(flushNative)
+  requireCondition(!r.textContent(fixtureRoot).includes("Commit"), "Menubar portal should pass outside clicks through to the app")
 
   r.rightClickTextWithinTestId("upstream-context", "Right click here.")
   requireText(r.textContent(fixtureRoot), "Commit", "light ContextMenu")
@@ -137,6 +138,24 @@ if (!hasNativeTestRenderer) {
   r.captureScreenshot("/tmp/gpuix-solid1-kobalte-light-context.png")
   r.clickTextWithinTestId("upstream-button", "Click me")
   await settleEffects(flushNative)
+  requireCondition(!r.textContent(fixtureRoot).includes("Commit"), "ContextMenu portal should pass outside clicks through to the app")
+
+  const lightDropdownBounds = r.boundsTextWithinTestId("upstream-dropdown", "Git Settings")
+  r.clickTextWithinTestId("upstream-dropdown", "Git Settings")
+  requireText(r.textContent(fixtureRoot), "Commit", "light DropdownMenu")
+  await waitForCondition(
+    "DropdownMenu popup placement",
+    () => {
+      const popup = r.boundsTextWithinTestId(fixtureRoot, "Commit")
+      return Math.abs(popup.x - lightDropdownBounds.x) < 120
+        && popup.y >= lightDropdownBounds.y + lightDropdownBounds.height - 4
+    },
+    flushNative,
+  )
+  r.captureScreenshot("/tmp/gpuix-solid1-kobalte-light-dropdown.png")
+  r.clickTextWithinTestId("upstream-button", "Click me")
+  await settleEffects(flushNative)
+  requireCondition(!r.textContent(fixtureRoot).includes("Commit"), "DropdownMenu portal should pass outside clicks through to the app")
 
   r.clickTextWithinTestId("upstream-dialog", "Open")
   requireText(r.textContent(fixtureRoot), "About Kobalte", "light Dialog open")
