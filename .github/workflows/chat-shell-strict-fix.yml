@@ -1,0 +1,45 @@
+name: Chat shell strict fix
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: experiment/chat-shell-strict-fix
+      - name: Apply exact optional fixes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("examples/counter/src/chat/shell.tsx")
+          source = path.read_text()
+          replacements = {
+              '    cursor: props.dimmed ? undefined : "pointer",\n    opacity: props.dimmed ? 0.35 : 1,\n    hover: props.dimmed ? undefined : { backgroundColor: C.overlay },\n    active: props.dimmed ? undefined : { backgroundColor: C.overlayStrong },':
+              '    cursor: "pointer",\n    opacity: props.dimmed ? 0.35 : 1,\n    hover: { backgroundColor: props.dimmed ? "#00000000" : C.overlay },\n    active: { backgroundColor: props.dimmed ? "#00000000" : C.overlayStrong },',
+              'onClick={props.onClick}>{icon}</div>': 'onClick={() => props.onClick?.()}>{icon}</div>',
+              'cursor: ready() ? "pointer" : undefined, backgroundColor:': 'cursor: ready() ? "pointer" : "default", backgroundColor:',
+              '    if (!listRef || count === 0) return\n    queueMicrotask(() => renderer.scrollToItem?.(listRef.id, count - 1))':
+              '    const currentList = listRef\n    if (!currentList || count === 0) return\n    queueMicrotask(() => renderer.scrollToItem?.(currentList.id, count - 1))',
+          }
+          for before, after in replacements.items():
+              if before not in source:
+                  raise SystemExit(f"missing expected source fragment: {before!r}")
+              source = source.replace(before, after)
+          path.write_text(source)
+          PY
+      - name: Commit fixed shell
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add examples/counter/src/chat/shell.tsx
+          git commit -m "Fix strict Chat shell optionals"
+          git push origin HEAD:experiment/chat-shell-strict-fix
