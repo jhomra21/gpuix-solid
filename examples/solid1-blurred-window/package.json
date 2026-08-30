@@ -1,0 +1,22 @@
+{
+  "name": "gpuix-solid1-blurred-window",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "start": "bun dist/app/index.js",
+    "run": "bun run build && bun run start"
+  },
+  "dependencies": {
+    "@gpuix/native": "^0.6.0",
+    "@jhomra21/gpuix-solid1": "file:../../packages/solid1",
+    "solid-js": "1.9.15"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.3",
+    "typescript": "^5.9.2",
+    "vite": "^8.1.5",
+    "vite-plugin-solid": "^2.11.14"
+  }
+}

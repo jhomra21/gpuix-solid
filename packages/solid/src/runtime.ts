@@ -1,8 +1,10 @@
 import { GpuixRenderer, type EventPayload, type WindowOptions } from "@gpuix/native"
 import type { Element as SolidElement } from "solid-js"
 import { enableAutomation } from "./automation/server.js"
+import { adaptBatchRenderer } from "./batch-renderer-adapter.js"
 import { applyDebugFrameOverlay } from "./capabilities.js"
 import { startFrameLoop, type FrameLoop } from "./frame-loop.js"
+import { useDestroyUnlinksParentBatch } from "./host/mutations.js"
 import type { DebugFrameOverlayMode, NativeRenderer } from "./host/types.js"
 import { createRoot, type Root } from "./root.js"
 
@@ -78,8 +80,10 @@ export function render(code: () => SolidElement, options: RenderOptions = {}): R
 
   const native = createRenderer(onEvent)
   native.renderer.init(windowOptions)
-  applyDebugFrameOverlay(native.renderer, debugFrameOverlay)
-  const root = createRoot(native.renderer)
+  const renderer = adaptBatchRenderer(native.renderer)
+  useDestroyUnlinksParentBatch(renderer)
+  applyDebugFrameOverlay(renderer, debugFrameOverlay)
+  const root = createRoot(renderer)
   native.bindRoot(root)
   root.render(code)
   const loop = startFrameLoop(native.renderer, {
@@ -90,7 +94,7 @@ export function render(code: () => SolidElement, options: RenderOptions = {}): R
 
   return {
     root,
-    renderer: native.renderer,
+    renderer,
     loop,
     unmount() {
       loop.stop()

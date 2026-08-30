@@ -12,7 +12,7 @@
     "examples/counter": {
       "name": "gpuix-solid-counter",
       "dependencies": {
-        "@gpuix/native": "^0.4.0",
+        "@gpuix/native": "^0.6.0",
         "gpuix-solid": "workspace:*",
         "solid-js": "^2.0.0-rc.0",
       },
@@ -24,9 +24,9 @@
     },
     "packages/solid": {
       "name": "gpuix-solid",
-      "version": "0.0.0",
+      "version": "0.1.0-beta.4",
       "dependencies": {
-        "@gpuix/native": "^0.4.0",
+        "@gpuix/native": "^0.6.0",
         "@solidjs/universal": "2.0.0-rc.0",
         "eventsource-parser": "^4.1.0",
         "zod": "^4.4.3",
@@ -103,21 +103,13 @@
 
     "@emnapi/wasi-threads": ["@emnapi/wasi-threads@1.2.2", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-c95qOXkHdydNKhscBTebqEC1CVAZpyqOfVfBzQ1qgzyl3gfeldUjIggDbIZgDKsHLgnsM+igH7TJ/eAasaVuMA=="],
 
-    "@gpuix/native": ["@gpuix/native@0.4.0", "", { "optionalDependencies": { "@gpuix/native-darwin-arm64": "0.4.0", "@gpuix/native-darwin-x64": "0.4.0", "@gpuix/native-linux-arm64-gnu": "0.4.0", "@gpuix/native-linux-x64-gnu": "0.4.0", "@gpuix/native-win32-arm64-msvc": "0.4.0", "@gpuix/native-win32-x64-msvc": "0.4.0" } }, "sha512-Ajmv7aBjcze+umGWFeMcY3JXzXP8LolF8sPEPF+UfKTon60fD5V295cBDPV2zKpg/gRc6TdbB3/bKWv/WHDjzw=="],
+    "@gpuix/native": ["@gpuix/native@0.6.0", "", { "optionalDependencies": { "@gpuix/native-darwin-arm64": "0.6.0", "@gpuix/native-linux-x64-gnu": "0.6.0", "@gpuix/native-win32-x64-msvc": "0.6.0" } }, "sha512-tpbA+csf12kTzK/vNyAtNAEdJG5GDdBNjDQAfaAkal9m6oCkNGsbeUDhWYsh14Rwa2oRxYoMZ+NQHHXU1EoSyQ=="],
 
-    "@gpuix/native-darwin-arm64": ["@gpuix/native-darwin-arm64@0.4.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-9Q2RrumKpeHhNE0gTNkYINDvlysPpr/fCslwaiRXbtwl9Tz8Ry0R+Pq6semoaMPVVZx4BM268e4juPtPFV6WqA=="],
+    "@gpuix/native-darwin-arm64": ["@gpuix/native-darwin-arm64@0.6.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-Aarqk7h5Vz/1JYuEC1uSXA8QvT+yeUPsNrs6INXt0yH6c01FF7L+x6+37zh1rwVeQFADAyZ2Btzqbdqfd+YsaA=="],
 
-    "@gpuix/native-darwin-x64": ["@gpuix/native-darwin-x64@0.4.0", "", { "os": "darwin", "cpu": "x64" }, "sha512-gmTum1bADvDsxgkv4BNfjdxQ+Nx04QRDYmRc7wFuJb7M20gay/jVdsgrsUL+fNasTsfiLnYajf+YKS5OcZP9cg=="],
+    "@gpuix/native-linux-x64-gnu": ["@gpuix/native-linux-x64-gnu@0.6.0", "", { "os": "linux", "cpu": "x64" }, "sha512-ttcc3K+EBjfS+NW0K8yYJ/hFFfmZox8ulp6o11BGbaUykOuvEgFMxdDrJmohDeYCBwj3Hd2gIKA1Zk14ctVs/Q=="],
 
-    "@gpuix/native-linux-arm64-gnu": ["@gpuix/native-linux-arm64-gnu@0.4.0", "", { "os": "linux", "cpu": "arm64" }, "sha512-KKvI758LxgWKNEWctvFBKNr/9FRYsr2gBfLNIy8c2mFvjzJmvEo6I43Ve8ck6AP1yLchzK5vmiOUpGpRuIdwmA=="],
-
-    "@gpuix/native-linux-x64-gnu": ["@gpuix/native-linux-x64-gnu@0.4.0", "", { "os": "linux", "cpu": "x64" }, "sha512-dzZjYuWml10a2KGP0ZsnuZI1POS/i7Yn4naRVliF7chVN5CqvQdyBkLlBN4DITnNaBW4FIAdgo4zAMscuUhFzw=="],
-
-    "@gpuix/native-win32-arm64-msvc": ["@gpuix/native-win32-arm64-msvc@0.4.0", "", { "os": "win32", "cpu": "arm64" }, "sha512-g7OgtOyKe5pS4NbaK09WP3cFOm3pIbOyVK2kl02+/XAKg1XPWAlgVx2GvXARWvWsm2YpCV8S2qOEu7T++kfECw=="],
-
-    "@gpuix/native-win32-x64-msvc": ["@gpuix/native-win32-x64-msvc@0.4.0", "", { "os": "win32", "cpu": "x64" }, "sha512-T11cRtupmbJOKx+NrbPXdzkebVzl2GzJ24fNwCYpmA9OBgcJZe0AMNCu+KjiTVlZLsZ4yEy/41YQiSAcEy/h4A=="],
-
-    "gpuix-solid": ["gpuix-solid@workspace:packages/solid"],
+    "@gpuix/native-win32-x64-msvc": ["@gpuix/native-win32-x64-msvc@0.6.0", "", { "os": "win32", "cpu": "x64" }, "sha512-/b76q0dAmy3HPZTQI0G4lbbSjqDTKDaN/bVmI75UJP06Kh+soMoizCC1E8vLlNRI6Q77+ClKWUvu/j0SdbDRVQ=="],
 
     "@jridgewell/gen-mapping": ["@jridgewell/gen-mapping@0.3.13", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.0", "@jridgewell/trace-mapping": "^0.3.24" } }, "sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA=="],
 
@@ -286,6 +278,8 @@
     "fsevents": ["fsevents@2.3.3", "", { "os": "darwin" }, "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw=="],
 
     "gensync": ["gensync@1.0.0-beta.2", "", {}, "sha512-3hN7NaskYvMDLQY55gnW3NQ+mesEAepTqlg+VEbj7zzqEMBVNhzcGYYeqFo/TlYz6eQiFcp1HcsCZO+nGgS8zg=="],
+
+    "gpuix-solid": ["gpuix-solid@workspace:packages/solid"],
 
     "gpuix-solid-counter": ["gpuix-solid-counter@workspace:examples/counter"],
 

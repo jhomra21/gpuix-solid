@@ -4,6 +4,8 @@ import {
   unlinkSync,
   writeFileSync,
 } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { createRenderEffect, createSignal } from "solid-js"
 import { describe, expect, it } from "vitest"
 import {
@@ -14,7 +16,8 @@ import {
 import { createTestRoot, hasNativeTestRenderer } from "../src/testing.js"
 
 const nativeIt = hasNativeTestRenderer ? it : it.skip
-const IMAGE_FIXTURE_PATH = "/tmp/gpuix-solid-img-fixture.svg"
+const IMAGE_FIXTURE_PATH = join(tmpdir(), "gpuix-solid-img-fixture.svg")
+const SCREENSHOT_PATH = join(tmpdir(), "gpuix-solid-svg-parity.png")
 
 function writeSvgFixture(filePath: string): void {
   const svg = [
@@ -97,12 +100,11 @@ describe("native img/svg parity", () => {
       IMAGE_FIXTURE_PATH,
     )
 
-    const screenshotPath = "/tmp/gpuix-solid-svg-parity.png"
-    removeIfPresent(screenshotPath)
-    testRoot.renderer.captureScreenshot(screenshotPath)
+    removeIfPresent(SCREENSHOT_PATH)
+    testRoot.renderer.captureScreenshot(SCREENSHOT_PATH)
 
-    expect(existsSync(screenshotPath)).toBe(true)
-    expect(statSync(screenshotPath).size).toBeGreaterThan(0)
+    expect(existsSync(SCREENSHOT_PATH)).toBe(true)
+    expect(statSync(SCREENSHOT_PATH).size).toBeGreaterThan(0)
 
     testRoot.unmount()
   })
