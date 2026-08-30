@@ -39,7 +39,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@gpuix/native": "^0.4.0",
+    "@gpuix/native": "^0.6.0",
     "@solidjs/universal": "2.0.0-rc.0",
     "eventsource-parser": "^4.1.0",
     "zod": "^4.4.3"

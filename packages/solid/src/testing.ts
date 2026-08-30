@@ -1,7 +1,7 @@
 import { createRequire } from "node:module"
 import type { EventPayload, TestGpuixRenderer as NativeTestRendererApi } from "@gpuix/native"
 import type { Element as SolidElement } from "solid-js"
-import type { MutationValue } from "./host/mutations.js"
+import { useDestroyUnlinksParentBatch, type MutationValue } from "./host/mutations.js"
 import type { DebugFrameOverlayMode, NativeRenderer, StyleDesc } from "./host/types.js"
 import { createRoot, type Root } from "./root.js"
 
@@ -81,48 +81,47 @@ export class TestRenderer implements NativeRenderer {
   }
 
   createElement(id: number, elementType: string): void {
-    this.#native.createElement(id, elementType)
+    this.#applyOne(["createElement", id, elementType])
   }
 
   destroyElement(id: number): number[] {
-    return this.#native.destroyElement(id)
+    return this.#applyOne(["destroyElement", id])
   }
 
   appendChild(parentId: number, childId: number): void {
-    this.#native.appendChild(parentId, childId)
+    this.#applyOne(["appendChild", parentId, childId])
   }
 
   removeChild(parentId: number, childId: number): void {
-    this.#native.removeChild(parentId, childId)
+    this.#applyOne(["removeChild", parentId, childId])
   }
 
   insertBefore(parentId: number, childId: number, beforeId: number): void {
-    this.#native.insertBefore(parentId, childId, beforeId)
+    this.#applyOne(["insertBefore", parentId, childId, beforeId])
   }
 
   setStyle(id: number, styleJson: string): void {
-    this.#native.setStyle(id, styleJson)
+    this.#applyOne(["setStyle", id, parseMutationValue(styleJson)])
   }
 
   setText(id: number, content: string): void {
-    this.#native.setText(id, content)
+    this.#applyOne(["setText", id, content])
   }
 
   setEventListener(id: number, eventType: string, hasHandler: boolean): void {
-    this.#native.setEventListener(id, eventType, hasHandler)
+    this.#applyOne(["setEventListener", id, eventType, hasHandler])
   }
 
   setRoot(id: number): void {
-    this.#native.setRoot(id)
+    this.#applyOne(["setRoot", id])
   }
 
   setCustomProp(id: number, key: string, valueJson: string): void {
-    this.#native.setCustomProp(id, key, valueJson)
+    this.#applyOne(["setCustomProp", id, key, parseMutationValue(valueJson)])
   }
 
   commitMutations(): void {
-    this.#native.commitMutations()
-    this.commitCount++
+    // GPUIX 0.6 applyBatch commits immediately; compatibility calls above are already visible.
   }
 
   applyBatch(json: string): number[] {
@@ -374,6 +373,10 @@ export class TestRenderer implements NativeRenderer {
     return true
   }
 
+  #applyOne(mutation: readonly unknown[]): number[] {
+    return this.applyBatch(JSON.stringify([mutation]))
+  }
+
   #buildElementMap(): Map<number, TestElement> {
     const map = new Map<number, TestElement>()
     const root = parseTree(this.#native.getTreeJson())
@@ -410,6 +413,7 @@ export interface TestRoot {
 /** Create a Solid root backed by the real GPUI native test renderer. */
 export function createTestRoot(): TestRoot {
   const renderer = new TestRenderer()
+  useDestroyUnlinksParentBatch(renderer)
   const root = createRoot(renderer)
   renderer.bindRoot(root)
 
@@ -424,4 +428,9 @@ export function createTestRoot(): TestRoot {
   }
 
   return { root, renderer, render, unmount }
+}
+
+function parseMutationValue(value: string): MutationValue {
+  // SAFETY: compatibility host methods receive JSON produced from renderer-owned styles and custom props.
+  return JSON.parse(value) as MutationValue
 }
