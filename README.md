@@ -21,7 +21,7 @@ GPUI
 Metal / DirectX / Vulkan
 ```
 
-The primary package is `gpuix-solid` for Solid 2. This repository also contains `@jhomra21/gpuix-solid1` for Solid 1.9.x and uses it to run Kobalte, Tailwind v4, a DAW UI slice, and the native blurred-window example.
+The primary package is `gpuix-solid` for Solid 2. This repository also contains `@jhomra21/gpuix-solid1` for Solid 1.9.x and uses it to run Kobalte, Tailwind v4, a DAW UI slice, and a Solid 1 version of the native blurred-window example.
 
 GPUix Solid does not fork GPUIX's Rust renderer. It consumes `@gpuix/native` and implements the Solid side of the host tree, mutation batching, events, testing, and automation.
 
@@ -186,19 +186,54 @@ That compatibility code does not turn GPUIX into a browser DOM. It provides the 
 
 Run these commands from the repository root.
 
+### GPUIX parity examples
+
+These Solid 2 examples correspond directly to the desktop examples in `remorses/gpuix`. The ports keep the same native capability being tested while using Solid state and lifecycle primitives instead of React.
+
+| Upstream example | Run | What it covers |
+| --- | --- | --- |
+| [Counter](./examples/counter/src/index.tsx) | `bun run example:counter` | Signals, click events, hover state, and repeated native updates |
+| [Native text](./examples/counter/src/native-text.tsx) | `bun run example:native-text` | Native `<markdown>`, `<code>`, and `<diff>` elements, tabs, scrolling, selection, and link events |
+| [Blurred window](./examples/counter/src/blurred-window.tsx) | `bun run example:blurred-window` | GPUIX 0.6 native blur, transparent titlebar, resize behavior, and traffic-light placement |
+| [Todo](./examples/counter/src/todo) | `bun run example:todo` | Standalone app structure, native input, lists, sidebar motion, icons, and window options |
+| [Diff](./examples/counter/src/diff) | `bun run example:diff` | Unified and split source diffs, Shiki highlighting, word-level changes, and scrolling |
+| [Timeline](./examples/counter/src/timeline) | `bun run example:timeline` | Two-axis pan, clip move and trim, snapping, scrubbing, zoom, marquee selection, culling, frozen panes, and pointer capture |
+| [Chat](./examples/counter/src/chat) | `bun run example:chat` | Native virtual list, composed safe-MDX, menus, selection, composer input, scrolling, and sidebar animation |
+| [Infinite chat](./examples/counter/src/infinite-chat) | `bun run example:infinite-chat` | Bidirectional virtual history, bounded page cache, edge loading, logical anchor restoration, and MDX link navigation |
+
+The remaining upstream runtime example is the browser/WebGPU path. GPUix Solid currently targets the native desktop renderer and does not wrap GPUIX's browser Wasm renderer.
+
+The exact baseline and current gaps are tracked in [docs/upstream-parity.md](./docs/upstream-parity.md).
+
+### Solid ecosystem examples
+
+These examples are additional coverage rather than replacements for the upstream parity ports.
+
 | Example | Run | What it covers |
 | --- | --- | --- |
-| [Counter](./examples/counter/src/index.tsx) | `bun run example:counter` | Solid 2 signals, click events, hover state, and repeated native updates |
-| [Native text](./examples/counter/src/native-text.tsx) | `bun run example:native-text` | Native `<markdown>`, `<code>`, and `<diff>` elements, tabs, scrolling, selection, and link events |
 | [Dashboard](./examples/counter/src/dashboard) | `bun run example:dashboard` | A multi-page Solid 2 app with inputs, textarea, lists, `Select`, `Tooltip`, native animations, and screenshot tests |
 | [CodeImage](./examples/counter/src/codeimage) | `bun run example:codeimage` | A Solid 2 native editor UI with frame, code, theme, input, and export controls |
 | [TanStack kitchen sink](./examples/counter/src/tanstack-kitchen-sink) | `bun run example:tanstack-kitchen-sink` | An adaptation of the TanStack Router Solid 2 kitchen-sink shell with local deterministic route data |
-| [Blurred window](./examples/solid1-blurred-window) | `bun run example:solid1-blurred-window` | Solid 1 with GPUIX 0.6 native macOS blur, a transparent titlebar, and custom traffic-light placement |
-| [Kobalte](./examples/solid1-kobalte) | `bun run example:solid1-kobalte` | Real `@kobalte/core@0.13.13` source, pinned upstream docs TSX and CSS, portals, menus, dialogs, focus, keyboard input, and SVG icons |
+| [Solid 1 blurred window](./examples/solid1-blurred-window) | `bun run example:solid1-blurred-window` | The blurred-window example through the Solid 1 renderer |
+| [Kobalte](./examples/solid1-kobalte) | `bun run example:solid1-kobalte` | Real `@kobalte/core@0.13.13` source, pinned docs TSX and CSS, portals, menus, dialogs, focus, keyboard input, and SVG icons |
 | [Tailwind v4](./examples/solid1-tailwind) | `bun run example:solid1-tailwind` | Tailwind v4 classes compiled into native style data, theme tokens, hover and active states, and reactive `classList` changes |
 | [DAW](./examples/solid1-daw) | `bun run example:solid1-daw` | A source-first Solid 1 port of a browser DAW slice with transport controls, tracks, ruler, bottom panels, Tailwind classes, and native adapters |
 
-The Solid 2 examples live under `examples/counter` because that directory started as the smallest parity fixture and later grew into several application-sized checks. The Solid 1 examples have separate directories because each one owns its own compiler or compatibility setup.
+The Solid 2 examples live under `examples/counter` because that directory started as the smallest parity fixture and grew into the shared Solid 2 example package. The Solid 1 examples have separate directories because each one owns its compiler or compatibility setup.
+
+### Performance workloads
+
+The repository also ports the upstream Chat and Timeline performance workloads and adds a Solid-side mutation serialization benchmark:
+
+```bash
+bun run perf:chat
+bun run perf:timeline
+bun run bench:serialization
+```
+
+The commands print timing samples. The upstream React thresholds are shown as references only. Compare React and Solid on the same machine, native package version, fixture size and interaction script before drawing a framework performance conclusion.
+
+The serialization command captures the mutation tuples emitted by Solid's real `applyBatch` path. It measures JSON encoding, UTF-8 buffer conversion, and style interning. The Rust decoder benchmark remains in upstream GPUIX because this repository consumes that native code rather than carrying a Rust fork.
 
 ### Kobalte runs through the native host
 
@@ -251,7 +286,7 @@ GPUI then lays out and paints the retained tree. Native animations stay on the G
 
 ## Packages
 
-`gpuix-solid` is the Solid 2 renderer. It exports the renderer, JSX runtime, native components, testing helpers, animation API, and `gpuix-solid/automation`.
+`gpuix-solid` is the Solid 2 renderer. It exports the renderer, JSX runtime, native components, testing helpers, animation API, text search helpers, and `gpuix-solid/automation`.
 
 `@jhomra21/gpuix-solid1` is the Solid 1 renderer in `packages/solid1`. It also exports `./web` compatibility and Kobalte-oriented helper entry points used by the Solid 1 examples.
 
@@ -261,7 +296,7 @@ There is no GPUix Solid CLI package today.
 
 ## Testing and automation
 
-`TestGpuixRenderer` drives the same retained native tree used by normal applications. Tests can inspect native tree state, dispatch real native input, read layout bounds, control the native animation clock, and capture screenshots.
+`TestGpuixRenderer` drives the same retained native tree used by normal applications. Tests can inspect native tree state, dispatch real native input, read layout bounds and logical virtual-list anchors, inspect painted text highlights, control the native animation clock, and capture screenshots.
 
 The Solid 2 package also exports a Playwright-like automation API:
 
@@ -280,7 +315,7 @@ Locators query the current native automation tree each time. They support test I
 
 `gpuix-solid/automation` also has a typed stdio transport for controlling a launched native process. See the package source and tests for the live transport contract.
 
-CI has verify jobs on macOS, Ubuntu, and Windows, plus a separate exact-package smoke job. The current GPUIX 0.6 line passes frozen install, lint, typecheck, tests, builds, Solid 1 package checks, the Kobalte fixture, the Tailwind fixture, the DAW fixture, release tests, and package smoke validation.
+CI has verify jobs on macOS, Ubuntu, and Windows, plus a separate exact-package smoke job. The GPUIX 0.6 line validates frozen install, lint, typecheck, native tests, all Solid 2 example builds, Solid 1 package checks, the Kobalte fixture, the Tailwind fixture, the DAW fixture, release tests, and package smoke validation.
 
 ## Compatibility
 
@@ -318,11 +353,13 @@ Read [ARCHITECTURE.md](./ARCHITECTURE.md) before changing renderer ownership or 
 
 ## Relationship to GPUIX
 
-[GPUIX](https://github.com/remorses/gpuix) defines the native renderer contract this project targets. GPUix Solid follows its element model, style and event behavior, window options, retained-tree mutations, native testing behavior, and automation conventions where they apply to Solid.
+[GPUIX](https://github.com/remorses/gpuix) defines the native renderer contract this project targets. GPUix Solid follows its element model, style and event behavior, window options, retained-tree mutations, native testing behavior, automation conventions, and desktop examples where they apply to Solid.
 
 The projects differ in the JavaScript framework layer. GPUIX upstream uses React and `react-reconciler`. GPUix Solid uses Solid's universal compiler and keeps a small synchronous host tree for Solid reconciliation.
 
-GPUIX upstream also has `@gpuix/cli`, a browser WebAssembly renderer, an example-app scaffold, and documented single-binary builds. GPUix Solid does not wrap those paths yet.
+The published GPUIX 0.6 desktop example set now has Solid 2 counterparts for Counter, Native Text, Blurred Window, Todo, Diff, Timeline, Chat, and Infinite Chat. The DAW remains a separate Solid fixture and does not stand in for Timeline.
+
+GPUIX upstream also has `@gpuix/cli`, a browser WebAssembly renderer, and documented single-binary builds. GPUix Solid does not wrap those paths yet.
 
 For Solid 1, this repository also carries browser-compatibility code so source written for Kobalte and similar Solid libraries can run against the native host without changing the upstream application files.
 
