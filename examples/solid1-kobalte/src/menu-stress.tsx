@@ -2,6 +2,12 @@ import { createTestRoot, hasNativeTestRenderer } from "@jhomra21/gpuix-solid1"
 import { UpstreamKobalteShowcase } from "./upstream-app"
 import { CheckIcon, ChevronRightIcon } from "./upstream/kobalte/components"
 
+interface OpenDialogElements {
+  overlay: HTMLElement
+  positioner: HTMLElement
+  content: HTMLElement
+}
+
 function requireCondition(condition: boolean, message: string): void {
   if (!condition) throw new Error(message)
 }
@@ -13,11 +19,7 @@ function requireMenuState(actual: string, expected: string, absent: string[], la
   }
 }
 
-function requireOpenDialogElements(): {
-  overlay: HTMLElement
-  positioner: HTMLElement
-  content: HTMLElement
-} {
+function requireOpenDialogElements(): OpenDialogElements {
   const content = document.body.querySelectorAll<HTMLElement>("[role=dialog]")[0]
   if (!content) throw new Error("Expected open dialog content")
   const positioner = content.parentElement
