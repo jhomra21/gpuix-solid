@@ -17,9 +17,9 @@ type PointerCall = readonly [
   type: "move" | "down" | "up" | "wheel",
   x: number,
   y: number,
-  first?: number,
-  second?: number,
-  modifiers?: string,
+  first: number | undefined,
+  second: number | undefined,
+  modifiers: string | undefined,
 ]
 
 class RecordingBackend implements AutomationBackend {
@@ -189,7 +189,7 @@ describe("Playwright-like locator API", () => {
       ["wheel", 60, 35, 0, -120, undefined],
       ["move", 60, 35, undefined, undefined, undefined],
       ["down", 60, 35, 0, undefined, undefined],
-      ["move", 130, 57.5, 0, undefined, undefined],
+      ["move", 160, 57.5, 0, undefined, undefined],
       ["move", 260, 80, 0, undefined, undefined],
       ["up", 260, 80, 0, undefined, undefined],
     ])
