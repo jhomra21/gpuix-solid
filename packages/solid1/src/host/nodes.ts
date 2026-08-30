@@ -11,10 +11,24 @@ import type {
 const RESERVED_PROPS = new Set(["children", "ref", "style", "className", "key"])
 const BUILT_IN_TYPES = new Set<ElementType>(["div", "text"])
 const UNIVERSAL_PROPS = new Set(["autoFocus", "tabIndex", "motion", "testId"])
+const DOCUMENT_POSITION_DISCONNECTED = 0x01
+const DOCUMENT_POSITION_PRECEDING = 0x02
+const DOCUMENT_POSITION_FOLLOWING = 0x04
+const DOCUMENT_POSITION_CONTAINS = 0x08
+const DOCUMENT_POSITION_CONTAINED_BY = 0x10
+const DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC = 0x20
 
 type BoundsCapableRenderer = NativeRenderer & {
   getElementBounds?(elementId: number): number[] | null
 }
+
+type HostStyleDeclaration = StyleDesc & {
+  setProperty(name: string, value: string, priority?: string): void
+  removeProperty(name: string): string
+  getPropertyValue(name: string): string
+}
+
+const customStyleProperties = new WeakMap<HostElementNode, Map<string, string>>()
 
 export class HostRootNode {
   readonly kind = "root" as const
@@ -35,14 +49,24 @@ export class HostRootNode {
 }
 
 export class HostElementNode implements PublicInstance, DomCompatTarget {
+  static readonly DOCUMENT_POSITION_DISCONNECTED = DOCUMENT_POSITION_DISCONNECTED
+  static readonly DOCUMENT_POSITION_PRECEDING = DOCUMENT_POSITION_PRECEDING
+  static readonly DOCUMENT_POSITION_FOLLOWING = DOCUMENT_POSITION_FOLLOWING
+  static readonly DOCUMENT_POSITION_CONTAINS = DOCUMENT_POSITION_CONTAINS
+  static readonly DOCUMENT_POSITION_CONTAINED_BY = DOCUMENT_POSITION_CONTAINED_BY
+  static readonly DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC = DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC
+
   readonly kind = "element" as const
   readonly type: ElementType
+  readonly tagName: string
+  readonly localName: string
+  readonly nodeName: string
   readonly children: HostNode[] = []
   parent: HostParent | null = null
   root: HostRootNode | null = null
   id = 0
   nativeAlive = false
-  style: StyleDesc = {}
+  style: HostStyleDeclaration
   readonly props = new Map<string, MutationValue>()
   readonly events = new Map<string, HostEventHandler>()
   readonly classList = {
@@ -51,8 +75,60 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   }
   readonly #capturedPointers = new Set<number>()
 
-  constructor(type: ElementType) {
+  constructor(type: ElementType, tagName: string = type) {
     this.type = type
+    this.localName = tagName
+    this.tagName = tagName.toUpperCase()
+    this.nodeName = this.tagName
+    this.style = createHostStyleDeclaration(this, {})
+  }
+
+  get ownerDocument(): Document {
+    return document
+  }
+
+  get offsetParent(): HostElementNode | null {
+    return null
+  }
+
+  get parentNode(): HostElementNode | null {
+    return this.parent?.kind === "element" ? this.parent : null
+  }
+
+  get parentElement(): HostElementNode | null {
+    return this.parentNode
+  }
+
+  get clientWidth(): number {
+    return this.getBoundingClientRect().width
+  }
+
+  get clientHeight(): number {
+    return this.getBoundingClientRect().height
+  }
+
+  get clientLeft(): number {
+    return 0
+  }
+
+  get clientTop(): number {
+    return 0
+  }
+
+  get offsetWidth(): number {
+    return this.getBoundingClientRect().width
+  }
+
+  get offsetHeight(): number {
+    return this.getBoundingClientRect().height
+  }
+
+  get scrollWidth(): number {
+    return this.clientWidth
+  }
+
+  get scrollHeight(): number {
+    return this.clientHeight
   }
 
   get value(): string {
@@ -112,6 +188,10 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     return this.#capturedPointers.has(pointerId)
   }
 
+  compareDocumentPosition(other: HostElementNode): number {
+    return compareHostDocumentPosition(this, other)
+  }
+
   closest(_selector: string): HostElementNode | null {
     return null
   }
@@ -138,7 +218,10 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     const y = bounds[1] ?? 0
     const width = bounds[2] ?? 0
     const height = bounds[3] ?? 0
-    return domBounds(x, y, width, height)
+    // GPUIX measures divs with an inner full-size tracker: its size is the outer box, but its origin starts after the div's own padding.
+    const paddingLeft = this.type === "div" ? this.style.paddingLeft ?? this.style.padding ?? 0 : 0
+    const paddingTop = this.type === "div" ? this.style.paddingTop ?? this.style.padding ?? 0 : 0
+    return domBounds(x - paddingLeft, y - paddingTop, width, height)
   }
 
   private scrollOffset(): number[] | null {
@@ -155,8 +238,6 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     root.driver.renderer.scrollTo?.(this.id, -Math.max(0, left), -Math.max(0, top))
   }
 }
-
-installDomConstructors()
 
 export class HostTextNode {
   readonly kind = "text" as const
@@ -175,10 +256,11 @@ export class HostTextNode {
 
 export type HostNode = HostElementNode | HostTextNode
 export type HostParent = HostRootNode | HostElementNode
+type HostTreeNode = HostRootNode | HostNode
 
-export function createHostElement(type: string): HostElementNode {
+export function createHostElement(type: string, tagName = type): HostElementNode {
   if (!isElementType(type)) throw new Error(`Unsupported GPUIX element <${type}>`)
-  return new HostElementNode(type)
+  return new HostElementNode(type, tagName)
 }
 
 export function createHostText(value: string): HostTextNode {
@@ -202,7 +284,7 @@ export function setHostProperty<T>(
   if (name === "children" || name === "ref" || name === "key") return
 
   if (name === "style") {
-    node.style = isStyle(value) ? value : {}
+    node.style = createHostStyleDeclaration(node, isStyle(value) ? value : {})
     if (node.root && node.nativeAlive) node.root.driver.enqueue("setStyle", node.id, node.style)
     return
   }
@@ -217,8 +299,13 @@ export function setHostProperty<T>(
     if (!node.root || !node.nativeAlive) return
     if (handler) node.root.events.set(node.id, eventType, handler)
     else node.root.events.delete(node.id, eventType)
-    if (Boolean(oldHandler) !== Boolean(handler)) {
-      node.root.driver.enqueue("setEventListener", node.id, eventType, Boolean(handler))
+
+    const nativeType = nativeEventType(eventType)
+    const hasNativeHandler = nativeType === "mouseUp"
+      ? node.root.events.has(node.id, "mouseUp") || node.root.events.has(node.id, "contextMenu")
+      : node.root.events.has(node.id, nativeType)
+    if (Boolean(oldHandler) !== Boolean(handler) || eventType === "contextMenu" || eventType === "mouseUp") {
+      node.root.driver.enqueue("setEventListener", node.id, nativeType, hasNativeHandler)
     }
     return
   }
@@ -227,7 +314,7 @@ export function setHostProperty<T>(
   else node.props.set(name, customPropValue(value))
   if (!node.root || !node.nativeAlive || isReserved(name)) return
   if (BUILT_IN_TYPES.has(node.type) && !UNIVERSAL_PROPS.has(name)) return
-  node.root.driver.enqueue("setCustomPropValue", node.id, name, customPropValue(value))
+  node.root.driver.enqueue("setCustomProp", node.id, name, customPropValue(value))
 }
 
 export function insertHostNode(parent: HostParent, node: HostNode, anchor?: HostNode | null): void {
@@ -289,6 +376,82 @@ export function isHostTextNode(node: HostNode | HostParent): node is HostTextNod
   return node.kind === "text"
 }
 
+function compareHostDocumentPosition(reference: HostNode, other: HostNode): number {
+  if (reference === other) return 0
+
+  const referencePath = hostTreePath(reference)
+  const otherPath = hostTreePath(other)
+  if (referencePath[0] !== otherPath[0]) {
+    return DOCUMENT_POSITION_DISCONNECTED | DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC
+  }
+
+  const sharedLength = Math.min(referencePath.length, otherPath.length)
+  let branchIndex = 0
+  while (branchIndex < sharedLength && referencePath[branchIndex] === otherPath[branchIndex]) {
+    branchIndex += 1
+  }
+
+  if (branchIndex === referencePath.length) {
+    return DOCUMENT_POSITION_FOLLOWING | DOCUMENT_POSITION_CONTAINED_BY
+  }
+  if (branchIndex === otherPath.length) {
+    return DOCUMENT_POSITION_PRECEDING | DOCUMENT_POSITION_CONTAINS
+  }
+
+  const sharedParent = referencePath[branchIndex - 1]
+  const referenceBranch = referencePath[branchIndex]
+  const otherBranch = otherPath[branchIndex]
+  if (!sharedParent || !referenceBranch || !otherBranch || referenceBranch.kind === "root" || otherBranch.kind === "root") {
+    return DOCUMENT_POSITION_DISCONNECTED | DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC
+  }
+
+  const referenceIndex = sharedParent.children.indexOf(referenceBranch)
+  const otherIndex = sharedParent.children.indexOf(otherBranch)
+  if (referenceIndex < 0 || otherIndex < 0) {
+    return DOCUMENT_POSITION_DISCONNECTED | DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC
+  }
+  return otherIndex < referenceIndex ? DOCUMENT_POSITION_PRECEDING : DOCUMENT_POSITION_FOLLOWING
+}
+
+function hostTreePath(node: HostNode): HostTreeNode[] {
+  const path: HostTreeNode[] = [node]
+  let parent = node.parent
+  while (parent) {
+    path.unshift(parent)
+    parent = parent.kind === "root" ? null : parent.parent
+  }
+  return path
+}
+
+function createHostStyleDeclaration(node: HostElementNode, style: StyleDesc): HostStyleDeclaration {
+  // SAFETY: methods are installed non-enumerably so native style serialization sees only StyleDesc fields.
+  const declaration = { ...style } as HostStyleDeclaration
+  Object.defineProperties(declaration, {
+    setProperty: {
+      enumerable: false,
+      value: (name: string, value: string, _priority?: string) => {
+        const properties = customStyleProperties.get(node) ?? new Map<string, string>()
+        properties.set(name, String(value))
+        customStyleProperties.set(node, properties)
+      },
+    },
+    removeProperty: {
+      enumerable: false,
+      value: (name: string) => {
+        const properties = customStyleProperties.get(node)
+        const previous = properties?.get(name) ?? ""
+        properties?.delete(name)
+        return previous
+      },
+    },
+    getPropertyValue: {
+      enumerable: false,
+      value: (name: string) => customStyleProperties.get(node)?.get(name) ?? "",
+    },
+  })
+  return declaration
+}
+
 function adopt(root: HostRootNode, node: HostNode): void {
   if (node.root && node.root !== root) {
     throw new Error("Cannot insert a GPUIX host node into a different root")
@@ -307,17 +470,21 @@ function adopt(root: HostRootNode, node: HostNode): void {
     root.driver.enqueue("setText", node.id, node.text)
   } else {
     root.events.setTarget(node.id, node)
+    const nativeEventTypes = new Set<string>()
     if (Object.keys(node.style).length > 0) {
       root.driver.enqueue("setStyle", node.id, node.style)
     }
     for (const [eventType, handler] of node.events) {
       root.events.set(node.id, eventType, handler)
+      nativeEventTypes.add(nativeEventType(eventType))
+    }
+    for (const eventType of nativeEventTypes) {
       root.driver.enqueue("setEventListener", node.id, eventType, true)
     }
     for (const [name, value] of node.props) {
       if (isReserved(name)) continue
       if (BUILT_IN_TYPES.has(node.type) && !UNIVERSAL_PROPS.has(name)) continue
-      root.driver.enqueue("setCustomPropValue", node.id, name, customPropValue(value))
+      root.driver.enqueue("setCustomProp", node.id, name, customPropValue(value))
     }
   }
 
@@ -325,6 +492,10 @@ function adopt(root: HostRootNode, node: HostNode): void {
     adopt(root, child)
     root.driver.enqueue("appendChild", node.id, child.id)
   }
+}
+
+function nativeEventType(eventType: string): string {
+  return eventType === "contextMenu" ? "mouseUp" : eventType
 }
 
 function markNativeDead(root: HostRootNode, node: HostNode): void {
@@ -394,6 +565,13 @@ function emptyBounds() {
 }
 
 function installDomConstructors(): void {
+  if (!Object.hasOwn(globalThis, "Node")) {
+    Object.defineProperty(globalThis, "Node", {
+      configurable: true,
+      writable: true,
+      value: HostElementNode,
+    })
+  }
   if (!Object.hasOwn(globalThis, "Element")) {
     Object.defineProperty(globalThis, "Element", {
       configurable: true,
@@ -426,3 +604,5 @@ function isElementType(value: string): value is ElementType {
     "virtual-list",
   ].includes(value)
 }
+
+installDomConstructors()

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { EventRegistry } from "../src/host/events.js"
-import { MutationDriver } from "../src/host/mutations.js"
+import { MutationDriver, useDestroyUnlinksParentBatch } from "../src/host/mutations.js"
 import { FakeRenderer } from "./fake-renderer.js"
 
 describe("MutationDriver", () => {
@@ -18,6 +18,46 @@ describe("MutationDriver", () => {
     expect(renderer.batches[0]).toHaveLength(3)
   })
 
+  it("resolves em dimensions against the element font size", () => {
+    const renderer = new FakeRenderer()
+    const driver = new MutationDriver(renderer, new EventRegistry())
+
+    driver.enqueue("setStyle", 1, { fontSize: "12px", width: "1.5em", height: "2em" })
+    driver.flush()
+
+    expect(renderer.batches[0]?.[0]).toEqual([
+      "setStyle",
+      1,
+      { fontSize: 12, width: 18, height: 24 },
+    ])
+  })
+
+  it("canonicalizes CSS font-size before resolving em dimensions", () => {
+    const renderer = new FakeRenderer()
+    const driver = new MutationDriver(renderer, new EventRegistry())
+
+    driver.enqueue("setStyle", 1, { fontSize: 14, "font-size": "30px", width: "1em", height: "1em" })
+    driver.flush()
+
+    expect(renderer.batches[0]?.[0]).toEqual([
+      "setStyle",
+      1,
+      { fontSize: 30, width: 30, height: 30 },
+    ])
+  })
+
+  it("omits legacy removeChild when destroy unlinks its parent", () => {
+    const renderer = new FakeRenderer()
+    useDestroyUnlinksParentBatch(renderer)
+    const driver = new MutationDriver(renderer, new EventRegistry())
+
+    driver.enqueue("removeChild", 1, 2)
+    driver.enqueue("destroyElement", 2)
+    driver.flush()
+
+    expect(renderer.batches.at(-1)).toEqual([["destroyElement", 2]])
+  })
+
   it("serializes structured values for the direct N-API fallback", () => {
     const renderer = new FakeRenderer()
     Object.defineProperty(renderer, "applyBatch", { value: undefined })
@@ -25,7 +65,7 @@ describe("MutationDriver", () => {
 
     driver.enqueue("createElement", 1, "img")
     driver.enqueue("setStyle", 1, { padding: 8 })
-    driver.enqueue("setCustomPropValue", 1, "src", "image.png")
+    driver.enqueue("setCustomProp", 1, "src", "image.png")
     driver.flush()
 
     expect(renderer.direct).toEqual([

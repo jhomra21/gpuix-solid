@@ -11,6 +11,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./web": {
+      "types": "./dist/web-entry.d.ts",
+      "import": "./dist/web-entry.js"
+    },
     "./jsx-runtime": {
       "types": "./jsx-runtime.d.ts",
       "import": "./dist/index.js",
@@ -80,7 +84,7 @@
     "smoke:package": "node scripts/smoke-package.mjs"
   },
   "dependencies": {
-    "@gpuix/native": "^0.4.0"
+    "@gpuix/native": "^0.6.0"
   },
   "peerDependencies": {
     "solid-js": ">=1.9.0 <2"

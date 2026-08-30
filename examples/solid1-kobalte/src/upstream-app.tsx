@@ -24,7 +24,7 @@ function Body(): JSX.Element {
     <div style={{ width: "100%", height: "100%", padding: 28, gap: 18, backgroundColor: mode.colorMode() === "dark" ? "#18181b" : "#ffffff", color: mode.colorMode() === "dark" ? "rgba(255,255,255,0.9)" : "#27272a" }}>
       <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ gap: 3 }}><text style={{ fontSize: 24, fontWeight: 700 }}>Kobalte upstream BasicExample source</text><text style={{ fontSize: 13, opacity: 0.7 }}>Pinned verbatim source rendered through the GPUIX compatibility layer.</text></div>
-        <div testId="theme-toggle" tabIndex={0} onClick={() => mode.toggleColorMode()} style={{ padding: 10, borderWidth: 1, borderColor: mode.colorMode() === "dark" ? "#3f3f46" : "#e4e4e7", borderRadius: 6 }}>{`Theme: ${mode.colorMode()}`}</div>
+        <div id="theme-toggle-target" testId="theme-toggle" tabIndex={0} onClick={() => mode.toggleColorMode()} style={{ padding: 10, borderWidth: 1, borderColor: mode.colorMode() === "dark" ? "#3f3f46" : "#e4e4e7", borderRadius: 6 }}>{`Theme: ${mode.colorMode()}`}</div>
       </div>
       <Section title="Menubar"><div testId="upstream-menubar"><MenubarExample /></div></Section>
       <div style={{ display: "flex", flexDirection: "row", gap: 48, alignItems: "flex-start" }}>
