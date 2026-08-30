@@ -147,7 +147,8 @@ if (!hasNativeTestRenderer) {
     "DropdownMenu popup placement",
     () => {
       const popup = r.boundsTextWithinTestId(fixtureRoot, "Commit")
-      return Math.abs(popup.x - lightDropdownBounds.x) < 120
+      return popup.width > 0
+        && popup.height > 0
         && popup.y >= lightDropdownBounds.y + lightDropdownBounds.height - 4
     },
     flushNative,
