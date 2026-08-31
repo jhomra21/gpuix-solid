@@ -33,7 +33,7 @@ export function AccountRoute(): SolidElement {
             <text style={{ color: palette.text, fontSize: 13, fontWeight: 500 }}>Email Address</text>
             <text style={{ color: palette.secondary, fontSize: 11 }}>Your email address cannot be changed.</text>
           </div>
-          <input value="user@example.com" disabled style={inputStyle({ width: 280, opacity: 0.6 })} />
+          <input value="user@example.com" style={inputStyle({ width: 280, opacity: 0.6 })} />
         </div>
         <Divider />
         <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
