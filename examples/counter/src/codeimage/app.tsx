@@ -1,4 +1,4 @@
-import { Show, createSignal, lazy } from "solid-js"
+import { Show, createSignal } from "solid-js"
 import type { PublicInstance } from "gpuix-solid"
 import {
   adaptiveFullScreenHeight,
@@ -22,7 +22,7 @@ import {
   getFrameState,
   HStack,
   KeyboardShortcuts,
-  ManagedFrame as NativeManagedFrame,
+  ManagedFrame,
   PortalHost,
   PreviewFrame,
   ShareButton,
@@ -35,8 +35,6 @@ import {
   dispatchRandomTheme,
 } from "./compat"
 import { Suspense, onMount } from "./solid-compat"
-
-const ManagedFrame = lazy(async () => ({ default: NativeManagedFrame }))
 
 export function App() {
   const [frameRef, setFrameRef] = createSignal<PublicInstance>()
