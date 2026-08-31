@@ -43,6 +43,17 @@
     "examples/assets/icons/thumbs-down.svg": "1608663a0324719ff271010161a1f603349c2ced",
     "examples/assets/icons/thumbs-up.svg": "ab60d2db419d90d14f373f96d88d6b2cca9579ad",
     "examples/assets/icons/wrench.svg": "b98e41821c163aa057f7a15fc31682c9d6f82727",
-    "examples/assets/icons/zap.svg": "e091b2893c04143ce39550f5c81c902f5333b6d5"
+    "examples/assets/icons/zap.svg": "e091b2893c04143ce39550f5c81c902f5333b6d5",
+    "example-app/assets/icons/check.svg": "0e4f71e58f6fb85af956317d04b8675f13f80277",
+    "example-app/assets/icons/circle-check.svg": "6b3aea06db38b2760802e3572258887e8c8c1cf5",
+    "example-app/assets/icons/inbox.svg": "adfd1c11d8f5e8a2a3b0501aa77236077dd540a1",
+    "example-app/assets/icons/panel-left.svg": "a1bff4d212f622564683ab70b801355dd9e56210",
+    "example-app/assets/icons/plus.svg": "99be1e5c050eb4e96855c27ba8d7c7067038f092",
+    "example-app/assets/icons/search.svg": "afe3283d648feb61cda01feb7de0097a3b4bb126",
+    "example-app/assets/icons/settings.svg": "d1c86f3c17909f62c616a8e9799d5b641ad26888",
+    "example-app/assets/icons/sparkle.svg": "9dc1cdca3a1fc7872f979716138108be0b875364",
+    "example-app/assets/icons/star.svg": "34065368fb71f4ec5176e9af861c1cd471bead3f",
+    "example-app/assets/icons/sun.svg": "b9c6c2cac993712b7c56024ed1973f2306ecedb3",
+    "example-app/assets/icons/trash.svg": "368115737ed4337783aa4737ed78181e6cd5d69f"
   }
 }
