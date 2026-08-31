@@ -1,4 +1,4 @@
-import { Show, Suspense, createSignal, lazy, onMount } from "solid-js"
+import { Show, createSignal, lazy } from "solid-js"
 import {
   adaptiveFullScreenHeight,
   BottomBar,
@@ -33,6 +33,7 @@ import {
   useModality,
   dispatchRandomTheme,
 } from "./compat"
+import { Suspense, onMount } from "./solid-compat"
 
 const ManagedFrame = lazy(async () => ({ default: NativeManagedFrame }))
 
@@ -43,7 +44,8 @@ export function App() {
   const frameStore = getFrameState()
   const exportCanvasStore = getExportCanvasStore()
   const { readOnly, clone } = getEditorSyncAdapter()
-  onMount(() => exportCanvasStore.initCanvas(frameRef))
+  const initCanvas: (ref: () => unknown) => void = exportCanvasStore.initCanvas
+  onMount(() => initCanvas(frameRef))
 
   return (
     <Box
