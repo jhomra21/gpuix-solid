@@ -1,4 +1,5 @@
-import { render } from "gpuix-solid"
+import { Show, createSignal, onCleanup } from "solid-js"
+import { animate, render, type EventPayload } from "gpuix-solid"
 
 const glass = {
   display: "flex" as const,
@@ -10,6 +11,8 @@ const glass = {
 }
 
 const muted = "#FFFFFF99"
+const BUTTON_GROW_DURATION = 0.15
+const LABEL_ANIMATION_DURATION_MS = BUTTON_GROW_DURATION * 1000
 
 function Metric(props: { label: string; value: string }) {
   return (
@@ -20,7 +23,185 @@ function Metric(props: { label: string; value: string }) {
   )
 }
 
-function App() {
+function Welcome(props: { onSubmit: (name: string) => void }) {
+  const [name, setName] = createSignal("")
+  const hasName = () => name().trim().length > 0
+  const [labelProgress, setLabelProgress] = createSignal(0)
+  let currentLabelProgress = 0
+  let labelAnimation: ReturnType<typeof setTimeout> | undefined
+  let labelAnimationId = 0
+  const [surfaceVisible, setSurfaceVisible] = createSignal(false)
+  let surfaceHideTimer: ReturnType<typeof setTimeout> | undefined
+
+  const animateLabel = (target: number): void => {
+    const from = currentLabelProgress
+    const startedAt = performance.now()
+    const animationId = ++labelAnimationId
+    if (labelAnimation !== undefined) clearTimeout(labelAnimation)
+
+    const step = (): void => {
+      if (animationId !== labelAnimationId) return
+      const linearProgress = Math.min(1, (performance.now() - startedAt) / LABEL_ANIMATION_DURATION_MS)
+      currentLabelProgress = from + (target - from) * linearProgress
+      setLabelProgress(currentLabelProgress)
+      if (linearProgress < 1) labelAnimation = setTimeout(step, 16)
+      else labelAnimation = undefined
+    }
+
+    step()
+  }
+
+  onCleanup(() => {
+    labelAnimationId += 1
+    if (labelAnimation !== undefined) clearTimeout(labelAnimation)
+    if (surfaceHideTimer !== undefined) clearTimeout(surfaceHideTimer)
+  })
+
+  const submit = (): void => {
+    const value = name().trim()
+    if (value) props.onSubmit(value)
+  }
+
+  const handleNameChange = (event: EventPayload): void => {
+    const value = event.value ?? ""
+    setName(value)
+    const visible = value.trim().length > 0
+    animateLabel(visible ? 1 : 0)
+    if (visible) {
+      if (surfaceHideTimer !== undefined) clearTimeout(surfaceHideTimer)
+      setSurfaceVisible(true)
+    } else {
+      surfaceHideTimer = setTimeout(() => setSurfaceVisible(false), BUTTON_GROW_DURATION * 1000)
+    }
+  }
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#0A101826",
+      }}
+    >
+      <animate.div
+        initial={{ opacity: 0, top: 18 }}
+        to={{ opacity: 1, top: 0 }}
+        transition={{ duration: 0.35, ease: "easeOut" }}
+        style={{ position: "relative", width: 420, gap: 12 }}
+      >
+        <text style={{ color: "#FFFFFF", fontSize: 18, fontWeight: 600 }}>Enter your name</text>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "center",
+            width: "100%",
+            height: 46,
+            borderWidth: 1,
+            borderColor: "#FFFFFF1F",
+            borderRadius: 10,
+            backgroundColor: "#FFFFFF0D",
+            overflow: "hidden",
+          }}
+        >
+          <input
+            testId="username"
+            autoFocus
+            value={name()}
+            placeholder="Your name"
+            onChange={handleNameChange}
+            onSubmit={submit}
+            theme={{ caret: "#FFFFFF" }}
+            style={{
+              flexGrow: 1,
+              minWidth: 0,
+              height: "100%",
+              borderWidth: 0,
+              backgroundColor: "#00000000",
+              color: "#FFFFFF",
+              fontSize: 15,
+              paddingLeft: 14,
+              paddingRight: 14,
+            }}
+          />
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 84,
+              height: "100%",
+              flexShrink: 0,
+              overflow: "hidden",
+            }}
+          >
+            <animate.div
+              initial={{ width: 28, height: 28 }}
+              to={{ width: hasName() ? 84 : 28, height: hasName() ? 46 : 28 }}
+              transition={{ duration: BUTTON_GROW_DURATION, ease: "linear" }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                overflow: "hidden",
+              }}
+            >
+              <Show when={surfaceVisible()}>
+                <div
+                  testId="username-submit"
+                  onClick={submit}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 84,
+                    height: 46,
+                    flexShrink: 0,
+                    borderLeftWidth: 1,
+                    borderColor: "#FFFFFF1F",
+                    backgroundColor: "#FFFFFFD9",
+                    cursor: "pointer",
+                    hover: { backgroundColor: "#FFFFFFD9" },
+                    active: { backgroundColor: "#FFFFFFB8" },
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 36,
+                      height: 20,
+                      flexShrink: 0,
+                    }}
+                  >
+                    <text
+                      style={{
+                        color: "#17181C",
+                        fontSize: Math.max(1, 13 * labelProgress()),
+                        fontWeight: 650,
+                        opacity: labelProgress(),
+                      }}
+                    >
+                      Enter
+                    </text>
+                  </div>
+                </div>
+              </Show>
+            </animate.div>
+          </div>
+        </div>
+      </animate.div>
+    </div>
+  )
+}
+
+function Main(props: { name: string }) {
   const tasks = [
     ["09:30", "Review the GPUI window API"],
     ["11:00", "Build the glass example"],
@@ -50,7 +231,7 @@ function App() {
       >
         <div style={{ gap: 5 }}>
           <text style={{ color: muted, fontSize: 12, fontWeight: 600 }}>SUNDAY, AUGUST 30</text>
-          <text style={{ color: "#FFFFFF", fontSize: 30, fontWeight: 650 }}>Good morning, Tommy</text>
+          <text style={{ color: "#FFFFFF", fontSize: 30, fontWeight: 650 }}>{`Good morning, ${props.name}`}</text>
         </div>
         <div
           style={{
@@ -129,9 +310,21 @@ function App() {
   )
 }
 
+function App() {
+  const [name, setName] = createSignal<string | null>(null)
+
+  return (
+    <div style={{ width: "100%", height: "100%" }}>
+      <Show when={name()} fallback={<Welcome onSubmit={setName} />}>
+        {(currentName) => <Main name={currentName()} />}
+      </Show>
+    </div>
+  )
+}
+
 render(() => <App />, {
-  title: "GPUIX Blurred Window",
-  appName: "GPUIX Blurred Window",
+  title: "GPUIX Blurred Window Showcase",
+  appName: "GPUIX Blurred Window Showcase",
   width: 760,
   height: 510,
   minWidth: 640,
