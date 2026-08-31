@@ -67,7 +67,9 @@ describe("automation uppercase fill", () => {
       setProp(input, "onChange", (event: EventPayload) => setValue(event.value ?? ""))
       createRenderEffect(
         () => value(),
-        (next, previous) => setProp(input, "value", next, previous),
+        (next, previous) => {
+          setProp(input, "value", next, previous)
+        },
       )
 
       const label = createElement("text")
