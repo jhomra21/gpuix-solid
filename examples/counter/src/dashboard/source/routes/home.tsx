@@ -25,14 +25,14 @@ export function HomeRoute(props: { onNavigate(route: DashboardRoute): void; onLo
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 10 }}>
-        <Button testId="test-api" active onClick={() => setApiResult('{\n  "message": "Hello from the API"\n}')}>
+        <Button testId="test-api" active onClick={() => setApiResult('{ "message": "Hello from the API" }')}>
           <text style={{ color: palette.white, fontSize: 12 }}>Test API</text>
         </Button>
         <Show when={apiResult()}>
           {(result) => (
             <Card style={{ width: "100%", backgroundColor: palette.muted }}>
               <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
-                <text style={{ color: palette.text, fontSize: 11, whiteSpace: "pre-wrap" }}>{result()}</text>
+                <text style={{ color: palette.text, fontSize: 11 }}>{result()}</text>
                 <Button testId="close-api" onClick={() => setApiResult(null)}>
                   <text style={{ color: palette.text, fontSize: 11 }}>×</text>
                 </Button>
