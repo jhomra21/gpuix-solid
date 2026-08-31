@@ -1,0 +1,57 @@
+name: Sync Todo source assets
+
+on:
+  push:
+    branches:
+      - fix/source-first-example-fidelity
+    paths:
+      - .github/workflows/sync-todo-source-assets.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Add exact pinned Todo assets and refresh lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          PIN=09e0caeb1812eece10a3a8a7200ef18567610267
+          rm -rf /tmp/gpuix-upstream
+          git clone -q https://github.com/remorses/gpuix.git /tmp/gpuix-upstream
+          git -C /tmp/gpuix-upstream checkout -q "$PIN"
+
+          rm -rf examples/counter/upstream/gpuix/example-app/assets
+          cp -R /tmp/gpuix-upstream/example-app/assets examples/counter/upstream/gpuix/example-app/assets
+
+          python3 - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+
+          pin = "09e0caeb1812eece10a3a8a7200ef18567610267"
+          source = Path("/tmp/gpuix-upstream")
+          dest = Path("examples/counter/upstream/gpuix")
+          lock_path = dest / "upstream-lock.json"
+          lock = json.loads(lock_path.read_text())
+          for path in sorted((source / "example-app/assets").rglob("*")):
+              if not path.is_file():
+                  continue
+              relative = str(path.relative_to(source))
+              lock["blobs"][relative] = subprocess.check_output(
+                  ["git", "-C", str(source), "rev-parse", f"{pin}:{relative}"],
+                  text=True,
+              ).strip()
+          lock_path.write_text(json.dumps(lock, indent=2) + "\n")
+          PY
+
+          git rm .github/workflows/sync-todo-source-assets.yml
+          git add examples/counter/upstream/gpuix/example-app/assets examples/counter/upstream/gpuix/upstream-lock.json
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m "chore: vendor pinned Todo assets"
+          git push
