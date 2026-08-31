@@ -1,0 +1,52 @@
+name: Apply Todo source assets
+
+on:
+  push:
+    branches:
+      - fix/source-first-example-fidelity
+    paths:
+      - .github/workflows/apply-todo-source-assets.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Replace recreated Todo icons with exact pinned assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path("examples/counter/src/todo/app.tsx")
+          text = path.read_text()
+          imports = '''import iconCheck from "../../upstream/gpuix/example-app/assets/icons/check.svg?raw"\nimport iconCircleCheck from "../../upstream/gpuix/example-app/assets/icons/circle-check.svg?raw"\nimport iconInbox from "../../upstream/gpuix/example-app/assets/icons/inbox.svg?raw"\nimport iconPanelLeft from "../../upstream/gpuix/example-app/assets/icons/panel-left.svg?raw"\nimport iconPlus from "../../upstream/gpuix/example-app/assets/icons/plus.svg?raw"\nimport iconSearch from "../../upstream/gpuix/example-app/assets/icons/search.svg?raw"\nimport iconSettings from "../../upstream/gpuix/example-app/assets/icons/settings.svg?raw"\nimport iconSparkle from "../../upstream/gpuix/example-app/assets/icons/sparkle.svg?raw"\nimport iconStar from "../../upstream/gpuix/example-app/assets/icons/star.svg?raw"\nimport iconSun from "../../upstream/gpuix/example-app/assets/icons/sun.svg?raw"\nimport iconTrash from "../../upstream/gpuix/example-app/assets/icons/trash.svg?raw"\n'''
+          anchor = 'import { animate, type EventPayload } from "gpuix-solid"\n'
+          if imports not in text:
+              text = text.replace(anchor, anchor + imports)
+
+          text = text.replace(
+              'const FONT = "Helvetica"\nconst SIDEBAR_WIDTH = 236\nconst CONTENT_MAX_WIDTH = 640\nconst TITLEBAR_CLEARANCE = process.platform === "darwin" ? 86 : 20',
+              'const FONT = typeof window === "undefined" ? "Helvetica" : "IBM Plex Sans"\nconst SIDEBAR_WIDTH = 236\nconst CONTENT_MAX_WIDTH = 640\nconst TITLEBAR_CLEARANCE =\n  typeof process !== "undefined" && process.platform === "darwin" ? 86 : 20',
+          )
+
+          replacement = '''const ICONS = {\n  check: iconCheck,\n  circleCheck: iconCircleCheck,\n  inbox: iconInbox,\n  panelLeft: iconPanelLeft,\n  plus: iconPlus,\n  search: iconSearch,\n  settings: iconSettings,\n  sparkle: iconSparkle,\n  star: iconStar,\n  sun: iconSun,\n  trash: iconTrash,\n} as const'''
+          text, count = re.subn(r'const ICONS = \{.*?\n\} as const', replacement, text, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit(f"expected one ICONS block, replaced {count}")
+          path.write_text(text)
+          PY
+
+          git rm .github/workflows/apply-todo-source-assets.yml
+          git add examples/counter/src/todo/app.tsx
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m "Restore Todo upstream icon assets"
+          git push
