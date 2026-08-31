@@ -1,0 +1,21 @@
+name: Ready PR 56 via REST
+
+on:
+  push:
+    branches:
+      - experiment/ready-pr56
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  ready:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clear draft flag with REST API
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/pulls/56" -f draft=false
+          test "$(gh pr view 56 --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = "false"
