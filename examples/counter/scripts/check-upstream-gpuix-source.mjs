@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url"
 const here = dirname(fileURLToPath(import.meta.url))
 const repoRoot = join(here, "..", "..", "..")
 const upstreamRoot = join(here, "..", "upstream")
-const sourceNames = ["gpuix", "codeimage", "tanstack-router"]
+const sourceNames = ["gpuix", "codeimage", "tanstack-router", "dashboard"]
 
 function gitBlobSha(path) {
   const repoPath = relative(repoRoot, path).replaceAll("\\", "/")
