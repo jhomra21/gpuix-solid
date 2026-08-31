@@ -4,7 +4,7 @@ import { ChatApp } from "./shell"
 applyMacCpuThrottleFromEnv()
 
 render(() => <ChatApp turnCount={1_000} includeSafeMdx />, {
-  title: "GPUix Solid Chat · 1,000 messages",
+  title: "GPUIX Chat · 1,000 messages",
   width: 1180,
   height: 820,
   titlebarTransparent: true,
