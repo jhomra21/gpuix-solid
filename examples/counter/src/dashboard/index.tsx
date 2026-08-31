@@ -1,5 +1,5 @@
 import { render } from "gpuix-solid"
-import { DashboardDemo } from "./app"
+import { DashboardDemo } from "./source/app"
 
 render(() => <DashboardDemo />, {
   title: "GPUix Solid Dashboard",
