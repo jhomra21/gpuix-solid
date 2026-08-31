@@ -1,4 +1,5 @@
 import { Show, createSignal, lazy } from "solid-js"
+import type { PublicInstance } from "gpuix-solid"
 import {
   adaptiveFullScreenHeight,
   BottomBar,
@@ -38,13 +39,13 @@ import { Suspense, onMount } from "./solid-compat"
 const ManagedFrame = lazy(async () => ({ default: NativeManagedFrame }))
 
 export function App() {
-  const [frameRef, setFrameRef] = createSignal<unknown>()
-  const [portalHostRef, setPortalHostRef] = createSignal<unknown>()
+  const [frameRef, setFrameRef] = createSignal<PublicInstance>()
+  const [portalHostRef, setPortalHostRef] = createSignal<PublicInstance>()
   const modality = useModality()
   const frameStore = getFrameState()
   const exportCanvasStore = getExportCanvasStore()
   const { readOnly, clone } = getEditorSyncAdapter()
-  const initCanvas: (ref: () => unknown) => void = exportCanvasStore.initCanvas
+  const initCanvas: (ref: () => PublicInstance | undefined) => void = exportCanvasStore.initCanvas
   onMount(() => initCanvas(frameRef))
 
   return (
