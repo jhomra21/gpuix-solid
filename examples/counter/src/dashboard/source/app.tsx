@@ -57,7 +57,7 @@ export function DashboardDemo(): SolidElement {
           <text testId="page-title" style={{ color: palette.text, fontSize: 12, fontWeight: 600 }}>{pageName(route())}</text>
         </div>
 
-        <div style={{ flexGrow: 1, minHeight: 0, overflowY: "scroll", padding: 20 }}>
+        <div testId="dashboard-content" style={{ flexGrow: 1, minHeight: 0, overflowY: "scroll", padding: 20 }}>
           <Switch>
             <Match when={loggedOut()}>
               <div testId="logged-out" style={{ padding: 24, gap: 8 }}>
