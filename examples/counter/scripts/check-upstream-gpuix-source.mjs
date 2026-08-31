@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url"
 
 const here = dirname(fileURLToPath(import.meta.url))
 const upstreamRoot = join(here, "..", "upstream")
-const sourceNames = ["gpuix", "codeimage"]
+const sourceNames = ["gpuix", "codeimage", "tanstack-router"]
 
 function gitBlobSha(bytes) {
   const header = Buffer.from(`blob ${bytes.length}\0`)

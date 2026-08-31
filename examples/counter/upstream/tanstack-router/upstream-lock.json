@@ -1,0 +1,22 @@
+{
+  "repository": "TanStack/router",
+  "commit": "b6984af74dd561b8ee7e2d7369898a536dda70c2",
+  "blobs": {
+    "LICENSE": "1869e21fc3c80b3010c3e60c5ab6dda077ce1f22",
+    "examples/solid/kitchen-sink-solid-query-file-based/src/components/InvoiceFields.tsx": "de6246bd651a92863313f391a5cebc486f543160",
+    "examples/solid/kitchen-sink-solid-query-file-based/src/components/Spinner.tsx": "2f1fa3e52301022ca732b5e721e7c86811e461f5",
+    "examples/solid/kitchen-sink-solid-query-file-based/src/routes/__root.tsx": "89968676bc6094adb4aa1dbcb53c2e799be96979",
+    "examples/solid/kitchen-sink-solid-query-file-based/src/routes/index.tsx": "eed999166825443f324eee172a2fea1ab57e3eb3",
+    "examples/solid/kitchen-sink-solid-query-file-based/src/routes/login.tsx": "3dd460a877cdef95124a0e8983dd5c2ee6b6eda3",
+    "examples/solid/kitchen-sink-solid-query-file-based/src/routes/dashboard.route.tsx": "056483eb1ad71ee46524cb18fe9006cfb4341c8f",
+    "examples/solid/kitchen-sink-solid-query-file-based/src/routes/dashboard.index.tsx": "a0985ab160dba8fd3691e33028f963185373cfcc",
+    "examples/solid/kitchen-sink-solid-query-file-based/src/routes/dashboard.invoices.route.tsx": "705f94adacf34106b352ffcdc757688250c9a014",
+    "examples/solid/kitchen-sink-solid-query-file-based/src/routes/dashboard.invoices.index.tsx": "97c7db8d149147e2b508e7edfca882c9df1354be",
+    "examples/solid/kitchen-sink-solid-query-file-based/src/routes/dashboard.invoices.$invoiceId.tsx": "125ccf6ee03570c84696a78f149e6419a0287442",
+    "examples/solid/kitchen-sink-solid-query-file-based/src/routes/dashboard.users.route.tsx": "387f899afbcf55dfb98c2b1dcfe2ec208d6c0c16",
+    "examples/solid/kitchen-sink-solid-query-file-based/src/routes/dashboard.users.index.tsx": "75ca9dbf93a9e006caefa8d321cd84d7a2aa899e",
+    "examples/solid/kitchen-sink-solid-query-file-based/src/routes/dashboard.users.user.tsx": "26e51474eea51219f4f226f56d907a65bc47bc56",
+    "examples/solid/kitchen-sink-solid-query-file-based/src/utils/queryOptions.ts": "78150ea272782d60116bbcfbe616f02cd6630021",
+    "examples/solid/kitchen-sink-solid-query-file-based/src/utils/mockTodos.ts": "475d0fa88fb67beb959cc38edbdfe7930f9196c3"
+  }
+}
