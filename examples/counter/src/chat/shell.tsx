@@ -836,16 +836,18 @@ export function ChatApp(props: ChatAppProps = {}): SolidElement {
 
   const title = createMemo(() => CONVERSATIONS.find((conversation) => conversation.id === activeId())?.title ?? "")
 
-  createEffect(() => {
-    const rowCount = turns().length + (props.includeSafeMdx ? 1 : 0)
-    if (skipScroll) {
-      skipScroll = false
-      return
-    }
-    const id = listRef?.id
-    if (id === undefined || !renderer?.scrollToItem || rowCount === 0) return
-    queueMicrotask(() => renderer.scrollToItem?.(id, rowCount - 1))
-  })
+  createEffect(
+    () => turns().length + (props.includeSafeMdx ? 1 : 0),
+    (rowCount) => {
+      if (skipScroll) {
+        skipScroll = false
+        return
+      }
+      const id = listRef?.id
+      if (id === undefined || !renderer?.scrollToItem || rowCount === 0) return
+      queueMicrotask(() => renderer.scrollToItem?.(id, rowCount - 1))
+    },
+  )
 
   return (
     <div style={{ display: "flex", flexDirection: "row", width: "100%", height: "100%", backgroundColor: C.canvas, fontFamily: FONT_SANS, color: C.text }}>
