@@ -3,7 +3,8 @@
   "compilerOptions": {
     "jsx": "preserve",
     "jsxImportSource": "gpuix-solid",
-    "noEmit": true
+    "noEmit": true,
+    "exactOptionalPropertyTypes": false
   },
   "include": ["src", "vite*.config.ts"]
 }
