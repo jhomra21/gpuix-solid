@@ -1,4 +1,7 @@
-import type { Element as SolidElement } from "solid-js"
+import {
+  Suspense as SolidSuspense,
+  type Element as SolidElement,
+} from "solid-js"
 
 interface SuspenseProps {
   children?: SolidElement | undefined
@@ -6,7 +9,11 @@ interface SuspenseProps {
 }
 
 export function Suspense(props: SuspenseProps) {
-  return <>{props.children}</>
+  return (
+    <SolidSuspense fallback={props.fallback}>
+      {props.children}
+    </SolidSuspense>
+  )
 }
 
 export function onMount(effect: () => void): void {
