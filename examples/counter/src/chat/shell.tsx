@@ -224,7 +224,7 @@ const SELECTION_CODE = `pub fn resolve_spans(
         let from = if ei == start.0 { start.1 } else { 0 };
         let to = if ei == end.0 { end.1 } else { text.len() };
         if from < to {
-  spans.push(Span { key: key.to_string(), range: from..to });
+            spans.push(Span { key: key.to_string(), range: from..to });
         }
     }
     spans
@@ -338,8 +338,10 @@ function IconButton(props: IconButtonProps): SolidElement {
     justifyContent: "center",
     cursor: "pointer",
     opacity: props.dimmed ? 0.35 : 1,
-    hover: { backgroundColor: props.dimmed ? "#00000000" : C.overlay },
-    active: { backgroundColor: props.dimmed ? "#00000000" : C.overlayStrong },
+  }
+  if (!props.dimmed) {
+    style.hover = { backgroundColor: C.overlay }
+    style.active = { backgroundColor: C.overlayStrong }
   }
   if (props.testId !== undefined) {
     return <div testId={props.testId} style={style} onClick={() => props.onClick?.()}>{icon}</div>
@@ -364,7 +366,7 @@ function SidebarAction(props: { icon: IconName; label: string }): SolidElement {
         active: { backgroundColor: C.overlayStrong },
       }}
     >
-      <div style={{ width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ width: 20, height: 20, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <Icon name={props.icon} size={14} color={C.secondary} />
       </div>
       <text style={{ fontSize: 13, color: C.secondary }}>{props.label}</text>
@@ -393,19 +395,19 @@ function Sidebar(props: { activeId: string; onSelect(id: string): void; onCollap
       <div style={{ display: "flex", flexDirection: "row", alignItems: "center", height: TITLEBAR_HEIGHT, flexShrink: 0 }}>
         <div style={{ width: TRAFFIC_LIGHT_CLEARANCE, height: "100%", flexShrink: 0 }} />
         <IconButton icon="sidebar" size={16} testId="sidebar-collapse" onClick={props.onCollapse} />
-        <div style={{ display: "flex", flexDirection: "row", gap: 2, marginLeft: 6 }}>
+        <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 2, marginLeft: 6 }}>
           <IconButton icon="arrowLeft" dimmed />
           <IconButton icon="arrowRight" dimmed />
         </div>
       </div>
-      <div style={{ paddingLeft: 10, paddingRight: 10 }}><SidebarAction icon="compose" label="New Task" /></div>
+      <div style={{ display: "flex", flexDirection: "column", paddingLeft: 10, paddingRight: 10 }}><SidebarAction icon="compose" label="New Task" /></div>
       <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, minHeight: 0, overflowY: "scroll", paddingLeft: 10, paddingRight: 10 }}>
         <div style={{ paddingBottom: 6 }}><SidebarAction icon="search" label="Search" /></div>
         <For each={groups()}>
           {(group, groupIndex) => (
             <div style={{ display: "flex", flexDirection: "column", paddingBottom: 10 }}>
               <div style={{ display: "flex", flexDirection: "row", alignItems: "center", height: 28, paddingLeft: 8, paddingRight: 8 }}>
-                <text style={{ fontSize: 13, fontWeight: 500, color: C.secondary, flexGrow: 1 }}>{group.name}</text>
+                <text style={{ fontSize: 13, fontWeight: 500, color: C.secondary, flexGrow: 1, minWidth: 0 }}>{group.name}</text>
                 <Show when={groupIndex() === 0}><Icon name="listFilter" size={14} color={C.secondary} /></Show>
               </div>
               <For each={group.items}>
@@ -429,8 +431,8 @@ function Sidebar(props: { activeId: string; onSelect(id: string): void; onCollap
                     <text style={{ fontSize: 13.5, lineHeight: 18, color: C.text, whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{conversation.title}</text>
                     <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 5 }}>
                       <Icon name="folder" size={12.5} color={C.tertiary} />
-                      <text style={{ fontSize: 13, color: C.tertiary, flexGrow: 1, minWidth: 0, whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{conversation.project}</text>
-                      <text style={{ fontSize: 12.5, color: C.ghost }}>{conversation.time}</text>
+                      <text style={{ fontSize: 13, lineHeight: 15, color: C.tertiary, flexGrow: 1, minWidth: 0, whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{conversation.project}</text>
+                      <text style={{ fontSize: 12.5, color: C.ghost, flexShrink: 0 }}>{conversation.time}</text>
                     </div>
                   </div>
                 )}
@@ -439,7 +441,7 @@ function Sidebar(props: { activeId: string; onSelect(id: string): void; onCollap
           )}
         </For>
       </div>
-      <div style={{ display: "flex", alignItems: "center", height: 40, paddingLeft: 10, paddingRight: 10 }}><IconButton icon="settings" /></div>
+      <div style={{ display: "flex", flexDirection: "row", alignItems: "center", height: 40, flexShrink: 0, paddingLeft: 10, paddingRight: 10 }}><IconButton icon="settings" /></div>
     </div>
   )
 }
@@ -458,8 +460,10 @@ function WorkedFor(props: { duration: string }): SolidElement {
   return (
     <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 10, height: 24, width: "100%" }}>
       <div style={{ height: 1, flexGrow: 1, backgroundColor: C.border }} />
-      <text style={{ fontSize: 13.5, fontWeight: 500, color: C.tertiary }}>{props.duration}</text>
-      <Icon name="chevronRight" size={11.5} color={C.tertiary} />
+      <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 5, flexShrink: 0 }}>
+        <text style={{ fontSize: 13.5, lineHeight: 18, fontWeight: 500, color: C.tertiary }}>{props.duration}</text>
+        <Icon name="chevronRight" size={11.5} color={C.tertiary} />
+      </div>
       <div style={{ height: 1, flexGrow: 1, backgroundColor: C.border }} />
     </div>
   )
@@ -733,7 +737,7 @@ function ModeToggle(props: { value: "build" | "plan"; onChange(value: "build" | 
   return (
     <div testId="mode-toggle" style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 6, height: 26, paddingLeft: 7, paddingRight: 7, borderRadius: 6, cursor: "pointer", hover: { backgroundColor: C.overlay } }} onClick={() => props.onChange(plan() ? "build" : "plan")}>
       <Icon name={plan() ? "list" : "wrench"} size={12} color={plan() ? C.accent : C.tertiary} />
-      <text style={{ fontSize: 13, color: plan() ? C.accent : C.secondary }}>{plan() ? "Plan" : "Build"}</text>
+      <text style={{ fontSize: 13, lineHeight: 16, color: plan() ? C.accent : C.secondary }}>{plan() ? "Plan" : "Build"}</text>
     </div>
   )
 }
@@ -768,7 +772,7 @@ function Composer(props: ComposerProps): SolidElement {
           <AccessPicker value={props.access} onChange={props.onAccessChange} />
           <ModeToggle value={props.mode} onChange={props.onModeChange} />
           <div style={{ flexGrow: 1 }} />
-          <div testId="send" style={{ width: 26, height: 26, borderRadius: 13, display: "flex", alignItems: "center", justifyContent: "center", cursor: ready() ? "pointer" : "default", backgroundColor: ready() ? C.inverse : C.overlayStrong }} onClick={() => send(props.value)}><Icon name="send" size={16} color={ready() ? C.onInverse : C.ghost} /></div>
+          <div testId="send" style={{ width: 26, height: 26, borderRadius: 13, display: "flex", alignItems: "center", justifyContent: "center", cursor: ready() ? "pointer" : undefined, backgroundColor: ready() ? C.inverse : C.overlayStrong, hover: ready() ? { opacity: 0.9 } : undefined }} onClick={() => send(props.value)}><Icon name="send" size={16} color={ready() ? C.onInverse : C.ghost} /></div>
         </div>
       </div>
     </div>
