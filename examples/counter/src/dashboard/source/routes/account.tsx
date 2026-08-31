@@ -1,6 +1,6 @@
 import { Show, createSignal, type Element as SolidElement } from "solid-js"
 import type { EventPayload } from "gpuix-solid"
-import { Button, Card, Divider, inputStyle, palette } from "../native"
+import { Button, Card, DialogSurface, Divider, inputStyle, palette } from "../native"
 
 export function AccountRoute(): SolidElement {
   const [name, setName] = createSignal("User")
@@ -71,7 +71,7 @@ export function AccountRoute(): SolidElement {
       </Card>
 
       <Show when={showDeleteDialog()}>
-        <Card style={{ backgroundColor: palette.muted }}>
+        <DialogSurface testId="account-delete-dialog">
           <text style={{ color: palette.destructive, fontSize: 16, fontWeight: 600 }}>Delete Account</text>
           <text style={{ color: palette.secondary, fontSize: 12, lineHeight: 18 }}>This action cannot be undone. This will permanently delete your account and remove all your data from our servers.</text>
           <text style={{ color: palette.text, fontSize: 12, fontWeight: 500 }}>Password</text>
@@ -82,7 +82,7 @@ export function AccountRoute(): SolidElement {
             <Button onClick={() => setShowDeleteDialog(false)}><text style={{ color: palette.text, fontSize: 12 }}>Cancel</text></Button>
             <Button testId="account-delete-confirm" active={deleteConfirmation() === "DELETE"} onClick={() => { if (deleteConfirmation() === "DELETE") { setDeleted(true); setShowDeleteDialog(false) } }}><text style={{ color: deleteConfirmation() === "DELETE" ? palette.white : palette.destructive, fontSize: 12 }}>Delete Account</text></Button>
           </div>
-        </Card>
+        </DialogSurface>
       </Show>
     </div>
   )
