@@ -17,6 +17,10 @@ export function AccountRoute(): SolidElement {
         <text style={{ color: palette.secondary, fontSize: 12 }}>Manage your account, preferences, and data.</text>
       </div>
 
+      <text testId="account-delete-status" style={{ color: palette.destructive, fontSize: 12 }}>
+        {deleted() ? "Account deleted successfully" : ""}
+      </text>
+
       <Card>
         <text style={{ color: palette.text, fontSize: 16, fontWeight: 600 }}>Profile Information</text>
         <Divider />
@@ -80,8 +84,6 @@ export function AccountRoute(): SolidElement {
           </div>
         </Card>
       </Show>
-
-      <Show when={deleted()}><text testId="account-deleted" style={{ color: palette.destructive, fontSize: 12 }}>Account deleted successfully</text></Show>
     </div>
   )
 }
