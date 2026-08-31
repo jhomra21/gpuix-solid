@@ -641,23 +641,22 @@ function ChipSelect(props: ChipSelectProps): SolidElement {
   const triggerStyle = (state: { open: boolean }): StyleDesc => ({
     display: "flex", flexDirection: "row", alignItems: "center", gap: 6, height: 26, paddingLeft: 7, paddingRight: 7, borderRadius: 6, cursor: "pointer", backgroundColor: state.open ? C.overlay : "#00000000", hover: { backgroundColor: C.overlay },
   })
-  const trigger = props.testId === undefined ? (
-    <SelectTrigger style={triggerStyle}>
-      <Icon name={props.icon} size={12} color={props.accent ? C.accent : C.tertiary} />
-      <text style={{ fontSize: 13, lineHeight: 16, color: props.accent ? C.accent : C.secondary, whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{props.label}</text>
-      <Show when={props.caret ?? true}><Icon name="chevronDown" size={10.5} color={C.ghost} /></Show>
-    </SelectTrigger>
-  ) : (
-    <SelectTrigger testId={props.testId} style={triggerStyle}>
-      <Icon name={props.icon} size={12} color={props.accent ? C.accent : C.tertiary} />
-      <text style={{ fontSize: 13, lineHeight: 16, color: props.accent ? C.accent : C.secondary, whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{props.label}</text>
-      <Show when={props.caret ?? true}><Icon name="chevronDown" size={10.5} color={C.ghost} /></Show>
-    </SelectTrigger>
-  )
   return (
     <Select value={props.value} onValueChange={props.onChange} style={{ flexShrink: 0 }}>
       <div style={{ position: "relative", display: "flex" }}>
-        {trigger}
+        {props.testId === undefined ? (
+          <SelectTrigger style={triggerStyle}>
+            <Icon name={props.icon} size={12} color={props.accent ? C.accent : C.tertiary} />
+            <text style={{ fontSize: 13, lineHeight: 16, color: props.accent ? C.accent : C.secondary, whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{props.label}</text>
+            <Show when={props.caret ?? true}><Icon name="chevronDown" size={10.5} color={C.ghost} /></Show>
+          </SelectTrigger>
+        ) : (
+          <SelectTrigger testId={props.testId} style={triggerStyle}>
+            <Icon name={props.icon} size={12} color={props.accent ? C.accent : C.tertiary} />
+            <text style={{ fontSize: 13, lineHeight: 16, color: props.accent ? C.accent : C.secondary, whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{props.label}</text>
+            <Show when={props.caret ?? true}><Icon name="chevronDown" size={10.5} color={C.ghost} /></Show>
+          </SelectTrigger>
+        )}
         <SelectContent side="top" sideOffset={4} style={{ ...MENU_STYLE, minWidth: props.menuWidth ?? 220 }}>{props.children}</SelectContent>
       </div>
     </Select>
