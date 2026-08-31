@@ -5,8 +5,21 @@ export type { Root } from "./root.js"
 export { startFrameLoop } from "./frame-loop.js"
 export type { FrameLoop, TickRenderer } from "./frame-loop.js"
 export { GpuixContext, useGpuix, useGpuixRequired } from "./context.js"
-export { useWindowSize } from "./hooks/use-window-size.js"
-export type { WindowSize } from "./hooks/use-window-size.js"
+export {
+  MAC_CPU_THROTTLES,
+  applyMacCpuThrottleFromEnv,
+  readMacCpuThrottle,
+} from "./cpu-throttle.js"
+export type { MacCpuThrottle } from "./cpu-throttle.js"
+export { findRanges, useTextSearch } from "./hooks/use-text-search.js"
+export type { FindRangesOptions, TextSearch, TextSearchOptions } from "./hooks/use-text-search.js"
+export { useWindowInsets, useWindowSize } from "./hooks/use-window-size.js"
+export type {
+  WindowInsets,
+  WindowInsetsOptions,
+  WindowSize,
+  WindowSizeOptions,
+} from "./hooks/use-window-size.js"
 export type { SlotRenderer } from "./components/floating.js"
 
 export {
@@ -115,18 +128,24 @@ export { Errored, For, Loading, Match, Repeat, Reveal, Show, Switch } from "soli
 export type {
   AnchoredProps,
   CodeProps,
+  CursorValue,
   DebugFrameOverlayMode,
+  DebugFrameOverlayStats,
   DiffProps,
   DimensionValue,
+  EdgeInsets,
   ElementType,
   EventPayload,
   GpuixMetrics,
   GpuixTheme,
+  HighlightMatch,
+  HighlightSpec,
   HostProps,
   ImgProps,
   InputProps,
   MarkdownProps,
   NativeRenderer,
+  NativeWindowInsets,
   PublicInstance,
   StyleDesc,
   SyntaxTheme,

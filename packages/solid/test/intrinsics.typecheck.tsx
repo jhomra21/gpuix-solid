@@ -117,11 +117,6 @@ const theme: GpuixTheme = {
   metrics: {
     codeTextSize: 13,
     codeLineHeight: 20,
-    codePaddingX: 12,
-    codePaddingY: 10,
-    codeRadius: 8,
-    codeHeaderPaddingY: 6,
-    codeHeaderTextSize: 11,
     codeGutterDigitWidth: 8,
     codeGutterPaddingRight: 8,
     codeGutterMinWidth: 28,
@@ -144,6 +139,11 @@ const theme: GpuixTheme = {
     mdTableMinColumnWidth: 80,
     mdTableMinColumnContent: 40,
     mdInlineCodeRadius: 4,
+    mdCodePaddingX: 12,
+    mdCodePaddingY: 10,
+    mdCodeRadius: 8,
+    mdCodeHeaderPaddingY: 6,
+    mdCodeHeaderTextSize: 11,
   },
 }
 
@@ -156,7 +156,9 @@ export function IntrinsicSurfaceFixture() {
     <div
       style={style}
       ref={(instance) => { refInstance = instance }}
+      highlight={{ query: "GPUix", activeIndex: 0, radius: 2 }}
       onClick={onEvent}
+      onAuxClick={onEvent}
       onMouseDown={onEvent}
       onMouseUp={onEvent}
       onMouseEnter={onEvent}
@@ -174,6 +176,7 @@ export function IntrinsicSurfaceFixture() {
       onShowMore={onEvent}
       onLineClick={onEvent}
       onLinkClick={onEvent}
+      onHighlight={onEvent}
       autoFocus
       tabIndex={0}
       testId="surface-root"
@@ -227,6 +230,14 @@ export function IntrinsicSurfaceFixture() {
         style={{ height: 200 }}
       >
         <text>row</text>
+      </virtual-list>
+      <virtual-list
+        itemCount={200}
+        estimatedItemHeight={28}
+        windowStart={40}
+        style={{ height: 200 }}
+      >
+        <text>windowed row</text>
       </virtual-list>
       {refInstance ? <text>{refInstance.type}</text> : null}
     </div>

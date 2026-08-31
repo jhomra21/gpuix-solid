@@ -26,6 +26,19 @@ export interface DebugFrameOverlayStats {
   samples: number
 }
 
+export interface EdgeInsets {
+  top: number
+  right: number
+  bottom: number
+  left: number
+}
+
+export interface NativeWindowInsets {
+  safeArea: EdgeInsets
+  ime: EdgeInsets
+  effective: EdgeInsets
+}
+
 /** Internal native animation style passed through the GPUIX `motion` wire prop. */
 export interface MotionStyle {
   width?: number
@@ -62,6 +75,37 @@ export interface MotionProps {
   animate: MotionStyle
   transition?: MotionTransition
 }
+
+export type CursorValue =
+  | "default"
+  | "auto"
+  | "pointer"
+  | "text"
+  | "vertical-text"
+  | "crosshair"
+  | "grab"
+  | "grabbing"
+  | "move"
+  | "all-scroll"
+  | "col-resize"
+  | "row-resize"
+  | "ew-resize"
+  | "ns-resize"
+  | "nwse-resize"
+  | "nesw-resize"
+  | "n-resize"
+  | "e-resize"
+  | "s-resize"
+  | "w-resize"
+  | "ne-resize"
+  | "nw-resize"
+  | "se-resize"
+  | "sw-resize"
+  | "not-allowed"
+  | "no-drop"
+  | "alias"
+  | "copy"
+  | "context-menu"
 
 export interface BoxShadow {
   offsetX: number
@@ -147,7 +191,7 @@ export interface StyleDesc {
   overflowX?: string
   overflowY?: string
 
-  cursor?: string
+  cursor?: CursorValue
   pointerEvents?: "auto" | "none"
   userSelect?: "text" | "none" | "auto"
   selectionColor?: string
@@ -186,11 +230,6 @@ export interface SyntaxTheme {
 export interface GpuixMetrics {
   codeTextSize?: number
   codeLineHeight?: number
-  codePaddingX?: number
-  codePaddingY?: number
-  codeRadius?: number
-  codeHeaderPaddingY?: number
-  codeHeaderTextSize?: number
   codeGutterDigitWidth?: number
   codeGutterPaddingRight?: number
   codeGutterMinWidth?: number
@@ -215,6 +254,11 @@ export interface GpuixMetrics {
   mdTableMinColumnWidth?: number
   mdTableMinColumnContent?: number
   mdInlineCodeRadius?: number
+  mdCodePaddingX?: number
+  mdCodePaddingY?: number
+  mdCodeRadius?: number
+  mdCodeHeaderPaddingY?: number
+  mdCodeHeaderTextSize?: number
 }
 
 export interface GpuixTheme {
@@ -236,6 +280,28 @@ export interface GpuixTheme {
   fontMono?: string
   syntax?: SyntaxTheme
   metrics?: GpuixMetrics
+}
+
+export interface HighlightSpec {
+  query?: string
+  caseSensitive?: boolean
+  wholeWord?: boolean
+  ranges?: Array<[number, number]>
+  color?: string
+  activeColor?: string
+  activeIndex?: number
+  matchIndexOffset?: number
+  radius?: number
+}
+
+export interface HighlightMatch {
+  elementId: number
+  sub: number
+  text: string
+  start: number
+  end: number
+  active: boolean
+  rects: Array<{ x: number; y: number; width: number; height: number }>
 }
 
 export type DomCompatTarget = {
@@ -289,6 +355,7 @@ export interface HostProps {
   ref?: HostRef
 
   onClick?: HostEventHandler
+  onAuxClick?: HostEventHandler
   onMouseDown?: HostEventHandler
   onMouseUp?: HostEventHandler
   onMouseEnter?: HostEventHandler
@@ -307,7 +374,9 @@ export interface HostProps {
   onLineClick?: HostEventHandler
   onLinkClick?: HostEventHandler
   onVisibleRange?: HostEventHandler
+  onHighlight?: HostEventHandler
 
+  highlight?: HighlightSpec | HighlightSpec[] | null
   autoFocus?: boolean
   tabIndex?: number
   testId?: string
@@ -325,18 +394,27 @@ export interface TextareaProps extends InputProps {
   maxRows?: number
 }
 
-export interface VirtualListProps {
-  style?: StyleDesc
+type VirtualListShared = {
+  style?: Omit<StyleDesc, "hover" | "active">
   children?: unknown
   ref?: HostRef
   alignment?: "top" | "bottom"
   followTail?: boolean
   overdraw?: number
-  estimatedItemHeight?: number
-  itemCount?: number
-  windowStart?: number
   onVisibleRange?: HostEventHandler
 }
+
+export type VirtualListProps =
+  | (VirtualListShared & {
+      estimatedItemHeight?: number
+      itemCount?: never
+      windowStart?: never
+    })
+  | (VirtualListShared & {
+      itemCount: number
+      estimatedItemHeight: number
+      windowStart?: number
+    })
 
 export interface ImgProps extends HostProps {
   src?: string
@@ -411,11 +489,15 @@ export interface NativeRenderer {
   focusElement?(elementId: number): void
   blur?(): void
   scrollTo?(elementId: number, x: number, y: number): void
-  scrollToItem?(elementId: number, index: number): void
+  scrollToItem?(elementId: number, index: number, offsetInItem?: number): void
   getScrollOffset?(elementId: number): number[] | null
+  getListScrollTop?(elementId: number): number[] | null
   getSelectedText?(): string | null
   clearSelection?(): void
+  getPaintedHighlights?(): HighlightMatch[]
   getWindowSize?(): { width: number; height: number }
+  getWindowInsets?(): NativeWindowInsets
+  activateWindow?(): void
   setWindowTitle?(title: string): void
   setDebugFrameOverlay?(mode: DebugFrameOverlayMode): string
   getDebugFrameOverlay?(): string

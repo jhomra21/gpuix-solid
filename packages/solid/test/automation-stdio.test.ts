@@ -42,8 +42,11 @@ const tree: AutomationTreeNode = {
   ],
 }
 
+type MouseCall = readonly [string, number, number, number | undefined, number | undefined, string | undefined]
+
 class RecordingBackend implements AutomationBackend {
-  readonly clicks: Array<[number, number]> = []
+  readonly clicks: Array<readonly [number, number, number | undefined, string | undefined]> = []
+  readonly mouse: MouseCall[] = []
   readonly keys: Array<[number, string]> = []
   readonly screenshots: string[] = []
   nowMs = 0
@@ -58,8 +61,30 @@ class RecordingBackend implements AutomationBackend {
     return null
   }
 
-  click(x: number, y: number): void {
-    this.clicks.push([x, y])
+  click(x: number, y: number, button?: number, modifiers?: string): void {
+    this.clicks.push([x, y, button, modifiers])
+  }
+
+  mouseMove(x: number, y: number, pressedButton?: number, modifiers?: string): void {
+    this.mouse.push(["move", x, y, pressedButton, undefined, modifiers])
+  }
+
+  mouseDown(x: number, y: number, button?: number, modifiers?: string): void {
+    this.mouse.push(["down", x, y, button, undefined, modifiers])
+  }
+
+  mouseUp(x: number, y: number, button?: number, modifiers?: string): void {
+    this.mouse.push(["up", x, y, button, undefined, modifiers])
+  }
+
+  scrollWheel(
+    x: number,
+    y: number,
+    deltaX: number,
+    deltaY: number,
+    modifiers?: string,
+  ): void {
+    this.mouse.push(["wheel", x, y, deltaX, deltaY, modifiers])
   }
 
   keystrokes(elementId: number, keys: string): void {
@@ -132,13 +157,20 @@ describe("automation stdio protocol", () => {
     expect(messages).toEqual(["initialize"])
   })
 
-  it("round-trips locators, actions, clock, and screenshot over stdio", async () => {
+  it("round-trips locators, pointer input, clock, and screenshot over stdio", async () => {
     const backend = new RecordingBackend()
     const app = await connectInMemory(backend)
 
     expect(await app.getByTestId("action").textContent()).toBe("Run")
-    await app.getByTestId("action").click()
-    expect(backend.clicks).toEqual([[60, 40]])
+    await app.getByTestId("action").click({ button: 0, modifiers: "shift" })
+    expect(backend.clicks).toEqual([[60, 40, 0, "shift"]])
+
+    await app.getByTestId("action").hover()
+    await app.getByTestId("action").wheel(0, -80, { modifiers: "alt" })
+    expect(backend.mouse).toEqual([
+      ["move", 60, 40, undefined, undefined, undefined],
+      ["wheel", 60, 40, 0, -80, "alt"],
+    ])
 
     await app.getByTestId("field").fill("hi")
     const selectAll = process.platform === "darwin" ? "cmd-a" : "ctrl-a"
@@ -188,7 +220,8 @@ describe("automation stdio protocol", () => {
 })
 
 class FakeLiveRenderer implements LiveAutomationRenderer {
-  clicks: Array<[number, number]> = []
+  clicks: Array<readonly [number, number, number | undefined, string | undefined]> = []
+  mouse: MouseCall[] = []
   ticks = 0
 
   tick(): boolean {
@@ -196,10 +229,33 @@ class FakeLiveRenderer implements LiveAutomationRenderer {
     return true
   }
 
-  simulateClick(x: number, y: number): void {
-    this.clicks.push([x, y])
+  simulateClick(x: number, y: number, button?: number, modifiers?: string): void {
+    this.clicks.push([x, y, button, modifiers])
   }
 
+  simulateMouseMove(x: number, y: number, pressedButton?: number, modifiers?: string): void {
+    this.mouse.push(["move", x, y, pressedButton, undefined, modifiers])
+  }
+
+  simulateMouseDown(x: number, y: number, button?: number, modifiers?: string): void {
+    this.mouse.push(["down", x, y, button, undefined, modifiers])
+  }
+
+  simulateMouseUp(x: number, y: number, button?: number, modifiers?: string): void {
+    this.mouse.push(["up", x, y, button, undefined, modifiers])
+  }
+
+  simulateScrollWheel(
+    x: number,
+    y: number,
+    deltaX: number,
+    deltaY: number,
+    modifiers?: string,
+  ): void {
+    this.mouse.push(["wheel", x, y, deltaX, deltaY, modifiers])
+  }
+
+  simulateKeystrokes(): void {}
   focusElement(): void {}
   blur(): void {}
   scrollTo(): void {}
@@ -218,20 +274,27 @@ class FakeLiveRenderer implements LiveAutomationRenderer {
 }
 
 describe("live automation backend", () => {
-  it("ticks after native clicks and exposes tree/bounds", () => {
+  it("ticks after native pointer input and exposes tree/bounds", () => {
     const renderer = new FakeLiveRenderer()
     const backend = new LiveAutomationBackend(renderer)
 
-    backend.click(12, 34)
-    expect(renderer.clicks).toEqual([[12, 34]])
-    expect(renderer.ticks).toBe(1)
+    backend.click(12, 34, 2, "alt")
+    backend.mouseMove(20, 40, 0, "shift")
+    backend.mouseDown(20, 40, 0)
+    backend.mouseUp(40, 60, 0)
+    backend.scrollWheel(40, 60, 0, -100)
+
+    expect(renderer.clicks).toEqual([[12, 34, 2, "alt"]])
+    expect(renderer.mouse).toHaveLength(4)
+    expect(renderer.ticks).toBe(5)
     expect(backend.getTree()?.testId).toBe("root")
     expect(backend.getBounds(2)).toEqual({ x: 10, y: 20, width: 100, height: 40 })
   })
 
-  it("reports live keystrokes as unsupported instead of simulating them in JS", () => {
-    const backend = new LiveAutomationBackend(new FakeLiveRenderer())
-    expect(() => backend.keystrokes(3, "a")).toThrowError(AutomationError)
-    expect(() => backend.keystrokes(3, "a")).toThrow(/does not expose keystroke injection/)
+  it("routes live keystrokes through the production renderer", () => {
+    const renderer = new FakeLiveRenderer()
+    const backend = new LiveAutomationBackend(renderer)
+    expect(() => backend.keystrokes(3, "a")).not.toThrow()
+    expect(renderer.ticks).toBe(1)
   })
 })

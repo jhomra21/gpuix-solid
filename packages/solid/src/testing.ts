@@ -2,10 +2,19 @@ import { createRequire } from "node:module"
 import type { EventPayload, TestGpuixRenderer as NativeTestRendererApi } from "@gpuix/native"
 import type { Element as SolidElement } from "solid-js"
 import { useDestroyUnlinksParentBatch, type MutationValue } from "./host/mutations.js"
-import type { DebugFrameOverlayMode, NativeRenderer, StyleDesc } from "./host/types.js"
+import type {
+  DebugFrameOverlayMode,
+  DebugFrameOverlayStats,
+  HighlightMatch,
+  NativeRenderer,
+  StyleDesc,
+} from "./host/types.js"
 import { createRoot, type Root } from "./root.js"
 
-type NativeTestRendererConstructor = new () => NativeTestRendererApi
+type NativeTestRendererConstructor = new (
+  width?: number | null,
+  height?: number | null,
+) => NativeTestRendererApi
 type NativeModule = { TestGpuixRenderer?: NativeTestRendererConstructor }
 
 function loadNativeTestRenderer(): NativeTestRendererConstructor | undefined {
@@ -55,25 +64,19 @@ function parseTree(json: string): NativeTreeNode | null {
   return JSON.parse(json) as NativeTreeNode | null
 }
 
-/**
- * Solid adapter over GPUIX's native TestGpuixRenderer.
- *
- * Structural state and layout remain in Rust. Solid's normal root/mutation
- * path drives this renderer, while native events are drained back through the
- * root-owned Solid event registry.
- */
+/** Solid adapter over GPUIX's native TestGpuixRenderer. */
 export class TestRenderer implements NativeRenderer {
   readonly #native: NativeTestRendererApi
   #root: Root | undefined
   commitCount = 0
 
-  constructor() {
+  constructor(width?: number, height?: number) {
     if (!NativeTestRenderer) {
       throw new Error(
         "Native TestGpuixRenderer not available. Use a native build with test support.",
       )
     }
-    this.#native = new NativeTestRenderer()
+    this.#native = new NativeTestRenderer(width, height)
   }
 
   bindRoot(root: Root): void {
@@ -184,9 +187,14 @@ export class TestRenderer implements NativeRenderer {
     this.#native.flush()
   }
 
-  nativeSimulateClick(x: number, y: number): void {
+  nativeSimulateClick(
+    x: number,
+    y: number,
+    button?: number,
+    modifiers?: string,
+  ): void {
     this.#native.flush()
-    this.#native.simulateClick(x, y)
+    this.#native.simulateClick(x, y, button, modifiers)
     this.dispatchNativeEvents()
     this.#native.flush()
   }
@@ -196,30 +204,46 @@ export class TestRenderer implements NativeRenderer {
     y: number,
     deltaX: number,
     deltaY: number,
+    modifiers?: string,
   ): void {
     this.#native.flush()
-    this.#native.simulateScrollWheel(x, y, deltaX, deltaY)
+    this.#native.simulateScrollWheel(x, y, deltaX, deltaY, modifiers)
     this.dispatchNativeEvents()
     this.#native.flush()
   }
 
-  nativeSimulateMouseMove(x: number, y: number, pressedButton?: number): void {
+  nativeSimulateMouseMove(
+    x: number,
+    y: number,
+    pressedButton?: number,
+    modifiers?: string,
+  ): void {
     this.#native.flush()
-    this.#native.simulateMouseMove(x, y, pressedButton)
+    this.#native.simulateMouseMove(x, y, pressedButton, modifiers)
     this.dispatchNativeEvents()
     this.#native.flush()
   }
 
-  nativeSimulateMouseDown(x: number, y: number, button = 0): void {
+  nativeSimulateMouseDown(
+    x: number,
+    y: number,
+    button = 0,
+    modifiers?: string,
+  ): void {
     this.#native.flush()
-    this.#native.simulateMouseDown(x, y, button)
+    this.#native.simulateMouseDown(x, y, button, modifiers)
     this.dispatchNativeEvents()
     this.#native.flush()
   }
 
-  nativeSimulateMouseUp(x: number, y: number, button = 0): void {
+  nativeSimulateMouseUp(
+    x: number,
+    y: number,
+    button = 0,
+    modifiers?: string,
+  ): void {
     this.#native.flush()
-    this.#native.simulateMouseUp(x, y, button)
+    this.#native.simulateMouseUp(x, y, button, modifiers)
     this.dispatchNativeEvents()
     this.#native.flush()
   }
@@ -237,9 +261,9 @@ export class TestRenderer implements NativeRenderer {
     this.#native.flush()
   }
 
-  scrollToItem(elementId: number, index: number): void {
+  scrollToItem(elementId: number, index: number, offsetInItem?: number): void {
     this.#native.flush()
-    this.#native.scrollToItem(elementId, index)
+    this.#native.scrollToItem(elementId, index, offsetInItem)
     this.#native.flush()
   }
 
@@ -253,6 +277,24 @@ export class TestRenderer implements NativeRenderer {
       throw new Error("Native scroll offset did not contain two coordinates")
     }
     return [x, y]
+  }
+
+  getWindowSize(): { width: number; height: number } {
+    this.#native.flush()
+    return this.#native.getWindowSize()
+  }
+
+  getListScrollTop(elementId: number): [number, number, number] | null {
+    this.#native.flush()
+    const anchor = this.#native.getListScrollTop(elementId)
+    if (!anchor) return null
+    const itemIndex = anchor[0]
+    const offsetInItem = anchor[1]
+    const viewportHeight = anchor[2]
+    if (itemIndex === undefined || offsetInItem === undefined || viewportHeight === undefined) {
+      throw new Error("Native list scroll anchor did not contain three values")
+    }
+    return [itemIndex, offsetInItem, viewportHeight]
   }
 
   dragSelect(x1: number, y1: number, x2: number, y2: number): string | null {
@@ -270,7 +312,13 @@ export class TestRenderer implements NativeRenderer {
   }
 
   getPaintedText(): string[] {
+    this.#native.flush()
     return this.#native.getPaintedText()
+  }
+
+  getPaintedHighlights(): HighlightMatch[] {
+    this.#native.flush()
+    return this.#native.getPaintedHighlights()
   }
 
   getSyntaxCacheStats(): [number, number, number] {
@@ -298,6 +346,10 @@ export class TestRenderer implements NativeRenderer {
 
   resetDebugFrameOverlayStats(): void {
     this.#native.resetDebugFrameOverlayStats()
+  }
+
+  getDebugFrameOverlayStats(): DebugFrameOverlayStats {
+    return this.#native.getDebugFrameOverlayStats()
   }
 
   getRoot(): TestElement | undefined {
@@ -411,8 +463,8 @@ export interface TestRoot {
 }
 
 /** Create a Solid root backed by the real GPUI native test renderer. */
-export function createTestRoot(): TestRoot {
-  const renderer = new TestRenderer()
+export function createTestRoot(width?: number, height?: number): TestRoot {
+  const renderer = new TestRenderer(width, height)
   useDestroyUnlinksParentBatch(renderer)
   const root = createRoot(renderer)
   renderer.bindRoot(root)

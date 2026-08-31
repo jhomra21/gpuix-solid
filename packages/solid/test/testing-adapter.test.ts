@@ -37,6 +37,17 @@ describe("native TestRenderer adapter", () => {
     unmount()
   })
 
+  nativeIt("reports the granted native window size", () => {
+    const { renderer, unmount } = createTestRoot(320, 200)
+
+    const size = renderer.getWindowSize()
+    expect(size.width).toBeGreaterThan(0)
+    expect(size.height).toBeGreaterThan(0)
+    expect(size).not.toEqual({ width: 800, height: 600 })
+
+    unmount()
+  })
+
   nativeIt("routes simulated GPUI clicks through the root-owned Solid event registry", () => {
     const { renderer, render, unmount } = createTestRoot()
     let clicks = 0

@@ -11,7 +11,7 @@ import { createRoot } from "../src/root.js"
 import { CapabilityRenderer } from "./capability-renderer.js"
 
 describe("native capabilities", () => {
-  it("exposes the active renderer to Solid components", () => {
+  it("exposes the published GPUIX 0.6 renderer capabilities to Solid components", () => {
     const renderer = new CapabilityRenderer()
     const root = createRoot(renderer)
     let activeRenderer: NativeRenderer | undefined
@@ -27,20 +27,28 @@ describe("native capabilities", () => {
     activeRenderer.focusElement?.(7)
     activeRenderer.blur?.()
     activeRenderer.scrollTo?.(7, -4, -8)
-    activeRenderer.scrollToItem?.(7, 12)
+    activeRenderer.scrollToItem?.(7, 12, -6)
     expect(activeRenderer.getScrollOffset?.(7)).toEqual([-4, -8])
+    expect(activeRenderer.getListScrollTop?.(7)).toEqual([12, -6, 480])
     expect(activeRenderer.getSelectedText?.()).toBe("selected")
     activeRenderer.clearSelection?.()
+    expect(activeRenderer.getPaintedHighlights?.()).toEqual([])
+    expect(activeRenderer.getWindowInsets?.()).toEqual(renderer.windowInsets)
+    activeRenderer.activateWindow?.()
     activeRenderer.setWindowTitle?.("Solid GPUIX")
 
     expect(renderer.capabilityCalls).toEqual([
       ["focusElement", 7],
       ["blur"],
       ["scrollTo", 7, -4, -8],
-      ["scrollToItem", 7, 12],
+      ["scrollToItem", 7, 12, -6],
       ["getScrollOffset", 7],
+      ["getListScrollTop", 7],
       ["getSelectedText"],
       ["clearSelection"],
+      ["getPaintedHighlights"],
+      ["getWindowInsets"],
+      ["activateWindow"],
       ["setWindowTitle", "Solid GPUIX"],
     ])
     expect(renderer.selectedText).toBeNull()

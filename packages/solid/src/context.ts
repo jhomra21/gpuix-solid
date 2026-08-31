@@ -3,6 +3,7 @@ import type { NativeRenderer } from "./host/types.js"
 
 export interface GpuixContextValue {
   renderer: NativeRenderer
+  flushSync<T>(fn: () => T): T
 }
 
 export const GpuixContext = createContext<GpuixContextValue>()

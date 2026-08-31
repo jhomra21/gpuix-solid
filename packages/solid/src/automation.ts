@@ -31,7 +31,17 @@ export class AutomationError extends Error {
 export interface AutomationBackend {
   getTree(): AutomationTreeNode | null | Promise<AutomationTreeNode | null>
   getBounds(elementId: number): ElementBounds | null | Promise<ElementBounds | null>
-  click(x: number, y: number): void | Promise<void>
+  click(x: number, y: number, button?: number, modifiers?: string): void | Promise<void>
+  mouseMove(x: number, y: number, pressedButton?: number, modifiers?: string): void | Promise<void>
+  mouseDown(x: number, y: number, button?: number, modifiers?: string): void | Promise<void>
+  mouseUp(x: number, y: number, button?: number, modifiers?: string): void | Promise<void>
+  scrollWheel(
+    x: number,
+    y: number,
+    deltaX: number,
+    deltaY: number,
+    modifiers?: string,
+  ): void | Promise<void>
   keystrokes(elementId: number, keys: string): void | Promise<void>
   screenshot(path: string): void | Promise<void>
   clockPause(): number | Promise<number>
@@ -72,8 +82,30 @@ export class InProcessAutomationBackend implements AutomationBackend {
     return parseBounds(this.#renderer.getElementBounds(elementId))
   }
 
-  click(x: number, y: number): void {
-    this.#renderer.nativeSimulateClick(x, y)
+  click(x: number, y: number, button?: number, modifiers?: string): void {
+    this.#renderer.nativeSimulateClick(x, y, button, modifiers)
+  }
+
+  mouseMove(x: number, y: number, pressedButton?: number, modifiers?: string): void {
+    this.#renderer.nativeSimulateMouseMove(x, y, pressedButton, modifiers)
+  }
+
+  mouseDown(x: number, y: number, button?: number, modifiers?: string): void {
+    this.#renderer.nativeSimulateMouseDown(x, y, button, modifiers)
+  }
+
+  mouseUp(x: number, y: number, button?: number, modifiers?: string): void {
+    this.#renderer.nativeSimulateMouseUp(x, y, button, modifiers)
+  }
+
+  scrollWheel(
+    x: number,
+    y: number,
+    deltaX: number,
+    deltaY: number,
+    modifiers?: string,
+  ): void {
+    this.#renderer.nativeSimulateScrollWheel(x, y, deltaX, deltaY, modifiers)
   }
 
   keystrokes(elementId: number, keys: string): void {
@@ -140,9 +172,7 @@ function collect(node: AutomationTreeNode | null, selector: Selector): Automatio
 
 function nodeTextContent(node: AutomationTreeNode): string {
   let text = node.text ?? ""
-  for (const child of node.children ?? []) {
-    text += nodeTextContent(child)
-  }
+  for (const child of node.children ?? []) text += nodeTextContent(child)
   return text
 }
 
@@ -155,6 +185,27 @@ function toKeystrokes(text: string): string {
       return character
     })
     .join(" ")
+}
+
+export interface Point {
+  x: number
+  y: number
+}
+
+export type PointTarget = Point | Locator
+
+export interface MouseOptions {
+  button?: number
+  modifiers?: string
+}
+
+export interface DragOptions extends MouseOptions {
+  steps?: number
+  offset?: Point
+}
+
+function centerOf(bounds: ElementBounds): Point {
+  return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }
 }
 
 export class Locator {
@@ -209,11 +260,34 @@ export class Locator {
     return bounds
   }
 
-  async click(): Promise<void> {
-    const bounds = await this.bounds()
-    await this.#app.backend.click(
-      bounds.x + bounds.width / 2,
-      bounds.y + bounds.height / 2,
+  async center(): Promise<Point> {
+    return centerOf(await this.bounds())
+  }
+
+  async click(options: MouseOptions = {}): Promise<void> {
+    const point = await this.center()
+    await this.#app.backend.click(point.x, point.y, options.button, options.modifiers)
+  }
+
+  async hover(options: MouseOptions = {}): Promise<void> {
+    await this.#app.mouse.move(this, options)
+  }
+
+  async wheel(deltaX: number, deltaY: number, options: MouseOptions = {}): Promise<void> {
+    await this.#app.mouse.wheel(this, deltaX, deltaY, options)
+  }
+
+  async dragTo(target: PointTarget, options: DragOptions = {}): Promise<void> {
+    await this.#app.mouse.drag(this, target, options)
+  }
+
+  async dragBy(dx: number, dy: number, options: DragOptions = {}): Promise<void> {
+    const start = await this.center()
+    const offset = options.offset ?? { x: 0, y: 0 }
+    await this.#app.mouse.drag(
+      this,
+      { x: start.x + offset.x + dx, y: start.y + offset.y + dy },
+      options,
     )
   }
 
@@ -259,15 +333,70 @@ export class App {
     fastForward: (deltaMs: number) => Promise<number>
     resume: () => Promise<number>
   }
+  readonly mouse: {
+    move: (target: PointTarget, options?: MouseOptions & { pressedButton?: number }) => Promise<void>
+    down: (target: PointTarget, options?: MouseOptions) => Promise<void>
+    up: (target: PointTarget, options?: MouseOptions) => Promise<void>
+    click: (target: PointTarget, options?: MouseOptions) => Promise<void>
+    wheel: (target: PointTarget, deltaX: number, deltaY: number, options?: MouseOptions) => Promise<void>
+    drag: (from: PointTarget, to: PointTarget, options?: DragOptions) => Promise<void>
+  }
 
   constructor(backend: AutomationBackend) {
     this.backend = backend
+    this.mouse = {
+      move: async (target, options = {}) => {
+        const point = await this.#resolvePoint(target)
+        await backend.mouseMove(point.x, point.y, options.pressedButton, options.modifiers)
+      },
+      down: async (target, options = {}) => {
+        const point = await this.#resolvePoint(target)
+        await backend.mouseDown(point.x, point.y, options.button, options.modifiers)
+      },
+      up: async (target, options = {}) => {
+        const point = await this.#resolvePoint(target)
+        await backend.mouseUp(point.x, point.y, options.button, options.modifiers)
+      },
+      click: async (target, options = {}) => {
+        const point = await this.#resolvePoint(target)
+        await backend.click(point.x, point.y, options.button, options.modifiers)
+      },
+      wheel: async (target, deltaX, deltaY, options = {}) => {
+        const point = await this.#resolvePoint(target)
+        await backend.scrollWheel(point.x, point.y, deltaX, deltaY, options.modifiers)
+      },
+      drag: async (from, to, options = {}) => {
+        const offset = options.offset ?? { x: 0, y: 0 }
+        const origin = await this.#resolvePoint(from)
+        const start = { x: origin.x + offset.x, y: origin.y + offset.y }
+        const end = await this.#resolvePoint(to)
+        const button = options.button ?? 0
+        const steps = Math.max(1, Math.floor(options.steps ?? 8))
+
+        await backend.mouseMove(start.x, start.y, undefined, options.modifiers)
+        await backend.mouseDown(start.x, start.y, button, options.modifiers)
+        for (let step = 1; step <= steps; step += 1) {
+          const progress = step / steps
+          await backend.mouseMove(
+            start.x + (end.x - start.x) * progress,
+            start.y + (end.y - start.y) * progress,
+            button,
+            options.modifiers,
+          )
+        }
+        await backend.mouseUp(end.x, end.y, button, options.modifiers)
+      },
+    }
     this.clock = {
       pause: async () => await backend.clockPause(),
       set: async (nowMs) => await backend.clockSet(nowMs),
       fastForward: async (deltaMs) => await backend.clockFastForward(deltaMs),
       resume: async () => await backend.clockResume(),
     }
+  }
+
+  async #resolvePoint(target: PointTarget): Promise<Point> {
+    return target instanceof Locator ? await target.center() : target
   }
 
   getByTestId(testId: string): Locator {
