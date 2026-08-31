@@ -281,13 +281,13 @@ function renderInline(
       const label = inlineText(node)
       if (!onLinkClick) return <text style={{ ...MD_TEXT, color: C.accent }}>{label}</text>
       return (
-        <text
+        <div
           testId={`mdx-link-${key}`}
+          style={{ display: "flex", flexDirection: "row", cursor: "pointer" }}
           onClick={() => onLinkClick(node.url)}
-          style={{ ...MD_TEXT, color: C.accent, cursor: "pointer" }}
         >
-          {label}
-        </text>
+          <text style={{ ...MD_TEXT, color: C.accent }}>{label}</text>
+        </div>
       )
     }
     case "break":
@@ -393,6 +393,9 @@ function renderBlock(
 ): SolidElement {
   switch (node.type) {
     case "heading": {
+      if (node.depth >= 4) {
+        return <text testId={`mdx-heading-${key}`} style={MD_TEXT}>{blockText(node)}</text>
+      }
       const size = node.depth === 1 ? 22 : node.depth === 2 ? 18 : 16
       return (
         <text
