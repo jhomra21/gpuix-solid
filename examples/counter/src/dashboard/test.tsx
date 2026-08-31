@@ -9,6 +9,37 @@ import { DashboardDemo } from "./source/app"
 
 const screenshotPath = "/tmp/gpuix-solid-dashboard-source-first.png"
 
+type TestApp = ReturnType<typeof createTestApp>
+
+async function scrollIntoView(app: TestApp, viewportTestId: string, targetTestId: string): Promise<void> {
+  const viewport = app.getByTestId(viewportTestId)
+  const target = app.getByTestId(targetTestId)
+  const viewportBounds = await viewport.bounds()
+  const viewportBottom = viewportBounds.y + viewportBounds.height
+  const isVisible = (bounds: { y: number; height: number }): boolean => (
+    bounds.y >= viewportBounds.y && bounds.y + bounds.height <= viewportBottom
+  )
+
+  let targetBounds = await target.bounds()
+  if (isVisible(targetBounds)) return
+
+  let deltaY = targetBounds.y >= viewportBottom ? 240 : -240
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const previousY = targetBounds.y
+    await viewport.wheel(0, deltaY)
+    targetBounds = await target.bounds()
+    if (isVisible(targetBounds)) return
+
+    const expectedUp = previousY >= viewportBottom
+    const movedTowardViewport = expectedUp ? targetBounds.y < previousY : targetBounds.y > previousY
+    if (!movedTowardViewport) deltaY *= -1
+  }
+
+  throw new Error(
+    `Could not scroll ${targetTestId} into ${viewportTestId}: viewport=${JSON.stringify(viewportBounds)}, target=${JSON.stringify(targetBounds)}`,
+  )
+}
+
 async function main(): Promise<void> {
   if (!hasNativeTestRenderer) {
     console.log("dashboard integration: native TestGpuixRenderer unavailable; skipped")
@@ -98,7 +129,7 @@ async function main(): Promise<void> {
     await app.getByTestId("nav-home").click()
     assert.equal(await app.getByTestId("page-home").count(), 1)
     assert.equal(await app.getByTestId("logout").count(), 1)
-    await app.getByTestId("dashboard-content").wheel(0, 800)
+    await scrollIntoView(app, "dashboard-content", "logout")
     await app.getByTestId("logout").click()
     assert.equal(await app.getByTestId("logged-out").count(), 1)
 
