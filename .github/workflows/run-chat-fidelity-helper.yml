@@ -1,0 +1,33 @@
+name: Run Chat fidelity transform
+
+on:
+  push:
+    branches:
+      - fix/source-first-example-fidelity
+    paths:
+      - .github/workflows/run-chat-fidelity-helper.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply reviewed Chat transform
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show a5e8ab448db508f8eb8251513e3f3fc3246bd418:.github/workflows/restore-chat-source-fidelity.yml \
+            | sed -n "/python3 - <<'PY'/,/^          PY$/p" \
+            | sed '1d;$d;s/^          //' > /tmp/restore-chat.py
+          python3 /tmp/restore-chat.py
+          git rm .github/workflows/run-chat-fidelity-helper.yml
+          git add examples/counter/src/chat/shell.tsx examples/counter/src/chat/test.tsx examples/counter/src/chat/index.tsx
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m "Restore Chat upstream source fidelity"
+          git push
