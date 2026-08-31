@@ -1,0 +1,19 @@
+name: Ready PR 56
+
+on:
+  push:
+    branches:
+      - experiment/ready-pr56
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  ready:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark PR 56 ready for review
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr ready 56 --repo "$GITHUB_REPOSITORY"
