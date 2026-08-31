@@ -1,15 +1,20 @@
-import { createHash } from "node:crypto"
+import { execFileSync } from "node:child_process"
 import { readFile } from "node:fs/promises"
-import { dirname, join } from "node:path"
+import { dirname, join, relative } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const here = dirname(fileURLToPath(import.meta.url))
+const repoRoot = join(here, "..", "..", "..")
 const upstreamRoot = join(here, "..", "upstream")
 const sourceNames = ["gpuix", "codeimage", "tanstack-router"]
 
-function gitBlobSha(bytes) {
-  const header = Buffer.from(`blob ${bytes.length}\0`)
-  return createHash("sha1").update(header).update(bytes).digest("hex")
+function gitBlobSha(path) {
+  const repoPath = relative(repoRoot, path).replaceAll("\\", "/")
+  return execFileSync(
+    "git",
+    ["hash-object", `--path=${repoPath}`, path],
+    { cwd: repoRoot, encoding: "utf8" },
+  ).trim()
 }
 
 let failed = false
@@ -20,8 +25,7 @@ for (const sourceName of sourceNames) {
   const failures = []
 
   for (const [path, expected] of Object.entries(lock.blobs)) {
-    const bytes = await readFile(join(root, path))
-    const actual = gitBlobSha(bytes)
+    const actual = gitBlobSha(join(root, path))
     if (actual !== expected) failures.push(`${path}: expected ${expected}, got ${actual}`)
   }
 
