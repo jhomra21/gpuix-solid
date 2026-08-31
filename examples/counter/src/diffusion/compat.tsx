@@ -28,7 +28,6 @@ export const C = {
   sidebar: "#121212",
   foreground: "#F2F2F2",
   mutedForeground: "#F2F2F2A3",
-  disabledForeground: "#666666",
   secondary: "#FFFFFF0F",
   secondaryHover: "#FFFFFF17",
   muted: "#FFFFFF17",
@@ -40,7 +39,6 @@ export const C = {
   audioBackground: "#0E493C",
   audioPrimary: "#197B61",
   captionBackground: "#5F254A",
-  captionAccent: "#CF3F953D",
   meterGreen: "#43E15B",
   meterYellow: "#F0C84F",
   meterRed: "#F35C59",
@@ -82,13 +80,9 @@ function Button(props: {
 }
 
 function Divider(props: { vertical?: boolean }): SolidElement {
-  return (
-    <div
-      style={props.vertical
-        ? { width: 1, height: "100%", flexShrink: 0, backgroundColor: C.borderStrong }
-        : { height: 1, width: "100%", flexShrink: 0, backgroundColor: C.borderStrong }}
-    />
-  )
+  return <div style={props.vertical
+    ? { width: 1, height: "100%", flexShrink: 0, backgroundColor: C.borderStrong }
+    : { height: 1, width: "100%", flexShrink: 0, backgroundColor: C.borderStrong }} />
 }
 
 function Section(props: { title: string; children: SolidElement }): SolidElement {
@@ -141,7 +135,6 @@ export function SidebarLeft(props: { state: DiffusionEditorState }): SolidElemen
       </div>
 
       <Divider />
-
       <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, minHeight: 0 }}>
         <div style={{ height: 42, display: "flex", flexDirection: "row", alignItems: "center", paddingLeft: 12, paddingRight: 12, gap: 6 }}>
           <text style={{ color: C.foreground, fontSize: 12, fontWeight: 600 }}>Assets</text>
@@ -194,17 +187,17 @@ export function SidebarLeft(props: { state: DiffusionEditorState }): SolidElemen
 }
 
 export function Toolbar(props: { state: DiffusionEditorState }): SolidElement {
-  const tools: Array<{ id: DiffusionTool; label: string; shortcut?: string }> = [
-    { id: "move", label: "↖", shortcut: "V" },
-    { id: "hand", label: "✋", shortcut: "H" },
-    { id: "frame", label: "□", shortcut: "F" },
-    { id: "rect", label: "▭", shortcut: "R" },
-    { id: "text", label: "T", shortcut: "T" },
+  const tools: Array<{ id: DiffusionTool; label: string }> = [
+    { id: "move", label: "↖" },
+    { id: "hand", label: "✋" },
+    { id: "frame", label: "□" },
+    { id: "rect", label: "▭" },
+    { id: "text", label: "T" },
     { id: "ai", label: "✦" },
   ]
 
   return (
-    <div testId="diffusion-toolbar" style={{ position: "absolute", left: "50%", bottom: 16, display: "flex", flexDirection: "row", alignItems: "center", gap: 4, padding: 6, borderRadius: 12, borderWidth: 1, borderColor: C.borderStrong, backgroundColor: C.background }}>
+    <div testId="diffusion-toolbar" style={{ position: "absolute", left: 260, bottom: 16, display: "flex", flexDirection: "row", alignItems: "center", gap: 4, padding: 6, borderRadius: 12, borderWidth: 1, borderColor: C.borderStrong, backgroundColor: C.background }}>
       <For each={tools}>
         {(tool) => (
           <Button testId={`diffusion-tool-${tool.id}`} active={props.state.selectedTool() === tool.id} onClick={() => props.state.setSelectedTool(tool.id)}>
@@ -219,7 +212,7 @@ export function Toolbar(props: { state: DiffusionEditorState }): SolidElement {
 export function Canvas(props: { state: DiffusionEditorState }): SolidElement {
   return (
     <div testId="diffusion-canvas" style={{ position: "relative", flexGrow: 1, minWidth: 0, minHeight: 0, height: "100%", backgroundColor: C.canvas, overflow: "hidden" }}>
-      <div style={{ position: "absolute", left: "12%", right: "12%", top: "12%", bottom: "18%", borderRadius: 4, backgroundColor: "#0B0B0B", borderWidth: 1, borderColor: C.borderStrong, alignItems: "center", justifyContent: "center" }}>
+      <div style={{ position: "absolute", left: 80, right: 80, top: 50, bottom: 90, borderRadius: 4, backgroundColor: "#0B0B0B", borderWidth: 1, borderColor: C.borderStrong, alignItems: "center", justifyContent: "center" }}>
         <div style={{ width: "72%", height: "72%", backgroundColor: "#E7E7E7", alignItems: "center", justifyContent: "center" }}>
           <text style={{ color: "#181818", fontSize: 20, fontWeight: 650 }}>Diffusion Studio</text>
         </div>
@@ -242,31 +235,24 @@ export function Inspector(props: { state: DiffusionEditorState }): SolidElement 
       </div>
       <Divider />
       <div style={{ flexGrow: 1, minHeight: 0, overflowY: "scroll" }}>
-        <Show
-          when={props.state.selectedAsset()}
-          fallback={
-            <>
-              <Section title="Background">
-                <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <text style={mutedText}>Color</text><div style={{ flexGrow: 1 }} />
-                  <div style={{ width: 28, height: 20, borderRadius: 4, borderWidth: 1, borderColor: C.borderStrong, backgroundColor: "#FFFFFF" }} />
-                </div>
-              </Section>
-              <Section title="Variables">
-                <text style={mutedText}>No variables</text>
-              </Section>
-            </>
-          }
-        >
+        <Show when={props.state.selectedAsset()} fallback={
+          <>
+            <Section title="Background">
+              <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <text style={mutedText}>Color</text><div style={{ flexGrow: 1 }} />
+                <div style={{ width: 28, height: 20, borderRadius: 4, borderWidth: 1, borderColor: C.borderStrong, backgroundColor: "#FFFFFF" }} />
+              </div>
+            </Section>
+            <Section title="Variables"><text style={mutedText}>No variables</text></Section>
+          </>
+        }>
           {(asset) => (
             <>
               <Section title="Asset">
                 <text style={panelText}>{asset()}</text>
                 <text style={mutedText}>Project library asset</text>
               </Section>
-              <Section title="Source">
-                <text style={mutedText}>Local project source</text>
-              </Section>
+              <Section title="Source"><text style={mutedText}>Local project source</text></Section>
             </>
           )}
         </Show>
@@ -292,12 +278,8 @@ export function Layers(props: { state: DiffusionEditorState }): SolidElement {
   return (
     <div testId="diffusion-layers" style={{ width: 264, height: "100%", flexShrink: 0, display: "flex", flexDirection: "column", backgroundColor: C.background }}>
       <div style={{ height: 32, flexShrink: 0, display: "flex", flexDirection: "row", alignItems: "center", gap: 2, paddingLeft: 8, paddingRight: 8 }}>
-        <Button testId="diffusion-play" onClick={() => props.state.setPlaying(!props.state.playing())}>
-          <text style={mutedText}>{props.state.playing() ? "Ⅱ" : "▶"}</text>
-        </Button>
-        <Button testId="diffusion-loop" active={props.state.looping()} onClick={() => props.state.setLooping(!props.state.looping())}>
-          <text style={mutedText}>↻</text>
-        </Button>
+        <Button testId="diffusion-play" onClick={() => props.state.setPlaying(!props.state.playing())}><text style={mutedText}>{props.state.playing() ? "Ⅱ" : "▶"}</text></Button>
+        <Button testId="diffusion-loop" active={props.state.looping()} onClick={() => props.state.setLooping(!props.state.looping())}><text style={mutedText}>↻</text></Button>
         <Show when={!props.state.timelineMinimized()}>
           <Button testId="diffusion-split"><text style={mutedText}>✂</text></Button>
           <Button testId="diffusion-more"><text style={mutedText}>•••</text></Button>
@@ -327,7 +309,7 @@ export function Timeline(props: { state: DiffusionEditorState }): SolidElement {
       <div style={{ height: 32, borderBottomWidth: 1, borderColor: C.borderStrong, position: "relative" }}>
         <For each={ticks}>
           {(tick, index) => (
-            <div style={{ position: "absolute", left: `${index() * 15}%`, top: 0, bottom: 0, width: 1, backgroundColor: C.borderStrong }}>
+            <div style={{ position: "absolute", left: index() * 90, top: 0, bottom: 0, width: 1, backgroundColor: C.borderStrong }}>
               <text style={{ position: "absolute", left: 5, top: 8, color: C.mutedForeground, fontSize: 9 }}>{String(tick)}</text>
             </div>
           )}
@@ -342,7 +324,7 @@ export function Timeline(props: { state: DiffusionEditorState }): SolidElement {
               const fill = layer.type === "audio" ? C.audioBackground : layer.type === "caption" ? C.captionBackground : "#2B3340"
               return (
                 <div style={{ position: "absolute", left: 0, right: 0, top, height: rowHeight, borderBottomWidth: 1, borderColor: C.border }}>
-                  <div style={{ position: "absolute", left: `${6 + index() * 4}%`, top: 4, width: `${36 - index() * 3}%`, bottom: 4, borderRadius: 4, backgroundColor: fill, borderWidth: 1, borderColor: layer.type === "audio" ? C.audioPrimary : C.borderStrong, paddingLeft: 7, justifyContent: "center" }}>
+                  <div style={{ position: "absolute", left: 40 + index() * 45, top: 4, width: 220 - index() * 18, bottom: 4, borderRadius: 4, backgroundColor: fill, borderWidth: 1, borderColor: layer.type === "audio" ? C.audioPrimary : C.borderStrong, paddingLeft: 7, justifyContent: "center" }}>
                     <text style={{ color: C.foreground, fontSize: 10 }}>{layer.name}</text>
                     <Show when={layer.type === "audio"}>
                       <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 2, height: 18 }}>
@@ -356,7 +338,7 @@ export function Timeline(props: { state: DiffusionEditorState }): SolidElement {
               )
             }}
           </For>
-          <div style={{ position: "absolute", left: "39%", top: 0, bottom: 0, width: 1, backgroundColor: C.primary }} />
+          <div style={{ position: "absolute", left: 300, top: 0, bottom: 0, width: 1, backgroundColor: C.primary }} />
         </div>
       </Show>
     </div>
@@ -365,8 +347,8 @@ export function Timeline(props: { state: DiffusionEditorState }): SolidElement {
 
 function Meter(props: { level: number }): SolidElement {
   return (
-    <div style={{ width: 12, flexGrow: 1, minHeight: 0, display: "flex", flexDirection: "column", justifyContent: "flex-end", borderRadius: 3, backgroundColor: C.input, overflow: "hidden" }}>
-      <div style={{ height: `${Math.round(props.level * 100)}%`, backgroundColor: props.level > 0.85 ? C.meterRed : props.level > 0.65 ? C.meterYellow : C.meterGreen }} />
+    <div style={{ width: 12, height: 150, display: "flex", flexDirection: "column", justifyContent: "flex-end", borderRadius: 3, backgroundColor: C.input, overflow: "hidden" }}>
+      <div style={{ height: Math.round(props.level * 150), backgroundColor: props.level > 0.85 ? C.meterRed : props.level > 0.65 ? C.meterYellow : C.meterGreen }} />
     </div>
   )
 }
@@ -382,8 +364,8 @@ export function Soundboard(): SolidElement {
       <For each={meters}>
         {(meter) => (
           <div style={{ flexGrow: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 7 }}>
-            <div style={{ flexGrow: 1, minHeight: 0, display: "flex", flexDirection: "row", gap: 5 }}>
-              <div style={{ width: 8, height: "100%", borderRadius: 4, backgroundColor: C.input }} />
+            <div style={{ flexGrow: 1, minHeight: 0, display: "flex", flexDirection: "row", alignItems: "flex-end", gap: 5 }}>
+              <div style={{ width: 8, height: 150, borderRadius: 4, backgroundColor: C.input }} />
               <Meter level={meter.level} />
             </div>
             <text style={{ color: C.mutedForeground, fontSize: 10 }}>{meter.name}</text>
