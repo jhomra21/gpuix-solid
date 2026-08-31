@@ -1,0 +1,10 @@
+{
+  "repository": "diffusionstudio/editor",
+  "commit": "585fb010dcca36919f096f4b1275d535acab0cb9",
+  "blobs": {
+    "apps/web/src/pages/editor.tsx": "81e054efd64accbe3e1d7dbd2e7b86773b74656f",
+    "apps/web/src/components/sidebar-left/sidebar-left.tsx": "a179fce4cbde017f47fb9d2fc5a2ac726bac5e2a",
+    "apps/web/src/components/timeline/timeline.tsx": "7706406078c8d9e50b6aa285387d62b45427c7c4",
+    "apps/web/src/components/canvas/canvas.tsx": "bdb2754b4761089dae54be37b06a9eef57772730"
+  }
+}
