@@ -92,7 +92,8 @@ async function main(): Promise<void> {
     assert.equal(await app.getByText("This action cannot be undone. This will permanently delete your account and remove all your data from our servers.").count(), 1)
     await app.getByTestId("delete-confirmation").fill("DELETE")
     await app.getByTestId("account-delete-confirm").click()
-    assert.equal(await app.getByTestId("account-deleted").count(), 1)
+    assert.equal(await app.getByTestId("account-delete-confirm").count(), 0)
+    assert.equal(await app.getByTestId("account-delete-status").textContent(), "Account deleted successfully")
 
     await app.getByTestId("nav-home").click()
     await app.getByTestId("logout").click()
