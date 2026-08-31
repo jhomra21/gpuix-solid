@@ -88,6 +88,28 @@ export function Card(props: { children: SolidElement; style?: StyleDesc }): Soli
   )
 }
 
+export function DialogSurface(props: { children: SolidElement; testId?: string }): SolidElement {
+  return (
+    <div
+      testId={props.testId}
+      style={{
+        position: "absolute",
+        top: 24,
+        left: 24,
+        width: 560,
+        padding: 18,
+        gap: 12,
+        borderWidth: 1,
+        borderColor: palette.border,
+        borderRadius: 10,
+        backgroundColor: palette.background,
+      }}
+    >
+      {props.children}
+    </div>
+  )
+}
+
 export function Button(props: { children: SolidElement; testId?: string; active?: boolean; onClick?(): void }): SolidElement {
   return (
     <div testId={props.testId} style={buttonStyle(props.active)} onClick={props.onClick}>
