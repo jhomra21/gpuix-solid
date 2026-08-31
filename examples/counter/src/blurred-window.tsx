@@ -323,8 +323,8 @@ function App() {
 }
 
 render(() => <App />, {
-  title: "GPUIX Blurred Window Showcase",
-  appName: "GPUIX Blurred Window Showcase",
+  title: "GPUIX Blurred Window",
+  appName: "GPUIX Blurred Window",
   width: 760,
   height: 510,
   minWidth: 640,
