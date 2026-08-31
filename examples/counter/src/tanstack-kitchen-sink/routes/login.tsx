@@ -1,6 +1,6 @@
 import { Show, createSignal } from "solid-js"
 import type { EventPayload } from "gpuix-solid"
-import { StatusBadge, blueButtonStyle, nativeInputStyle, palette } from "../native"
+import { blueButtonStyle, nativeInputStyle, palette } from "../native"
 
 export function LoginRoute() {
   const [username, setUsername] = createSignal("")
@@ -19,7 +19,6 @@ export function LoginRoute() {
       }>
         <text style={{ color: palette.text, fontSize: 13 }}>Logged in as</text>
         <text style={{ color: palette.text, fontSize: 13, fontWeight: 800 }}>{username()}</text>
-        <StatusBadge text="Logged in" tone="success" />
         <div onClick={() => setSignedIn(false)} style={{ ...blueButtonStyle(false), alignSelf: "flex-start" }}>
           <text style={{ color: palette.white, fontSize: 11, fontWeight: 800 }}>LOG OUT</text>
         </div>
