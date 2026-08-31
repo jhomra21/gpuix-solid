@@ -1,3 +1,4 @@
+import type { Element as SolidElement } from "solid-js"
 import type { EventPayload, StyleDesc } from "gpuix-solid"
 
 export type DashboardRoute = "home" | "account" | "notes" | "tasks" | "weather"
@@ -79,7 +80,7 @@ export function buttonStyle(active = false): StyleDesc {
   }
 }
 
-export function Card(props: { children: unknown; style?: StyleDesc }) {
+export function Card(props: { children: SolidElement; style?: StyleDesc }): SolidElement {
   return (
     <div style={{ padding: 16, gap: 12, borderWidth: 1, borderColor: palette.border, borderRadius: 8, backgroundColor: palette.background, ...props.style }}>
       {props.children}
@@ -87,15 +88,17 @@ export function Card(props: { children: unknown; style?: StyleDesc }) {
   )
 }
 
-export function Button(props: { children: unknown; testId?: string; active?: boolean; onClick?(): void }) {
+export function Button(props: { children: SolidElement; testId?: string; active?: boolean; onClick?(): void }): SolidElement {
   return (
     <div testId={props.testId} style={buttonStyle(props.active)} onClick={props.onClick}>
-      <text style={{ color: props.active ? palette.white : palette.text, fontSize: 12 }}>{props.children}</text>
+      <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 6 }}>
+        {props.children}
+      </div>
     </div>
   )
 }
 
-export function Divider() {
+export function Divider(): SolidElement {
   return <div style={{ height: 1, backgroundColor: palette.border }} />
 }
 
