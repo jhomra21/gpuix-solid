@@ -13,7 +13,7 @@ Where upstream source exists, the repository keeps a pinned copy and treats sour
 
 ## GPUIX parity examples
 
-The current published GPUIX 0.6 desktop example set has Solid 2 counterparts for Counter, Native Text, Blurred Window, Todo, Diff, Timeline, Chat, and Infinite Chat.
+The published GPUIX 0.6 desktop examples have Solid 2 parity coverage for Counter, Native Text, Todo, Diff, Timeline, Chat, and Infinite Chat. Timeline remains in the automated/performance suite, but the public video-editor example is the real Diffusion Studio editor described below.
 
 ### Counter
 
@@ -37,13 +37,7 @@ Covers native `<markdown>`, `<code>`, and `<diff>` elements, tabs, scrolling, sh
 bun run example:blurred-window
 ```
 
-Covers GPUIX 0.6 window blur, a transparent titlebar, traffic-light placement, native resizing, and background-window behavior. This command is the strict upstream parity port.
-
-The earlier animated username/welcome extension is intentionally separate so it cannot change the parity fixture:
-
-```bash
-bun run example:blurred-window-showcase
-```
+There is one Solid 2 Blurred Window example. It is the animated username/welcome glass showcase with native blur, a transparent titlebar, traffic-light placement, native resizing, and background-window behavior. There is no separate `blurred-window-showcase` command.
 
 ### Todo
 
@@ -65,16 +59,6 @@ Covers unified and split source diffs, multi-hunk layouts, word-level changes, s
 - `shiki` tokenizes and highlights source code.
 
 The rendered output is still ordinary Solid/GPUIX host content.
-
-### Timeline
-
-```bash
-bun run example:timeline
-```
-
-Covers the interaction-heavy editor surface from upstream: clip movement, cross-track dragging, edge trimming, snapping, playhead scrubbing, marquee selection, zoom-under-pointer, two-axis pan, frozen panes, culling, track collapse, and pointer capture.
-
-The native test fixture exercises those gestures through GPUix Solid's mouse automation rather than replacing them with direct state mutations.
 
 ### Chat
 
@@ -100,9 +84,23 @@ GPUIX upstream also has a browser/WebGPU WebAssembly renderer. GPUix Solid curre
 
 The exact upstream baseline and gap tracking live in [`docs/upstream-parity.md`](../docs/upstream-parity.md).
 
-## Solid ecosystem examples
+## Source-first application examples
 
-These are additional renderer fixtures, not substitutes for the upstream parity ports. Their source snapshots are also pinned when the example originates in another repository.
+These are additional renderer fixtures, not substitutes for the upstream parity ports. Their source snapshots are pinned when the example originates in another repository.
+
+### Diffusion Studio editor
+
+```bash
+bun run example:diffusion
+```
+
+A source-first native port of the actual open-source `diffusionstudio/editor` application at commit `585fb010dcca36919f096f4b1275d535acab0cb9`. The real editor is already Solid, so the native fixture preserves its `EditorPage` ownership directly: `SidebarLeft`, `Canvas`, `Inspector`, `Layers`, `Timeline`, `Soundboard`, and `FloatingProjectHeader`.
+
+Exact upstream source bytes for the editor page and the main visible component owners are vendored under `counter/upstream/diffusion-editor/` and hash checked. Koota, the Diffusion runtime/reconciler, project compilation/watch services, DOM drag-and-drop, EngineCanvas/Web canvas drawing, Web Audio nodes, Tailwind, and browser UI primitives are compatibility concerns underneath that application structure.
+
+The older GPUIX mock project named `Diffusion Studio Pro` is not the source of this public example. Its Timeline port remains only as an internal native test/performance workload.
+
+See `counter/src/diffusion/UPSTREAM.md` for the exact source contract.
 
 ### Dashboard
 
@@ -192,16 +190,17 @@ The serialization workload captures mutation tuples emitted by Solid's real `app
 
 - Todo
 - Diff
-- Timeline
+- Timeline (internal GPUIX parity workload)
+- Diffusion Studio editor
 - Chat
 - Infinite Chat
 - Dashboard
 - CodeImage
 - TanStack kitchen sink
 
-The Timeline suite drives real mouse move/down/up sequences, including pointer-captured drags. Chat and Infinite Chat exercise selection, scrolling, MDX composition, composer behavior, edge loading, and navigation. Todo exercises input and virtual-list anchoring. Dashboard additionally exercises real native controlled inputs, modal interaction, scroll-to-target geometry, and uppercase confirmation input.
+The Timeline suite drives real mouse move/down/up sequences, including pointer-captured drags. The Diffusion suite guards the actual editor component ownership plus representative asset, playback, timeline, and UI interactions. Chat and Infinite Chat exercise selection, scrolling, MDX composition, composer behavior, edge loading, and navigation. Todo exercises input and virtual-list anchoring. Dashboard additionally exercises real native controlled inputs, modal interaction, scroll-to-target geometry, and uppercase confirmation input.
 
-`bun run source:check` verifies the pinned GPUIX, Dashboard, CodeImage, and TanStack source snapshots against their recorded Git blob hashes.
+`bun run source:check` verifies the pinned GPUIX, Dashboard, CodeImage, TanStack, and Diffusion Studio source snapshots against their recorded Git blob hashes.
 
 ## Validation policy
 
