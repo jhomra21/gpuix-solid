@@ -96,6 +96,9 @@ async function main(): Promise<void> {
     assert.equal(await app.getByTestId("account-delete-status").textContent(), "Account deleted successfully")
 
     await app.getByTestId("nav-home").click()
+    assert.equal(await app.getByTestId("page-home").count(), 1)
+    assert.equal(await app.getByTestId("logout").count(), 1)
+    await app.getByTestId("dashboard-content").wheel(0, 800)
     await app.getByTestId("logout").click()
     assert.equal(await app.getByTestId("logged-out").count(), 1)
 
