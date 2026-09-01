@@ -30,8 +30,8 @@ export function UsersRoute() {
 
   return (
     <div testId="users-workspace" style={{ flexGrow: 1, minHeight: 0, display: "flex", flexDirection: "row" }}>
-      <div style={{ width: 310, flexShrink: 0, overflowY: "scroll" }}>
-        <div style={{ width: "100%", display: "flex", flexDirection: "row", gap: 8, alignItems: "center", paddingTop: 8, paddingBottom: 8, paddingLeft: 12, paddingRight: 12, backgroundColor: palette.panelSoft }}>
+      <div testId="users-sidebar" style={{ width: 310, flexShrink: 0, overflowY: "scroll" }}>
+        <div testId="users-sort-toolbar" style={{ width: "100%", display: "flex", flexDirection: "row", gap: 8, alignItems: "center", paddingTop: 8, paddingBottom: 8, paddingLeft: 12, paddingRight: 12, backgroundColor: palette.panelSoft }}>
           <text style={{ color: palette.text, fontSize: 11 }}>Sort By:</text>
           <Select testId="users-sort-root" value={sortBy()} onValueChange={changeSort} style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0 }}>
             <SelectTrigger testId="users-sort" style={nativeInputStyle({ width: "100%", flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, minHeight: 32, display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingLeft: 8, paddingRight: 8 })}>
