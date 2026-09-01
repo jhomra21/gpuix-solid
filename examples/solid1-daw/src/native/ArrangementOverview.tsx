@@ -1,4 +1,5 @@
 import { For, type JSX, onCleanup } from "solid-js"
+import type { EventPayload } from "@jhomra21/gpuix-solid1"
 import { useAppPreferences } from "../compat/app-preferences"
 import { resolveClipColor } from "../compat/clip-color"
 import type { Track } from "../compat/timeline-core-types"
@@ -75,45 +76,48 @@ export default function ArrangementOverview(props: ArrangementOverviewProps): JS
       root.releasePointerCapture(capturedPointerId)
     }
   }
-  const onPointerDown = (event: PointerEvent) => {
-    event.stopPropagation()
-    if (pointerId !== undefined || event.button !== 0 || !root) return
+  const onPointerDown = (event: EventPayload) => {
+    event.stopPropagation?.()
+    const clientX = event.clientX
+    const nextPointerId = event.pointerId
+    if (pointerId !== undefined || event.button !== 0 || !root || clientX === undefined || nextPointerId === undefined) return
     rootLeft = root.getBoundingClientRect().left
-    const x = event.clientX - rootLeft
+    const x = clientX - rootLeft
     const left = rangeX()
     const right = left + rangeWidth()
     const edge = 6
     baseline = props.visibleRange
     startX = x
-    pointerId = event.pointerId
-    root.setPointerCapture(event.pointerId)
+    pointerId = nextPointerId
+    root.setPointerCapture(nextPointerId)
     if (Math.abs(x - left) <= edge) dragMode = "start"
     else if (Math.abs(x - right) <= edge) dragMode = "end"
     else if (x > left && x < right) dragMode = "pan"
     else {
       const visibleDuration = baseline.endSec - baseline.startSec
-      const center = pointToTime(event.clientX)
+      const center = pointToTime(clientX)
       props.onCommitVisibleRange({ startSec: center - visibleDuration / 2, endSec: center + visibleDuration / 2 })
       finish()
     }
-    event.preventDefault()
+    event.preventDefault?.()
   }
-  const onPointerMove = (event: PointerEvent) => {
-    event.stopPropagation()
-    if (event.pointerId !== pointerId || !baseline || !dragMode || props.width <= 0) return
-    const deltaSec = (event.clientX - rootLeft - startX) / props.width * duration()
+  const onPointerMove = (event: EventPayload) => {
+    event.stopPropagation?.()
+    const clientX = event.clientX
+    if (event.pointerId !== pointerId || clientX === undefined || !baseline || !dragMode || props.width <= 0) return
+    const deltaSec = (clientX - rootLeft - startX) / props.width * duration()
     if (dragMode === "pan") props.onPreviewVisibleRange({ startSec: baseline.startSec + deltaSec, endSec: baseline.endSec + deltaSec })
     if (dragMode === "start") props.onPreviewVisibleRange({ startSec: baseline.startSec + deltaSec, endSec: baseline.endSec })
     if (dragMode === "end") props.onPreviewVisibleRange({ startSec: baseline.startSec, endSec: baseline.endSec + deltaSec })
   }
-  const onPointerUp = (event: PointerEvent) => {
-    event.stopPropagation()
+  const onPointerUp = (event: EventPayload) => {
+    event.stopPropagation?.()
     if (event.pointerId !== pointerId) return
     if (baseline) props.onCommitVisibleRange(props.visibleRange)
     finish()
   }
-  const onPointerCancel = (event: PointerEvent) => {
-    event.stopPropagation()
+  const onPointerCancel = (event: EventPayload) => {
+    event.stopPropagation?.()
     if (event.pointerId !== pointerId) return
     if (baseline) props.onPreviewVisibleRange(baseline)
     finish()
