@@ -88,6 +88,12 @@ interface TimelineClip {
   end: number
 }
 
+interface ClipPalette {
+  background: string
+  primary: string
+  foreground: string
+}
+
 // Deterministic native data stands in for Koota/runtime entities. Geometry and
 // styling below follow Diffusion's real timeline renderer rather than the old
 // GPUIX timeline demo.
@@ -98,7 +104,7 @@ const clips: TimelineClip[] = [
   { id: "captions", name: "Classic Captions", kind: "caption", start: 60, end: 330 },
 ]
 
-function clipColors(kind: TimelineClip["kind"]): { background: string; primary: string; foreground: string } {
+function clipColors(kind: TimelineClip["kind"]): ClipPalette {
   if (kind === "video") return { background: COLORS.videoBackground, primary: COLORS.videoPrimary, foreground: COLORS.videoForeground }
   if (kind === "audio") return { background: COLORS.audioBackground, primary: COLORS.audioPrimary, foreground: COLORS.audioForeground }
   if (kind === "caption") return { background: COLORS.captionBackground, primary: COLORS.captionForeground, foreground: COLORS.captionForeground }
