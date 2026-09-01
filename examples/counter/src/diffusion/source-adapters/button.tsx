@@ -4,7 +4,7 @@ import type { HostEventHandler, HostRef, StyleDesc } from "gpuix-solid"
 interface ButtonProps {
   children?: SolidElement
   class?: string
-  style?: string | StyleDesc
+  style?: string
   variant?: "default" | "secondary" | "on" | "ghost" | "link" | "destructive" | "outline"
   size?: "default" | "small" | "icon" | "icon-square" | "icon-select"
   onClick?: HostEventHandler
@@ -45,14 +45,13 @@ function sizeStyle(size: ButtonProps["size"]): StyleDesc {
 }
 
 export function Button(props: ButtonProps): SolidElement {
-  const sourceStyle = typeof props.style === "object" ? props.style : undefined
   return (
     <button
       ref={props.ref}
       disabled={props.disabled}
       class={props.class}
       onClick={props.onClick}
-      style={{ ...baseStyle, ...variantStyle(props.variant), ...sizeStyle(props.size), ...sourceStyle }}
+      style={{ ...baseStyle, ...variantStyle(props.variant), ...sizeStyle(props.size) }}
     >
       {props.children}
     </button>
