@@ -1,4 +1,4 @@
-import { createComponent, type JSX } from "solid-js"
+import { createComponent, type Element as SolidElement } from "solid-js"
 import { describe, expect, it } from "vitest"
 import {
   Select,
@@ -32,7 +32,7 @@ function text(value: string, style: StyleDesc = {}): HostElementNode {
   return node
 }
 
-function hostElement(value: JSX.Element): HostElementNode {
+function hostElement(value: SolidElement): HostElementNode {
   if (!(value instanceof Object) || !("kind" in value) || value.kind !== "element") {
     throw new TypeError("Expected component to return a GPUIX host element")
   }
