@@ -3,16 +3,20 @@
 This native example ports a focused UI slice from `jhomra21/daw-browser-convex`.
 
 - source branch: `feat/model-independent-control-platform`
-- pinned revision: `3fb6ae9a10b8317feb23e77832e0894da7420f9b`
+- pinned revision: `2eaad47813b15aa8511bab8dc04625510c977b12`
 - framework: Solid 1
 
 ## Fidelity contract
 
-This fixture is not a generic DAW mock. The native GPUIX version must preserve the current application's recognizable component hierarchy, geometry, tokens and interaction semantics.
+This fixture is not a generic DAW mock. The native GPUIX version must preserve the current application's recognizable component hierarchy, geometry, tokens, visible state and interaction semantics.
 
 The implementation is source-first, not screenshot-first. A browser-facing source component is copied verbatim when the GPUIX Solid host can represent its UI. Compatibility is fixed underneath that source instead of editing the copied component. A native visual leaf is allowed only when the pinned component depends on a browser rendering/runtime contract that GPUIX does not expose yet; those boundaries are listed explicitly below.
 
+Fake local data replaces Convex, collaboration, persistence, audio engines and plugin backends. It does not replace or simplify UI behavior: visible controls in the included slice must remain interactive and keep their state at the fixture application boundary.
+
 `bun run source:check` hashes every verbatim source file as a Git blob and rejects drift from the pinned revision.
+
+The current pin includes the workspace-contribution refactor. The browser surface is now selected through the DAW workspace extension registry in upstream `Timeline.tsx` / `timeline-workspace.tsx`; the built-in browser contribution still renders the same `TimelineLeftBrowser` UI used by this fixture.
 
 ## Pinned geometry
 
@@ -65,14 +69,14 @@ These files own deterministic fixture state or bridge application services, but 
 | `src/native/TimelineChrome.tsx` | `src/components/timeline/timeline-chrome.tsx` | mounts exact `TransportControls`; browser-only hidden inputs are omitted |
 | `src/native/TransportControls.tsx` | exact `TransportControls.tsx` | supplies deterministic project/menu/MIDI services |
 | `src/native/TimelineLeftBrowser.tsx` | exact browser source | maps fixture browser data/preferences into the source model |
-| `src/native/TimelineWorkspace.tsx` | timeline workspace | composes the source ruler/lane structure around deterministic viewport/sidebar state and the native overview paint leaf |
+| `src/native/TimelineWorkspace.tsx` | timeline workspace | composes the source ruler/lane structure around deterministic viewport/sidebar state and the native overview paint leaf; the current upstream contribution registry still resolves the same browser UI |
 | `src/native/TrackLane.tsx` | exact TrackLane source | maps fixture tracks into upstream-shaped types; automation is disabled for this focused slice and the browser gradient grid is painted with retained native lines using the exact source interval math |
 | `src/native/TimelineBottomPanelShell.tsx` | exact bottom shell | native sizing/event adapter around copied source |
 | `src/native/TimelineBottomPanelFooter.tsx` | exact footer | re-export/adapter only |
 
 ## Explicit native visual leaves
 
-The following visible pieces remain native implementations because the pinned browser components require capabilities that `@gpuix/native@0.4.0` cannot faithfully render. They must continue to follow the pinned source's dimensions, ordering and control vocabulary; they are not permission to invent a different design.
+The following visible pieces remain native implementations because the pinned browser components require capabilities that `@gpuix/native@0.4.0` cannot faithfully render. They must continue to follow the pinned source's dimensions, ordering and control vocabulary; they are not permission to invent a different design or reduce interaction.
 
 ### ArrangementOverview paint
 
@@ -84,13 +88,13 @@ The exact source file remains copied and parity-protected. `src/native/Arrangeme
 
 Pinned `src/components/timeline/ClipComponent.tsx` draws MIDI/audio content through an HTML Canvas 2D context and the waveform view-model. GPUIX exposes a native `<canvas>` host but not the browser `CanvasRenderingContext2D` API used by this component. `src/upstream/components/timeline/ClipComponent.tsx` is therefore a narrow bridge from exact `TrackLane` to `src/native/ClipComponent.tsx`.
 
-The native leaf preserves clip start/duration geometry, 20px title header, waveform/MIDI visual vocabulary, selection treatment and drag hit target.
+The native leaf preserves clip start/duration geometry, 20px title header, waveform/MIDI visual vocabulary, selection treatment and drag hit target. Its data is deterministic, but selection/drag state is live.
 
 ### TrackSidebar / TrackSidebarRow
 
-The visible row is coupled in upstream to routing/group operations, automation lane metadata, mixer automation, track drag/drop, live stereo meter subscriptions, return/master sections and several controller services. Copying that controller into this deterministic renderer fixture would require a fake DAW backend larger than the UI slice.
+The visible row is coupled in upstream to routing/group operations, automation lane metadata, mixer automation, track drag/drop, live stereo meter subscriptions, return/master sections and several controller services. Those services are replaced by deterministic local state rather than removed from the visible UI.
 
-The native row follows the pinned three-column geometry: track name/collapse, output/send routing, number/S/R controls, volume plus A/+ automation controls, and the stereo vertical meter strip. The source-specific TRACKS/MIXER labels that had existed in the earlier recreation were removed because upstream has blank overview/ruler header chrome.
+The native row follows the pinned three-column geometry: track name/collapse, output/send routing, number/S/R controls, volume plus A/+ automation controls, and the stereo vertical meter strip. Collapse, routing/send selection, activation, solo, record arm, volume and automation controls must remain interactive against local fixture state.
 
 ### Compressor / EQ Eight
 
@@ -103,9 +107,11 @@ Pinned EQ Eight additionally depends on Canvas 2D, `ResizeObserver`, requestAnim
 - Compressor: 560px shell; 84px left control stack; status/graph/Thresh-Knee-Look center; 96px Makeup/mode/Dry-Wet stack.
 - EQ Eight: 704px shell; 72px Freq/Gain/Q strip; central graph; 72px mode strip; 52px eight-band selector.
 
+Every visible device control in the fixture is backed by deterministic local state.
+
 ### Sample Detail waveform
 
-Pinned `SampleDetailWaveform.tsx` uses Canvas 2D, `ResizeObserver` and the waveform view-model. The native Clip tab therefore preserves the source composition instead of copying the canvas implementation: 80px Sample Detail rail, compact sample controls and a 960px native beat-grid/waveform leaf.
+Pinned `SampleDetailWaveform.tsx` uses Canvas 2D, `ResizeObserver` and the waveform view-model. The native Clip tab therefore preserves the source composition instead of copying the canvas implementation: 80px Sample Detail rail, compact sample controls and a 960px native beat-grid/waveform leaf. Visible sample-detail controls remain interactive with local state.
 
 ## GPUIX Solid compatibility added for this port
 
@@ -129,13 +135,13 @@ The focused fixture exercises:
 
 - exact transport controls and live BPM
 - browser tabs/tree/search
-- track selection, activation/mute, solo, record-arm and volume
+- track selection, collapse, routing/send selection, activation/mute, solo, record-arm, volume and automation controls
 - source arrangement-overview geometry/state with native multicolor paint, exact ruler and exact lane composition
 - ruler playhead scrubbing and loop-region state through the source component
 - clip drag entry, snapping and compatible cross-track movement when native held-pointer continuation is available
 - Effects / Clip bottom-panel switching and hide/show
 - reactive Compressor and EQ native-leaf controls
-- source-shaped Sample Detail panel
+- source-shaped Sample Detail panel and controls
 
 `@gpuix/native@0.4.0`'s macOS `TestGpuixRenderer` currently delivers the initial mouse-down but does not reliably deliver the complete held move/up sequence required to automate every drag path. This is tracked at `remorses/gpuix#20`. Tests report the limitation rather than claiming synthetic drag coverage that the native binding does not provide. Physical-mouse behavior remains part of the manual macOS acceptance pass.
 
@@ -145,4 +151,4 @@ The source application also contains collaboration, Convex, TanStack Router, Web
 
 ## Merge gate
 
-This example is not complete merely because it builds or its automated tests pass. Before PR #47 can merge, the native window must be manually compared side-by-side on macOS with the pinned DAW branch and accepted as recognizably the same UI for the included slice. Material layout, hierarchy, typography, control or state-treatment differences remain defects.
+This example is not complete merely because it builds or its automated tests pass. Before the source-first PR can merge, the native window must be manually compared side-by-side on macOS with the pinned DAW branch and accepted as recognizably the same UI for the included slice. Material layout, hierarchy, typography, control, state-treatment or interaction differences remain defects.
