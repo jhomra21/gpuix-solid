@@ -11,17 +11,29 @@ export interface TrackSidebarProps {
   masterVolume: number
   onSelectTrack: (id: string) => void
   onSelectMaster: () => void
+  onToggleCollapsed: (id: string) => void
+  onCycleOutputTarget: (id: string) => void
+  onCycleSendTarget: (id: string) => void
   onToggleMute: (id: string) => void
   onToggleSolo: (id: string) => void
   onToggleArm: (id: string) => void
   onVolumeChange: (id: string, value: number) => void
+  onToggleAutomation: (id: string) => void
+  onAddAutomationLane: (id: string) => void
+  onHideAutomationLane: (id: string) => void
   onMasterVolumeChange: (value: number) => void
+}
+
+function trackRowHeight(track: NativeTrack): number {
+  const clipLaneHeight = track.collapsed ? layout.collapsedLaneHeight : layout.laneHeight
+  if (track.collapsed || !track.automationVisible) return clipLaneHeight
+  return clipLaneHeight + track.automationLaneCount * 48
 }
 
 const TrackSidebar = (props: TrackSidebarProps): JSX.Element => {
   const scrollingTracks = createMemo(() => props.tracks.filter((track) => track.kind !== "return"))
   const returnTracks = createMemo(() => props.tracks.filter((track) => track.kind === "return"))
-  const returnAreaHeight = () => returnTracks().length * layout.laneHeight
+  const returnAreaHeight = () => returnTracks().reduce((height, track) => height + trackRowHeight(track), 0)
   const stickyFooterHeight = () => returnAreaHeight() + layout.laneHeight
   const scrollingBottom = () => props.bottomPanelOffsetPx + stickyFooterHeight()
 
@@ -30,10 +42,16 @@ const TrackSidebar = (props: TrackSidebarProps): JSX.Element => {
       track={track}
       selected={props.selectedTrackId === track.id}
       onSelect={() => props.onSelectTrack(track.id)}
+      onToggleCollapsed={() => props.onToggleCollapsed(track.id)}
+      onCycleOutputTarget={() => props.onCycleOutputTarget(track.id)}
+      onCycleSendTarget={() => props.onCycleSendTarget(track.id)}
       onToggleMute={() => props.onToggleMute(track.id)}
       onToggleSolo={() => props.onToggleSolo(track.id)}
       onToggleArm={() => props.onToggleArm(track.id)}
       onVolumeChange={(value) => props.onVolumeChange(track.id, value)}
+      onToggleAutomation={() => props.onToggleAutomation(track.id)}
+      onAddAutomationLane={() => props.onAddAutomationLane(track.id)}
+      onHideAutomationLane={() => props.onHideAutomationLane(track.id)}
     />
   )
 
