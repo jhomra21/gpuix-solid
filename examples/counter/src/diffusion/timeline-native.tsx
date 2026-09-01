@@ -1,10 +1,16 @@
-import { For, Show, type Element as SolidElement } from "solid-js"
+import { For, Show, createSignal, type Element as SolidElement } from "solid-js"
 import type { DiffusionEditorState } from "./compat"
+import {
+  TIME_FORMAT_OPTIONS,
+  formatFrames,
+  type TimeFormat,
+} from "../../upstream/diffusion-editor/apps/web/src/components/timeline/time-format"
 
 // Source: diffusionstudio/editor@585fb010, apps/web/src/engine/timeline/config.ts.
 export const RULER_HEIGHT = 36
 export const DEFAULT_TIMELINE_HEIGHT = 234
-const DEFAULT_CLIP_HEIGHT = 40
+export const DEFAULT_CLIP_HEIGHT = 40
+export const PLAYHEAD_FRAME = 162
 const TARGET_MAJOR_TICK_DISTANCE = 160
 const DEFAULT_TIMELINE_RESOLUTION = 1 / 0.7
 const FPS = 30
@@ -80,12 +86,13 @@ function formatTickLabel(frame: number): string {
   return `${minutes}:${seconds}`
 }
 
-interface TimelineClip {
+export interface DiffusionTimelineClip {
   id: string
   name: string
   kind: "video" | "audio" | "caption" | "text"
   start: number
   end: number
+  row: number
 }
 
 interface ClipPalette {
@@ -94,17 +101,65 @@ interface ClipPalette {
   foreground: string
 }
 
-// Deterministic native data stands in for Koota/runtime entities. Geometry and
-// styling below follow Diffusion's real timeline renderer rather than the old
-// GPUIX timeline demo.
-const clips: TimelineClip[] = [
-  { id: "title", name: "Title", kind: "text", start: 24, end: 174 },
-  { id: "video", name: "studio-intro.mp4", kind: "video", start: 0, end: 300 },
-  { id: "voiceover", name: "voiceover.wav", kind: "audio", start: 42, end: 342 },
-  { id: "captions", name: "Classic Captions", kind: "caption", start: 60, end: 330 },
+export interface DiffusionTimelineState {
+  clips: () => DiffusionTimelineClip[]
+  selectedClipId: () => string | null
+  selectClip: (id: string) => void
+  splitAtPlayhead: () => void
+  clipHeight: () => number
+  setClipHeight: (height: number) => void
+  timeFormat: () => TimeFormat
+  setTimeFormat: (format: TimeFormat) => void
+  extraLayers: () => number
+  addLayer: () => void
+}
+
+const INITIAL_CLIPS: DiffusionTimelineClip[] = [
+  { id: "title", name: "Title", kind: "text", start: 24, end: 174, row: 0 },
+  { id: "video", name: "studio-intro.mp4", kind: "video", start: 0, end: 300, row: 1 },
+  { id: "voiceover", name: "voiceover.wav", kind: "audio", start: 42, end: 342, row: 2 },
+  { id: "captions", name: "Classic Captions", kind: "caption", start: 60, end: 330, row: 3 },
 ]
 
-function clipColors(kind: TimelineClip["kind"]): ClipPalette {
+export function createDiffusionTimelineState(): DiffusionTimelineState {
+  const [clips, setClips] = createSignal<DiffusionTimelineClip[]>(INITIAL_CLIPS.map((clip) => ({ ...clip })))
+  const [selectedClipId, setSelectedClipId] = createSignal<string | null>("video")
+  const [clipHeight, setClipHeight] = createSignal(DEFAULT_CLIP_HEIGHT)
+  const [timeFormat, setTimeFormat] = createSignal<TimeFormat>("standard")
+  const [extraLayers, setExtraLayers] = createSignal(0)
+  let splitSequence = 0
+
+  const splitAtPlayhead = (): void => {
+    const selected = selectedClipId()
+    if (!selected) return
+
+    setClips((current) => {
+      const index = current.findIndex((clip) => clip.id === selected)
+      const clip = current[index]
+      if (!clip || PLAYHEAD_FRAME <= clip.start || PLAYHEAD_FRAME >= clip.end) return current
+
+      const splitId = `${clip.id}-split-${++splitSequence}`
+      const left = { ...clip, end: PLAYHEAD_FRAME }
+      const right = { ...clip, id: splitId, start: PLAYHEAD_FRAME }
+      return [...current.slice(0, index), left, right, ...current.slice(index + 1)]
+    })
+  }
+
+  return {
+    clips,
+    selectedClipId,
+    selectClip: setSelectedClipId,
+    splitAtPlayhead,
+    clipHeight,
+    setClipHeight,
+    timeFormat,
+    setTimeFormat,
+    extraLayers,
+    addLayer: () => setExtraLayers((count) => count + 1),
+  }
+}
+
+function clipColors(kind: DiffusionTimelineClip["kind"]): ClipPalette {
   if (kind === "video") return { background: COLORS.videoBackground, primary: COLORS.videoPrimary, foreground: COLORS.videoForeground }
   if (kind === "audio") return { background: COLORS.audioBackground, primary: COLORS.audioPrimary, foreground: COLORS.audioForeground }
   if (kind === "caption") return { background: COLORS.captionBackground, primary: COLORS.captionForeground, foreground: COLORS.captionForeground }
@@ -118,25 +173,32 @@ const waveform = [
   0.82, 0.56, 0.34, 0.74, 0.52, 0.9, 0.44, 0.28, 0.62, 0.8, 0.46, 0.68,
 ]
 
-function NativeClip(props: { clip: TimelineClip; row: number }): SolidElement {
-  const left = TIMELINE_PADDING_LEFT + framesToPixels(props.clip.start)
-  const width = framesToPixels(props.clip.end - props.clip.start)
+function NativeClip(props: {
+  clip: DiffusionTimelineClip
+  timeline: DiffusionTimelineState
+}): SolidElement {
+  const left = () => TIMELINE_PADDING_LEFT + framesToPixels(props.clip.start)
+  const width = () => framesToPixels(props.clip.end - props.clip.start)
   const colors = clipColors(props.clip.kind)
+  const selected = () => props.timeline.selectedClipId() === props.clip.id
+  const height = () => props.timeline.clipHeight()
 
   return (
     <div
       testId={`diffusion-clip-${props.clip.id}`}
+      onClick={() => props.timeline.selectClip(props.clip.id)}
       style={{
         position: "absolute",
-        left,
-        top: props.row * DEFAULT_CLIP_HEIGHT,
-        width,
-        height: DEFAULT_CLIP_HEIGHT,
+        left: left(),
+        top: props.clip.row * height(),
+        width: width(),
+        height: height(),
         borderRadius: 4,
-        borderWidth: 1,
-        borderColor: COLORS.borderDarker,
+        borderWidth: selected() ? 2 : 1,
+        borderColor: selected() ? COLORS.ring : COLORS.borderDarker,
         backgroundColor: colors.background,
         overflow: "hidden",
+        cursor: "pointer",
       }}
     >
       <text style={{ position: "absolute", left: 6, top: 5, color: colors.foreground, fontSize: 11 }}>
@@ -149,7 +211,7 @@ function NativeClip(props: { clip: TimelineClip; row: number }): SolidElement {
             left: 4,
             right: 4,
             bottom: 3,
-            height: 15,
+            height: Math.max(8, height() - 22),
             display: "flex",
             flexDirection: "row",
             alignItems: "flex-end",
@@ -159,7 +221,7 @@ function NativeClip(props: { clip: TimelineClip; row: number }): SolidElement {
           }}
         >
           <For each={waveform}>
-            {(peak) => <div style={{ width: 1, height: Math.max(1, Math.round(peak * 13)), flexShrink: 0, backgroundColor: colors.primary }} />}
+            {(peak) => <div style={{ width: 1, height: Math.max(1, Math.round(peak * Math.max(6, height() - 25))), flexShrink: 0, backgroundColor: colors.primary }} />}
           </For>
         </div>
       </Show>
@@ -203,13 +265,12 @@ function Ruler(): SolidElement {
 }
 
 function Playhead(props: { minimized: boolean }): SolidElement {
-  const frame = 162
-  const left = TIMELINE_PADDING_LEFT + framesToPixels(frame)
+  const left = TIMELINE_PADDING_LEFT + framesToPixels(PLAYHEAD_FRAME)
 
   if (props.minimized) {
     return (
       <div style={{ position: "absolute", left: left - 12, top: 8, width: 24, height: 19, borderRadius: 9, backgroundColor: COLORS.ring, alignItems: "center", justifyContent: "center" }}>
-        <text style={{ color: "#FFFFFF", fontSize: 10 }}>162</text>
+        <text style={{ color: "#FFFFFF", fontSize: 10 }}>{PLAYHEAD_FRAME}</text>
       </div>
     )
   }
@@ -222,45 +283,118 @@ function Playhead(props: { minimized: boolean }): SolidElement {
   )
 }
 
-export function Layers(props: { state: DiffusionEditorState }): SolidElement {
+const HEIGHT_PRESETS = [
+  { label: "Tight", height: 28 },
+  { label: "Snug", height: 32 },
+  { label: "Normal", height: 40 },
+  { label: "Relaxed", height: 64 },
+  { label: "Loose", height: 116 },
+] as const
+
+function TimelineMenu(props: { timeline: DiffusionTimelineState; onClose: () => void }): SolidElement {
   return (
-    <div testId="diffusion-layers" style={{ width: 264, height: "100%", flexShrink: 0, display: "flex", flexDirection: "column", backgroundColor: "#121212" }}>
+    <div
+      testId="diffusion-more-menu"
+      style={{
+        position: "absolute",
+        left: 82,
+        top: RULER_HEIGHT - 2,
+        width: 200,
+        padding: 6,
+        gap: 4,
+        borderWidth: 1,
+        borderColor: COLORS.borderInput,
+        borderRadius: 7,
+        backgroundColor: "#121212",
+      }}
+    >
+      <div testId="diffusion-add-layer" onClick={() => { props.timeline.addLayer(); props.onClose() }} style={{ height: 28, paddingLeft: 8, justifyContent: "center", cursor: "pointer", hover: { backgroundColor: "#FFFFFF17" } }}>
+        <text style={{ color: "#F2F2F2", fontSize: 11 }}>Add layer</text>
+      </div>
+      <div style={{ height: 1, backgroundColor: "#FFFFFF0F" }} />
+      <text style={{ color: "#F2F2F2A3", fontSize: 9, paddingLeft: 8, paddingTop: 3 }}>Layer height</text>
+      <For each={HEIGHT_PRESETS}>
+        {(preset) => (
+          <div testId={`diffusion-layer-height-${preset.height}`} onClick={() => props.timeline.setClipHeight(preset.height)} style={{ height: 24, paddingLeft: 8, paddingRight: 8, display: "flex", flexDirection: "row", alignItems: "center", cursor: "pointer", hover: { backgroundColor: "#FFFFFF17" } }}>
+            <text style={{ width: 18, color: props.timeline.clipHeight() === preset.height ? COLORS.ring : "#00000000", fontSize: 10 }}>✓</text>
+            <text style={{ flexGrow: 1, color: "#F2F2F2", fontSize: 10 }}>{preset.label}</text>
+            <text style={{ color: "#F2F2F2A3", fontSize: 9 }}>{preset.height}</text>
+          </div>
+        )}
+      </For>
+      <div style={{ height: 1, backgroundColor: "#FFFFFF0F" }} />
+      <text style={{ color: "#F2F2F2A3", fontSize: 9, paddingLeft: 8, paddingTop: 3 }}>Time format</text>
+      <For each={TIME_FORMAT_OPTIONS}>
+        {(option) => (
+          <div testId={`diffusion-time-format-${option.value}`} onClick={() => props.timeline.setTimeFormat(option.value)} style={{ height: 24, paddingLeft: 8, paddingRight: 8, display: "flex", flexDirection: "row", alignItems: "center", cursor: "pointer", hover: { backgroundColor: "#FFFFFF17" } }}>
+            <text style={{ width: 18, color: props.timeline.timeFormat() === option.value ? COLORS.ring : "#00000000", fontSize: 10 }}>✓</text>
+            <text style={{ flexGrow: 1, color: "#F2F2F2", fontSize: 10 }}>{option.label}</text>
+            <text style={{ color: "#F2F2F2A3", fontSize: 9 }}>{option.example}</text>
+          </div>
+        )}
+      </For>
+    </div>
+  )
+}
+
+function layerRows(timeline: DiffusionTimelineState): Array<{ row: number; name: string }> {
+  const clips = timeline.clips()
+  const highestRow = clips.reduce((highest, clip) => Math.max(highest, clip.row), -1)
+  const rows = Array.from({ length: highestRow + 1 }, (_, row) => ({
+    row,
+    name: clips.find((clip) => clip.row === row)?.name ?? `Layer ${row + 1}`,
+  }))
+  for (let index = 0; index < timeline.extraLayers(); index += 1) {
+    rows.push({ row: highestRow + 1 + index, name: `Layer ${index + 1}` })
+  }
+  return rows
+}
+
+export function Layers(props: { state: DiffusionEditorState; timeline: DiffusionTimelineState }): SolidElement {
+  const [moreOpen, setMoreOpen] = createSignal(false)
+  const clock = () => formatFrames(PLAYHEAD_FRAME, FPS, props.timeline.timeFormat())
+
+  return (
+    <div testId="diffusion-layers" style={{ position: "relative", width: 264, height: "100%", flexShrink: 0, display: "flex", flexDirection: "column", backgroundColor: "#121212" }}>
       <div style={{ height: RULER_HEIGHT, flexShrink: 0, display: "flex", flexDirection: "row", alignItems: "center", gap: 2, paddingLeft: 8, paddingRight: 12 }}>
-        <div testId="diffusion-play" onClick={() => props.state.setPlaying(!props.state.playing())} style={{ width: 28, height: 28, borderRadius: 6, alignItems: "center", justifyContent: "center", hover: { backgroundColor: "#FFFFFF17" } }}>
+        <div testId="diffusion-play" onClick={() => props.state.setPlaying(!props.state.playing())} style={{ width: 28, height: 28, borderRadius: 6, alignItems: "center", justifyContent: "center", cursor: "pointer", hover: { backgroundColor: "#FFFFFF17" } }}>
           <text style={{ color: "#FFFFFFA3", fontSize: 11 }}>{props.state.playing() ? "Ⅱ" : "▶"}</text>
         </div>
-        <div testId="diffusion-loop" onClick={() => props.state.setLooping(!props.state.looping())} style={{ width: 28, height: 28, borderRadius: 6, alignItems: "center", justifyContent: "center", backgroundColor: props.state.looping() ? "#FFFFFF0F" : "#00000000", hover: { backgroundColor: "#FFFFFF17" } }}>
+        <div testId="diffusion-loop" onClick={() => props.state.setLooping(!props.state.looping())} style={{ width: 28, height: 28, borderRadius: 6, alignItems: "center", justifyContent: "center", backgroundColor: props.state.looping() ? "#FFFFFF0F" : "#00000000", cursor: "pointer", hover: { backgroundColor: "#FFFFFF17" } }}>
           <text style={{ color: "#FFFFFFA3", fontSize: 11 }}>↻</text>
         </div>
         <Show when={!props.state.timelineMinimized()}>
-          <div testId="diffusion-split" style={{ width: 28, height: 28, alignItems: "center", justifyContent: "center" }}><text style={{ color: "#FFFFFFA3", fontSize: 11 }}>✂</text></div>
-          <div testId="diffusion-more" style={{ width: 28, height: 28, alignItems: "center", justifyContent: "center" }}><text style={{ color: "#FFFFFFA3", fontSize: 11 }}>•••</text></div>
+          <div testId="diffusion-split" onClick={props.timeline.splitAtPlayhead} style={{ width: 28, height: 28, alignItems: "center", justifyContent: "center", cursor: "pointer", hover: { backgroundColor: "#FFFFFF17" } }}><text style={{ color: "#FFFFFFA3", fontSize: 11 }}>✂</text></div>
+          <div testId="diffusion-more" onClick={() => setMoreOpen(!moreOpen())} style={{ width: 28, height: 28, alignItems: "center", justifyContent: "center", cursor: "pointer", backgroundColor: moreOpen() ? "#FFFFFF0F" : "#00000000", hover: { backgroundColor: "#FFFFFF17" } }}><text style={{ color: "#FFFFFFA3", fontSize: 11 }}>•••</text></div>
         </Show>
         <div style={{ flexGrow: 1 }} />
-        <text style={{ color: "#FFFFFFA3", fontSize: 10 }}>00:00:05:12</text>
+        <text testId="diffusion-clock" style={{ color: "#FFFFFFA3", fontSize: 10 }}>{clock()}</text>
       </div>
       <Show when={!props.state.timelineMinimized()}>
-        <For each={clips}>
-          {(clip) => (
-            <div style={{ height: DEFAULT_CLIP_HEIGHT, flexShrink: 0, display: "flex", flexDirection: "row", alignItems: "center", gap: 7, paddingLeft: 10, paddingRight: 10, borderTopWidth: 1, borderColor: "#FFFFFF08" }}>
+        <For each={layerRows(props.timeline)}>
+          {(layer) => (
+            <div testId={`diffusion-layer-row-${layer.row}`} style={{ height: props.timeline.clipHeight(), flexShrink: 0, display: "flex", flexDirection: "row", alignItems: "center", gap: 7, paddingLeft: 10, paddingRight: 10, borderTopWidth: 1, borderColor: "#FFFFFF08" }}>
               <text style={{ color: "#FFFFFFA3", fontSize: 10 }}>▾</text>
-              <text style={{ color: "#F2F2F2", fontSize: 11 }}>{clip.name}</text>
+              <text style={{ color: "#F2F2F2", fontSize: 11 }}>{layer.name}</text>
             </div>
           )}
         </For>
+      </Show>
+      <Show when={moreOpen() && !props.state.timelineMinimized()}>
+        <TimelineMenu timeline={props.timeline} onClose={() => setMoreOpen(false)} />
       </Show>
     </div>
   )
 }
 
-export function Timeline(props: { state: DiffusionEditorState }): SolidElement {
+export function Timeline(props: { state: DiffusionEditorState; timeline: DiffusionTimelineState }): SolidElement {
   return (
     <div testId="diffusion-timeline" style={{ position: "relative", flexGrow: 1, minWidth: 0, height: "100%", overflow: "hidden", backgroundColor: COLORS.background }}>
       <Ruler />
       <Show when={!props.state.timelineMinimized()}>
         <div style={{ position: "relative", flexGrow: 1, minHeight: 0 }}>
-          <For each={clips}>
-            {(clip, index) => <NativeClip clip={clip} row={index()} />}
+          <For each={props.timeline.clips()}>
+            {(clip) => <NativeClip clip={clip} timeline={props.timeline} />}
           </For>
         </div>
       </Show>
