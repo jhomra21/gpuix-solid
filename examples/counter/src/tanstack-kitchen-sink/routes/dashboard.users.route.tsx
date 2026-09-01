@@ -33,7 +33,7 @@ export function UsersRoute() {
       <div style={{ width: 310, flexShrink: 0, overflowY: "scroll" }}>
         <div style={{ width: "100%", display: "flex", flexDirection: "row", gap: 8, alignItems: "center", paddingTop: 8, paddingBottom: 8, paddingLeft: 12, paddingRight: 12, backgroundColor: palette.panelSoft }}>
           <text style={{ color: palette.text, fontSize: 11 }}>Sort By:</text>
-          <Select value={sortBy()} onValueChange={changeSort} style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0 }}>
+          <Select testId="users-sort-root" value={sortBy()} onValueChange={changeSort} style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0 }}>
             <SelectTrigger testId="users-sort" style={nativeInputStyle({ width: "100%", flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, minHeight: 32, display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingLeft: 8, paddingRight: 8 })}>
               <SelectValue style={{ flexGrow: 1, minWidth: 0 }}>
                 <text testId="users-sort-value" style={{ color: palette.text, fontSize: 12 }}>{sortBy()}</text>
