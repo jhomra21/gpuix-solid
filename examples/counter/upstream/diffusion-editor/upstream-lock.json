@@ -15,6 +15,7 @@
     "apps/web/src/components/sidebar-right/inspector/inspector.tsx": "7a0cd250b75f32b7324b6b6577af3a8379b1f26d",
     "apps/web/src/components/sidebar-right/inspector/inspector-header.tsx": "f775a305fefce94fe432a4e6efeacbf6ed5029bc",
     "apps/web/src/components/sidebar-right/inspector/scene-template.tsx": "2aa1af1782e635c2eb848175e07bb85ac8192c67",
+    "apps/web/src/components/ui/panel-section.tsx": "bc7ad2c3c6a05ecc97a3e72c4f1e2aa2a646819e",
     "apps/web/src/components/sidebar-right/soundboard/soundboard.tsx": "25f1eaa31ca00c1cc8bc821105b2c337571abd5d",
     "apps/web/src/components/sidebar-right/soundboard/volume-meter.tsx": "64b05a50f0bf9431e98475a07ea943dfc755913a",
     "apps/web/src/context/layout.tsx": "40b39b0cb7d15c080fe9c58eb5b4a7389b99aa07",
@@ -23,6 +24,11 @@
     "apps/web/src/engine/timeline/constants.ts": "01f9b12807b7fd8370d4cf869e4f90132c451a12",
     "apps/web/src/engine/timeline/render/ruler.ts": "129d6828239f09217418576add145602ce8a3968",
     "apps/web/src/engine/timeline/render/waveform.ts": "725bbc9bd78397257b410d94e54a81e1bf3401b8",
-    "apps/web/src/engine/timeline/render/playhead.ts": "a6643a79b01f6bd9b9a032a5954ddafa0262447e"
+    "apps/web/src/engine/timeline/render/playhead.ts": "a6643a79b01f6bd9b9a032a5954ddafa0262447e",
+    "apps/web/src/assets/icons/chevron-down.svg": "b8d49f9dd475b08f0e51d7079065643885805a2e",
+    "apps/web/src/assets/icons/video.svg": "37da5b6c77509921b89de449ac01d39dfa2789fe",
+    "apps/web/src/assets/icons/film-video-export.svg": "0ff44f0a1c0e69afa744c603f0fec2223001a9e9",
+    "apps/web/src/assets/icons/context.svg": "305e8010d36898d66191dfb52ccfba779783713a",
+    "apps/web/src/assets/icons/mac-device.svg": "6e499455fd2b338ededd52a5f85fbfa9619c13a9"
   }
 }
