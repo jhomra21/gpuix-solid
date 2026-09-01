@@ -34,6 +34,14 @@ async function main(): Promise<void> {
     await app.getByTestId("diffusion-project-menu").click()
     assert.equal(await app.getByTestId("diffusion-project-menu-content").count(), 0)
 
+    await app.getByTestId("diffusion-zoom").click()
+    assert.equal(await app.getByTestId("diffusion-zoom-menu").count(), 1)
+    assert.equal(await app.getByTestId("diffusion-zoom-menu").getByText("Zoom to 50%").count(), 1)
+    assert.equal(await app.getByTestId("diffusion-zoom-menu").getByText("Zoom to 200%").count(), 1)
+    await app.getByTestId("diffusion-zoom-200").click()
+    assert.match(await app.getByTestId("diffusion-zoom").textContent(), /200%/)
+    assert.equal(await app.getByTestId("diffusion-zoom-menu").count(), 0)
+
     await app.getByTestId("diffusion-project-menu").click()
     await app.getByTestId("diffusion-project-menu-content").getByText("File").click()
     await app.getByTestId("diffusion-file-import").click()
@@ -66,7 +74,13 @@ async function main(): Promise<void> {
     assert.equal(await app.getByTestId("diffusion-tool-hand").count(), 1)
     assert.equal(await app.getByTestId("diffusion-tool-move").count(), 0)
     await app.getByTestId("diffusion-tool-frame").click()
+    assert.equal(await app.getByTestId("diffusion-scene-preset-video-1080x1920").count(), 1)
+    assert.equal(await app.getByText("Cinematic").count(), 1)
+    assert.equal(await app.getByText("Device (Preview)").count(), 1)
+    await app.getByTestId("diffusion-scene-preset-video-1080x1920").click()
     assert.equal(await app.getByTestId("diffusion-tool-move").count(), 1)
+    assert.equal(await app.getByText("Transform").count(), 1)
+    assert.equal(await app.getByText("1080 × 1920").count(), 1)
 
     assert.equal(await app.getByTestId("diffusion-prompt").count(), 0)
     await app.getByTestId("diffusion-project-menu").click()
