@@ -37,7 +37,7 @@ interface TriggerProps {
   children?: SolidElement
 }
 
-export function DropdownMenuTrigger<T = unknown>(props: TriggerProps): SolidElement {
+export function DropdownMenuTrigger<_T = unknown>(props: TriggerProps): SolidElement {
   const context = useDropdown()
   const onClick: HostEventHandler = () => context.setOpen(!context.open())
   return props.as ? props.as({ onClick }) : <button onClick={onClick}>{props.children}</button>
