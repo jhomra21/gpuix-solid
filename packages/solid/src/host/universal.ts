@@ -64,6 +64,7 @@ type SvgAttributeValue = string
 
 const styleStates = new WeakMap<HostElementNode, NativeStyleState>()
 const classStyledNodes = new Set<HostElementNode>()
+const appliedStyleNodes = new WeakSet<HostElementNode>()
 const semanticTags = new WeakMap<HostElementNode, string>()
 const svgAttributes = new WeakMap<HostElementNode, Map<string, SvgAttributeValue>>()
 const textTransforms = new WeakMap<HostElementNode, NativeTextTransform>()
@@ -462,7 +463,17 @@ function applyNativeStyleState(node: HostElementNode): void {
   const textTransform = classTextTransform ?? inheritedTextTransform
   if (textTransform === undefined) textTransforms.delete(node)
   else textTransforms.set(node, textTransform)
-  setHostProperty(node, "style", mergeNativeStyles(inheritedStyle, ancestorStyle, classStyle, state.inlineStyle) ?? {})
+
+  const resolvedStyle = mergeNativeStyles(inheritedStyle, ancestorStyle, classStyle, state.inlineStyle)
+  if (resolvedStyle === undefined) {
+    if (!appliedStyleNodes.has(node)) return
+    setHostProperty(node, "style", {})
+    appliedStyleNodes.delete(node)
+    return
+  }
+
+  setHostProperty(node, "style", resolvedStyle)
+  appliedStyleNodes.add(node)
 }
 
 function applyNativeTextTransform(node: HostTextNode): void {
