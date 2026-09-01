@@ -122,7 +122,6 @@ describe("native selection and layout parity", () => {
       { display: "flex", flexDirection: "column", padding: 20 },
       [text("clear me", { fontSize: 20 })],
     ))
-
     expect(testRoot.renderer.dragSelect(21, 30, 900, 30)).toBe("clear me")
     testRoot.renderer.clearSelection()
     expect(testRoot.renderer.getSelectedText()).toBeNull()
@@ -205,5 +204,38 @@ describe("native selection and layout parity", () => {
     expect(updated).not.toBeNull()
     expect(updated?.[2]).toBeCloseTo(180, 3)
     expect(updated?.[3]).toBeCloseTo(40, 3)
+  })
+
+  nativeIt("fills a fixed-width parent with a percentage flex row", () => {
+    const testRoot = createTestRoot()
+    const toolbar = div(
+      {
+        width: "100%",
+        display: "flex",
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        paddingLeft: 12,
+        paddingRight: 12,
+      },
+      [
+        text("Sort By:", { fontSize: 11 }),
+        div(
+          { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, minHeight: 32 },
+          [text("name", { fontSize: 12 })],
+        ),
+      ],
+    )
+    const sidebar = div({ width: 310, flexShrink: 0 }, [toolbar])
+
+    testRoot.render(() => div(
+      { display: "flex", flexDirection: "row", width: 800, height: 200 },
+      [sidebar],
+    ))
+
+    const sidebarBounds = testRoot.renderer.getElementBounds(sidebar.id)
+    const toolbarBounds = testRoot.renderer.getElementBounds(toolbar.id)
+    expect(sidebarBounds?.[2]).toBeCloseTo(310, 3)
+    expect(toolbarBounds?.[2]).toBeGreaterThanOrEqual(300)
   })
 })
