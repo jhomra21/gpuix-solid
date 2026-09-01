@@ -97,6 +97,13 @@ function insetPoint(bounds: TestBounds) {
   }
 }
 
+function centerPoint(bounds: TestBounds) {
+  return {
+    x: bounds.x + bounds.width / 2,
+    y: bounds.y + bounds.height / 2,
+  }
+}
+
 const NativeTestRenderer = loadNativeTestRenderer()
 export const hasNativeTestRenderer = NativeTestRenderer !== undefined
 
@@ -131,6 +138,13 @@ export class TestRenderer {
 
   clickTestId(testId: string): void {
     const point = insetPoint(this.boundsTestId(testId))
+    this.#native.simulateClick(point.x, point.y)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+  }
+
+  clickCenterTestId(testId: string): void {
+    const point = centerPoint(this.boundsTestId(testId))
     this.#native.simulateClick(point.x, point.y)
     this.dispatchNativeEvents()
     this.#native.flush()
