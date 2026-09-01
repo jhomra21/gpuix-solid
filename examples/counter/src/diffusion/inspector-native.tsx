@@ -25,13 +25,14 @@ function Section(props: { title: string; children: SolidElement }): SolidElement
 
 function Header(props: { state: DiffusionEditorState }): SolidElement {
   const [open, setOpen] = createSignal(false)
+  const zoomLabel = () => `${Math.round(props.state.zoom() * 100)}%⌄`
   const setZoom = (value: number) => { props.state.setZoom(value); setOpen(false) }
   return (
     <div style={{ position: "relative", height: 48, flexShrink: 0, display: "flex", flexDirection: "row", alignItems: "center", paddingLeft: 16, paddingRight: 10 }}>
       <text style={{ color: C.foreground, fontSize: 12, fontWeight: 500 }}>Editor</text>
       <div style={{ flexGrow: 1 }} />
       <div testId="diffusion-zoom" onClick={() => setOpen(!open())} style={{ height: 28, paddingLeft: 6, paddingRight: 2, display: "flex", flexDirection: "row", alignItems: "center", cursor: "pointer" }}>
-        <text style={muted}>{Math.round(props.state.zoom() * 100)}%⌄</text>
+        <text style={muted}>{zoomLabel()}</text>
       </div>
       <Show when={open()}>
         <div testId="diffusion-zoom-menu" style={{ position: "absolute", right: 10, top: 40, width: 160, padding: 5, borderWidth: 1, borderColor: C.borderStrong, backgroundColor: C.background }}>
