@@ -24,11 +24,11 @@ function useDropdown(): DropdownContextValue {
 export function DropdownMenu(props: ParentProps<{ placement?: string }>): SolidElement {
   const [open, setOpen] = createSignal(false)
   return (
-    <DropdownContext.Provider value={{ open, setOpen }}>
+    <DropdownContext value={{ open, setOpen }}>
       <div style={{ position: "relative", display: "flex", flexGrow: 1, justifyContent: "flex-end" }}>
         {props.children}
       </div>
-    </DropdownContext.Provider>
+    </DropdownContext>
   )
 }
 
