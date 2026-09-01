@@ -3,13 +3,13 @@ import {
   C,
   Divider,
   FloatingProjectHeader,
-  Soundboard,
   type DiffusionEditorState,
   type DiffusionTool,
 } from "./compat"
 import { Canvas } from "./canvas-native"
 import { Inspector } from "./inspector-native"
 import { SidebarLeft } from "./sidebar-left-native"
+import { Soundboard } from "./soundboard-native"
 import {
   DEFAULT_TIMELINE_HEIGHT,
   Layers,
