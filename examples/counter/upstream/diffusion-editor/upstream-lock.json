@@ -4,6 +4,7 @@
   "blobs": {
     "apps/web/src/pages/editor.tsx": "81e054efd64accbe3e1d7dbd2e7b86773b74656f",
     "apps/web/src/components/sidebar-left/sidebar-left.tsx": "a179fce4cbde017f47fb9d2fc5a2ac726bac5e2a",
+    "apps/web/src/components/sidebar-left/assets.tsx": "5210c789355506c710275083c04bcba86c0ae5c9",
     "apps/web/src/components/sidebar-left/project-menu/index.tsx": "2d2735a560d5e3be34e9c773210c0e632ecf99e9",
     "apps/web/src/components/sidebar-left/project-menu/file-menu.tsx": "24ebd839988898f3c9df79068ea895ad0f7d017b",
     "apps/web/src/components/sidebar-left/project-menu/edit-menu.tsx": "c4c6970a7240d2f3b4d436c0c6c188f602e0a710",
