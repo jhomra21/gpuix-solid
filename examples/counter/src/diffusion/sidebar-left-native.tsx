@@ -124,13 +124,13 @@ function ProjectMenu(props: {
           </Show>
 
           <Show when={page() === "view"}>
-            <DropdownMenu bare>
+            <DropdownMenu bare onItemSelect={close}>
               <ViewMenu />
             </DropdownMenu>
           </Show>
 
           <Show when={page() === "tool"}>
-            <DropdownMenu bare>
+            <DropdownMenu bare onItemSelect={close}>
               <ToolMenu />
             </DropdownMenu>
           </Show>
