@@ -43,15 +43,11 @@ const ClipComponent = (props: ClipComponentProps): JSX.Element => {
         userSelect: "none",
       }}
     >
-      <Show when={props.selected}>
-        <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, borderWidth: 1, borderColor: "#60a5facc", pointerEvents: "none", zIndex: 30 }} />
-      </Show>
-
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 20, display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "flex-start", paddingLeft: 4, paddingRight: 4, backgroundColor: "#09090b59", pointerEvents: "none", zIndex: 20 }}>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 20, display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "flex-start", paddingLeft: 4, paddingRight: 4, backgroundColor: "#09090b59", pointerEvents: "none" }}>
         <text style={{ ...textXs, color: dawTheme.foreground, whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{props.clip.name}</text>
       </div>
 
-      <div style={{ position: "absolute", left: 6, right: 6, top: 27, bottom: 7, display: "flex", alignItems: "center", gap: 3, pointerEvents: "none", overflow: "hidden", zIndex: 10 }}>
+      <div style={{ position: "absolute", left: 6, right: 6, top: 27, bottom: 7, display: "flex", alignItems: "center", gap: 3, pointerEvents: "none", overflow: "hidden" }}>
         <For each={props.clip.waveform}>
           {(amplitude) => (
             <div style={{ width: 3, minWidth: 3, height: Math.max(4, Math.floor(amplitude * 54)), backgroundColor: color(), borderRadius: 1 }} />
@@ -59,8 +55,12 @@ const ClipComponent = (props: ClipComponentProps): JSX.Element => {
         </For>
       </div>
 
-      <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: handleWidth(), cursor: "ew-resize", pointerEvents: "none", zIndex: 20 }} />
-      <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: handleWidth(), cursor: "ew-resize", pointerEvents: "none", zIndex: 20 }} />
+      <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: handleWidth(), cursor: "ew-resize", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: handleWidth(), cursor: "ew-resize", pointerEvents: "none" }} />
+
+      <Show when={props.selected}>
+        <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, borderWidth: 1, borderColor: "#60a5facc", pointerEvents: "none" }} />
+      </Show>
     </div>
   )
 }
