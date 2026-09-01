@@ -24,6 +24,13 @@ async function main(): Promise<void> {
     assert.equal(await app.getByText("Editor").count(), 1)
     assert.equal(await app.getByText("Master").count(), 1)
 
+    assert.equal(await app.getByTestId("diffusion-soundboard-left-volume-value").textContent(), "-3 dB")
+    await app.getByTestId("diffusion-soundboard-left-volume").click()
+    assert.equal(await app.getByTestId("diffusion-soundboard-left-volume-value").textContent(), "-6 dB")
+    assert.equal(await app.getByTestId("diffusion-soundboard-master-volume-value").textContent(), "0 dB")
+    await app.getByTestId("diffusion-soundboard-master-volume").click()
+    assert.equal(await app.getByTestId("diffusion-soundboard-master-volume-value").textContent(), "-3 dB")
+
     assert.equal(await app.getByTestId("diffusion-project-menu-content").count(), 0)
     await app.getByTestId("diffusion-project-menu").click()
     assert.equal(await app.getByTestId("diffusion-project-menu-content").count(), 1)
