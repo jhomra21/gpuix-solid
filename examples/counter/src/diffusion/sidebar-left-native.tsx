@@ -238,7 +238,7 @@ export function SidebarLeft(props: { state: DiffusionEditorState; onGenerateAI: 
           <AddAssetsMenu onImport={importAsset} onCreateFolder={createFolder} />
         </div>
         <div style={{ paddingLeft: 16, paddingRight: 16, paddingBottom: 10 }}>
-          <input testId="diffusion-asset-search" value={query()} placeholder="Search assets" onChange={(event: EventPayload) => setQuery(event.value ?? "")} style={{ height: 28, width: "100%", borderWidth: 1, borderColor: C.borderInput, borderRadius: 4, backgroundColor: C.input, color: C.foreground, fontSize: 11, paddingLeft: 8, paddingRight: 8 }} />
+          <input testId="diffusion-asset-search" value={query()} placeholder="Search assets" onChange={(event: EventPayload) => setQuery(event.value ?? "")} style={{ height: 28, width: "100%", borderWidth: 1, borderColor: C.borderStrong, borderRadius: 4, backgroundColor: C.input, color: C.foreground, fontSize: 11, paddingLeft: 8, paddingRight: 8 }} />
         </div>
         <div style={{ flexGrow: 1, minHeight: 0, paddingLeft: 12, paddingRight: 12, gap: 3, overflowY: "scroll" }}>
           <For each={filteredFolders()}>
@@ -247,7 +247,7 @@ export function SidebarLeft(props: { state: DiffusionEditorState; onGenerateAI: 
           <For each={filteredAssets()}>
             {(asset) => (
               <div testId={`diffusion-asset-${asset.id}`} onClick={() => props.state.setSelectedAsset(asset.id)} style={{ height: 30, display: "flex", flexDirection: "row", alignItems: "center", gap: 8, paddingLeft: 6, paddingRight: 6, borderRadius: 4, cursor: "pointer", backgroundColor: props.state.selectedAsset() === asset.id ? C.secondary : "#00000000", hover: { backgroundColor: C.secondaryHover } }}>
-                <text style={{ color: asset.kind === "VIDEO" ? C.video : asset.kind === "AUDIO" ? C.audio : asset.kind === "IMAGE" ? C.image : C.font, fontSize: 9 }}>{asset.kind}</text>
+                <text style={{ color: asset.kind === "VIDEO" ? C.primary : asset.kind === "AUDIO" ? C.audioPrimary : asset.kind === "IMAGE" ? C.captionBackground : C.meterYellow, fontSize: 9 }}>{asset.kind}</text>
                 <text style={{ ...text, flexGrow: 1 }}>{asset.name}</text>
               </div>
             )}
