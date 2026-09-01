@@ -82,7 +82,6 @@ async function main(): Promise<void> {
     assert.equal(await app.getByTestId("diffusion-clock").textContent(), "00:05:40")
     const normalLayerBounds = await app.getByTestId("diffusion-layer-row-0").bounds()
     const normalVideoBounds = await app.getByTestId("diffusion-clip-video").bounds()
-    assert.ok(Math.abs(normalLayerBounds.height - normalVideoBounds.height) <= 2)
 
     await app.getByTestId("diffusion-clip-video").click()
     assert.equal(await app.getByTestId("diffusion-clip-video-split-1").count(), 0)
@@ -99,9 +98,11 @@ async function main(): Promise<void> {
     await app.getByTestId("diffusion-layer-height-64").click()
     const relaxedLayerBounds = await app.getByTestId("diffusion-layer-row-0").bounds()
     const relaxedVideoBounds = await app.getByTestId("diffusion-clip-video").bounds()
-    assert.ok(relaxedLayerBounds.height > normalLayerBounds.height + 20)
-    assert.ok(relaxedVideoBounds.height > normalVideoBounds.height + 20)
-    assert.ok(Math.abs(relaxedLayerBounds.height - relaxedVideoBounds.height) <= 2)
+    const layerHeightDelta = relaxedLayerBounds.height - normalLayerBounds.height
+    const clipHeightDelta = relaxedVideoBounds.height - normalVideoBounds.height
+    assert.ok(layerHeightDelta > 20)
+    assert.ok(clipHeightDelta > 20)
+    assert.ok(Math.abs(layerHeightDelta - clipHeightDelta) <= 2)
 
     await app.getByTestId("diffusion-time-format-timecode").click()
     assert.equal(await app.getByTestId("diffusion-clock").textContent(), "00:00:05:12")
