@@ -51,7 +51,7 @@ export function EditorPage(): SolidElement {
   }
 
   return (
-    <SourceDiffusionProvider state={state}>
+    <SourceDiffusionProvider state={state} setPromptOpen={setPromptOpen}>
       <div
         testId="diffusion-editor"
         style={{
