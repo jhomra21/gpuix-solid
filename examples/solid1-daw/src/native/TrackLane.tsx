@@ -1,9 +1,9 @@
-import { createMemo, For, type JSX } from "solid-js"
+import { createMemo, For, Show, type JSX } from "solid-js"
 import UpstreamTrackLane from "../upstream/components/timeline/TrackLane"
 import type { RuntimeClip, Track } from "../compat/timeline-core-types"
 import { selectTimelineGridIntervals } from "../compat/timeline-view"
 import type { NativeTrack } from "./model"
-import { dawTheme, layout } from "./theme"
+import { dawTheme, layout, text2xs, text3xs } from "./theme"
 
 export interface TrackLaneProps {
   track: NativeTrack
@@ -21,6 +21,8 @@ interface GridLine {
   left: number
   major: boolean
 }
+
+const automationParameters = ["Track Volume", "Track Pan", "Send A"] as const
 
 function sourceClip(clip: NativeTrack["clips"][number]): RuntimeClip {
   const runtimeClip: RuntimeClip = {
@@ -44,6 +46,12 @@ function sourceTrack(track: NativeTrack): Track {
 }
 
 const TrackLane = (props: TrackLaneProps): JSX.Element => {
+  const clipLaneHeight = () => props.track.collapsed ? layout.collapsedLaneHeight : layout.laneHeight
+  const automationHeight = () => props.track.collapsed || !props.track.automationVisible
+    ? 0
+    : props.track.automationLaneCount * 48
+  const totalHeight = () => clipLaneHeight() + automationHeight()
+
   const gridLines = createMemo<GridLine[]>(() => {
     if (!props.gridEnabled) return []
     const intervals = selectTimelineGridIntervals(
@@ -67,8 +75,8 @@ const TrackLane = (props: TrackLaneProps): JSX.Element => {
     <div
       testId={`lane-${props.track.id}`}
       style={{
-        height: layout.laneHeight,
-        minHeight: layout.laneHeight,
+        height: totalHeight(),
+        minHeight: totalHeight(),
         position: "relative",
         overflow: "hidden",
         backgroundColor: dawTheme.timelineBackground,
@@ -83,7 +91,7 @@ const TrackLane = (props: TrackLaneProps): JSX.Element => {
                 left: line.left,
                 top: 0,
                 width: line.major ? 2 : 1,
-                height: layout.laneHeight,
+                height: totalHeight(),
                 backgroundColor: line.major ? dawTheme.timelineGridMajor : dawTheme.timelineGridMinor,
               }}
             />
@@ -94,8 +102,8 @@ const TrackLane = (props: TrackLaneProps): JSX.Element => {
         track={sourceTrack(props.track)}
         layout={{
           topPx: 0,
-          heightPx: layout.laneHeight,
-          clipLaneHeightPx: layout.laneHeight,
+          heightPx: clipLaneHeight(),
+          clipLaneHeightPx: clipLaneHeight(),
           automationHeightPx: 0,
         }}
         groupClipOverview={[]}
@@ -129,6 +137,67 @@ const TrackLane = (props: TrackLaneProps): JSX.Element => {
           onCancelPreview: () => {},
         }}
       />
+
+      <Show when={props.track.automationVisible && !props.track.collapsed}>
+        <div
+          testId={`lane-${props.track.id}-automation`}
+          style={{
+            position: "absolute",
+            top: clipLaneHeight(),
+            left: 0,
+            right: 0,
+            height: automationHeight(),
+            backgroundColor: "#040405f2",
+            borderTopWidth: 1,
+            borderColor: "#ef44444d",
+          }}
+        >
+          <For each={Array.from({ length: props.track.automationLaneCount }, (_, index) => index)}>
+            {(index) => {
+              const laneTop = index * 48
+              const laneMid = laneTop + 24
+              return (
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    right: 0,
+                    top: laneTop,
+                    height: 48,
+                    borderBottomWidth: 1,
+                    borderColor: "#ef444433",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div style={{ position: "absolute", left: 0, right: 0, top: laneMid - laneTop, height: 1, backgroundColor: "#ef4444" }} />
+                  <For each={[0.7, 2.5, 5.1]}>
+                    {(time, pointIndex) => (
+                      <div
+                        style={{
+                          position: "absolute",
+                          left: time * props.pixelsPerSecond - 3,
+                          top: laneMid - laneTop + (pointIndex() === 1 ? -10 : pointIndex() === 2 ? 7 : -3),
+                          width: 7,
+                          height: 7,
+                          borderRadius: 4,
+                          borderWidth: 1,
+                          borderColor: "#fecaca",
+                          backgroundColor: dawTheme.red,
+                        }}
+                      />
+                    )}
+                  </For>
+                  <div style={{ position: "absolute", left: 8, top: 4, display: "flex", flexDirection: "row", alignItems: "center", gap: 5 }}>
+                    <div style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: dawTheme.red }} />
+                    <text style={{ ...text2xs, color: "#fee2e2" }}>{automationParameters[index % automationParameters.length]}</text>
+                  </div>
+                  <text style={{ position: "absolute", right: 8, top: 4, ...text3xs, color: "#fecaca99" }}>{index === 0 ? "3 pts" : "0 pts"}</text>
+                </div>
+              )
+            }}
+          </For>
+        </div>
+      </Show>
     </div>
   )
 }
