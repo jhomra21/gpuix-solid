@@ -36,7 +36,7 @@ function SceneTemplates(props: { onCreate: (preset: LayoutPreset) => void }): So
               {(preset) => (
                 <div testId={`diffusion-scene-preset-${category.id}-${preset.width}x${preset.height}`} onClick={() => props.onCreate(preset)} style={{ height: 30, paddingLeft: 18, display: "flex", flexDirection: "row", alignItems: "center", cursor: "pointer", hover: { backgroundColor: C.secondaryHover } }}>
                   <text style={{ ...muted, flexGrow: 1 }}>{preset.label}</text>
-                  <text style={{ color: "#F2F2F28C", fontSize: 10 }}>{preset.width}×{preset.height}</text>
+                  <text style={{ color: "#F2F2F28C", fontSize: 10 }}>{`${preset.width}×${preset.height}`}</text>
                 </div>
               )}
             </For>
@@ -65,7 +65,7 @@ export function Inspector(props: { state: DiffusionEditorState }): SolidElement 
         <Show when={props.state.selectedTool() === "frame"} fallback={
           <Show when={props.state.selectedAsset()} fallback={
             <Show when={scene()} fallback={<Stage />}>
-              {(preset) => <><Section title="Export"><text style={muted}>Scene export</text></Section><Section title="Transform"><text style={muted}>{preset().width} × {preset().height}</text></Section><Section title="Appearance"><text style={muted}>100% opacity</text></Section></>}
+              {(preset) => <><Section title="Export"><text style={muted}>Scene export</text></Section><Section title="Transform"><text testId="diffusion-scene-size" style={muted}>{`${preset().width} × ${preset().height}`}</text></Section><Section title="Appearance"><text style={muted}>100% opacity</text></Section></>}
             </Show>
           }>{(id) => <Asset id={id()} />}</Show>
         }>
