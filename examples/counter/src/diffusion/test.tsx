@@ -40,6 +40,19 @@ async function main(): Promise<void> {
     assert.equal(await app.getByTestId("diffusion-project-menu-content").count(), 0)
     assert.equal(await app.getByText("imported-1").count(), 1)
 
+    await app.getByTestId("diffusion-project-menu").click()
+    await app.getByTestId("diffusion-project-menu-content").getByText("File").click()
+    await app.getByTestId("diffusion-project-menu-content").getByText("Asset").click()
+    await app.getByTestId("diffusion-download-all-assets").click()
+    assert.match(await app.getByTestId("diffusion-project-menu-status").textContent(), /5 assets prepared for local download/)
+
+    await app.getByTestId("diffusion-project-menu").click()
+    await app.getByTestId("diffusion-project-menu-content").getByText("File").click()
+    await app.getByTestId("diffusion-project-menu-content").getByText("Asset").click()
+    await app.getByTestId("diffusion-remove-unused-media").click()
+    assert.match(await app.getByTestId("diffusion-project-menu-status").textContent(), /Removed 1 unused media item/)
+    assert.equal(await app.getByTestId("diffusion-asset-image-1").count(), 0)
+
     assert.equal(await app.getByTestId("diffusion-add-assets-menu").count(), 0)
     await app.getByTestId("diffusion-import").click()
     assert.equal(await app.getByTestId("diffusion-add-assets-menu").count(), 1)
@@ -56,6 +69,14 @@ async function main(): Promise<void> {
     assert.equal(await app.getByTestId("diffusion-tool-move").count(), 1)
 
     assert.equal(await app.getByTestId("diffusion-prompt").count(), 0)
+    await app.getByTestId("diffusion-project-menu").click()
+    await app.getByTestId("diffusion-project-menu-content").getByText("Tool").click()
+    await app.getByTestId("diffusion-menu-generate-ai").click()
+    assert.equal(await app.getByTestId("diffusion-project-menu-content").count(), 0)
+    assert.equal(await app.getByTestId("diffusion-prompt").count(), 1)
+    await app.getByTestId("diffusion-prompt-close").click()
+    assert.equal(await app.getByTestId("diffusion-prompt").count(), 0)
+
     await app.getByTestId("diffusion-ai-generate").click()
     assert.equal(await app.getByTestId("diffusion-prompt").count(), 1)
     await app.getByTestId("diffusion-prompt-input").fill("Create a cinematic sunrise")
