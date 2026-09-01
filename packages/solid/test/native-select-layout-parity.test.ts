@@ -6,7 +6,7 @@ import {
   SelectValue,
 } from "../src/components/select.js"
 import type { HostElementNode, HostNode } from "../src/host/nodes.js"
-import type { PublicInstance, StyleDesc } from "../src/host/types.js"
+import type { StyleDesc } from "../src/host/types.js"
 import { createElement, insert, insertNode, setProp } from "../src/host/universal.js"
 import { createTestRoot, hasNativeTestRenderer } from "../src/testing.js"
 
@@ -43,21 +43,15 @@ function hostElement(value: SolidElement): HostElementNode {
 describe("native Select layout parity", () => {
   nativeIt("preserves flex sizing under inherited native styles", () => {
     const testRoot = createTestRoot()
-    let selectRoot: PublicInstance | undefined
-    let trigger: PublicInstance | undefined
+    let selectNode: HostElementNode | undefined
+    let triggerNode: HostElementNode | undefined
 
     testRoot.render(() => {
       const select = hostElement(createComponent(Select, {
-        ref(instance) {
-          selectRoot = instance
-        },
         defaultValue: "name",
         style: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0 },
         get children() {
-          return createComponent(SelectTrigger, {
-            ref(instance) {
-              trigger = instance
-            },
+          const trigger = hostElement(createComponent(SelectTrigger, {
             style: {
               width: "100%",
               minHeight: 32,
@@ -68,9 +62,12 @@ describe("native Select layout parity", () => {
             get children() {
               return createComponent(SelectValue, { children: "name" })
             },
-          })
+          }))
+          triggerNode = trigger
+          return trigger
         },
       }))
+      selectNode = select
 
       const toolbar = div(
         {
@@ -98,13 +95,23 @@ describe("native Select layout parity", () => {
       )
     })
 
-    expect(selectRoot).toBeDefined()
-    expect(trigger).toBeDefined()
+    expect(selectNode).toBeDefined()
+    expect(triggerNode).toBeDefined()
     testRoot.renderer.flush()
 
-    const selectBounds = testRoot.renderer.getElementBounds(selectRoot?.id ?? 0)
-    const triggerBounds = testRoot.renderer.getElementBounds(trigger?.id ?? 0)
-    expect(selectBounds?.[2]).toBeGreaterThanOrEqual(140)
-    expect(triggerBounds?.[2]).toBeGreaterThanOrEqual(140)
+    expect(selectNode?.style.flexGrow).toBe(1)
+    expect(selectNode?.style.flexShrink).toBe(1)
+    expect(selectNode?.style.flexBasis).toBe(0)
+    expect(selectNode?.style.minWidth).toBe(0)
+    expect(selectNode?.style.color).toBe("#111827")
+    expect(selectNode?.style.fontFamily).toBe("system-ui")
+
+    expect(triggerNode?.style.width).toBe("100%")
+    expect(triggerNode?.style.minHeight).toBe(32)
+    expect(triggerNode?.style.display).toBe("flex")
+    expect(triggerNode?.style.flexDirection).toBe("row")
+    expect(triggerNode?.style.alignItems).toBe("center")
+    expect(triggerNode?.style.color).toBe("#111827")
+    expect(triggerNode?.style.fontFamily).toBe("system-ui")
   })
 })
