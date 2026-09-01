@@ -1,49 +1,18 @@
 import { For, Show, createSignal, type Element as SolidElement } from "solid-js"
+import { InspectorHeader } from "../../upstream/diffusion-editor/apps/web/src/components/sidebar-right/inspector/inspector-header"
 import { PRESET_CATEGORIES, type LayoutPreset } from "../../upstream/diffusion-editor/apps/web/src/lib/layout-presets"
 import { C, type DiffusionEditorState } from "./compat"
+import { SourceDiffusionProvider } from "./source-adapters/runtime"
+import "./source-styles"
 
 const text = { color: C.foreground, fontSize: 11 }
 const muted = { color: C.mutedForeground, fontSize: 11 }
-
-function Row(props: { label: string; shortcut?: string; testId?: string; onClick: () => void }): SolidElement {
-  return (
-    <div testId={props.testId} onClick={props.onClick} style={{ height: 28, paddingLeft: 8, paddingRight: 8, display: "flex", flexDirection: "row", alignItems: "center", gap: 8, cursor: "pointer", hover: { backgroundColor: C.secondaryHover } }}>
-      <text style={{ ...text, flexGrow: 1 }}>{props.label}</text>
-      <Show when={props.shortcut}><text style={{ ...muted, fontSize: 9 }}>{props.shortcut}</text></Show>
-    </div>
-  )
-}
 
 function Section(props: { title: string; children: SolidElement }): SolidElement {
   return (
     <div style={{ padding: 16, gap: 8, borderBottomWidth: 1, borderColor: C.borderStrong }}>
       <text style={{ color: C.foreground, fontSize: 11, fontWeight: 650 }}>{props.title}</text>
       {props.children}
-    </div>
-  )
-}
-
-function Header(props: { state: DiffusionEditorState }): SolidElement {
-  const [open, setOpen] = createSignal(false)
-  const zoomLabel = () => `${Math.round(props.state.zoom() * 100)}%⌄`
-  const setZoom = (value: number) => { props.state.setZoom(value); setOpen(false) }
-  return (
-    <div style={{ position: "relative", height: 48, flexShrink: 0, display: "flex", flexDirection: "row", alignItems: "center", paddingLeft: 16, paddingRight: 10 }}>
-      <text style={{ color: C.foreground, fontSize: 12, fontWeight: 500 }}>Editor</text>
-      <div style={{ flexGrow: 1 }} />
-      <div testId="diffusion-zoom" onClick={() => setOpen(!open())} style={{ height: 28, paddingLeft: 6, paddingRight: 2, display: "flex", flexDirection: "row", alignItems: "center", cursor: "pointer" }}>
-        <text style={muted}>{zoomLabel()}</text>
-      </div>
-      <Show when={open()}>
-        <div testId="diffusion-zoom-menu" style={{ position: "absolute", right: 10, top: 40, width: 160, padding: 5, borderWidth: 1, borderColor: C.borderStrong, backgroundColor: C.background }}>
-          <Row label="Zoom in" shortcut="⌘+" testId="diffusion-zoom-in" onClick={() => setZoom(Math.min(4, props.state.zoom() * 1.25))} />
-          <Row label="Zoom out" shortcut="⌘-" testId="diffusion-zoom-out" onClick={() => setZoom(Math.max(0.1, props.state.zoom() * 0.8))} />
-          <Row label="Zoom to fit" shortcut="⌘1" testId="diffusion-zoom-fit" onClick={() => setZoom(0.75)} />
-          <Row label="Zoom to 50%" testId="diffusion-zoom-50" onClick={() => setZoom(0.5)} />
-          <Row label="Zoom to 100%" shortcut="⌘0" testId="diffusion-zoom-100" onClick={() => setZoom(1)} />
-          <Row label="Zoom to 200%" testId="diffusion-zoom-200" onClick={() => setZoom(2)} />
-        </div>
-      </Show>
     </div>
   )
 }
@@ -88,7 +57,9 @@ export function Inspector(props: { state: DiffusionEditorState }): SolidElement 
 
   return (
     <div testId="diffusion-inspector" style={{ width: 264, height: "100%", flexShrink: 0, display: "flex", flexDirection: "column", backgroundColor: C.background }}>
-      <Header state={props.state} />
+      <SourceDiffusionProvider state={props.state}>
+        <InspectorHeader />
+      </SourceDiffusionProvider>
       <div style={{ height: 1, backgroundColor: C.borderStrong }} />
       <div style={{ flexGrow: 1, minHeight: 0, overflowY: "scroll" }}>
         <Show when={props.state.selectedTool() === "frame"} fallback={
