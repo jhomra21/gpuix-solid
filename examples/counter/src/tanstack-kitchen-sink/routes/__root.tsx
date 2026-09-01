@@ -20,11 +20,11 @@ export function RootRoute() {
 
   return (
     <div testId="tanstack-kitchen-sink" style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", backgroundColor: palette.app, color: palette.text, fontFamily: "system-ui" }}>
-      <div style={{ minHeight: 56, display: "flex", alignItems: "center", paddingLeft: 8, paddingRight: 8 }}>
+      <div style={{ minHeight: 56, display: "flex", flexDirection: "row", alignItems: "center", paddingLeft: 8, paddingRight: 8 }}>
         <text style={{ color: palette.text, fontSize: 30, fontWeight: 500 }}>Kitchen Sink</text>
       </div>
       <Divider />
-      <div style={{ flexGrow: 1, minHeight: 0, display: "flex" }}>
+      <div style={{ flexGrow: 1, minHeight: 0, display: "flex", flexDirection: "row" }}>
         <div style={{ width: 224, flexShrink: 0, overflowY: "scroll" }}>
           <For each={rootNav}>
             {([value, label]) => (
@@ -38,7 +38,7 @@ export function RootRoute() {
           </For>
         </div>
         <div style={{ width: 1, backgroundColor: palette.border, flexShrink: 0 }} />
-        <div style={{ flexGrow: 1, minWidth: 0, minHeight: 0, display: "flex" }}>
+        <div style={{ flexGrow: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "row" }}>
           <Switch>
             <Match when={page() === "home"}><IndexRoute onInvoice={() => setPage("dashboard")} /></Match>
             <Match when={page() === "dashboard"}><DashboardRoute /></Match>
