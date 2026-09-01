@@ -9,8 +9,11 @@
     "apps/web/src/components/canvas/toolbar.tsx": "bd4be2aa03a47080851ccfa761f0483c3c80aed5",
     "apps/web/src/components/sidebar-right/inspector/inspector.tsx": "7a0cd250b75f32b7324b6b6577af3a8379b1f26d",
     "apps/web/src/components/sidebar-right/soundboard/soundboard.tsx": "25f1eaa31ca00c1cc8bc821105b2c337571abd5d",
+    "apps/web/src/context/layout.tsx": "40b39b0cb7d15c080fe9c58eb5b4a7389b99aa07",
     "apps/web/src/engine/timeline/config.ts": "bd65c1278159a9186f366c40b7e9bc0e34a5ab40",
     "apps/web/src/engine/timeline/constants.ts": "01f9b12807b7fd8370d4cf869e4f90132c451a12",
-    "apps/web/src/engine/timeline/render/ruler.ts": "129d6828239f09217418576add145602ce8a3968"
+    "apps/web/src/engine/timeline/render/ruler.ts": "129d6828239f09217418576add145602ce8a3968",
+    "apps/web/src/engine/timeline/render/waveform.ts": "725bbc9bd78397257b410d94e54a81e1bf3401b8",
+    "apps/web/src/engine/timeline/render/playhead.ts": "a6643a79b01f6bd9b9a032a5954ddafa0262447e"
   }
 }
