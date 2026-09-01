@@ -38,7 +38,6 @@ async function main(): Promise<void> {
     await app.getByTestId("diffusion-project-menu-content").getByText("View").click()
     await app.getByTestId("diffusion-project-menu-content").getByText("Zoom in").click()
     assert.equal(await app.getByText("125%").count(), 1)
-    await app.getByTestId("diffusion-project-menu").click()
     assert.equal(await app.getByTestId("diffusion-project-menu-content").count(), 0)
 
     await app.getByText("125%").click()
@@ -91,7 +90,7 @@ async function main(): Promise<void> {
     assert.equal(await app.getByTestId("diffusion-prompt").count(), 0)
     await app.getByTestId("diffusion-project-menu").click()
     await app.getByTestId("diffusion-project-menu-content").getByText("Tool").click()
-    await app.getByTestId("diffusion-menu-generate-ai").click()
+    await app.getByTestId("diffusion-project-menu-content").getByText("Generate with AI...").click()
     assert.equal(await app.getByTestId("diffusion-project-menu-content").count(), 0)
     assert.equal(await app.getByTestId("diffusion-prompt").count(), 1)
     await app.getByTestId("diffusion-prompt-close").click()
