@@ -356,11 +356,19 @@ export interface HostProps {
 
   onClick?: HostEventHandler
   onAuxClick?: HostEventHandler
+  onContextMenu?: HostEventHandler
   onMouseDown?: HostEventHandler
   onMouseUp?: HostEventHandler
   onMouseEnter?: HostEventHandler
   onMouseLeave?: HostEventHandler
   onMouseMove?: HostEventHandler
+  onPointerDown?: HostEventHandler
+  onPointerUp?: HostEventHandler
+  onPointerCancel?: HostEventHandler
+  onPointerEnter?: HostEventHandler
+  onPointerLeave?: HostEventHandler
+  onPointerMove?: HostEventHandler
+  onLostPointerCapture?: HostEventHandler
   onMouseDownOutside?: HostEventHandler
   onKeyDown?: HostEventHandler
   onKeyUp?: HostEventHandler
@@ -368,6 +376,7 @@ export interface HostProps {
   onBlur?: HostEventHandler
   onScroll?: HostEventHandler
   onChange?: HostEventHandler
+  onInput?: HostEventHandler
   onSubmit?: HostEventHandler
   onToggleFile?: HostEventHandler
   onShowMore?: HostEventHandler
