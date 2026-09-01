@@ -66,7 +66,7 @@ export function EditorPage(): SolidElement {
       >
         <div style={{ display: "flex", flexDirection: "row", flexGrow: 1, minHeight: 0 }}>
           <Show when={uiVisible()}>
-            <SidebarLeft state={state} onGenerateAI={() => setPromptOpen(true)} />
+            <SidebarLeft state={state} />
             <Divider vertical />
           </Show>
           <Canvas state={state} promptOpen={promptOpen} setPromptOpen={setPromptOpen} />
