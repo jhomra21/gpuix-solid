@@ -11,6 +11,7 @@ import type { HostEventHandler, StyleDesc } from "gpuix-solid"
 interface DropdownContextValue {
   open: () => boolean
   setOpen: (value: boolean) => void
+  onItemSelect?: () => void
 }
 
 const DropdownContext = createContext<DropdownContextValue>()
@@ -21,10 +22,10 @@ function useDropdown(): DropdownContextValue {
   return context
 }
 
-export function DropdownMenu(props: ParentProps<{ placement?: string; bare?: boolean }>): SolidElement {
+export function DropdownMenu(props: ParentProps<{ placement?: string; bare?: boolean; onItemSelect?: () => void }>): SolidElement {
   const [open, setOpen] = createSignal(false)
   return (
-    <DropdownContext value={{ open, setOpen }}>
+    <DropdownContext value={{ open, setOpen, onItemSelect: props.onItemSelect }}>
       {props.bare ? props.children : (
         <div style={{ position: "relative", display: "flex", flexGrow: 1, justifyContent: "flex-end" }}>
           {props.children}
@@ -120,6 +121,7 @@ export function DropdownMenuItem(props: ItemProps): SolidElement {
     if (props.disabled) return
     props.onSelect?.()
     context.setOpen(false)
+    context.onItemSelect?.()
   }
   return (
     <div style={{ ...itemStyle, opacity: props.disabled ? 0.5 : 1 }}>
