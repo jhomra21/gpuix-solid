@@ -36,6 +36,7 @@ function hostElement(value: JSX.Element): HostElementNode {
   if (!(value instanceof Object) || !("kind" in value) || value.kind !== "element") {
     throw new TypeError("Expected component to return a GPUIX host element")
   }
+  // SAFETY: the runtime guard above proves this component result is a GPUIX host element.
   return value as HostElementNode
 }
 
