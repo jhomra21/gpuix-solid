@@ -40,6 +40,12 @@ interface GridLine {
   major: boolean
 }
 
+function trackRowHeight(track: NativeTrack): number {
+  const clipLaneHeight = track.collapsed ? layout.collapsedLaneHeight : layout.laneHeight
+  if (track.collapsed || !track.automationVisible) return clipLaneHeight
+  return clipLaneHeight + track.automationLaneCount * 48
+}
+
 function sourceClip(clip: NativeTrack["clips"][number]): RuntimeClip {
   const runtimeClip: RuntimeClip = {
     ...clip,
@@ -106,7 +112,7 @@ const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
   const sourceTracks = createMemo(() => props.tracks.map(sourceTrack))
   const scrollingTracks = createMemo(() => props.tracks.filter((track) => track.kind !== "return"))
   const returnTracks = createMemo(() => props.tracks.filter((track) => track.kind === "return"))
-  const returnAreaHeight = () => returnTracks().length * layout.laneHeight
+  const returnAreaHeight = () => returnTracks().reduce((height, track) => height + trackRowHeight(track), 0)
   const stickyFooterHeight = () => returnAreaHeight() + layout.laneHeight
   const scrollingBottom = () => props.bottomPanelOffsetPx + stickyFooterHeight()
   const timelineViewportWidth = () => Math.max(
