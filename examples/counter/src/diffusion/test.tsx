@@ -51,7 +51,7 @@ async function main(): Promise<void> {
     await app.getByTestId("diffusion-project-menu-content").getByText("File").click()
     await app.getByTestId("diffusion-file-import").click()
     assert.equal(await app.getByTestId("diffusion-project-menu-content").count(), 0)
-    assert.equal(await app.getByText("imported-1").count(), 1)
+    assert.equal(await app.getByTestId("diffusion-asset-imported-1").count(), 1)
 
     await app.getByTestId("diffusion-project-menu").click()
     await app.getByTestId("diffusion-project-menu-content").getByText("File").click()
