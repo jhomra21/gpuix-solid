@@ -5,16 +5,12 @@ import {
   Divider,
   FloatingProjectHeader,
   Inspector,
-  Layers,
   SidebarLeft,
   Soundboard,
-  Timeline,
   type DiffusionEditorState,
   type DiffusionTool,
 } from "./compat"
-
-const TIMELINE_HEIGHT = 260
-const RULER_HEIGHT = 32
+import { DEFAULT_TIMELINE_HEIGHT, Layers, RULER_HEIGHT, Timeline } from "./timeline-native"
 
 export function EditorPage(): SolidElement {
   const [projectName, setProjectName] = createSignal("Diffusion Studio")
@@ -77,7 +73,7 @@ export function EditorPage(): SolidElement {
           style={{
             display: "flex",
             flexDirection: "row",
-            height: timelineMinimized() ? RULER_HEIGHT : TIMELINE_HEIGHT,
+            height: timelineMinimized() ? RULER_HEIGHT : DEFAULT_TIMELINE_HEIGHT,
             flexShrink: 0,
             backgroundColor: C.background,
           }}
