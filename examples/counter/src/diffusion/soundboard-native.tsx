@@ -39,10 +39,10 @@ function Fader(props: { testId: string; volume: number; onChange: (value: number
   return (
     <div testId={props.testId} onClick={() => props.onChange(nextVolume(props.volume))} style={{ width: 12, height: 150, marginRight: 12, position: "relative", cursor: "pointer" }}>
       <For each={Array.from({ length: 21 }, (_, index) => index)}>
-        {(index) => <div style={{ position: "absolute", right: 0, top: Math.round(index * 7.1), width: index % 4 === 0 ? 12 : 6, height: 1, backgroundColor: C.mutedForeground }} />}
+        {(index) => <div style={{ position: "absolute", right: 0, top: Math.round(index * 7.1), width: index % 4 === 0 ? 12 : 6, height: 1, backgroundColor: C.mutedForeground, pointerEvents: "none" }} />}
       </For>
-      <div style={{ position: "absolute", left: -3, top: knobTop(props.volume), width: 18, height: 8, borderRadius: 2, backgroundColor: C.foreground, alignItems: "center", justifyContent: "center" }}>
-        <div style={{ width: 12, height: 1, backgroundColor: C.background }} />
+      <div style={{ position: "absolute", left: -3, top: knobTop(props.volume), width: 18, height: 8, borderRadius: 2, backgroundColor: C.foreground, alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+        <div style={{ width: 12, height: 1, backgroundColor: C.background, pointerEvents: "none" }} />
       </div>
     </div>
   )
