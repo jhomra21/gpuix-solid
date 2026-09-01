@@ -126,8 +126,10 @@ export default function Timeline(): JSX.Element {
   }
 
   const selectClip = (trackId: string, clipId: string): void => {
+    const clip = findClip(tracks(), clipId)?.clip
     setSelectedTrackId(trackId)
     setSelectedClipId(clipId)
+    if (bottomTab() === "clip" && clip?.kind !== "audio") setBottomTab("effects")
   }
 
   const beginClipDrag = (trackId: string, clipId: string, event: PointerEvent): void => {
@@ -274,7 +276,7 @@ export default function Timeline(): JSX.Element {
         onOpen={() => setBottomPanelOpen(true)}
         onClose={() => setBottomPanelOpen(false)}
         onEffectsTabClick={() => { setBottomTab("effects"); setBottomPanelOpen(true) }}
-        onClipTabClick={() => { setBottomTab("clip"); setBottomPanelOpen(true) }}
+        onClipTabClick={() => { if (selectedClip()?.kind === "audio") { setBottomTab("clip"); setBottomPanelOpen(true) } }}
         selectedClip={selectedClip()}
         compressorEnabled={compressorEnabled()}
         onToggleCompressor={() => setCompressorEnabled((enabled) => !enabled)}
