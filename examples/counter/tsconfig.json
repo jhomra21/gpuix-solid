@@ -4,7 +4,15 @@
     "jsx": "preserve",
     "jsxImportSource": "gpuix-solid",
     "noEmit": true,
-    "exactOptionalPropertyTypes": false
+    "exactOptionalPropertyTypes": false,
+    "baseUrl": ".",
+    "paths": {
+      "@/components/ui/icon": ["src/diffusion/source-adapters/icon.tsx"],
+      "@/components/ui/dropdown-menu": ["src/diffusion/source-adapters/dropdown-menu.tsx"],
+      "@/components/ui/button": ["src/diffusion/source-adapters/button.tsx"],
+      "@diffusionstudio/koota-solid": ["src/diffusion/source-adapters/koota-solid.ts"],
+      "@/engine": ["src/diffusion/source-adapters/engine.ts"]
+    }
   },
   "include": ["src", "vite*.config.ts"]
 }
