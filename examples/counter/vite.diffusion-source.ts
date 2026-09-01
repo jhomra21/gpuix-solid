@@ -7,6 +7,8 @@ export const diffusionSourceAliases = {
   "@/components/ui/dropdown-menu": fromHere("./src/diffusion/source-adapters/dropdown-menu.tsx"),
   "@/components/ui/button": fromHere("./src/diffusion/source-adapters/button.tsx"),
   "@/context/layout": fromHere("./src/diffusion/source-adapters/layout.ts"),
+  "@/context/prompt-input": fromHere("./src/diffusion/source-adapters/prompt-input.ts"),
   "@diffusionstudio/koota-solid": fromHere("./src/diffusion/source-adapters/koota-solid.ts"),
+  "@diffusionstudio/runtime": fromHere("./src/diffusion/source-adapters/diffusion-runtime.ts"),
   "@/engine": fromHere("./src/diffusion/source-adapters/engine.ts"),
 } as const
