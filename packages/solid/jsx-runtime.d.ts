@@ -1,13 +1,16 @@
-import type { Element as SolidElement, JSX as SolidJSX } from "solid-js"
+import type { Element as SolidElement } from "solid-js"
 import type {
   AnchoredProps,
   CodeProps,
   DiffProps,
+  HostEventHandler,
   HostProps,
+  HostRef,
   ImgProps,
   InputProps,
   MarkdownProps,
   NativeClassList,
+  PublicInstance,
   SvgProps,
   TextareaProps,
   VirtualListProps,
@@ -21,25 +24,71 @@ type NativeClassProps = {
   classList?: NativeClassList | undefined
 }
 
+type SourceMetadataProps = {
+  id?: string | undefined
+  title?: string | undefined
+  role?: string | undefined
+  hidden?: boolean | undefined
+  disabled?: boolean | undefined
+  href?: string | undefined
+  target?: string | undefined
+  rel?: string | undefined
+  type?: string | undefined
+  name?: string | undefined
+  value?: string | number | readonly string[] | undefined
+  checked?: boolean | undefined
+  selected?: boolean | undefined
+  multiple?: boolean | undefined
+  min?: string | number | undefined
+  max?: string | number | undefined
+  step?: string | number | undefined
+  placeholder?: string | undefined
+  autoComplete?: string | undefined
+  htmlFor?: string | undefined
+  draggable?: boolean | undefined
+  contentEditable?: boolean | "inherit" | "plaintext-only" | undefined
+  spellcheck?: boolean | undefined
+}
+
+type AriaAttributes = {
+  [K in `aria-${string}`]?: string | number | boolean | undefined
+}
+
+type DataAttributes = {
+  [K in `data-${string}`]?: string | number | boolean | undefined
+}
+
+type SourceRef = HostRef | PublicInstance | HTMLElement | SVGElement
+
 type JSXProps<T> = {
   [K in keyof T]: {} extends Pick<T, K> ? T[K] | undefined : T[K]
 } & NativeClassProps
 
-type DomCompatibleProps<TNative, TDom> = JSXProps<TNative> | TDom
+type SourceElementProps<T extends HostProps = HostProps> = Omit<JSXProps<T>, "ref"> &
+  SourceMetadataProps & AriaAttributes & DataAttributes & {
+    ref?: SourceRef | undefined
+  }
 
-type SemanticDomProps = DomCompatibleProps<HostProps, SolidJSX.HTMLAttributes<HTMLElement>> & {
-  disabled?: boolean | undefined
-  href?: string | undefined
-  type?: string | undefined
-  role?: string | undefined
-  "aria-label"?: string | undefined
-  "aria-hidden"?: string | boolean | undefined
+type SourceInputProps = Omit<SourceElementProps<InputProps>, "value"> & {
+  value?: string | number | readonly string[] | undefined
+  defaultValue?: string | number | readonly string[] | undefined
+  defaultChecked?: boolean | undefined
+  accept?: string | undefined
+  capture?: boolean | string | undefined
 }
 
-type InlineSvgProps = JSXProps<SvgProps> | SolidJSX.SvgSVGAttributes<SVGSVGElement>
+type InlineSvgProps = SourceElementProps<SvgProps> & {
+  viewBox?: string | undefined
+  preserveAspectRatio?: string | undefined
+  xmlns?: string | undefined
+  fill?: string | undefined
+  stroke?: string | undefined
+  width?: string | number | undefined
+  height?: string | number | undefined
+}
 
-type InlineSvgChildProps = NativeClassProps & {
-  children?: SolidJSX.Element | SolidJSX.Element[] | undefined
+type InlineSvgChildProps = NativeClassProps & AriaAttributes & DataAttributes & {
+  children?: JSX.Element | JSX.Element[] | undefined
   id?: string | undefined
   d?: string | undefined
   x?: string | number | undefined
@@ -64,6 +113,9 @@ type InlineSvgChildProps = NativeClassProps & {
   viewBox?: string | undefined
   preserveAspectRatio?: string | undefined
   href?: string | undefined
+  onClick?: HostEventHandler | undefined
+  onPointerDown?: HostEventHandler | undefined
+  onPointerUp?: HostEventHandler | undefined
   "stroke-width"?: string | number | undefined
   "stroke-linecap"?: string | undefined
   "stroke-linejoin"?: string | undefined
@@ -86,42 +138,42 @@ export namespace JSX {
   }
 
   interface IntrinsicElements {
-    div: DomCompatibleProps<HostProps, SolidJSX.HTMLAttributes<HTMLDivElement>>
-    span: SemanticDomProps
-    p: SemanticDomProps
-    h1: SemanticDomProps
-    h2: SemanticDomProps
-    h3: SemanticDomProps
-    h4: SemanticDomProps
-    h5: SemanticDomProps
-    h6: SemanticDomProps
-    strong: SemanticDomProps
-    em: SemanticDomProps
-    small: SemanticDomProps
-    label: SemanticDomProps
-    time: SemanticDomProps
-    kbd: SemanticDomProps
-    samp: SemanticDomProps
-    button: SemanticDomProps
-    hr: SemanticDomProps
-    section: SemanticDomProps
-    main: SemanticDomProps
-    header: SemanticDomProps
-    footer: SemanticDomProps
-    nav: SemanticDomProps
-    aside: SemanticDomProps
-    article: SemanticDomProps
-    ul: SemanticDomProps
-    ol: SemanticDomProps
-    li: SemanticDomProps
-    form: SemanticDomProps
-    fieldset: SemanticDomProps
-    legend: SemanticDomProps
-    figure: SemanticDomProps
-    figcaption: SemanticDomProps
-    a: SemanticDomProps
+    div: SourceElementProps
+    span: SourceElementProps
+    p: SourceElementProps
+    h1: SourceElementProps
+    h2: SourceElementProps
+    h3: SourceElementProps
+    h4: SourceElementProps
+    h5: SourceElementProps
+    h6: SourceElementProps
+    strong: SourceElementProps
+    em: SourceElementProps
+    small: SourceElementProps
+    label: SourceElementProps
+    time: SourceElementProps
+    kbd: SourceElementProps
+    samp: SourceElementProps
+    button: SourceElementProps
+    hr: SourceElementProps
+    section: SourceElementProps
+    main: SourceElementProps
+    header: SourceElementProps
+    footer: SourceElementProps
+    nav: SourceElementProps
+    aside: SourceElementProps
+    article: SourceElementProps
+    ul: SourceElementProps
+    ol: SourceElementProps
+    li: SourceElementProps
+    form: SourceElementProps
+    fieldset: SourceElementProps
+    legend: SourceElementProps
+    figure: SourceElementProps
+    figcaption: SourceElementProps
+    a: SourceElementProps
     text: JSXProps<HostProps>
-    img: JSXProps<ImgProps>
+    img: SourceElementProps<ImgProps>
     svg: InlineSvgProps
     path: InlineSvgChildProps
     g: InlineSvgChildProps
@@ -140,9 +192,9 @@ export namespace JSX {
     title: InlineSvgChildProps
     desc: InlineSvgChildProps
     use: InlineSvgChildProps
-    canvas: JSXProps<HostProps>
-    input: DomCompatibleProps<InputProps, SolidJSX.InputHTMLAttributes<HTMLInputElement>>
-    textarea: DomCompatibleProps<TextareaProps, SolidJSX.TextareaHTMLAttributes<HTMLTextAreaElement>>
+    canvas: SourceElementProps
+    input: SourceInputProps
+    textarea: SourceElementProps<TextareaProps>
     anchored: JSXProps<AnchoredProps>
     code: JSXProps<CodeProps>
     diff: JSXProps<DiffProps>
