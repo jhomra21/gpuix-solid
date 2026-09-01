@@ -27,6 +27,7 @@ export function EditorPage(): SolidElement {
   const [zoom, setZoom] = createSignal(1)
   const [playing, setPlaying] = createSignal(false)
   const [looping, setLooping] = createSignal(false)
+  const [promptOpen, setPromptOpen] = createSignal(false)
   const timeline = createDiffusionTimelineState()
 
   const state: DiffusionEditorState = {
@@ -63,10 +64,10 @@ export function EditorPage(): SolidElement {
     >
       <div style={{ display: "flex", flexDirection: "row", flexGrow: 1, minHeight: 0 }}>
         <Show when={uiVisible()}>
-          <SidebarLeft state={state} />
+          <SidebarLeft state={state} onGenerateAI={() => setPromptOpen(true)} />
           <Divider vertical />
         </Show>
-        <Canvas state={state} />
+        <Canvas state={state} promptOpen={promptOpen} setPromptOpen={setPromptOpen} />
         <Show when={uiVisible()}>
           <Divider vertical />
           <Inspector state={state} />
