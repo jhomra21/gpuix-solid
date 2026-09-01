@@ -10,7 +10,7 @@ import {
   insertNode,
   setProp,
 } from "../src/host/universal.js"
-import { createRoot } from "../src/root.js"
+import { createRoot, type Root } from "../src/root.js"
 import { FakeRenderer } from "./fake-renderer.js"
 
 function element(tag: string): HostElementNode {
@@ -36,9 +36,10 @@ describe("copied Solid source styling", () => {
       },
     })
 
+    let root: Root | undefined
     try {
       const renderer = new FakeRenderer()
-      const root = createRoot(renderer)
+      root = createRoot(renderer)
       const section = element("section")
       const span = element("span")
 
@@ -60,6 +61,7 @@ describe("copied Solid source styling", () => {
       expect(span.children[0]?.kind).toBe("text")
       if (span.children[0]?.kind === "text") expect(span.children[0].text).toBe("COPIED SOURCE")
     } finally {
+      root?.unmount()
       clearNativeStyleManifest()
     }
   })
@@ -67,18 +69,22 @@ describe("copied Solid source styling", () => {
   it("serializes copied inline SVG markup into the native svg source", () => {
     const renderer = new FakeRenderer()
     const root = createRoot(renderer)
-    const svg = element("svg")
-    const path = element("path")
+    try {
+      const svg = element("svg")
+      const path = element("path")
 
-    setProp(svg, "viewBox", "0 0 16 16")
-    setProp(path, "d", "M2 8h12")
-    setProp(path, "stroke", "currentColor")
-    setProp(path, "strokeWidth", 2)
-    insertNode(svg, path)
-    root.render(() => svg)
+      setProp(svg, "viewBox", "0 0 16 16")
+      setProp(path, "d", "M2 8h12")
+      setProp(path, "stroke", "currentColor")
+      setProp(path, "strokeWidth", 2)
+      insertNode(svg, path)
+      root.render(() => svg)
 
-    const source = String(svg.props.get("source") ?? "")
-    expect(source).toContain('<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">')
-    expect(source).toContain('<path d="M2 8h12" stroke="currentColor" stroke-width="2"></path>')
+      const source = String(svg.props.get("source") ?? "")
+      expect(source).toContain('<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">')
+      expect(source).toContain('<path d="M2 8h12" stroke="currentColor" stroke-width="2"></path>')
+    } finally {
+      root.unmount()
+    }
   })
 })
