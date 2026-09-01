@@ -10,6 +10,7 @@ import { Canvas } from "./canvas-native"
 import { Inspector } from "./inspector-native"
 import { SidebarLeft } from "./sidebar-left-native"
 import { Soundboard } from "./soundboard-native"
+import { SourceDiffusionProvider } from "./source-adapters/runtime"
 import {
   DEFAULT_TIMELINE_HEIGHT,
   Layers,
@@ -50,56 +51,58 @@ export function EditorPage(): SolidElement {
   }
 
   return (
-    <div
-      testId="diffusion-editor"
-      style={{
-        position: "relative",
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-        backgroundColor: C.sidebar,
-      }}
-    >
-      <div style={{ display: "flex", flexDirection: "row", flexGrow: 1, minHeight: 0 }}>
-        <Show when={uiVisible()}>
-          <SidebarLeft state={state} onGenerateAI={() => setPromptOpen(true)} />
-          <Divider vertical />
-        </Show>
-        <Canvas state={state} promptOpen={promptOpen} setPromptOpen={setPromptOpen} />
-        <Show when={uiVisible()}>
-          <Divider vertical />
-          <Inspector state={state} />
-        </Show>
-      </div>
-
-      <Show when={uiVisible()}>
-        <Divider />
-        <div
-          testId="diffusion-timeline-row"
-          style={{
-            display: "flex",
-            flexDirection: "row",
-            height: timelineMinimized() ? RULER_HEIGHT : DEFAULT_TIMELINE_HEIGHT,
-            flexShrink: 0,
-            backgroundColor: C.background,
-          }}
-        >
-          <Layers state={state} timeline={timeline} />
-          <Divider vertical />
-          <Timeline state={state} timeline={timeline} />
-          <Divider vertical />
-          <Show when={!timelineMinimized()} fallback={<div style={{ width: 264, flexShrink: 0, backgroundColor: C.background }} />}>
-            <Soundboard />
+    <SourceDiffusionProvider state={state}>
+      <div
+        testId="diffusion-editor"
+        style={{
+          position: "relative",
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          backgroundColor: C.sidebar,
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "row", flexGrow: 1, minHeight: 0 }}>
+          <Show when={uiVisible()}>
+            <SidebarLeft state={state} onGenerateAI={() => setPromptOpen(true)} />
+            <Divider vertical />
+          </Show>
+          <Canvas state={state} promptOpen={promptOpen} setPromptOpen={setPromptOpen} />
+          <Show when={uiVisible()}>
+            <Divider vertical />
+            <Inspector state={state} />
           </Show>
         </div>
-      </Show>
 
-      <Show when={!uiVisible()}>
-        <FloatingProjectHeader state={state} />
-      </Show>
-    </div>
+        <Show when={uiVisible()}>
+          <Divider />
+          <div
+            testId="diffusion-timeline-row"
+            style={{
+              display: "flex",
+              flexDirection: "row",
+              height: timelineMinimized() ? RULER_HEIGHT : DEFAULT_TIMELINE_HEIGHT,
+              flexShrink: 0,
+              backgroundColor: C.background,
+            }}
+          >
+            <Layers state={state} timeline={timeline} />
+            <Divider vertical />
+            <Timeline state={state} timeline={timeline} />
+            <Divider vertical />
+            <Show when={!timelineMinimized()} fallback={<div style={{ width: 264, flexShrink: 0, backgroundColor: C.background }} />}>
+              <Soundboard />
+            </Show>
+          </div>
+        </Show>
+
+        <Show when={!uiVisible()}>
+          <FloatingProjectHeader state={state} />
+        </Show>
+      </div>
+    </SourceDiffusionProvider>
   )
 }
 
