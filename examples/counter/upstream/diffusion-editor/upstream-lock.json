@@ -16,6 +16,7 @@
     "apps/web/src/components/sidebar-right/inspector/inspector-header.tsx": "f775a305fefce94fe432a4e6efeacbf6ed5029bc",
     "apps/web/src/components/sidebar-right/inspector/scene-template.tsx": "2aa1af1782e635c2eb848175e07bb85ac8192c67",
     "apps/web/src/components/sidebar-right/soundboard/soundboard.tsx": "25f1eaa31ca00c1cc8bc821105b2c337571abd5d",
+    "apps/web/src/components/sidebar-right/soundboard/volume-meter.tsx": "64b05a50f0bf9431e98475a07ea943dfc755913a",
     "apps/web/src/context/layout.tsx": "40b39b0cb7d15c080fe9c58eb5b4a7389b99aa07",
     "apps/web/src/lib/layout-presets.ts": "599f10b2893664a647253e168bf235896db48039",
     "apps/web/src/engine/timeline/config.ts": "bd65c1278159a9186f366c40b7e9bc0e34a5ab40",
