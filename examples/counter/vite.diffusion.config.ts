@@ -1,5 +1,6 @@
 import solid from "@solidjs/vite-plugin"
 import { defineConfig } from "vite"
+import { diffusionSourceAliases } from "./vite.diffusion-source"
 
 export default defineConfig({
   plugins: [
@@ -11,6 +12,7 @@ export default defineConfig({
     }),
   ],
   resolve: {
+    alias: diffusionSourceAliases,
     conditions: ["browser", "development"],
   },
   ssr: {
