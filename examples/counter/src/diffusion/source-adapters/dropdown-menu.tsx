@@ -21,13 +21,15 @@ function useDropdown(): DropdownContextValue {
   return context
 }
 
-export function DropdownMenu(props: ParentProps<{ placement?: string }>): SolidElement {
+export function DropdownMenu(props: ParentProps<{ placement?: string; bare?: boolean }>): SolidElement {
   const [open, setOpen] = createSignal(false)
   return (
     <DropdownContext value={{ open, setOpen }}>
-      <div style={{ position: "relative", display: "flex", flexGrow: 1, justifyContent: "flex-end" }}>
-        {props.children}
-      </div>
+      {props.bare ? props.children : (
+        <div style={{ position: "relative", display: "flex", flexGrow: 1, justifyContent: "flex-end" }}>
+          {props.children}
+        </div>
+      )}
     </DropdownContext>
   )
 }
@@ -128,8 +130,16 @@ export function DropdownMenuItem(props: ItemProps): SolidElement {
 
 export function DropdownMenuShortcut(props: ParentProps): SolidElement {
   return (
-    <span style={{ position: "absolute", right: 8, color: "#F2F2F28C", fontSize: 10 }}>
+    <span style={{ position: "absolute", right: 8, color: "#F2F2F28C", fontSize: 10, pointerEvents: "none" }}>
       {props.children}
     </span>
   )
+}
+
+export function DropdownMenuGroup(props: ParentProps): SolidElement {
+  return <>{props.children}</>
+}
+
+export function DropdownMenuSeparator(): SolidElement {
+  return <div style={{ height: 1, marginTop: 4, marginBottom: 4, backgroundColor: "#FFFFFF0F" }} />
 }
