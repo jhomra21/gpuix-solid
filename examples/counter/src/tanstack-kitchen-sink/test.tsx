@@ -51,10 +51,13 @@ async function main(): Promise<void> {
 
     await app.getByTestId("dashboard-tab-users").click()
     await requireTestId(app, "users-workspace")
+    await requireTestId(app, "users-sort-root")
     await requireTestId(app, "users-sort")
     assert.equal(await app.getByTestId("users-sort-value").textContent(), "name")
+    const sortRootBounds = await app.getByTestId("users-sort-root").bounds()
     const sortBounds = await app.getByTestId("users-sort").bounds()
-    assert.ok(sortBounds.width >= 140, `expected Sort By trigger to be full-width, got ${sortBounds.width}`)
+    assert.ok(sortRootBounds.width >= 140, `expected Sort By wrapper to preserve flex-1 width, got ${sortRootBounds.width}; trigger=${sortBounds.width}`)
+    assert.ok(sortBounds.width >= 140, `expected Sort By trigger to fill wrapper, got ${sortBounds.width}; wrapper=${sortRootBounds.width}`)
     assert.ok(sortBounds.height >= 30, `expected Sort By trigger to be normal control height, got ${sortBounds.height}`)
 
     await app.getByTestId("users-sort").click()
