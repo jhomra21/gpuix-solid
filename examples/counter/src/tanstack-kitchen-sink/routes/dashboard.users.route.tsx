@@ -31,7 +31,7 @@ export function UsersRoute() {
   return (
     <div testId="users-workspace" style={{ flexGrow: 1, minHeight: 0, display: "flex", flexDirection: "row" }}>
       <div style={{ width: 310, flexShrink: 0, overflowY: "scroll" }}>
-        <div style={{ display: "flex", flexDirection: "row", gap: 8, alignItems: "center", paddingTop: 8, paddingBottom: 8, paddingLeft: 12, paddingRight: 12, backgroundColor: palette.panelSoft }}>
+        <div style={{ width: "100%", display: "flex", flexDirection: "row", gap: 8, alignItems: "center", paddingTop: 8, paddingBottom: 8, paddingLeft: 12, paddingRight: 12, backgroundColor: palette.panelSoft }}>
           <text style={{ color: palette.text, fontSize: 11 }}>Sort By:</text>
           <Select value={sortBy()} onValueChange={changeSort} style={{ flexGrow: 1, minWidth: 0 }}>
             <SelectTrigger testId="users-sort" style={nativeInputStyle({ width: "100%", minHeight: 32, display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingLeft: 8, paddingRight: 8 })}>
@@ -48,7 +48,7 @@ export function UsersRoute() {
           </Select>
         </div>
         <Divider />
-        <div style={{ display: "flex", flexDirection: "row", gap: 8, alignItems: "center", paddingTop: 8, paddingBottom: 8, paddingLeft: 12, paddingRight: 12, backgroundColor: palette.panelSoft }}>
+        <div style={{ width: "100%", display: "flex", flexDirection: "row", gap: 8, alignItems: "center", paddingTop: 8, paddingBottom: 8, paddingLeft: 12, paddingRight: 12, backgroundColor: palette.panelSoft }}>
           <text style={{ color: palette.text, fontSize: 11 }}>Filter By:</text>
           <input testId="users-filter" value={filterBy()} placeholder="Search Names..." onChange={(event: EventPayload) => setFilterBy(event.value ?? "")} style={nativeInputStyle({ flexGrow: 1, minWidth: 0, minHeight: 32, paddingLeft: 8, paddingRight: 8 })} />
         </div>
