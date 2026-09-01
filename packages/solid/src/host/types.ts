@@ -1,4 +1,10 @@
-import type { EventPayload as NativeEventPayload } from "@gpuix/native"
+import type {
+  EventPayload as NativeEventPayload,
+  NativeRenderer,
+  NativeWindowInsets,
+} from "@gpuix/native"
+
+export type { NativeRenderer, NativeWindowInsets }
 
 export type ElementType =
   | "div"
@@ -14,17 +20,11 @@ export type ElementType =
   | "markdown"
   | "virtual-list"
 
-export type DebugFrameOverlayMode = "hidden" | "minimal" | "full"
-export type DimensionValue = number | string
-
-export interface DebugFrameOverlayStats {
-  currentMs?: number
-  p90Ms?: number
-  p99Ms?: number
-  maxMs?: number
-  frames: number
-  samples: number
+export type PublicInstance = {
+  readonly kind: "element" | "text"
 }
+
+export type DimensionValue = number | string
 
 export interface EdgeInsets {
   top: number
@@ -33,74 +33,28 @@ export interface EdgeInsets {
   left: number
 }
 
-export interface NativeWindowInsets {
-  safeArea: EdgeInsets
-  ime: EdgeInsets
-  effective: EdgeInsets
-}
-
-/** Internal native animation style passed through the GPUIX `motion` wire prop. */
-export interface MotionStyle {
-  width?: number
-  height?: number
-  opacity?: number
-  top?: number
-  right?: number
-  bottom?: number
-  left?: number
-  borderRadius?: number
-}
-
-/** Internal native easing format passed through the GPUIX `motion` wire prop. */
-export type MotionEase =
-  | "linear"
-  | "ease"
-  | "easeIn"
-  | "easeOut"
-  | "easeInOut"
-  | [number, number, number, number]
-
-/** Internal native transition format passed through the GPUIX `motion` wire prop. */
-export interface MotionTransition {
-  /** Duration in seconds. */
-  duration?: number
-  /** Delay in seconds. */
-  delay?: number
-  ease?: MotionEase
-}
-
-/** Internal native descriptor. Public callers use `animate.*`. */
-export interface MotionProps {
-  initial?: MotionStyle | false
-  animate: MotionStyle
-  transition?: MotionTransition
-}
-
 export type CursorValue =
   | "default"
-  | "auto"
   | "pointer"
   | "text"
-  | "vertical-text"
   | "crosshair"
+  | "move"
   | "grab"
   | "grabbing"
-  | "move"
-  | "all-scroll"
-  | "col-resize"
-  | "row-resize"
   | "ew-resize"
   | "ns-resize"
-  | "nwse-resize"
   | "nesw-resize"
-  | "n-resize"
+  | "nwse-resize"
+  | "col-resize"
+  | "row-resize"
   | "e-resize"
-  | "s-resize"
-  | "w-resize"
+  | "n-resize"
   | "ne-resize"
   | "nw-resize"
+  | "s-resize"
   | "se-resize"
   | "sw-resize"
+  | "w-resize"
   | "not-allowed"
   | "no-drop"
   | "alias"
@@ -262,41 +216,22 @@ export interface GpuixMetrics {
 }
 
 export interface GpuixTheme {
-  appearance?: "dark" | "light"
-  bg?: string
+  foreground?: string
+  background?: string
+  surfaceBackground?: string
   border?: string
-  text?: string
-  textMuted?: string
-  textFaint?: string
-  textDim?: string
-  accent?: string
-  caret?: string
-  codeText?: string
-  codeWash?: string
-  diffAdd?: string
-  diffDel?: string
-  diffHunkBg?: string
-  fontSans?: string
-  fontMono?: string
+  muted?: string
   syntax?: SyntaxTheme
   metrics?: GpuixMetrics
 }
 
-export interface HighlightSpec {
-  query?: string
-  caseSensitive?: boolean
-  wholeWord?: boolean
-  ranges?: Array<[number, number]>
-  color?: string
-  activeColor?: string
+export type HighlightSpec = {
+  query: string
   activeIndex?: number
-  matchIndexOffset?: number
   radius?: number
 }
 
-export interface HighlightMatch {
-  elementId: number
-  sub: number
+export type HighlightMatch = {
   text: string
   start: number
   end: number
@@ -356,11 +291,19 @@ export interface HostProps {
 
   onClick?: HostEventHandler
   onAuxClick?: HostEventHandler
+  onContextMenu?: HostEventHandler
   onMouseDown?: HostEventHandler
   onMouseUp?: HostEventHandler
   onMouseEnter?: HostEventHandler
   onMouseLeave?: HostEventHandler
   onMouseMove?: HostEventHandler
+  onPointerDown?: HostEventHandler
+  onPointerUp?: HostEventHandler
+  onPointerCancel?: HostEventHandler
+  onPointerEnter?: HostEventHandler
+  onPointerLeave?: HostEventHandler
+  onPointerMove?: HostEventHandler
+  onLostPointerCapture?: HostEventHandler
   onMouseDownOutside?: HostEventHandler
   onKeyDown?: HostEventHandler
   onKeyUp?: HostEventHandler
@@ -368,6 +311,7 @@ export interface HostProps {
   onBlur?: HostEventHandler
   onScroll?: HostEventHandler
   onChange?: HostEventHandler
+  onInput?: HostEventHandler
   onSubmit?: HostEventHandler
   onToggleFile?: HostEventHandler
   onShowMore?: HostEventHandler
@@ -459,54 +403,21 @@ export interface AnchoredProps extends HostProps {
     | "topLeft"
     | "topCenter"
     | "topRight"
-    | "rightCenter"
-    | "bottomRight"
-    | "bottomCenter"
+    | "centerLeft"
+    | "center"
+    | "centerRight"
     | "bottomLeft"
-    | "leftCenter"
-  offset?: { x: number; y: number }
-  fit?: "switch" | "snap"
-  snapMargin?: number
-  deferred?: boolean
-  priority?: number
-  occlude?: boolean
+    | "bottomCenter"
+    | "bottomRight"
 }
 
-export interface NativeRenderer {
-  createElement(id: number, elementType: string): void
-  destroyElement(id: number): number[]
-  appendChild(parentId: number, childId: number): void
-  removeChild(parentId: number, childId: number): void
-  insertBefore(parentId: number, childId: number, beforeId: number): void
-  setStyle(id: number, styleJson: string): void
-  setText(id: number, content: string): void
-  setEventListener(id: number, eventType: string, hasHandler: boolean): void
-  setRoot(id: number): void
-  commitMutations(): void
-  setCustomProp(id: number, key: string, valueJson: string): void
-  applyBatch?(json: string): number[]
-
-  focusElement?(elementId: number): void
-  blur?(): void
-  scrollTo?(elementId: number, x: number, y: number): void
-  scrollToItem?(elementId: number, index: number, offsetInItem?: number): void
-  getScrollOffset?(elementId: number): number[] | null
-  getListScrollTop?(elementId: number): number[] | null
-  getSelectedText?(): string | null
-  clearSelection?(): void
-  getPaintedHighlights?(): HighlightMatch[]
-  getWindowSize?(): { width: number; height: number }
-  getWindowInsets?(): NativeWindowInsets
-  activateWindow?(): void
-  setWindowTitle?(title: string): void
-  setDebugFrameOverlay?(mode: DebugFrameOverlayMode): string
-  getDebugFrameOverlay?(): string
-  cycleDebugFrameOverlay?(): string
-  resetDebugFrameOverlayStats?(): void
-  getDebugFrameOverlayStats?(): DebugFrameOverlayStats
+export interface VirtualListPropsBase extends HostProps {
+  alignment?: "top" | "bottom"
 }
 
-export interface PublicInstance {
-  readonly id: number
-  readonly type: ElementType
+export type DebugFrameOverlayMode = "hidden" | "visible"
+
+export interface DebugFrameOverlayStats {
+  frameCount: number
+  updateCount: number
 }
