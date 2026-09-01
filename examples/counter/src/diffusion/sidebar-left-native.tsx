@@ -1,6 +1,8 @@
 import { For, Show, createMemo, createSignal, type Element as SolidElement } from "solid-js"
 import type { EventPayload } from "gpuix-solid"
+import { ViewMenu } from "../../upstream/diffusion-editor/apps/web/src/components/sidebar-left/project-menu/view-menu"
 import { C, type DiffusionEditorState } from "./compat"
+import { DropdownMenu } from "./source-adapters/dropdown-menu"
 
 type AssetKind = "VIDEO" | "AUDIO" | "IMAGE" | "FONT"
 interface AssetEntry { id: string; name: string; kind: AssetKind }
@@ -122,14 +124,9 @@ function ProjectMenu(props: {
           </Show>
 
           <Show when={page() === "view"}>
-            <MenuRow label="Zoom in" shortcut="⌘+" onClick={() => props.state.setZoom(Math.min(4, props.state.zoom() * 1.25))} />
-            <MenuRow label="Zoom out" shortcut="⌘-" onClick={() => props.state.setZoom(Math.max(0.1, props.state.zoom() * 0.8))} />
-            <MenuRow label="Zoom to 100%" shortcut="⌘0" onClick={() => props.state.setZoom(1)} />
-            <MenuRow label="Zoom to fit" shortcut="⌘1" onClick={() => props.state.setZoom(0.75)} />
-            <MenuRow label="Zoom to selection" shortcut="⌘2" onClick={() => props.state.setZoom(1.5)} />
-            <MenuDivider />
-            <MenuRow label="Toggle UI" onClick={() => { props.state.setUiVisible(!props.state.uiVisible()); close() }} />
-            <MenuRow label="Toggle timeline" onClick={() => { props.state.setTimelineMinimized(!props.state.timelineMinimized()); close() }} />
+            <DropdownMenu bare>
+              <ViewMenu />
+            </DropdownMenu>
           </Show>
 
           <Show when={page() === "tool"}>
