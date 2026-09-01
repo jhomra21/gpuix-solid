@@ -94,6 +94,49 @@ if (!hasNativeTestRenderer) {
   )
   requireCondition(app.renderer.boundsTestId("overview-clip-drums-a").width > 50, "30s source overview should retain a visible Drum Loop 01 block")
 
+  const synthLaneHeight = app.renderer.boundsTestId("lane-synth").height
+  const synthSidebarHeight = app.renderer.boundsTestId("track-synth").height
+  requireCondition(Math.abs(synthLaneHeight - synthSidebarHeight) <= 1, "Synth timeline and mixer rows should start aligned")
+
+  app.renderer.clickTestId("track-synth-send")
+  requireText(app.renderer.textContent("track-synth-send"), "None", "send routing should cycle to None")
+  app.renderer.clickTestId("track-synth-send")
+  requireText(app.renderer.textContent("track-synth-send"), "A-Reverb", "send routing should cycle back to the real Return track")
+  app.renderer.clickTestId("track-synth-output")
+  requireText(app.renderer.textContent("track-synth-output"), "Master", "output routing must not invent a group target when no group exists")
+
+  app.renderer.clickTestId("track-synth-collapse")
+  const collapsedLaneHeight = app.renderer.boundsTestId("lane-synth").height
+  const collapsedSidebarHeight = app.renderer.boundsTestId("track-synth").height
+  requireCondition(Math.abs(collapsedLaneHeight - 32) <= 1, `collapsed timeline lane should preserve source 32px height, got ${collapsedLaneHeight}`)
+  requireCondition(Math.abs(collapsedSidebarHeight - 32) <= 1, `collapsed mixer row should preserve source 32px height, got ${collapsedSidebarHeight}`)
+  requireCondition(Math.abs(collapsedLaneHeight - collapsedSidebarHeight) <= 1, "collapsed timeline and mixer geometry should stay aligned")
+  app.renderer.clickTestId("track-synth-collapse")
+  requireCondition(Math.abs(app.renderer.boundsTestId("lane-synth").height - synthLaneHeight) <= 1, "expanding should restore the original timeline lane height")
+  requireCondition(Math.abs(app.renderer.boundsTestId("track-synth").height - synthSidebarHeight) <= 1, "expanding should restore the original mixer row height")
+
+  app.renderer.clickTestId("track-synth-automation")
+  requireCondition(app.renderer.hasTestId("lane-synth-automation"), "A should expose the timeline automation lane")
+  requireCondition(app.renderer.hasTestId("track-synth-automation-lanes"), "A should expose the mixer automation lane")
+  const oneAutomationLaneHeight = app.renderer.boundsTestId("lane-synth").height
+  const oneAutomationSidebarHeight = app.renderer.boundsTestId("track-synth").height
+  requireCondition(Math.abs(oneAutomationLaneHeight - synthLaneHeight - 48) <= 1, "one automation lane should add the source 48px lane height")
+  requireCondition(Math.abs(oneAutomationLaneHeight - oneAutomationSidebarHeight) <= 1, "one automation lane should keep timeline and mixer geometry aligned")
+
+  app.renderer.clickTestId("track-synth-automation-add")
+  const twoAutomationLaneHeight = app.renderer.boundsTestId("lane-synth").height
+  const twoAutomationSidebarHeight = app.renderer.boundsTestId("track-synth").height
+  requireCondition(Math.abs(twoAutomationLaneHeight - oneAutomationLaneHeight - 48) <= 1, "adding automation should add exactly one 48px lane")
+  requireCondition(Math.abs(twoAutomationLaneHeight - twoAutomationSidebarHeight) <= 1, "multiple automation lanes should keep timeline and mixer geometry aligned")
+
+  app.renderer.clickTestId("track-synth-automation-hide")
+  requireCondition(Math.abs(app.renderer.boundsTestId("lane-synth").height - oneAutomationLaneHeight) <= 1, "hiding one automation lane should remove exactly 48px")
+  app.renderer.clickTestId("track-synth-automation-hide")
+  requireCondition(!app.renderer.hasTestId("lane-synth-automation"), "hiding the final automation lane should close timeline automation")
+  requireCondition(!app.renderer.hasTestId("track-synth-automation-lanes"), "hiding the final automation lane should close mixer automation")
+  requireCondition(Math.abs(app.renderer.boundsTestId("lane-synth").height - synthLaneHeight) <= 1, "closing automation should restore timeline geometry")
+  requireCondition(Math.abs(app.renderer.boundsTestId("track-synth").height - synthSidebarHeight) <= 1, "closing automation should restore mixer geometry")
+
   const workspaceBefore = app.renderer.boundsTestId("timeline-workspace")
   const panelBounds = app.renderer.boundsTestId("bottom-panel")
   requireCondition(panelBounds.height >= 385, `bottom panel should preserve 360px body + footer/padding, got ${panelBounds.height}`)
