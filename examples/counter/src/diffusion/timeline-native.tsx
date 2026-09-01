@@ -292,7 +292,30 @@ const HEIGHT_PRESETS = [
   { label: "Loose", height: 116 },
 ] as const
 
+type TimelineMenuPage = "root" | "height" | "time"
+
+const menuRowStyle = {
+  height: 28,
+  paddingLeft: 8,
+  paddingRight: 8,
+  display: "flex" as const,
+  flexDirection: "row" as const,
+  alignItems: "center" as const,
+  cursor: "pointer" as const,
+  hover: { backgroundColor: "#FFFFFF17" },
+}
+
 function TimelineMenu(props: { timeline: DiffusionTimelineState; onClose: () => void }): SolidElement {
+  const [page, setPage] = createSignal<TimelineMenuPage>("root")
+  const selectHeight = (height: number) => {
+    props.timeline.setClipHeight(height)
+    props.onClose()
+  }
+  const selectTimeFormat = (format: TimeFormat) => {
+    props.timeline.setTimeFormat(format)
+    props.onClose()
+  }
+
   return (
     <div
       testId="diffusion-more-menu"
@@ -309,31 +332,52 @@ function TimelineMenu(props: { timeline: DiffusionTimelineState; onClose: () => 
         backgroundColor: "#121212",
       }}
     >
-      <div testId="diffusion-add-layer" onClick={() => { props.timeline.addLayer(); props.onClose() }} style={{ height: 28, paddingLeft: 8, justifyContent: "center", cursor: "pointer", hover: { backgroundColor: "#FFFFFF17" } }}>
-        <text style={{ color: "#F2F2F2", fontSize: 11 }}>Add layer</text>
-      </div>
-      <div style={{ height: 1, backgroundColor: "#FFFFFF0F" }} />
-      <text style={{ color: "#F2F2F2A3", fontSize: 9, paddingLeft: 8, paddingTop: 3 }}>Layer height</text>
-      <For each={HEIGHT_PRESETS}>
-        {(preset) => (
-          <div testId={`diffusion-layer-height-${preset.height}`} onClick={() => props.timeline.setClipHeight(preset.height)} style={{ height: 24, paddingLeft: 8, paddingRight: 8, display: "flex", flexDirection: "row", alignItems: "center", cursor: "pointer", hover: { backgroundColor: "#FFFFFF17" } }}>
-            <text style={{ width: 18, color: props.timeline.clipHeight() === preset.height ? COLORS.ring : "#00000000", fontSize: 10 }}>✓</text>
-            <text style={{ flexGrow: 1, color: "#F2F2F2", fontSize: 10 }}>{preset.label}</text>
-            <text style={{ color: "#F2F2F2A3", fontSize: 9 }}>{preset.height}</text>
-          </div>
-        )}
-      </For>
-      <div style={{ height: 1, backgroundColor: "#FFFFFF0F" }} />
-      <text style={{ color: "#F2F2F2A3", fontSize: 9, paddingLeft: 8, paddingTop: 3 }}>Time format</text>
-      <For each={TIME_FORMAT_OPTIONS}>
-        {(option) => (
-          <div testId={`diffusion-time-format-${option.value}`} onClick={() => props.timeline.setTimeFormat(option.value)} style={{ height: 24, paddingLeft: 8, paddingRight: 8, display: "flex", flexDirection: "row", alignItems: "center", cursor: "pointer", hover: { backgroundColor: "#FFFFFF17" } }}>
-            <text style={{ width: 18, color: props.timeline.timeFormat() === option.value ? COLORS.ring : "#00000000", fontSize: 10 }}>✓</text>
-            <text style={{ flexGrow: 1, color: "#F2F2F2", fontSize: 10 }}>{option.label}</text>
-            <text style={{ color: "#F2F2F2A3", fontSize: 9 }}>{option.example}</text>
-          </div>
-        )}
-      </For>
+      <Show when={page() !== "root"}>
+        <div testId="diffusion-more-menu-back" onClick={() => setPage("root")} style={menuRowStyle}>
+          <text style={{ flexGrow: 1, color: "#F2F2F2", fontSize: 11 }}>‹ Back</text>
+        </div>
+        <div style={{ height: 1, backgroundColor: "#FFFFFF0F" }} />
+      </Show>
+
+      <Show when={page() === "root"}>
+        <div testId="diffusion-add-layer" onClick={() => { props.timeline.addLayer(); props.onClose() }} style={menuRowStyle}>
+          <text style={{ flexGrow: 1, color: "#F2F2F2", fontSize: 11 }}>Add layer</text>
+        </div>
+        <div style={{ height: 1, backgroundColor: "#FFFFFF0F" }} />
+        <div testId="diffusion-layer-height-menu" onClick={() => setPage("height")} style={menuRowStyle}>
+          <text style={{ flexGrow: 1, color: "#F2F2F2", fontSize: 11 }}>Layer height</text>
+          <text style={{ color: "#F2F2F2A3", fontSize: 11 }}>›</text>
+        </div>
+        <div style={{ height: 1, backgroundColor: "#FFFFFF0F" }} />
+        <div testId="diffusion-time-format-menu" onClick={() => setPage("time")} style={menuRowStyle}>
+          <text style={{ flexGrow: 1, color: "#F2F2F2", fontSize: 11 }}>Time format</text>
+          <text style={{ color: "#F2F2F2A3", fontSize: 11 }}>›</text>
+        </div>
+      </Show>
+
+      <Show when={page() === "height"}>
+        <For each={HEIGHT_PRESETS}>
+          {(preset) => (
+            <div testId={`diffusion-layer-height-${preset.height}`} onClick={() => selectHeight(preset.height)} style={menuRowStyle}>
+              <text style={{ width: 18, color: props.timeline.clipHeight() === preset.height ? COLORS.ring : "#00000000", fontSize: 10 }}>✓</text>
+              <text style={{ flexGrow: 1, color: "#F2F2F2", fontSize: 10 }}>{preset.label}</text>
+              <text style={{ color: "#F2F2F2A3", fontSize: 9 }}>{preset.height}</text>
+            </div>
+          )}
+        </For>
+      </Show>
+
+      <Show when={page() === "time"}>
+        <For each={TIME_FORMAT_OPTIONS}>
+          {(option) => (
+            <div testId={`diffusion-time-format-${option.value}`} onClick={() => selectTimeFormat(option.value)} style={menuRowStyle}>
+              <text style={{ width: 18, color: props.timeline.timeFormat() === option.value ? COLORS.ring : "#00000000", fontSize: 10 }}>✓</text>
+              <text style={{ flexGrow: 1, color: "#F2F2F2", fontSize: 10 }}>{option.label}</text>
+              <text style={{ color: "#F2F2F2A3", fontSize: 9 }}>{option.example}</text>
+            </div>
+          )}
+        </For>
+      </Show>
     </div>
   )
 }
