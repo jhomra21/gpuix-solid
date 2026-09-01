@@ -109,6 +109,25 @@ export type {
 } from "./components/animate.js"
 
 export {
+  clearNativeStyleManifest,
+  configureNativeStyleManifest,
+  getNativeStyleColorMode,
+  mergeNativeStyles,
+  resolveNativeClassStyle,
+  resolveNativeClassTextTransform,
+  resolveNativeDescendantClassStyle,
+  setNativeStyleColorMode,
+} from "./native-style.js"
+export type {
+  NativeClassList,
+  NativeColorMode,
+  NativeStyleManifest,
+  NativeStyleManifestEntry,
+  NativeStyleVariant,
+  NativeTextTransform,
+} from "./native-style.js"
+
+export {
   effect,
   memo,
   createComponent,
