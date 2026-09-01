@@ -19,7 +19,7 @@ export function DashboardRoute() {
         <text style={{ color: palette.text, fontSize: 20 }}>Dashboard</text>
       </div>
       <Divider />
-      <div style={{ minHeight: 40, display: "flex", alignItems: "stretch" }}>
+      <div style={{ minHeight: 40, display: "flex", flexDirection: "row", alignItems: "stretch" }}>
         <For each={dashboardTabs}>
           {([value, label], index) => (
             <>
@@ -32,7 +32,7 @@ export function DashboardRoute() {
         </For>
       </div>
       <Divider />
-      <div style={{ flexGrow: 1, minHeight: 0, display: "flex" }}>
+      <div style={{ flexGrow: 1, minHeight: 0, display: "flex", flexDirection: "row" }}>
         <Switch>
           <Match when={tab() === "summary"}><DashboardIndexRoute /></Match>
           <Match when={tab() === "invoices"}><InvoicesRoute /></Match>
