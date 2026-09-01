@@ -44,6 +44,12 @@ function findClip(tracks: NativeTrack[], clipId: string): { track: NativeTrack; 
   return undefined
 }
 
+function nextTarget(current: string, targets: string[]): string {
+  if (targets.length === 0) return current
+  const currentIndex = targets.indexOf(current)
+  return targets[(currentIndex + 1 + targets.length) % targets.length] ?? targets[0] ?? current
+}
+
 export default function Timeline(): JSX.Element {
   const [tracks, setTracks] = createSignal<NativeTrack[]>(initialTracks)
   const [selectedTrackId, setSelectedTrackId] = createSignal("synth")
@@ -87,6 +93,22 @@ export default function Timeline(): JSX.Element {
 
   const updateTrack = (id: string, update: (track: NativeTrack) => NativeTrack): void => {
     setTracks((current) => current.map((track) => track.id === id ? update(track) : track))
+  }
+
+  const cycleOutputTarget = (id: string): void => {
+    const targets = ["Master", ...tracks().filter((track) => track.kind === "group").map((track) => track.name)]
+    updateTrack(id, (track) => ({ ...track, outputTarget: nextTarget(track.outputTarget, targets) }))
+  }
+
+  const cycleSendTarget = (id: string): void => {
+    const targets = ["None", ...tracks().filter((track) => track.kind === "return").map((track) => track.name)]
+    updateTrack(id, (track) => ({ ...track, sendTarget: nextTarget(track.sendTarget, targets) }))
+  }
+
+  const hideAutomationLane = (id: string): void => {
+    updateTrack(id, (track) => track.automationLaneCount > 1
+      ? { ...track, automationLaneCount: track.automationLaneCount - 1 }
+      : { ...track, automationVisible: false })
   }
 
   const selectTrack = (id: string): void => {
@@ -223,10 +245,18 @@ export default function Timeline(): JSX.Element {
           masterVolume: masterVolume(),
           onSelectTrack: selectTrack,
           onSelectMaster: selectMaster,
+          onToggleCollapsed: (id) => updateTrack(id, (track) => ({ ...track, collapsed: !track.collapsed })),
+          onCycleOutputTarget: cycleOutputTarget,
+          onCycleSendTarget: cycleSendTarget,
           onToggleMute: (id) => updateTrack(id, (track) => ({ ...track, muted: !track.muted })),
           onToggleSolo: (id) => updateTrack(id, (track) => ({ ...track, soloed: !track.soloed })),
           onToggleArm: (id) => updateTrack(id, (track) => ({ ...track, armed: !track.armed })),
           onVolumeChange: (id, value) => updateTrack(id, (track) => ({ ...track, volume: value })),
+          onToggleAutomation: (id) => updateTrack(id, (track) => ({ ...track, automationVisible: !track.automationVisible })),
+          onAddAutomationLane: (id) => updateTrack(id, (track) => track.automationVisible && track.automationLaneCount < 3
+            ? { ...track, automationLaneCount: track.automationLaneCount + 1 }
+            : track),
+          onHideAutomationLane: hideAutomationLane,
           onMasterVolumeChange: setMasterVolume,
         }}
         onSelectClip={selectClip}
