@@ -267,19 +267,20 @@ function Ruler(): SolidElement {
 function Playhead(props: { minimized: boolean }): SolidElement {
   const left = TIMELINE_PADDING_LEFT + framesToPixels(PLAYHEAD_FRAME)
 
-  if (props.minimized) {
-    return (
+  return (
+    <Show
+      when={props.minimized}
+      fallback={
+        <>
+          <div style={{ position: "absolute", left: left - 5, top: 2, width: 10, height: 10, borderRadius: 4, borderWidth: 1, borderColor: COLORS.borderDarker, backgroundColor: COLORS.ring }} />
+          <div style={{ position: "absolute", left, top: RULER_HEIGHT, bottom: 0, width: 1, backgroundColor: COLORS.ring }} />
+        </>
+      }
+    >
       <div style={{ position: "absolute", left: left - 12, top: 8, width: 24, height: 19, borderRadius: 9, backgroundColor: COLORS.ring, alignItems: "center", justifyContent: "center" }}>
         <text style={{ color: "#FFFFFF", fontSize: 10 }}>{PLAYHEAD_FRAME}</text>
       </div>
-    )
-  }
-
-  return (
-    <>
-      <div style={{ position: "absolute", left: left - 5, top: 2, width: 10, height: 10, borderRadius: 4, borderWidth: 1, borderColor: COLORS.borderDarker, backgroundColor: COLORS.ring }} />
-      <div style={{ position: "absolute", left, top: RULER_HEIGHT, bottom: 0, width: 1, backgroundColor: COLORS.ring }} />
-    </>
+    </Show>
   )
 }
 
