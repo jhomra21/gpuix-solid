@@ -181,7 +181,17 @@ export const mergeProps = runtime.mergeProps
 export const applyRef = runtime.applyRef
 export const ref = runtime.ref
 
-function setNativeProperty<T>(node: HostElementNode, name: string, value: T, previous: T | undefined): void {
+function setNativeProperty<T>(
+  node: HostElementNode | HostTextNode,
+  name: string,
+  value: T,
+  previous: T | undefined,
+): void {
+  if (node.kind === "text") {
+    setHostProperty(node, name, value, previous)
+    return
+  }
+
   const semanticTag = semanticTags.get(node)
   if (semanticTag && isSvgMarkupTag(semanticTag)) {
     if (semanticTag !== "svg") {
@@ -197,6 +207,7 @@ function setNativeProperty<T>(node: HostElementNode, name: string, value: T, pre
   }
 
   if (name === "style") {
+    // SAFETY: Solid forwards the JSX style prop as the host element's inline style object.
     const inlineStyle = value as NativeInlineStyleInput | undefined
     setNativeInlineStyle(node, normalizeNativeInlineStyle(inlineStyle))
     return
