@@ -4,12 +4,12 @@ import {
   Divider,
   FloatingProjectHeader,
   Inspector,
-  SidebarLeft,
   Soundboard,
   type DiffusionEditorState,
   type DiffusionTool,
 } from "./compat"
 import { Canvas } from "./canvas-native"
+import { SidebarLeft } from "./sidebar-left-native"
 import {
   DEFAULT_TIMELINE_HEIGHT,
   Layers,
