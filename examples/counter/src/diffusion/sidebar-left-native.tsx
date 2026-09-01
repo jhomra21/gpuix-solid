@@ -41,8 +41,9 @@ function MenuDivider(): SolidElement {
 function ProjectMenu(props: {
   state: DiffusionEditorState
   onImport: () => void
-  onRemoveUnused: () => void
-  onDownloadAssets: () => void
+  onRemoveUnused: () => string
+  onDownloadAssets: () => string
+  onGenerateAI: () => void
 }): SolidElement {
   const [open, setOpen] = createSignal(false)
   const [page, setPage] = createSignal<ProjectMenuPage>("root")
@@ -90,9 +91,9 @@ function ProjectMenu(props: {
           </Show>
 
           <Show when={page() === "asset"}>
-            <MenuRow label="Download all assets..." onClick={() => { props.onDownloadAssets(); close() }} />
+            <MenuRow label="Download all assets..." testId="diffusion-download-all-assets" onClick={() => localAction(props.onDownloadAssets())} />
             <MenuDivider />
-            <MenuRow label="Remove unused media..." onClick={() => { props.onRemoveUnused(); close() }} />
+            <MenuRow label="Remove unused media..." testId="diffusion-remove-unused-media" onClick={() => localAction(props.onRemoveUnused())} />
           </Show>
 
           <Show when={page() === "export"}>
@@ -132,7 +133,7 @@ function ProjectMenu(props: {
           </Show>
 
           <Show when={page() === "tool"}>
-            <MenuRow label="Generate with AI..." testId="diffusion-menu-generate-ai" onClick={() => localAction("AI prompt requested from project menu")} />
+            <MenuRow label="Generate with AI..." testId="diffusion-menu-generate-ai" onClick={() => { props.onGenerateAI(); close() }} />
             <MenuDivider />
             <MenuRow label="Scene" shortcut="F" onClick={() => { props.state.setSelectedTool("frame"); close() }} />
             <MenuRow label="Text" shortcut="T" onClick={() => { props.state.setSelectedTool("text"); close() }} />
@@ -160,7 +161,7 @@ function AddAssetsMenu(props: { onImport: () => void; onCreateFolder: () => void
   )
 }
 
-export function SidebarLeft(props: { state: DiffusionEditorState }): SolidElement {
+export function SidebarLeft(props: { state: DiffusionEditorState; onGenerateAI: () => void }): SolidElement {
   const [assets, setAssets] = createSignal<AssetEntry[]>(initialAssets)
   const [folders, setFolders] = createSignal<string[]>([])
   const [query, setQuery] = createSignal("")
@@ -189,6 +190,16 @@ export function SidebarLeft(props: { state: DiffusionEditorState }): SolidElemen
     setFolders((current) => [...current, folderSequence === 1 ? "New folder" : `New folder ${folderSequence}`])
   }
 
+  const downloadAssets = (): string => `${assets().length} assets prepared for local download`
+
+  const removeUnused = (): string => {
+    const unused = assets().filter((asset) => asset.id === "image-1")
+    if (unused.length === 0) return "No unused media found"
+    setAssets((current) => current.filter((asset) => asset.id !== "image-1"))
+    if (props.state.selectedAsset() === "image-1") props.state.setSelectedAsset(null)
+    return `Removed ${unused.length} unused media item`
+  }
+
   const commitProjectName = (): void => {
     const trimmed = projectNameDraft()?.trim() ?? ""
     if (trimmed) props.state.setProjectName(trimmed)
@@ -204,7 +215,7 @@ export function SidebarLeft(props: { state: DiffusionEditorState }): SolidElemen
       </div>
 
       <div style={{ height: 48, flexShrink: 0, display: "flex", flexDirection: "row", alignItems: "center", gap: 7, paddingLeft: 10, paddingRight: 16 }}>
-        <ProjectMenu state={props.state} onImport={importAsset} onRemoveUnused={() => setAssets((current) => current.filter((asset) => asset.id === props.state.selectedAsset()))} onDownloadAssets={() => undefined} />
+        <ProjectMenu state={props.state} onImport={importAsset} onRemoveUnused={removeUnused} onDownloadAssets={downloadAssets} onGenerateAI={props.onGenerateAI} />
         <input
           testId="diffusion-project-name"
           value={projectNameDraft() ?? props.state.projectName()}
