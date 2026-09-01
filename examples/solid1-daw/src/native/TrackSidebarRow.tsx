@@ -89,8 +89,8 @@ const TrackSidebarRow = (props: TrackSidebarRowProps): JSX.Element => {
                 onClick={props.onCycleOutputTarget}
                 style={{ height: 28, minHeight: 28, display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 8, paddingRight: 7, backgroundColor: dawTheme.timelineBackground, borderWidth: 1, borderColor: dawTheme.border, cursor: "pointer" }}
               >
-                <text style={{ ...textXs, color: dawTheme.foreground, whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{props.track.outputTarget}</text>
-                <text style={{ ...text2xs, color: dawTheme.mutedForeground }}>⌄</text>
+                <text style={{ ...textXs, color: dawTheme.foreground, whiteSpace: "nowrap", textOverflow: "ellipsis", pointerEvents: "none" }}>{props.track.outputTarget}</text>
+                <text style={{ ...text2xs, color: dawTheme.mutedForeground, pointerEvents: "none" }}>⌄</text>
               </div>
             </Show>
             <Show when={props.track.kind !== "return" && props.track.kind !== "group"}>
@@ -99,8 +99,8 @@ const TrackSidebarRow = (props: TrackSidebarRowProps): JSX.Element => {
                 onClick={props.onCycleSendTarget}
                 style={{ height: 28, minHeight: 28, display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 8, paddingRight: 7, backgroundColor: dawTheme.timelineBackground, borderWidth: 1, borderColor: dawTheme.border, cursor: "pointer" }}
               >
-                <text style={{ ...textXs, color: dawTheme.foreground, whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{props.track.sendTarget}</text>
-                <text style={{ ...text2xs, color: dawTheme.mutedForeground }}>⌄</text>
+                <text style={{ ...textXs, color: dawTheme.foreground, whiteSpace: "nowrap", textOverflow: "ellipsis", pointerEvents: "none" }}>{props.track.sendTarget}</text>
+                <text style={{ ...text2xs, color: dawTheme.mutedForeground, pointerEvents: "none" }}>⌄</text>
               </div>
             </Show>
           </Show>
