@@ -1,7 +1,6 @@
 import { Show, createSignal, type Element as SolidElement } from "solid-js"
 import {
   C,
-  Canvas,
   Divider,
   FloatingProjectHeader,
   Inspector,
@@ -10,6 +9,7 @@ import {
   type DiffusionEditorState,
   type DiffusionTool,
 } from "./compat"
+import { Canvas } from "./canvas-native"
 import { DEFAULT_TIMELINE_HEIGHT, Layers, RULER_HEIGHT, Timeline } from "./timeline-native"
 
 export function EditorPage(): SolidElement {
