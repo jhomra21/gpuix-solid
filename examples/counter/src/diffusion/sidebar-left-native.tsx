@@ -27,9 +27,9 @@ function Button(props: { testId?: string; active?: boolean; children: SolidEleme
 function MenuRow(props: { label: string; shortcut?: string; arrow?: boolean; testId?: string; onClick: () => void }): SolidElement {
   return (
     <div testId={props.testId} onClick={props.onClick} style={{ height: 28, paddingLeft: 8, paddingRight: 8, display: "flex", flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 4, cursor: "pointer", hover: { backgroundColor: C.secondaryHover } }}>
-      <text style={{ ...text, flexGrow: 1 }}>{props.label}</text>
-      <Show when={props.shortcut}><text style={{ ...muted, fontSize: 9 }}>{props.shortcut}</text></Show>
-      <Show when={props.arrow}><text style={{ ...muted, fontSize: 10 }}>›</text></Show>
+      <text style={{ ...text, flexGrow: 1, pointerEvents: "none" }}>{props.label}</text>
+      <Show when={props.shortcut}><text style={{ ...muted, fontSize: 9, pointerEvents: "none" }}>{props.shortcut}</text></Show>
+      <Show when={props.arrow}><text style={{ ...muted, fontSize: 10, pointerEvents: "none" }}>›</text></Show>
     </div>
   )
 }
@@ -237,21 +237,18 @@ export function SidebarLeft(props: { state: DiffusionEditorState; onGenerateAI: 
           <div style={{ flexGrow: 1 }} />
           <AddAssetsMenu onImport={importAsset} onCreateFolder={createFolder} />
         </div>
-        <div style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 12, paddingBottom: 6 }}>
-          <input testId="diffusion-asset-search" value={query()} placeholder="Search assets" onChange={(event: EventPayload) => setQuery(event.value ?? "")} style={{ width: "100%", height: 30, paddingLeft: 9, paddingRight: 9, borderWidth: 1, borderColor: C.borderStrong, borderRadius: 6, backgroundColor: C.input, color: C.foreground, fontSize: 11 }} />
+        <div style={{ paddingLeft: 16, paddingRight: 16, paddingBottom: 10 }}>
+          <input testId="diffusion-asset-search" value={query()} placeholder="Search assets" onChange={(event: EventPayload) => setQuery(event.value ?? "")} style={{ height: 28, width: "100%", borderWidth: 1, borderColor: C.borderInput, borderRadius: 4, backgroundColor: C.input, color: C.foreground, fontSize: 11, paddingLeft: 8, paddingRight: 8 }} />
         </div>
-        <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 5, paddingLeft: 16, paddingRight: 16, height: 28 }}><text style={muted}>All assets</text><text style={{ ...muted, fontSize: 9 }}>›</text></div>
-        <div style={{ display: "flex", flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 10, overflowY: "scroll", flexGrow: 1, minHeight: 0 }}>
-          <For each={filteredFolders()}>{(folder, index) => (
-            <div testId={`diffusion-folder-${index() + 1}`} style={{ width: 112, height: 58, padding: 7, gap: 5, borderRadius: 7, borderWidth: 1, borderColor: C.borderStrong, backgroundColor: C.secondary }}>
-              <text style={{ color: C.mutedForeground, fontSize: 10 }}>FOLDER</text><text style={{ color: C.foreground, fontSize: 10 }}>{folder}</text>
-            </div>
-          )}</For>
-          <For each={filteredAssets()} fallback={<Show when={filteredFolders().length === 0}><text style={muted}>No assets</text></Show>}>
+        <div style={{ flexGrow: 1, minHeight: 0, paddingLeft: 12, paddingRight: 12, gap: 3, overflowY: "scroll" }}>
+          <For each={filteredFolders()}>
+            {(folder, index) => <div testId={`diffusion-folder-${index() + 1}`} style={{ height: 28, display: "flex", flexDirection: "row", alignItems: "center", gap: 8, paddingLeft: 6, paddingRight: 6, borderRadius: 4 }}><text style={muted}>▸</text><text style={text}>{folder}</text></div>}
+          </For>
+          <For each={filteredAssets()}>
             {(asset) => (
-              <div testId={`diffusion-asset-${asset.id}`} onClick={() => props.state.setSelectedAsset(asset.id)} style={{ width: 112, height: 82, padding: 7, gap: 5, borderRadius: 7, borderWidth: 1, borderColor: props.state.selectedAsset() === asset.id ? C.primary : C.borderStrong, backgroundColor: props.state.selectedAsset() === asset.id ? C.selection : C.secondary, cursor: "pointer", hover: { backgroundColor: C.secondaryHover } }}>
-                <div style={{ flexGrow: 1, borderRadius: 4, alignItems: "center", justifyContent: "center", backgroundColor: C.canvas }}><text style={{ color: C.mutedForeground, fontSize: 10 }}>{asset.kind}</text></div>
-                <text style={{ color: C.foreground, fontSize: 10 }}>{asset.name}</text>
+              <div testId={`diffusion-asset-${asset.id}`} onClick={() => props.state.setSelectedAsset(asset.id)} style={{ height: 30, display: "flex", flexDirection: "row", alignItems: "center", gap: 8, paddingLeft: 6, paddingRight: 6, borderRadius: 4, cursor: "pointer", backgroundColor: props.state.selectedAsset() === asset.id ? C.secondary : "#00000000", hover: { backgroundColor: C.secondaryHover } }}>
+                <text style={{ color: asset.kind === "VIDEO" ? C.video : asset.kind === "AUDIO" ? C.audio : asset.kind === "IMAGE" ? C.image : C.font, fontSize: 9 }}>{asset.kind}</text>
+                <text style={{ ...text, flexGrow: 1 }}>{asset.name}</text>
               </div>
             )}
           </For>
