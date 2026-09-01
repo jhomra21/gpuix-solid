@@ -5,9 +5,9 @@ const SourceDiffusionContext = createContext<DiffusionEditorState>()
 
 export function SourceDiffusionProvider(props: ParentProps<{ state: DiffusionEditorState }>) {
   return (
-    <SourceDiffusionContext.Provider value={props.state}>
+    <SourceDiffusionContext value={props.state}>
       {props.children}
-    </SourceDiffusionContext.Provider>
+    </SourceDiffusionContext>
   )
 }
 
