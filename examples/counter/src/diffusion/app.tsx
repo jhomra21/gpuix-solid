@@ -10,7 +10,13 @@ import {
   type DiffusionTool,
 } from "./compat"
 import { Canvas } from "./canvas-native"
-import { DEFAULT_TIMELINE_HEIGHT, Layers, RULER_HEIGHT, Timeline } from "./timeline-native"
+import {
+  DEFAULT_TIMELINE_HEIGHT,
+  Layers,
+  RULER_HEIGHT,
+  Timeline,
+  createDiffusionTimelineState,
+} from "./timeline-native"
 
 export function EditorPage(): SolidElement {
   const [projectName, setProjectName] = createSignal("Diffusion Studio")
@@ -21,6 +27,7 @@ export function EditorPage(): SolidElement {
   const [zoom, setZoom] = createSignal(1)
   const [playing, setPlaying] = createSignal(false)
   const [looping, setLooping] = createSignal(false)
+  const timeline = createDiffusionTimelineState()
 
   const state: DiffusionEditorState = {
     projectName,
@@ -78,9 +85,9 @@ export function EditorPage(): SolidElement {
             backgroundColor: C.background,
           }}
         >
-          <Layers state={state} />
+          <Layers state={state} timeline={timeline} />
           <Divider vertical />
-          <Timeline state={state} />
+          <Timeline state={state} timeline={timeline} />
           <Divider vertical />
           <Show when={!timelineMinimized()} fallback={<div style={{ width: 264, flexShrink: 0, backgroundColor: C.background }} />}>
             <Soundboard />
