@@ -135,7 +135,11 @@ async function main(): Promise<void> {
 
     await app.getByTestId("diffusion-more").click()
     assert.equal(await app.getByTestId("diffusion-more-menu").count(), 1)
+    assert.equal(await app.getByTestId("diffusion-layer-height-64").count(), 0)
+    await app.getByTestId("diffusion-layer-height-menu").click()
+    assert.equal(await app.getByTestId("diffusion-layer-height-64").count(), 1)
     await app.getByTestId("diffusion-layer-height-64").click()
+    assert.equal(await app.getByTestId("diffusion-more-menu").count(), 0)
     const relaxedLayerBounds = await app.getByTestId("diffusion-layer-row-0").bounds()
     const relaxedVideoBounds = await app.getByTestId("diffusion-clip-video").bounds()
     const layerHeightDelta = relaxedLayerBounds.height - normalLayerBounds.height
@@ -144,12 +148,21 @@ async function main(): Promise<void> {
     assert.ok(clipHeightDelta > 20)
     assert.ok(Math.abs(layerHeightDelta - clipHeightDelta) <= 2)
 
+    await app.getByTestId("diffusion-more").click()
+    assert.equal(await app.getByTestId("diffusion-time-format-timecode").count(), 0)
+    await app.getByTestId("diffusion-time-format-menu").click()
+    assert.equal(await app.getByTestId("diffusion-time-format-timecode").count(), 1)
     await app.getByTestId("diffusion-time-format-timecode").click()
+    assert.equal(await app.getByTestId("diffusion-more-menu").count(), 0)
     assert.equal(await app.getByTestId("diffusion-clock").textContent(), "00:00:05:12")
+
+    await app.getByTestId("diffusion-more").click()
+    await app.getByTestId("diffusion-time-format-menu").click()
     await app.getByTestId("diffusion-time-format-frames").click()
     assert.equal(await app.getByTestId("diffusion-clock").textContent(), "162f")
 
     assert.equal(await app.getByTestId("diffusion-layer-row-4").count(), 0)
+    await app.getByTestId("diffusion-more").click()
     await app.getByTestId("diffusion-add-layer").click()
     assert.equal(await app.getByTestId("diffusion-layer-row-4").count(), 1)
     assert.equal(await app.getByTestId("diffusion-more-menu").count(), 0)
