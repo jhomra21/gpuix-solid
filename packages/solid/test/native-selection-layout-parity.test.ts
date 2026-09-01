@@ -206,7 +206,7 @@ describe("native selection and layout parity", () => {
     expect(updated?.[3]).toBeCloseTo(40, 3)
   })
 
-  nativeIt("fills a fixed-width parent with a percentage flex row", () => {
+  nativeIt("fills a fixed-width scroll parent with a percentage flex row", () => {
     const testRoot = createTestRoot()
     const toolbar = div(
       {
@@ -226,7 +226,7 @@ describe("native selection and layout parity", () => {
         ),
       ],
     )
-    const sidebar = div({ width: 310, flexShrink: 0 }, [toolbar])
+    const sidebar = div({ width: 310, flexShrink: 0, overflowY: "scroll" }, [toolbar])
 
     testRoot.render(() => div(
       { display: "flex", flexDirection: "row", width: 800, height: 200 },
