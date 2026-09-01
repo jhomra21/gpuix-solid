@@ -4,7 +4,7 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
-const upstreamRevision = "3fb6ae9a10b8317feb23e77832e0894da7420f9b"
+const upstreamRevision = "2eaad47813b15aa8511bab8dc04625510c977b12"
 
 const copiedSources = [
   ["src/upstream/components/ui/avatar.tsx", "src/components/ui/avatar.tsx", "d09d0be1c256fac704ab97f3c32dd8bc9457c221"],
