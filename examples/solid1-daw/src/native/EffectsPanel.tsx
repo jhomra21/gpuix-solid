@@ -26,14 +26,14 @@ function Knob(props: KnobProps): JSX.Element {
   )
 }
 
-function DeviceHeader(props: { title: string; typeLabel: string; enabled: boolean; onToggle: () => void }): JSX.Element {
+function DeviceHeader(props: { title: string; typeLabel: string; enabled: boolean; resetTestId: string; onReset: () => void; onToggle: () => void }): JSX.Element {
   return (
     <div style={{ height: 30, minHeight: 30, display: "flex", alignItems: "stretch", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.appSurface }}>
       <div style={{ flexGrow: 1, display: "flex", alignItems: "center", gap: 8, paddingLeft: 9 }}>
         <text style={{ ...textXs, color: dawTheme.foreground, fontWeight: 700 }}>{props.title}</text>
         <text style={{ ...text3xs, color: dawTheme.mutedForeground }}>{props.typeLabel}</text>
       </div>
-      <div style={{ display: "flex", flexDirection: "row", height: 30, minHeight: 30, width: 42, alignItems: "center", justifyContent: "center", borderLeftWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.timelineSurface, cursor: "pointer" }}>
+      <div testId={props.resetTestId} onClick={props.onReset} style={{ display: "flex", flexDirection: "row", height: 30, minHeight: 30, width: 42, alignItems: "center", justifyContent: "center", borderLeftWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.timelineSurface, cursor: "pointer" }}>
         <text style={{ ...text3xs, color: dawTheme.mutedForeground }}>Reset</text>
       </div>
       <div onClick={props.onToggle} style={{ display: "flex", flexDirection: "row", height: 30, minHeight: 30, width: 38, alignItems: "center", justifyContent: "center", backgroundColor: props.enabled ? "#0e4a5d" : dawTheme.timelineSurface, borderLeftWidth: 1, borderColor: dawTheme.border, cursor: "pointer" }}>
@@ -105,6 +105,8 @@ const signedDb = (value: number): string => `${value > 0 ? "+" : ""}${value.toFi
 
 const EQ_INITIAL_FREQUENCIES = [40, 120, 300, 650, 1200, 3000, 7800, 16000]
 const EQ_INITIAL_Q = [0.7, 1, 1, 1, 1, 1, 1, 0.7]
+const EQ_DEFAULT_FREQUENCIES = [40, 100, 200, 500, 1000, 2500, 6000, 12000]
+const EQ_DEFAULT_Q = [1, 1, 1, 1, 1, 1, 1, 1]
 
 const EffectsPanel = (props: EffectsPanelProps): JSX.Element => {
   const [compressorAutoRelease, setCompressorAutoRelease] = createSignal(false)
@@ -148,6 +150,34 @@ const EffectsPanel = (props: EffectsPanelProps): JSX.Element => {
     setEqQ((current) => current.map((q, entry) => entry === index ? clamp(value, 0.1, 18) : q))
   }
 
+  const resetCompressor = (): void => {
+    if (!props.compressorEnabled) props.onToggleCompressor()
+    props.onThresholdChange(-24)
+    props.onRatioChange(4)
+    props.onAttackChange(10)
+    props.onReleaseChange(120)
+    props.onWetChange(1)
+    setCompressorAutoRelease(true)
+    setCompressorKnee(6)
+    setCompressorLookahead(0)
+    setCompressorMakeup(0)
+    setCompressorDetector("RMS")
+    setCompressorDynamics("Compress")
+    setCompressorEnvelope("Log")
+  }
+
+  const resetEq = (): void => {
+    if (!props.eqEnabled) props.onToggleEq()
+    props.onEqLowGain(0)
+    props.onEqMidGain(0)
+    props.onEqHighGain(0)
+    setEqOtherGains({})
+    setEqFrequencies([...EQ_DEFAULT_FREQUENCIES])
+    setEqQ([...EQ_DEFAULT_Q])
+    setEqBandEnabled(Array.from({ length: 8 }, () => true))
+    setEqChannelMode("Stereo")
+  }
+
   const selectedFrequency = () => eqFrequencies()[eqSelectedBand()] ?? 1000
   const selectedQ = () => eqQ()[eqSelectedBand()] ?? 1
   const selectedGain = () => eqGain(eqSelectedBand())
@@ -156,7 +186,7 @@ const EffectsPanel = (props: EffectsPanelProps): JSX.Element => {
     <div testId="effects-panel" style={{ height: "100%", minHeight: 0, overflowX: "auto", overflowY: "hidden", padding: 4, backgroundColor: dawTheme.appSurface }}>
       <div style={{ height: "100%", display: "flex", alignItems: "stretch", gap: 12, minWidth: 1290 }}>
         <div testId="compressor-device" style={{ width: 560, minWidth: 560, height: "100%", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.timelineSurface, opacity: props.compressorEnabled ? 1 : 0.7 }}>
-          <DeviceHeader title="Compressor" typeLabel="Audio" enabled={props.compressorEnabled} onToggle={props.onToggleCompressor} />
+          <DeviceHeader title="Compressor" typeLabel="Audio" enabled={props.compressorEnabled} resetTestId="compressor-reset" onReset={resetCompressor} onToggle={props.onToggleCompressor} />
           <div style={{ flexGrow: 1, minHeight: 0, display: "flex", gap: 8, padding: 10 }}>
             <div style={{ width: 84, minWidth: 84, display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
               <Knob testId="compressor-ratio" label="Ratio" valueLabel={`${props.compressorRatio.toFixed(props.compressorRatio < 10 ? 1 : 0)}:1`} active={props.compressorEnabled} onDecrease={() => props.onRatioChange(clamp(props.compressorRatio - 0.5, 1, 20))} onIncrease={() => props.onRatioChange(clamp(props.compressorRatio + 0.5, 1, 20))} />
@@ -208,7 +238,7 @@ const EffectsPanel = (props: EffectsPanelProps): JSX.Element => {
         </div>
 
         <div testId="eq-device" style={{ width: 704, minWidth: 704, height: "100%", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.timelineSurface, opacity: props.eqEnabled ? 1 : 0.7 }}>
-          <DeviceHeader title="EQ Eight" typeLabel={eqChannelMode()} enabled={props.eqEnabled} onToggle={props.onToggleEq} />
+          <DeviceHeader title="EQ Eight" typeLabel={eqChannelMode()} enabled={props.eqEnabled} resetTestId="eq-reset" onReset={resetEq} onToggle={props.onToggleEq} />
           <div style={{ flexGrow: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
             <div style={{ flexGrow: 1, minHeight: 0, display: "flex" }}>
               <div style={{ width: 72, minWidth: 72, display: "flex", flexDirection: "column", justifyContent: "space-around", alignItems: "center", paddingTop: 4, paddingBottom: 4, borderRightWidth: 1, borderColor: dawTheme.border, backgroundColor: "#09090b4d" }}>
@@ -221,7 +251,7 @@ const EffectsPanel = (props: EffectsPanelProps): JSX.Element => {
                 <For each={[1,2,3,4,5,6,7,8,9]}>{(index) => <div style={{ position: "absolute", left: index * 54, top: 0, width: 1, height: 230, backgroundColor: dawTheme.deviceGraphGrid }} />}</For>
                 <For each={[1,2,3,4,5]}>{(index) => <div style={{ position: "absolute", top: index * 38, left: 0, width: 540, height: 1, backgroundColor: dawTheme.deviceGraphGrid }} />}</For>
                 <div style={{ position: "absolute", left: 0, top: 114, width: 540, height: 2, backgroundColor: dawTheme.deviceGraphAccent }} />
-                <For each={EQ_INITIAL_FREQUENCIES}>
+                <For each={eqFrequencies()}>
                   {(frequency, index) => {
                     const gain = () => eqGain(index())
                     const x = () => 12 + Math.log10(frequency / 20) / Math.log10(20000 / 20) * 490
@@ -246,7 +276,7 @@ const EffectsPanel = (props: EffectsPanelProps): JSX.Element => {
 
             <div style={{ height: 52, minHeight: 52, display: "flex", borderTopWidth: 1, borderColor: dawTheme.border, backgroundColor: "#09090b" }}>
               <For each={EQ_INITIAL_FREQUENCIES}>
-                {(frequency, index) => (
+                {(_frequency, index) => (
                   <div testId={`eq-band-${index() + 1}`} onClick={() => setEqSelectedBand(index())} style={{ flexGrow: 1, minWidth: 0, height: 52, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, borderRightWidth: index() === 7 ? 0 : 1, borderColor: dawTheme.border, cursor: "pointer" }}>
                     <text style={{ ...text3xs, color: dawTheme.mutedForeground }}>{index() === 0 ? "HP" : index() === 7 ? "LP" : "Bell"}</text>
                     <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 7 }}>
