@@ -10,7 +10,10 @@
       "@/components/ui/icon": ["src/diffusion/source-adapters/icon.tsx"],
       "@/components/ui/dropdown-menu": ["src/diffusion/source-adapters/dropdown-menu.tsx"],
       "@/components/ui/button": ["src/diffusion/source-adapters/button.tsx"],
+      "@/context/layout": ["src/diffusion/source-adapters/layout.ts"],
+      "@/context/prompt-input": ["src/diffusion/source-adapters/prompt-input.ts"],
       "@diffusionstudio/koota-solid": ["src/diffusion/source-adapters/koota-solid.ts"],
+      "@diffusionstudio/runtime": ["src/diffusion/source-adapters/diffusion-runtime.ts"],
       "@/engine": ["src/diffusion/source-adapters/engine.ts"]
     }
   },
