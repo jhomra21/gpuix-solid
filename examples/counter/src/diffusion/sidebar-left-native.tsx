@@ -1,5 +1,6 @@
 import { For, Show, createMemo, createSignal, type Element as SolidElement } from "solid-js"
 import type { EventPayload } from "gpuix-solid"
+import { ToolMenu } from "../../upstream/diffusion-editor/apps/web/src/components/sidebar-left/project-menu/tool-menu"
 import { ViewMenu } from "../../upstream/diffusion-editor/apps/web/src/components/sidebar-left/project-menu/view-menu"
 import { C, type DiffusionEditorState } from "./compat"
 import { DropdownMenu } from "./source-adapters/dropdown-menu"
@@ -45,7 +46,6 @@ function ProjectMenu(props: {
   onImport: () => void
   onRemoveUnused: () => string
   onDownloadAssets: () => string
-  onGenerateAI: () => void
 }): SolidElement {
   const [open, setOpen] = createSignal(false)
   const [page, setPage] = createSignal<ProjectMenuPage>("root")
@@ -130,11 +130,9 @@ function ProjectMenu(props: {
           </Show>
 
           <Show when={page() === "tool"}>
-            <MenuRow label="Generate with AI..." testId="diffusion-menu-generate-ai" onClick={() => { props.onGenerateAI(); close() }} />
-            <MenuDivider />
-            <MenuRow label="Scene" shortcut="F" onClick={() => { props.state.setSelectedTool("frame"); close() }} />
-            <MenuRow label="Text" shortcut="T" onClick={() => { props.state.setSelectedTool("text"); close() }} />
-            <MenuRow label="Rectangle" shortcut="R" onClick={() => { props.state.setSelectedTool("rect"); close() }} />
+            <DropdownMenu bare>
+              <ToolMenu />
+            </DropdownMenu>
           </Show>
         </div>
       </Show>
@@ -158,7 +156,7 @@ function AddAssetsMenu(props: { onImport: () => void; onCreateFolder: () => void
   )
 }
 
-export function SidebarLeft(props: { state: DiffusionEditorState; onGenerateAI: () => void }): SolidElement {
+export function SidebarLeft(props: { state: DiffusionEditorState }): SolidElement {
   const [assets, setAssets] = createSignal<AssetEntry[]>(initialAssets)
   const [folders, setFolders] = createSignal<string[]>([])
   const [query, setQuery] = createSignal("")
@@ -212,7 +210,7 @@ export function SidebarLeft(props: { state: DiffusionEditorState; onGenerateAI: 
       </div>
 
       <div style={{ height: 48, flexShrink: 0, display: "flex", flexDirection: "row", alignItems: "center", gap: 7, paddingLeft: 10, paddingRight: 16 }}>
-        <ProjectMenu state={props.state} onImport={importAsset} onRemoveUnused={removeUnused} onDownloadAssets={downloadAssets} onGenerateAI={props.onGenerateAI} />
+        <ProjectMenu state={props.state} onImport={importAsset} onRemoveUnused={removeUnused} onDownloadAssets={downloadAssets} />
         <input
           testId="diffusion-project-name"
           value={projectNameDraft() ?? props.state.projectName()}
