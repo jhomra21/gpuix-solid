@@ -203,9 +203,11 @@ function Toolbar(props: { state: DiffusionEditorState; promptOpen: boolean; onPr
   )
 }
 
-export function Canvas(props: { state: DiffusionEditorState }): SolidElement {
-  const [promptOpen, setPromptOpen] = createSignal(false)
-
+export function Canvas(props: {
+  state: DiffusionEditorState
+  promptOpen: () => boolean
+  setPromptOpen: (value: boolean) => void
+}): SolidElement {
   return (
     <div
       testId="diffusion-canvas"
@@ -247,10 +249,10 @@ export function Canvas(props: { state: DiffusionEditorState }): SolidElement {
           <text style={{ color: "#181818", fontSize: 20, fontWeight: 650 }}>Diffusion Studio</text>
         </div>
       </div>
-      <Show when={promptOpen()}>
-        <PromptInput onClose={() => setPromptOpen(false)} />
+      <Show when={props.promptOpen()}>
+        <PromptInput onClose={() => props.setPromptOpen(false)} />
       </Show>
-      <Toolbar state={props.state} promptOpen={promptOpen()} onPromptToggle={() => setPromptOpen(!promptOpen())} />
+      <Toolbar state={props.state} promptOpen={props.promptOpen()} onPromptToggle={() => props.setPromptOpen(!props.promptOpen())} />
     </div>
   )
 }
