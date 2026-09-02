@@ -33,7 +33,7 @@ const resolvedMatch = lock.match(/"@gpuix\/native": \["@gpuix\/native@(\d+\.\d+\
 if (!resolvedMatch) throw new Error("bun.lock does not contain a resolved @gpuix/native package")
 
 const resolved = resolvedMatch[1]
-if (!satisfiesCaretZeroRange(resolved, canonicalRange.slice(1))) {
+if (!satisfiesCaretRange(resolved, canonicalRange.slice(1))) {
   throw new Error(`bun.lock resolves @gpuix/native@${resolved}, which is outside ${canonicalRange}`)
 }
 
@@ -45,13 +45,21 @@ for (const platform of ["darwin-arm64", "linux-x64-gnu", "win32-x64-msvc"]) {
 
 console.log(`GPUIX native version policy: ${manifestPaths.length} manifests use ${canonicalRange}; bun.lock resolves ${resolved}`)
 
-function satisfiesCaretZeroRange(version, minimum) {
+function satisfiesCaretRange(version, minimum) {
   const actual = version.split(".").map(Number)
   const base = minimum.split(".").map(Number)
   if (actual.length !== 3 || base.length !== 3 || [...actual, ...base].some((part) => !Number.isInteger(part))) return false
-  if (base[0] === 0) {
-    return actual[0] === 0 && actual[1] === base[1] && actual[2] >= base[2]
+
+  const [major, minor, patch] = actual
+  const [baseMajor, baseMinor, basePatch] = base
+  if (major === undefined || minor === undefined || patch === undefined || baseMajor === undefined || baseMinor === undefined || basePatch === undefined) return false
+
+  if (baseMajor > 0) {
+    return major === baseMajor
+      && (minor > baseMinor || (minor === baseMinor && patch >= basePatch))
   }
-  return actual[0] === base[0]
-    && (actual[1] > base[1] || (actual[1] === base[1] && actual[2] >= base[2]))
+  if (baseMinor > 0) {
+    return major === 0 && minor === baseMinor && patch >= basePatch
+  }
+  return major === 0 && minor === 0 && patch === basePatch
 }
