@@ -113,6 +113,15 @@ if (!hasNativeTestRenderer) {
   app.renderer.clickCenterTestId("track-synth-output")
   requireText(app.renderer.textContent("track-synth-output"), "Master", "output routing must not invent a group target when no group exists")
 
+  for (const testId of ["track-synth-mute", "track-synth-solo", "track-synth-arm"]) {
+    const before = app.renderer.styleTestId(testId).backgroundColor
+    app.renderer.clickCenterTestId(testId)
+    const after = app.renderer.styleTestId(testId).backgroundColor
+    requireCondition(after !== before, `${testId} center click should activate the painted source-like button surface`)
+    app.renderer.clickCenterTestId(testId)
+    requireCondition(app.renderer.styleTestId(testId).backgroundColor === before, `${testId} second center click should restore its initial state`)
+  }
+
   app.renderer.clickCenterTestId("track-synth-collapse")
   const collapsedLaneHeight = app.renderer.boundsTestId("lane-synth").height
   const collapsedSidebarHeight = app.renderer.boundsTestId("track-synth").height
