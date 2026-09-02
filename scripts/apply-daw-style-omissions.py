@@ -6,6 +6,7 @@ compat_anchor = "const nativeCompatEntries = new Map([\n"
 compat_lines = [
     '  ["grid-cols-2", { base: { gridTemplateColumns: 2 } }],\n',
     '  ["max-h-screen", { base: { maxHeight: "100%" } }],\n',
+    '  ["top-full", { base: {}, parentPosition: { topFraction: 1 } }],\n',
     '  ["ring-1", { base: { boxShadow: { offsetX: 0, offsetY: 0, blurRadius: 0, spreadRadius: 1, color: "rgba(0, 0, 0, 0)" } } }],\n',
     '  ["ring-blue-400/80", { base: { boxShadow: { offsetX: 0, offsetY: 0, blurRadius: 0, spreadRadius: 1, color: "rgba(81, 162, 255, 0.8)" } } }],\n',
 ]
@@ -32,6 +33,8 @@ omissions = [
     ("shadow-background/40", "this only recolors the copied context menu's layered shadow-md; GPUIX 0.7 exposes one BoxShadow and cannot represent Tailwind's layered shadow-md geometry"),
     ("shadow-xl", "Tailwind shadow-xl is layered; GPUIX 0.7 exposes one native BoxShadow and cannot represent both source shadow layers faithfully"),
     ("shadow-black/50", "this only recolors the copied automation picker shadow-xl; GPUIX 0.7 cannot represent that layered source shadow exactly"),
+    ("shadow-inner", "GPUIX 0.7 BoxShadow has no inset mode; the exact armed-record state remains preserved by its red border, background, and foreground styles"),
+    ("touch-none", "touch-action is a browser gesture policy; the exact fade interaction owns native gesture continuity with pointer capture and window pointer listeners"),
 ]
 for candidate, reason in reversed(omissions):
     line = f'  ["{candidate}", "{reason}"],\n'
