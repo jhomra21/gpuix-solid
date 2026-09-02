@@ -31,6 +31,37 @@ jobs:
           path.write_text(text[:start] + replacement + text[end:])
       - name: Apply 0.7 API patch
         run: python scripts/apply-gpuix07-public-api.py
+      - name: Integrate structured backgrounds and exact optional handlers
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace(path, old, new):
+              file = Path(path)
+              text = file.read_text()
+              if old not in text:
+                  raise SystemExit(f"missing integration marker in {path}: {old[:100]!r}")
+              file.write_text(text.replace(old, new, 1))
+
+          for path in ["packages/solid/src/native-style.ts", "packages/solid1/src/native-style.ts"]:
+              replace(
+                  path,
+                  'import type { StyleDesc } from "./host/types.js"',
+                  'import type { LinearGradientBackground, StyleDesc } from "./host/types.js"',
+              )
+              old = '''  const result: StyleDesc = { ...style }\n  for (const key of ["background", "backgroundColor", "color", "borderColor", "selectionColor"] as const) {\n    const value = result[key]\n    if (value !== undefined) result[key] = normalizePublishedNativeColor(value)\n  }\n'''
+              new = '''  const result: StyleDesc = { ...style }\n  const background = result.background\n  if (background !== undefined) {\n    result.background = isLinearGradientBackground(background)\n      ? {\n          ...background,\n          stops: [\n            { ...background.stops[0], color: normalizePublishedNativeColor(background.stops[0].color) },\n            { ...background.stops[1], color: normalizePublishedNativeColor(background.stops[1].color) },\n          ],\n        }\n      : normalizePublishedNativeColor(background)\n  }\n  for (const key of ["backgroundColor", "color", "borderColor", "selectionColor"] as const) {\n    const value = result[key]\n    if (value !== undefined) result[key] = normalizePublishedNativeColor(value)\n  }\n'''
+              replace(path, old, new)
+              marker = 'function normalizePublishedNativeColor(value: string): string {'
+              helper = '''function isLinearGradientBackground(\n  value: string | LinearGradientBackground,\n): value is LinearGradientBackground {\n  return Object(value) === value\n}\n\n'''
+              replace(path, marker, helper + marker)
+
+          for path in ["packages/solid/src/runtime.ts", "packages/solid1/src/runtime.ts"]:
+              marker = '  const { renderer: injected, onEvent, onKeyDown, onKeyUp, debugFrameOverlay, ...windowOptions } = options\n'
+              replacement = marker + '''  const windowKeyEventHandlers: WindowKeyEventHandlers = {}\n  if (onKeyDown) windowKeyEventHandlers.onKeyDown = onKeyDown\n  if (onKeyUp) windowKeyEventHandlers.onKeyUp = onKeyUp\n'''
+              replace(path, marker, replacement)
+              file = Path(path)
+              file.write_text(file.read_text().replace('{ onKeyDown, onKeyUp }', 'windowKeyEventHandlers'))
       - name: Verify Solid 2 API
         run: |
           bun install --frozen-lockfile
