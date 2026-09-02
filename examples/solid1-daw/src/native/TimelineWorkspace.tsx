@@ -6,7 +6,7 @@ import { selectTimelineGridIntervals } from "../compat/timeline-view"
 import { TimelineLeftBrowser, type TimelineLeftBrowserProps } from "./TimelineLeftBrowser"
 import ArrangementOverview from "./ArrangementOverview"
 import TrackLane from "./TrackLane"
-import TrackSidebar, { type TrackSidebarProps } from "./TrackSidebar"
+import SourceTrackSidebar, { type SourceTrackSidebarProps } from "./SourceTrackSidebar"
 import type { NativeTrack } from "./model"
 import { dawTheme, layout } from "./theme"
 
@@ -26,7 +26,7 @@ export interface TimelineWorkspaceProps {
   bottomPanelOffsetPx: number
   onSetLoopRegion: (startSec: number, endSec: number) => void
   onRulerScrub: (sec: number) => void
-  sidebar: Omit<TrackSidebarProps, "tracks" | "selectedTrackId" | "bottomPanelOffsetPx">
+  sidebar: Omit<SourceTrackSidebarProps, "tracks" | "selectedTrackId" | "bottomPanelOffsetPx" | "scrollElement">
   onSelectClip: (trackId: string, clipId: string) => void
   onOpenClip: (trackId: string, clipId: string) => void
   onClipMouseDown: (trackId: string, clipId: string, event: PointerEvent) => void
@@ -108,6 +108,7 @@ function TimelineGrid(props: {
 }
 
 const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
+  let scrollingTrackElement: HTMLDivElement | undefined
   const durationSec = () => timelineDurationSec(props.tracks)
   const sourceTracks = createMemo(() => props.tracks.map(sourceTrack))
   const scrollingTracks = createMemo(() => props.tracks.filter((track) => track.kind !== "return"))
@@ -178,6 +179,7 @@ const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
 
           <div
             testId="timeline-scrolling-tracks"
+            ref={(element) => { scrollingTrackElement = element }}
             style={{
               position: "absolute",
               top: layout.headerHeight,
@@ -244,10 +246,11 @@ const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
           />
         </div>
 
-        <TrackSidebar
+        <SourceTrackSidebar
           tracks={props.tracks}
           selectedTrackId={props.selectedTrackId}
           bottomPanelOffsetPx={props.bottomPanelOffsetPx}
+          scrollElement={() => scrollingTrackElement}
           {...props.sidebar}
         />
       </div>

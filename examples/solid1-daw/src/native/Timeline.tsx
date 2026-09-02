@@ -43,11 +43,6 @@ function findClip(tracks: NativeTrack[], clipId: string): { track: NativeTrack; 
   return undefined
 }
 
-function nextTarget(current: string, targets: string[]): string {
-  if (targets.length === 0) return current
-  const currentIndex = targets.indexOf(current)
-  return targets[(currentIndex + 1 + targets.length) % targets.length] ?? targets[0] ?? current
-}
 
 export default function Timeline(): JSX.Element {
   const [tracks, setTracks] = createSignal<NativeTrack[]>(initialTracks)
@@ -97,14 +92,19 @@ export default function Timeline(): JSX.Element {
     setTracks((current) => current.map((track) => track.id === id ? update(track) : track))
   }
 
-  const cycleOutputTarget = (id: string): void => {
-    const targets = ["Master", ...tracks().filter((track) => track.kind === "group").map((track) => track.name)]
-    updateTrack(id, (track) => ({ ...track, outputTarget: nextTarget(track.outputTarget, targets) }))
+  const setOutputTarget = (id: string, targetId?: string): void => {
+    const target = targetId ? tracks().find((track) => track.id === targetId) : undefined
+    updateTrack(id, (track) => ({ ...track, outputTarget: target?.name ?? "Master" }))
   }
 
-  const cycleSendTarget = (id: string): void => {
-    const targets = ["None", ...tracks().filter((track) => track.kind === "return").map((track) => track.name)]
-    updateTrack(id, (track) => ({ ...track, sendTarget: nextTarget(track.sendTarget, targets) }))
+  const setSends = (id: string, sends: Array<{ targetId: string; amount: number }>): void => {
+    const send = sends.find((entry) => entry.amount > 0.0001)
+    const target = send ? tracks().find((track) => track.id === send.targetId && track.kind === "return") : undefined
+    updateTrack(id, (track) => ({
+      ...track,
+      sendTarget: target?.name ?? "None",
+      send: send?.amount ?? 0,
+    }))
   }
 
   const hideAutomationLane = (id: string): void => {
@@ -302,9 +302,9 @@ export default function Timeline(): JSX.Element {
           masterVolume: masterVolume(),
           onSelectTrack: selectTrack,
           onSelectMaster: selectMaster,
-          onToggleCollapsed: (id) => updateTrack(id, (track) => ({ ...track, collapsed: !track.collapsed })),
-          onCycleOutputTarget: cycleOutputTarget,
-          onCycleSendTarget: cycleSendTarget,
+          onSetCollapsed: (id, collapsed) => updateTrack(id, (track) => ({ ...track, collapsed })),
+          onSetOutputTarget: setOutputTarget,
+          onSetSends: setSends,
           onToggleMute: (id) => updateTrack(id, (track) => ({ ...track, muted: !track.muted })),
           onToggleSolo: (id) => updateTrack(id, (track) => ({ ...track, soloed: !track.soloed })),
           onToggleArm: (id) => updateTrack(id, (track) => ({ ...track, armed: !track.armed })),
@@ -315,6 +315,19 @@ export default function Timeline(): JSX.Element {
             : track),
           onHideAutomationLane: hideAutomationLane,
           onMasterVolumeChange: setMasterVolume,
+          onSetTrackColor: (id, color) => updateTrack(id, (track) => ({ ...track, color })),
+          onAssignTrackColorToClips: (id) => updateTrack(id, (track) => ({
+            ...track,
+            clips: track.color ? track.clips.map((clip) => ({ ...clip, color: track.color })) : track.clips,
+          })),
+          onResetClipColors: (id) => updateTrack(id, (track) => ({
+            ...track,
+            clips: track.clips.map((clip) => ({
+              ...clip,
+              color: clip.kind === "midi" ? dawTheme.clipMidi : dawTheme.clipAudio,
+            })),
+          })),
+          onDeleteTrack: (id) => setTracks((current) => current.filter((track) => track.id !== id)),
         }}
         onSelectClip={selectClip}
         onOpenClip={openClip}

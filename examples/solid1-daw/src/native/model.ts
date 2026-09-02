@@ -25,6 +25,7 @@ export interface NativeTrack {
   soloed: boolean
   armed: boolean
   collapsed?: boolean
+  groupId?: string
   automationVisible: boolean
   automationLaneCount: number
   outputTarget: string
