@@ -30,7 +30,15 @@ jobs:
         run: |
           cd examples/solid1-daw
           bun install --no-save
-          bun run generate:styles
+          bun run generate:styles 2>&1 | tee /tmp/native-tailwind-generator.log
+          test ${PIPESTATUS[0]} -eq 0
+      - name: Upload DAW style generator log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: native-tailwind-generator-log
+          path: /tmp/native-tailwind-generator.log
+          if-no-files-found: error
       - name: Validate shared host and exact DAW
         run: |
           set -euo pipefail
@@ -60,4 +68,4 @@ jobs:
           git commit -m "fix: support exact DAW native style closure"
           git push origin HEAD:fix/source-first-example-fidelity
 
-# rerun with top-full positioning and audited touch-action/inset-shadow limitations
+# capture the exact remaining generator failure instead of guessing
