@@ -47,6 +47,7 @@ omissions = [
     ("touch-none", "touch-action is a browser gesture policy; the exact fade interaction owns native gesture continuity with pointer capture and window pointer listeners"),
     ("tracking-tight", "letter-spacing is not exposed by GPUIX 0.7; keep the exact copied title utility registered without silently broadening unsupported typography"),
     ("z-0", "published native StyleDesc has no z-index; retained-tree order owns this source baseline stacking level"),
+    ("z-20", "published native StyleDesc has no z-index; retained-tree order owns this source intermediate stacking level"),
 ]
 for candidate, reason in reversed(omissions):
     line = f'  ["{candidate}", "{reason}"],\n'
