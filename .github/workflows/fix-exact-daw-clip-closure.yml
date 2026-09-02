@@ -57,7 +57,22 @@ jobs:
           }
           EOF
           cat > examples/solid1-daw/src/compat/render-waveform.ts <<'EOF'
-          export function drawWaveformPeaks(_options: Record<string, unknown>): void {
+          type WaveformRenderOptions = {
+            ctx: CanvasRenderingContext2D
+            peaks: Uint8Array
+            drawCols: number
+            padPx: number
+            topY: number
+            contentH: number
+            cssW: number
+            cssH: number
+            fillStyle: string
+            boundaryStyle: string
+            maxHeightFraction: number
+            amplitudeScaleAtColumn?: (column: number) => number
+          }
+
+          export function drawWaveformPeaks(_options: WaveformRenderOptions): void {
             // GPUIX 0.7 has no Canvas 2D surface. The exact source already treats an unavailable 2D context as a no-op.
           }
           EOF
