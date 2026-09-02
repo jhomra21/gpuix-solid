@@ -71,10 +71,10 @@ eventRegistry.set(1, "mouseDown", () => pointerEvents.push("mouseDown"))
 eventRegistry.set(1, "pointerMove", () => pointerEvents.push("pointerMove"))
 eventRegistry.set(1, "pointerUp", () => pointerEvents.push("pointerUp"))
 eventRegistry.set(1, "lostPointerCapture", () => pointerEvents.push("lostPointerCapture"))
-eventRegistry.dispatch({ elementId: 1, eventType: "mouseDown", x: 5, y: 5, button: 0 } as Parameters<EventRegistry["dispatch"]>[0])
-eventRegistry.dispatch({ elementId: 2, eventType: "mouseMove", x: 50, y: 5, button: 0 } as Parameters<EventRegistry["dispatch"]>[0])
+eventRegistry.dispatch({ elementId: 1, eventType: "mouseDown", x: 5, y: 5, button: 0 } satisfies Parameters<EventRegistry["dispatch"]>[0])
+eventRegistry.dispatch({ elementId: 2, eventType: "mouseMove", x: 50, y: 5, button: 0 } satisfies Parameters<EventRegistry["dispatch"]>[0])
 if (!eventRegistry.hasPointerCapture(1, 0)) throw new Error("pointer capture must remain active across another element")
-eventRegistry.dispatch({ elementId: 2, eventType: "mouseUp", x: 50, y: 5, button: 0 } as Parameters<EventRegistry["dispatch"]>[0])
+eventRegistry.dispatch({ elementId: 2, eventType: "mouseUp", x: 50, y: 5, button: 0 } satisfies Parameters<EventRegistry["dispatch"]>[0])
 if (pointerEvents.join(",") !== "pointerDown,mouseDown,pointerMove,pointerUp,lostPointerCapture") {
   throw new Error(`captured pointer move must retarget to capture owner: ${pointerEvents.join(",")}`)
 }
@@ -95,7 +95,7 @@ doubleClickRegistry.activate(3)
 doubleClickRegistry.setTarget(3, doubleClickTarget)
 let doubleClicks = 0
 doubleClickRegistry.set(3, "dblClick", () => { doubleClicks += 1 })
-const click = { elementId: 3, eventType: "click", x: 10, y: 10, button: 0 } as Parameters<EventRegistry["dispatch"]>[0]
+const click = { elementId: 3, eventType: "click", x: 10, y: 10, button: 0 } satisfies Parameters<EventRegistry["dispatch"]>[0]
 doubleClickRegistry.dispatch(click)
 doubleClickRegistry.dispatch(click)
 if (doubleClicks !== 1) throw new Error("double click must be synthesized once from two nearby clicks")

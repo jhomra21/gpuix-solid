@@ -13,6 +13,15 @@
       "solid-js/web": [
         "src/compat/solid-web.ts"
       ],
+      "@daw-browser/waveforms/render-waveform": [
+        "src/compat/render-waveform.ts"
+      ],
+      "~/hooks/useClipWaveformViewModel": [
+        "src/compat/useClipWaveformViewModel.ts"
+      ],
+      "~/lib/timeline-runtime-types": [
+        "src/upstream/lib/timeline-runtime-types.ts"
+      ],
       "~/context/app-preferences": [
         "src/compat/app-preferences.ts"
       ],
@@ -29,7 +38,7 @@
         "src/compat/timeline-left-browser-preferences.ts"
       ],
       "~/lib/timeline-range-selection": [
-        "src/compat/timeline-range-selection.ts"
+        "src/upstream/lib/timeline-range-selection.ts"
       ],
       "~/lib/timeline-storage": [
         "src/compat/timeline-storage.ts"
@@ -50,10 +59,10 @@
         "src/compat/daw-browser-shared.ts"
       ],
       "@daw-browser/timeline-core/types": [
-        "src/compat/timeline-core-types.ts"
+        "src/upstream/packages/timeline-core/types.ts"
       ],
       "@daw-browser/timeline-core/clip-fades": [
-        "src/compat/clip-fades.ts"
+        "src/upstream/packages/timeline-core/clip-fades.ts"
       ],
       "@kobalte/core": [
         "../../packages/solid1/src/kobalte/index.tsx"

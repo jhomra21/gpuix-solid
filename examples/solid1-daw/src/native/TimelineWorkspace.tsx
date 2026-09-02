@@ -57,6 +57,7 @@ function sourceTrack(track: NativeTrack): Track {
   return {
     id: track.id,
     name: track.name,
+    volume: track.volume,
     kind: track.kind === "midi" ? "instrument" : track.kind === "audio" ? "audio" : undefined,
     channelRole: track.kind === "return" ? "return" : track.kind === "group" ? "group" : "track",
     collapsed: track.collapsed,

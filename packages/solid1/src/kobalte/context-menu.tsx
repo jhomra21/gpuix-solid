@@ -60,7 +60,7 @@ function requireContext(name: string): ContextMenuContextValue {
 }
 
 function asContextMenuDomEvent(event: EventPayload): ContextMenuDomEvent {
-  // Host JSX handlers receive the EventRegistry-normalized DOM-compatible payload.
+  // SAFETY: EventRegistry normalizes Host JSX events with preventDefault and stopPropagation before handlers run.
   return event as ContextMenuDomEvent
 }
 

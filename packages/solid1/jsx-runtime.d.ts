@@ -71,6 +71,10 @@ type InlineSvgChildProps = NativeClassProps & {
   "fill-rule"?: string | undefined
   "clip-rule"?: string | undefined
   "clip-path"?: string | undefined
+  "vector-effect"?: string | undefined
+  "data-fade-hover-side"?: string | undefined
+  "on:pointerenter"?: ((event: PointerEvent) => void) | undefined
+  "on:pointerleave"?: ((event: PointerEvent) => void) | undefined
   "stop-color"?: string | undefined
   "stop-opacity"?: string | number | undefined
 }
@@ -139,7 +143,7 @@ export namespace JSX {
     title: InlineSvgChildProps
     desc: InlineSvgChildProps
     use: InlineSvgChildProps
-    canvas: JSXProps<HostProps>
+    canvas: DomCompatibleProps<HostProps, SolidJSX.CanvasHTMLAttributes<HTMLCanvasElement>>
     input: DomCompatibleProps<InputProps, SolidJSX.InputHTMLAttributes<HTMLInputElement>>
     textarea: DomCompatibleProps<TextareaProps, SolidJSX.TextareaHTMLAttributes<HTMLTextAreaElement>>
     anchored: JSXProps<AnchoredProps>

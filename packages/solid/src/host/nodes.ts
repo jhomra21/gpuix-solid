@@ -99,6 +99,11 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     return this.parentNode
   }
 
+  getContext(_contextId: string): null {
+    // GPUIX 0.7 does not expose Canvas 2D; browser-source code can feature-detect a null context.
+    return null
+  }
+
   get clientWidth(): number {
     return this.getBoundingClientRect().width
   }
@@ -196,7 +201,7 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     return compareHostDocumentPosition(this, other)
   }
 
-  get dataset(): Record<string, string> {
+  get dataset() {
     const dataset: Record<string, string> = {}
     for (const [name, value] of this.props) {
       if (!name.startsWith("data-") || value === null || value === undefined) continue
@@ -237,7 +242,8 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   }
 
   closest(selector: string): HostElementNode | null {
-    let current: HostElementNode | null = this
+    if (this.matches(selector)) return this
+    let current = this.parentElement
     while (current) {
       if (current.matches(selector)) return current
       current = current.parentElement
@@ -270,8 +276,8 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
       Object.defineProperty(event, "target", { configurable: true, value: this })
     }
     Object.defineProperty(event, "currentTarget", { configurable: true, value: this })
-    for (const listener of [...(this.#eventListeners.get(event.type) ?? [])]) {
-      if (typeof listener === "function") listener.call(this, event)
+    for (const listener of this.#eventListeners.get(event.type) ?? []) {
+      if (listener instanceof Function) listener.call(this, event)
       else listener.handleEvent(event)
     }
     return !event.defaultPrevented
@@ -358,7 +364,7 @@ export function setHostProperty<T>(
   node: HostNode,
   name: string,
   value: T,
-  previous?: T,
+  _previous?: T,
 ): void {
   if (node.kind === "text") return
   if (name === "children" || name === "ref" || name === "key") return

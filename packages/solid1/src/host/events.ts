@@ -134,6 +134,7 @@ function domCompatibleEvent(
   const currentTarget = target ?? fallbackTarget(event)
   if (event.value !== undefined) currentTarget.value = event.value
   const state = { defaultPrevented: false, propagationStopped: false }
+  // SAFETY: EventPayload is the native event plus the DOM-compatible fields constructed below.
   const payload = Object.assign({}, event, {
     type: browserEventName(domEventType),
     currentTarget,
@@ -440,9 +441,15 @@ export class EventRegistry {
 
   #dispatchSynthetic(elementId: number, eventType: string, pointerId: number): void {
     const previous = this.#lastPointerEvent.get(pointerId)
+    const fallbackSynthetic = {
+      elementId,
+      eventType: "mouseMove",
+      x: 0,
+      y: 0,
+    } satisfies NativeEventPayload
     const synthetic = previous
       ? { ...previous, elementId }
-      : ({ elementId, eventType: "mouseMove", x: 0, y: 0 } as NativeEventPayload)
+      : fallbackSynthetic
     this.#dispatchDom(elementId, eventType, synthetic)
   }
 

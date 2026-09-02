@@ -1,4 +1,3 @@
-import type { EventPayload as NativeEventPayload } from "@gpuix/native"
 import "./dom-environment.js"
 import {
   splitProps,
@@ -6,7 +5,6 @@ import {
   type JSX,
   type ValidComponent,
 } from "solid-js"
-import { EventRegistry } from "./host/events.js"
 import { HostElementNode, setHostProperty, type HostRootNode } from "./host/nodes.js"
 import { createElement, spread } from "./universal.js"
 
