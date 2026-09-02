@@ -1,13 +1,6 @@
 from pathlib import Path
 
 
-def replace_required(path: Path, old: str, new: str, label: str) -> None:
-    text = path.read_text()
-    if old not in text:
-        raise SystemExit(f"{path}: missing {label}")
-    path.write_text(text.replace(old, new, 1))
-
-
 for package in ("solid", "solid1"):
     native_style = Path(f"packages/{package}/src/native-style.ts")
     text = native_style.read_text()
@@ -65,11 +58,13 @@ export function applyNativeStyleTranslation(
 ): StyleDesc | undefined {
   if (!style || !translation) return style
   const result: StyleDesc = { ...style }
-  if (translation.xFraction !== undefined && typeof result.width === "number") {
-    result.marginLeft = (result.marginLeft ?? 0) + result.width * translation.xFraction
+  const width = result.width === undefined ? undefined : Number(result.width)
+  const height = result.height === undefined ? undefined : Number(result.height)
+  if (translation.xFraction !== undefined && width !== undefined && Number.isFinite(width)) {
+    result.marginLeft = (result.marginLeft ?? 0) + width * translation.xFraction
   }
-  if (translation.yFraction !== undefined && typeof result.height === "number") {
-    result.marginTop = (result.marginTop ?? 0) + result.height * translation.yFraction
+  if (translation.yFraction !== undefined && height !== undefined && Number.isFinite(height)) {
+    result.marginTop = (result.marginTop ?? 0) + height * translation.yFraction
   }
   return result
 }
@@ -164,6 +159,12 @@ if new_entries not in text:
     if old_entries not in text:
         raise SystemExit("DAW generator: half translation compatibility anchor missing")
     text = text.replace(old_entries, new_entries, 1)
+ignore_anchor = "const explicitlyIgnored = new Map([\n"
+box_border = '  ["box-border", "GPUIX 0.7 has no box-sizing StyleDesc field; native DAW footer bounds tests already verify the intended total border-box geometry"],\n'
+if box_border not in text:
+    if ignore_anchor not in text:
+        raise SystemExit("DAW generator: explicit omission anchor missing")
+    text = text.replace(ignore_anchor, ignore_anchor + box_border, 1)
 generator.write_text(text)
 
 parity = Path("packages/solid1/scripts/check-host-parity.ts")
