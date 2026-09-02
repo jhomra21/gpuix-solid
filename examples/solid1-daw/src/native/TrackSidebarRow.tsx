@@ -1,4 +1,10 @@
-import { For, Show, type JSX } from "solid-js"
+import { For, onCleanup, Show, type JSX } from "solid-js"
+import {
+  formatMixerVolumeDb,
+  mixerSliderPositionToVolume,
+  mixerVolumeToSliderPosition,
+} from "@daw-browser/shared"
+import type { EventPayload } from "@jhomra21/gpuix-solid1"
 import type { NativeTrack } from "./model"
 import { dawTheme, layout, text2xs, text3xs, textSm, textXs } from "./theme"
 
@@ -25,6 +31,11 @@ function meterColor(level: number): string {
 
 const automationParameters = ["Track Volume", "Track Pan", "Send A"] as const
 
+type VolumeDrag = {
+  left: number
+  width: number
+}
+
 const TrackSidebarRow = (props: TrackSidebarRowProps): JSX.Element => {
   const meterLeft = () => Math.max(0, Math.min(1, props.track.volume * (props.track.muted ? 0.04 : 0.88)))
   const meterRight = () => Math.max(0, Math.min(1, props.track.volume * (props.track.muted ? 0.03 : 0.81)))
@@ -37,8 +48,52 @@ const TrackSidebarRow = (props: TrackSidebarRowProps): JSX.Element => {
   const rowHeight = () => clipLaneHeight() + automationHeight()
   const meterHeight = () => props.track.collapsed ? 24 : 80
   const toggleArm = () => { if (!isRecordDisabled()) props.onToggleArm() }
-  const changeVolume = () => props.onVolumeChange(props.track.volume >= 1 ? 0.5 : Math.min(1, props.track.volume + 0.05))
   const addAutomationLane = () => { if (props.track.automationVisible) props.onAddAutomationLane() }
+  const volumePosition = () => mixerVolumeToSliderPosition(props.track.volume)
+  let volumeDrag: VolumeDrag | undefined
+  let volumeListenersArmed = false
+
+  const updateVolumeFromX = (clientX: number): void => {
+    const active = volumeDrag
+    if (!active) return
+    const position = Math.max(0, Math.min(1, (clientX - active.left) / Math.max(1, active.width)))
+    props.onVolumeChange(mixerSliderPositionToVolume(position))
+  }
+
+  function handleGlobalVolumeMove(event: PointerEvent): void {
+    updateVolumeFromX(event.clientX)
+  }
+
+  function handleGlobalVolumeUp(event: PointerEvent): void {
+    updateVolumeFromX(event.clientX)
+    volumeDrag = undefined
+    disarmVolumeListeners()
+  }
+
+  const armVolumeListeners = (): void => {
+    if (volumeListenersArmed) return
+    window.addEventListener("pointermove", handleGlobalVolumeMove, true)
+    window.addEventListener("pointerup", handleGlobalVolumeUp, true)
+    volumeListenersArmed = true
+  }
+
+  function disarmVolumeListeners(): void {
+    if (!volumeListenersArmed) return
+    window.removeEventListener("pointermove", handleGlobalVolumeMove, true)
+    window.removeEventListener("pointerup", handleGlobalVolumeUp, true)
+    volumeListenersArmed = false
+  }
+
+  const beginVolumeDrag = (event: EventPayload): void => {
+    if ((event.button ?? 0) !== 0) return
+    const bounds = event.currentTarget?.getBoundingClientRect()
+    if (!bounds) return
+    volumeDrag = { left: bounds.left, width: bounds.width }
+    updateVolumeFromX(event.clientX ?? event.x ?? bounds.left)
+    armVolumeListeners()
+  }
+
+  onCleanup(disarmVolumeListeners)
 
   return (
     <div
@@ -184,10 +239,45 @@ const TrackSidebarRow = (props: TrackSidebarRowProps): JSX.Element => {
             <div style={{ display: "flex", gap: 4, alignItems: "center", height: 20 }}>
               <div
                 testId={`track-${props.track.id}-volume`}
-                onClick={changeVolume}
-                style={{ width: 50, height: 6, backgroundColor: dawTheme.timelineBackground, borderWidth: 1, borderColor: dawTheme.border, position: "relative", cursor: "pointer" }}
+                onMouseDown={beginVolumeDrag}
+                style={{
+                  width: 50,
+                  height: 20,
+                  backgroundColor: dawTheme.timelineBackground,
+                  borderWidth: 1,
+                  borderColor: dawTheme.border,
+                  position: "relative",
+                  cursor: "pointer",
+                  overflow: "hidden",
+                }}
               >
-                <div style={{ position: "absolute", top: 1, left: 1, height: 2, width: Math.round(props.track.volume * 46), backgroundColor: dawTheme.foreground, pointerEvents: "none" }} />
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    bottom: 0,
+                    left: 0,
+                    width: Math.round(volumePosition() * 48),
+                    backgroundColor: props.track.automationVisible ? "#ef444455" : dawTheme.amber,
+                    pointerEvents: "none",
+                  }}
+                />
+                <text
+                  style={{
+                    ...text3xs,
+                    position: "absolute",
+                    top: 0,
+                    right: 0,
+                    bottom: 0,
+                    left: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: props.track.volume > 0.25 ? "#111111" : dawTheme.foreground,
+                    fontWeight: 700,
+                    pointerEvents: "none",
+                  }}
+                >{formatMixerVolumeDb(props.track.volume)}</text>
               </div>
               <Show when={!props.track.collapsed}>
                 <text
