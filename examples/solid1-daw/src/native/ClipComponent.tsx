@@ -30,7 +30,6 @@ const ClipComponent = (props: ClipComponentProps): JSX.Element => {
   const handleWidth = () => width() < 18 ? 2 : width() < 28 ? 3 : 6
   const color = () => visualColor(props.clip)
   let selectedTapStart: { x: number; y: number; at: number } | undefined
-  let sawMouseDown = false
   let globalPointerUpArmed = false
 
   const disarmGlobalPointerUp = (): void => {
@@ -61,7 +60,6 @@ const ClipComponent = (props: ClipComponentProps): JSX.Element => {
   }
 
   const handleMouseDown = (event: EventPayload): void => {
-    sawMouseDown = true
     const button = event.button ?? 0
     if (button !== 0) {
       selectedTapStart = undefined
@@ -94,19 +92,11 @@ const ClipComponent = (props: ClipComponentProps): JSX.Element => {
     const x = event.x ?? 0
     const y = event.y ?? 0
     const previous = lastClipTap
-    const hadMouseDown = sawMouseDown
-    sawMouseDown = false
     lastClipTap = { clipId: props.clip.id, at: now, x, y }
     props.onSelect()
 
-    // GPUIX semantic click synthesis can omit the element mouse-down handler.
-    // In that shape, read selection before this click's onSelect mutation.
-    if (!hadMouseDown && props.selected) {
-      lastClipTap = undefined
-      props.onOpen()
-      return
-    }
-
+    // This remains only as the click-only/double-click compatibility path.
+    // Live pointer input opens selected clips from the pointer-up candidate above.
     if (!previous || previous.clipId !== props.clip.id || now - previous.at > DOUBLE_TAP_MS) return
     if (Math.abs(x - previous.x) > DOUBLE_TAP_DISTANCE_PX || Math.abs(y - previous.y) > DOUBLE_TAP_DISTANCE_PX) return
     lastClipTap = undefined
