@@ -19,4 +19,5 @@ jobs:
         with:
           bun-version: 1.3.14
       - run: bun install --frozen-lockfile
+      - run: cd examples/solid1-daw && bun install --no-save
       - run: cd examples/solid1-daw && bun run typecheck
