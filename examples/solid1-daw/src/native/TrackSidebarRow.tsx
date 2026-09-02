@@ -77,10 +77,10 @@ const TrackSidebarRow = (props: TrackSidebarRowProps): JSX.Element => {
             onClick={props.onToggleCollapsed}
             style={{ display: "flex", flexDirection: "row", width: 16, minWidth: 16, height: props.track.collapsed ? 24 : 28, alignItems: "center", justifyContent: "center", cursor: "pointer" }}
           >
-            <text onClick={props.onToggleCollapsed} style={{ ...textXs, color: dawTheme.mutedForeground }}>{props.track.collapsed ? "▶" : "▼"}</text>
+            <text style={{ ...textXs, color: dawTheme.mutedForeground, pointerEvents: "none" }}>{props.track.collapsed ? "▶" : "▼"}</text>
           </div>
-          <div style={{ flexGrow: 1, minWidth: 0, height: props.track.collapsed ? 24 : 28, display: "flex", alignItems: "center" }}>
-            <text onClick={props.onSelect} style={{ ...textSm, color: dawTheme.foreground, fontWeight: 650, whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{props.track.name}</text>
+          <div style={{ flexGrow: 1, minWidth: 0, height: props.track.collapsed ? 24 : 28, display: "flex", alignItems: "center", pointerEvents: "none" }}>
+            <text style={{ ...textSm, color: dawTheme.foreground, fontWeight: 650, whiteSpace: "nowrap", textOverflow: "ellipsis", pointerEvents: "none" }}>{props.track.name}</text>
           </div>
         </div>
 
@@ -92,8 +92,8 @@ const TrackSidebarRow = (props: TrackSidebarRowProps): JSX.Element => {
                 onClick={props.onCycleOutputTarget}
                 style={{ height: 28, minHeight: 28, display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 8, paddingRight: 7, backgroundColor: dawTheme.timelineBackground, borderWidth: 1, borderColor: dawTheme.border, cursor: "pointer" }}
               >
-                <text onClick={props.onCycleOutputTarget} style={{ ...textXs, color: dawTheme.foreground, whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{props.track.outputTarget}</text>
-                <text onClick={props.onCycleOutputTarget} style={{ ...text2xs, color: dawTheme.mutedForeground }}>⌄</text>
+                <text style={{ ...textXs, color: dawTheme.foreground, whiteSpace: "nowrap", textOverflow: "ellipsis", pointerEvents: "none" }}>{props.track.outputTarget}</text>
+                <text style={{ ...text2xs, color: dawTheme.mutedForeground, pointerEvents: "none" }}>⌄</text>
               </div>
             </Show>
             <Show when={props.track.kind !== "return" && props.track.kind !== "group"}>
@@ -102,8 +102,8 @@ const TrackSidebarRow = (props: TrackSidebarRowProps): JSX.Element => {
                 onClick={props.onCycleSendTarget}
                 style={{ height: 28, minHeight: 28, display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 8, paddingRight: 7, backgroundColor: dawTheme.timelineBackground, borderWidth: 1, borderColor: dawTheme.border, cursor: "pointer" }}
               >
-                <text onClick={props.onCycleSendTarget} style={{ ...textXs, color: dawTheme.foreground, whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{props.track.sendTarget}</text>
-                <text onClick={props.onCycleSendTarget} style={{ ...text2xs, color: dawTheme.mutedForeground }}>⌄</text>
+                <text style={{ ...textXs, color: dawTheme.foreground, whiteSpace: "nowrap", textOverflow: "ellipsis", pointerEvents: "none" }}>{props.track.sendTarget}</text>
+                <text style={{ ...text2xs, color: dawTheme.mutedForeground, pointerEvents: "none" }}>⌄</text>
               </div>
             </Show>
           </Show>
@@ -117,21 +117,21 @@ const TrackSidebarRow = (props: TrackSidebarRowProps): JSX.Element => {
                 onClick={props.onToggleMute}
                 style={{ display: "flex", flexDirection: "row", width: props.track.collapsed ? 18 : 50, height: 20, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: props.track.muted ? dawTheme.timelineSurfaceMuted : dawTheme.amber, cursor: "pointer" }}
               >
-                <text onClick={props.onToggleMute} style={{ ...textXs, color: props.track.muted ? dawTheme.mutedForeground : "#111111", fontWeight: 800 }}>{String(props.track.number)}</text>
+                <text style={{ ...textXs, color: props.track.muted ? dawTheme.mutedForeground : "#111111", fontWeight: 800, pointerEvents: "none" }}>{String(props.track.number)}</text>
               </div>
               <div
                 testId={`track-${props.track.id}-solo`}
                 onClick={props.onToggleSolo}
                 style={{ display: "flex", flexDirection: "row", width: 16, height: 20, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: props.track.soloed ? "#93c5fd" : dawTheme.border, backgroundColor: props.track.soloed ? "#3b82f6" : dawTheme.timelineSurfaceMuted, cursor: "pointer" }}
               >
-                <text onClick={props.onToggleSolo} style={{ ...textXs, color: props.track.soloed ? "#050505" : dawTheme.foreground, fontWeight: 700 }}>S</text>
+                <text style={{ ...textXs, color: props.track.soloed ? "#050505" : dawTheme.foreground, fontWeight: 700, pointerEvents: "none" }}>S</text>
               </div>
               <div
                 testId={`track-${props.track.id}-arm`}
                 onClick={toggleArm}
                 style={{ display: "flex", flexDirection: "row", width: 16, height: 20, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: isRecordDisabled() ? "#7f1d1d" : dawTheme.red, backgroundColor: props.track.armed ? dawTheme.red : dawTheme.timelineSurface, opacity: isRecordDisabled() ? 0.55 : 1, cursor: isRecordDisabled() ? "default" : "pointer" }}
               >
-                <text onClick={toggleArm} style={{ ...textXs, color: props.track.armed ? "#09090b" : "#f87171", fontWeight: 700 }}>R</text>
+                <text style={{ ...textXs, color: props.track.armed ? "#09090b" : "#f87171", fontWeight: 700, pointerEvents: "none" }}>R</text>
               </div>
             </div>
 
@@ -141,7 +141,7 @@ const TrackSidebarRow = (props: TrackSidebarRowProps): JSX.Element => {
                 onClick={changeVolume}
                 style={{ width: 50, height: 6, backgroundColor: dawTheme.timelineBackground, borderWidth: 1, borderColor: dawTheme.border, position: "relative", cursor: "pointer" }}
               >
-                <div onClick={changeVolume} style={{ position: "absolute", top: 1, left: 1, height: 2, width: Math.round(props.track.volume * 46), backgroundColor: dawTheme.foreground }} />
+                <div style={{ position: "absolute", top: 1, left: 1, height: 2, width: Math.round(props.track.volume * 46), backgroundColor: dawTheme.foreground, pointerEvents: "none" }} />
               </div>
               <Show when={!props.track.collapsed}>
                 <div
@@ -149,14 +149,14 @@ const TrackSidebarRow = (props: TrackSidebarRowProps): JSX.Element => {
                   onClick={props.onToggleAutomation}
                   style={{ display: "flex", flexDirection: "row", width: 16, height: 20, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: props.track.automationVisible ? "#f87171" : dawTheme.border, backgroundColor: props.track.automationVisible ? "#ef4444e6" : dawTheme.timelineSurfaceMuted, cursor: "pointer" }}
                 >
-                  <text onClick={props.onToggleAutomation} style={{ ...text3xs, color: props.track.automationVisible ? "#09090b" : "#fca5a5", fontWeight: 700 }}>A</text>
+                  <text style={{ ...text3xs, color: props.track.automationVisible ? "#09090b" : "#fca5a5", fontWeight: 700, pointerEvents: "none" }}>A</text>
                 </div>
                 <div
                   testId={`track-${props.track.id}-automation-add`}
                   onClick={addAutomationLane}
                   style={{ display: "flex", flexDirection: "row", width: 16, height: 20, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: props.track.automationVisible ? dawTheme.timelineSurfaceMuted : dawTheme.timelineSurface, opacity: props.track.automationVisible ? 1 : 0.55, cursor: props.track.automationVisible ? "pointer" : "default" }}
                 >
-                  <text onClick={addAutomationLane} style={{ ...text3xs, color: props.track.automationVisible ? "#fecaca" : dawTheme.mutedForeground, fontWeight: 700 }}>+</text>
+                  <text style={{ ...text3xs, color: props.track.automationVisible ? "#fecaca" : dawTheme.mutedForeground, fontWeight: 700, pointerEvents: "none" }}>+</text>
                 </div>
               </Show>
             </div>
@@ -217,7 +217,7 @@ const TrackSidebarRow = (props: TrackSidebarRowProps): JSX.Element => {
                     onClick={props.onHideAutomationLane}
                     style={{ width: 20, height: 20, borderWidth: 1, borderColor: "#ef44444d", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
                   >
-                    <text onClick={props.onHideAutomationLane} style={{ ...textXs, color: "#fee2e2" }}>×</text>
+                    <text style={{ ...textXs, color: "#fee2e2", pointerEvents: "none" }}>×</text>
                   </div>
                 </div>
               </div>
