@@ -6,7 +6,10 @@ import { useDestroyUnlinksParentBatch, type MutationValue } from "./host/mutatio
 import type { StyleDesc } from "./host/types.js"
 import { createRoot, type Root } from "./root.js"
 
-type NativeTestRendererConstructor = new () => NativeTestRendererApi
+type NativeTestRendererConstructor = new (
+  width?: number | null,
+  height?: number | null,
+) => NativeTestRendererApi
 type NativeModule = { TestGpuixRenderer?: NativeTestRendererConstructor }
 
 interface NativeTreeNode {
@@ -29,9 +32,9 @@ export interface TestBounds {
 export interface TestClickTraceEvent {
   eventType: string
   elementId: number
-  type?: string
-  testId?: string
-  text?: string
+  type: string | undefined
+  testId: string | undefined
+  text: string | undefined
 }
 
 export interface TestClickTrace {
@@ -135,9 +138,9 @@ export class TestRenderer {
   readonly #native: NativeTestRendererApi
   #root: Root | undefined
 
-  constructor() {
+  constructor(width?: number, height?: number) {
     if (!NativeTestRenderer) throw new Error("Native TestGpuixRenderer is unavailable")
-    this.#native = new NativeTestRenderer()
+    this.#native = new NativeTestRenderer(width, height)
   }
 
   bindRoot(root: Root): void {
@@ -441,8 +444,8 @@ export interface TestRoot {
   unmount(): void
 }
 
-export function createTestRoot(): TestRoot {
-  const renderer = new TestRenderer()
+export function createTestRoot(width?: number, height?: number): TestRoot {
+  const renderer = new TestRenderer(width, height)
   const hostRenderer = adaptBatchRenderer(renderer)
   useDestroyUnlinksParentBatch(hostRenderer)
   const root = createRoot(hostRenderer)
