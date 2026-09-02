@@ -6,6 +6,9 @@ on:
       - fix/source-first-example-fidelity
     paths:
       - .github/workflows/apply-native-half-translation.yml
+      - scripts/apply-native-half-translation.py
+      - scripts/apply-native-relative-position.py
+      - scripts/apply-daw-style-omissions.py
 
 permissions:
   contents: write
@@ -67,5 +70,3 @@ jobs:
           git diff --cached --check
           git commit -m "fix: support exact DAW native style closure"
           git push origin HEAD:fix/source-first-example-fidelity
-
-# validate z-0 as an explicit retained-tree stacking limitation
