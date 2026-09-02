@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   apply:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -21,8 +20,8 @@ jobs:
         with:
           bun-version: 1.3.14
       - name: Apply core semantic DOM support
-        shell: python
         run: |
+          python - <<'PY'
           from pathlib import Path
 
           root = Path.cwd()
@@ -37,7 +36,7 @@ jobs:
           closest(_selector: string): HostElementNode | null {
             return null
           }
-'''
+          '''
           new = '''  compareDocumentPosition(other: HostElementNode): number {
             return compareHostDocumentPosition(this, other)
           }
@@ -90,13 +89,12 @@ jobs:
             }
             return null
           }
-'''
+          '''
           if old not in nodes:
             raise SystemExit("HostElementNode closest block changed; refusing unsafe patch")
           nodes = nodes.replace(old, new)
 
-          marker = '''function compareHostDocumentPosition(reference: HostNode, other: HostNode): number {
-'''
+          marker = 'function compareHostDocumentPosition(reference: HostNode, other: HostNode): number {\n'
           helpers = '''function dataAttributeProperty(name: string): string {
             return name.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase())
           }
@@ -122,21 +120,55 @@ jobs:
 
           universal_path = root / "packages/solid1/src/universal.ts"
           universal = universal_path.read_text()
-          universal = universal.replace('''  "samp",\n])''', '''  "samp",\n  "output",\n  "option",\n])''')
-          universal = universal.replace('''  "a",\n])''', '''  "a",\n  "select",\n])''')
-          universal = universal.replace('''    const node = createHostElement(type)\n''', '''    const node = createHostElement(type, tagName)\n''')
+          if '  "output",\n' not in universal:
+            universal = universal.replace('  "samp",\n])', '  "samp",\n  "output",\n  "option",\n])')
+          if '  "select",\n' not in universal:
+            universal = universal.replace('  "a",\n])', '  "a",\n  "select",\n])')
+          universal = universal.replace('    const node = createHostElement(type)\n', '    const node = createHostElement(type, tagName)\n')
           universal_path.write_text(universal)
 
           jsx_path = root / "packages/solid1/jsx-runtime.d.ts"
           jsx = jsx_path.read_text()
-          jsx = jsx.replace('''    button: SemanticDomProps\n''', '''    button: SemanticDomProps\n    output: DomCompatibleProps<HostProps, SolidJSX.HTMLAttributes<HTMLOutputElement>>\n    select: DomCompatibleProps<HostProps, SolidJSX.SelectHTMLAttributes<HTMLSelectElement>>\n    option: DomCompatibleProps<HostProps, SolidJSX.OptionHTMLAttributes<HTMLOptionElement>>\n''')
+          if '    select: DomCompatibleProps' not in jsx:
+            jsx = jsx.replace(
+              '    button: SemanticDomProps\n',
+              '    button: SemanticDomProps\n'
+              '    output: DomCompatibleProps<HostProps, SolidJSX.HTMLAttributes<HTMLOutputElement>>\n'
+              '    select: DomCompatibleProps<HostProps, SolidJSX.SelectHTMLAttributes<HTMLSelectElement>>\n'
+              '    option: DomCompatibleProps<HostProps, SolidJSX.OptionHTMLAttributes<HTMLOptionElement>>\n',
+            )
           jsx_path.write_text(jsx)
 
           parity_path = root / "packages/solid1/scripts/check-host-parity.ts"
           parity = parity_path.read_text()
-          parity = parity.replace('''} from "../src/native-style.ts"\n''', '''} from "../src/native-style.ts"\nimport { createHostElement, insertHostNode, setHostProperty } from "../src/host/nodes.ts"\n''')
-          parity = parity.replace('''console.log("solid1 host parity: passed")\n''', '''const selectorRoot = createHostElement("div", "section")\nconst selectorButton = createHostElement("div", "button")\nconst selectorLabel = createHostElement("text", "span")\nsetHostProperty(selectorButton, "data-track-name", "true")\nsetHostProperty(selectorButton, "role", "button")\nsetHostProperty(selectorButton, "data-track-id", "track-7")\ninsertHostNode(selectorRoot, selectorButton)\ninsertHostNode(selectorButton, selectorLabel)\nif (selectorLabel.closest("[data-track-name]") !== selectorButton) throw new Error("closest must resolve ancestor data attributes")\nif (selectorLabel.closest("button, input, select, textarea, [role='button']") !== selectorButton) throw new Error("closest must resolve selector lists and semantic tags")\nif (!selectorRoot.contains(selectorLabel) || selectorLabel.contains(selectorRoot)) throw new Error("contains must follow host ancestry")\nif (selectorButton.dataset.trackId !== "track-7") throw new Error("dataset must expose data-* properties")\nselectorButton.removeAttribute("data-track-name")\nif (selectorLabel.closest("[data-track-name]") !== null) throw new Error("removeAttribute must update selector matching")\n\nconsole.log("solid1 host parity: passed")\n''')
+          if 'from "../src/host/nodes.ts"' not in parity:
+            parity = parity.replace(
+              '} from "../src/native-style.ts"\n',
+              '} from "../src/native-style.ts"\nimport { createHostElement, insertHostNode, setHostProperty } from "../src/host/nodes.ts"\n',
+            )
+          if 'closest must resolve ancestor data attributes' not in parity:
+            parity = parity.replace(
+              'console.log("solid1 host parity: passed")\n',
+              '''const selectorRoot = createHostElement("div", "section")
+          const selectorButton = createHostElement("div", "button")
+          const selectorLabel = createHostElement("text", "span")
+          setHostProperty(selectorButton, "data-track-name", "true")
+          setHostProperty(selectorButton, "role", "button")
+          setHostProperty(selectorButton, "data-track-id", "track-7")
+          insertHostNode(selectorRoot, selectorButton)
+          insertHostNode(selectorButton, selectorLabel)
+          if (selectorLabel.closest("[data-track-name]") !== selectorButton) throw new Error("closest must resolve ancestor data attributes")
+          if (selectorLabel.closest("button, input, select, textarea, [role='button']") !== selectorButton) throw new Error("closest must resolve selector lists and semantic tags")
+          if (!selectorRoot.contains(selectorLabel) || selectorLabel.contains(selectorRoot)) throw new Error("contains must follow host ancestry")
+          if (selectorButton.dataset.trackId !== "track-7") throw new Error("dataset must expose data-* properties")
+          selectorButton.removeAttribute("data-track-name")
+          if (selectorLabel.closest("[data-track-name]") !== null) throw new Error("removeAttribute must update selector matching")
+
+          console.log("solid1 host parity: passed")
+          ''',
+            )
           parity_path.write_text(parity)
+          PY
       - name: Validate Solid 1 host
         run: |
           cd packages/solid1
