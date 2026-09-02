@@ -17,6 +17,7 @@ const copiedSources = [
   ["src/upstream/components/ui/separator.tsx", "src/components/ui/separator.tsx", "3b30bdeb3e4e279e3e36d0dc0179c1d0b4714929"],
   ["src/upstream/components/ui/text-field.tsx", "src/components/ui/text-field.tsx", "cfdf5cd7442fc95c84fc6d49a4122950ce16d528"],
   ["src/upstream/components/ui/tooltip.tsx", "src/components/ui/tooltip.tsx", "d2c24f507e056e58d6058b302f57f048d182be67"],
+  ["src/upstream/components/effects/eq-filter-type-select.tsx", "src/components/effects/eq-filter-type-select.tsx", "5dd5b8ff0bf426b29c0c4c9cbb247c08e534580b"],
   ["src/upstream/components/timeline/TransportControls.tsx", "src/components/timeline/TransportControls.tsx", "811dfb8e7b11247a1ec0533fda4a43d10293344f"],
   ["src/upstream/components/timeline/browser/timeline-left-browser.tsx", "src/components/timeline/browser/timeline-left-browser.tsx", "e4c94b535c1a628c618bb39928d9c7a160557d39"],
   ["src/upstream/components/timeline/ArrangementOverview.tsx", "src/components/timeline/ArrangementOverview.tsx", "cd451fa1e5f7b920ff07659626994c7a4a5c22b7"],
@@ -29,6 +30,7 @@ const copiedSources = [
   ["src/upstream/components/timeline/toolbar-context.tsx", "src/components/timeline/toolbar-context.tsx", "01202ad367494f81f4a10b394d08ddf39673f07c"],
   ["src/upstream/lib/bottom-panel-layout.ts", "src/lib/bottom-panel-layout.ts", "aa7e348a31969ba8a1c16957464ddc9e2a3fb884"],
   ["src/upstream/lib/bottom-panel-preferences.ts", "src/lib/bottom-panel-preferences.ts", "b91be08986cffe7cab1d21a7f9790bb897f7098f"],
+  ["src/upstream/lib/utils.ts", "src/lib/utils.ts", "d084ccade0d8b5bd77fd5174993bcef7b57644c9"],
   ["src/compat/timeline-view.ts", "src/lib/timeline-view.ts", "9457d9d86a9cea1a9931c9a4f4aa2137bd239976"],
 ]
 
