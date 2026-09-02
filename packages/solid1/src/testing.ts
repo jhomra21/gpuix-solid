@@ -29,20 +29,6 @@ export interface TestBounds {
   height: number
 }
 
-export interface TestClickTraceEvent {
-  eventType: string
-  elementId: number
-  type: string | undefined
-  testId: string | undefined
-  text: string | undefined
-}
-
-export interface TestClickTrace {
-  point: { x: number; y: number }
-  bounds: TestBounds
-  events: TestClickTraceEvent[]
-}
-
 function loadNativeTestRenderer(): NativeTestRendererConstructor | undefined {
   try {
     const require = createRequire(import.meta.url)
@@ -64,16 +50,6 @@ function findNode(node: NativeTreeNode | null, testId: string): NativeTreeNode |
   if (node.testId === testId) return node
   for (const child of node.children ?? []) {
     const found = findNode(child, testId)
-    if (found) return found
-  }
-  return undefined
-}
-
-function findNodeById(node: NativeTreeNode | null, id: number): NativeTreeNode | undefined {
-  if (!node) return undefined
-  if (node.id === id) return node
-  for (const child of node.children ?? []) {
-    const found = findNodeById(child, id)
     if (found) return found
   }
   return undefined
@@ -171,38 +147,10 @@ export class TestRenderer {
   }
 
   clickCenterTestId(testId: string): void {
-    const trace = this.clickCenterTestIdWithTrace(testId)
-    if (!trace.events.some((event) => event.testId === testId)) {
-      console.log(`[native center click trace] ${testId}: ${JSON.stringify(trace)}`)
-    }
-  }
-
-  clickCenterTestIdWithTrace(testId: string): TestClickTrace {
-    const root = this.#root
-    if (!root) throw new Error("TestRenderer is not bound to a Solid 1 root")
-    const bounds = this.boundsTestId(testId)
-    const point = centerPoint(bounds)
-    const tree = parseTree(this.#native.getTreeJson())
-    const traceEvents: TestClickTraceEvent[] = []
-
+    const point = centerPoint(this.boundsTestId(testId))
     this.#native.simulateClick(point.x, point.y)
-    for (;;) {
-      const events = this.#native.drainEvents()
-      if (events.length === 0) break
-      for (const event of events) {
-        const node = findNodeById(tree, event.elementId)
-        traceEvents.push({
-          eventType: event.eventType,
-          elementId: event.elementId,
-          type: node?.type,
-          testId: node?.testId,
-          text: node ? nodeText(node) : undefined,
-        })
-        root.dispatch(event)
-      }
-    }
+    this.dispatchNativeEvents()
     this.#native.flush()
-    return { point, bounds, events: traceEvents }
   }
 
   clickText(text: string): void {
