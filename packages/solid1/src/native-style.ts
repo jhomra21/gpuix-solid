@@ -11,6 +11,8 @@ export interface NativeStyleVariant {
 }
 
 export interface NativeStyleManifestEntry extends NativeStyleVariant {
+  /** Source :focus / :focus-visible styles applied by compatibility components that own focus state. */
+  focus?: NativeStyleVariant
   descendants?: Record<string, NativeStyleVariant>
   textTransform?: NativeTextTransform
 }
@@ -63,6 +65,23 @@ export function resolveNativeClassStyle(
     const entry = activeManifest.classes[candidate]
     if (!entry) throw missingCandidate(candidate)
     resolved = mergeNativeStyles(resolved, resolveVariant(entry))
+  }
+  return resolved
+}
+
+export function resolveNativeClassFocusStyle(
+  className: string | undefined,
+  classList: NativeClassList | undefined,
+): StyleDesc | undefined {
+  const candidates = classCandidates(className, classList)
+  if (candidates.length === 0) return undefined
+  const activeManifest = requireManifest()
+
+  let resolved: StyleDesc | undefined
+  for (const candidate of candidates) {
+    const entry = activeManifest.classes[candidate]
+    if (!entry) throw missingCandidate(candidate)
+    resolved = mergeNativeStyles(resolved, resolveVariant(entry.focus))
   }
   return resolved
 }

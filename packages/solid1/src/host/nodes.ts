@@ -10,7 +10,7 @@ import type {
 
 const RESERVED_PROPS = new Set(["children", "ref", "style", "className", "key"])
 const BUILT_IN_TYPES = new Set<ElementType>(["div", "text"])
-const UNIVERSAL_PROPS = new Set(["autoFocus", "tabIndex", "motion", "testId", "highlight"])
+const UNIVERSAL_PROPS = new Set(["autoFocus", "tabIndex", "motion", "testId", "highlight", "title"])
 const DOCUMENT_POSITION_DISCONNECTED = 0x01
 const DOCUMENT_POSITION_PRECEDING = 0x02
 const DOCUMENT_POSITION_FOLLOWING = 0x04

@@ -388,6 +388,7 @@ export interface HostProps {
   highlight?: HighlightSpec | HighlightSpec[] | null
   autoFocus?: boolean
   tabIndex?: number
+  title?: string
   testId?: string
 }
 

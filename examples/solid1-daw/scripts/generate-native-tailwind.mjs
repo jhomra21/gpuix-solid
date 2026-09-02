@@ -17,7 +17,7 @@ const nativeTextTransforms = new Map([
   ["normal-case", "none"],
 ])
 
-// GPUIX 0.4.0 supports equal-count CSS grid tracks, but not arbitrary CSS
+// GPUIX 0.7 supports equal-count CSS grid tracks, but not arbitrary CSS
 // templates or justify-self. Preserve the copied transport's 1fr/auto/1fr
 // semantics with the equivalent flex layout: equal flexible side zones around
 // one intrinsic center zone. Other entries below translate source geometry
@@ -41,35 +41,33 @@ const nativeCompatEntries = new Map([
 ])
 
 const explicitlyIgnored = new Map([
-  ["active:scale-97", "@gpuix/native@0.4.0 has no transform/scale StyleDesc field"],
+  ["active:scale-97", "GPUIX 0.7 has no transform/scale StyleDesc field"],
   ["group", "Tailwind group is a relationship-state marker and has no direct painted native style"],
-  ["group-hover:bg-sky-500/20", "group relationship hover styling is not exposed by @gpuix/native@0.4.0"],
-  ["group-active:bg-sky-500/20", "group relationship active styling is not exposed by @gpuix/native@0.4.0"],
+  ["group-hover:bg-sky-500/20", "group relationship hover styling is not exposed by GPUIX 0.7"],
+  ["group-active:bg-sky-500/20", "group relationship active styling is not exposed by GPUIX 0.7"],
   ["group-hover:text-foreground", "the copied browser item already has text-foreground as its base color; native group relationship hover styling is not exposed"],
-  ["!transition-transform", "native StyleDesc transitions are not published in @gpuix/native@0.4.0"],
-  ["!duration-150", "native StyleDesc transitions are not published in @gpuix/native@0.4.0"],
-  ["transition-colors", "native StyleDesc transitions are not published in @gpuix/native@0.4.0"],
-  ["ring-offset-background", "native focus ring offset styling is not exposed by @gpuix/native@0.4.0"],
-  ["focus-visible:outline-none", "native focus-visible styling is not exposed by @gpuix/native@0.4.0"],
-  ["focus-visible:ring-2", "native focus-visible styling is not exposed by @gpuix/native@0.4.0"],
-  ["focus-visible:ring-ring", "native focus-visible styling is not exposed by @gpuix/native@0.4.0"],
-  ["focus-visible:ring-offset-2", "native focus-visible styling is not exposed by @gpuix/native@0.4.0"],
+  ["!transition-transform", "native StyleDesc transitions are not published in GPUIX 0.7"],
+  ["!duration-150", "native StyleDesc transitions are not published in GPUIX 0.7"],
+  ["transition-colors", "native StyleDesc transitions are not published in GPUIX 0.7"],
+  ["ring-offset-background", "native focus ring offset styling is not exposed by GPUIX 0.7"],
+  ["focus-visible:outline-none", "native focus-visible styling is not exposed by GPUIX 0.7"],
+  ["focus-visible:ring-2", "native focus-visible styling is not exposed by GPUIX 0.7"],
+  ["focus-visible:ring-ring", "native focus-visible styling is not exposed by GPUIX 0.7"],
+  ["focus-visible:ring-offset-2", "native focus-visible styling is not exposed by GPUIX 0.7"],
   ["focus:border-border", "native focus pseudo styling is not published; this input already has the same border-border base color"],
   ["focus:outline-none", "native inputs do not paint a browser focus outline"],
-  ["focus:bg-app-surface/60", "native input focus background pseudo styling is not published by @gpuix/native@0.4.0"],
-  ["focus:bg-accent", "native Kobalte menu adapters own item hover/focus highlighting"],
-  ["focus:text-accent-foreground", "native Kobalte menu adapters own item hover/focus foreground state"],
+  ["focus:bg-app-surface/60", "native input focus background pseudo styling is not published by GPUIX 0.7"],
   ["outline-none", "GPUIX native inputs and menu primitives do not paint the browser outline suppressed by this utility"],
   ["disabled:pointer-events-none", "the native Kobalte adapter owns disabled pointer behavior"],
   ["disabled:opacity-50", "the native Kobalte adapter owns disabled opacity"],
   ["disabled:opacity-60", "the native input/browser adapter owns disabled opacity"],
-  ["underline-offset-4", "native text decoration offset is not exposed by @gpuix/native@0.4.0"],
-  ["hover:underline", "native text decoration is not exposed by @gpuix/native@0.4.0"],
+  ["underline-offset-4", "native text decoration offset is not exposed by GPUIX 0.7"],
+  ["hover:underline", "native text decoration is not exposed by GPUIX 0.7"],
   ["file:border-0", "native input has no browser file-selector pseudo-element"],
   ["file:bg-transparent", "native input has no browser file-selector pseudo-element"],
   ["file:text-sm", "native input has no browser file-selector pseudo-element"],
   ["file:font-medium", "native input has no browser file-selector pseudo-element"],
-  ["placeholder:text-muted-foreground", "native input placeholder styling is not separately exposed by @gpuix/native@0.4.0"],
+  ["placeholder:text-muted-foreground", "native input placeholder styling is not separately exposed by GPUIX 0.7"],
   ["selection:bg-primary/40", "native text selection has its own selectionColor contract rather than CSS ::selection variants"],
   ["disabled:cursor-not-allowed", "the native Kobalte adapter owns disabled interaction"],
   ["data-[disabled]:pointer-events-none", "native Kobalte menu adapters own disabled item hit testing"],
@@ -87,13 +85,13 @@ const explicitlyIgnored = new Map([
   ["leading-none", "relative line-height needs merged font-size context before it can be represented exactly"],
   ["appearance-none", "GPUIX native inputs do not have browser user-agent appearance chrome to suppress"],
   ["fill-current", "inline GPUIX SVG styling does not expose CSS fill through StyleDesc; source currentColor stroke still inherits normally"],
-  ["tabular-nums", "font-variant-numeric is not exposed by @gpuix/native@0.4.0"],
-  ["tracking-normal", "letter-spacing is not exposed by @gpuix/native@0.4.0"],
-  ["tracking-wide", "letter-spacing is not exposed by @gpuix/native@0.4.0; keep the copied source unchanged until the native text contract supports it"],
-  ["tracking-widest", "letter-spacing is not exposed by @gpuix/native@0.4.0"],
-  ["border-dashed", "@gpuix/native@0.4.0 exposes border width/color but not border style; native fallback remains solid"],
+  ["tabular-nums", "font-variant-numeric is not exposed by GPUIX 0.7"],
+  ["tracking-normal", "letter-spacing is not exposed by GPUIX 0.7"],
+  ["tracking-wide", "letter-spacing is not exposed by GPUIX 0.7; keep the copied source unchanged until the native text contract supports it"],
+  ["tracking-widest", "letter-spacing is not exposed by GPUIX 0.7"],
+  ["border-dashed", "GPUIX 0.7 exposes border width/color but not border style; native fallback remains solid"],
   ["max-h-(--kb-menu-content-available-height)", "native Kobalte FloatingLayer owns available-space popup placement/sizing; the browser CSS custom property does not exist natively"],
-  ["origin-[var(--kb-menu-content-transform-origin)]", "native Kobalte FloatingLayer owns popup placement; CSS transform-origin is not exposed by @gpuix/native@0.4.0"],
+  ["origin-[var(--kb-menu-content-transform-origin)]", "native Kobalte FloatingLayer owns popup placement; CSS transform-origin is not exposed by GPUIX 0.7"],
   ["data-[expanded]:animate-in", "native Kobalte menus mount directly without browser CSS enter animations"],
   ["data-[closed]:animate-out", "native Kobalte menus unmount directly without browser CSS exit animations"],
   ["data-[closed]:fade-out-0", "native Kobalte menus unmount directly without browser CSS opacity animation"],
@@ -111,10 +109,10 @@ const explicitlyIgnored = new Map([
   ["z-40", "published native StyleDesc has no z-index; retained-tree/layer order owns stacking"],
   ["z-50", "native anchored-layer priority owns popup stacking"],
   ["w-fit", "native floating content uses intrinsic sizing instead of CSS fit-content"],
-  ["w-max", "native floating content uses intrinsic sizing; @gpuix/native@0.4.0 dimensions do not accept CSS max-content"],
-  ["shadow-md", "boxShadow exists upstream but is not published in @gpuix/native@0.4.0"],
-  ["shadow-lg", "boxShadow exists upstream but is not published in @gpuix/native@0.4.0"],
-  ["ml-auto", "@gpuix/native@0.4.0 exposes numeric margins only; CSS auto main-axis margins are unavailable"],
+  ["w-max", "native floating content uses intrinsic sizing; GPUIX 0.7 dimensions do not accept CSS max-content"],
+  ["shadow-md", "Tailwind shadow-md is layered; GPUIX 0.7 exposes one native BoxShadow"],
+  ["shadow-lg", "Tailwind shadow-lg is layered; GPUIX 0.7 exposes one native BoxShadow"],
+  ["ml-auto", "GPUIX 0.7 exposes numeric margins only; CSS auto main-axis margins are unavailable"],
 ])
 
 const themeCss = await readFile(themePath, "utf8")
@@ -162,15 +160,22 @@ for (const candidate of rawCandidates) {
   if (!rule) continue
 
   const descendant = descendantTarget(candidate)
-  const light = compileRule(rule, candidate, variables.light)
-  const dark = compileRule(rule, candidate, variables.dark)
-  const variant = JSON.stringify(light) === JSON.stringify(dark)
-    ? { base: light }
-    : { light, dark }
+  const lightCompiled = compileRule(rule, candidate, variables.light)
+  const darkCompiled = compileRule(rule, candidate, variables.dark)
+  const variant = JSON.stringify(lightCompiled.style) === JSON.stringify(darkCompiled.style)
+    ? { base: lightCompiled.style }
+    : { light: lightCompiled.style, dark: darkCompiled.style }
+  const hasFocus = Object.keys(lightCompiled.focus).length > 0 || Object.keys(darkCompiled.focus).length > 0
+  const focus = hasFocus
+    ? JSON.stringify(lightCompiled.focus) === JSON.stringify(darkCompiled.focus)
+      ? { base: lightCompiled.focus }
+      : { light: lightCompiled.focus, dark: darkCompiled.focus }
+    : undefined
 
+  if (descendant && focus) throw new Error(`Unsupported focused descendant native Tailwind candidate ${JSON.stringify(candidate)}`)
   classes[candidate] = descendant
     ? { descendants: { [descendant]: variant } }
-    : variant
+    : focus ? { ...variant, focus } : variant
 }
 
 const omissionsComment = omissions.length === 0
@@ -298,11 +303,12 @@ function compileRule(rule, candidate, themeVariables) {
   const base = {}
   const hover = {}
   const active = {}
+  const focus = {}
 
   rule.walkDecls((declaration) => {
     if (declaration.prop.startsWith("--")) return
     const state = declarationState(declaration, rule, candidate)
-    const target = state === "hover" ? hover : state === "active" ? active : base
+    const target = state === "hover" ? hover : state === "active" ? active : state === "focus" ? focus : base
     const value = resolveCssValue(declaration.value, { ...themeVariables, ...localVariables })
     mapDeclaration(target, declaration.prop, value, candidate)
   })
@@ -310,8 +316,10 @@ function compileRule(rule, candidate, themeVariables) {
   const result = { ...base }
   if (Object.keys(hover).length > 0) result.hover = hover
   if (Object.keys(active).length > 0) result.active = active
-  if (Object.keys(result).length === 0) throw new Error(`Tailwind candidate ${JSON.stringify(candidate)} produced no native styles`)
-  return result
+  if (Object.keys(result).length === 0 && Object.keys(focus).length === 0) {
+    throw new Error(`Tailwind candidate ${JSON.stringify(candidate)} produced no native styles`)
+  }
+  return { style: result, focus }
 }
 
 function declarationState(declaration, candidateRule, candidate) {
@@ -338,8 +346,9 @@ function stateFromSelector(selector) {
   const states = new Set()
   if (/(^|[^\\]):hover\b/.test(selector)) states.add("hover")
   if (/(^|[^\\]):active\b/.test(selector)) states.add("active")
+  if (/(^|[^\\]):focus(?:-visible)?\b/.test(selector)) states.add("focus")
 
-  const unsupported = ["focus", "focus-visible", "disabled", "checked"]
+  const unsupported = ["disabled", "checked"]
   for (const pseudo of unsupported) {
     const pattern = new RegExp(`(^|[^\\\\]):${pseudo.replace("-", "\\-")}\\b`)
     if (pattern.test(selector)) throw new Error(`Unsupported native Tailwind state variant :${pseudo}`)
