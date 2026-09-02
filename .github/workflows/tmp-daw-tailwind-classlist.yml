@@ -32,35 +32,30 @@ jobs:
 
           path = Path("examples/solid1-daw/scripts/generate-native-tailwind.mjs")
           source = path.read_text()
-          old = '''      if (ts.isJsxAttribute(node) && (node.name.text === "class" || node.name.text === "className")) {
-                collectClassExpression(node.initializer, candidates)
-                return
-              }
-          '''
-          if old not in source:
-              old = '''      if (ts.isJsxAttribute(node) && (node.name.text === "class" || node.name.text === "className")) {
-                collectClassExpression(node.initializer, candidates)
-                return
-              }
-          '''.replace("                ", "        ")
-          new = '''      if (ts.isJsxAttribute(node)) {
-                const attributeName = node.name.text
-                if (attributeName === "class" || attributeName === "className") {
-                  collectClassExpression(node.initializer, candidates)
-                  return
-                }
-                if (attributeName === "classList") {
-                  collectClassListExpression(node.initializer, candidates)
-                  return
-                }
-              }
-          '''
+          old = "\n".join([
+              '      if (ts.isJsxAttribute(node) && (node.name.text === "class" || node.name.text === "className")) {',
+              '        collectClassExpression(node.initializer, candidates)',
+              '        return',
+              '      }',
+          ])
+          new = "\n".join([
+              '      if (ts.isJsxAttribute(node)) {',
+              '        const attributeName = node.name.text',
+              '        if (attributeName === "class" || attributeName === "className") {',
+              '          collectClassExpression(node.initializer, candidates)',
+              '          return',
+              '        }',
+              '        if (attributeName === "classList") {',
+              '          collectClassListExpression(node.initializer, candidates)',
+              '          return',
+              '        }',
+              '      }',
+          ])
           if old not in source:
               raise SystemExit("Could not find JSX class collector block")
           source = source.replace(old, new, 1)
 
-          marker = '''function addClassString(value, candidates) {
-          '''
+          marker = 'function addClassString(value, candidates) {'
           helper = '''function collectClassListExpression(node, candidates) {
             if (!node) return
 
@@ -96,8 +91,7 @@ jobs:
             }
           }
 
-          function addClassString(value, candidates) {
-          '''
+          function addClassString(value, candidates) {'''
           if marker not in source:
               raise SystemExit("Could not find addClassString marker")
           source = source.replace(marker, helper, 1)
