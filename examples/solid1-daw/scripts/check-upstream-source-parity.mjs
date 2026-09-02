@@ -40,6 +40,7 @@ const copiedSources = [
   ["src/upstream/components/timeline/MasterSidebarRow.tsx", "src/components/timeline/MasterSidebarRow.tsx", "616ea84c78a0d2f8d7846e9cb76bdc7f1317dfdd"],
   ["src/upstream/components/timeline/MixerVolumeSlider.tsx", "src/components/timeline/MixerVolumeSlider.tsx", "07f61bdf09ad9ad1c90df1df95dd72e8693e2a0c"],
   ["src/upstream/components/timeline/automation-parameter-picker.tsx", "src/components/timeline/automation-parameter-picker.tsx", "1357c5f304c01cd2cb9addca9ae6295597e1e3bd"],
+  ["src/upstream/components/timeline/automation-lane.tsx", "src/components/timeline/automation-lane.tsx", "43d266773b18cf67d907dfb62daf9ce8b8869534"],
   ["src/upstream/components/timeline/context-menu/timeline-context-menu.tsx", "src/components/timeline/context-menu/timeline-context-menu.tsx", "7221bbbd7fa68e34a68075088f54015080e387b6"],
   ["src/upstream/components/timeline/track-send-targets.ts", "src/components/timeline/track-send-targets.ts", "67fd947928f59166196e89e6fe7b9f429edf7fa4"],
   ["src/upstream/components/timeline/menus/edit-menu.tsx", "src/components/timeline/menus/edit-menu.tsx", "2fc091eee5a4d5e6cb29fd4674cdd0c2729068ca"],
