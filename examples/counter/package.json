@@ -70,7 +70,7 @@
     "run:tanstack-kitchen-sink": "bun run build:tanstack-kitchen-sink && bun run start:tanstack-kitchen-sink"
   },
   "dependencies": {
-    "@gpuix/native": "^0.6.0",
+    "@gpuix/native": "^0.7.0",
     "diff": "^7.0.0",
     "gpuix-solid": "workspace:*",
     "safe-mdx": "1.14.0",
