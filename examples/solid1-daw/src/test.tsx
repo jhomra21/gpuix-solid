@@ -234,9 +234,13 @@ if (!hasNativeTestRenderer) {
   requireText(app.renderer.textContent("eq-selected-frequency-value"), "6.00 kHz", "EQ source reset frequency")
   requireText(app.renderer.textContent("eq-selected-q-value"), "1.00", "EQ source reset Q")
 
+  app.renderer.scrollTestId("daw-test-viewport", 0, -260)
   app.renderer.clickTextWithinTestId("bottom-panel", "CLIP")
   requireCondition(app.renderer.hasTestId("effects-panel") && !app.renderer.hasTestId("clip-panel"), "MIDI selection must keep the source Clip tab disabled")
+
+  app.renderer.scrollTestId("daw-test-viewport", 0, 0)
   app.renderer.clickCenterTestId("clip-drums-a")
+  app.renderer.scrollTestId("daw-test-viewport", 0, -260)
   app.renderer.clickTextWithinTestId("bottom-panel", "CLIP")
   requireCondition(app.renderer.hasTestId("clip-panel") && !app.renderer.hasTestId("effects-panel"), "an audio clip should enable Sample Detail")
   const clipText = app.renderer.textContent("clip-panel")
