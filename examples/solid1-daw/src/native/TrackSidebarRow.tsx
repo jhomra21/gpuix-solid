@@ -25,23 +25,6 @@ function meterColor(level: number): string {
 
 const automationParameters = ["Track Volume", "Track Pan", "Send A"] as const
 
-function ControlHitSurface(props: { onClick: () => void; disabled?: boolean }): JSX.Element {
-  return (
-    <div
-      onClick={() => { if (!props.disabled) props.onClick() }}
-      style={{
-        position: "absolute",
-        top: 0,
-        right: 0,
-        bottom: 0,
-        left: 0,
-        backgroundColor: "#ffffff01",
-        cursor: props.disabled ? "default" : "pointer",
-      }}
-    />
-  )
-}
-
 const TrackSidebarRow = (props: TrackSidebarRowProps): JSX.Element => {
   const meterLeft = () => Math.max(0, Math.min(1, props.track.volume * (props.track.muted ? 0.04 : 0.88)))
   const meterRight = () => Math.max(0, Math.min(1, props.track.volume * (props.track.muted ? 0.03 : 0.81)))
@@ -89,14 +72,22 @@ const TrackSidebarRow = (props: TrackSidebarRowProps): JSX.Element => {
         }}
       >
         <div style={{ width: 94, minWidth: 94, display: "flex", alignItems: "flex-start", gap: 4, overflow: "hidden" }}>
-          <div
+          <text
             testId={`track-${props.track.id}-collapse`}
             onClick={props.onToggleCollapsed}
-            style={{ display: "flex", flexDirection: "row", width: 16, minWidth: 16, height: props.track.collapsed ? 24 : 28, alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative" }}
-          >
-            <text style={{ ...textXs, color: dawTheme.mutedForeground, pointerEvents: "none" }}>{props.track.collapsed ? "▶" : "▼"}</text>
-            <ControlHitSurface onClick={props.onToggleCollapsed} />
-          </div>
+            style={{
+              ...textXs,
+              display: "flex",
+              flexDirection: "row",
+              width: 16,
+              minWidth: 16,
+              height: props.track.collapsed ? 24 : 28,
+              alignItems: "center",
+              justifyContent: "center",
+              color: dawTheme.mutedForeground,
+              cursor: "pointer",
+            }}
+          >{props.track.collapsed ? "▶" : "▼"}</text>
           <div style={{ flexGrow: 1, minWidth: 0, height: props.track.collapsed ? 24 : 28, display: "flex", alignItems: "center", pointerEvents: "none" }}>
             <text style={{ ...textSm, color: dawTheme.foreground, fontWeight: 650, whiteSpace: "nowrap", textOverflow: "ellipsis", pointerEvents: "none" }}>{props.track.name}</text>
           </div>
@@ -108,22 +99,20 @@ const TrackSidebarRow = (props: TrackSidebarRowProps): JSX.Element => {
               <div
                 testId={`track-${props.track.id}-output`}
                 onClick={props.onCycleOutputTarget}
-                style={{ height: 28, minHeight: 28, display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 8, paddingRight: 7, backgroundColor: dawTheme.timelineBackground, borderWidth: 1, borderColor: dawTheme.border, cursor: "pointer", position: "relative" }}
+                style={{ height: 28, minHeight: 28, display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 8, paddingRight: 7, backgroundColor: dawTheme.timelineBackground, borderWidth: 1, borderColor: dawTheme.border, cursor: "pointer" }}
               >
                 <text style={{ ...textXs, color: dawTheme.foreground, whiteSpace: "nowrap", textOverflow: "ellipsis", pointerEvents: "none" }}>{props.track.outputTarget}</text>
                 <text style={{ ...text2xs, color: dawTheme.mutedForeground, pointerEvents: "none" }}>⌄</text>
-                <ControlHitSurface onClick={props.onCycleOutputTarget} />
               </div>
             </Show>
             <Show when={props.track.kind !== "return" && props.track.kind !== "group"}>
               <div
                 testId={`track-${props.track.id}-send`}
                 onClick={props.onCycleSendTarget}
-                style={{ height: 28, minHeight: 28, display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 8, paddingRight: 7, backgroundColor: dawTheme.timelineBackground, borderWidth: 1, borderColor: dawTheme.border, cursor: "pointer", position: "relative" }}
+                style={{ height: 28, minHeight: 28, display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 8, paddingRight: 7, backgroundColor: dawTheme.timelineBackground, borderWidth: 1, borderColor: dawTheme.border, cursor: "pointer" }}
               >
                 <text style={{ ...textXs, color: dawTheme.foreground, whiteSpace: "nowrap", textOverflow: "ellipsis", pointerEvents: "none" }}>{props.track.sendTarget}</text>
                 <text style={{ ...text2xs, color: dawTheme.mutedForeground, pointerEvents: "none" }}>⌄</text>
-                <ControlHitSurface onClick={props.onCycleSendTarget} />
               </div>
             </Show>
           </Show>
@@ -132,30 +121,64 @@ const TrackSidebarRow = (props: TrackSidebarRowProps): JSX.Element => {
         <div style={{ width: 101, minWidth: 101, height: meterHeight(), display: "flex", gap: 5 }}>
           <div style={{ width: 86, minWidth: 86, display: "flex", flexDirection: props.track.collapsed ? "row" : "column", gap: 4 }}>
             <div style={{ display: "flex", gap: 4, height: 20 }}>
-              <div
+              <text
                 testId={`track-${props.track.id}-mute`}
                 onClick={props.onToggleMute}
-                style={{ display: "flex", flexDirection: "row", width: props.track.collapsed ? 18 : 50, height: 20, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: props.track.muted ? dawTheme.timelineSurfaceMuted : dawTheme.amber, cursor: "pointer", position: "relative" }}
-              >
-                <text style={{ ...textXs, color: props.track.muted ? dawTheme.mutedForeground : "#111111", fontWeight: 800, pointerEvents: "none" }}>{String(props.track.number)}</text>
-                <ControlHitSurface onClick={props.onToggleMute} />
-              </div>
-              <div
+                style={{
+                  ...textXs,
+                  display: "flex",
+                  flexDirection: "row",
+                  width: props.track.collapsed ? 18 : 50,
+                  height: 20,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderWidth: 1,
+                  borderColor: dawTheme.border,
+                  backgroundColor: props.track.muted ? dawTheme.timelineSurfaceMuted : dawTheme.amber,
+                  color: props.track.muted ? dawTheme.mutedForeground : "#111111",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >{String(props.track.number)}</text>
+              <text
                 testId={`track-${props.track.id}-solo`}
                 onClick={props.onToggleSolo}
-                style={{ display: "flex", flexDirection: "row", width: 16, height: 20, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: props.track.soloed ? "#93c5fd" : dawTheme.border, backgroundColor: props.track.soloed ? "#3b82f6" : dawTheme.timelineSurfaceMuted, cursor: "pointer", position: "relative" }}
-              >
-                <text style={{ ...textXs, color: props.track.soloed ? "#050505" : dawTheme.foreground, fontWeight: 700, pointerEvents: "none" }}>S</text>
-                <ControlHitSurface onClick={props.onToggleSolo} />
-              </div>
-              <div
+                style={{
+                  ...textXs,
+                  display: "flex",
+                  flexDirection: "row",
+                  width: 16,
+                  height: 20,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderWidth: 1,
+                  borderColor: props.track.soloed ? "#93c5fd" : dawTheme.border,
+                  backgroundColor: props.track.soloed ? "#3b82f6" : dawTheme.timelineSurfaceMuted,
+                  color: props.track.soloed ? "#050505" : dawTheme.foreground,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >S</text>
+              <text
                 testId={`track-${props.track.id}-arm`}
                 onClick={toggleArm}
-                style={{ display: "flex", flexDirection: "row", width: 16, height: 20, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: isRecordDisabled() ? "#7f1d1d" : dawTheme.red, backgroundColor: props.track.armed ? dawTheme.red : dawTheme.timelineSurface, opacity: isRecordDisabled() ? 0.55 : 1, cursor: isRecordDisabled() ? "default" : "pointer", position: "relative" }}
-              >
-                <text style={{ ...textXs, color: props.track.armed ? "#09090b" : "#f87171", fontWeight: 700, pointerEvents: "none" }}>R</text>
-                <ControlHitSurface onClick={toggleArm} disabled={isRecordDisabled()} />
-              </div>
+                style={{
+                  ...textXs,
+                  display: "flex",
+                  flexDirection: "row",
+                  width: 16,
+                  height: 20,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderWidth: 1,
+                  borderColor: isRecordDisabled() ? "#7f1d1d" : dawTheme.red,
+                  backgroundColor: props.track.armed ? dawTheme.red : dawTheme.timelineSurface,
+                  color: props.track.armed ? "#09090b" : "#f87171",
+                  fontWeight: 700,
+                  opacity: isRecordDisabled() ? 0.55 : 1,
+                  cursor: isRecordDisabled() ? "default" : "pointer",
+                }}
+              >R</text>
             </div>
 
             <div style={{ display: "flex", gap: 4, alignItems: "center", height: 20 }}>
@@ -165,35 +188,57 @@ const TrackSidebarRow = (props: TrackSidebarRowProps): JSX.Element => {
                 style={{ width: 50, height: 6, backgroundColor: dawTheme.timelineBackground, borderWidth: 1, borderColor: dawTheme.border, position: "relative", cursor: "pointer" }}
               >
                 <div style={{ position: "absolute", top: 1, left: 1, height: 2, width: Math.round(props.track.volume * 46), backgroundColor: dawTheme.foreground, pointerEvents: "none" }} />
-                <ControlHitSurface onClick={changeVolume} />
               </div>
               <Show when={!props.track.collapsed}>
-                <div
+                <text
                   testId={`track-${props.track.id}-automation`}
                   onClick={props.onToggleAutomation}
-                  style={{ display: "flex", flexDirection: "row", width: 16, height: 20, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: props.track.automationVisible ? "#f87171" : dawTheme.border, backgroundColor: props.track.automationVisible ? "#ef4444e6" : dawTheme.timelineSurfaceMuted, cursor: "pointer", position: "relative" }}
-                >
-                  <text style={{ ...text3xs, color: props.track.automationVisible ? "#09090b" : "#fca5a5", fontWeight: 700, pointerEvents: "none" }}>A</text>
-                  <ControlHitSurface onClick={props.onToggleAutomation} />
-                </div>
-                <div
+                  style={{
+                    ...text3xs,
+                    display: "flex",
+                    flexDirection: "row",
+                    width: 16,
+                    height: 20,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: 1,
+                    borderColor: props.track.automationVisible ? "#f87171" : dawTheme.border,
+                    backgroundColor: props.track.automationVisible ? "#ef4444e6" : dawTheme.timelineSurfaceMuted,
+                    color: props.track.automationVisible ? "#09090b" : "#fca5a5",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >A</text>
+                <text
                   testId={`track-${props.track.id}-automation-add`}
                   onClick={addAutomationLane}
-                  style={{ display: "flex", flexDirection: "row", width: 16, height: 20, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: props.track.automationVisible ? dawTheme.timelineSurfaceMuted : dawTheme.timelineSurface, opacity: props.track.automationVisible ? 1 : 0.55, cursor: props.track.automationVisible ? "pointer" : "default", position: "relative" }}
-                >
-                  <text style={{ ...text3xs, color: props.track.automationVisible ? "#fecaca" : dawTheme.mutedForeground, fontWeight: 700, pointerEvents: "none" }}>+</text>
-                  <ControlHitSurface onClick={addAutomationLane} disabled={!props.track.automationVisible} />
-                </div>
+                  style={{
+                    ...text3xs,
+                    display: "flex",
+                    flexDirection: "row",
+                    width: 16,
+                    height: 20,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: 1,
+                    borderColor: dawTheme.border,
+                    backgroundColor: props.track.automationVisible ? dawTheme.timelineSurfaceMuted : dawTheme.timelineSurface,
+                    color: props.track.automationVisible ? "#fecaca" : dawTheme.mutedForeground,
+                    fontWeight: 700,
+                    opacity: props.track.automationVisible ? 1 : 0.55,
+                    cursor: props.track.automationVisible ? "pointer" : "default",
+                  }}
+                >+</text>
               </Show>
             </div>
           </div>
 
           <div style={{ width: 10, minWidth: 10, height: meterHeight(), display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 2 }}>
             <div style={{ width: 4, height: meterHeight(), position: "relative", overflow: "hidden", backgroundColor: dawTheme.border }}>
-              <div style={{ position: "absolute", bottom: 0, left: 0, width: 4, height: Math.round(meterLeft() * meterHeight()), backgroundColor: meterColor(meterLeft()) }} />
+              <div style={{ position: "absolute", bottom: 0, left: 0, width: 4, height: Math.round(meterLeft() * meterHeight()), backgroundColor: meterColor(meterLeft()), pointerEvents: "none" }} />
             </div>
             <div style={{ width: 4, height: meterHeight(), position: "relative", overflow: "hidden", backgroundColor: dawTheme.border }}>
-              <div style={{ position: "absolute", bottom: 0, left: 0, width: 4, height: Math.round(meterRight() * meterHeight()), backgroundColor: meterColor(meterRight()) }} />
+              <div style={{ position: "absolute", bottom: 0, left: 0, width: 4, height: Math.round(meterRight() * meterHeight()), backgroundColor: meterColor(meterRight()), pointerEvents: "none" }} />
             </div>
           </div>
         </div>
@@ -238,14 +283,23 @@ const TrackSidebarRow = (props: TrackSidebarRowProps): JSX.Element => {
                 </div>
                 <div style={{ width: 101, display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
                   <text style={{ ...text2xs, color: "#fecaca99" }}>{index === 0 ? "3 pts" : "0 pts"}</text>
-                  <div
+                  <text
                     testId={`track-${props.track.id}-automation-hide`}
                     onClick={props.onHideAutomationLane}
-                    style={{ width: 20, height: 20, borderWidth: 1, borderColor: "#ef44444d", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative" }}
-                  >
-                    <text style={{ ...textXs, color: "#fee2e2", pointerEvents: "none" }}>×</text>
-                    <ControlHitSurface onClick={props.onHideAutomationLane} />
-                  </div>
+                    style={{
+                      ...textXs,
+                      display: "flex",
+                      flexDirection: "row",
+                      width: 20,
+                      height: 20,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderWidth: 1,
+                      borderColor: "#ef44444d",
+                      color: "#fee2e2",
+                      cursor: "pointer",
+                    }}
+                  >×</text>
                 </div>
               </div>
             )}
