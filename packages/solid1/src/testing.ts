@@ -10,7 +10,10 @@ type NativeTestRendererConstructor = new (
   width?: number | null,
   height?: number | null,
 ) => NativeTestRendererApi
-type NativeModule = { TestGpuixRenderer?: NativeTestRendererConstructor }
+type NativeModule = {
+  TestGpuixRenderer?: NativeTestRendererConstructor
+  hasTestGpuixRenderer?: () => boolean
+}
 
 interface NativeTreeNode {
   id: number
@@ -34,6 +37,7 @@ function loadNativeTestRenderer(): NativeTestRendererConstructor | undefined {
     const require = createRequire(import.meta.url)
     // SAFETY: @gpuix/native exports TestGpuixRenderer when the installed platform binding includes test support.
     const nativeModule = require("@gpuix/native") as NativeModule
+    if (nativeModule.hasTestGpuixRenderer?.() !== true) return undefined
     return nativeModule.TestGpuixRenderer
   } catch {
     return undefined

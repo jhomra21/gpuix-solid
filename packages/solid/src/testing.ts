@@ -15,7 +15,10 @@ type NativeTestRendererConstructor = new (
   width?: number | null,
   height?: number | null,
 ) => NativeTestRendererApi
-type NativeModule = { TestGpuixRenderer?: NativeTestRendererConstructor }
+type NativeModule = {
+  TestGpuixRenderer?: NativeTestRendererConstructor
+  hasTestGpuixRenderer?: () => boolean
+}
 
 function loadNativeTestRenderer(): NativeTestRendererConstructor | undefined {
   try {
@@ -23,6 +26,7 @@ function loadNativeTestRenderer(): NativeTestRendererConstructor | undefined {
     // SAFETY: @gpuix/native's generated entrypoint exports this constructor
     // when the installed platform binding was built with native test support.
     const nativeModule = require("@gpuix/native") as NativeModule
+    if (nativeModule.hasTestGpuixRenderer?.() !== true) return undefined
     return nativeModule.TestGpuixRenderer
   } catch {
     return undefined
@@ -31,7 +35,7 @@ function loadNativeTestRenderer(): NativeTestRendererConstructor | undefined {
 
 const NativeTestRenderer = loadNativeTestRenderer()
 
-/** Whether this installed native build exports the GPU-backed test renderer. */
+/** Whether this installed native build provides the real GPU-backed test renderer. */
 export const hasNativeTestRenderer = NativeTestRenderer !== undefined
 
 type TestCustomProps = Record<string, MutationValue>
