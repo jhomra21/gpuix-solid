@@ -57,4 +57,4 @@ jobs:
           git commit -m "fix: support native half translations"
           git push origin HEAD:fix/source-first-example-fidelity
 
-# rerun after parity-import anchor correction
+# rerun after audited box-border compatibility
