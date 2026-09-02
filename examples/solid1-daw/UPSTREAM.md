@@ -5,6 +5,7 @@ This native example ports a focused UI slice from `jhomra21/daw-browser-convex`.
 - source branch: `feat/model-independent-control-platform`
 - pinned revision: `2eaad47813b15aa8511bab8dc04625510c977b12`
 - framework: Solid 1
+- GPUIX native range: `^0.7.0` (the checked-in Bun lock currently resolves `0.7.0`)
 
 ## Fidelity contract
 
@@ -17,6 +18,10 @@ Fake local data replaces Convex, collaboration, persistence, audio engines and p
 `bun run source:check` hashes every verbatim source file as a Git blob and rejects drift from the pinned revision.
 
 The current pin includes the workspace-contribution refactor. The browser surface is now selected through the DAW workspace extension registry in upstream `Timeline.tsx` / `timeline-workspace.tsx`; the built-in browser contribution still renders the same `TimelineLeftBrowser` UI used by this fixture.
+
+## Dependency policy
+
+The repository uses `^0.7.0` for `@gpuix/native` rather than the npm `latest` tag. For a pre-1.0 package this accepts compatible `0.7.x` releases while preventing an unreviewed `0.8.0` API jump. The root Bun lock keeps CI and releases reproducible at the exact resolved native version. Moving to a new GPUIX minor requires updating the range, regenerating the lock with the repository's pinned Bun version, and rerunning the complete cross-platform fidelity suite.
 
 ## Pinned geometry
 
@@ -42,6 +47,7 @@ The deterministic fixture also starts from the pinned timeline defaults: 100px/s
 
 These files are copied byte-for-byte from the pinned DAW revision and are protected by `scripts/check-upstream-source-parity.mjs`:
 
+- `src/components/effects/eq-filter-type-select.tsx`
 - `src/components/timeline/TransportControls.tsx`
 - `src/components/timeline/browser/timeline-left-browser.tsx`
 - `src/components/timeline/TimelineRuler.tsx`
@@ -54,6 +60,7 @@ These files are copied byte-for-byte from the pinned DAW revision and are protec
 - the copied DAW UI primitives listed by the parity script
 - `src/lib/bottom-panel-layout.ts`
 - `src/lib/bottom-panel-preferences.ts`
+- `src/lib/utils.ts`
 
 `src/components/timeline/ArrangementOverview.tsx` is also copied byte-for-byte and parity-protected, but its multicolor SVG paint is represented by the explicit native leaf documented below because the current GPUIX SVG element applies one tint to the entire SVG.
 
@@ -70,17 +77,19 @@ These files own deterministic fixture state or bridge application services, but 
 | `src/native/TransportControls.tsx` | exact `TransportControls.tsx` | supplies deterministic project/menu/MIDI services |
 | `src/native/TimelineLeftBrowser.tsx` | exact browser source | maps fixture browser data/preferences into the source model |
 | `src/native/TimelineWorkspace.tsx` | timeline workspace | composes the source ruler/lane structure around deterministic viewport/sidebar state and the native overview paint leaf; the current upstream contribution registry still resolves the same browser UI |
-| `src/native/TrackLane.tsx` | exact TrackLane source | maps fixture tracks into upstream-shaped types; automation is disabled for this focused slice and the browser gradient grid is painted with retained native lines using the exact source interval math |
+| `src/native/TrackLane.tsx` | exact TrackLane source | maps fixture tracks into upstream-shaped types; clip composition remains source-owned while deterministic automation state preserves the source 48px lane geometry and visible parameter/point vocabulary |
 | `src/native/TimelineBottomPanelShell.tsx` | exact bottom shell | native sizing/event adapter around copied source |
 | `src/native/TimelineBottomPanelFooter.tsx` | exact footer | re-export/adapter only |
 
 ## Explicit native visual leaves
 
-The following visible pieces remain native implementations because the pinned browser components require capabilities that `@gpuix/native@0.4.0` cannot faithfully render. They must continue to follow the pinned source's dimensions, ordering and control vocabulary; they are not permission to invent a different design or reduce interaction.
+The following visible pieces remain native implementations because the pinned browser components require capabilities that GPUIX 0.7 still cannot faithfully render. They must continue to follow the pinned source's dimensions, ordering and control vocabulary; they are not permission to invent a different design or reduce interaction.
+
+GPUIX 0.7 adds native two-stop linear gradients and publishes the cross-platform `hasTestGpuixRenderer()` availability API. Those capabilities are used at the host boundary where applicable, but they do not remove the Canvas 2D, arbitrary mixed-grid, Web Audio or multicolor inline-SVG boundaries below.
 
 ### ArrangementOverview paint
 
-Pinned `ArrangementOverview.tsx` draws all overview clips into one SVG with independent per-path `fill` colors. GPUIX 0.4's `<svg>` custom element is designed as a tintable icon surface and applies a single native text-color tint to the SVG, so running that paint path unchanged turns the multicolor clip overview monochrome.
+Pinned `ArrangementOverview.tsx` draws all overview clips into one SVG with independent per-path `fill` colors. GPUIX 0.7's `<svg>` custom element remains a tintable icon surface, so running that paint path unchanged would make the multicolor clip overview monochrome.
 
 The exact source file remains copied and parity-protected. `src/native/ArrangementOverview.tsx` mirrors its track filtering, normalized 100×40 clip geometry, visible-range rectangle and pointer pan/resize/commit behavior, but paints each source clip rectangle as a retained native div so its real clip color survives. This boundary can disappear once GPUIX exposes untinted/multicolor inline SVG painting.
 
@@ -98,14 +107,14 @@ The native row follows the pinned three-column geometry: track name/collapse, ou
 
 ### Compressor / EQ Eight
 
-Pinned Compressor uses the DAW device shell, SVG transfer graph and a mixed CSS grid track definition (`84px 1fr 96px`). Current GPUIX `StyleDesc` only exposes equal-count grid rows/columns, so that source grid cannot be represented exactly.
+Pinned Compressor uses the DAW device shell, SVG transfer graph and a mixed CSS grid track definition (`84px 1fr 96px`). GPUIX 0.7 `StyleDesc` still exposes equal-count grid rows/columns rather than arbitrary mixed CSS grid tracks, so that source grid cannot be represented exactly.
 
-Pinned EQ Eight additionally depends on Canvas 2D, `ResizeObserver`, requestAnimationFrame and Web Audio filter-response APIs. It cannot execute faithfully in the native host today.
+Pinned EQ Eight additionally depends on Canvas 2D, `ResizeObserver`, requestAnimationFrame and Web Audio filter-response APIs. It cannot execute faithfully in the native host today. Its exact `EqFilterTypeSelect`, however, is dependency-compatible and now runs directly from the pinned source rather than through the former `HP / Bell / LP` approximation.
 
-`src/native/EffectsPanel.tsx` therefore keeps these as explicit visual leaves while matching the pinned device structure:
+`src/native/EffectsPanel.tsx` therefore keeps the remaining device surfaces as explicit visual leaves while matching the pinned device structure:
 
 - Compressor: 560px shell; 84px left control stack; status/graph/Thresh-Knee-Look center; 96px Makeup/mode/Dry-Wet stack.
-- EQ Eight: 704px shell; 72px Freq/Gain/Q strip; central graph; 72px mode strip; 52px eight-band selector.
+- EQ Eight: 704px shell; 72px Freq/Gain/Q strip; central graph; 72px mode strip; 52px eight-band selector whose filter-type control is the exact pinned source component.
 
 Every visible device control in the fixture is backed by deterministic local state.
 
@@ -115,12 +124,13 @@ Pinned `SampleDetailWaveform.tsx` uses Canvas 2D, `ResizeObserver` and the wavef
 
 ## GPUIX Solid compatibility added for this port
 
-The source crossover exposed reusable host gaps that are fixed in the Solid host rather than hidden in DAW adapters. The Solid 1 and Solid 2 host files remain byte-for-byte mirrored.
+The source crossover exposed reusable host gaps that are fixed in the Solid host rather than hidden in DAW adapters. Shared host behavior remains synchronized between Solid 1 and Solid 2 where the framework contracts overlap.
 
 - `HostElementNode.getBoundingClientRect()` uses production `GpuixRenderer.getElementBounds(id)`.
 - `TestGpuixRenderer.getElementBounds()` reports the painted content box for bordered divs, so fidelity tests reconstruct pinned border-box widths by adding the resolved left/right border widths.
+- the host uses GPUIX 0.7's `hasTestGpuixRenderer()` guard rather than inferring availability from whether the constructor export exists.
 - host elements expose `focus()`, `blur()`, `select()`, `scrollTop`, `scrollLeft` and pointer-capture bookkeeping.
-- native event dispatch now supplies the real host element as `event.currentTarget` / `event.target` and synchronizes input `value` before the handler runs.
+- native event dispatch supplies the real host element as `event.currentTarget` / `event.target` and synchronizes input `value` before the handler runs.
 - native host elements satisfy `instanceof Element` / `instanceof HTMLElement` in the Node runtime.
 - a small native `window.addEventListener` bridge forwards pointer move/up/down events to global pointer listeners used by unchanged DAW source such as the ruler.
 - a minimal `document.body.classList` facade supports source drag-state bookkeeping without browser DOM mutation.
@@ -140,10 +150,10 @@ The focused fixture exercises:
 - ruler playhead scrubbing and loop-region state through the source component
 - clip drag entry, snapping and compatible cross-track movement when native held-pointer continuation is available
 - Effects / Clip bottom-panel switching and hide/show
-- reactive Compressor and EQ native-leaf controls
+- reactive Compressor and EQ native-leaf controls, including the exact eight-option source filter-type selector
 - source-shaped Sample Detail panel and controls
 
-`@gpuix/native@0.4.0`'s macOS `TestGpuixRenderer` currently delivers the initial mouse-down but does not reliably deliver the complete held move/up sequence required to automate every drag path. This is tracked at `remorses/gpuix#20`. Tests report the limitation rather than claiming synthetic drag coverage that the native binding does not provide. Physical-mouse behavior remains part of the manual macOS acceptance pass.
+Held-pointer drag automation remains an explicit acceptance item. The older native binding did not reliably deliver every held move/up sequence in the DAW verifier; GPUIX 0.7 changes test-renderer availability but does not by itself prove this interaction path fixed. The automated suite must only claim drag coverage after the 0.7 renderer demonstrates it consistently on the supported GPU-backed platforms. Physical-mouse behavior remains part of the manual macOS acceptance pass.
 
 ## Intentionally omitted application systems
 
