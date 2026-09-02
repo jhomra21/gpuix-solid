@@ -1,7 +1,7 @@
 import { createMemo, createSignal, type JSX } from "solid-js"
 import { automationTargetKey, type AutomationParameterSelection } from "../compat/daw-browser-shared"
 import type { TimelineWorkspaceAutomationModel } from "../compat/useTimelineAutomationController"
-import type { Track, TrackSend } from "../compat/timeline-core-types"
+import type { RuntimeClip, Track, TrackSend } from "../compat/timeline-core-types"
 import UpstreamTrackSidebar, { type TrackSidebarModel } from "../upstream/components/timeline/TrackSidebar"
 import { masterAreaHeight } from "../upstream/components/timeline/MasterSidebarRow"
 import {
@@ -43,7 +43,7 @@ export type SourceTrackSidebarProps = {
   onReorderTracks?: (ids: string[], target: TrackDropTarget) => void
 }
 
-function sourceClip(clip: NativeTrack["clips"][number]) {
+function sourceClip(clip: NativeTrack["clips"][number]): RuntimeClip {
   return {
     ...clip,
     color: clip.color ?? (clip.kind === "midi" ? dawTheme.clipMidi : dawTheme.clipAudio),
