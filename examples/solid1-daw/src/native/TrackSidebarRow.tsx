@@ -235,10 +235,10 @@ const TrackSidebarRow = (props: TrackSidebarRowProps): JSX.Element => {
 
           <div style={{ width: 10, minWidth: 10, height: meterHeight(), display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 2 }}>
             <div style={{ width: 4, height: meterHeight(), position: "relative", overflow: "hidden", backgroundColor: dawTheme.border }}>
-              <div style={{ position: "absolute", bottom: 0, left: 0, width: 4, height: Math.round(meterLeft() * meterHeight()), backgroundColor: meterColor(meterLeft()), pointerEvents: "none" }} />
+              <div testId={`track-${props.track.id}-meter-left-fill`} style={{ position: "absolute", bottom: 0, left: 0, width: 4, height: Math.round(meterLeft() * meterHeight()), backgroundColor: meterColor(meterLeft()), pointerEvents: "none" }} />
             </div>
             <div style={{ width: 4, height: meterHeight(), position: "relative", overflow: "hidden", backgroundColor: dawTheme.border }}>
-              <div style={{ position: "absolute", bottom: 0, left: 0, width: 4, height: Math.round(meterRight() * meterHeight()), backgroundColor: meterColor(meterRight()), pointerEvents: "none" }} />
+              <div testId={`track-${props.track.id}-meter-right-fill`} style={{ position: "absolute", bottom: 0, left: 0, width: 4, height: Math.round(meterRight() * meterHeight()), backgroundColor: meterColor(meterRight()), pointerEvents: "none" }} />
             </div>
           </div>
         </div>
