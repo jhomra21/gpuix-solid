@@ -100,6 +100,9 @@ export namespace JSX {
     kbd: SemanticDomProps
     samp: SemanticDomProps
     button: SemanticDomProps
+    output: DomCompatibleProps<HostProps, SolidJSX.HTMLAttributes<HTMLOutputElement>>
+    select: DomCompatibleProps<HostProps, SolidJSX.SelectHTMLAttributes<HTMLSelectElement>>
+    option: DomCompatibleProps<HostProps, SolidJSX.OptionHTMLAttributes<HTMLOptionElement>>
     section: SemanticDomProps
     main: SemanticDomProps
     header: SemanticDomProps

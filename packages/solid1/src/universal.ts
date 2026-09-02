@@ -86,6 +86,8 @@ const TEXT_SEMANTIC_TAGS = new Set([
   "time",
   "kbd",
   "samp",
+  "output",
+  "option",
 ])
 
 const DIV_SEMANTIC_TAGS = new Set([
@@ -107,6 +109,7 @@ const DIV_SEMANTIC_TAGS = new Set([
   "figure",
   "figcaption",
   "a",
+  "select",
 ])
 
 const SVG_CHILD_TAGS = new Set([
@@ -171,7 +174,7 @@ onNativeStyleEnvironmentChange(() => {
 const runtime = createRenderer<HostNode | HostParent>({
   createElement(tagName) {
     const type = nativeElementType(tagName)
-    const node = createHostElement(type)
+    const node = createHostElement(type, tagName)
     if (type !== tagName || tagName === "svg") semanticTags.set(node, tagName)
     return node
   },

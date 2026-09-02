@@ -191,12 +191,57 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   }
 
   compareDocumentPosition(other: HostElementNode): number {
-    return compareHostDocumentPosition(this, other)
-  }
+  return compareHostDocumentPosition(this, other)
+}
 
-  closest(_selector: string): HostElementNode | null {
-    return null
+get dataset(): Record<string, string> {
+  const dataset: Record<string, string> = {}
+  for (const [name, value] of this.props) {
+    if (!name.startsWith("data-") || value === null || value === undefined) continue
+    dataset[dataAttributeProperty(name.slice(5))] = String(value)
   }
+  return dataset
+}
+
+getAttribute(name: string): string | null {
+  const value = this.props.get(name)
+  return value === null || value === undefined ? null : String(value)
+}
+
+hasAttribute(name: string): boolean {
+  return this.props.has(name)
+}
+
+setAttribute(name: string, value: string): void {
+  setHostProperty(this, name, String(value))
+}
+
+removeAttribute(name: string): void {
+  setHostProperty(this, name, undefined)
+}
+
+contains(other: HostElementNode | null): boolean {
+  if (!other) return false
+  let current: HostElementNode | null = other
+  while (current) {
+    if (current === this) return true
+    current = current.parentElement
+  }
+  return false
+}
+
+matches(selector: string): boolean {
+  return selector.split(",").some((candidate) => matchesSimpleSelector(this, candidate.trim()))
+}
+
+closest(selector: string): HostElementNode | null {
+  let current: HostElementNode | null = this
+  while (current) {
+    if (current.matches(selector)) return current
+    current = current.parentElement
+  }
+  return null
+}
 
   getBoundingClientRect(): {
     x: number
@@ -375,6 +420,22 @@ export function getNextSibling(node: HostNode): HostNode | undefined {
 
 export function isHostTextNode(node: HostNode | HostParent): node is HostTextNode {
   return node.kind === "text"
+}
+
+function dataAttributeProperty(name: string): string {
+  return name.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase())
+}
+
+function matchesSimpleSelector(node: HostElementNode, selector: string): boolean {
+  if (!selector) return false
+  const attribute = selector.match(/^\[([A-Za-z_:][\w:.-]*)(?:=(['"]?)(.*?)\2)?\]$/)
+  if (attribute) {
+    const name = attribute[1]
+    if (!name || !node.hasAttribute(name)) return false
+    const expected = attribute[3]
+    return expected === undefined || node.getAttribute(name) === expected
+  }
+  return /^[A-Za-z][A-Za-z0-9-]*$/.test(selector) && node.localName === selector.toLowerCase()
 }
 
 function compareHostDocumentPosition(reference: HostNode, other: HostNode): number {
