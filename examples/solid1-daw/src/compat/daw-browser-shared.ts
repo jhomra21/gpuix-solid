@@ -68,6 +68,21 @@ export type AutomationTargetParameterOption = AutomationParameterSelection & {
   group: string
   device: string
 }
+export type AutomationParameterDescriptor = {
+  id: string
+  label: string
+  group: string
+  device: string
+  owner: string
+  targetKinds: AutomationTargetKind[]
+  min: number
+  max: number
+  defaultValue: number
+  scale: "linear" | "log"
+  interpolation?: AutomationInterpolation
+  valueKind?: "continuous" | "integer"
+  unit?: "db" | "hz" | "percent" | "seconds" | "milliseconds" | "semitones" | "cents" | "octaves"
+}
 
 export const AUTOMATION_TARGET_KEY_V2_PREFIX = "automation:v2:"
 
@@ -79,6 +94,121 @@ export const automationTargetKey = (target: AutomationTarget, parameterId: strin
     parameterId,
   ])}`
 )
+
+const clampAutomationValue = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
+
+const volumeAutomationDescriptor: AutomationParameterDescriptor = {
+  id: "volume",
+  label: "Volume",
+  group: "Mixer",
+  device: "Mixer",
+  owner: "mixer",
+  targetKinds: ["track", "master"],
+  min: 0,
+  max: 2,
+  defaultValue: 1,
+  scale: "linear",
+  unit: "percent",
+}
+
+export const normalizeAutomationValue = (
+  value: number,
+  descriptor: AutomationParameterDescriptor,
+): number => {
+  const clamped = clampAutomationValue(value, descriptor.min, descriptor.max)
+  return descriptor.valueKind === "integer" ? Math.round(clamped) : clamped
+}
+
+export const getAutomationParameterDescriptor = (
+  parameterId: string,
+): AutomationParameterDescriptor | undefined => parameterId === volumeAutomationDescriptor.id
+  ? volumeAutomationDescriptor
+  : undefined
+
+export const automationValueToRatio = (
+  descriptor: AutomationParameterDescriptor,
+  value: number,
+): number => {
+  const clamped = clampAutomationValue(value, descriptor.min, descriptor.max)
+  if (descriptor.scale === "log") {
+    const min = Math.max(Number.MIN_VALUE, descriptor.min)
+    const max = Math.max(min, descriptor.max)
+    return clampAutomationValue(Math.log(clamped / min) / Math.log(max / min), 0, 1)
+  }
+  return clampAutomationValue((clamped - descriptor.min) / (descriptor.max - descriptor.min), 0, 1)
+}
+
+export const automationRatioToValue = (
+  descriptor: AutomationParameterDescriptor,
+  ratio: number,
+): number => {
+  const clamped = clampAutomationValue(ratio, 0, 1)
+  if (descriptor.scale === "log") {
+    const min = Math.max(Number.MIN_VALUE, descriptor.min)
+    const max = Math.max(min, descriptor.max)
+    return min * ((max / min) ** clamped)
+  }
+  return descriptor.min + clamped * (descriptor.max - descriptor.min)
+}
+
+const isAutomationInterpolation = (value: string): value is AutomationInterpolation => value === "linear" || value === "hold"
+
+export const normalizeAutomationPoints = (
+  points: AutomationPoint[],
+  descriptor: AutomationParameterDescriptor,
+): AutomationPoint[] => {
+  const byTime = new Map<number, AutomationPoint>()
+  for (const point of points) {
+    if (!Number.isFinite(point.timeSec) || !Number.isFinite(point.value) || !point.id) continue
+    const timeSec = Math.max(0, point.timeSec)
+    byTime.set(timeSec, {
+      id: point.id,
+      timeSec,
+      value: normalizeAutomationValue(point.value, descriptor),
+      interpolation: descriptor.interpolation === "hold"
+        ? "hold"
+        : isAutomationInterpolation(point.interpolation) ? point.interpolation : "linear",
+    })
+  }
+  return [...byTime.values()].sort((a, b) => a.timeSec - b.timeSec || a.id.localeCompare(b.id))
+}
+
+export const valueAtAutomationTime = (
+  points: readonly AutomationPoint[],
+  timeSec: number,
+  fallbackValue: number,
+): number => {
+  if (points.length === 0) return fallbackValue
+  const first = points[0]
+  if (!first || timeSec <= first.timeSec) return first?.value ?? fallbackValue
+  let low = 1
+  let high = points.length - 1
+  let nextIndex = points.length
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2)
+    const point = points[middle]
+    if (!point) {
+      high = middle - 1
+      continue
+    }
+    if (timeSec <= point.timeSec) {
+      nextIndex = middle
+      high = middle - 1
+    } else {
+      low = middle + 1
+    }
+  }
+  if (nextIndex >= points.length) return points[points.length - 1]?.value ?? fallbackValue
+  const previous = points[nextIndex - 1]
+  const next = points[nextIndex]
+  if (!previous || !next) return fallbackValue
+  if (timeSec === next.timeSec) return next.value
+  if (previous.interpolation === "hold") return previous.value
+  const span = next.timeSec - previous.timeSec
+  if (span <= 0) return next.value
+  const progress = (timeSec - previous.timeSec) / span
+  return previous.value + ((next.value - previous.value) * progress)
+}
 
 export const automationEnvelopeValueRange = (
   envelope: AutomationEnvelope | undefined,
