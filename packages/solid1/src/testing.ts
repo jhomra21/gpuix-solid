@@ -3,7 +3,7 @@ import type { EventPayload, TestGpuixRenderer as NativeTestRendererApi } from "@
 import type { JSX } from "solid-js"
 import { adaptBatchRenderer } from "./batch-renderer-adapter.js"
 import { useDestroyUnlinksParentBatch, type MutationValue } from "./host/mutations.js"
-import type { StyleDesc } from "./host/types.js"
+import type { StyleDesc, WindowKeyEventHandlers } from "./host/types.js"
 import { createRoot, type Root } from "./root.js"
 
 type NativeTestRendererConstructor = new (
@@ -129,6 +129,9 @@ export class TestRenderer {
 
   applyBatch(json: string): number[] { return this.#native.applyBatch(json) }
   focusElement(elementId: number): void { this.#native.focusElement(elementId) }
+  focusNext(): void { this.#native.focusNext() }
+  focusPrevious(): void { this.#native.focusPrevious() }
+  setWindowKeyEvents(keyDown: boolean, keyUp: boolean, eventId: number): void { this.#native.setWindowKeyEvents(keyDown, keyUp, eventId) }
   getElementBounds(elementId: number): number[] | null { return this.#native.getElementBounds(elementId) }
 
   flush(): void { this.#native.flush() }
@@ -396,11 +399,11 @@ export interface TestRoot {
   unmount(): void
 }
 
-export function createTestRoot(width?: number, height?: number): TestRoot {
+export function createTestRoot(width?: number, height?: number, windowKeyEventHandlers: WindowKeyEventHandlers = {}): TestRoot {
   const renderer = new TestRenderer(width, height)
   const hostRenderer = adaptBatchRenderer(renderer)
   useDestroyUnlinksParentBatch(hostRenderer)
-  const root = createRoot(hostRenderer)
+  const root = createRoot(hostRenderer, windowKeyEventHandlers)
   renderer.bindRoot(root)
   return {
     root,

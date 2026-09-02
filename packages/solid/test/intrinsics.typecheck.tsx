@@ -41,7 +41,15 @@ const style: StyleDesc = {
   right: 2,
   bottom: 3,
   left: 4,
-  background: "#111",
+  background: {
+    type: "linear-gradient",
+    angle: 90,
+    stops: [
+      { color: "#7c3aed", position: 0 },
+      { color: "#06b6d4", position: 1 },
+    ],
+    colorSpace: "oklab",
+  },
   backgroundColor: "#111",
   color: "#fff",
   opacity: 0.9,

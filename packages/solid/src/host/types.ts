@@ -115,6 +115,20 @@ export interface BoxShadow {
   color: string
 }
 
+export interface LinearGradientStop {
+  color: string
+  /** Position along the gradient from 0 to 1. */
+  position: number
+}
+
+export interface LinearGradientBackground {
+  type: "linear-gradient"
+  /** CSS angle in degrees. 0 points up and values increase clockwise. */
+  angle: number
+  stops: [LinearGradientStop, LinearGradientStop]
+  colorSpace?: "srgb" | "oklab"
+}
+
 export interface StyleDesc {
   display?: string
   visibility?: string
@@ -160,7 +174,7 @@ export interface StyleDesc {
   bottom?: number
   left?: number
 
-  background?: string
+  background?: string | LinearGradientBackground
   backgroundColor?: string
   color?: string
   opacity?: number
@@ -388,6 +402,7 @@ export interface HostProps {
   highlight?: HighlightSpec | HighlightSpec[] | null
   autoFocus?: boolean
   tabIndex?: number
+  title?: string
   testId?: string
 }
 
@@ -496,7 +511,10 @@ export interface NativeRenderer {
   applyBatch?(json: string): number[]
 
   focusElement?(elementId: number): void
+  focusNext?(): void
+  focusPrevious?(): void
   blur?(): void
+  setWindowKeyEvents?(keyDown: boolean, keyUp: boolean, eventId: number): void
   scrollTo?(elementId: number, x: number, y: number): void
   scrollToItem?(elementId: number, index: number, offsetInItem?: number): void
   getScrollOffset?(elementId: number): number[] | null
@@ -513,6 +531,15 @@ export interface NativeRenderer {
   cycleDebugFrameOverlay?(): string
   resetDebugFrameOverlayStats?(): void
   getDebugFrameOverlayStats?(): DebugFrameOverlayStats
+}
+
+export type WindowKeyEventHandler = (event: EventPayload, renderer: NativeRenderer) => void
+
+export interface WindowKeyEventHandlers {
+  /** Window-level GPUI listener. Key actions can consume an event before this runs. */
+  onKeyDown?: WindowKeyEventHandler
+  /** Window-level GPUI listener. */
+  onKeyUp?: WindowKeyEventHandler
 }
 
 export interface PublicInstance {

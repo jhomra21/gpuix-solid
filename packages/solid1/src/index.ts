@@ -58,6 +58,8 @@ export type {
   GpuixTheme,
   HostProps,
   ImgProps,
+  LinearGradientBackground,
+  LinearGradientStop,
   InputProps,
   MarkdownProps,
   NativeRenderer,
@@ -65,6 +67,8 @@ export type {
   SvgProps,
   TextareaProps,
   VirtualListProps,
+  WindowKeyEventHandler,
+  WindowKeyEventHandlers,
 } from "./host/types.js"
 
 export { GpuixRenderer } from "@gpuix/native"

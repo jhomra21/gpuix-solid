@@ -1,4 +1,4 @@
-import type { StyleDesc } from "./host/types.js"
+import type { LinearGradientBackground, StyleDesc } from "./host/types.js"
 
 export type NativeColorMode = "light" | "dark"
 export type NativeClassList = Record<string, boolean | null | undefined>
@@ -160,7 +160,19 @@ function mergeNestedState(
 function normalizePublishedNativeColors(style: StyleDesc | undefined): StyleDesc | undefined {
   if (!style) return undefined
   const result: StyleDesc = { ...style }
-  for (const key of ["background", "backgroundColor", "color", "borderColor", "selectionColor"] as const) {
+  const background = result.background
+  if (background !== undefined) {
+    result.background = isLinearGradientBackground(background)
+      ? {
+          ...background,
+          stops: [
+            { ...background.stops[0], color: normalizePublishedNativeColor(background.stops[0].color) },
+            { ...background.stops[1], color: normalizePublishedNativeColor(background.stops[1].color) },
+          ],
+        }
+      : normalizePublishedNativeColor(background)
+  }
+  for (const key of ["backgroundColor", "color", "borderColor", "selectionColor"] as const) {
     const value = result[key]
     if (value !== undefined) result[key] = normalizePublishedNativeColor(value)
   }
@@ -175,6 +187,12 @@ function normalizeNestedColors(style: Omit<StyleDesc, "hover" | "active">): Omit
   if (!normalized) return style
   const { hover: _hover, active: _active, ...nested } = normalized
   return nested
+}
+
+function isLinearGradientBackground(
+  value: string | LinearGradientBackground,
+): value is LinearGradientBackground {
+  return Object(value) === value
 }
 
 function normalizePublishedNativeColor(value: string): string {

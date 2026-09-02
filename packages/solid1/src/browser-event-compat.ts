@@ -32,7 +32,7 @@ export function installBrowserEventCompatibility(): void {
   EVENT_PROP_TO_TYPE.set("onMouseOut", "mouseLeave")
 }
 
-/** GPUIX 0.6 reports platform-neutral key names; browser libraries expect KeyboardEvent.key names. */
+/** GPUIX 0.7 reports platform-neutral key names; browser libraries expect KeyboardEvent.key names. */
 export function browserCompatibleNativeEvent(event: EventPayload): EventPayload {
   if ((event.eventType !== "keyDown" && event.eventType !== "keyUp") || !event.key) return event
   return { ...event, key: browserKeyName(event.key) }

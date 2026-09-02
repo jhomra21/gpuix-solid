@@ -227,6 +227,13 @@ if (!hasNativeTestRenderer) {
   requireCondition((app.renderer.scrollOffsetTestId("effects-panel")?.[0] ?? 0) < 0, "effects chain should scroll horizontally to EQ")
   app.renderer.clickCenterTestId("eq-band-7")
   requireText(app.renderer.textContent("eq-selected-gain-value"), "0.0 dB", "EQ high band selection")
+  app.renderer.clickCenterTestId("eq-filter-type-7")
+  const eqFilterMenuText = app.renderer.textContentRoot()
+  for (const option of ["Low Pass", "High Pass", "Band Pass", "Notch", "Low Shelf", "High Shelf", "Peaking", "All Pass"]) {
+    requireText(eqFilterMenuText, option, `EQ filter source option ${option}`)
+  }
+  app.renderer.clickText("Notch")
+  requireCondition(!app.renderer.textContentRoot().includes("Low Pass"), "selecting an EQ filter type should dismiss the source menu")
   app.renderer.clickCenterTestId("eq-selected-gain-plus")
   requireText(app.renderer.textContent("eq-selected-gain-value"), "+1.0 dB", "EQ high gain")
   app.renderer.clickCenterTestId("eq-reset")

@@ -4,8 +4,16 @@ import { GpuixContext, type GpuixContextValue } from "./context.js"
 import { EventRegistry } from "./host/events.js"
 import { MutationDriver } from "./host/mutations.js"
 import { HostRootNode, removeHostNode, type HostNode } from "./host/nodes.js"
-import type { NativeRenderer } from "./host/types.js"
+import type { NativeRenderer, WindowKeyEventHandlers } from "./host/types.js"
 import { createComponent, universalRender } from "./host/universal.js"
+
+const windowKeyEventIds = new WeakMap<NativeRenderer, number>()
+
+function nextWindowKeyEventId(renderer: NativeRenderer): number {
+  const id = (windowKeyEventIds.get(renderer) ?? 0) + 1
+  windowKeyEventIds.set(renderer, id)
+  return id
+}
 
 export interface Root {
   render(code: () => SolidElement): void
@@ -15,10 +23,16 @@ export interface Root {
   unmount(): void
 }
 
-export function createRoot(renderer: NativeRenderer): Root {
+export function createRoot(renderer: NativeRenderer, windowKeyEventHandlers: WindowKeyEventHandlers = {}): Root {
   const events = new EventRegistry()
   const driver = new MutationDriver(renderer, events)
   const container = new HostRootNode(renderer, events, driver)
+  const windowKeyEventId = nextWindowKeyEventId(renderer)
+  renderer.setWindowKeyEvents?.(
+    Boolean(windowKeyEventHandlers.onKeyDown),
+    Boolean(windowKeyEventHandlers.onKeyUp),
+    windowKeyEventId,
+  )
   let dispose: (() => void) | undefined
 
   const flushNative = (): void => driver.flush()
@@ -69,7 +83,17 @@ export function createRoot(renderer: NativeRenderer): Root {
     flushSync,
     dispatch(event) {
       try {
-        flushSolid(() => events.dispatch(event))
+        flushSolid(() => {
+          if (event.eventType === "windowKeyDown" || event.eventType === "windowKeyUp") {
+            if (event.elementId !== windowKeyEventId) return
+            const handler = event.eventType === "windowKeyDown"
+              ? windowKeyEventHandlers.onKeyDown
+              : windowKeyEventHandlers.onKeyUp
+            handler?.(event, renderer)
+            return
+          }
+          events.dispatch(event)
+        })
       } finally {
         flushNative()
       }
@@ -81,6 +105,9 @@ export function createRoot(renderer: NativeRenderer): Root {
       if (mounted) removeHostNode(container, mounted)
       flush()
       events.clear()
+      if (windowKeyEventIds.get(renderer) === windowKeyEventId) {
+        renderer.setWindowKeyEvents?.(false, false, windowKeyEventId)
+      }
       driver.dispose()
     },
   }

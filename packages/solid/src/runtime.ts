@@ -5,7 +5,7 @@ import { adaptBatchRenderer } from "./batch-renderer-adapter.js"
 import { applyDebugFrameOverlay } from "./capabilities.js"
 import { startFrameLoop, type FrameLoop } from "./frame-loop.js"
 import { useDestroyUnlinksParentBatch } from "./host/mutations.js"
-import type { DebugFrameOverlayMode, NativeRenderer } from "./host/types.js"
+import type { DebugFrameOverlayMode, NativeRenderer, WindowKeyEventHandlers } from "./host/types.js"
 import { createRoot, type Root } from "./root.js"
 
 export { createRoot } from "./root.js"
@@ -43,7 +43,7 @@ export function createRenderer(
   }
 }
 
-export interface RenderOptions extends WindowOptions {
+export interface RenderOptions extends WindowOptions, WindowKeyEventHandlers {
   renderer?: NativeRenderer
   onEvent?: (event: EventPayload) => void
   debugFrameOverlay?: DebugFrameOverlayMode
@@ -62,11 +62,14 @@ export interface RenderHandle {
 }
 
 export function render(code: () => SolidElement, options: RenderOptions = {}): RenderHandle {
-  const { renderer: injected, onEvent, debugFrameOverlay, ...windowOptions } = options
+  const { renderer: injected, onEvent, onKeyDown, onKeyUp, debugFrameOverlay, ...windowOptions } = options
+  const windowKeyEventHandlers: WindowKeyEventHandlers = {}
+  if (onKeyDown) windowKeyEventHandlers.onKeyDown = onKeyDown
+  if (onKeyUp) windowKeyEventHandlers.onKeyUp = onKeyUp
 
   if (injected) {
     applyDebugFrameOverlay(injected, debugFrameOverlay)
-    const root = createRoot(injected)
+    const root = createRoot(injected, windowKeyEventHandlers)
     root.render(code)
     return {
       root,
@@ -83,7 +86,7 @@ export function render(code: () => SolidElement, options: RenderOptions = {}): R
   const renderer = adaptBatchRenderer(native.renderer)
   useDestroyUnlinksParentBatch(renderer)
   applyDebugFrameOverlay(renderer, debugFrameOverlay)
-  const root = createRoot(renderer)
+  const root = createRoot(renderer, windowKeyEventHandlers)
   native.bindRoot(root)
   root.render(code)
   const loop = startFrameLoop(native.renderer, {

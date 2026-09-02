@@ -5,6 +5,9 @@ export class FakeRenderer implements NativeRenderer {
   readonly batches: MutationValue[][][] = []
   readonly direct: MutationValue[][] = []
   destroyed: number[] = []
+  readonly windowKeyEvents: Array<[boolean, boolean, number]> = []
+  focusNextCount = 0
+  focusPreviousCount = 0
 
   applyBatch(json: string): number[] {
     // SAFETY: MutationDriver serializes batches containing only MutationValue entries.
@@ -25,4 +28,9 @@ export class FakeRenderer implements NativeRenderer {
   setRoot(id: number): void { this.direct.push(["setRoot", id]) }
   setCustomProp(id: number, key: string, value: string): void { this.direct.push(["setCustomProp", id, key, value]) }
   commitMutations(): void { this.direct.push(["commitMutations"]) }
+  focusNext(): void { this.focusNextCount++ }
+  focusPrevious(): void { this.focusPreviousCount++ }
+  setWindowKeyEvents(keyDown: boolean, keyUp: boolean, eventId: number): void {
+    this.windowKeyEvents.push([keyDown, keyUp, eventId])
+  }
 }

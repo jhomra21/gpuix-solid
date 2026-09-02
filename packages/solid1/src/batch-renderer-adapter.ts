@@ -12,7 +12,10 @@ type BoundsCapableRenderer = NativeRenderer & {
 export interface BatchRendererApi {
   applyBatch(json: string): number[]
   focusElement?(elementId: number): void
+  focusNext?(): void
+  focusPrevious?(): void
   blur?(): void
+  setWindowKeyEvents?(keyDown: boolean, keyUp: boolean, eventId: number): void
   scrollTo?(elementId: number, x: number, y: number): void
   scrollToItem?(elementId: number, index: number): void
   getScrollOffset?(elementId: number): number[] | null
@@ -72,7 +75,10 @@ export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRen
   }
 
   if (renderer.focusElement) adapted.focusElement = renderer.focusElement.bind(renderer)
+  if (renderer.focusNext) adapted.focusNext = renderer.focusNext.bind(renderer)
+  if (renderer.focusPrevious) adapted.focusPrevious = renderer.focusPrevious.bind(renderer)
   if (renderer.blur) adapted.blur = renderer.blur.bind(renderer)
+  if (renderer.setWindowKeyEvents) adapted.setWindowKeyEvents = renderer.setWindowKeyEvents.bind(renderer)
   if (renderer.scrollTo) adapted.scrollTo = renderer.scrollTo.bind(renderer)
   if (renderer.scrollToItem) adapted.scrollToItem = renderer.scrollToItem.bind(renderer)
   if (renderer.getScrollOffset) adapted.getScrollOffset = renderer.getScrollOffset.bind(renderer)
