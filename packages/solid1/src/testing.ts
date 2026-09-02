@@ -168,10 +168,10 @@ export class TestRenderer {
   }
 
   clickCenterTestId(testId: string): void {
-    const point = centerPoint(this.boundsTestId(testId))
-    this.#native.simulateClick(point.x, point.y)
-    this.dispatchNativeEvents()
-    this.#native.flush()
+    const trace = this.clickCenterTestIdWithTrace(testId)
+    if (!trace.events.some((event) => event.testId === testId)) {
+      console.log(`[native center click trace] ${testId}: ${JSON.stringify(trace)}`)
+    }
   }
 
   clickCenterTestIdWithTrace(testId: string): TestClickTrace {
