@@ -203,9 +203,16 @@ function collectCandidates(sources) {
     const sourceFile = ts.createSourceFile(sourcePath, text, ts.ScriptTarget.Latest, true, scriptKind)
 
     const visit = (node) => {
-      if (ts.isJsxAttribute(node) && (node.name.text === "class" || node.name.text === "className")) {
-        collectClassExpression(node.initializer, candidates)
-        return
+      if (ts.isJsxAttribute(node)) {
+        const attributeName = node.name.text
+        if (attributeName === "class" || attributeName === "className") {
+          collectClassExpression(node.initializer, candidates)
+          return
+        }
+        if (attributeName === "classList") {
+          collectClassListExpression(node.initializer, candidates)
+          return
+        }
       }
 
       if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "cva") {
@@ -240,6 +247,41 @@ function collectClassExpression(node, candidates) {
   }
 
   ts.forEachChild(node, (child) => collectClassExpression(child, candidates))
+}
+
+function collectClassListExpression(node, candidates) {
+  if (!node) return
+
+  if (ts.isJsxExpression(node)) {
+    collectClassListExpression(node.expression, candidates)
+    return
+  }
+
+  if (!ts.isObjectLiteralExpression(node)) return
+
+  for (const property of node.properties) {
+    if (ts.isPropertyAssignment(property)) {
+      collectClassListKey(property.name, candidates)
+      continue
+    }
+    if (ts.isSpreadAssignment(property)) {
+      collectClassListExpression(property.expression, candidates)
+    }
+  }
+}
+
+function collectClassListKey(name, candidates) {
+  if (ts.isStringLiteralLike(name) || ts.isNoSubstitutionTemplateLiteral(name)) {
+    addClassString(name.text, candidates)
+    return
+  }
+  if (ts.isIdentifier(name)) {
+    addClassString(name.text, candidates)
+    return
+  }
+  if (ts.isComputedPropertyName(name)) {
+    collectClassExpression(name.expression, candidates)
+  }
 }
 
 function addClassString(value, candidates) {
