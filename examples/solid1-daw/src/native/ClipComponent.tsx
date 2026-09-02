@@ -1,4 +1,4 @@
-import { For, Show, type JSX } from "solid-js"
+import { For, onCleanup, Show, type JSX } from "solid-js"
 import type { EventPayload } from "@jhomra21/gpuix-solid1"
 import type { NativeClip } from "./model"
 import { dawTheme, layout, textXs } from "./theme"
@@ -22,20 +22,71 @@ function alphaHex(color: string, alpha: string): string {
 
 const DOUBLE_TAP_MS = 700
 const DOUBLE_TAP_DISTANCE_PX = 8
+const SELECTED_TAP_MS = 700
 let lastClipTap: { clipId: string; at: number; x: number; y: number } | undefined
 
 const ClipComponent = (props: ClipComponentProps): JSX.Element => {
   const width = () => Math.max(6, Math.floor(props.clip.duration * props.pixelsPerSecond))
   const handleWidth = () => width() < 18 ? 2 : width() < 28 ? 3 : 6
   const color = () => visualColor(props.clip)
-  let selectedBeforeMouseDown: boolean | undefined
+  let selectedTapStart: { x: number; y: number; at: number } | undefined
+  let sawMouseDown = false
+  let globalPointerUpArmed = false
+
+  const disarmGlobalPointerUp = (): void => {
+    if (!globalPointerUpArmed) return
+    window.removeEventListener("pointerup", handleGlobalPointerUp, true)
+    globalPointerUpArmed = false
+  }
+
+  const finishSelectedTap = (x: number, y: number, button: number): void => {
+    const start = selectedTapStart
+    selectedTapStart = undefined
+    disarmGlobalPointerUp()
+    if (!start || button !== 0) return
+    if (performance.now() - start.at > SELECTED_TAP_MS) return
+    if (Math.abs(x - start.x) > DOUBLE_TAP_DISTANCE_PX || Math.abs(y - start.y) > DOUBLE_TAP_DISTANCE_PX) return
+    lastClipTap = undefined
+    props.onOpen()
+  }
+
+  function handleGlobalPointerUp(event: PointerEvent): void {
+    finishSelectedTap(event.clientX, event.clientY, event.button)
+  }
+
+  const armGlobalPointerUp = (): void => {
+    if (globalPointerUpArmed) return
+    window.addEventListener("pointerup", handleGlobalPointerUp, true)
+    globalPointerUpArmed = true
+  }
 
   const handleMouseDown = (event: EventPayload): void => {
-    // Upstream captures the pre-interaction selection state and lets a quick,
-    // stationary tap on an already-selected clip open Sample Detail. Capture
-    // it before the drag/select handler updates selection for this pointer-down.
-    selectedBeforeMouseDown = props.selected
+    sawMouseDown = true
+    const button = event.button ?? 0
+    if (button !== 0) {
+      selectedTapStart = undefined
+      disarmGlobalPointerUp()
+      props.onMouseDown(event)
+      return
+    }
+
+    // Upstream records a selected-tap candidate before selection/drag handling.
+    // The native fixture can insert its drag layer after this event, so keep a
+    // global pointer-up listener as the equivalent of upstream pointer capture.
+    selectedTapStart = props.selected
+      ? { x: event.clientX ?? event.x ?? 0, y: event.clientY ?? event.y ?? 0, at: performance.now() }
+      : undefined
+    if (selectedTapStart) armGlobalPointerUp()
+    else disarmGlobalPointerUp()
     props.onMouseDown(event)
+  }
+
+  const handleMouseUp = (event: EventPayload): void => {
+    finishSelectedTap(
+      event.clientX ?? event.x ?? 0,
+      event.clientY ?? event.y ?? 0,
+      event.button ?? 0,
+    )
   }
 
   const handleClick = (event: EventPayload): void => {
@@ -43,15 +94,14 @@ const ClipComponent = (props: ClipComponentProps): JSX.Element => {
     const x = event.x ?? 0
     const y = event.y ?? 0
     const previous = lastClipTap
-    // Live pointer input supplies mouseDown first, so use its exact pre-selection
-    // snapshot. GPUIX semantic click synthesis may omit mouseDown; in that case
-    // props.selected is still the state from before this click's onSelect call.
-    const openFromSelectedTap = selectedBeforeMouseDown ?? props.selected
-    selectedBeforeMouseDown = undefined
+    const hadMouseDown = sawMouseDown
+    sawMouseDown = false
     lastClipTap = { clipId: props.clip.id, at: now, x, y }
     props.onSelect()
 
-    if (openFromSelectedTap) {
+    // GPUIX semantic click synthesis can omit the element mouse-down handler.
+    // In that shape, read selection before this click's onSelect mutation.
+    if (!hadMouseDown && props.selected) {
       lastClipTap = undefined
       props.onOpen()
       return
@@ -63,11 +113,14 @@ const ClipComponent = (props: ClipComponentProps): JSX.Element => {
     props.onOpen()
   }
 
+  onCleanup(disarmGlobalPointerUp)
+
   return (
     <div
       testId={`clip-${props.clip.id}`}
       onClick={handleClick}
       onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
       style={{
         position: "absolute",
         top: 0,
