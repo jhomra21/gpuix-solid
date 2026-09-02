@@ -16,6 +16,7 @@
   "src/upstream/components/timeline/MasterSidebarRow.tsx",
   "src/upstream/components/timeline/MixerVolumeSlider.tsx",
   "src/upstream/components/timeline/automation-parameter-picker.tsx",
+  "src/upstream/components/timeline/automation-lane.tsx",
   "src/upstream/components/timeline/context-menu/timeline-context-menu.tsx",
   "src/upstream/components/timeline/menus/edit-menu.tsx",
   "src/upstream/components/timeline/menus/file-menu.tsx",
