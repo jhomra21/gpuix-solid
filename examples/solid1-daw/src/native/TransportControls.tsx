@@ -4,9 +4,9 @@ import type { BrowserTab, TrackKind } from "./model"
 
 export interface TransportControlsProps {
   browserOpen: boolean
-  onOpenBrowser: () => void
+  onOpenBrowser?: () => void
   onToggleBrowser: () => void
-  onSelectBrowserTab: (tab: BrowserTab) => void
+  onSelectBrowserTab?: (tab: BrowserTab) => void
   isRecording: boolean
   onToggleRecord: () => void
   isPlaying: boolean
@@ -24,21 +24,21 @@ export interface TransportControlsProps {
   gridDenominator: number
   onChangeGridDenominator: (next: number) => void
   midiKeyboardEnabled: boolean
-  midiKeyboardCanPlay: boolean
-  midiKeyboardTargetLabel: string | null
+  midiKeyboardCanPlay?: boolean
+  midiKeyboardTargetLabel?: string | null
   onToggleMidiKeyboard: () => void
   playheadSec: number
-  syncMix: boolean
-  onToggleSyncMix: () => void
-  onAddTrack: (kind: TrackKind) => void
-  onImportAudio: () => void
-  onUndo: () => void
-  onRedo: () => void
-  onDeleteSelection: () => void
-  onDuplicateSelection: () => void
-  onZoomIn: () => void
-  onZoomOut: () => void
-  onZoomFit: () => void
+  syncMix?: boolean
+  onToggleSyncMix?: () => void
+  onAddTrack?: (kind: TrackKind) => void
+  onImportAudio?: () => void
+  onUndo?: () => void
+  onRedo?: () => void
+  onDeleteSelection?: () => void
+  onDuplicateSelection?: () => void
+  onZoomIn?: () => void
+  onZoomOut?: () => void
+  onZoomFit?: () => void
 }
 
 const noop = () => undefined
@@ -47,9 +47,9 @@ const TransportControls = (props: TransportControlsProps): JSX.Element => (
   <SourceTransportControls
     browser={{
       open: props.browserOpen,
-      onOpen: props.onOpenBrowser,
+      onOpen: props.onOpenBrowser ?? (() => { if (!props.browserOpen) props.onToggleBrowser() }),
       onToggle: props.onToggleBrowser,
-      onSelectTab: props.onSelectBrowserTab,
+      onSelectTab: props.onSelectBrowserTab ?? noop,
     }}
     isRecording={props.isRecording}
     onToggleRecord={props.onToggleRecord}
@@ -57,11 +57,11 @@ const TransportControls = (props: TransportControlsProps): JSX.Element => (
     onPlay={props.onPlay}
     onPause={props.onPause}
     onStop={props.onStop}
-    onAddAudio={props.onImportAudio}
-    onUndo={props.onUndo}
-    onRedo={props.onRedo}
-    onDeleteSelection={props.onDeleteSelection}
-    onDuplicateSelection={props.onDuplicateSelection}
+    onAddAudio={props.onImportAudio ?? noop}
+    onUndo={props.onUndo ?? noop}
+    onRedo={props.onRedo ?? noop}
+    onDeleteSelection={props.onDeleteSelection ?? noop}
+    onDuplicateSelection={props.onDuplicateSelection ?? noop}
     bpm={props.bpm}
     onChangeBpm={props.onChangeBpm}
     metronomeEnabled={props.metronomeEnabled}
@@ -71,21 +71,21 @@ const TransportControls = (props: TransportControlsProps): JSX.Element => (
     gridEnabled={props.gridEnabled}
     onToggleGrid={props.onToggleGrid}
     zoom={{
-      onIn: props.onZoomIn,
-      onOut: props.onZoomOut,
-      onFit: props.onZoomFit,
+      onIn: props.onZoomIn ?? noop,
+      onOut: props.onZoomOut ?? noop,
+      onFit: props.onZoomFit ?? noop,
     }}
     gridDenominator={props.gridDenominator}
     onChangeGridDenominator={props.onChangeGridDenominator}
     automationOverrideCount={0}
     onReEnableAutomation={noop}
     tracksMenu={{
-      syncMix: props.syncMix,
-      onToggleSyncMix: props.onToggleSyncMix,
-      onAddTrack: () => props.onAddTrack("audio"),
-      onAddReturnTrack: () => props.onAddTrack("return"),
-      onAddGroupTrack: () => props.onAddTrack("group"),
-      onAddInstrumentTrack: () => props.onAddTrack("midi"),
+      syncMix: props.syncMix ?? false,
+      onToggleSyncMix: props.onToggleSyncMix ?? noop,
+      onAddTrack: () => props.onAddTrack?.("audio"),
+      onAddReturnTrack: () => props.onAddTrack?.("return"),
+      onAddGroupTrack: () => props.onAddTrack?.("group"),
+      onAddInstrumentTrack: () => props.onAddTrack?.("midi"),
     }}
     projectMenu={{
       currentProjectId: "project:gpuix-solid1-daw",
@@ -105,8 +105,8 @@ const TransportControls = (props: TransportControlsProps): JSX.Element => (
     }}
     midiKeyboard={{
       enabled: () => props.midiKeyboardEnabled,
-      canPlay: () => props.midiKeyboardCanPlay,
-      targetLabel: () => props.midiKeyboardTargetLabel,
+      canPlay: () => props.midiKeyboardCanPlay ?? false,
+      targetLabel: () => props.midiKeyboardTargetLabel ?? null,
       octave: () => 0,
       toggle: props.onToggleMidiKeyboard,
     }}
