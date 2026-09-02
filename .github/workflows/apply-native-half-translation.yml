@@ -35,13 +35,13 @@ jobs:
           for package in ("solid", "solid1"):
               path = Path(f"packages/{package}/src/native-style.ts")
               text = path.read_text()
-              old = '''  if (classFraction !== undefined && parentSize !== undefined) return parentSize * classFraction
+              old_parser = '''  if (classFraction !== undefined && parentSize !== undefined) return parentSize * classFraction
             if (value === undefined || parentSize === undefined || typeof value === "number") return value
             const percentage = value.trim().match(/^(-?(?:\\d+(?:\\.\\d+)?|\\.\\d+))%$/)
             if (!percentage) return value
             return parentSize * Number(percentage[1]) / 100
           '''
-              new = '''  if (classFraction !== undefined && parentSize !== undefined) return parentSize * classFraction
+              new_parser = '''  if (classFraction !== undefined && parentSize !== undefined) return parentSize * classFraction
             if (value === undefined || parentSize === undefined) return value
             const numeric = Number(value)
             if (Number.isFinite(numeric)) return numeric
@@ -49,9 +49,29 @@ jobs:
             if (!percentage) return value
             return parentSize * Number(percentage[1]) / 100
           '''
-              if old not in text:
-                  raise SystemExit(f"{path}: relative position parser anchor missing")
-              path.write_text(text.replace(old, new, 1))
+              old_positions = '''  result.left = resolveRelativePosition(result.left, position?.leftFraction, parentWidth)
+            result.right = resolveRelativePosition(result.right, position?.rightFraction, parentWidth)
+            result.top = resolveRelativePosition(result.top, position?.topFraction, parentHeight)
+            result.bottom = resolveRelativePosition(result.bottom, position?.bottomFraction, parentHeight)
+            return result
+          '''
+              new_positions = '''  const left = resolveRelativePosition(result.left, position?.leftFraction, parentWidth)
+            const right = resolveRelativePosition(result.right, position?.rightFraction, parentWidth)
+            const top = resolveRelativePosition(result.top, position?.topFraction, parentHeight)
+            const bottom = resolveRelativePosition(result.bottom, position?.bottomFraction, parentHeight)
+            if (left === undefined) delete result.left
+            else result.left = left
+            if (right === undefined) delete result.right
+            else result.right = right
+            if (top === undefined) delete result.top
+            else result.top = top
+            if (bottom === undefined) delete result.bottom
+            else result.bottom = bottom
+            return result
+          '''
+              if old_parser not in text or old_positions not in text:
+                  raise SystemExit(f"{path}: relative position compatibility anchor missing")
+              path.write_text(text.replace(old_parser, new_parser, 1).replace(old_positions, new_positions, 1))
 
           path = Path("packages/solid1/src/universal.ts")
           text = path.read_text()
