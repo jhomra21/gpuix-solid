@@ -24,7 +24,10 @@ The repository keeps pinned source snapshots and verifies them with Git blob has
 - `riccardoperra/codeimage@27b185f18d36f2baec3a8cc5a43e8794586096c3`;
 - `TanStack/router@b6984af74dd561b8ee7e2d7369898a536dda70c2`;
 - `jhomra21/cloudflare-workers-solid-tanstack-spa-betterauth-D1-KV@47139f07c018dc2ba505bbb5915750fdba19e961`;
-- `diffusionstudio/editor@585fb010dcca36919f096f4b1275d535acab0cb9`.
+- `diffusionstudio/editor@585fb010dcca36919f096f4b1275d535acab0cb9`;
+- `jhomra21/daw-browser-convex@2eaad47813b15aa8511bab8dc04625510c977b12` — the DAW fixture currently protects a 58-file exact source closure.
+
+The DAW Tailwind manifest is generated from that copied source rather than from a parallel style rewrite. Compatibility for the fixed 1440×900 native target is handled below the copied components: parent-relative percentage positioning and half-translation are resolved from native geometry, the active desktop `sm:` dialog variants are compiled for the reference viewport, and `sr-only` retains its visual-hiding contract. GPUIX 0.7 gaps such as z-index, letter spacing, browser transitions/focus effects, CSS filters, touch-action policy and layered/inset shadows stay individually audited instead of being silently ignored as a class of styles.
 
 ## Example parity
 
