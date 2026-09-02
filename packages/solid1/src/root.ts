@@ -4,7 +4,6 @@ import { installBrowserElementIdentity } from "./browser-element-identity.js"
 import {
   browserCompatibleNativeEvent,
   dispatchBrowserKeyboardEvent,
-  installBrowserEventCompatibility,
 } from "./browser-event-compat.js"
 import { installBrowserPreflushCompatibility } from "./browser-preflush-compat.js"
 import { syncBrowserViewportSize } from "./browser-viewport-compat.js"
@@ -49,7 +48,6 @@ function elementBounds(renderer: NativeRenderer, elementId: number): number[] | 
 
 export function createRoot(renderer: NativeRenderer, windowKeyEventHandlers: WindowKeyEventHandlers = {}): Root {
   installBrowserElementIdentity()
-  installBrowserEventCompatibility()
   const events = new EventRegistry()
   const driver = new MutationDriver(renderer, events)
   const container = new HostRootNode(renderer, events, driver)

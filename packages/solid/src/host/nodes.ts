@@ -1,4 +1,4 @@
-import { EVENT_PROP_TO_TYPE, type DomCompatTarget, type EventRegistry } from "./events.js"
+import { EVENT_PROP_TO_TYPE, nativeEventTypeForDomEvent, type DomCompatTarget, type EventRegistry } from "./events.js"
 import type { MutationDriver, MutationValue } from "./mutations.js"
 import type {
   ElementType,
@@ -73,7 +73,6 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     add: (..._tokens: string[]): void => undefined,
     remove: (..._tokens: string[]): void => undefined,
   }
-  readonly #capturedPointers = new Set<number>()
   readonly #eventListeners = new Map<string, Set<EventListenerOrEventListenerObject>>()
 
   constructor(type: ElementType, tagName: string = type) {
@@ -180,101 +179,103 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   }
 
   setPointerCapture(pointerId: number): void {
-    this.#capturedPointers.add(pointerId)
+    const root = this.root
+    if (!root || !this.nativeAlive) throw new DOMException("Pointer capture target is not connected", "InvalidStateError")
+    root.events.setPointerCapture(this.id, pointerId)
   }
 
   releasePointerCapture(pointerId: number): void {
-    this.#capturedPointers.delete(pointerId)
+    this.root?.events.releasePointerCapture(this.id, pointerId)
   }
 
   hasPointerCapture(pointerId: number): boolean {
-    return this.#capturedPointers.has(pointerId)
+    return this.root?.events.hasPointerCapture(this.id, pointerId) ?? false
   }
 
-  compareDocumentPosition(other: HostElementNode): number {
-  return compareHostDocumentPosition(this, other)
-}
-
-get dataset(): Record<string, string> {
-  const dataset: Record<string, string> = {}
-  for (const [name, value] of this.props) {
-    if (!name.startsWith("data-") || value === null || value === undefined) continue
-    dataset[dataAttributeProperty(name.slice(5))] = String(value)
+    compareDocumentPosition(other: HostElementNode): number {
+    return compareHostDocumentPosition(this, other)
   }
-  return dataset
-}
 
-getAttribute(name: string): string | null {
-  const value = this.props.get(name)
-  return value === null || value === undefined ? null : String(value)
-}
-
-hasAttribute(name: string): boolean {
-  return this.props.has(name)
-}
-
-setAttribute(name: string, value: string): void {
-  setHostProperty(this, name, String(value))
-}
-
-removeAttribute(name: string): void {
-  setHostProperty(this, name, undefined)
-}
-
-contains(other: HostElementNode | null): boolean {
-  if (!other) return false
-  let current: HostElementNode | null = other
-  while (current) {
-    if (current === this) return true
-    current = current.parentElement
+  get dataset(): Record<string, string> {
+    const dataset: Record<string, string> = {}
+    for (const [name, value] of this.props) {
+      if (!name.startsWith("data-") || value === null || value === undefined) continue
+      dataset[dataAttributeProperty(name.slice(5))] = String(value)
+    }
+    return dataset
   }
-  return false
-}
 
-matches(selector: string): boolean {
-  return selector.split(",").some((candidate) => matchesSimpleSelector(this, candidate.trim()))
-}
-
-closest(selector: string): HostElementNode | null {
-  let current: HostElementNode | null = this
-  while (current) {
-    if (current.matches(selector)) return current
-    current = current.parentElement
+  getAttribute(name: string): string | null {
+    const value = this.props.get(name)
+    return value === null || value === undefined ? null : String(value)
   }
-  return null
-}
 
-addEventListener(
-  type: string,
-  listener: EventListenerOrEventListenerObject | null,
-): void {
-  if (!listener) return
-  const listeners = this.#eventListeners.get(type) ?? new Set<EventListenerOrEventListenerObject>()
-  listeners.add(listener)
-  this.#eventListeners.set(type, listeners)
-}
-
-removeEventListener(
-  type: string,
-  listener: EventListenerOrEventListenerObject | null,
-): void {
-  if (!listener) return
-  const listeners = this.#eventListeners.get(type)
-  listeners?.delete(listener)
-  if (listeners?.size === 0) this.#eventListeners.delete(type)
-}
-
-dispatchEvent(event: Event): boolean {
-  if (event.target === null) {
-    Object.defineProperty(event, "target", { configurable: true, value: this })
+  hasAttribute(name: string): boolean {
+    return this.props.has(name)
   }
-  Object.defineProperty(event, "currentTarget", { configurable: true, value: this })
-  for (const listener of [...(this.#eventListeners.get(event.type) ?? [])]) {
-    if (typeof listener === "function") listener.call(this, event)
-    else listener.handleEvent(event)
+
+  setAttribute(name: string, value: string): void {
+    setHostProperty(this, name, String(value))
   }
-  return !event.defaultPrevented
-}
+
+  removeAttribute(name: string): void {
+    setHostProperty(this, name, undefined)
+  }
+
+  contains(other: HostElementNode | null): boolean {
+    if (!other) return false
+    let current: HostElementNode | null = other
+    while (current) {
+      if (current === this) return true
+      current = current.parentElement
+    }
+    return false
+  }
+
+  matches(selector: string): boolean {
+    return selector.split(",").some((candidate) => matchesSimpleSelector(this, candidate.trim()))
+  }
+
+  closest(selector: string): HostElementNode | null {
+    let current: HostElementNode | null = this
+    while (current) {
+      if (current.matches(selector)) return current
+      current = current.parentElement
+    }
+    return null
+  }
+
+  addEventListener(
+    type: string,
+    listener: EventListenerOrEventListenerObject | null,
+  ): void {
+    if (!listener) return
+    const listeners = this.#eventListeners.get(type) ?? new Set<EventListenerOrEventListenerObject>()
+    listeners.add(listener)
+    this.#eventListeners.set(type, listeners)
+  }
+
+  removeEventListener(
+    type: string,
+    listener: EventListenerOrEventListenerObject | null,
+  ): void {
+    if (!listener) return
+    const listeners = this.#eventListeners.get(type)
+    listeners?.delete(listener)
+    if (listeners?.size === 0) this.#eventListeners.delete(type)
+  }
+
+  dispatchEvent(event: Event): boolean {
+    if (event.target === null) {
+      Object.defineProperty(event, "target", { configurable: true, value: this })
+    }
+    Object.defineProperty(event, "currentTarget", { configurable: true, value: this })
+    for (const listener of [...(this.#eventListeners.get(event.type) ?? [])]) {
+      if (typeof listener === "function") listener.call(this, event)
+      else listener.handleEvent(event)
+    }
+    return !event.defaultPrevented
+  }
 
   getBoundingClientRect(): {
     x: number
@@ -370,7 +371,8 @@ export function setHostProperty<T>(
 
   const eventType = EVENT_PROP_TO_TYPE.get(name)
   if (eventType) {
-    const oldHandler = isHostEventHandler(previous) ? previous : undefined
+    const nativeEventType = nativeEventTypeForDomEvent(eventType)
+    const hadNativeHandler = nativeEventType ? hasNativeEventHandler(node, nativeEventType) : false
     const handler = isHostEventHandler(value) ? value : undefined
     if (handler) node.events.set(eventType, handler)
     else node.events.delete(eventType)
@@ -379,12 +381,11 @@ export function setHostProperty<T>(
     if (handler) node.root.events.set(node.id, eventType, handler)
     else node.root.events.delete(node.id, eventType)
 
-    const nativeType = nativeEventType(eventType)
-    const hasNativeHandler = nativeType === "mouseUp"
-      ? node.root.events.has(node.id, "mouseUp") || node.root.events.has(node.id, "contextMenu")
-      : node.root.events.has(node.id, nativeType)
-    if (Boolean(oldHandler) !== Boolean(handler) || eventType === "contextMenu" || eventType === "mouseUp") {
-      node.root.driver.enqueue("setEventListener", node.id, nativeType, hasNativeHandler)
+    if (nativeEventType) {
+      const hasNativeHandler = hasNativeEventHandler(node, nativeEventType)
+      if (hadNativeHandler != hasNativeHandler) {
+        node.root.driver.enqueue("setEventListener", node.id, nativeEventType, hasNativeHandler)
+      }
     }
     return
   }
@@ -571,7 +572,8 @@ function adopt(root: HostRootNode, node: HostNode): void {
     }
     for (const [eventType, handler] of node.events) {
       root.events.set(node.id, eventType, handler)
-      nativeEventTypes.add(nativeEventType(eventType))
+      const nativeEventType = nativeEventTypeForDomEvent(eventType)
+      if (nativeEventType) nativeEventTypes.add(nativeEventType)
     }
     for (const eventType of nativeEventTypes) {
       root.driver.enqueue("setEventListener", node.id, eventType, true)
@@ -589,8 +591,11 @@ function adopt(root: HostRootNode, node: HostNode): void {
   }
 }
 
-function nativeEventType(eventType: string): string {
-  return eventType === "contextMenu" ? "mouseUp" : eventType
+function hasNativeEventHandler(node: HostElementNode, nativeEventType: string): boolean {
+  for (const eventType of node.events.keys()) {
+    if (nativeEventTypeForDomEvent(eventType) === nativeEventType) return true
+  }
+  return false
 }
 
 function markNativeDead(root: HostRootNode, node: HostNode): void {

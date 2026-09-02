@@ -4,6 +4,7 @@ import {
   configureNativeStyleManifest,
   resolveNativeClassStyle,
 } from "../src/native-style.ts"
+import { EventRegistry } from "../src/host/events.ts"
 import { createHostElement, insertHostNode, setHostProperty } from "../src/host/nodes.ts"
 
 const packageRoot = new URL("../", import.meta.url)
@@ -53,5 +54,50 @@ let localEvents = 0
 semanticButton.addEventListener("click", () => { localEvents += 1 })
 semanticButton.dispatchEvent(new Event("click", { cancelable: true }))
 if (localEvents !== 1) throw new Error("native host EventTarget listener must fire")
+
+const eventRegistry = new EventRegistry()
+const pointerOwner = createHostElement("div", "button")
+const pointerOther = createHostElement("div", "button")
+eventRegistry.activate(1)
+eventRegistry.activate(2)
+eventRegistry.setTarget(1, pointerOwner)
+eventRegistry.setTarget(2, pointerOther)
+const pointerEvents: string[] = []
+eventRegistry.set(1, "pointerDown", (event) => {
+  pointerEvents.push("pointerDown")
+  eventRegistry.setPointerCapture(1, event.pointerId ?? 0)
+})
+eventRegistry.set(1, "mouseDown", () => pointerEvents.push("mouseDown"))
+eventRegistry.set(1, "pointerMove", () => pointerEvents.push("pointerMove"))
+eventRegistry.set(1, "pointerUp", () => pointerEvents.push("pointerUp"))
+eventRegistry.set(1, "lostPointerCapture", () => pointerEvents.push("lostPointerCapture"))
+eventRegistry.dispatch({ elementId: 1, eventType: "mouseDown", x: 5, y: 5, button: 0 } as Parameters<EventRegistry["dispatch"]>[0])
+eventRegistry.dispatch({ elementId: 2, eventType: "mouseMove", x: 50, y: 5, button: 0 } as Parameters<EventRegistry["dispatch"]>[0])
+if (!eventRegistry.hasPointerCapture(1, 0)) throw new Error("pointer capture must remain active across another element")
+eventRegistry.dispatch({ elementId: 2, eventType: "mouseUp", x: 50, y: 5, button: 0 } as Parameters<EventRegistry["dispatch"]>[0])
+if (pointerEvents.join(",") !== "pointerDown,mouseDown,pointerMove,pointerUp,lostPointerCapture") {
+  throw new Error(`captured pointer move must retarget to capture owner: ${pointerEvents.join(",")}`)
+}
+if (eventRegistry.hasPointerCapture(1, 0)) throw new Error("pointer capture must release after pointerup")
+
+const separateHandlers = createHostElement("div", "button")
+let mouseDownCount = 0
+let pointerDownCount = 0
+setHostProperty(separateHandlers, "onMouseDown", () => { mouseDownCount += 1 })
+setHostProperty(separateHandlers, "onPointerDown", () => { pointerDownCount += 1 })
+if (!separateHandlers.events.has("mouseDown") || !separateHandlers.events.has("pointerDown")) {
+  throw new Error("mouse and pointer handlers must coexist without overwriting each other")
+}
+
+const doubleClickRegistry = new EventRegistry()
+const doubleClickTarget = createHostElement("div", "button")
+doubleClickRegistry.activate(3)
+doubleClickRegistry.setTarget(3, doubleClickTarget)
+let doubleClicks = 0
+doubleClickRegistry.set(3, "dblClick", () => { doubleClicks += 1 })
+const click = { elementId: 3, eventType: "click", x: 10, y: 10, button: 0 } as Parameters<EventRegistry["dispatch"]>[0]
+doubleClickRegistry.dispatch(click)
+doubleClickRegistry.dispatch(click)
+if (doubleClicks !== 1) throw new Error("double click must be synthesized once from two nearby clicks")
 
 console.log("solid1 host parity: passed")

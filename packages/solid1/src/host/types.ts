@@ -318,11 +318,12 @@ export interface HighlightMatch {
   rects: Array<{ x: number; y: number; width: number; height: number }>
 }
 
-export type DomCompatTarget = {
+export type DomCompatTarget = EventTarget & {
   value: string
   scrollTop: number
   scrollLeft: number
   style: object
+  dataset: Record<string, string>
   classList: {
     add: (...tokens: string[]) => void
     remove: (...tokens: string[]) => void
@@ -369,6 +370,7 @@ export interface HostProps {
   ref?: HostRef
 
   onClick?: HostEventHandler
+  onDblClick?: HostEventHandler
   onAuxClick?: HostEventHandler
   onContextMenu?: HostEventHandler
   onMouseDown?: HostEventHandler
