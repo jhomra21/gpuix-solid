@@ -160,11 +160,17 @@ if new_entries not in text:
         raise SystemExit("DAW generator: half translation compatibility anchor missing")
     text = text.replace(old_entries, new_entries, 1)
 ignore_anchor = "const explicitlyIgnored = new Map([\n"
-box_border = '  ["box-border", "GPUIX 0.7 has no box-sizing StyleDesc field; native DAW footer bounds tests already verify the intended total border-box geometry"],\n'
-if box_border not in text:
-    if ignore_anchor not in text:
-        raise SystemExit("DAW generator: explicit omission anchor missing")
-    text = text.replace(ignore_anchor, ignore_anchor + box_border, 1)
+omissions = [
+    '  ["box-border", "GPUIX 0.7 has no box-sizing StyleDesc field; native DAW footer bounds tests already verify the intended total border-box geometry"],\n',
+    '  ["col-start-3", "GPUIX 0.7 does not publish grid-item column placement; the native DAW verifier asserts the collapsed source control group remains right-aligned before this omission is accepted"],\n',
+    '  ["col-start-4", "GPUIX 0.7 does not publish grid-item column placement; the native DAW verifier asserts collapsed mute/solo/arm/volume order and right alignment"],\n',
+    '  ["row-start-1", "GPUIX 0.7 does not publish grid-item row placement; the native DAW verifier asserts the collapsed controls preserve the source one-row ordering"],\n',
+]
+for omission in reversed(omissions):
+    if omission not in text:
+        if ignore_anchor not in text:
+            raise SystemExit("DAW generator: explicit omission anchor missing")
+        text = text.replace(ignore_anchor, ignore_anchor + omission, 1)
 generator.write_text(text)
 
 parity = Path("packages/solid1/scripts/check-host-parity.ts")
@@ -200,3 +206,36 @@ if "fractional native translation must resolve against final own size" not in te
         raise SystemExit("solid1 parity: dataset probe anchor missing")
     text = text.replace(probe_anchor, probe, 1)
 parity.write_text(text)
+
+daw_test = Path("examples/solid1-daw/src/test.tsx")
+text = daw_test.read_text()
+anchor = '''  requireCondition(Math.abs(collapsedSidebarHeight - 32) <= 1, `collapsed mixer row should preserve source 32px height, got ${collapsedSidebarHeight}`)
+  requireCondition(Math.abs(collapsedLaneHeight - collapsedSidebarHeight) <= 1, "collapsed timeline and mixer geometry should stay aligned")
+  app.renderer.clickCenterTestId("track-synth-collapse")
+'''
+replacement = '''  requireCondition(Math.abs(collapsedSidebarHeight - 32) <= 1, `collapsed mixer row should preserve source 32px height, got ${collapsedSidebarHeight}`)
+  requireCondition(Math.abs(collapsedLaneHeight - collapsedSidebarHeight) <= 1, "collapsed timeline and mixer geometry should stay aligned")
+  const collapsedSidebar = app.renderer.boundsTestId("track-synth")
+  const collapsedMute = app.renderer.boundsTestId("track-synth-mute")
+  const collapsedSolo = app.renderer.boundsTestId("track-synth-solo")
+  const collapsedArm = app.renderer.boundsTestId("track-synth-arm")
+  const collapsedVolume = app.renderer.boundsTestId("track-synth-volume")
+  requireCondition(
+    collapsedMute.x > collapsedSidebar.x + collapsedSidebar.width * 0.55,
+    `collapsed source control group should remain in the right-side third column, row ${JSON.stringify(collapsedSidebar)}, mute ${JSON.stringify(collapsedMute)}`,
+  )
+  requireCondition(
+    collapsedMute.x < collapsedSolo.x && collapsedSolo.x < collapsedArm.x && collapsedArm.x < collapsedVolume.x,
+    `collapsed source controls should preserve mute/solo/arm/volume ordering: ${JSON.stringify({ collapsedMute, collapsedSolo, collapsedArm, collapsedVolume })}`,
+  )
+  requireCondition(
+    right(collapsedVolume) <= right(collapsedSidebar) + 2,
+    `collapsed source volume control should stay inside the mixer row: row ${JSON.stringify(collapsedSidebar)}, volume ${JSON.stringify(collapsedVolume)}`,
+  )
+  app.renderer.clickCenterTestId("track-synth-collapse")
+'''
+if "collapsed source control group should remain in the right-side third column" not in text:
+    if anchor not in text:
+        raise SystemExit("DAW test: collapsed geometry anchor missing")
+    text = text.replace(anchor, replacement, 1)
+daw_test.write_text(text)
