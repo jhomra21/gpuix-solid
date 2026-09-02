@@ -13,7 +13,7 @@ Where upstream source exists, the repository keeps a pinned copy and treats sour
 
 ## GPUIX parity examples
 
-The published GPUIX 0.6 desktop examples have Solid 2 parity coverage for Counter, Native Text, Todo, Diff, Timeline, Chat, and Infinite Chat. Timeline remains in the automated/performance suite, but the public video-editor example is the real Diffusion Studio editor described below.
+The published GPUIX 0.7 desktop examples have Solid 2 parity coverage for Counter, Native Text, Todo, Diff, Timeline, Chat, and Infinite Chat. Timeline remains in the automated/performance suite, but the public video-editor example is the real Diffusion Studio editor described below.
 
 ### Counter
 
@@ -204,7 +204,7 @@ The Timeline suite drives real mouse move/down/up sequences, including pointer-c
 
 ## Validation policy
 
-The repository currently targets `@gpuix/native ^0.6.0`.
+The repository currently targets `@gpuix/native ^0.7.0`.
 
 CI verifies frozen install, lint, typecheck, native tests, and builds on macOS, Ubuntu, and Windows, plus a separate exact-package smoke job. The Solid 1 validation chain also covers Kobalte, blurred-window, Tailwind, and DAW fixtures.
 

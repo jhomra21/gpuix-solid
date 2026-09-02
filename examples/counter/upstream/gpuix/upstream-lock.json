@@ -1,6 +1,6 @@
 {
   "repository": "remorses/gpuix",
-  "commit": "09e0caeb1812eece10a3a8a7200ef18567610267",
+  "commit": "a24b4a42eb516c7b940eb8d34ecebb077df623bd",
   "blobs": {
     "examples/counter.tsx": "a9a18006b1215b11b98f2277826df39ee87aece3",
     "examples/native-text.tsx": "f70cf5bf1209d9c58857050a1334526231f0253f",
