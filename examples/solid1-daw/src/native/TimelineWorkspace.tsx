@@ -77,10 +77,12 @@ function TimelineGrid(props: {
     if (!props.enabled) return []
     const intervals = selectTimelineGridIntervals(props.pixelsPerSecond, props.bpm, props.denominator, true)
     if (!(intervals.minorSec > 0 && intervals.majorSec > 0)) return []
-    const majorEvery = Math.max(1, Math.round(intervals.majorSec / intervals.minorSec))
-    const count = Math.ceil(props.durationSec / intervals.minorSec)
+    const minorSec = intervals.minorSec
+    const majorSec = intervals.majorSec
+    const majorEvery = Math.max(1, Math.round(majorSec / minorSec))
+    const count = Math.ceil(props.durationSec / minorSec)
     return Array.from({ length: count + 1 }, (_, index) => ({
-      left: index * minorSec,
+      left: index * minorSec * props.pixelsPerSecond,
       major: index % majorEvery === 0,
     }))
   })
