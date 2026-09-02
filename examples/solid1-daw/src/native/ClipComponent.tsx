@@ -8,6 +8,7 @@ export interface ClipComponentProps {
   selected: boolean
   pixelsPerSecond: number
   onSelect: () => void
+  onOpen: () => void
   onMouseDown: (event: EventPayload) => void
 }
 
@@ -19,15 +20,32 @@ function alphaHex(color: string, alpha: string): string {
   return /^#[0-9a-f]{6}$/i.test(color) ? `${color}${alpha}` : color
 }
 
+const DOUBLE_TAP_MS = 700
+const DOUBLE_TAP_DISTANCE_PX = 8
+let lastClipTap: { clipId: string; at: number; x: number; y: number } | undefined
+
 const ClipComponent = (props: ClipComponentProps): JSX.Element => {
   const width = () => Math.max(6, Math.floor(props.clip.duration * props.pixelsPerSecond))
   const handleWidth = () => width() < 18 ? 2 : width() < 28 ? 3 : 6
   const color = () => visualColor(props.clip)
 
+  const handleClick = (event: EventPayload): void => {
+    const now = performance.now()
+    const x = event.x ?? 0
+    const y = event.y ?? 0
+    const previous = lastClipTap
+    lastClipTap = { clipId: props.clip.id, at: now, x, y }
+    props.onSelect()
+    if (!previous || previous.clipId !== props.clip.id || now - previous.at > DOUBLE_TAP_MS) return
+    if (Math.abs(x - previous.x) > DOUBLE_TAP_DISTANCE_PX || Math.abs(y - previous.y) > DOUBLE_TAP_DISTANCE_PX) return
+    lastClipTap = undefined
+    props.onOpen()
+  }
+
   return (
     <div
       testId={`clip-${props.clip.id}`}
-      onClick={props.onSelect}
+      onClick={handleClick}
       onMouseDown={props.onMouseDown}
       style={{
         position: "absolute",

@@ -14,6 +14,7 @@ export interface TrackLaneProps {
   gridDenominator: number
   durationSec: number
   onSelectClip: (trackId: string, clipId: string) => void
+  onOpenClip: (trackId: string, clipId: string) => void
   onClipMouseDown: (trackId: string, clipId: string, event: PointerEvent) => void
 }
 
@@ -112,6 +113,7 @@ const TrackLane = (props: TrackLaneProps): JSX.Element => {
         onClipPointerDown={(trackId, clipId, event) => props.onClipMouseDown(trackId, clipId, event)}
         onClipPointerUp={() => {}}
         onClipResizeStart={() => {}}
+        onClipDblClick={props.onOpenClip}
         clipContextMenu={{
           selectClip: props.onSelectClip,
           duplicateSelectedClips: () => {},

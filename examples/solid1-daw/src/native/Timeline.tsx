@@ -132,6 +132,14 @@ export default function Timeline(): JSX.Element {
     if (bottomTab() === "clip" && clip?.kind !== "audio") setBottomTab("effects")
   }
 
+  const openClip = (trackId: string, clipId: string): void => {
+    const clip = findClip(tracks(), clipId)?.clip
+    selectClip(trackId, clipId)
+    if (clip?.kind !== "audio") return
+    setBottomTab("clip")
+    setBottomPanelOpen(true)
+  }
+
   const beginClipDrag = (trackId: string, clipId: string, event: PointerEvent): void => {
     if (event.button !== 0) return
     const currentTracks = tracks()
@@ -262,6 +270,7 @@ export default function Timeline(): JSX.Element {
           onMasterVolumeChange: setMasterVolume,
         }}
         onSelectClip={selectClip}
+        onOpenClip={openClip}
         onClipMouseDown={beginClipDrag}
         dragging={drag() !== undefined}
         onDragMove={moveClipDrag}

@@ -240,9 +240,10 @@ if (!hasNativeTestRenderer) {
 
   app.renderer.scrollTestId("daw-test-viewport", 0, 0)
   app.renderer.clickCenterTestId("clip-drums-a")
+  requireCondition(app.renderer.hasTestId("effects-panel") && !app.renderer.hasTestId("clip-panel"), "first audio-clip tap should select without opening Sample Detail")
+  app.renderer.clickCenterTestId("clip-drums-a")
   app.renderer.scrollTestId("daw-test-viewport", 0, -260)
-  app.renderer.clickTextWithinTestId("bottom-panel", "CLIP")
-  requireCondition(app.renderer.hasTestId("clip-panel") && !app.renderer.hasTestId("effects-panel"), "an audio clip should enable Sample Detail")
+  requireCondition(app.renderer.hasTestId("clip-panel") && !app.renderer.hasTestId("effects-panel"), "second audio-clip tap should open Sample Detail like upstream")
   const clipText = app.renderer.textContent("clip-panel")
   requireText(clipText, "SAMPLE DETAIL", "sample detail rail")
   requireText(clipText, "Drum Loop 01", "selected audio sample")
@@ -287,7 +288,7 @@ if (!hasNativeTestRenderer) {
   app.renderer.scrollTestId("daw-test-viewport", 0, 0)
   app.renderer.clickTestId("Stop")
   requireText(rootText(), "0.00s", "stop resets playhead")
-  console.log("solid1 DAW drag validation: deferred to the gpuix-solid core GPUIX 0.5 pointer-capture migration")
+  console.log("solid1 DAW drag validation: held-pointer continuation remains a manual GPUIX 0.7 acceptance item")
 
   app.unmount()
 

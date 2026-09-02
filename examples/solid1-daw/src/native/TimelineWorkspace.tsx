@@ -29,6 +29,7 @@ export interface TimelineWorkspaceProps {
   onRulerScrub: (sec: number) => void
   sidebar: Omit<TrackSidebarProps, "tracks" | "selectedTrackId" | "bottomPanelOffsetPx">
   onSelectClip: (trackId: string, clipId: string) => void
+  onOpenClip: (trackId: string, clipId: string) => void
   onClipMouseDown: (trackId: string, clipId: string, event: PointerEvent) => void
   dragging: boolean
   onDragMove: (event: EventPayload) => void
@@ -134,6 +135,7 @@ const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
       gridDenominator={props.gridDenominator}
       durationSec={durationSec()}
       onSelectClip={props.onSelectClip}
+      onOpenClip={props.onOpenClip}
       onClipMouseDown={props.onClipMouseDown}
     />
   )
