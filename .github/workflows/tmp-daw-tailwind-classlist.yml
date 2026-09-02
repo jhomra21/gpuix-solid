@@ -97,11 +97,15 @@ jobs:
           source = source.replace(marker, helper, 1)
           path.write_text(source)
           PY
-      - name: Regenerate the source-derived native Tailwind manifest
+      - name: Regenerate and trace the missing runtime candidate
         run: |
           cd examples/solid1-daw
           bun install --no-save
           bun scripts/generate-native-tailwind.mjs
+          echo '--- exact source occurrences ---'
+          grep -R -n --exclude='native-tailwind.generated.ts' 'bg-muted-foreground' src || true
+          echo '--- nearby muted-foreground producers ---'
+          grep -R -n --exclude='native-tailwind.generated.ts' 'muted-foreground' src/native src/compat src/upstream src/*.tsx | head -120 || true
           grep -q '"bg-muted-foreground"' src/native-tailwind.generated.ts
       - name: Commit the generic collector fix and regenerated manifest
         shell: bash
