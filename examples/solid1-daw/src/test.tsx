@@ -28,6 +28,10 @@ function bottom(bounds: { y: number; height: number }): number {
   return bounds.y + bounds.height
 }
 
+function right(bounds: { x: number; width: number }): number {
+  return bounds.x + bounds.width
+}
+
 const transportFrameStyle = resolveNativeClassStyle("grid grid-cols-[1fr_auto_1fr]", undefined)
 requireCondition(
   transportFrameStyle?.display === "flex" && transportFrameStyle.flexDirection === "row",
@@ -51,6 +55,9 @@ if (!hasNativeTestRenderer) {
   const rootText = () => app.renderer.textContent("daw-showcase")
 
   requireText(rootText(), "2.75s", "initial playhead")
+  for (const menuLabel of ["File", "Edit", "View", "Settings", "Tracks"]) {
+    requireText(rootText(), menuLabel, `source transport menu ${menuLabel}`)
+  }
   requireCondition(app.renderer.hasTestId("browser-sidebar"), "browser sidebar should start open")
   requireCondition(app.renderer.hasTestId("track-sidebar"), "track sidebar should be mounted")
   requireCondition(app.renderer.hasTestId("master-sidebar"), "Master sidebar row should be mounted")
@@ -114,7 +121,11 @@ if (!hasNativeTestRenderer) {
   requireText(app.renderer.textContent("track-synth-output"), "Master", "output routing must not invent a group target when no group exists")
 
   app.renderer.scrollTestId("daw-test-viewport", -320, 0)
-  requireCondition((app.renderer.scrollOffsetTestId("daw-test-viewport")?.[0] ?? 0) < 0, "test viewport should scroll horizontally to expose mixer controls")
+  const visibleMixerControl = app.renderer.boundsTestId("track-synth-mute")
+  requireCondition(
+    visibleMixerControl.x >= 0 && right(visibleMixerControl) <= viewportWidth,
+    `mixer controls should be visible before interaction, got ${JSON.stringify(visibleMixerControl)}`,
+  )
 
   for (const testId of ["track-synth-mute", "track-synth-solo", "track-synth-arm"]) {
     const before = app.renderer.styleTestId(testId).backgroundColor
@@ -124,6 +135,11 @@ if (!hasNativeTestRenderer) {
     app.renderer.clickCenterTestId(testId)
     requireCondition(app.renderer.styleTestId(testId).backgroundColor === before, `${testId} second center click should restore its initial state`)
   }
+
+  const volumeBefore = app.renderer.textContent("track-synth-volume")
+  app.renderer.dragTestId("track-synth-volume", 20, 0)
+  const volumeAfter = app.renderer.textContent("track-synth-volume")
+  requireCondition(volumeAfter !== volumeBefore, `mixer volume should respond to pointer drag, before ${JSON.stringify(volumeBefore)}, after ${JSON.stringify(volumeAfter)}`)
 
   app.renderer.clickCenterTestId("track-synth-collapse")
   const collapsedLaneHeight = app.renderer.boundsTestId("lane-synth").height
@@ -222,9 +238,13 @@ if (!hasNativeTestRenderer) {
   requireText(app.renderer.textContent("compressor-attack-value"), "10 ms", "compressor source reset attack")
 
   app.renderer.scrollTestId("daw-test-viewport", -320, -260)
-  requireCondition((app.renderer.scrollOffsetTestId("daw-test-viewport")?.[0] ?? 0) < 0, "test viewport should scroll horizontally to expose EQ controls")
   app.renderer.scrollTestId("effects-panel", -540, 0)
   requireCondition((app.renderer.scrollOffsetTestId("effects-panel")?.[0] ?? 0) < 0, "effects chain should scroll horizontally to EQ")
+  const visibleEqBand = app.renderer.boundsTestId("eq-band-7")
+  requireCondition(
+    visibleEqBand.x >= 0 && right(visibleEqBand) <= viewportWidth,
+    `EQ high band should be visible before interaction, got ${JSON.stringify(visibleEqBand)}`,
+  )
   app.renderer.clickCenterTestId("eq-band-7")
   requireText(app.renderer.textContent("eq-selected-gain-value"), "0.0 dB", "EQ high band selection")
   app.renderer.clickCenterTestId("eq-filter-type-7")
@@ -295,7 +315,7 @@ if (!hasNativeTestRenderer) {
   app.renderer.scrollTestId("daw-test-viewport", 0, 0)
   app.renderer.clickTestId("Stop")
   requireText(rootText(), "0.00s", "stop resets playhead")
-  console.log("solid1 DAW drag validation: held-pointer continuation remains a manual GPUIX 0.7 acceptance item")
+  console.log("solid1 DAW native interactions: source menus, mixer controls, clip open, effects, and panel behavior passed")
 
   app.unmount()
 
