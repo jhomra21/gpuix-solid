@@ -91,7 +91,7 @@ export function render(code: () => SolidElement, options: RenderOptions = {}): R
   root.render(code)
   const loop = startFrameLoop(native.renderer, {
     onTerminated() {
-      process.exitCode = 0
+      process.exit(0)
     },
   })
 
