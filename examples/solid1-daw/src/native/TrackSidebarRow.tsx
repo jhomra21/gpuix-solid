@@ -35,6 +35,7 @@ function ControlHitSurface(props: { onClick: () => void; disabled?: boolean }): 
         right: 0,
         bottom: 0,
         left: 0,
+        backgroundColor: "#ffffff01",
         cursor: props.disabled ? "default" : "pointer",
       }}
     />
