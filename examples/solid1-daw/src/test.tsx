@@ -40,7 +40,7 @@ requireCondition(resolveNativeClassStyle("justify-self-end flex", undefined)?.ju
 if (!hasNativeTestRenderer) {
   console.log("solid1 DAW source-structured port: native TestGpuixRenderer unavailable; skipped")
 } else {
-  const app = createTestRoot()
+  const app = createTestRoot(1440, 900)
   app.render(() => (
     <div testId="daw-test-viewport" style={{ width: "100%", height: "100%", overflow: "scroll" }}>
       <DawSolid1Showcase />
