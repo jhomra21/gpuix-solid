@@ -17,7 +17,7 @@ const manifests = await Promise.all(manifestPaths.map(async (path) => ({
 })))
 
 const canonicalRange = manifests[0]?.json.dependencies?.["@gpuix/native"]
-if (typeof canonicalRange !== "string" || !/^\^\d+\.\d+\.\d+$/.test(canonicalRange)) {
+if (!/^\^\d+\.\d+\.\d+$/.test(canonicalRange ?? "")) {
   throw new Error(`packages/solid must declare @gpuix/native with a caret semver range, got ${JSON.stringify(canonicalRange)}`)
 }
 
