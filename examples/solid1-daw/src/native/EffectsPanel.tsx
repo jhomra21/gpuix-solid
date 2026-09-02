@@ -1,4 +1,6 @@
+import type { EqBandParams, EqBandType } from "@daw-browser/shared"
 import { For, createSignal, type JSX } from "solid-js"
+import EqFilterTypeSelect from "~/components/effects/eq-filter-type-select"
 import { dawTheme, text2xs, text3xs, textXs } from "./theme"
 
 interface KnobProps {
@@ -107,6 +109,7 @@ const EQ_INITIAL_FREQUENCIES = [40, 120, 300, 650, 1200, 3000, 7800, 16000]
 const EQ_INITIAL_Q = [0.7, 1, 1, 1, 1, 1, 1, 0.7]
 const EQ_DEFAULT_FREQUENCIES = [40, 100, 200, 500, 1000, 2500, 6000, 12000]
 const EQ_DEFAULT_Q = [1, 1, 1, 1, 1, 1, 1, 1]
+const EQ_DEFAULT_TYPES: EqBandType[] = ["lowshelf", "peaking", "peaking", "peaking", "peaking", "peaking", "peaking", "highshelf"]
 
 const EffectsPanel = (props: EffectsPanelProps): JSX.Element => {
   const [compressorAutoRelease, setCompressorAutoRelease] = createSignal(false)
@@ -123,6 +126,7 @@ const EffectsPanel = (props: EffectsPanelProps): JSX.Element => {
   const [eqQ, setEqQ] = createSignal([...EQ_INITIAL_Q])
   const [eqOtherGains, setEqOtherGains] = createSignal<Record<number, number>>({})
   const [eqBandEnabled, setEqBandEnabled] = createSignal(Array.from({ length: 8 }, () => true))
+  const [eqBandTypes, setEqBandTypes] = createSignal<EqBandType[]>([...EQ_DEFAULT_TYPES])
   const [eqChannelMode, setEqChannelMode] = createSignal<"Mono" | "Stereo">("Stereo")
 
   const eqGain = (index: number): number => {
@@ -132,12 +136,25 @@ const EffectsPanel = (props: EffectsPanelProps): JSX.Element => {
     return eqOtherGains()[index] ?? 0
   }
 
+  const eqBand = (index: number): EqBandParams => ({
+    id: `b${index + 1}`,
+    frequency: eqFrequencies()[index] ?? 1000,
+    gainDb: eqGain(index),
+    q: eqQ()[index] ?? 1,
+    enabled: eqBandEnabled()[index] ?? true,
+    type: eqBandTypes()[index] ?? "peaking",
+  })
+
   const setEqGain = (index: number, value: number): void => {
     const next = clamp(value, -12, 12)
     if (index === 1) props.onEqLowGain(next)
     else if (index === 4) props.onEqMidGain(next)
     else if (index === 6) props.onEqHighGain(next)
     else setEqOtherGains((current) => ({ ...current, [index]: next }))
+  }
+
+  const setEqBandType = (index: number, type: EqBandType): void => {
+    setEqBandTypes((current) => current.map((bandType, entry) => entry === index ? type : bandType))
   }
 
   const setSelectedFrequency = (value: number): void => {
@@ -175,6 +192,7 @@ const EffectsPanel = (props: EffectsPanelProps): JSX.Element => {
     setEqFrequencies([...EQ_DEFAULT_FREQUENCIES])
     setEqQ([...EQ_DEFAULT_Q])
     setEqBandEnabled(Array.from({ length: 8 }, () => true))
+    setEqBandTypes([...EQ_DEFAULT_TYPES])
     setEqChannelMode("Stereo")
   }
 
@@ -277,11 +295,19 @@ const EffectsPanel = (props: EffectsPanelProps): JSX.Element => {
             <div style={{ height: 52, minHeight: 52, display: "flex", borderTopWidth: 1, borderColor: dawTheme.border, backgroundColor: "#09090b" }}>
               <For each={EQ_INITIAL_FREQUENCIES}>
                 {(_frequency, index) => (
-                  <div testId={`eq-band-${index() + 1}`} onClick={() => setEqSelectedBand(index())} style={{ flexGrow: 1, minWidth: 0, height: 52, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, borderRightWidth: index() === 7 ? 0 : 1, borderColor: dawTheme.border, cursor: "pointer" }}>
-                    <text style={{ ...text3xs, color: dawTheme.mutedForeground }}>{index() === 0 ? "HP" : index() === 7 ? "LP" : "Bell"}</text>
-                    <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 7 }}>
-                      <div onClick={() => setEqBandEnabled((current) => current.map((enabled, entry) => entry === index() ? !enabled : enabled))} style={{ width: 12, height: 12, backgroundColor: eqBandEnabled()[index()] ? "#22d3ee" : dawTheme.appSurface, borderWidth: 1, borderColor: dawTheme.border }} />
-                      <text style={{ ...text2xs, color: eqSelectedBand() === index() ? dawTheme.amber : dawTheme.mutedForeground, fontWeight: 700 }}>{String(index() + 1)}</text>
+                  <div testId={`eq-band-${index() + 1}`} onClick={() => setEqSelectedBand(index())} style={{ flexGrow: 1, minWidth: 0, height: 52, padding: 4, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, borderRightWidth: index() === 7 ? 0 : 1, borderColor: dawTheme.border, cursor: "pointer" }}>
+                    <div testId={`eq-filter-type-${index() + 1}`} style={{ width: "100%", height: 16, minHeight: 16 }}>
+                      <EqFilterTypeSelect
+                        band={eqBand(index())}
+                        enabled={props.eqEnabled}
+                        selected={eqSelectedBand() === index()}
+                        onSelectBand={() => setEqSelectedBand(index())}
+                        onTypeChange={(type) => setEqBandType(index(), type)}
+                      />
+                    </div>
+                    <div style={{ height: 20, minHeight: 20, display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                      <div testId={`eq-band-${index() + 1}-toggle`} onClick={() => setEqBandEnabled((current) => current.map((enabled, entry) => entry === index() ? !enabled : enabled))} style={{ width: 14, height: 14, backgroundColor: eqBandEnabled()[index()] ? "#22d3ee" : dawTheme.appSurface, borderWidth: 1, borderColor: dawTheme.border }} />
+                      <text style={{ ...text2xs, width: 12, textAlign: "center", color: eqSelectedBand() === index() ? dawTheme.amber : dawTheme.mutedForeground, fontWeight: 700 }}>{String(index() + 1)}</text>
                     </div>
                   </div>
                 )}
