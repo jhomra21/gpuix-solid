@@ -169,10 +169,10 @@ export interface StyleDesc {
   marginLeft?: number
 
   position?: string
-  top?: number
-  right?: number
-  bottom?: number
-  left?: number
+  top?: DimensionValue
+  right?: DimensionValue
+  bottom?: DimensionValue
+  left?: DimensionValue
 
   background?: string | LinearGradientBackground
   backgroundColor?: string

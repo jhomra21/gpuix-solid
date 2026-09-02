@@ -109,11 +109,15 @@ export type {
 } from "./components/animate.js"
 
 export {
+  applyNativeStyleParentPosition,
+  applyNativeStyleTranslation,
   clearNativeStyleManifest,
   configureNativeStyleManifest,
   getNativeStyleColorMode,
   mergeNativeStyles,
   resolveNativeClassStyle,
+  resolveNativeClassParentPosition,
+  resolveNativeClassTranslation,
   resolveNativeClassTextTransform,
   resolveNativeDescendantClassStyle,
   setNativeStyleColorMode,
@@ -123,6 +127,8 @@ export type {
   NativeColorMode,
   NativeStyleManifest,
   NativeStyleManifestEntry,
+  NativeStyleParentPosition,
+  NativeStyleTranslation,
   NativeStyleVariant,
   NativeTextTransform,
 } from "./native-style.js"

@@ -10,11 +10,15 @@ export { TestRenderer, createTestRoot, hasNativeTestRenderer } from "./testing.j
 export type { TestBounds, TestRoot } from "./testing.js"
 
 export {
+  applyNativeStyleParentPosition,
+  applyNativeStyleTranslation,
   clearNativeStyleManifest,
   configureNativeStyleManifest,
   getNativeStyleColorMode,
   mergeNativeStyles,
   resolveNativeClassStyle,
+  resolveNativeClassParentPosition,
+  resolveNativeClassTranslation,
   resolveNativeDescendantClassStyle,
   setNativeStyleColorMode,
 } from "./native-style.js"
@@ -23,6 +27,8 @@ export type {
   NativeColorMode,
   NativeStyleManifest,
   NativeStyleManifestEntry,
+  NativeStyleParentPosition,
+  NativeStyleTranslation,
   NativeStyleVariant,
 } from "./native-style.js"
 

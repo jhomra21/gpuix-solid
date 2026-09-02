@@ -18,9 +18,13 @@ import {
 } from "./host/nodes.js"
 import type { DimensionValue, ElementType, StyleDesc } from "./host/types.js"
 import {
+  applyNativeStyleParentPosition,
+  applyNativeStyleTranslation,
   mergeNativeStyles,
   onNativeStyleEnvironmentChange,
   resolveNativeClassStyle,
+  resolveNativeClassParentPosition,
+  resolveNativeClassTranslation,
   resolveNativeClassTextTransform,
   resolveNativeDescendantClassStyle,
   type NativeClassList,
@@ -34,7 +38,11 @@ interface NativeStyleState {
   inlineStyle: StyleDesc | undefined
 }
 
-type NativeInlineStyleInput = Omit<StyleDesc, "gap" | "rowGap" | "columnGap"> & {
+type NativeInlineStyleInput = Omit<StyleDesc, "gap" | "rowGap" | "columnGap" | "top" | "right" | "bottom" | "left"> & {
+  top?: DimensionValue
+  right?: DimensionValue
+  bottom?: DimensionValue
+  left?: DimensionValue
   gap?: DimensionValue
   rowGap?: DimensionValue
   columnGap?: DimensionValue
@@ -399,6 +407,10 @@ function normalizeNativeInlineStyle(style: NativeInlineStyleInput | undefined): 
     gap,
     rowGap,
     columnGap,
+    top,
+    right,
+    bottom,
+    left,
     "row-gap": cssRowGap,
     "column-gap": cssColumnGap,
     "min-width": cssMinWidth,
@@ -442,6 +454,10 @@ function normalizeNativeInlineStyle(style: NativeInlineStyleInput | undefined): 
 
   if (style.width !== undefined) normalized.width = normalizeInlineDimension(style.width)
   if (style.height !== undefined) normalized.height = normalizeInlineDimension(style.height)
+  if (top !== undefined) normalized.top = normalizeInlineDimension(top)
+  if (right !== undefined) normalized.right = normalizeInlineDimension(right)
+  if (bottom !== undefined) normalized.bottom = normalizeInlineDimension(bottom)
+  if (left !== undefined) normalized.left = normalizeInlineDimension(left)
   if (cssMinWidth !== undefined) normalized.minWidth = normalizeInlineDimension(cssMinWidth)
   else if (style.minWidth !== undefined) normalized.minWidth = normalizeInlineDimension(style.minWidth)
   if (cssMinHeight !== undefined) normalized.minHeight = normalizeInlineDimension(cssMinHeight)
@@ -537,15 +553,26 @@ function applyNativeStyleState(node: HostElementNode): void {
   const inheritedStyle = resolveInheritedNativeStyle(node)
   const ancestorStyle = resolveAncestorDescendantStyle(node)
   const classStyle = resolveNativeClassStyle(className, state.classList)
+  const classParentPosition = resolveNativeClassParentPosition(className, state.classList)
+  const classTranslation = resolveNativeClassTranslation(className, state.classList)
   const inheritedTextTransform = resolveInheritedTextTransform(node)
   const classTextTransform = resolveNativeClassTextTransform(className, state.classList)
   const textTransform = classTextTransform ?? inheritedTextTransform
   if (textTransform === undefined) textTransforms.delete(node)
   else textTransforms.set(node, textTransform)
+  const mergedStyle = mergeNativeStyles(inheritedStyle, ancestorStyle, classStyle, state.inlineStyle)
+  const parentWidth = resolvedNativeNodeSize(node.parent, "x")
+  const parentHeight = resolvedNativeNodeSize(node.parent, "y")
+  const positionedStyle = applyNativeStyleParentPosition(
+    mergedStyle,
+    classParentPosition,
+    parentWidth,
+    parentHeight,
+  )
   setHostProperty(
     node,
     "style",
-    mergeNativeStyles(inheritedStyle, ancestorStyle, classStyle, state.inlineStyle) ?? {},
+    applyNativeStyleTranslation(positionedStyle, classTranslation) ?? {},
   )
 }
 
@@ -565,6 +592,39 @@ function transformText(value: string, transform: NativeTextTransform | undefined
     case undefined:
       return value
   }
+}
+
+function resolvedNativeNodeSize(parent: HostParent | null, axis: "x" | "y"): number | undefined {
+  if (!parent || parent.kind === "root") return undefined
+  const style = parent.style
+  const parentSize = resolvedNativeNodeSize(parent.parent, axis)
+  const explicit = axis === "x" ? style.width : style.height
+  const explicitSize = resolvedNativeDimension(explicit, parentSize)
+  if (explicitSize !== undefined) return explicitSize
+  if (parentSize === undefined) return undefined
+
+  const start = resolvedNativePosition(axis === "x" ? style.left : style.top, parentSize)
+  const end = resolvedNativePosition(axis === "x" ? style.right : style.bottom, parentSize)
+  if (start === undefined || end === undefined) return undefined
+  return Math.max(0, parentSize - start - end)
+}
+
+function resolvedNativeDimension(value: DimensionValue | undefined, parentSize: number | undefined): number | undefined {
+  if (value === undefined) return undefined
+  const number = Number(value)
+  if (Number.isFinite(number)) return number
+  const percentage = String(value).trim().match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))%$/)
+  if (percentage && parentSize !== undefined) return parentSize * Number(percentage[1]) / 100
+  return undefined
+}
+
+function resolvedNativePosition(value: DimensionValue | undefined, parentSize: number): number | undefined {
+  if (value === undefined) return undefined
+  const number = Number(value)
+  if (Number.isFinite(number)) return number
+  const percentage = String(value).trim().match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))%$/)
+  if (percentage) return parentSize * Number(percentage[1]) / 100
+  return undefined
 }
 
 function resolveInheritedTextTransform(node: HostElementNode): NativeTextTransform | undefined {

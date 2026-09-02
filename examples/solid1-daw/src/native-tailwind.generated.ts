@@ -9,6 +9,9 @@ import type { NativeStyleManifest } from "@jhomra21/gpuix-solid1"
 // - appearance-none: GPUIX native inputs do not have browser user-agent appearance chrome to suppress
 // - aspect-square: the copied avatar already supplies equal native width and height through size utilities
 // - border-dashed: GPUIX 0.7 exposes border width/color but not border style; native fallback remains solid
+// - box-border: GPUIX 0.7 has no box-sizing StyleDesc field; native DAW footer bounds tests already verify the intended total border-box geometry
+// - col-start-3: GPUIX 0.7 does not publish grid-item column placement; the native DAW verifier asserts the collapsed source control group remains right-aligned before this omission is accepted
+// - col-start-4: GPUIX 0.7 does not publish grid-item column placement; the native DAW verifier asserts collapsed mute/solo/arm/volume order and right alignment
 // - data-[closed]:animate-out: native Kobalte menus unmount directly without browser CSS exit animations
 // - data-[closed]:fade-out-0: native Kobalte menus unmount directly without browser CSS opacity animation
 // - data-[closed]:hidden: native Kobalte menus own closed-state mounting rather than CSS visibility
@@ -34,22 +37,31 @@ import type { NativeStyleManifest } from "@jhomra21/gpuix-solid1"
 // - disabled:opacity-50: the native Kobalte adapter owns disabled opacity
 // - disabled:opacity-60: the native input/browser adapter owns disabled opacity
 // - disabled:pointer-events-none: the native Kobalte adapter owns disabled pointer behavior
+// - duration-75: native StyleDesc transitions are not published in GPUIX 0.7
 // - file:bg-transparent: native input has no browser file-selector pseudo-element
 // - file:border-0: native input has no browser file-selector pseudo-element
 // - file:font-medium: native input has no browser file-selector pseudo-element
 // - file:text-sm: native input has no browser file-selector pseudo-element
 // - fill-current: inline GPUIX SVG styling does not expose CSS fill through StyleDesc; source currentColor stroke still inherits normally
+// - focus-visible:outline: GPUIX 0.7 does not publish browser focus-outline painting through StyleDesc
+// - focus-visible:outline-2: GPUIX 0.7 does not publish browser focus-outline width through StyleDesc
 // - focus-visible:outline-none: native focus-visible styling is not exposed by GPUIX 0.7
+// - focus-visible:outline-offset-[-2px]: GPUIX 0.7 does not publish browser focus-outline offset through StyleDesc
+// - focus-visible:outline-primary: GPUIX 0.7 does not publish browser focus-outline color through StyleDesc
 // - focus-visible:ring-2: native focus-visible styling is not exposed by GPUIX 0.7
 // - focus-visible:ring-offset-2: native focus-visible styling is not exposed by GPUIX 0.7
 // - focus-visible:ring-ring: native focus-visible styling is not exposed by GPUIX 0.7
 // - focus:bg-app-surface/60: native input focus background pseudo styling is not published by GPUIX 0.7
 // - focus:border-border: native focus pseudo styling is not published; this input already has the same border-border base color
 // - focus:outline-none: native inputs do not paint a browser focus outline
+// - focus:ring-2: GPUIX 0.7 does not publish browser focus-ring painting through StyleDesc
+// - focus:ring-offset-2: GPUIX 0.7 does not publish browser focus-ring offset through StyleDesc
+// - focus:ring-ring: GPUIX 0.7 does not publish browser focus-ring color through StyleDesc
 // - group: Tailwind group is a relationship-state marker and has no direct painted native style
 // - group-active:bg-sky-500/20: group relationship active styling is not exposed by GPUIX 0.7
 // - group-hover:bg-sky-500/20: group relationship hover styling is not exposed by GPUIX 0.7
 // - group-hover:text-foreground: the copied browser item already has text-foreground as its base color; native group relationship hover styling is not exposed
+// - hover:brightness-110: GPUIX 0.7 does not publish CSS filter effects; this is only hover feedback on unselected clips and does not alter clip geometry or state
 // - hover:underline: native text decoration is not exposed by GPUIX 0.7
 // - leading-none: relative line-height needs merged font-size context before it can be represented exactly
 // - max-h-(--kb-menu-content-available-height): native Kobalte FloatingLayer owns available-space popup placement/sizing; the browser CSS custom property does not exist natively
@@ -60,18 +72,29 @@ import type { NativeStyleManifest } from "@jhomra21/gpuix-solid1"
 // - peer-disabled:opacity-70: peer variants require native relationship-state styling
 // - placeholder:text-muted-foreground: native input placeholder styling is not separately exposed by GPUIX 0.7
 // - ring-offset-background: native focus ring offset styling is not exposed by GPUIX 0.7
+// - row-start-1: GPUIX 0.7 does not publish grid-item row placement; the native DAW verifier asserts the collapsed controls preserve the source one-row ordering
 // - selection:bg-primary/40: native text selection has its own selectionColor contract rather than CSS ::selection variants
+// - shadow-background/40: this only recolors the copied context menu's layered shadow-md; GPUIX 0.7 exposes one BoxShadow and cannot represent Tailwind's layered shadow-md geometry
+// - shadow-black/50: this only recolors the copied automation picker shadow-xl; GPUIX 0.7 cannot represent that layered source shadow exactly
+// - shadow-inner: GPUIX 0.7 BoxShadow has no inset mode; the exact armed-record state remains preserved by its red border, background, and foreground styles
 // - shadow-lg: Tailwind shadow-lg is layered; GPUIX 0.7 exposes one native BoxShadow
 // - shadow-md: Tailwind shadow-md is layered; GPUIX 0.7 exposes one native BoxShadow
+// - shadow-xl: Tailwind shadow-xl is layered; GPUIX 0.7 exposes one native BoxShadow and cannot represent both source shadow layers faithfully
 // - tabular-nums: font-variant-numeric is not exposed by GPUIX 0.7
+// - touch-none: touch-action is a browser gesture policy; the exact fade interaction owns native gesture continuity with pointer capture and window pointer listeners
 // - tracking-normal: letter-spacing is not exposed by GPUIX 0.7
+// - tracking-tight: letter-spacing is not exposed by GPUIX 0.7; keep the exact copied title utility registered without silently broadening unsupported typography
 // - tracking-wide: letter-spacing is not exposed by GPUIX 0.7; keep the copied source unchanged until the native text contract supports it
 // - tracking-widest: letter-spacing is not exposed by GPUIX 0.7
+// - transition-all: native StyleDesc transitions are not published in GPUIX 0.7
 // - transition-colors: native StyleDesc transitions are not published in GPUIX 0.7
+// - transition-opacity: native StyleDesc transitions are not published in GPUIX 0.7
 // - underline-offset-4: native text decoration offset is not exposed by GPUIX 0.7
 // - w-fit: native floating content uses intrinsic sizing instead of CSS fit-content
 // - w-max: native floating content uses intrinsic sizing; GPUIX 0.7 dimensions do not accept CSS max-content
+// - z-0: published native StyleDesc has no z-index; retained-tree order owns this source baseline stacking level
 // - z-10: published native StyleDesc has no z-index; retained-tree/layer order owns stacking
+// - z-20: published native StyleDesc has no z-index; retained-tree order owns this source intermediate stacking level
 // - z-30: published native StyleDesc has no z-index; retained-tree/layer order owns stacking
 // - z-40: published native StyleDesc has no z-index; retained-tree/layer order owns stacking
 // - z-50: native anchored-layer priority owns popup stacking
@@ -115,8 +138,17 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "top": -20
       }
     },
+    "-translate-x-1/2": {
+      "base": {},
+      "translation": {
+        "xFraction": -0.5
+      }
+    },
     "-translate-y-1/2": {
-      "base": {}
+      "base": {},
+      "translation": {
+        "yFraction": -0.5
+      }
     },
     "[&>svg]:shrink-0": {
       "descendants": {
@@ -206,6 +238,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "aspect-square": {
       "base": {}
     },
+    "bg-amber-400": {
+      "base": {
+        "backgroundColor": "oklch(82.8% 0.189 84.429)"
+      }
+    },
     "bg-amber-500/20": {
       "base": {
         "backgroundColor": "color-mix(in oklab, oklch(76.9% 0.188 70.08) 20%, transparent)"
@@ -237,6 +274,14 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "backgroundColor": "color-mix(in oklab, oklch(0.16 0.005 286) 40%, transparent)"
       }
     },
+    "bg-app-surface/50": {
+      "light": {
+        "backgroundColor": "color-mix(in oklab, oklch(0.985 0.001 286) 50%, transparent)"
+      },
+      "dark": {
+        "backgroundColor": "color-mix(in oklab, oklch(0.16 0.005 286) 50%, transparent)"
+      }
+    },
     "bg-background": {
       "light": {
         "backgroundColor": "oklch(1 0 0)"
@@ -245,12 +290,62 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "backgroundColor": "oklch(0.141 0.005 285.823)"
       }
     },
+    "bg-background/20": {
+      "light": {
+        "backgroundColor": "color-mix(in oklab, oklch(1 0 0) 20%, transparent)"
+      },
+      "dark": {
+        "backgroundColor": "color-mix(in oklab, oklch(0.141 0.005 285.823) 20%, transparent)"
+      }
+    },
+    "bg-background/35": {
+      "light": {
+        "backgroundColor": "color-mix(in oklab, oklch(1 0 0) 35%, transparent)"
+      },
+      "dark": {
+        "backgroundColor": "color-mix(in oklab, oklch(0.141 0.005 285.823) 35%, transparent)"
+      }
+    },
+    "bg-background/50": {
+      "light": {
+        "backgroundColor": "color-mix(in oklab, oklch(1 0 0) 50%, transparent)"
+      },
+      "dark": {
+        "backgroundColor": "color-mix(in oklab, oklch(0.141 0.005 285.823) 50%, transparent)"
+      }
+    },
+    "bg-background/90": {
+      "light": {
+        "backgroundColor": "color-mix(in oklab, oklch(1 0 0) 90%, transparent)"
+      },
+      "dark": {
+        "backgroundColor": "color-mix(in oklab, oklch(0.141 0.005 285.823) 90%, transparent)"
+      }
+    },
+    "bg-blue-500/25": {
+      "base": {
+        "backgroundColor": "color-mix(in oklab, oklch(62.3% 0.214 259.815) 25%, transparent)"
+      }
+    },
+    "bg-blue-500/90": {
+      "base": {
+        "backgroundColor": "color-mix(in oklab, oklch(62.3% 0.214 259.815) 90%, transparent)"
+      }
+    },
     "bg-border": {
       "light": {
         "backgroundColor": "oklch(0.92 0.004 286.32)"
       },
       "dark": {
         "backgroundColor": "oklch(0.274 0.006 286.033)"
+      }
+    },
+    "bg-border/60": {
+      "light": {
+        "backgroundColor": "color-mix(in oklab, oklch(0.92 0.004 286.32) 60%, transparent)"
+      },
+      "dark": {
+        "backgroundColor": "color-mix(in oklab, oklch(0.274 0.006 286.033) 60%, transparent)"
       }
     },
     "bg-current": {
@@ -281,9 +376,22 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "backgroundColor": "color-mix(in oklab, oklch(26.2% 0.051 172.552) 40%, transparent)"
       }
     },
+    "bg-foreground": {
+      "light": {
+        "backgroundColor": "oklch(0.141 0.005 285.823)"
+      },
+      "dark": {
+        "backgroundColor": "oklch(0.985 0 0)"
+      }
+    },
     "bg-green-400/10": {
       "base": {
         "backgroundColor": "color-mix(in oklab, oklch(79.2% 0.209 151.711) 10%, transparent)"
+      }
+    },
+    "bg-green-500": {
+      "base": {
+        "backgroundColor": "oklch(72.3% 0.219 149.579)"
       }
     },
     "bg-green-500/10": {
@@ -310,6 +418,14 @@ export const nativeTailwindManifest: NativeStyleManifest = {
       },
       "dark": {
         "backgroundColor": "oklch(0.705 0.015 286.067)"
+      }
+    },
+    "bg-muted/40": {
+      "light": {
+        "backgroundColor": "color-mix(in oklab, oklch(0.967 0.001 286.375) 40%, transparent)"
+      },
+      "dark": {
+        "backgroundColor": "color-mix(in oklab, oklch(0.274 0.006 286.033) 40%, transparent)"
       }
     },
     "bg-neutral-900/70": {
@@ -341,6 +457,16 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "bg-red-500/20": {
       "base": {
         "backgroundColor": "color-mix(in oklab, oklch(63.7% 0.237 25.331) 20%, transparent)"
+      }
+    },
+    "bg-red-500/90": {
+      "base": {
+        "backgroundColor": "color-mix(in oklab, oklch(63.7% 0.237 25.331) 90%, transparent)"
+      }
+    },
+    "bg-red-950/75": {
+      "base": {
+        "backgroundColor": "color-mix(in oklab, oklch(25.8% 0.092 26.042) 75%, transparent)"
       }
     },
     "bg-secondary": {
@@ -414,6 +540,16 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "borderWidth": 1
       }
     },
+    "border-0": {
+      "base": {
+        "borderWidth": 0
+      }
+    },
+    "border-[0.5px]": {
+      "base": {
+        "borderWidth": 0.5
+      }
+    },
     "border-amber-500/60": {
       "base": {
         "borderColor": "color-mix(in oklab, oklch(76.9% 0.188 70.08) 60%, transparent)"
@@ -450,12 +586,30 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "borderBottomWidth": 1
       }
     },
+    "border-blue-300": {
+      "base": {
+        "borderColor": "oklch(80.9% 0.105 251.813)"
+      }
+    },
+    "border-blue-400": {
+      "base": {
+        "borderColor": "oklch(70.7% 0.165 254.624)"
+      }
+    },
     "border-border": {
       "light": {
         "borderColor": "oklch(0.92 0.004 286.32)"
       },
       "dark": {
         "borderColor": "oklch(0.274 0.006 286.033)"
+      }
+    },
+    "border-border/80": {
+      "light": {
+        "borderColor": "color-mix(in oklab, oklch(0.92 0.004 286.32) 80%, transparent)"
+      },
+      "dark": {
+        "borderColor": "color-mix(in oklab, oklch(0.274 0.006 286.033) 80%, transparent)"
       }
     },
     "border-cyan-400": {
@@ -469,6 +623,14 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "border-emerald-900/70": {
       "base": {
         "borderColor": "color-mix(in oklab, oklch(37.8% 0.077 168.94) 70%, transparent)"
+      }
+    },
+    "border-foreground": {
+      "light": {
+        "borderColor": "oklch(0.141 0.005 285.823)"
+      },
+      "dark": {
+        "borderColor": "oklch(0.985 0 0)"
       }
     },
     "border-green-400/40": {
@@ -489,6 +651,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "borderColor": "oklch(0.274 0.006 286.033)"
       }
     },
+    "border-l": {
+      "base": {
+        "borderLeftWidth": 1
+      }
+    },
     "border-neutral-300/80": {
       "base": {
         "borderColor": "color-mix(in oklab, oklch(87% 0 0) 80%, transparent)"
@@ -499,14 +666,52 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "borderColor": "oklch(26.9% 0 0)"
       }
     },
+    "border-primary": {
+      "light": {
+        "borderColor": "oklch(0.21 0.006 285.885)"
+      },
+      "dark": {
+        "borderColor": "oklch(0.985 0 0)"
+      }
+    },
     "border-r": {
       "base": {
         "borderRightWidth": 1
       }
     },
+    "border-red-300/40": {
+      "base": {
+        "borderColor": "color-mix(in oklab, oklch(80.8% 0.114 19.571) 40%, transparent)"
+      }
+    },
+    "border-red-400": {
+      "base": {
+        "borderColor": "oklch(70.4% 0.191 22.216)"
+      }
+    },
+    "border-red-500": {
+      "base": {
+        "borderColor": "oklch(63.7% 0.237 25.331)"
+      }
+    },
+    "border-red-500/20": {
+      "base": {
+        "borderColor": "color-mix(in oklab, oklch(63.7% 0.237 25.331) 20%, transparent)"
+      }
+    },
+    "border-red-500/40": {
+      "base": {
+        "borderColor": "color-mix(in oklab, oklch(63.7% 0.237 25.331) 40%, transparent)"
+      }
+    },
     "border-red-500/60": {
       "base": {
         "borderColor": "color-mix(in oklab, oklch(63.7% 0.237 25.331) 60%, transparent)"
+      }
+    },
+    "border-red-900": {
+      "base": {
+        "borderColor": "oklch(39.6% 0.141 25.723)"
       }
     },
     "border-sky-900/70": {
@@ -517,6 +722,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "border-t": {
       "base": {
         "borderTopWidth": 1
+      }
+    },
+    "border-t-2": {
+      "base": {
+        "borderTopWidth": 2
       }
     },
     "border-x": {
@@ -541,6 +751,25 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "bottom": 4
       }
     },
+    "box-border": {
+      "base": {}
+    },
+    "col-start-3": {
+      "base": {}
+    },
+    "col-start-4": {
+      "base": {}
+    },
+    "contents": {
+      "base": {
+        "display": "contents"
+      }
+    },
+    "cursor-col-resize": {
+      "base": {
+        "cursor": "col-resize"
+      }
+    },
     "cursor-default": {
       "base": {
         "cursor": "default"
@@ -556,6 +785,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "cursor": "grab"
       }
     },
+    "cursor-move": {
+      "base": {
+        "cursor": "move"
+      }
+    },
     "cursor-not-allowed": {
       "base": {
         "cursor": "not-allowed"
@@ -569,6 +803,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "cursor-pointer": {
       "base": {
         "cursor": "pointer"
+      }
+    },
+    "cursor-row-resize": {
+      "base": {
+        "cursor": "row-resize"
       }
     },
     "data-[closed]:animate-out": {
@@ -589,6 +828,14 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "data-[disabled]:pointer-events-none": {
       "base": {}
     },
+    "data-[disabled]:text-muted-foreground": {
+      "light": {
+        "color": "oklch(0.552 0.016 285.938)"
+      },
+      "dark": {
+        "color": "oklch(0.705 0.015 286.067)"
+      }
+    },
     "data-[expanded]:animate-in": {
       "base": {}
     },
@@ -607,8 +854,32 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "data-[expanded]:text-foreground": {
       "base": {}
     },
+    "data-[expanded]:text-muted-foreground": {
+      "light": {
+        "color": "oklch(0.552 0.016 285.938)"
+      },
+      "dark": {
+        "color": "oklch(0.705 0.015 286.067)"
+      }
+    },
     "data-[expanded]:zoom-in-95": {
       "base": {}
+    },
+    "data-[highlighted]:bg-muted": {
+      "light": {
+        "backgroundColor": "oklch(0.967 0.001 286.375)"
+      },
+      "dark": {
+        "backgroundColor": "oklch(0.274 0.006 286.033)"
+      }
+    },
+    "data-[highlighted]:text-foreground": {
+      "light": {
+        "color": "oklch(0.141 0.005 285.823)"
+      },
+      "dark": {
+        "color": "oklch(0.985 0 0)"
+      }
     },
     "data-[invalid]:border-error-foreground": {
       "base": {}
@@ -644,6 +915,9 @@ export const nativeTailwindManifest: NativeStyleManifest = {
       "base": {}
     },
     "disabled:pointer-events-none": {
+      "base": {}
+    },
+    "duration-75": {
       "base": {}
     },
     "file:bg-transparent": {
@@ -683,12 +957,29 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "flexDirection": "column"
       }
     },
+    "flex-col-reverse": {
+      "base": {
+        "flexDirection": "column-reverse"
+      }
+    },
     "flex-wrap": {
       "base": {
         "flexWrap": "wrap"
       }
     },
+    "focus-visible:outline": {
+      "base": {}
+    },
+    "focus-visible:outline-2": {
+      "base": {}
+    },
     "focus-visible:outline-none": {
+      "base": {}
+    },
+    "focus-visible:outline-offset-[-2px]": {
+      "base": {}
+    },
+    "focus-visible:outline-primary": {
       "base": {}
     },
     "focus-visible:ring-2": {
@@ -731,6 +1022,15 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "focus:outline-none": {
       "base": {}
     },
+    "focus:ring-2": {
+      "base": {}
+    },
+    "focus:ring-offset-2": {
+      "base": {}
+    },
+    "focus:ring-ring": {
+      "base": {}
+    },
     "focus:text-accent-foreground": {
       "base": {},
       "focus": {
@@ -751,6 +1051,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "dark": {
           "color": "oklch(0.985 0 0)"
         }
+      }
+    },
+    "font-bold": {
+      "base": {
+        "fontWeight": 700
       }
     },
     "font-medium": {
@@ -783,6 +1088,21 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "gap": 12
       }
     },
+    "gap-4": {
+      "base": {
+        "gap": 16
+      }
+    },
+    "gap-x-2": {
+      "base": {
+        "columnGap": 8
+      }
+    },
+    "gap-x-4": {
+      "base": {
+        "columnGap": 16
+      }
+    },
     "grid": {
       "base": {
         "display": "grid"
@@ -791,6 +1111,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "grid-cols-1": {
       "base": {
         "gridTemplateColumns": 1
+      }
+    },
+    "grid-cols-2": {
+      "base": {
+        "gridTemplateColumns": 2
       }
     },
     "grid-cols-[1fr_auto_1fr]": {
@@ -808,8 +1133,20 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "group-hover:bg-sky-500/20": {
       "base": {}
     },
+    "group-hover:opacity-100": {
+      "base": {
+        "hover": {
+          "opacity": 1
+        }
+      }
+    },
     "group-hover:text-foreground": {
       "base": {}
+    },
+    "h-0": {
+      "base": {
+        "height": 0
+      }
     },
     "h-1": {
       "base": {
@@ -831,9 +1168,24 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "height": 44
       }
     },
+    "h-16": {
+      "base": {
+        "height": 64
+      }
+    },
+    "h-2": {
+      "base": {
+        "height": 8
+      }
+    },
     "h-2.5": {
       "base": {
         "height": 10
+      }
+    },
+    "h-3": {
+      "base": {
+        "height": 12
       }
     },
     "h-3.5": {
@@ -846,6 +1198,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "height": 16
       }
     },
+    "h-5": {
+      "base": {
+        "height": 20
+      }
+    },
     "h-6": {
       "base": {
         "height": 24
@@ -854,6 +1211,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "h-7": {
       "base": {
         "height": 28
+      }
+    },
+    "h-8": {
+      "base": {
+        "height": 32
       }
     },
     "h-9": {
@@ -869,6 +1231,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "h-px": {
       "base": {
         "height": 1
+      }
+    },
+    "hidden": {
+      "base": {
+        "display": "none"
       }
     },
     "hover:bg-accent": {
@@ -931,6 +1298,20 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         }
       }
     },
+    "hover:bg-red-300/20": {
+      "base": {
+        "hover": {
+          "backgroundColor": "color-mix(in oklab, oklch(80.8% 0.114 19.571) 20%, transparent)"
+        }
+      }
+    },
+    "hover:bg-red-500/20": {
+      "base": {
+        "hover": {
+          "backgroundColor": "color-mix(in oklab, oklch(63.7% 0.237 25.331) 20%, transparent)"
+        }
+      }
+    },
     "hover:bg-red-500/90": {
       "base": {
         "hover": {
@@ -959,6 +1340,42 @@ export const nativeTailwindManifest: NativeStyleManifest = {
       "dark": {
         "hover": {
           "backgroundColor": "oklch(0.22 0.006 286)"
+        }
+      }
+    },
+    "hover:border-border": {
+      "light": {
+        "hover": {
+          "borderColor": "oklch(0.92 0.004 286.32)"
+        }
+      },
+      "dark": {
+        "hover": {
+          "borderColor": "oklch(0.274 0.006 286.033)"
+        }
+      }
+    },
+    "hover:border-red-400": {
+      "base": {
+        "hover": {
+          "borderColor": "oklch(70.4% 0.191 22.216)"
+        }
+      }
+    },
+    "hover:border-red-400/70": {
+      "base": {
+        "hover": {
+          "borderColor": "color-mix(in oklab, oklch(70.4% 0.191 22.216) 70%, transparent)"
+        }
+      }
+    },
+    "hover:brightness-110": {
+      "base": {}
+    },
+    "hover:opacity-100": {
+      "base": {
+        "hover": {
+          "opacity": 1
         }
       }
     },
@@ -998,6 +1415,13 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         }
       }
     },
+    "hover:text-red-50": {
+      "base": {
+        "hover": {
+          "color": "oklch(97.1% 0.013 17.38)"
+        }
+      }
+    },
     "hover:underline": {
       "base": {}
     },
@@ -1020,9 +1444,25 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "right": 0
       }
     },
+    "inset-y-0": {
+      "base": {
+        "top": 0,
+        "bottom": 0
+      }
+    },
     "items-center": {
       "base": {
         "alignItems": "center"
+      }
+    },
+    "items-end": {
+      "base": {
+        "alignItems": "flex-end"
+      }
+    },
+    "items-start": {
+      "base": {
+        "alignItems": "flex-start"
       }
     },
     "justify-between": {
@@ -1033,6 +1473,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "justify-center": {
       "base": {
         "justifyContent": "center"
+      }
+    },
+    "justify-end": {
+      "base": {
+        "justifyContent": "flex-end"
       }
     },
     "justify-self-center": {
@@ -1059,9 +1504,19 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "justifyContent": "flex-start"
       }
     },
+    "justify-start": {
+      "base": {
+        "justifyContent": "flex-start"
+      }
+    },
     "leading-5": {
       "base": {
         "lineHeight": 20
+      }
+    },
+    "leading-6": {
+      "base": {
+        "lineHeight": 24
       }
     },
     "leading-none": {
@@ -1072,6 +1527,12 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "left": 0
       }
     },
+    "left-1/2": {
+      "base": {},
+      "parentPosition": {
+        "leftFraction": 0.5
+      }
+    },
     "left-2": {
       "base": {
         "left": 8
@@ -1079,6 +1540,26 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     },
     "max-h-(--kb-menu-content-available-height)": {
       "base": {}
+    },
+    "max-h-80": {
+      "base": {
+        "maxHeight": 320
+      }
+    },
+    "max-h-screen": {
+      "base": {
+        "maxHeight": "100%"
+      }
+    },
+    "max-w-lg": {
+      "base": {
+        "maxWidth": 512
+      }
+    },
+    "mb-1": {
+      "base": {
+        "marginBottom": 4
+      }
     },
     "min-h-0": {
       "base": {
@@ -1115,6 +1596,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "minWidth": 128
       }
     },
+    "min-w-40": {
+      "base": {
+        "minWidth": 160
+      }
+    },
     "ml-auto": {
       "base": {}
     },
@@ -1135,9 +1621,29 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "marginBottom": 4
       }
     },
+    "opacity-0": {
+      "base": {
+        "opacity": 0
+      }
+    },
+    "opacity-100": {
+      "base": {
+        "opacity": 1
+      }
+    },
+    "opacity-30": {
+      "base": {
+        "opacity": 0.3
+      }
+    },
     "opacity-60": {
       "base": {
         "opacity": 0.6
+      }
+    },
+    "opacity-70": {
+      "base": {
+        "opacity": 0.7
       }
     },
     "origin-[var(--kb-menu-content-transform-origin)]": {
@@ -1146,9 +1652,24 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "outline-none": {
       "base": {}
     },
+    "overflow-auto": {
+      "base": {
+        "overflow": "auto"
+      }
+    },
     "overflow-hidden": {
       "base": {
         "overflow": "hidden"
+      }
+    },
+    "overflow-visible": {
+      "base": {
+        "overflow": "visible"
+      }
+    },
+    "overflow-x-clip": {
+      "base": {
+        "overflowX": "clip"
       }
     },
     "overflow-x-hidden": {
@@ -1201,6 +1722,14 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "paddingLeft": 8
       }
     },
+    "p-6": {
+      "base": {
+        "paddingTop": 24,
+        "paddingRight": 24,
+        "paddingBottom": 24,
+        "paddingLeft": 24
+      }
+    },
     "pb-1": {
       "base": {
         "paddingBottom": 4
@@ -1235,6 +1764,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "placeholder:text-muted-foreground": {
       "base": {}
     },
+    "pointer-events-auto": {
+      "base": {
+        "pointerEvents": "auto"
+      }
+    },
     "pointer-events-none": {
       "base": {
         "pointerEvents": "none"
@@ -1253,6 +1787,18 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "pt-1": {
       "base": {
         "paddingTop": 4
+      }
+    },
+    "px-0": {
+      "base": {
+        "paddingLeft": 0,
+        "paddingRight": 0
+      }
+    },
+    "px-0.5": {
+      "base": {
+        "paddingLeft": 2,
+        "paddingRight": 2
       }
     },
     "px-1": {
@@ -1338,8 +1884,36 @@ export const nativeTailwindManifest: NativeStyleManifest = {
       }
     },
     "right-1/2": {
+      "base": {},
+      "parentPosition": {
+        "rightFraction": 0.5
+      }
+    },
+    "right-4": {
       "base": {
-        "right": 2
+        "right": 16
+      }
+    },
+    "ring-1": {
+      "base": {
+        "boxShadow": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "blurRadius": 0,
+          "spreadRadius": 1,
+          "color": "rgba(0, 0, 0, 0)"
+        }
+      }
+    },
+    "ring-blue-400/80": {
+      "base": {
+        "boxShadow": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "blurRadius": 0,
+          "spreadRadius": 1,
+          "color": "rgba(81, 162, 255, 0.8)"
+        }
       }
     },
     "ring-offset-background": {
@@ -1360,6 +1934,9 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "borderRadius": 4
       }
     },
+    "row-start-1": {
+      "base": {}
+    },
     "select-none": {
       "base": {
         "userSelect": "none"
@@ -1368,15 +1945,33 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "selection:bg-primary/40": {
       "base": {}
     },
+    "shadow-background/40": {
+      "base": {}
+    },
+    "shadow-black/50": {
+      "base": {}
+    },
+    "shadow-inner": {
+      "base": {}
+    },
     "shadow-lg": {
       "base": {}
     },
     "shadow-md": {
       "base": {}
     },
+    "shadow-xl": {
+      "base": {}
+    },
     "shrink-0": {
       "base": {
         "flexShrink": 0
+      }
+    },
+    "size-1.5": {
+      "base": {
+        "width": 6,
+        "height": 6
       }
     },
     "size-10": {
@@ -1409,9 +2004,57 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "height": "100%"
       }
     },
+    "sm:flex-row": {
+      "base": {
+        "flexDirection": "row"
+      }
+    },
+    "sm:items-center": {
+      "base": {
+        "alignItems": "center"
+      }
+    },
+    "sm:justify-end": {
+      "base": {
+        "justifyContent": "flex-end"
+      }
+    },
+    "sm:space-x-2": {
+      "base": {
+        "gap": 8
+      }
+    },
+    "sm:text-left": {
+      "base": {
+        "textAlign": "left"
+      }
+    },
     "space-y-0.5": {
       "base": {
         "gap": 2
+      }
+    },
+    "space-y-1.5": {
+      "base": {
+        "gap": 6
+      }
+    },
+    "sr-only": {
+      "base": {
+        "position": "absolute",
+        "width": 1,
+        "height": 1,
+        "paddingTop": 0,
+        "paddingRight": 0,
+        "paddingBottom": 0,
+        "paddingLeft": 0,
+        "marginTop": -1,
+        "marginRight": -1,
+        "marginBottom": -1,
+        "marginLeft": -1,
+        "overflow": "hidden",
+        "whiteSpace": "nowrap",
+        "borderWidth": 0
       }
     },
     "sticky": {
@@ -1428,9 +2071,19 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "lineHeight": 14
       }
     },
+    "text-[10px]": {
+      "base": {
+        "fontSize": 10
+      }
+    },
     "text-[11px]": {
       "base": {
         "fontSize": 11
+      }
+    },
+    "text-[9px]": {
+      "base": {
+        "fontSize": 9
       }
     },
     "text-amber-100": {
@@ -1446,6 +2099,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "text-amber-300": {
       "base": {
         "color": "oklch(87.9% 0.169 91.605)"
+      }
+    },
+    "text-black": {
+      "base": {
+        "color": "#000"
       }
     },
     "text-blue-300": {
@@ -1486,12 +2144,28 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "color": "oklch(84.5% 0.143 164.978)"
       }
     },
+    "text-error-foreground": {
+      "light": {
+        "color": "oklch(0.55 0.22 27)"
+      },
+      "dark": {
+        "color": "oklch(0.78 0.17 27)"
+      }
+    },
     "text-foreground": {
       "light": {
         "color": "oklch(0.141 0.005 285.823)"
       },
       "dark": {
         "color": "oklch(0.985 0 0)"
+      }
+    },
+    "text-foreground/80": {
+      "light": {
+        "color": "color-mix(in oklab, oklch(0.141 0.005 285.823) 80%, transparent)"
+      },
+      "dark": {
+        "color": "color-mix(in oklab, oklch(0.985 0 0) 80%, transparent)"
       }
     },
     "text-green-300": {
@@ -1507,6 +2181,12 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "text-left": {
       "base": {
         "textAlign": "left"
+      }
+    },
+    "text-lg": {
+      "base": {
+        "fontSize": 18,
+        "lineHeight": 28
       }
     },
     "text-muted-foreground": {
@@ -1546,9 +2226,44 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "color": "oklch(0.21 0.006 285.885)"
       }
     },
+    "text-red-100": {
+      "base": {
+        "color": "oklch(93.6% 0.032 17.717)"
+      }
+    },
     "text-red-200": {
       "base": {
         "color": "oklch(88.5% 0.062 18.334)"
+      }
+    },
+    "text-red-200/70": {
+      "base": {
+        "color": "color-mix(in oklab, oklch(88.5% 0.062 18.334) 70%, transparent)"
+      }
+    },
+    "text-red-300": {
+      "base": {
+        "color": "oklch(80.8% 0.114 19.571)"
+      }
+    },
+    "text-red-400": {
+      "base": {
+        "color": "oklch(70.4% 0.191 22.216)"
+      }
+    },
+    "text-red-50": {
+      "base": {
+        "color": "oklch(97.1% 0.013 17.38)"
+      }
+    },
+    "text-red-900": {
+      "base": {
+        "color": "oklch(39.6% 0.141 25.723)"
+      }
+    },
+    "text-right": {
+      "base": {
+        "textAlign": "right"
       }
     },
     "text-secondary-foreground": {
@@ -1576,6 +2291,12 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "lineHeight": 16
       }
     },
+    "text-xxs": {
+      "base": {
+        "fontSize": 11,
+        "lineHeight": 14
+      }
+    },
     "top-0": {
       "base": {
         "top": 0
@@ -1587,11 +2308,29 @@ export const nativeTailwindManifest: NativeStyleManifest = {
       }
     },
     "top-1/2": {
-      "base": {
-        "top": 6
+      "base": {},
+      "parentPosition": {
+        "topFraction": 0.5
       }
     },
+    "top-4": {
+      "base": {
+        "top": 16
+      }
+    },
+    "top-full": {
+      "base": {},
+      "parentPosition": {
+        "topFraction": 1
+      }
+    },
+    "touch-none": {
+      "base": {}
+    },
     "tracking-normal": {
+      "base": {}
+    },
+    "tracking-tight": {
       "base": {}
     },
     "tracking-wide": {
@@ -1600,11 +2339,26 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "tracking-widest": {
       "base": {}
     },
+    "transition-all": {
+      "base": {}
+    },
     "transition-colors": {
       "base": {}
     },
-    "translate-x-1/2": {
+    "transition-opacity": {
       "base": {}
+    },
+    "translate-x-1/2": {
+      "base": {},
+      "translation": {
+        "xFraction": 0.5
+      }
+    },
+    "translate-y-1/2": {
+      "base": {},
+      "translation": {
+        "yFraction": 0.5
+      }
     },
     "truncate": {
       "base": {
@@ -1655,6 +2409,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "width": 16
       }
     },
+    "w-5": {
+      "base": {
+        "width": 20
+      }
+    },
     "w-6": {
       "base": {
         "width": 24
@@ -1663,6 +2422,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "w-7": {
       "base": {
         "width": 28
+      }
+    },
+    "w-72": {
+      "base": {
+        "width": 288
       }
     },
     "w-8": {
@@ -1696,7 +2460,13 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "whiteSpace": "nowrap"
       }
     },
+    "z-0": {
+      "base": {}
+    },
     "z-10": {
+      "base": {}
+    },
+    "z-20": {
       "base": {}
     },
     "z-30": {

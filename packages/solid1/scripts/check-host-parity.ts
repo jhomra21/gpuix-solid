@@ -1,8 +1,12 @@
 import { readFileSync } from "node:fs"
 import {
+  applyNativeStyleParentPosition,
+  applyNativeStyleTranslation,
   clearNativeStyleManifest,
   configureNativeStyleManifest,
   resolveNativeClassStyle,
+  resolveNativeClassParentPosition,
+  resolveNativeClassTranslation,
 } from "../src/native-style.ts"
 import { EventRegistry } from "../src/host/events.ts"
 import { createHostElement, insertHostNode, setHostProperty } from "../src/host/nodes.ts"
@@ -45,6 +49,25 @@ if (selectorLabel.closest("[data-track-name]") !== selectorButton) throw new Err
 if (selectorLabel.closest("button, input, select, textarea, [role='button']") !== selectorButton) throw new Error("closest must resolve selector lists and semantic tags")
 if (!selectorRoot.contains(selectorLabel) || selectorLabel.contains(selectorRoot)) throw new Error("contains must follow host ancestry")
 if (selectorButton.dataset.trackId !== "track-7") throw new Error("dataset must expose data-* properties")
+
+configureNativeStyleManifest({
+  classes: {
+    "-translate-x-1/2": { translation: { xFraction: -0.5 } },
+    "translate-y-1/2": { translation: { yFraction: 0.5 } },
+  },
+})
+const translation = resolveNativeClassTranslation("-translate-x-1/2 translate-y-1/2", undefined)
+const translatedStyle = applyNativeStyleTranslation({ width: 16, height: 12 }, translation)
+configureNativeStyleManifest({ classes: { "left-1/2": { parentPosition: { leftFraction: 0.5 } } } })
+const parentPosition = resolveNativeClassParentPosition("left-1/2", undefined)
+const centeredStyle = applyNativeStyleParentPosition({ width: 6 }, parentPosition, 16, 20)
+clearNativeStyleManifest()
+if (translatedStyle?.marginLeft !== -8 || translatedStyle.marginTop !== 6) {
+  throw new Error(`fractional native translation must resolve against final own size: ${JSON.stringify(translatedStyle)}`)
+}
+if (centeredStyle?.left !== 8) {
+  throw new Error(`parent-relative native position must resolve against parent size: ${JSON.stringify(centeredStyle)}`)
+}
 selectorButton.removeAttribute("data-track-name")
 if (selectorLabel.closest("[data-track-name]") !== null) throw new Error("removeAttribute must update selector matching")
 

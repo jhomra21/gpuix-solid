@@ -147,6 +147,23 @@ if (!hasNativeTestRenderer) {
   requireCondition(Math.abs(collapsedLaneHeight - 32) <= 1, `collapsed timeline lane should preserve source 32px height, got ${collapsedLaneHeight}`)
   requireCondition(Math.abs(collapsedSidebarHeight - 32) <= 1, `collapsed mixer row should preserve source 32px height, got ${collapsedSidebarHeight}`)
   requireCondition(Math.abs(collapsedLaneHeight - collapsedSidebarHeight) <= 1, "collapsed timeline and mixer geometry should stay aligned")
+  const collapsedSidebar = app.renderer.boundsTestId("track-synth")
+  const collapsedMute = app.renderer.boundsTestId("track-synth-mute")
+  const collapsedSolo = app.renderer.boundsTestId("track-synth-solo")
+  const collapsedArm = app.renderer.boundsTestId("track-synth-arm")
+  const collapsedVolume = app.renderer.boundsTestId("track-synth-volume")
+  requireCondition(
+    collapsedMute.x > collapsedSidebar.x + collapsedSidebar.width * 0.55,
+    `collapsed source control group should remain in the right-side third column, row ${JSON.stringify(collapsedSidebar)}, mute ${JSON.stringify(collapsedMute)}`,
+  )
+  requireCondition(
+    collapsedMute.x < collapsedSolo.x && collapsedSolo.x < collapsedArm.x && collapsedArm.x < collapsedVolume.x,
+    `collapsed source controls should preserve mute/solo/arm/volume ordering: ${JSON.stringify({ collapsedMute, collapsedSolo, collapsedArm, collapsedVolume })}`,
+  )
+  requireCondition(
+    right(collapsedVolume) <= right(collapsedSidebar) + 2,
+    `collapsed source volume control should stay inside the mixer row: row ${JSON.stringify(collapsedSidebar)}, volume ${JSON.stringify(collapsedVolume)}`,
+  )
   app.renderer.clickCenterTestId("track-synth-collapse")
   requireCondition(Math.abs(app.renderer.boundsTestId("lane-synth").height - synthLaneHeight) <= 1, "expanding should restore the original timeline lane height")
   requireCondition(Math.abs(app.renderer.boundsTestId("track-synth").height - synthSidebarHeight) <= 1, "expanding should restore the original mixer row height")

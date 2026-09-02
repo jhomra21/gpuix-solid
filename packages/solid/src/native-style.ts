@@ -1,4 +1,4 @@
-import type { LinearGradientBackground, StyleDesc } from "./host/types.js"
+import type { DimensionValue, LinearGradientBackground, StyleDesc } from "./host/types.js"
 
 export type NativeColorMode = "light" | "dark"
 export type NativeClassList = Record<string, boolean | null | undefined>
@@ -10,7 +10,23 @@ export interface NativeStyleVariant {
   dark?: StyleDesc
 }
 
+/** Fractional visual translation resolved against the element's own native size. */
+export interface NativeStyleTranslation {
+  xFraction?: number
+  yFraction?: number
+}
+
+/** Parent-relative offsets used by percentage positioning utilities such as left-1/2. */
+export interface NativeStyleParentPosition {
+  leftFraction?: number
+  rightFraction?: number
+  topFraction?: number
+  bottomFraction?: number
+}
+
 export interface NativeStyleManifestEntry extends NativeStyleVariant {
+  translation?: NativeStyleTranslation
+  parentPosition?: NativeStyleParentPosition
   descendants?: Record<string, NativeStyleVariant>
   textTransform?: NativeTextTransform
 }
@@ -63,6 +79,113 @@ export function resolveNativeClassStyle(
     resolved = mergeNativeStyles(resolved, resolveVariant(entry))
   }
   return resolved
+}
+
+export function resolveNativeClassParentPosition(
+  className: string | undefined,
+  classList: NativeClassList | undefined,
+): NativeStyleParentPosition | undefined {
+  const candidates = classCandidates(className, classList)
+  if (candidates.length === 0) return undefined
+  const activeManifest = requireManifest()
+
+  let resolved: NativeStyleParentPosition | undefined
+  for (const candidate of candidates) {
+    const entry = activeManifest.classes[candidate]
+    if (!entry) throw missingCandidate(candidate)
+    if (!entry.parentPosition) continue
+    resolved = { ...resolved, ...entry.parentPosition }
+  }
+  return resolved
+}
+
+export function applyNativeStyleParentPosition(
+  style: StyleDesc | undefined,
+  position: NativeStyleParentPosition | undefined,
+  parentWidth: number | undefined,
+  parentHeight: number | undefined,
+): StyleDesc | undefined {
+  if (!style) return style
+  const result: StyleDesc = { ...style }
+
+  const left = resolveRelativePosition(result.left, position?.leftFraction, parentWidth)
+  const right = resolveRelativePosition(result.right, position?.rightFraction, parentWidth)
+  const top = resolveRelativePosition(result.top, position?.topFraction, parentHeight)
+  const bottom = resolveRelativePosition(result.bottom, position?.bottomFraction, parentHeight)
+  if (left === undefined) delete result.left
+  else result.left = left
+  if (right === undefined) delete result.right
+  else result.right = right
+  if (top === undefined) delete result.top
+  else result.top = top
+  if (bottom === undefined) delete result.bottom
+  else result.bottom = bottom
+  return result
+}
+
+function resolveRelativePosition(
+  value: DimensionValue | undefined,
+  classFraction: number | undefined,
+  parentSize: number | undefined,
+): DimensionValue | undefined {
+  if (classFraction !== undefined && parentSize !== undefined) return parentSize * classFraction
+  if (value === undefined || parentSize === undefined) return value
+  const numeric = Number(value)
+  if (Number.isFinite(numeric)) return numeric
+  const percentage = String(value).trim().match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))%$/)
+  if (!percentage) return value
+  return parentSize * Number(percentage[1]) / 100
+}
+
+export function resolveNativeClassTranslation(
+  className: string | undefined,
+  classList: NativeClassList | undefined,
+): NativeStyleTranslation | undefined {
+  const candidates = classCandidates(className, classList)
+  if (candidates.length === 0) return undefined
+  const activeManifest = requireManifest()
+
+  let resolved: NativeStyleTranslation | undefined
+  for (const candidate of candidates) {
+    const entry = activeManifest.classes[candidate]
+    if (!entry) throw missingCandidate(candidate)
+    if (!entry.translation) continue
+    resolved = { ...resolved, ...entry.translation }
+  }
+  return resolved
+}
+
+export function applyNativeStyleTranslation(
+  style: StyleDesc | undefined,
+  translation: NativeStyleTranslation | undefined,
+): StyleDesc | undefined {
+  if (!style || !translation) return style
+  const result: StyleDesc = { ...style }
+  const width = numericStyleLength(result.width)
+  const height = numericStyleLength(result.height)
+  if (translation.xFraction !== undefined && width !== undefined) {
+    const offset = width * translation.xFraction
+    const left = numericStyleLength(result.left)
+    const right = numericStyleLength(result.right)
+    if (left !== undefined) result.left = left + offset
+    else if (right !== undefined) result.right = right - offset
+    else result.marginLeft = (result.marginLeft ?? 0) + offset
+  }
+  if (translation.yFraction !== undefined && height !== undefined) {
+    const offset = height * translation.yFraction
+    const top = numericStyleLength(result.top)
+    const bottom = numericStyleLength(result.bottom)
+    if (top !== undefined) result.top = top + offset
+    else if (bottom !== undefined) result.bottom = bottom - offset
+    else result.marginTop = (result.marginTop ?? 0) + offset
+  }
+  return result
+}
+
+function numericStyleLength(value: DimensionValue | undefined): number | undefined {
+  if (value === undefined) return undefined
+  const number = Number(value)
+  return Number.isFinite(number) ? number : undefined
 }
 
 export function resolveNativeClassTextTransform(
