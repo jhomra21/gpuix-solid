@@ -6,6 +6,8 @@ compat_anchor = "const nativeCompatEntries = new Map([\n"
 compat_lines = [
     '  ["grid-cols-2", { base: { gridTemplateColumns: 2 } }],\n',
     '  ["max-h-screen", { base: { maxHeight: "100%" } }],\n',
+    '  ["ring-1", { base: { boxShadow: { offsetX: 0, offsetY: 0, blurRadius: 0, spreadRadius: 1, color: "rgba(0, 0, 0, 0)" } } }],\n',
+    '  ["ring-blue-400/80", { base: { boxShadow: { offsetX: 0, offsetY: 0, blurRadius: 0, spreadRadius: 1, color: "rgba(81, 162, 255, 0.8)" } } }],\n',
 ]
 for compat_line in reversed(compat_lines):
     if compat_line in text:
