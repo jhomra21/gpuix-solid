@@ -58,7 +58,7 @@ export function render(code: () => JSX.Element, options: RenderOptions = {}): Re
   root.render(code)
   const loop = startFrameLoop(nativeRenderer, {
     onTerminated() {
-      process.exitCode = 0
+      process.exit(0)
     },
   })
 
