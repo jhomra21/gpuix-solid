@@ -54,11 +54,10 @@ describe("published GPUIX 0.7 host surface", () => {
     })
 
     const registration = renderer.windowKeyEvents.at(-1)
-    expect(registration?.[0]).toBe(true)
-    expect(registration?.[1]).toBe(false)
-    const eventId = registration?.[2]
-    expect(eventId).toBeTypeOf("number")
-    if (typeof eventId !== "number") throw new TypeError("Expected a numeric window key event id")
+    if (registration === undefined) throw new Error("Expected window key registration")
+    expect(registration[0]).toBe(true)
+    expect(registration[1]).toBe(false)
+    const eventId = registration[2]
 
     root.dispatch({
       elementId: eventId,
