@@ -68,4 +68,4 @@ jobs:
           git commit -m "fix: support exact DAW native style closure"
           git push origin HEAD:fix/source-first-example-fidelity
 
-# validate source sr-only geometry without exposing hidden labels
+# validate exact tracking-tight as an explicit GPUIX 0.7 typography limitation
