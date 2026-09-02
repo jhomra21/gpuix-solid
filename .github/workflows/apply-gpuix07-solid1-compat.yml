@@ -20,7 +20,34 @@ jobs:
         with:
           bun-version: 1.3.14
       - name: Apply compatibility patch
-        run: python scripts/apply-gpuix07-solid1-compat.py
+        run: |
+          python scripts/apply-gpuix07-solid1-compat.py
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace(path, old, new):
+              file = Path(path)
+              text = file.read_text()
+              if old not in text:
+                  raise SystemExit(f"missing title patch marker in {path}")
+              file.write_text(text.replace(old, new, 1))
+
+          replace(
+              "packages/solid1/src/host/types.ts",
+              '  autoFocus?: boolean\n  tabIndex?: number\n  testId?: string\n',
+              '  autoFocus?: boolean\n  tabIndex?: number\n  title?: string\n  testId?: string\n',
+          )
+          replace(
+              "packages/solid1/src/host/nodes.ts",
+              'const UNIVERSAL_PROPS = new Set(["autoFocus", "tabIndex", "motion", "testId", "highlight"])',
+              'const UNIVERSAL_PROPS = new Set(["autoFocus", "tabIndex", "motion", "testId", "highlight", "title"])',
+          )
+          replace(
+              "packages/solid1/src/kobalte/dropdown-menu.tsx",
+              '        testId={props.testId}\n        tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)}\n',
+              '        testId={props.testId}\n        title={props.title}\n        tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)}\n',
+          )
+          PY
       - name: Verify focused files
         run: |
           node scripts/check-gpuix-native-version.mjs
@@ -39,6 +66,6 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add packages/solid1/scripts/validate-package.mjs packages/solid1/src/native-style.ts packages/solid1/src/kobalte/dropdown-menu.tsx examples/solid1-daw/scripts/generate-native-tailwind.mjs .github/workflows/apply-gpuix07-solid1-compat.yml scripts/apply-gpuix07-solid1-compat.py
+          git add packages/solid1/scripts/validate-package.mjs packages/solid1/src/native-style.ts packages/solid1/src/kobalte/dropdown-menu.tsx packages/solid1/src/host/types.ts packages/solid1/src/host/nodes.ts examples/solid1-daw/scripts/generate-native-tailwind.mjs .github/workflows/apply-gpuix07-solid1-compat.yml scripts/apply-gpuix07-solid1-compat.py
           git commit -m 'fix: preserve source focus styles on GPUIX 0.7'
           git push origin HEAD:fix/source-first-example-fidelity
