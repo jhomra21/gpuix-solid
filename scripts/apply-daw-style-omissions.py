@@ -3,8 +3,13 @@ from pathlib import Path
 path = Path("examples/solid1-daw/scripts/generate-native-tailwind.mjs")
 text = path.read_text()
 compat_anchor = "const nativeCompatEntries = new Map([\n"
-compat_line = '  ["grid-cols-2", { base: { gridTemplateColumns: 2 } }],\n'
-if compat_line not in text:
+compat_lines = [
+    '  ["grid-cols-2", { base: { gridTemplateColumns: 2 } }],\n',
+    '  ["max-h-screen", { base: { maxHeight: "100%" } }],\n',
+]
+for compat_line in reversed(compat_lines):
+    if compat_line in text:
+        continue
     if compat_anchor not in text:
         raise SystemExit("native compatibility anchor missing")
     text = text.replace(compat_anchor, compat_anchor + compat_line, 1)
