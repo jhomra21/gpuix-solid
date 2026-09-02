@@ -10,6 +10,7 @@ compat_lines = [
     '  ["ring-1", { base: { boxShadow: { offsetX: 0, offsetY: 0, blurRadius: 0, spreadRadius: 1, color: "rgba(0, 0, 0, 0)" } } }],\n',
     '  ["ring-blue-400/80", { base: { boxShadow: { offsetX: 0, offsetY: 0, blurRadius: 0, spreadRadius: 1, color: "rgba(81, 162, 255, 0.8)" } } }],\n',
     '  ["space-y-1.5", { base: { gap: 6 } }],\n',
+    '  ["sr-only", { base: { position: "absolute", width: 1, height: 1, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, marginTop: -1, marginRight: -1, marginBottom: -1, marginLeft: -1, overflow: "hidden", whiteSpace: "nowrap", borderWidth: 0 } }],\n',
     # The native DAW reference window is fixed at 1440x900, so Tailwind sm
     # (min-width: 40rem) is always active. Compile those exact desktop dialog
     # branches into base native geometry instead of dropping responsive source.
