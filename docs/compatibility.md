@@ -27,6 +27,8 @@ The root lockfile currently resolves the GPUIX 0.7 native packages for:
 
 Repository CI runs a native verification job on macOS, Ubuntu, and Windows. The current 0.7 line passes frozen install, lint, typecheck, tests, builds, Solid 1 package checks, Kobalte, Tailwind, DAW, release tests, and the separate exact-package smoke job.
 
+GPUIX 0.7 also adds structured two-stop linear-gradient backgrounds, renderer-level window key registration, native focus traversal, and the public `hasTestGpuixRenderer()` availability contract. Both Solid renderer packages expose those capabilities at their host/runtime boundaries and keep regressions for the shared behavior.
+
 The blurred-window example uses GPUIX's macOS native blur support. The other examples should not be read as a promise that every GPUI window option behaves identically on every operating system.
 
 ## Solid runtime conditions
