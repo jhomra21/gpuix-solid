@@ -1,0 +1,750 @@
+name: Core pointer event contract
+
+on:
+  push:
+    branches:
+      - fix/source-first-example-fidelity
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: fix/source-first-example-fidelity
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: 1.3.14
+      - name: Implement host pointer event contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from textwrap import dedent, indent
+
+          root = Path.cwd()
+
+          events = dedent(r'''
+          import type { EventPayload as NativeEventPayload } from "@gpuix/native"
+          import type { DomCompatTarget, EventPayload, HostEventHandler } from "./types.js"
+
+          export type { DomCompatTarget } from "./types.js"
+
+          export const EVENT_PROPS = [
+            ["onToggleFile", "toggleFile", "toggleFile"],
+            ["onShowMore", "showMore", "showMore"],
+            ["onLineClick", "lineClick", "lineClick"],
+            ["onLinkClick", "linkClick", "linkClick"],
+            ["onVisibleRange", "visibleRange", "visibleRange"],
+            ["onHighlight", "highlight", "highlight"],
+            ["onChange", "change", "change"],
+            ["onInput", "input", "change"],
+            ["onSubmit", "submit", "submit"],
+            ["onClick", "click", "click"],
+            ["onDblClick", "dblClick", "click"],
+            ["onAuxClick", "auxClick", "auxClick"],
+            ["onContextMenu", "contextMenu", "mouseUp"],
+            ["onMouseDown", "mouseDown", "mouseDown"],
+            ["onPointerDown", "pointerDown", "mouseDown"],
+            ["onMouseUp", "mouseUp", "mouseUp"],
+            ["onPointerUp", "pointerUp", "mouseUp"],
+            ["onPointerCancel", "pointerCancel", null],
+            ["onLostPointerCapture", "lostPointerCapture", null],
+            ["onMouseEnter", "mouseEnter", "mouseEnter"],
+            ["onMouseOver", "mouseOver", "mouseEnter"],
+            ["onPointerEnter", "pointerEnter", "mouseEnter"],
+            ["onMouseLeave", "mouseLeave", "mouseLeave"],
+            ["onMouseOut", "mouseOut", "mouseLeave"],
+            ["onPointerLeave", "pointerLeave", "mouseLeave"],
+            ["onMouseMove", "mouseMove", "mouseMove"],
+            ["onPointerMove", "pointerMove", "mouseMove"],
+            ["onMouseDownOutside", "mouseDownOutside", "mouseDownOutside"],
+            ["onKeyDown", "keyDown", "keyDown"],
+            ["onKeyUp", "keyUp", "keyUp"],
+            ["onFocus", "focus", "focus"],
+            ["onBlur", "blur", "blur"],
+            ["onScroll", "scroll", "scroll"],
+          ] as const
+
+          export type EventPropName = (typeof EVENT_PROPS)[number][0]
+          export type DomEventType = (typeof EVENT_PROPS)[number][1]
+          export type NativeEventType = Exclude<(typeof EVENT_PROPS)[number][2], null>
+
+          export const EVENT_PROP_TO_TYPE = new Map<string, DomEventType>()
+          const DOM_EVENT_TO_NATIVE = new Map<string, NativeEventType>()
+          const DOM_EVENTS_BY_NATIVE = new Map<string, DomEventType[]>()
+          for (const [propName, domEventType, nativeEventType] of EVENT_PROPS) {
+            EVENT_PROP_TO_TYPE.set(propName, domEventType)
+            if (nativeEventType === null) continue
+            DOM_EVENT_TO_NATIVE.set(domEventType, nativeEventType)
+            const domEvents = DOM_EVENTS_BY_NATIVE.get(nativeEventType) ?? []
+            domEvents.push(domEventType)
+            DOM_EVENTS_BY_NATIVE.set(nativeEventType, domEvents)
+          }
+
+          export function nativeEventTypeForDomEvent(eventType: string): NativeEventType | undefined {
+            return DOM_EVENT_TO_NATIVE.get(eventType)
+          }
+
+          type GlobalEventHandler = (event: EventPayload) => void
+          const globalListeners = new Map<string, Set<GlobalEventHandler>>()
+          const EVENT_STATE = new WeakMap<object, { defaultPrevented: boolean; propagationStopped: boolean }>()
+          const POINTER_ID = 0
+          const DOUBLE_CLICK_MS = 500
+          const DOUBLE_CLICK_DISTANCE_PX = 4
+
+          installNativeDomGlobals()
+
+          function fallbackTarget(event: NativeEventPayload): DomCompatTarget {
+            const x = event.x ?? 0
+            const y = event.y ?? 0
+            return {
+              value: event.value ?? "",
+              scrollTop: 0,
+              scrollLeft: 0,
+              style: {},
+              dataset: {},
+              classList: {
+                add: () => undefined,
+                remove: () => undefined,
+              },
+              focus: () => undefined,
+              blur: () => undefined,
+              select: () => undefined,
+              setPointerCapture: () => undefined,
+              releasePointerCapture: () => undefined,
+              hasPointerCapture: () => false,
+              addEventListener: () => undefined,
+              removeEventListener: () => undefined,
+              dispatchEvent: () => true,
+              getBoundingClientRect: () => ({
+                left: x,
+                top: y,
+                right: x,
+                bottom: y,
+                width: 0,
+                height: 0,
+              }),
+            }
+          }
+
+          function browserEventName(eventType: string): string {
+            switch (eventType) {
+              case "dblClick": return "dblclick"
+              case "pointerDown": return "pointerdown"
+              case "pointerUp": return "pointerup"
+              case "pointerMove": return "pointermove"
+              case "pointerEnter": return "pointerenter"
+              case "pointerLeave": return "pointerleave"
+              case "pointerCancel": return "pointercancel"
+              case "lostPointerCapture": return "lostpointercapture"
+              case "mouseDown": return "mousedown"
+              case "mouseUp": return "mouseup"
+              case "mouseMove": return "mousemove"
+              case "mouseEnter": return "mouseenter"
+              case "mouseLeave": return "mouseleave"
+              case "mouseOver": return "mouseover"
+              case "mouseOut": return "mouseout"
+              case "keyDown": return "keydown"
+              case "keyUp": return "keyup"
+              default: return eventType.toLowerCase()
+            }
+          }
+
+          function domCompatibleEvent(
+            event: NativeEventPayload,
+            target: DomCompatTarget | undefined,
+            domEventType: string,
+          ): EventPayload {
+            const x = event.x ?? 0
+            const y = event.y ?? 0
+            const currentTarget = target ?? fallbackTarget(event)
+            if (event.value !== undefined) currentTarget.value = event.value
+            const state = { defaultPrevented: false, propagationStopped: false }
+            const payload = Object.assign({}, event, {
+              type: browserEventName(domEventType),
+              currentTarget,
+              target: currentTarget,
+              clientX: x,
+              clientY: y,
+              pointerId: POINTER_ID,
+              pointerType: "mouse",
+              shiftKey: event.modifiers?.shift ?? false,
+              metaKey: event.modifiers?.cmd ?? false,
+              altKey: event.modifiers?.alt ?? false,
+              ctrlKey: event.modifiers?.ctrl ?? false,
+              preventDefault: () => { state.defaultPrevented = true },
+              stopPropagation: () => { state.propagationStopped = true },
+            }) as EventPayload
+            Object.defineProperties(payload, {
+              defaultPrevented: { configurable: true, get: () => state.defaultPrevented },
+              cancelBubble: {
+                configurable: true,
+                get: () => state.propagationStopped,
+                set: (value: boolean) => { state.propagationStopped = Boolean(value) },
+              },
+            })
+            EVENT_STATE.set(payload, state)
+            return payload
+          }
+
+          function createTargetEvent(eventType: string, event: EventPayload, target: EventTarget): Event {
+            const domEvent = new Event(browserEventName(eventType), { bubbles: true, cancelable: true })
+            const originalPreventDefault = domEvent.preventDefault.bind(domEvent)
+            const originalStopPropagation = domEvent.stopPropagation.bind(domEvent)
+            Object.defineProperties(domEvent, {
+              target: { configurable: true, value: target },
+              currentTarget: { configurable: true, value: target },
+              clientX: { configurable: true, value: event.clientX ?? 0 },
+              clientY: { configurable: true, value: event.clientY ?? 0 },
+              pointerId: { configurable: true, value: event.pointerId ?? POINTER_ID },
+              pointerType: { configurable: true, value: event.pointerType ?? "mouse" },
+              button: { configurable: true, value: event.button ?? 0 },
+              shiftKey: { configurable: true, value: event.shiftKey ?? false },
+              metaKey: { configurable: true, value: event.metaKey ?? false },
+              altKey: { configurable: true, value: event.altKey ?? false },
+              ctrlKey: { configurable: true, value: event.ctrlKey ?? false },
+              preventDefault: {
+                configurable: true,
+                value: () => {
+                  originalPreventDefault()
+                  event.preventDefault?.()
+                },
+              },
+              stopPropagation: {
+                configurable: true,
+                value: () => {
+                  originalStopPropagation()
+                  event.stopPropagation?.()
+                },
+              },
+              composedPath: { configurable: true, value: () => [target] },
+            })
+            return domEvent
+          }
+
+          function createGlobalDomEvent(name: string, event: EventPayload, currentTarget: EventTarget): Event {
+            const domEvent = new Event(name, { bubbles: true, cancelable: true })
+            const target = event.target ?? null
+            Object.defineProperties(domEvent, {
+              target: { configurable: true, value: target },
+              currentTarget: { configurable: true, value: currentTarget },
+              clientX: { configurable: true, value: event.clientX ?? 0 },
+              clientY: { configurable: true, value: event.clientY ?? 0 },
+              pointerId: { configurable: true, value: event.pointerId ?? POINTER_ID },
+              pointerType: { configurable: true, value: event.pointerType ?? "mouse" },
+              button: { configurable: true, value: event.button ?? 0 },
+              shiftKey: { configurable: true, value: event.shiftKey ?? false },
+              metaKey: { configurable: true, value: event.metaKey ?? false },
+              altKey: { configurable: true, value: event.altKey ?? false },
+              ctrlKey: { configurable: true, value: event.ctrlKey ?? false },
+              composedPath: {
+                configurable: true,
+                value: () => target ? [target, currentTarget] : [currentTarget],
+              },
+            })
+            return domEvent
+          }
+
+          function globalEventName(eventType: string): string | undefined {
+            if (eventType === "pointerMove") return "pointermove"
+            if (eventType === "pointerUp") return "pointerup"
+            if (eventType === "pointerDown") return "pointerdown"
+            if (eventType === "pointerCancel") return "pointercancel"
+            if (eventType === "click") return "click"
+            if (eventType === "dblClick") return "dblclick"
+            if (eventType === "contextMenu") return "contextmenu"
+            return undefined
+          }
+
+          function dispatchGlobalEvent(eventType: string, event: EventPayload): void {
+            const name = globalEventName(eventType)
+            if (!name) return
+            for (const handler of globalListeners.get(name) ?? []) handler(event)
+            globalThis.document.dispatchEvent(createGlobalDomEvent(name, event, globalThis.document))
+            globalThis.window.dispatchEvent(createGlobalDomEvent(name, event, globalThis.window))
+          }
+
+          function installNativeDomGlobals(): void {
+            if (!Object.hasOwn(globalThis, "window")) {
+              Object.defineProperty(globalThis, "window", {
+                configurable: true,
+                writable: true,
+                value: {
+                  devicePixelRatio: 1,
+                  addEventListener(type: string, handler: GlobalEventHandler) {
+                    const handlers = globalListeners.get(type) ?? new Set<GlobalEventHandler>()
+                    handlers.add(handler)
+                    globalListeners.set(type, handlers)
+                  },
+                  removeEventListener(type: string, handler: GlobalEventHandler) {
+                    const handlers = globalListeners.get(type)
+                    handlers?.delete(handler)
+                    if (handlers?.size === 0) globalListeners.delete(type)
+                  },
+                  dispatchEvent: () => true,
+                },
+              })
+            }
+
+            if (!Object.hasOwn(globalThis, "document")) {
+              const classList = {
+                add: (..._tokens: string[]): void => undefined,
+                remove: (..._tokens: string[]): void => undefined,
+              }
+              Object.defineProperty(globalThis, "document", {
+                configurable: true,
+                writable: true,
+                value: { body: { classList }, dispatchEvent: () => true },
+              })
+            }
+          }
+
+          type LastClick = {
+            elementId: number
+            button: number
+            x: number
+            y: number
+            at: number
+          }
+
+          export class EventRegistry {
+            readonly #handlers = new Map<number, Map<string, HostEventHandler>>()
+            readonly #live = new Set<number>()
+            readonly #targets = new Map<number, DomCompatTarget>()
+            readonly #nativePointerDown = new Set<number>()
+            readonly #activePointers = new Set<number>()
+            readonly #pointerCapture = new Map<number, number>()
+            readonly #lastPointerEvent = new Map<number, NativeEventPayload>()
+            #lastClick: LastClick | undefined
+
+            activate(id: number): void {
+              this.#live.add(id)
+            }
+
+            setTarget(id: number, target: DomCompatTarget): void {
+              this.#targets.set(id, target)
+            }
+
+            deactivate(id: number): void {
+              for (const [pointerId, ownerId] of this.#pointerCapture) {
+                if (ownerId !== id) continue
+                this.#dispatchSynthetic(ownerId, "pointerCancel", pointerId)
+                this.#releasePointerCapture(ownerId, pointerId)
+              }
+              this.#live.delete(id)
+              this.#handlers.delete(id)
+              this.#targets.delete(id)
+              this.#nativePointerDown.delete(id)
+            }
+
+            set(id: number, eventType: string, handler: HostEventHandler): void {
+              const handlers = this.#handlers.get(id) ?? new Map<string, HostEventHandler>()
+              handlers.set(eventType, handler)
+              this.#handlers.set(id, handlers)
+            }
+
+            delete(id: number, eventType: string): void {
+              const handlers = this.#handlers.get(id)
+              if (!handlers) return
+              handlers.delete(eventType)
+              if (handlers.size === 0) this.#handlers.delete(id)
+            }
+
+            deleteDestroyed(id: number): void {
+              if (!this.#live.has(id)) {
+                this.#handlers.delete(id)
+                this.#targets.delete(id)
+                this.#nativePointerDown.delete(id)
+              }
+            }
+
+            clear(): void {
+              this.#handlers.clear()
+              this.#live.clear()
+              this.#targets.clear()
+              this.#nativePointerDown.clear()
+              this.#activePointers.clear()
+              this.#pointerCapture.clear()
+              this.#lastPointerEvent.clear()
+              this.#lastClick = undefined
+            }
+
+            has(id: number, eventType: string): boolean {
+              return this.#handlers.get(id)?.has(eventType) ?? false
+            }
+
+            setPointerCapture(id: number, pointerId: number): void {
+              if (!this.#live.has(id)) throw new DOMException("Pointer capture target is not connected", "InvalidStateError")
+              if (!this.#activePointers.has(pointerId)) throw new DOMException(`Pointer ${pointerId} is not active`, "NotFoundError")
+              const previousOwner = this.#pointerCapture.get(pointerId)
+              if (previousOwner === id) return
+              if (previousOwner !== undefined) this.#releasePointerCapture(previousOwner, pointerId)
+              this.#pointerCapture.set(pointerId, id)
+            }
+
+            releasePointerCapture(id: number, pointerId: number): void {
+              if (this.#pointerCapture.get(pointerId) !== id) return
+              this.#releasePointerCapture(id, pointerId)
+            }
+
+            hasPointerCapture(id: number, pointerId: number): boolean {
+              return this.#pointerCapture.get(pointerId) === id
+            }
+
+            dispatch(event: NativeEventPayload): void {
+              if (!this.#live.has(event.elementId)) return
+              switch (event.eventType) {
+                case "mouseDown": {
+                  this.#activePointers.add(POINTER_ID)
+                  this.#lastPointerEvent.set(POINTER_ID, event)
+                  this.#nativePointerDown.add(event.elementId)
+                  queueMicrotask(() => this.#nativePointerDown.delete(event.elementId))
+                  this.#dispatchDom(event.elementId, "pointerDown", event)
+                  this.#dispatchDom(event.elementId, "mouseDown", event)
+                  return
+                }
+                case "mouseMove": {
+                  this.#lastPointerEvent.set(POINTER_ID, event)
+                  const capturedId = this.#pointerCapture.get(POINTER_ID)
+                  this.#dispatchDom(capturedId ?? event.elementId, "pointerMove", event)
+                  this.#dispatchDom(event.elementId, "mouseMove", event)
+                  return
+                }
+                case "mouseUp": {
+                  this.#lastPointerEvent.set(POINTER_ID, event)
+                  const capturedId = this.#pointerCapture.get(POINTER_ID)
+                  this.#dispatchDom(capturedId ?? event.elementId, "pointerUp", event)
+                  this.#dispatchDom(event.elementId, "mouseUp", event)
+                  if (event.button === 2) this.#dispatchDom(event.elementId, "contextMenu", event)
+                  this.#activePointers.delete(POINTER_ID)
+                  if (capturedId !== undefined) this.#releasePointerCapture(capturedId, POINTER_ID)
+                  return
+                }
+                case "click": {
+                  if (!this.#nativePointerDown.has(event.elementId)) {
+                    this.#dispatchDom(event.elementId, "pointerDown", event, true)
+                  }
+                  this.#dispatchDom(event.elementId, "click", event)
+                  this.#maybeDispatchDoubleClick(event)
+                  return
+                }
+                case "mouseEnter": {
+                  this.#dispatchDom(event.elementId, "pointerEnter", event)
+                  this.#dispatchDom(event.elementId, "mouseEnter", event)
+                  this.#dispatchDom(event.elementId, "mouseOver", event)
+                  return
+                }
+                case "mouseLeave": {
+                  this.#dispatchDom(event.elementId, "pointerLeave", event)
+                  this.#dispatchDom(event.elementId, "mouseLeave", event)
+                  this.#dispatchDom(event.elementId, "mouseOut", event)
+                  return
+                }
+                default:
+                  for (const domEventType of DOM_EVENTS_BY_NATIVE.get(event.eventType) ?? []) {
+                    this.#dispatchDom(event.elementId, domEventType, event)
+                  }
+              }
+            }
+
+            #dispatchDom(
+              elementId: number,
+              eventType: string,
+              nativeEvent: NativeEventPayload,
+              globalOnly = false,
+            ): EventPayload | undefined {
+              if (!this.#live.has(elementId)) return undefined
+              const target = this.#targets.get(elementId)
+              const event = domCompatibleEvent({ ...nativeEvent, elementId }, target, eventType)
+              if (!globalOnly) {
+                this.#handlers.get(elementId)?.get(eventType)?.(event)
+                if (target) target.dispatchEvent(createTargetEvent(eventType, event, target))
+              }
+              dispatchGlobalEvent(eventType, event)
+              return event
+            }
+
+            #dispatchSynthetic(elementId: number, eventType: string, pointerId: number): void {
+              const previous = this.#lastPointerEvent.get(pointerId)
+              const synthetic = previous
+                ? { ...previous, elementId }
+                : ({ elementId, eventType: "mouseMove", x: 0, y: 0 } as NativeEventPayload)
+              this.#dispatchDom(elementId, eventType, synthetic)
+            }
+
+            #releasePointerCapture(id: number, pointerId: number): void {
+              if (this.#pointerCapture.get(pointerId) !== id) return
+              this.#pointerCapture.delete(pointerId)
+              this.#dispatchSynthetic(id, "lostPointerCapture", pointerId)
+            }
+
+            #maybeDispatchDoubleClick(event: NativeEventPayload): void {
+              const next: LastClick = {
+                elementId: event.elementId,
+                button: event.button ?? 0,
+                x: event.x ?? 0,
+                y: event.y ?? 0,
+                at: Date.now(),
+              }
+              const previous = this.#lastClick
+              this.#lastClick = next
+              if (!previous) return
+              if (previous.elementId !== next.elementId || previous.button !== next.button) return
+              if (next.at - previous.at > DOUBLE_CLICK_MS) return
+              if (Math.hypot(next.x - previous.x, next.y - previous.y) > DOUBLE_CLICK_DISTANCE_PX) return
+              this.#lastClick = undefined
+              this.#dispatchDom(event.elementId, "dblClick", event)
+            }
+          }
+          ''').lstrip()
+
+          for path in [root / "packages/solid1/src/host/events.ts", root / "packages/solid/src/host/events.ts"]:
+            path.write_text(events)
+
+          types_path = root / "packages/solid1/src/host/types.ts"
+          types = types_path.read_text()
+          old = '''export type DomCompatTarget = {
+            value: string
+          '''
+          if old not in types:
+            raise SystemExit("DomCompatTarget marker changed")
+          types = types.replace(old, '''export type DomCompatTarget = EventTarget & {
+            value: string
+          ''', 1)
+          if '  dataset: Record<string, string>\n' not in types:
+            types = types.replace('  style: object\n', '  style: object\n  dataset: Record<string, string>\n', 1)
+          if '  onDblClick?: HostEventHandler\n' not in types:
+            types = types.replace('  onClick?: HostEventHandler\n', '  onClick?: HostEventHandler\n  onDblClick?: HostEventHandler\n', 1)
+          types_path.write_text(types)
+          (root / "packages/solid/src/host/types.ts").write_text(types)
+
+          nodes_path = root / "packages/solid1/src/host/nodes.ts"
+          nodes = nodes_path.read_text()
+          nodes = nodes.replace(
+            'import { EVENT_PROP_TO_TYPE, type DomCompatTarget, type EventRegistry } from "./events.js"',
+            'import { EVENT_PROP_TO_TYPE, nativeEventTypeForDomEvent, type DomCompatTarget, type EventRegistry } from "./events.js"',
+            1,
+          )
+          nodes = nodes.replace('  readonly #capturedPointers = new Set<number>()\n', '')
+
+          pointer_start = '  setPointerCapture(pointerId: number): void {\n'
+          pointer_end = '  compareDocumentPosition(other: HostElementNode): number {\n'
+          if nodes.count(pointer_start) != 1 or nodes.count(pointer_end) != 1:
+            raise SystemExit("pointer method markers changed")
+          start = nodes.index(pointer_start)
+          end = nodes.index(pointer_end, start)
+          pointer_methods = indent(dedent('''\
+          setPointerCapture(pointerId: number): void {
+            const root = this.root
+            if (!root || !this.nativeAlive) throw new DOMException("Pointer capture target is not connected", "InvalidStateError")
+            root.events.setPointerCapture(this.id, pointerId)
+          }
+
+          releasePointerCapture(pointerId: number): void {
+            this.root?.events.releasePointerCapture(this.id, pointerId)
+          }
+
+          hasPointerCapture(pointerId: number): boolean {
+            return this.root?.events.hasPointerCapture(this.id, pointerId) ?? false
+          }
+
+          '''), '  ')
+          nodes = nodes[:start] + pointer_methods + nodes[end:]
+
+          semantic_start = '  compareDocumentPosition(other: HostElementNode): number {\n'
+          semantic_end = '  getBoundingClientRect(): {\n'
+          start = nodes.index(semantic_start)
+          end = nodes.index(semantic_end, start)
+          current_semantic = nodes[start:end]
+          normalized = dedent(current_semantic)
+          nodes = nodes[:start] + indent(normalized, '  ') + nodes[end:]
+
+          event_start = '  const eventType = EVENT_PROP_TO_TYPE.get(name)\n'
+          event_end = '  if (value === undefined) node.props.delete(name)\n'
+          if nodes.count(event_start) != 1 or nodes.count(event_end) != 1:
+            raise SystemExit("host event setter markers changed")
+          start = nodes.index(event_start)
+          end = nodes.index(event_end, start)
+          setter = indent(dedent('''\
+          const eventType = EVENT_PROP_TO_TYPE.get(name)
+          if (eventType) {
+            const nativeEventType = nativeEventTypeForDomEvent(eventType)
+            const hadNativeHandler = nativeEventType ? hasNativeEventHandler(node, nativeEventType) : false
+            const handler = isHostEventHandler(value) ? value : undefined
+            if (handler) node.events.set(eventType, handler)
+            else node.events.delete(eventType)
+
+            if (!node.root || !node.nativeAlive) return
+            if (handler) node.root.events.set(node.id, eventType, handler)
+            else node.root.events.delete(node.id, eventType)
+
+            if (nativeEventType) {
+              const hasNativeHandler = hasNativeEventHandler(node, nativeEventType)
+              if (hadNativeHandler != hasNativeHandler) {
+                node.root.driver.enqueue("setEventListener", node.id, nativeEventType, hasNativeHandler)
+              }
+            }
+            return
+          }
+
+          '''), '  ')
+          nodes = nodes[:start] + setter + nodes[end:]
+
+          old_adopt = '''    for (const [eventType, handler] of node.events) {
+              root.events.set(node.id, eventType, handler)
+              nativeEventTypes.add(nativeEventType(eventType))
+            }
+          '''
+          if old_adopt not in nodes:
+            old_adopt = '''    for (const [eventType, handler] of node.events) {
+            root.events.set(node.id, eventType, handler)
+            nativeEventTypes.add(nativeEventType(eventType))
+          }
+          '''
+          if old_adopt not in nodes:
+            raise SystemExit("adopt event loop changed")
+          new_adopt = '''    for (const [eventType, handler] of node.events) {
+            root.events.set(node.id, eventType, handler)
+            const nativeEventType = nativeEventTypeForDomEvent(eventType)
+            if (nativeEventType) nativeEventTypes.add(nativeEventType)
+          }
+          '''
+          nodes = nodes.replace(old_adopt, new_adopt, 1)
+
+          native_helper = '''function nativeEventType(eventType: string): string {
+            return eventType === "contextMenu" ? "mouseUp" : eventType
+          }
+
+          '''
+          nodes = nodes.replace(native_helper, '')
+          if 'function hasNativeEventHandler(' not in nodes:
+            marker = 'function markNativeDead(root: HostRootNode, node: HostNode): void {\n'
+            helper = '''function hasNativeEventHandler(node: HostElementNode, nativeEventType: string): boolean {
+            for (const eventType of node.events.keys()) {
+              if (nativeEventTypeForDomEvent(eventType) === nativeEventType) return true
+            }
+            return false
+          }
+
+          '''
+            if nodes.count(marker) != 1:
+              raise SystemExit("markNativeDead marker changed")
+            nodes = nodes.replace(marker, helper + marker, 1)
+
+          nodes_path.write_text(nodes)
+          (root / "packages/solid/src/host/nodes.ts").write_text(nodes)
+
+          browser_path = root / "packages/solid1/src/browser-event-compat.ts"
+          browser = browser_path.read_text()
+          browser = browser.replace('import { EVENT_PROP_TO_TYPE } from "./host/events.js"\n', '')
+          start_marker = '/**\n * Browser-only event names used by upstream component libraries that GPUIX\n'
+          end_marker = '/** GPUIX 0.7 reports platform-neutral key names; browser libraries expect KeyboardEvent.key names. */\n'
+          if start_marker in browser:
+            start = browser.index(start_marker)
+            end = browser.index(end_marker, start)
+            browser = browser[:start] + browser[end:]
+          browser_path.write_text(browser)
+
+          root_path = root / "packages/solid1/src/root.ts"
+          root_source = root_path.read_text()
+          root_source = root_source.replace('  installBrowserEventCompatibility,\n', '')
+          root_source = root_source.replace('  installBrowserEventCompatibility()\n', '')
+          root_path.write_text(root_source)
+
+          web_path = root / "packages/solid1/src/web.ts"
+          web = web_path.read_text()
+          web = web.replace('installBrowserKeyboardEventCompatibility()\n', '')
+          keyboard_marker = 'function installBrowserKeyboardEventCompatibility(): void {\n'
+          key_name_marker = 'function browserKeyboardKey(key: string | undefined): string | undefined {\n'
+          if keyboard_marker in web:
+            start = web.index(keyboard_marker)
+            end = web.index(key_name_marker, start)
+            # browserKeyboardKey is only used by the removed prototype patch.
+            function_end = web.index('\n}\n\nfunction syncNativePointerDownObservation', end) + 3
+            web = web[:start] + web[function_end:]
+          web_path.write_text(web)
+
+          parity_path = root / "packages/solid1/scripts/check-host-parity.ts"
+          parity = parity_path.read_text()
+          if 'import { EventRegistry }' not in parity:
+            parity = parity.replace(
+              'import { createHostElement, insertHostNode, setHostProperty } from "../src/host/nodes.ts"\n',
+              'import { EventRegistry } from "../src/host/events.ts"\nimport { createHostElement, insertHostNode, setHostProperty } from "../src/host/nodes.ts"\n',
+              1,
+            )
+          footer = 'console.log("solid1 host parity: passed")\n'
+          if 'captured pointer move must retarget to capture owner' not in parity:
+            tests = dedent('''\
+            const eventRegistry = new EventRegistry()
+            const pointerOwner = createHostElement("div", "button")
+            const pointerOther = createHostElement("div", "button")
+            eventRegistry.activate(1)
+            eventRegistry.activate(2)
+            eventRegistry.setTarget(1, pointerOwner)
+            eventRegistry.setTarget(2, pointerOther)
+            const pointerEvents: string[] = []
+            eventRegistry.set(1, "pointerDown", (event) => {
+              pointerEvents.push("pointerDown")
+              eventRegistry.setPointerCapture(1, event.pointerId ?? 0)
+            })
+            eventRegistry.set(1, "mouseDown", () => pointerEvents.push("mouseDown"))
+            eventRegistry.set(1, "pointerMove", () => pointerEvents.push("pointerMove"))
+            eventRegistry.set(1, "pointerUp", () => pointerEvents.push("pointerUp"))
+            eventRegistry.set(1, "lostPointerCapture", () => pointerEvents.push("lostPointerCapture"))
+            eventRegistry.dispatch({ elementId: 1, eventType: "mouseDown", x: 5, y: 5, button: 0 } as Parameters<EventRegistry["dispatch"]>[0])
+            eventRegistry.dispatch({ elementId: 2, eventType: "mouseMove", x: 50, y: 5, button: 0 } as Parameters<EventRegistry["dispatch"]>[0])
+            if (!eventRegistry.hasPointerCapture(1, 0)) throw new Error("pointer capture must remain active across another element")
+            eventRegistry.dispatch({ elementId: 2, eventType: "mouseUp", x: 50, y: 5, button: 0 } as Parameters<EventRegistry["dispatch"]>[0])
+            if (pointerEvents.join(",") !== "pointerDown,mouseDown,pointerMove,pointerUp,lostPointerCapture") {
+              throw new Error(`captured pointer move must retarget to capture owner: ${pointerEvents.join(",")}`)
+            }
+            if (eventRegistry.hasPointerCapture(1, 0)) throw new Error("pointer capture must release after pointerup")
+
+            const separateHandlers = createHostElement("div", "button")
+            let mouseDownCount = 0
+            let pointerDownCount = 0
+            setHostProperty(separateHandlers, "onMouseDown", () => { mouseDownCount += 1 })
+            setHostProperty(separateHandlers, "onPointerDown", () => { pointerDownCount += 1 })
+            if (!separateHandlers.events.has("mouseDown") || !separateHandlers.events.has("pointerDown")) {
+              throw new Error("mouse and pointer handlers must coexist without overwriting each other")
+            }
+
+            const doubleClickRegistry = new EventRegistry()
+            const doubleClickTarget = createHostElement("div", "button")
+            doubleClickRegistry.activate(3)
+            doubleClickRegistry.setTarget(3, doubleClickTarget)
+            let doubleClicks = 0
+            doubleClickRegistry.set(3, "dblClick", () => { doubleClicks += 1 })
+            const click = { elementId: 3, eventType: "click", x: 10, y: 10, button: 0 } as Parameters<EventRegistry["dispatch"]>[0]
+            doubleClickRegistry.dispatch(click)
+            doubleClickRegistry.dispatch(click)
+            if (doubleClicks !== 1) throw new Error("double click must be synthesized once from two nearby clicks")
+
+            ''')
+            if parity.count(footer) != 1:
+              raise SystemExit("host parity footer changed")
+            parity = parity.replace(footer, tests + footer, 1)
+          parity_path.write_text(parity)
+          PY
+      - name: Validate host and consumers
+        run: |
+          cd packages/solid1
+          bun install --no-save
+          bun run test
+          bun run typecheck
+          cd ../../examples/solid1-kobalte
+          bun install --no-save
+          bun run typecheck
+      - name: Commit validated pointer contract
+        run: |
+          rm .github/workflows/core-pointer-event-contract.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/solid1/src/host/events.ts packages/solid/src/host/events.ts packages/solid1/src/host/nodes.ts packages/solid/src/host/nodes.ts packages/solid1/src/host/types.ts packages/solid/src/host/types.ts packages/solid1/src/browser-event-compat.ts packages/solid1/src/root.ts packages/solid1/src/web.ts packages/solid1/scripts/check-host-parity.ts .github/workflows/core-pointer-event-contract.yml
+          git diff --check
+          git commit -m "fix: implement core pointer capture semantics"
+          git push origin HEAD:fix/source-first-example-fidelity
