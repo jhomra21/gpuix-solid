@@ -74,6 +74,7 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     remove: (..._tokens: string[]): void => undefined,
   }
   readonly #capturedPointers = new Set<number>()
+  readonly #eventListeners = new Map<string, Set<EventListenerOrEventListenerObject>>()
 
   constructor(type: ElementType, tagName: string = type) {
     this.type = type
@@ -241,6 +242,38 @@ closest(selector: string): HostElementNode | null {
     current = current.parentElement
   }
   return null
+}
+
+addEventListener(
+  type: string,
+  listener: EventListenerOrEventListenerObject | null,
+): void {
+  if (!listener) return
+  const listeners = this.#eventListeners.get(type) ?? new Set<EventListenerOrEventListenerObject>()
+  listeners.add(listener)
+  this.#eventListeners.set(type, listeners)
+}
+
+removeEventListener(
+  type: string,
+  listener: EventListenerOrEventListenerObject | null,
+): void {
+  if (!listener) return
+  const listeners = this.#eventListeners.get(type)
+  listeners?.delete(listener)
+  if (listeners?.size === 0) this.#eventListeners.delete(type)
+}
+
+dispatchEvent(event: Event): boolean {
+  if (event.target === null) {
+    Object.defineProperty(event, "target", { configurable: true, value: this })
+  }
+  Object.defineProperty(event, "currentTarget", { configurable: true, value: this })
+  for (const listener of [...(this.#eventListeners.get(event.type) ?? [])]) {
+    if (typeof listener === "function") listener.call(this, event)
+    else listener.handleEvent(event)
+  }
+  return !event.defaultPrevented
 }
 
   getBoundingClientRect(): {

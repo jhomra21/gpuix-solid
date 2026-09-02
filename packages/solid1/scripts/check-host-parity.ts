@@ -47,4 +47,11 @@ if (selectorButton.dataset.trackId !== "track-7") throw new Error("dataset must 
 selectorButton.removeAttribute("data-track-name")
 if (selectorLabel.closest("[data-track-name]") !== null) throw new Error("removeAttribute must update selector matching")
 
+const semanticButton = createHostElement("div", "button")
+if (semanticButton.localName !== "button" || semanticButton.tagName !== "BUTTON") throw new Error("host must retain semantic tag identity")
+let localEvents = 0
+semanticButton.addEventListener("click", () => { localEvents += 1 })
+semanticButton.dispatchEvent(new Event("click", { cancelable: true }))
+if (localEvents !== 1) throw new Error("native host EventTarget listener must fire")
+
 console.log("solid1 host parity: passed")

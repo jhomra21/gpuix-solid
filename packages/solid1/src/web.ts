@@ -18,8 +18,6 @@ export type DynamicProps<T extends ValidComponent, P = ComponentProps<T>> = {
   component: T | undefined
 }
 
-type LocalEventListener = (event: Event) => void
-
 type CompatDocumentStyle = {
   pointerEvents: string
   getPropertyValue(name: string): string
@@ -73,7 +71,6 @@ export function createDynamic<T extends ValidComponent>(
       throw new Error(`Expected host element for <${current}>`)
     }
     installBrowserStyleMutationCompatibility(element)
-    installSemanticTagMetadata(element, current)
     if (hasPopperPositionerProp(props)) promoteNativePopperPositioner(element)
     spread(element, props)
     if (nativePopperPositioners.has(element)) {
@@ -497,66 +494,4 @@ function createDocumentStyle(): CompatDocumentStyle {
       return previous
     },
   }
-}
-
-function installSemanticTagMetadata(element: ReturnType<typeof createElement>, tagName: string): void {
-  const localName = tagName.toLowerCase()
-  const nodeName = localName.toUpperCase()
-  const listeners = new Map<string, Set<LocalEventListener>>()
-  Object.defineProperties(element, {
-    tagName: { configurable: true, enumerable: true, value: nodeName },
-    nodeName: { configurable: true, enumerable: true, value: nodeName },
-    localName: { configurable: true, enumerable: true, value: localName },
-    matches: {
-      configurable: true,
-      enumerable: true,
-      value: (selector: string) => selector
-        .split(",")
-        .map((candidate) => candidate.trim().toLowerCase())
-        .includes(localName),
-    },
-    contains: {
-      configurable: true,
-      enumerable: true,
-      value: (child: ReturnType<typeof createElement> | null) => {
-        let current = child
-        while (current) {
-          if (current === element) return true
-          if (current.kind === "root") return false
-          const parent = current.parent
-          if (!parent || parent.kind === "root") return false
-          current = parent
-        }
-        return false
-      },
-    },
-    addEventListener: {
-      configurable: true,
-      enumerable: true,
-      value: (type: string, listener: LocalEventListener | null) => {
-        if (!listener) return
-        const entries = listeners.get(type) ?? new Set<LocalEventListener>()
-        entries.add(listener)
-        listeners.set(type, entries)
-      },
-    },
-    removeEventListener: {
-      configurable: true,
-      enumerable: true,
-      value: (type: string, listener: LocalEventListener | null) => {
-        if (!listener) return
-        const entries = listeners.get(type)
-        entries?.delete(listener)
-        if (entries?.size === 0) listeners.delete(type)
-      },
-    },
-    dispatchEvent: {
-      configurable: true,
-      enumerable: true,
-      value: (event: Event) => {
-        for (const listener of listeners.get(event.type) ?? []) listener(event)
-        return !event.defaultPrevented
-      },
-    },
-  })
 }
