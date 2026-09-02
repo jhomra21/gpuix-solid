@@ -221,9 +221,12 @@ if (!hasNativeTestRenderer) {
   requireText(app.renderer.textContent("compressor-threshold-value"), "-24.0 dB", "compressor source reset threshold")
   requireText(app.renderer.textContent("compressor-attack-value"), "10 ms", "compressor source reset attack")
 
+  app.renderer.scrollTestId("daw-test-viewport", -320, -260)
+  requireCondition((app.renderer.scrollOffsetTestId("daw-test-viewport")?.[0] ?? 0) < 0, "test viewport should scroll horizontally to expose EQ controls")
   app.renderer.scrollTestId("effects-panel", -540, 0)
   requireCondition((app.renderer.scrollOffsetTestId("effects-panel")?.[0] ?? 0) < 0, "effects chain should scroll horizontally to EQ")
   app.renderer.clickCenterTestId("eq-band-7")
+  requireText(app.renderer.textContent("eq-selected-gain-value"), "0.0 dB", "EQ high band selection")
   app.renderer.clickCenterTestId("eq-selected-gain-plus")
   requireText(app.renderer.textContent("eq-selected-gain-value"), "+1.0 dB", "EQ high gain")
   app.renderer.clickCenterTestId("eq-reset")
