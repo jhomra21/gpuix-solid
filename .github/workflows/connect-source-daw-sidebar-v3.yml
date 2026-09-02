@@ -1,0 +1,56 @@
+name: Connect source DAW sidebar v3
+
+on:
+  push:
+    branches:
+      - fix/source-first-example-fidelity
+    paths:
+      - .github/workflows/connect-source-daw-sidebar-v3.yml
+
+permissions:
+  contents: write
+
+jobs:
+  connect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: fix/source-first-example-fidelity
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: 1.3.14
+      - name: Wire exact sidebar
+        run: python scripts/wire-exact-daw-sidebar.py
+      - name: Validate exact sidebar
+        run: |
+          set -euo pipefail
+          bun install --frozen-lockfile
+          cd packages/solid1
+          bun install --no-save
+          bun run typecheck
+          bun run test
+          bun run build
+          cd ../../examples/solid1-kobalte
+          bun install --no-save
+          bun run typecheck
+          cd ../solid1-daw
+          bun install --no-save
+          bun run source:check
+          bun run generate:styles
+          bunx tsc --noEmit
+          bun run source:check
+      - name: Commit validated wiring
+        run: |
+          set -euo pipefail
+          rm -f scripts/wire-exact-daw-sidebar.py
+          rm -f .github/workflows/connect-source-daw-sidebar.yml
+          rm -f .github/workflows/connect-source-daw-sidebar-v2.yml
+          rm -f .github/workflows/connect-source-daw-sidebar-v3.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "refactor: run exact DAW track sidebar"
+          git push origin HEAD:fix/source-first-example-fidelity
