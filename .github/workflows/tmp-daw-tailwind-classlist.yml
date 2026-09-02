@@ -24,14 +24,14 @@ jobs:
         with:
           bun-version: 1.3.14
       - run: bun install --frozen-lockfile
-      - name: Teach the DAW Tailwind collector about Solid classList
+      - name: Commit source-aware DAW Tailwind compatibility
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
-          path = Path("examples/solid1-daw/scripts/generate-native-tailwind.mjs")
-          source = path.read_text()
+          generator = Path("examples/solid1-daw/scripts/generate-native-tailwind.mjs")
+          source = generator.read_text()
           old = "\n".join([
               '      if (ts.isJsxAttribute(node) && (node.name.text === "class" || node.name.text === "className")) {',
               '        collectClassExpression(node.initializer, candidates)',
@@ -54,7 +54,6 @@ jobs:
           if old not in source:
               raise SystemExit("Could not find JSX class collector block")
           source = source.replace(old, new, 1)
-
           marker = 'function addClassString(value, candidates) {'
           helper = '''function collectClassListExpression(node, candidates) {
             if (!node) return
@@ -94,26 +93,39 @@ jobs:
           function addClassString(value, candidates) {'''
           if marker not in source:
               raise SystemExit("Could not find addClassString marker")
-          source = source.replace(marker, helper, 1)
-          path.write_text(source)
+          generator.write_text(source.replace(marker, helper, 1))
+
+          candidates = Path("examples/solid1-daw/src/native-tailwind-runtime-candidates.tsx")
+          source = candidates.read_text()
+          anchor = '      {/* TransportControls.tsx: centerIconButtonClass */}\n      <div class="h-7 w-7 text-muted-foreground hover:bg-timeline-surface-muted hover:text-foreground" />\n'
+          replacement = anchor + '      {/* compat/utils.ts: bg-current fallback for the source record dot; GPUIX 0.7 cannot resolve inherited currentColor for native backgrounds */}\n      <div class="bg-muted-foreground" />\n'
+          if anchor not in source:
+              raise SystemExit("Could not find runtime candidate anchor")
+          candidates.write_text(source.replace(anchor, replacement, 1))
+
+          compat = Path("examples/solid1-daw/src/compat/utils.ts")
+          source = compat.read_text()
+          old = 'export function cn(...inputs: Parameters<typeof sourceCn>): string {\n  return sourceCn(...inputs)\n    .split(/\\s+/)\n    .map((className) => className === "bg-current" ? "bg-muted-foreground" : className)\n    .join(" ")\n}\n'
+          new = '// GPUIX 0.7 parses absolute background colors but has no inherited currentColor\n// background contract. The only pinned DAW bg-current use is the inactive record\n// dot inside a text-muted-foreground button, so preserve that source base-state\n// color until native parent-state/currentColor inheritance is representable.\nexport function cn(...inputs: Parameters<typeof sourceCn>): string {\n  return sourceCn(...inputs)\n    .split(/\\s+/)\n    .map((className) => className === "bg-current" ? "bg-muted-foreground" : className)\n    .join(" ")\n}\n'
+          if old not in source:
+              raise SystemExit("Could not find compat cn implementation")
+          compat.write_text(source.replace(old, new, 1))
           PY
-      - name: Regenerate and trace the missing runtime candidate
+      - name: Validate source-derived native Tailwind manifest
         run: |
           cd examples/solid1-daw
           bun install --no-save
           bun scripts/generate-native-tailwind.mjs
-          echo '--- exact source occurrences ---'
-          grep -R -n --exclude='native-tailwind.generated.ts' 'bg-muted-foreground' src || true
-          echo '--- nearby muted-foreground producers ---'
-          grep -R -n --exclude='native-tailwind.generated.ts' 'muted-foreground' src/native src/compat src/upstream src/*.tsx | head -120 || true
           grep -q '"bg-muted-foreground"' src/native-tailwind.generated.ts
-      - name: Commit the generic collector fix and regenerated manifest
+          bun run source:check
+          bun run build
+      - name: Commit and self-clean
         shell: bash
         run: |
           git rm .github/workflows/tmp-daw-tailwind-classlist.yml
-          git add examples/solid1-daw/scripts/generate-native-tailwind.mjs examples/solid1-daw/src/native-tailwind.generated.ts
+          git add examples/solid1-daw/scripts/generate-native-tailwind.mjs examples/solid1-daw/src/native-tailwind-runtime-candidates.tsx examples/solid1-daw/src/compat/utils.ts
           git diff --check --cached
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "fix: collect Solid classList styles for DAW"
+          git commit -m "fix: account for Solid classList Tailwind styles"
           git push origin HEAD:fix/source-first-example-fidelity
