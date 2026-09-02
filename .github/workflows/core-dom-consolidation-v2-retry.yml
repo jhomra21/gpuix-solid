@@ -1,0 +1,62 @@
+name: Core DOM consolidation v2 retry
+
+on:
+  push:
+    branches:
+      - fix/source-first-example-fidelity
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: fix/source-first-example-fidelity
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: 1.3.14
+      - name: Apply reviewed consolidation without redundant dispatch rewrite
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from textwrap import dedent
+
+          workflow = Path('.github/workflows/core-dom-consolidation-v2.yml').read_text()
+          opening = "          python - <<'PY'\n"
+          closing = "\n          PY\n"
+          start = workflow.index(opening) + len(opening)
+          end = workflow.index(closing, start)
+          script = dedent(workflow[start:end])
+
+          block_start = script.index("dispatch_old = '''")
+          block_end_marker = "events = events.replace(dispatch_old, dispatch_new, 1)"
+          block_end = script.index(block_end_marker, block_start) + len(block_end_marker)
+          script = script[:block_start] + script[block_end:]
+          exec(compile(script, '<core-dom-consolidation-v2>', 'exec'))
+          PY
+      - name: Validate consolidated core and consumers
+        run: |
+          cd packages/solid1
+          bun install --no-save
+          bun run test
+          bun run typecheck
+          cd ../../examples/solid1-kobalte
+          bun install --no-save
+          bun run typecheck
+          cd ../solid1-daw
+          bun install --no-save
+          bun run typecheck
+      - name: Commit validated consolidation
+        run: |
+          rm .github/workflows/core-dom-consolidation-v2.yml
+          rm .github/workflows/core-dom-consolidation-v2-retry.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/solid1/src/host/nodes.ts packages/solid/src/host/nodes.ts packages/solid1/src/host/events.ts packages/solid/src/host/events.ts packages/solid1/src/dom-environment.ts packages/solid1/src/web.ts packages/solid1/scripts/check-host-parity.ts .github/workflows/core-dom-consolidation-v2.yml .github/workflows/core-dom-consolidation-v2-retry.yml
+          git diff --check
+          git commit -m "refactor: consolidate DOM semantics in core host"
+          git push origin HEAD:fix/source-first-example-fidelity
