@@ -1,0 +1,146 @@
+name: Apply DAW sidebar contracts retry
+
+on:
+  push:
+    branches:
+      - fix/source-first-example-fidelity
+    paths:
+      - .github/workflows/apply-daw-sidebar-contracts-retry.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: fix/source-first-example-fidelity
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: 1.3.14
+      - name: Reapply validated transformation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+
+          workflow = Path('.github/workflows/apply-daw-sidebar-contracts.yml').read_text().splitlines()
+          wanted = {
+              'Copy pinned pure upstream modules',
+              'Build typed runtime compatibility boundary',
+              'Point source imports at exact modules',
+              'Extend DAW source lock',
+          }
+          current = None
+          collecting = False
+          blocks = []
+          lines = []
+          for line in workflow:
+              if line.startswith('      - name: '):
+                  if current in wanted and lines:
+                      blocks.append((current, '\n'.join(lines) + '\n'))
+                  current = line.split(': ', 1)[1]
+                  collecting = False
+                  lines = []
+                  continue
+              if current in wanted and line == '        run: |':
+                  collecting = True
+                  continue
+              if collecting:
+                  if line.startswith('      - '):
+                      blocks.append((current, '\n'.join(lines) + '\n'))
+                      current = None
+                      collecting = False
+                      lines = []
+                  else:
+                      lines.append(line[10:] if line.startswith('          ') else line)
+          if current in wanted and lines:
+              blocks.append((current, '\n'.join(lines) + '\n'))
+          found = {name for name, _ in blocks}
+          if found != wanted:
+              raise SystemExit(f'missing transformation blocks: {wanted - found}')
+          for name, script in blocks:
+              print(f'== {name} ==')
+              subprocess.run(['bash', '-euo', 'pipefail', '-c', script], check=True)
+          PY
+      - name: Complete exact timeline-core dependency closure
+        run: |
+          set -euo pipefail
+          cp /tmp/daw-upstream/packages/timeline-core/src/types.ts examples/solid1-daw/src/upstream/packages/timeline-core/types.ts
+          cp /tmp/daw-upstream/packages/timeline-core/src/clip-fades.ts examples/solid1-daw/src/upstream/packages/timeline-core/clip-fades.ts
+          python - <<'PY'
+          from pathlib import Path
+
+          shared = Path('examples/solid1-daw/src/compat/daw-browser-shared.ts')
+          text = shared.read_text()
+          anchor = 'type LocalIdKind = "project" | "track" | "clip" | "asset"\n'
+          types = '''export type AudioSourceKind = "upload" | "url" | "recording"
+          export type AudioWarpMode = "repitch" | "stretch"
+          export type AudioWarpMarker = { id: string; sourceBeat: number; timelineBeat: number }
+          export type AudioWarpPayload = {
+            enabled: boolean
+            sourceBpm?: number
+            sourceBeatOffset?: number
+            markers?: AudioWarpMarker[]
+            mode: AudioWarpMode
+          }
+          export type MidiClip = { notes?: readonly unknown[] }
+
+          '''
+          if 'export type AudioSourceKind' not in text:
+              text = text.replace(anchor, types + anchor)
+          shared.write_text(text)
+
+          check = Path('examples/solid1-daw/scripts/check-upstream-source-parity.mjs')
+          text = check.read_text()
+          marker = 'const copiedSources = [\n'
+          additions = '''  ["src/upstream/packages/timeline-core/types.ts", "packages/timeline-core/src/types.ts", "98fd4d48599e618a3e50964269ab2ba55617696a"],
+            ["src/upstream/packages/timeline-core/clip-fades.ts", "packages/timeline-core/src/clip-fades.ts", "cbb99bf3a58390cb12fbe2c99cc93c83b15eca58"],
+          '''
+          if 'src/upstream/packages/timeline-core/types.ts' not in text:
+              text = text.replace(marker, marker + additions)
+          check.write_text(text)
+          PY
+      - name: Make host event control methods truthful
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          for name in ['packages/solid1/src/host/types.ts', 'packages/solid/src/host/types.ts']:
+              path = Path(name)
+              text = path.read_text()
+              text = text.replace('    preventDefault?: () => void\n    stopPropagation?: () => void\n', '    preventDefault: () => void\n    stopPropagation: () => void\n')
+              path.write_text(text)
+          PY
+      - name: Validate source, host, Kobalte, and DAW types
+        run: |
+          set -euo pipefail
+          bun install --frozen-lockfile
+          cd packages/solid1
+          bun install --no-save
+          bun run typecheck
+          bun run test
+          bun run build
+          cd ../../examples/solid1-kobalte
+          bun install --no-save
+          bun run typecheck
+          cd ../solid1-daw
+          bun install --no-save
+          bun run source:check
+          bun run generate:styles
+          bunx tsc --noEmit
+          bun run source:check
+      - name: Commit validated contracts
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/diagnose-daw-compat.yml
+          rm -f .github/workflows/apply-daw-sidebar-contracts.yml
+          rm -f .github/workflows/apply-daw-sidebar-contracts-retry.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "refactor: source-lock DAW sidebar contracts"
+          git push origin HEAD:fix/source-first-example-fidelity
