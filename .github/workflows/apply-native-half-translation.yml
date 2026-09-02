@@ -60,4 +60,4 @@ jobs:
           git commit -m "fix: support exact DAW native style closure"
           git push origin HEAD:fix/source-first-example-fidelity
 
-# rerun after auditing shadow-background/40 with unsupported layered shadow-md
+# rerun after auditing automation picker shadow-xl and shadow-black/50
