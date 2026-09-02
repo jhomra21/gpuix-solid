@@ -7,6 +7,7 @@
   "src/upstream/components/ui/separator.tsx",
   "src/upstream/components/ui/text-field.tsx",
   "src/upstream/components/ui/tooltip.tsx",
+  "src/upstream/components/effects/eq-filter-type-select.tsx",
   "src/upstream/components/timeline/TransportControls.tsx",
   "src/upstream/components/timeline/browser/timeline-left-browser.tsx",
   "src/upstream/components/timeline/ArrangementOverview.tsx",
