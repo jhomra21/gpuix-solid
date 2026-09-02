@@ -28,14 +28,32 @@ const ClipComponent = (props: ClipComponentProps): JSX.Element => {
   const width = () => Math.max(6, Math.floor(props.clip.duration * props.pixelsPerSecond))
   const handleWidth = () => width() < 18 ? 2 : width() < 28 ? 3 : 6
   const color = () => visualColor(props.clip)
+  let wasSelectedOnMouseDown = false
+
+  const handleMouseDown = (event: EventPayload): void => {
+    // Upstream captures the pre-interaction selection state and lets a quick,
+    // stationary tap on an already-selected clip open Sample Detail. Capture
+    // it before the drag/select handler updates selection for this pointer-down.
+    wasSelectedOnMouseDown = props.selected
+    props.onMouseDown(event)
+  }
 
   const handleClick = (event: EventPayload): void => {
     const now = performance.now()
     const x = event.x ?? 0
     const y = event.y ?? 0
     const previous = lastClipTap
+    const openFromSelectedTap = wasSelectedOnMouseDown
+    wasSelectedOnMouseDown = false
     lastClipTap = { clipId: props.clip.id, at: now, x, y }
     props.onSelect()
+
+    if (openFromSelectedTap) {
+      lastClipTap = undefined
+      props.onOpen()
+      return
+    }
+
     if (!previous || previous.clipId !== props.clip.id || now - previous.at > DOUBLE_TAP_MS) return
     if (Math.abs(x - previous.x) > DOUBLE_TAP_DISTANCE_PX || Math.abs(y - previous.y) > DOUBLE_TAP_DISTANCE_PX) return
     lastClipTap = undefined
@@ -46,7 +64,7 @@ const ClipComponent = (props: ClipComponentProps): JSX.Element => {
     <div
       testId={`clip-${props.clip.id}`}
       onClick={handleClick}
-      onMouseDown={props.onMouseDown}
+      onMouseDown={handleMouseDown}
       style={{
         position: "absolute",
         top: 0,
