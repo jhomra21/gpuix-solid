@@ -28,13 +28,13 @@ const ClipComponent = (props: ClipComponentProps): JSX.Element => {
   const width = () => Math.max(6, Math.floor(props.clip.duration * props.pixelsPerSecond))
   const handleWidth = () => width() < 18 ? 2 : width() < 28 ? 3 : 6
   const color = () => visualColor(props.clip)
-  let wasSelectedOnMouseDown = false
+  let selectedBeforeMouseDown: boolean | undefined
 
   const handleMouseDown = (event: EventPayload): void => {
     // Upstream captures the pre-interaction selection state and lets a quick,
     // stationary tap on an already-selected clip open Sample Detail. Capture
     // it before the drag/select handler updates selection for this pointer-down.
-    wasSelectedOnMouseDown = props.selected
+    selectedBeforeMouseDown = props.selected
     props.onMouseDown(event)
   }
 
@@ -43,8 +43,11 @@ const ClipComponent = (props: ClipComponentProps): JSX.Element => {
     const x = event.x ?? 0
     const y = event.y ?? 0
     const previous = lastClipTap
-    const openFromSelectedTap = wasSelectedOnMouseDown
-    wasSelectedOnMouseDown = false
+    // Live pointer input supplies mouseDown first, so use its exact pre-selection
+    // snapshot. GPUIX semantic click synthesis may omit mouseDown; in that case
+    // props.selected is still the state from before this click's onSelect call.
+    const openFromSelectedTap = selectedBeforeMouseDown ?? props.selected
+    selectedBeforeMouseDown = undefined
     lastClipTap = { clipId: props.clip.id, at: now, x, y }
     props.onSelect()
 
