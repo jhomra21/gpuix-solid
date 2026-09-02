@@ -142,6 +142,7 @@ jobs:
             bun run test
             bun run build
             cd ../../examples/solid1-daw
+            bun install --no-save
             bun run source:check
             bunx tsc --noEmit
             bun run build
