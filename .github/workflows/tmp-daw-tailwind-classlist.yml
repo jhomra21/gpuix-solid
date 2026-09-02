@@ -100,6 +100,7 @@ jobs:
       - name: Regenerate the source-derived native Tailwind manifest
         run: |
           cd examples/solid1-daw
+          bun install --no-save
           bun scripts/generate-native-tailwind.mjs
           grep -q '"bg-muted-foreground"' src/native-tailwind.generated.ts
       - name: Commit the generic collector fix and regenerated manifest
