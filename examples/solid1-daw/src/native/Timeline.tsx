@@ -1,5 +1,4 @@
-import { createMemo, createSignal, type JSX } from "solid-js"
-import type { EventPayload } from "@jhomra21/gpuix-solid1"
+import { createMemo, createSignal, onCleanup, type JSX } from "solid-js"
 import { getBottomPanelMountedFootprintPx } from "../upstream/lib/bottom-panel-layout"
 import { DEFAULT_PIXELS_PER_SECOND } from "../compat/timeline-view"
 import TimelineChrome from "./TimelineChrome"
@@ -85,6 +84,9 @@ export default function Timeline(): JSX.Element {
   const [eqMidGain, setEqMidGain] = createSignal(2)
   const [eqHighGain, setEqHighGain] = createSignal(0)
 
+  let pendingDrag: DragState | undefined
+  let dragListenersArmed = false
+
   const selectedClip = createMemo(() => findClip(tracks(), selectedClipId())?.clip)
   const bottomPanelOffsetPx = () => getBottomPanelMountedFootprintPx({
     open: bottomPanelOpen(),
@@ -140,40 +142,23 @@ export default function Timeline(): JSX.Element {
     setBottomPanelOpen(true)
   }
 
-  const beginClipDrag = (trackId: string, clipId: string, event: PointerEvent): void => {
-    if (event.button !== 0) return
-    const currentTracks = tracks()
-    const movableTracks = draggableTracks(currentTracks)
-    const sourceTrackIndex = movableTracks.findIndex((track) => track.id === trackId)
-    const sourceTrack = movableTracks[sourceTrackIndex]
-    const clip = sourceTrack?.clips.find((entry) => entry.id === clipId)
-    if (!clip || sourceTrackIndex < 0) return
-    selectClip(trackId, clipId)
-    setDrag({
-      clipId,
-      sourceTrackId: trackId,
-      startTrackIndex: sourceTrackIndex,
-      startX: event.clientX,
-      startY: event.clientY,
-      startSec: clip.startSec,
-    })
-  }
+  const moveClipDrag = (x: number, y: number): void => {
+    const currentDrag = drag() ?? pendingDrag
+    if (!currentDrag) return
+    if (drag() === undefined) setDrag(currentDrag)
 
-  const moveClipDrag = (event: EventPayload): void => {
-    const currentDrag = drag()
-    if (!currentDrag || event.x === undefined || event.y === undefined) return
     const currentTracks = tracks()
     const movableTracks = draggableTracks(currentTracks)
     const found = findClip(currentTracks, currentDrag.clipId)
     if (!found || movableTracks.length === 0) return
 
-    const laneDelta = Math.round((event.y - currentDrag.startY) / layout.laneHeight)
+    const laneDelta = Math.round((y - currentDrag.startY) / layout.laneHeight)
     const candidateIndex = Math.round(clamp(currentDrag.startTrackIndex + laneDelta, 0, movableTracks.length - 1))
     const candidate = movableTracks[candidateIndex]
     const source = currentTracks.find((track) => track.id === currentDrag.sourceTrackId)
     if (!source) return
     const target = candidate && compatible(found.clip, candidate) ? candidate : source
-    const rawStart = Math.max(0, currentDrag.startSec + (event.x - currentDrag.startX) / DEFAULT_PIXELS_PER_SECOND)
+    const rawStart = Math.max(0, currentDrag.startSec + (x - currentDrag.startX) / DEFAULT_PIXELS_PER_SECOND)
     const startSec = gridEnabled() ? quantizeSecToGrid(rawStart, bpm(), gridDenominator()) : rawStart
     const movedClip = { ...found.clip, startSec }
 
@@ -184,6 +169,68 @@ export default function Timeline(): JSX.Element {
     }))
     setSelectedTrackId(target.id)
   }
+
+  const disarmDragListeners = (): void => {
+    if (!dragListenersArmed) return
+    window.removeEventListener("pointermove", handleWindowPointerMove, true)
+    window.removeEventListener("pointerup", handleWindowPointerUp, true)
+    window.removeEventListener("pointercancel", handleWindowPointerCancel, true)
+    dragListenersArmed = false
+  }
+
+  const endClipDrag = (): void => {
+    pendingDrag = undefined
+    setDrag(undefined)
+    disarmDragListeners()
+  }
+
+  function handleWindowPointerMove(event: PointerEvent): void {
+    moveClipDrag(event.clientX, event.clientY)
+  }
+
+  function handleWindowPointerUp(): void {
+    endClipDrag()
+  }
+
+  function handleWindowPointerCancel(): void {
+    endClipDrag()
+  }
+
+  const armDragListeners = (): void => {
+    if (dragListenersArmed) return
+    window.addEventListener("pointermove", handleWindowPointerMove, true)
+    window.addEventListener("pointerup", handleWindowPointerUp, true)
+    window.addEventListener("pointercancel", handleWindowPointerCancel, true)
+    dragListenersArmed = true
+  }
+
+  const beginClipDrag = (trackId: string, clipId: string, event: PointerEvent): void => {
+    if (event.button !== 0) return
+    const currentTracks = tracks()
+    const movableTracks = draggableTracks(currentTracks)
+    const sourceTrackIndex = movableTracks.findIndex((track) => track.id === trackId)
+    const sourceTrack = movableTracks[sourceTrackIndex]
+    const clip = sourceTrack?.clips.find((entry) => entry.id === clipId)
+    if (!clip || sourceTrackIndex < 0) return
+
+    disarmDragListeners()
+    setDrag(undefined)
+    pendingDrag = {
+      clipId,
+      sourceTrackId: trackId,
+      startTrackIndex: sourceTrackIndex,
+      startX: event.clientX,
+      startY: event.clientY,
+      startSec: clip.startSec,
+    }
+    selectClip(trackId, clipId)
+    armDragListeners()
+  }
+
+  onCleanup(() => {
+    pendingDrag = undefined
+    disarmDragListeners()
+  })
 
   return (
     <div testId="daw-showcase" style={{ width: "100%", height: "100%", minWidth: 1180, minHeight: 820, display: "flex", flexDirection: "column", position: "relative", backgroundColor: dawTheme.background, color: dawTheme.foreground, fontFamily: "system-ui", overflow: "hidden" }}>
@@ -273,8 +320,6 @@ export default function Timeline(): JSX.Element {
         onOpenClip={openClip}
         onClipMouseDown={beginClipDrag}
         dragging={drag() !== undefined}
-        onDragMove={moveClipDrag}
-        onDragEnd={() => setDrag(undefined)}
       />
 
       <TimelinePanels
