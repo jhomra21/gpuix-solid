@@ -29,15 +29,13 @@ jobs:
           solid2_nodes = root / "packages/solid/src/host/nodes.ts"
           nodes = solid1_nodes.read_text()
 
-          old = '''  compareDocumentPosition(other: HostElementNode): number {
-            return compareHostDocumentPosition(this, other)
-          }
-
-          closest(_selector: string): HostElementNode | null {
-            return null
-          }
-          '''
-          new = '''  compareDocumentPosition(other: HostElementNode): number {
+          start_marker = "  compareDocumentPosition(other: HostElementNode): number {\n"
+          end_marker = "  getBoundingClientRect(): {\n"
+          if nodes.count(start_marker) != 1 or nodes.count(end_marker) != 1:
+            raise SystemExit("semantic DOM host markers changed; refusing unsafe patch")
+          start = nodes.index(start_marker)
+          end = nodes.index(end_marker, start)
+          semantic_methods = '''  compareDocumentPosition(other: HostElementNode): number {
             return compareHostDocumentPosition(this, other)
           }
 
@@ -89,12 +87,13 @@ jobs:
             }
             return null
           }
-          '''
-          if old not in nodes:
-            raise SystemExit("HostElementNode closest block changed; refusing unsafe patch")
-          nodes = nodes.replace(old, new)
 
-          marker = 'function compareHostDocumentPosition(reference: HostNode, other: HostNode): number {\n'
+          '''
+          nodes = nodes[:start] + semantic_methods + nodes[end:]
+
+          helper_marker = "function compareHostDocumentPosition(reference: HostNode, other: HostNode): number {\n"
+          if nodes.count(helper_marker) != 1:
+            raise SystemExit("document-position helper marker changed; refusing unsafe patch")
           helpers = '''function dataAttributeProperty(name: string): string {
             return name.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase())
           }
@@ -112,9 +111,7 @@ jobs:
           }
 
           '''
-          if marker not in nodes:
-            raise SystemExit("document-position helper marker missing")
-          nodes = nodes.replace(marker, helpers + marker, 1)
+          nodes = nodes.replace(helper_marker, helpers + helper_marker, 1)
           solid1_nodes.write_text(nodes)
           solid2_nodes.write_text(nodes)
 
@@ -124,32 +121,43 @@ jobs:
             universal = universal.replace('  "samp",\n])', '  "samp",\n  "output",\n  "option",\n])')
           if '  "select",\n' not in universal:
             universal = universal.replace('  "a",\n])', '  "a",\n  "select",\n])')
-          universal = universal.replace('    const node = createHostElement(type)\n', '    const node = createHostElement(type, tagName)\n')
+          if '    const node = createHostElement(type)\n' not in universal:
+            raise SystemExit("universal semantic element construction changed; refusing unsafe patch")
+          universal = universal.replace('    const node = createHostElement(type)\n', '    const node = createHostElement(type, tagName)\n', 1)
           universal_path.write_text(universal)
 
           jsx_path = root / "packages/solid1/jsx-runtime.d.ts"
           jsx = jsx_path.read_text()
           if '    select: DomCompatibleProps' not in jsx:
+            marker = '    button: SemanticDomProps\n'
+            if jsx.count(marker) != 1:
+              raise SystemExit("JSX button marker changed; refusing unsafe patch")
             jsx = jsx.replace(
-              '    button: SemanticDomProps\n',
-              '    button: SemanticDomProps\n'
-              '    output: DomCompatibleProps<HostProps, SolidJSX.HTMLAttributes<HTMLOutputElement>>\n'
-              '    select: DomCompatibleProps<HostProps, SolidJSX.SelectHTMLAttributes<HTMLSelectElement>>\n'
-              '    option: DomCompatibleProps<HostProps, SolidJSX.OptionHTMLAttributes<HTMLOptionElement>>\n',
+              marker,
+              marker
+              + '    output: DomCompatibleProps<HostProps, SolidJSX.HTMLAttributes<HTMLOutputElement>>\n'
+              + '    select: DomCompatibleProps<HostProps, SolidJSX.SelectHTMLAttributes<HTMLSelectElement>>\n'
+              + '    option: DomCompatibleProps<HostProps, SolidJSX.OptionHTMLAttributes<HTMLOptionElement>>\n',
+              1,
             )
           jsx_path.write_text(jsx)
 
           parity_path = root / "packages/solid1/scripts/check-host-parity.ts"
           parity = parity_path.read_text()
           if 'from "../src/host/nodes.ts"' not in parity:
+            marker = '} from "../src/native-style.ts"\n'
+            if parity.count(marker) != 1:
+              raise SystemExit("host parity import marker changed; refusing unsafe patch")
             parity = parity.replace(
-              '} from "../src/native-style.ts"\n',
-              '} from "../src/native-style.ts"\nimport { createHostElement, insertHostNode, setHostProperty } from "../src/host/nodes.ts"\n',
+              marker,
+              marker + 'import { createHostElement, insertHostNode, setHostProperty } from "../src/host/nodes.ts"\n',
+              1,
             )
           if 'closest must resolve ancestor data attributes' not in parity:
-            parity = parity.replace(
-              'console.log("solid1 host parity: passed")\n',
-              '''const selectorRoot = createHostElement("div", "section")
+            marker = 'console.log("solid1 host parity: passed")\n'
+            if parity.count(marker) != 1:
+              raise SystemExit("host parity footer marker changed; refusing unsafe patch")
+            tests = '''const selectorRoot = createHostElement("div", "section")
           const selectorButton = createHostElement("div", "button")
           const selectorLabel = createHostElement("text", "span")
           setHostProperty(selectorButton, "data-track-name", "true")
@@ -164,9 +172,8 @@ jobs:
           selectorButton.removeAttribute("data-track-name")
           if (selectorLabel.closest("[data-track-name]") !== null) throw new Error("removeAttribute must update selector matching")
 
-          console.log("solid1 host parity: passed")
-          ''',
-            )
+          '''
+            parity = parity.replace(marker, tests + marker, 1)
           parity_path.write_text(parity)
           PY
       - name: Validate Solid 1 host
