@@ -31,10 +31,10 @@ jobs:
           python scripts/apply-daw-style-omissions.py
       - name: Generate exact DAW styles
         run: |
+          set -o pipefail
           cd examples/solid1-daw
           bun install --no-save
           bun run generate:styles 2>&1 | tee /tmp/native-tailwind-generator.log
-          test ${PIPESTATUS[0]} -eq 0
       - name: Upload DAW style generator log
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -45,21 +45,30 @@ jobs:
       - name: Validate shared host and exact DAW
         run: |
           set -euo pipefail
-          bun install --frozen-lockfile
-          bun run lint
-          bun run typecheck
-          cd packages/solid1
-          bun install --no-save
-          bun run typecheck
-          bun run test
-          bun run build
-          cd ../../examples/solid1-daw
-          bun run source:check
-          bunx tsc --noEmit
-          bun run build
-          bun run source:check
-          cd ../..
-          git diff --check
+          {
+            bun install --frozen-lockfile
+            bun run lint
+            bun run typecheck
+            cd packages/solid1
+            bun install --no-save
+            bun run typecheck
+            bun run test
+            bun run build
+            cd ../../examples/solid1-daw
+            bun run source:check
+            bunx tsc --noEmit
+            bun run build
+            bun run source:check
+            cd ../..
+            git diff --check
+          } 2>&1 | tee /tmp/native-closure-validation.log
+      - name: Upload DAW closure validation log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: native-closure-validation-log
+          path: /tmp/native-closure-validation.log
+          if-no-files-found: ignore
       - name: Commit validated compatibility
         run: |
           set -euo pipefail
