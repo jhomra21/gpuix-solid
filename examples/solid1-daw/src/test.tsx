@@ -98,6 +98,15 @@ if (!hasNativeTestRenderer) {
   const synthSidebarHeight = app.renderer.boundsTestId("track-synth").height
   requireCondition(Math.abs(synthLaneHeight - synthSidebarHeight) <= 1, "Synth timeline and mixer rows should start aligned")
 
+  app.renderer.scrollTestId("track-sidebar-scrolling", 0, -160)
+  requireCondition((app.renderer.scrollOffsetTestId("track-sidebar-scrolling")?.[1] ?? 0) < 0, "mixer should scroll Synth into the visible viewport")
+  const visibleMixer = app.renderer.boundsTestId("track-sidebar-scrolling")
+  const visibleSend = app.renderer.boundsTestId("track-synth-send")
+  requireCondition(
+    visibleSend.y >= visibleMixer.y && bottom(visibleSend) <= bottom(visibleMixer),
+    `Synth send should be visible before interaction, send ${JSON.stringify(visibleSend)}, mixer ${JSON.stringify(visibleMixer)}`,
+  )
+
   app.renderer.clickCenterTestId("track-synth-send")
   requireText(app.renderer.textContent("track-synth-send"), "None", "send routing should cycle to None")
   app.renderer.clickCenterTestId("track-synth-send")
@@ -115,6 +124,7 @@ if (!hasNativeTestRenderer) {
   requireCondition(Math.abs(app.renderer.boundsTestId("lane-synth").height - synthLaneHeight) <= 1, "expanding should restore the original timeline lane height")
   requireCondition(Math.abs(app.renderer.boundsTestId("track-synth").height - synthSidebarHeight) <= 1, "expanding should restore the original mixer row height")
 
+  app.renderer.scrollTestId("track-sidebar-scrolling", 0, -160)
   app.renderer.clickCenterTestId("track-synth-automation")
   requireCondition(app.renderer.hasTestId("lane-synth-automation"), "A should expose the timeline automation lane")
   requireCondition(app.renderer.hasTestId("track-synth-automation-lanes"), "A should expose the mixer automation lane")
@@ -129,6 +139,12 @@ if (!hasNativeTestRenderer) {
   requireCondition(Math.abs(twoAutomationLaneHeight - oneAutomationLaneHeight - 48) <= 1, "adding automation should add exactly one 48px lane")
   requireCondition(Math.abs(twoAutomationLaneHeight - twoAutomationSidebarHeight) <= 1, "multiple automation lanes should keep timeline and mixer geometry aligned")
 
+  app.renderer.scrollTestId("track-sidebar-scrolling", 0, -260)
+  const visibleAutomationHide = app.renderer.boundsTestId("track-synth-automation-hide")
+  requireCondition(
+    visibleAutomationHide.y >= visibleMixer.y && bottom(visibleAutomationHide) <= bottom(visibleMixer),
+    `Synth automation hide should be visible before interaction, control ${JSON.stringify(visibleAutomationHide)}, mixer ${JSON.stringify(visibleMixer)}`,
+  )
   app.renderer.clickCenterTestId("track-synth-automation-hide")
   requireCondition(Math.abs(app.renderer.boundsTestId("lane-synth").height - oneAutomationLaneHeight) <= 1, "hiding one automation lane should remove exactly 48px")
   app.renderer.clickCenterTestId("track-synth-automation-hide")
@@ -136,6 +152,7 @@ if (!hasNativeTestRenderer) {
   requireCondition(!app.renderer.hasTestId("track-synth-automation-lanes"), "hiding the final automation lane should close mixer automation")
   requireCondition(Math.abs(app.renderer.boundsTestId("lane-synth").height - synthLaneHeight) <= 1, "closing automation should restore timeline geometry")
   requireCondition(Math.abs(app.renderer.boundsTestId("track-synth").height - synthSidebarHeight) <= 1, "closing automation should restore mixer geometry")
+  app.renderer.scrollTestId("track-sidebar-scrolling", 0, 0)
 
   const workspaceBefore = app.renderer.boundsTestId("timeline-workspace")
   const panelBounds = app.renderer.boundsTestId("bottom-panel")
