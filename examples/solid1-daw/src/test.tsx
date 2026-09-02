@@ -113,7 +113,33 @@ if (!hasNativeTestRenderer) {
   app.renderer.clickCenterTestId("track-synth-output")
   requireText(app.renderer.textContent("track-synth-output"), "Master", "output routing must not invent a group target when no group exists")
 
-  for (const testId of ["track-synth-mute", "track-synth-solo", "track-synth-arm"]) {
+  const screenshotPath = "/tmp/gpuix-solid1-daw-source-structured.png"
+  app.renderer.captureScreenshot(screenshotPath)
+  requireCondition(existsSync(screenshotPath) && statSync(screenshotPath).size > 0, "DAW diagnostic screenshot should exist before mixer button assertions")
+
+  const muteBounds = app.renderer.boundsTestId("track-synth-mute")
+  const synthBounds = app.renderer.boundsTestId("track-synth")
+  requireCondition(
+    muteBounds.y >= sidebarScrolling.y && bottom(muteBounds) <= bottom(sidebarScrolling),
+    `Synth mute should be visible before interaction, mute ${JSON.stringify(muteBounds)}, mixer ${JSON.stringify(sidebarScrolling)}`,
+  )
+  const muteBeforeBackground = app.renderer.styleTestId("track-synth-mute").backgroundColor
+  const muteBeforeMeterHeight = app.renderer.boundsTestId("track-synth-meter-left-fill").height
+  app.renderer.clickCenterTestId("track-synth-mute")
+  const muteAfterBackground = app.renderer.styleTestId("track-synth-mute").backgroundColor
+  const muteAfterMeterHeight = app.renderer.boundsTestId("track-synth-meter-left-fill").height
+  requireCondition(
+    muteAfterBackground !== muteBeforeBackground || muteAfterMeterHeight !== muteBeforeMeterHeight,
+    `track-synth-mute center click should change button or meter state; background ${JSON.stringify(muteBeforeBackground)} -> ${JSON.stringify(muteAfterBackground)}, meter ${muteBeforeMeterHeight} -> ${muteAfterMeterHeight}, mute ${JSON.stringify(muteBounds)}, send ${JSON.stringify(visibleSend)}, row ${JSON.stringify(synthBounds)}, mixer ${JSON.stringify(sidebarScrolling)}`,
+  )
+  app.renderer.clickCenterTestId("track-synth-mute")
+  requireCondition(
+    app.renderer.styleTestId("track-synth-mute").backgroundColor === muteBeforeBackground
+      && app.renderer.boundsTestId("track-synth-meter-left-fill").height === muteBeforeMeterHeight,
+    "track-synth-mute second center click should restore button and meter state",
+  )
+
+  for (const testId of ["track-synth-solo", "track-synth-arm"]) {
     const before = app.renderer.styleTestId(testId).backgroundColor
     app.renderer.clickCenterTestId(testId)
     const after = app.renderer.styleTestId(testId).backgroundColor
@@ -195,7 +221,6 @@ if (!hasNativeTestRenderer) {
   requireText(rootText(), "1/4", "source default grid resolution")
   requireCondition(!rootText().includes("1/32"), "fixture must not invent a 1/32 grid option")
 
-  const screenshotPath = "/tmp/gpuix-solid1-daw-source-structured.png"
   app.renderer.captureScreenshot(screenshotPath)
   requireCondition(existsSync(screenshotPath) && statSync(screenshotPath).size > 0, "DAW parity screenshot should exist and be non-empty")
 
@@ -257,7 +282,6 @@ if (!hasNativeTestRenderer) {
 
   app.renderer.clickTextWithinTestId("bottom-panel", "EFFECTS")
   requireCondition(app.renderer.hasTestId("effects-panel"), "Effects tab should restore devices")
-
   app.renderer.scrollTestId("daw-test-viewport", -320, -260)
   const hideBounds = app.renderer.boundsTextWithinTestId("bottom-panel", "HIDE")
   requireCondition(hideBounds.x >= 0 && hideBounds.x + hideBounds.width <= viewportWidth, "HIDE control should be visible after viewport scroll")
