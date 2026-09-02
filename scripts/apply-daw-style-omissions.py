@@ -29,6 +29,7 @@ omissions = [
     ("focus:ring-ring", "GPUIX 0.7 does not publish browser focus-ring color through StyleDesc"),
     ("focus:ring-offset-2", "GPUIX 0.7 does not publish browser focus-ring offset through StyleDesc"),
     ("hover:brightness-110", "GPUIX 0.7 does not publish CSS filter effects; this is only hover feedback on unselected clips and does not alter clip geometry or state"),
+    ("shadow-background/40", "this only recolors the copied context menu's layered shadow-md; GPUIX 0.7 exposes one BoxShadow and cannot represent Tailwind's layered shadow-md geometry"),
 ]
 for candidate, reason in reversed(omissions):
     line = f'  ["{candidate}", "{reason}"],\n'
