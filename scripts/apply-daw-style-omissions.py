@@ -45,6 +45,7 @@ omissions = [
     ("shadow-black/50", "this only recolors the copied automation picker shadow-xl; GPUIX 0.7 cannot represent that layered source shadow exactly"),
     ("shadow-inner", "GPUIX 0.7 BoxShadow has no inset mode; the exact armed-record state remains preserved by its red border, background, and foreground styles"),
     ("touch-none", "touch-action is a browser gesture policy; the exact fade interaction owns native gesture continuity with pointer capture and window pointer listeners"),
+    ("tracking-tight", "letter-spacing is not exposed by GPUIX 0.7; keep the exact copied title utility registered without silently broadening unsupported typography"),
 ]
 for candidate, reason in reversed(omissions):
     line = f'  ["{candidate}", "{reason}"],\n'
