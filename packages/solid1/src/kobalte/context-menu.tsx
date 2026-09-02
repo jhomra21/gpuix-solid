@@ -16,7 +16,8 @@ import {
 } from "./shared.jsx"
 
 export interface ContextMenuRootProps { children?: JSX.Element; open?: boolean; defaultOpen?: boolean; onOpenChange?: (open: boolean) => void; gutter?: number }
-export interface ContextMenuTriggerProps<T = "div"> extends NativeComponentProps { as?: T }
+type ContextMenuDomEvent = EventPayload & { preventDefault: () => void; stopPropagation: () => void }
+export interface ContextMenuTriggerProps<T = "div"> extends Omit<NativeComponentProps, "onContextMenu"> { as?: T; onContextMenu?: (event: ContextMenuDomEvent) => void }
 export interface ContextMenuContentProps<T = "div"> extends NativeComponentProps { as?: T }
 export interface ContextMenuItemProps<T = "div"> extends NativeComponentProps { as?: T; onSelect?: () => void }
 export interface ContextMenuSeparatorProps<T = "hr"> extends NativeComponentProps { as?: T }
@@ -56,6 +57,11 @@ function requireContext(name: string): ContextMenuContextValue {
   const context = useContext(ContextMenuContext)
   if (!context) throw new Error(`${name} must be used inside ContextMenu.Root`)
   return context
+}
+
+function asContextMenuDomEvent(event: EventPayload): ContextMenuDomEvent {
+  // Host JSX handlers receive the EventRegistry-normalized DOM-compatible payload.
+  return event as ContextMenuDomEvent
 }
 
 function isContextClick(event: EventPayload): boolean {
@@ -126,6 +132,10 @@ export function Trigger<T = "div">(props: PolymorphicProps<T, ContextMenuTrigger
       classList={props.classList}
       testId={props.testId}
       tabIndex={props.tabIndex ?? 0}
+      onContextMenu={(event: EventPayload) => {
+        props.onContextMenu?.(asContextMenuDomEvent(event))
+        context.openAt(event)
+      }}
       onMouseDown={(event: EventPayload) => {
         props.onMouseDown?.(event)
         context.openAt(event)

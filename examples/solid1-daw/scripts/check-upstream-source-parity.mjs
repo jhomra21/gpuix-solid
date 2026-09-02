@@ -7,6 +7,20 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const upstreamRevision = "2eaad47813b15aa8511bab8dc04625510c977b12"
 
 const copiedSources = [
+  ["src/upstream/packages/timeline-core/types.ts", "packages/timeline-core/src/types.ts", "98fd4d48599e618a3e50964269ab2ba55617696a"],
+  ["src/upstream/packages/timeline-core/clip-fades.ts", "packages/timeline-core/src/clip-fades.ts", "cbb99bf3a58390cb12fbe2c99cc93c83b15eca58"],
+  ["src/upstream/packages/timeline-core/clip-placement.ts", "packages/timeline-core/src/clip-placement.ts", "28cc2d615614d72eae44e8f2645624c36e2c8104"],
+  ["src/upstream/packages/timeline-core/track-routing.ts", "packages/timeline-core/src/track-routing.ts", "c37e51f5f1181c335d17d3be794b26f5db1f4a4d"],
+  ["src/upstream/packages/shared/master-volume.ts", "packages/shared/src/master-volume.ts", "e461e8bddab32adffda433d022765d3ba9fd0097"],
+  ["src/upstream/packages/shared/track-routing-core.ts", "packages/shared/src/track-routing-core.ts", "4fa18be3524d717273d461e56e3e3cc2e7c5235d"],
+  ["src/upstream/packages/shared/track-tree.ts", "packages/shared/src/track-tree.ts", "f8d26ad60564d8260deb3d1adbdd17c0c29c3380"],
+  ["src/upstream/packages/shared/clip-color.ts", "packages/shared/src/clip-color.ts", "a5b4812bfc201b2f5ffc01c70f2b317de3418a19"],
+  ["src/upstream/lib/timeline-layout.ts", "src/lib/timeline-layout.ts", "79f9876245fbb5b357778f5d40974803d338663c"],
+  ["src/upstream/lib/timeline-utils.ts", "src/lib/timeline-utils.ts", "4ddf52866d6f616ffe6b9da2e8c1362dfe9dad39"],
+  ["src/upstream/lib/timeline-track-layout.ts", "src/lib/timeline-track-layout.ts", "564cbf63fb3e2cffbb6211cbf207a4d4ba45f4b4"],
+  ["src/upstream/lib/track-sidebar-mixer.ts", "src/lib/track-sidebar-mixer.ts", "6839a4b5a9b18b3c01df4d11b3370f8470085758"],
+  ["src/upstream/lib/track-group-ops.ts", "src/lib/track-group-ops.ts", "f972910d0db21776a3b3948fee87f12b6c16bba7"],
+  ["src/upstream/lib/color.ts", "src/lib/color.ts", "45aeae66c920ae4aecc7241a396cb054c0ec027b"],
   ["src/upstream/components/ui/avatar.tsx", "src/components/ui/avatar.tsx", "d09d0be1c256fac704ab97f3c32dd8bc9457c221"],
   ["src/upstream/components/ui/button.tsx", "src/components/ui/button.tsx", "8e4bd51105ee7c39bff9f813eefc9e51047396fd"],
   ["src/upstream/components/ui/context-menu.tsx", "src/components/ui/context-menu.tsx", "1d260f8079c0dd11cbfb85fb98d56d54684fc588"],
