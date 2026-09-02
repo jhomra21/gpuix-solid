@@ -187,6 +187,62 @@ describe("native event/input parity", () => {
     testRoot.unmount()
   })
 
+  nativeIt("delivers GPUIX 0.7 Tab to the element and window without implicit focus traversal", () => {
+    const windowKeys: string[] = []
+    const elementKeys: string[] = []
+    const testRoot = createTestRoot(undefined, undefined, {
+      onKeyDown: (event) => windowKeys.push(event.key ?? ""),
+    })
+
+    testRoot.render(() => {
+      const root = createElement("div")
+      setProp(root, "style", { width: 400, height: 120, display: "flex", gap: 8 })
+
+      const first = createElement("div")
+      setProp(first, "tabIndex", 0)
+      setProp(first, "style", { width: 100, height: 40 })
+      setProp(first, "onKeyDown", (event: EventPayload) => {
+        elementKeys.push(`first:${event.modifiers?.shift ? "shift-" : ""}${event.key ?? ""}`)
+      })
+
+      const second = createElement("div")
+      setProp(second, "tabIndex", 0)
+      setProp(second, "style", { width: 100, height: 40 })
+      setProp(second, "onKeyDown", (event: EventPayload) => {
+        elementKeys.push(`second:${event.modifiers?.shift ? "shift-" : ""}${event.key ?? ""}`)
+      })
+
+      insertNode(root, first)
+      insertNode(root, second)
+      return root
+    })
+
+    const focusable = testRoot.renderer
+      .findByType("div")
+      .filter((element) => element.events.has("keyDown"))
+    const first = focusable[0]
+    const second = focusable[1]
+    expect(first).toBeDefined()
+    expect(second).toBeDefined()
+
+    testRoot.renderer.focusElement(first?.id ?? 0)
+    testRoot.renderer.simulateKeystrokes("tab")
+    testRoot.renderer.simulateKeystrokes("a")
+
+    testRoot.renderer.focusElement(second?.id ?? 0)
+    testRoot.renderer.simulateKeystrokes("shift-tab")
+    testRoot.renderer.simulateKeystrokes("b")
+
+    expect(elementKeys).toEqual([
+      "first:tab",
+      "first:a",
+      "second:shift-tab",
+      "second:b",
+    ])
+    expect(windowKeys).toEqual(["tab", "a", "tab", "b"])
+    testRoot.unmount()
+  })
+
   nativeIt("blocks editing when input is readOnly", () => {
     const testRoot = createTestRoot()
     const [value, setValue] = createSignal("locked")
