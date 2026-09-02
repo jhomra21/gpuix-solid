@@ -97,7 +97,7 @@ The exact source file remains copied and parity-protected. `src/native/Arrangeme
 
 Pinned `src/components/timeline/ClipComponent.tsx` draws MIDI/audio content through an HTML Canvas 2D context and the waveform view-model. GPUIX exposes a native `<canvas>` host but not the browser `CanvasRenderingContext2D` API used by this component. `src/upstream/components/timeline/ClipComponent.tsx` is therefore a narrow bridge from exact `TrackLane` to `src/native/ClipComponent.tsx`.
 
-The native leaf preserves clip start/duration geometry, 20px title header, waveform/MIDI visual vocabulary, selection treatment and drag hit target. Its data is deterministic, but selection/drag state is live.
+The native leaf preserves clip start/duration geometry, 20px title header, waveform/MIDI visual vocabulary, selection treatment and drag hit target. Its data is deterministic, but selection/drag state is live. The source clip-open callback is preserved across this boundary: an audio clip's second tap/double-click opens Sample Detail, while a first tap only selects it and MIDI clips do not open the audio Sample Detail panel.
 
 ### TrackSidebar / TrackSidebarRow
 
@@ -148,6 +148,7 @@ The focused fixture exercises:
 - track selection, collapse, routing/send selection, activation/mute, solo, record-arm, volume and automation controls
 - source arrangement-overview geometry/state with native multicolor paint, exact ruler and exact lane composition
 - ruler playhead scrubbing and loop-region state through the source component
+- audio clip first-tap selection and source second-tap/double-click opening of Sample Detail
 - clip drag entry, snapping and compatible cross-track movement when native held-pointer continuation is available
 - Effects / Clip bottom-panel switching and hide/show
 - reactive Compressor and EQ native-leaf controls, including the exact eight-option source filter-type selector
