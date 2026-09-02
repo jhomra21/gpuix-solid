@@ -58,9 +58,10 @@ describe("published GPUIX 0.7 host surface", () => {
     expect(registration?.[1]).toBe(false)
     const eventId = registration?.[2]
     expect(eventId).toBeTypeOf("number")
+    if (typeof eventId !== "number") throw new TypeError("Expected a numeric window key event id")
 
     root.dispatch({
-      elementId: eventId as number,
+      elementId: eventId,
       eventType: "windowKeyDown",
       key: "tab",
       modifiers: { shift: false, ctrl: false, alt: false, cmd: false },
