@@ -168,22 +168,16 @@ generator.write_text(text)
 
 parity = Path("packages/solid1/scripts/check-host-parity.ts")
 text = parity.read_text()
-old_import = '''import {
-  configureNativeStyleManifest,
-  resolveNativeClassStyle,
-} from "../src/native-style.ts"
-'''
-new_import = '''import {
-  applyNativeStyleTranslation,
-  configureNativeStyleManifest,
-  resolveNativeClassStyle,
-  resolveNativeClassTranslation,
-} from "../src/native-style.ts"
-'''
-if new_import not in text:
-    if old_import not in text:
-        raise SystemExit("solid1 parity: native style import anchor missing")
-    text = text.replace(old_import, new_import, 1)
+if "  applyNativeStyleTranslation,\n" not in text:
+    anchor = "  clearNativeStyleManifest,\n"
+    if anchor not in text:
+        raise SystemExit("solid1 parity: clear style import anchor missing")
+    text = text.replace(anchor, "  applyNativeStyleTranslation,\n" + anchor, 1)
+if "  resolveNativeClassTranslation,\n" not in text:
+    anchor = "  resolveNativeClassStyle,\n"
+    if anchor not in text:
+        raise SystemExit("solid1 parity: class style import anchor missing")
+    text = text.replace(anchor, anchor + "  resolveNativeClassTranslation,\n", 1)
 probe_anchor = 'if (selectorButton.dataset.trackId !== "track-7") throw new Error("dataset must expose data-* properties")\n'
 probe = '''if (selectorButton.dataset.trackId !== "track-7") throw new Error("dataset must expose data-* properties")
 
@@ -195,6 +189,7 @@ configureNativeStyleManifest({
 })
 const translation = resolveNativeClassTranslation("-translate-x-1/2 translate-y-1/2", undefined)
 const translatedStyle = applyNativeStyleTranslation({ width: 16, height: 12 }, translation)
+clearNativeStyleManifest()
 if (translatedStyle?.marginLeft !== -8 || translatedStyle.marginTop !== 6) {
   throw new Error(`fractional native translation must resolve against final own size: ${JSON.stringify(translatedStyle)}`)
 }
