@@ -11,3 +11,22 @@ export type AutomationParameterSelection = {
   parameterId: string
   effectInstanceId?: string
 }
+
+export type EqBandType =
+  | "lowpass"
+  | "highpass"
+  | "bandpass"
+  | "lowshelf"
+  | "highshelf"
+  | "peaking"
+  | "notch"
+  | "allpass"
+
+export type EqBandParams = {
+  id: string
+  frequency: number
+  gainDb: number
+  q: number
+  enabled: boolean
+  type: EqBandType
+}
