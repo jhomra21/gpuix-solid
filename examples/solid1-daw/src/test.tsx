@@ -100,11 +100,10 @@ if (!hasNativeTestRenderer) {
 
   app.renderer.scrollTestId("track-sidebar-scrolling", 0, -160)
   requireCondition((app.renderer.scrollOffsetTestId("track-sidebar-scrolling")?.[1] ?? 0) < 0, "mixer should scroll Synth into the visible viewport")
-  const visibleMixer = app.renderer.boundsTestId("track-sidebar-scrolling")
   const visibleSend = app.renderer.boundsTestId("track-synth-send")
   requireCondition(
-    visibleSend.y >= visibleMixer.y && bottom(visibleSend) <= bottom(visibleMixer),
-    `Synth send should be visible before interaction, send ${JSON.stringify(visibleSend)}, mixer ${JSON.stringify(visibleMixer)}`,
+    visibleSend.y >= sidebarScrolling.y && bottom(visibleSend) <= bottom(sidebarScrolling),
+    `Synth send should be visible before interaction, send ${JSON.stringify(visibleSend)}, mixer ${JSON.stringify(sidebarScrolling)}`,
   )
 
   app.renderer.clickCenterTestId("track-synth-send")
@@ -142,8 +141,8 @@ if (!hasNativeTestRenderer) {
   app.renderer.scrollTestId("track-sidebar-scrolling", 0, -260)
   const visibleAutomationHide = app.renderer.boundsTestId("track-synth-automation-hide")
   requireCondition(
-    visibleAutomationHide.y >= visibleMixer.y && bottom(visibleAutomationHide) <= bottom(visibleMixer),
-    `Synth automation hide should be visible before interaction, control ${JSON.stringify(visibleAutomationHide)}, mixer ${JSON.stringify(visibleMixer)}`,
+    visibleAutomationHide.y >= sidebarScrolling.y && bottom(visibleAutomationHide) <= bottom(sidebarScrolling),
+    `Synth automation hide should be visible before interaction, control ${JSON.stringify(visibleAutomationHide)}, mixer ${JSON.stringify(sidebarScrolling)}`,
   )
   app.renderer.clickCenterTestId("track-synth-automation-hide")
   requireCondition(Math.abs(app.renderer.boundsTestId("lane-synth").height - oneAutomationLaneHeight) <= 1, "hiding one automation lane should remove exactly 48px")
