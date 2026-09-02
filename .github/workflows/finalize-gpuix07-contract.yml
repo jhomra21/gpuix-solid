@@ -135,8 +135,12 @@ jobs:
           bun install --frozen-lockfile
           bun run gpuix:check-version
           bun run --filter 'gpuix-solid-counter' source:check
-          if grep -nE 'GPUIX 0\.6|React 0\.6|\^0\.6\.0|@gpuix/(native|react)@0\.6\.0|blurred-window-showcase' README.md docs/compatibility.md docs/upstream-parity.md examples/README.md packages/solid1/README.md; then
-            echo 'stale GPUIX 0.6 or removed Blurred Window target remains in current contract docs' >&2
+          if grep -nE 'GPUIX 0\.6|React 0\.6|\^0\.6\.0|@gpuix/(native|react)@0\.6\.0' README.md docs/compatibility.md docs/upstream-parity.md examples/README.md packages/solid1/README.md; then
+            echo 'stale GPUIX 0.6 contract remains in current docs' >&2
+            exit 1
+          fi
+          if grep -n 'blurred-window-showcase' package.json examples/counter/package.json; then
+            echo 'removed Blurred Window showcase target is still executable' >&2
             exit 1
           fi
           grep -n 'a24b4a42eb516c7b940eb8d34ecebb077df623bd' examples/counter/upstream/gpuix/upstream-lock.json docs/upstream-parity.md
