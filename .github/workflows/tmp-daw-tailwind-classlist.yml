@@ -118,7 +118,6 @@ jobs:
           bun scripts/generate-native-tailwind.mjs
           grep -q '"bg-muted-foreground"' src/native-tailwind.generated.ts
           bun run source:check
-          bun run build
       - name: Commit and self-clean
         shell: bash
         run: |
