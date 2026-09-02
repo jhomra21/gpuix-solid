@@ -2,6 +2,13 @@ from pathlib import Path
 
 path = Path("examples/solid1-daw/scripts/generate-native-tailwind.mjs")
 text = path.read_text()
+compat_anchor = "const nativeCompatEntries = new Map([\n"
+compat_line = '  ["grid-cols-2", { base: { gridTemplateColumns: 2 } }],\n'
+if compat_line not in text:
+    if compat_anchor not in text:
+        raise SystemExit("native compatibility anchor missing")
+    text = text.replace(compat_anchor, compat_anchor + compat_line, 1)
+
 anchor = "const explicitlyIgnored = new Map([\n"
 omissions = [
     ("duration-75", "native StyleDesc transitions are not published in GPUIX 0.7"),
