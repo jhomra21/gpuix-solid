@@ -1,0 +1,656 @@
+name: Core DOM consolidation
+
+on:
+  push:
+    branches:
+      - fix/source-first-example-fidelity
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: fix/source-first-example-fidelity
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: 1.3.14
+      - name: Consolidate host and document semantics
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from textwrap import dedent
+
+          root = Path.cwd()
+          nodes_path = root / "packages/solid1/src/host/nodes.ts"
+          nodes = nodes_path.read_text()
+
+          # Core document state belongs to the host, not a runtime prototype installer.
+          marker = 'const customStyleProperties = new WeakMap<HostElementNode, Map<string, string>>()\n'
+          addition = '''const connectedHostRoots = new Set<HostElementNode>()
+          let activeHostElement: HostElementNode | null = null
+          let globalPointerDownObservation = false
+          '''
+          if addition.strip() not in nodes:
+            if nodes.count(marker) != 1:
+              raise SystemExit("custom style marker changed")
+            nodes = nodes.replace(marker, marker + addition, 1)
+
+          # ClassList is real host state, not a no-op compatibility object.
+          old_class = '''  readonly classList = {
+            add: (..._tokens: string[]): void => undefined,
+            remove: (..._tokens: string[]): void => undefined,
+          }
+          '''
+          new_class = '''  readonly classList: HostClassList
+          '''
+          if old_class in nodes:
+            nodes = nodes.replace(old_class, new_class, 1)
+          elif new_class not in nodes:
+            raise SystemExit("classList marker changed")
+
+          ctor_marker = '    this.style = createHostStyleDeclaration(this, {})\n'
+          if '    this.classList = createHostClassList(this)\n' not in nodes:
+            if nodes.count(ctor_marker) != 1:
+              raise SystemExit("constructor style marker changed")
+            nodes = nodes.replace(ctor_marker, ctor_marker + '    this.classList = createHostClassList(this)\n', 1)
+
+          # Native focus owns activeElement state.
+          old_focus = '''  focus(): void {
+            const root = this.root
+            if (!root || !this.nativeAlive) return
+            root.driver.enqueue("setEventListener", this.id, "keyDown", true)
+            root.driver.enqueue("setEventListener", this.id, "keyUp", true)
+            root.driver.flush()
+            root.driver.renderer.focusElement?.(this.id)
+          }
+
+          blur(): void {
+            const root = this.root
+            if (!root || !this.nativeAlive) return
+            root.driver.flush()
+            root.driver.renderer.blur?.()
+          }
+          '''
+          new_focus = '''  focus(): void {
+            const root = this.root
+            if (!root || !this.nativeAlive) return
+            activeHostElement = this
+            root.driver.enqueue("setEventListener", this.id, "keyDown", true)
+            root.driver.enqueue("setEventListener", this.id, "keyUp", true)
+            root.driver.flush()
+            root.driver.renderer.focusElement?.(this.id)
+          }
+
+          blur(): void {
+            const root = this.root
+            if (!root || !this.nativeAlive) return
+            if (activeHostElement === this) activeHostElement = null
+            root.driver.flush()
+            root.driver.renderer.blur?.()
+          }
+          '''
+          if old_focus in nodes:
+            nodes = nodes.replace(old_focus, new_focus, 1)
+          elif new_focus not in nodes:
+            raise SystemExit("focus block changed")
+
+          # Replace the semantic method region with the canonical host implementation.
+          start_marker = '    compareDocumentPosition(other: HostElementNode): number {\n'
+          if start_marker not in nodes:
+            start_marker = '  compareDocumentPosition(other: HostElementNode): number {\n'
+          end_marker = '  getBoundingClientRect(): {\n'
+          if nodes.count(start_marker) != 1 or nodes.count(end_marker) != 1:
+            raise SystemExit("semantic method region changed")
+          start = nodes.index(start_marker)
+          end = nodes.index(end_marker, start)
+          semantic = dedent('''\
+            compareDocumentPosition(other: HostElementNode): number {
+              return compareHostDocumentPosition(this, other)
+            }
+
+            get dataset(): Record<string, string> {
+              const dataset: Record<string, string> = {}
+              for (const [name, value] of this.props) {
+                if (!name.startsWith("data-") || value === null || value === undefined) continue
+                dataset[dataAttributeProperty(name.slice(5))] = String(value)
+              }
+              return dataset
+            }
+
+            get tabIndex(): number {
+              const value = this.props.get("tabIndex")
+              if (value === null || value === undefined) return -1
+              const parsed = Number(value)
+              return Number.isFinite(parsed) ? parsed : -1
+            }
+
+            set tabIndex(value: number) {
+              setHostProperty(this, "tabIndex", value)
+            }
+
+            getAttribute(name: string): string | null {
+              const value = this.props.get(name)
+              return value === null || value === undefined ? null : String(value)
+            }
+
+            hasAttribute(name: string): boolean {
+              return this.props.has(name)
+            }
+
+            setAttribute(name: string, value: string): void {
+              setHostProperty(this, name, String(value))
+            }
+
+            removeAttribute(name: string): void {
+              setHostProperty(this, name, undefined)
+            }
+
+            contains(other: HostElementNode | null): boolean {
+              if (!other) return false
+              let current: HostElementNode | null = other
+              while (current) {
+                if (current === this) return true
+                current = current.parentElement
+              }
+              return false
+            }
+
+            matches(selector: string): boolean {
+              return selector.split(",").some((candidate) => matchesSimpleSelector(this, candidate.trim()))
+            }
+
+            closest(selector: string): HostElementNode | null {
+              let current: HostElementNode | null = this
+              while (current) {
+                if (current.matches(selector)) return current
+                current = current.parentElement
+              }
+              return null
+            }
+
+            querySelector(selector: string): HostElementNode | null {
+              return this.querySelectorAll(selector)[0] ?? null
+            }
+
+            querySelectorAll(selector: string): HostElementNode[] {
+              return hostDescendants(this).filter((candidate) => candidate.matches(selector))
+            }
+
+            insertAdjacentElement(position: string, element: HostElementNode): HostElementNode | null {
+              if (position === "afterbegin") {
+                insertHostNode(this, element, this.children[0] ?? null)
+                return element
+              }
+              if (position === "beforeend") {
+                insertHostNode(this, element)
+                return element
+              }
+              return null
+            }
+
+            remove(): void {
+              const parent = this.parent
+              if (parent) removeHostNode(parent, this)
+            }
+
+            addEventListener(
+              type: string,
+              listener: EventListenerOrEventListenerObject | null,
+            ): void {
+              if (!listener) return
+              const listeners = this.#eventListeners.get(type) ?? new Set<EventListenerOrEventListenerObject>()
+              listeners.add(listener)
+              this.#eventListeners.set(type, listeners)
+            }
+
+            removeEventListener(
+              type: string,
+              listener: EventListenerOrEventListenerObject | null,
+            ): void {
+              if (!listener) return
+              const listeners = this.#eventListeners.get(type)
+              listeners?.delete(listener)
+              if (listeners?.size === 0) this.#eventListeners.delete(type)
+            }
+
+            dispatchEvent(event: Event): boolean {
+              if (event.target === null) {
+                Object.defineProperty(event, "target", { configurable: true, value: this })
+              }
+              Object.defineProperty(event, "currentTarget", { configurable: true, value: this })
+              for (const listener of [...(this.#eventListeners.get(event.type) ?? [])]) {
+                if (typeof listener === "function") listener.call(this, event)
+                else listener.handleEvent(event)
+              }
+              return !event.defaultPrevented
+            }
+
+          ''')
+          semantic = ''.join('  ' + line if line.strip() else line for line in semantic.splitlines(keepends=True))
+          nodes = nodes[:start] + semantic + nodes[end:]
+
+          # Connected roots are updated by tree operations, not discovered through patched methods.
+          old_insert = '''  const oldParent = node.parent
+            if (oldParent) removeFromChildren(oldParent, node)
+
+            const index = anchor ? parent.children.indexOf(anchor) : parent.children.length
+            parent.children.splice(index, 0, node)
+            node.parent = parent
+          '''
+          new_insert = '''  const oldParent = node.parent
+            if (oldParent) {
+              if (oldParent.kind === "root" && node.kind === "element") connectedHostRoots.delete(node)
+              removeFromChildren(oldParent, node)
+            }
+
+            const index = anchor ? parent.children.indexOf(anchor) : parent.children.length
+            parent.children.splice(index, 0, node)
+            node.parent = parent
+            if (parent.kind === "root" && node.kind === "element") connectedHostRoots.add(node)
+          '''
+          if old_insert in nodes:
+            nodes = nodes.replace(old_insert, new_insert, 1)
+          elif 'connectedHostRoots.add(node)' not in nodes:
+            raise SystemExit("insert root registration marker changed")
+
+          old_remove = '''  removeFromChildren(parent, node)
+            node.parent = null
+            const root = rootOf(parent)
+          '''
+          new_remove = '''  removeFromChildren(parent, node)
+            if (parent.kind === "root" && node.kind === "element") connectedHostRoots.delete(node)
+            node.parent = null
+            const root = rootOf(parent)
+          '''
+          if old_remove in nodes:
+            nodes = nodes.replace(old_remove, new_remove, 1)
+          elif 'connectedHostRoots.delete(node)' not in nodes:
+            raise SystemExit("remove root registration marker changed")
+
+          # Native transport accounts for global document/window pointerdown observation.
+          nodes = nodes.replace(
+            '      if (hadNativeHandler != hasNativeHandler) {\n',
+            '      const hadTransport = hadNativeHandler || (nativeEventType === "mouseDown" && globalPointerDownObservation)\n'
+            '      const hasTransport = hasNativeHandler || (nativeEventType === "mouseDown" && globalPointerDownObservation)\n'
+            '      if (hadTransport != hasTransport) {\n',
+            1,
+          )
+          nodes = nodes.replace(
+            '        node.root.driver.enqueue("setEventListener", node.id, nativeEventType, hasNativeHandler)\n',
+            '        node.root.driver.enqueue("setEventListener", node.id, nativeEventType, hasTransport)\n',
+            1,
+          )
+          adopt_loop = '''    for (const eventType of nativeEventTypes) {
+              root.driver.enqueue("setEventListener", node.id, eventType, true)
+            }
+          '''
+          adopt_replacement = '''    if (globalPointerDownObservation) nativeEventTypes.add("mouseDown")
+            for (const eventType of nativeEventTypes) {
+              root.driver.enqueue("setEventListener", node.id, eventType, true)
+            }
+          '''
+          if adopt_loop in nodes:
+            nodes = nodes.replace(adopt_loop, adopt_replacement, 1)
+          elif 'globalPointerDownObservation) nativeEventTypes.add("mouseDown")' not in nodes:
+            raise SystemExit("adopt native listener loop changed")
+
+          # Clear focus when a focused subtree disconnects.
+          dead_marker = 'function markNativeDead(root: HostRootNode, node: HostNode): void {\n  node.nativeAlive = false\n'
+          dead_replacement = 'function markNativeDead(root: HostRootNode, node: HostNode): void {\n  if (node.kind === "element" && activeHostElement && node.contains(activeHostElement)) activeHostElement = null\n  node.nativeAlive = false\n'
+          if dead_marker in nodes:
+            nodes = nodes.replace(dead_marker, dead_replacement, 1)
+          elif 'node.contains(activeHostElement)' not in nodes:
+            raise SystemExit("markNativeDead marker changed")
+
+          # Canonical selector/class helpers and document-facing host state.
+          selector_start = 'function matchesSimpleSelector(node: HostElementNode, selector: string): boolean {\n'
+          selector_end = 'function compareHostDocumentPosition(reference: HostNode, other: HostNode): number {\n'
+          if nodes.count(selector_start) != 1 or nodes.count(selector_end) != 1:
+            raise SystemExit("selector helper markers changed")
+          s = nodes.index(selector_start)
+          e = nodes.index(selector_end, s)
+          helpers = dedent(r'''\
+          function matchesSimpleSelector(node: HostElementNode, selector: string): boolean {
+            if (!selector) return false
+            if (selector === "*") return true
+
+            const attributes = [...selector.matchAll(/\[([A-Za-z_:][\w:.-]*)(?:=(['"]?)(.*?)\2)?\]/g)]
+            for (const attribute of attributes) {
+              const name = attribute[1]
+              if (!name || !node.hasAttribute(name)) return false
+              const expected = attribute[3]
+              if (expected !== undefined && node.getAttribute(name) !== expected) return false
+            }
+
+            let remainder = selector.replace(/\[[^\]]+\]/g, "")
+            const id = remainder.match(/#([A-Za-z_][\w-]*)/)
+            if (id?.[1] && node.getAttribute("id") !== id[1]) return false
+            remainder = remainder.replace(/#[A-Za-z_][\w-]*/g, "")
+
+            const classes = [...remainder.matchAll(/\.([A-Za-z_][\w-]*)/g)].map((match) => match[1])
+            if (classes.some((className) => !className || !node.classList.contains(className))) return false
+            remainder = remainder.replace(/\.[A-Za-z_][\w-]*/g, "").trim()
+
+            return remainder === "" || (/^[A-Za-z][A-Za-z0-9-]*$/.test(remainder) && node.localName === remainder.toLowerCase())
+          }
+
+          function hostDescendants(root: HostElementNode): HostElementNode[] {
+            const descendants: HostElementNode[] = []
+            const pending = root.children.filter((child): child is HostElementNode => child.kind === "element").reverse()
+            while (pending.length > 0) {
+              const current = pending.pop()
+              if (!current) continue
+              descendants.push(current)
+              const children = current.children.filter((child): child is HostElementNode => child.kind === "element")
+              for (let index = children.length - 1; index >= 0; index -= 1) pending.push(children[index]!)
+            }
+            return descendants
+          }
+
+          type HostClassList = {
+            add(...tokens: string[]): void
+            remove(...tokens: string[]): void
+            contains(token: string): boolean
+            toggle(token: string, force?: boolean): boolean
+            toString(): string
+          }
+
+          function createHostClassList(node: HostElementNode): HostClassList {
+            const read = () => new Set(String(node.props.get("className") ?? "").split(/\s+/).filter(Boolean))
+            const write = (tokens: Set<string>) => setHostProperty(node, "className", [...tokens].join(" "))
+            return {
+              add(...tokens) {
+                const current = read()
+                for (const token of tokens) if (token) current.add(token)
+                write(current)
+              },
+              remove(...tokens) {
+                const current = read()
+                for (const token of tokens) current.delete(token)
+                write(current)
+              },
+              contains(token) {
+                return read().has(token)
+              },
+              toggle(token, force) {
+                const current = read()
+                const enabled = force ?? !current.has(token)
+                if (enabled) current.add(token)
+                else current.delete(token)
+                write(current)
+                return enabled
+              },
+              toString() {
+                return [...read()].join(" ")
+              },
+            }
+          }
+
+          export function getConnectedHostRoots(): readonly HostElementNode[] {
+            return [...connectedHostRoots].filter((node) => node.nativeAlive && node.parent?.kind === "root")
+          }
+
+          export function getActiveHostElement(): HostElementNode | null {
+            return activeHostElement?.nativeAlive ? activeHostElement : null
+          }
+
+          export function setGlobalPointerDownObservation(active: boolean): void {
+            if (globalPointerDownObservation === active) return
+            globalPointerDownObservation = active
+            const roots = new Set<HostRootNode>()
+            for (const topLevel of getConnectedHostRoots()) {
+              for (const candidate of [topLevel, ...hostDescendants(topLevel)]) {
+                const root = candidate.root
+                if (!root || !candidate.nativeAlive) continue
+                roots.add(root)
+                root.driver.enqueue(
+                  "setEventListener",
+                  candidate.id,
+                  "mouseDown",
+                  active || hasNativeEventHandler(candidate, "mouseDown"),
+                )
+              }
+            }
+            for (const root of roots) root.driver.flush()
+          }
+
+          ''')
+          nodes = nodes[:s] + helpers + nodes[e:]
+
+          nodes_path.write_text(nodes)
+          (root / "packages/solid/src/host/nodes.ts").write_text(nodes)
+
+          # host/events owns element routing only. Global targets are provided by dom-environment.
+          events_path = root / "packages/solid1/src/host/events.ts"
+          events = events_path.read_text()
+          events = events.replace('type GlobalEventHandler = (event: EventPayload) => void\nconst globalListeners = new Map<string, Set<GlobalEventHandler>>()\n', '')
+          events = events.replace('\ninstallNativeDomGlobals()\n', '\n')
+          events = events.replace('  for (const handler of globalListeners.get(name) ?? []) handler(event)\n', '')
+          global_start = 'function installNativeDomGlobals(): void {\n'
+          last_click = 'type LastClick = {\n'
+          if global_start in events:
+            gs = events.index(global_start)
+            ge = events.index(last_click, gs)
+            events = events[:gs] + events[ge:]
+          events_path.write_text(events)
+          (root / "packages/solid/src/host/events.ts").write_text(events)
+
+          # Rebuild dom-environment as document/window state only. HostElementNode is no longer patched here.
+          dom_path = root / "packages/solid1/src/dom-environment.ts"
+          dom = dom_path.read_text()
+          dom = dom.replace(
+            '''import {
+            HostElementNode,
+            createHostElement,
+            insertHostNode,
+            removeHostNode,
+            setHostProperty,
+          } from "./host/nodes.js"''',
+            '''import {
+            HostElementNode,
+            createHostElement,
+            getActiveHostElement,
+            getConnectedHostRoots,
+            setGlobalPointerDownObservation,
+          } from "./host/nodes.js"''',
+            1,
+          )
+          dom = dom.replace('type CompatListenerTarget = CompatEventTarget | HostElementNode\n', 'type CompatListenerTarget = CompatEventTarget\n')
+          dom = dom.replace('const knownRoots = new Set<HostElementNode>()\n', '')
+          dom = dom.replace('let hostDomCompatibilityInstalled = false\n', '')
+          dom = dom.replace('  installHostDomCompatibility(documentTarget)\n\n', '')
+          dom = dom.replace('      if (tagName === "body") return activeDomRoots()\n', '      if (tagName === "body") return getConnectedHostRoots()\n')
+
+          # Document owns its own DOM APIs at construction time.
+          assign_marker = '  documentTarget.createElement = createCompatElement\n  documentTarget.createTreeWalker = createCompatTreeWalker\n'
+          assign_replacement = '''  documentTarget.createElement = createCompatElement
+            documentTarget.createTreeWalker = createCompatTreeWalker
+            Object.assign(documentTarget, {
+              contains(candidate: unknown) {
+                if (candidate === bodyTarget || candidate === documentElementTarget) return true
+                return candidate instanceof HostElementNode && getConnectedHostRoots().some((root) => root.contains(candidate))
+              },
+              querySelectorAll(selector: string) {
+                return queryDescendants(bodyTarget, selector)
+              },
+              querySelector(selector: string) {
+                return queryDescendants(bodyTarget, selector)[0] ?? null
+              },
+            })
+            Object.defineProperty(documentTarget, "activeElement", {
+              configurable: false,
+              enumerable: true,
+              get: () => getActiveHostElement() ?? bodyTarget,
+            })
+          '''
+          if assign_marker in dom:
+            dom = dom.replace(assign_marker, assign_replacement, 1)
+          elif 'getActiveHostElement() ?? bodyTarget' not in dom:
+            raise SystemExit("document assignment marker changed")
+
+          # Remove the entire prototype installer and root discovery block.
+          compat_start = 'function installHostDomCompatibility(ownerDocument: CompatDocument): void {\n'
+          child_marker = 'function childElements(node: CompatTreeElement): HostElementNode[] {\n'
+          if compat_start in dom:
+            ds = dom.index(compat_start)
+            de = dom.index(child_marker, ds)
+            dom = dom[:ds] + dom[de:]
+
+          # Use canonical host selector behavior.
+          dom = dom.replace('  return descendantsOf(root).filter((node) => matchesSelector(node, selector))\n', '  return descendantsOf(root).filter((node) => node.matches(selector))\n')
+          selector_start = 'function matchesSelector(node: HostElementNode, selector: string): boolean {\n'
+          walker_marker = 'function createCompatTreeWalker(\n'
+          if selector_start in dom:
+            ds = dom.index(selector_start)
+            de = dom.index(walker_marker, ds)
+            # Preserve datasetFromAttributes, which document nodes still use.
+            dataset = '''function datasetFromAttributes(attributes: ReadonlyMap<string, string>) {
+              return {
+                liveAnnouncer: attributes.get("data-live-announcer"),
+                reactAriaTopLayer: attributes.get("data-react-aria-top-layer"),
+              } satisfies CompatDataset
+            }
+
+            '''
+            dom = dom[:ds] + dataset + dom[de:]
+
+          # Document/window pointer listeners drive core native observation without rewriting addEventListener.
+          dom = dom.replace('const listeners = new WeakMap<CompatListenerTarget, Map<string, Set<CompatListener>>>()\n', 'const listeners = new WeakMap<CompatListenerTarget, Map<string, Set<CompatListener>>>()\nlet pointerDownListenerCount = 0\n')
+          old_add = '''function addCompatListener(target: CompatListenerTarget, type: string, listener: CompatListener | null): void {
+            if (!listener) return
+            let byType = listeners.get(target)
+            if (!byType) {
+              byType = new Map()
+              listeners.set(target, byType)
+            }
+            let entries = byType.get(type)
+            if (!entries) {
+              entries = new Set()
+              byType.set(type, entries)
+            }
+            entries.add(listener)
+          }
+
+          function removeCompatListener(target: CompatListenerTarget, type: string, listener: CompatListener | null): void {
+            if (!listener) return
+            listeners.get(target)?.get(type)?.delete(listener)
+          }
+          '''
+          new_add = '''function addCompatListener(target: CompatListenerTarget, type: string, listener: CompatListener | null): void {
+            if (!listener) return
+            let byType = listeners.get(target)
+            if (!byType) {
+              byType = new Map()
+              listeners.set(target, byType)
+            }
+            let entries = byType.get(type)
+            if (!entries) {
+              entries = new Set()
+              byType.set(type, entries)
+            }
+            const sizeBefore = entries.size
+            entries.add(listener)
+            if (type === "pointerdown" && entries.size !== sizeBefore) {
+              pointerDownListenerCount += 1
+              setGlobalPointerDownObservation(true)
+            }
+          }
+
+          function removeCompatListener(target: CompatListenerTarget, type: string, listener: CompatListener | null): void {
+            if (!listener) return
+            const entries = listeners.get(target)?.get(type)
+            if (!entries || !entries.delete(listener)) return
+            if (type === "pointerdown") {
+              pointerDownListenerCount = Math.max(0, pointerDownListenerCount - 1)
+              if (pointerDownListenerCount === 0) setGlobalPointerDownObservation(false)
+            }
+          }
+          '''
+          if old_add in dom:
+            dom = dom.replace(old_add, new_add, 1)
+          elif 'pointerDownListenerCount += 1' not in dom:
+            raise SystemExit("compat listener block changed")
+
+          dom_path.write_text(dom)
+
+          # web.ts should not rewrite HostElementNode prototypes or document event methods.
+          web_path = root / "packages/solid1/src/web.ts"
+          web = web_path.read_text()
+          web = web.replace('import { EventRegistry } from "./host/events.js"\n', '')
+          web = web.replace('import { HostElementNode, setHostProperty, type HostRootNode } from "./host/nodes.js"\n', 'import { HostElementNode, setHostProperty } from "./host/nodes.js"\n')
+          for call in [
+            'installElementConstructorCompatibility()\n',
+            'installElementQueryCompatibility()\n',
+            'installDocumentContainmentCompatibility()\n',
+            'installDocumentFocusCompatibility()\n',
+            'installDocumentPointerCaptureCompatibility()\n',
+          ]:
+            web = web.replace(call, '')
+
+          def remove_function(source: str, start_marker: str, next_marker: str) -> str:
+            if start_marker not in source:
+              return source
+            start = source.index(start_marker)
+            end = source.index(next_marker, start)
+            return source[:start] + source[end:]
+
+          web = remove_function(web, 'function installElementConstructorCompatibility(): void {\n', 'function installBrowserStyleMutationCompatibility(')
+          # The previous removal includes installElementQueryCompatibility because it sits between these markers.
+          web = remove_function(web, 'function installDocumentContainmentCompatibility(): void {\n', 'function installDocumentStyleCompatibility(): void {\n')
+          web = remove_function(web, 'function installDocumentFocusCompatibility(): void {\n', 'function createDocumentStyle(): CompatDocumentStyle {\n')
+          # The previous removal includes document pointer capture and syncNativePointerDownObservation.
+          web_path.write_text(web)
+
+          # Strengthen host parity around the now-native APIs.
+          parity_path = root / "packages/solid1/scripts/check-host-parity.ts"
+          parity = parity_path.read_text()
+          insert_after = 'if (localEvents !== 1) throw new Error("native host EventTarget listener must fire")\n'
+          additions = '''
+          semanticButton.classList.add("primary", "interactive")
+          if (!semanticButton.matches("button.primary.interactive")) throw new Error("classList and compound selector matching must share host state")
+          semanticButton.classList.remove("primary")
+          if (semanticButton.matches(".primary")) throw new Error("classList.remove must update selector matching")
+          semanticButton.tabIndex = 3
+          if (semanticButton.tabIndex !== 3) throw new Error("tabIndex must be native host state")
+
+          const queryRoot = createHostElement("div", "section")
+          const queryChild = createHostElement("div", "button")
+          const queryGrandchild = createHostElement("div", "span")
+          setHostProperty(queryGrandchild, "data-query-target", "yes")
+          insertHostNode(queryRoot, queryChild)
+          insertHostNode(queryChild, queryGrandchild)
+          if (queryRoot.querySelector("[data-query-target='yes']") !== queryGrandchild) throw new Error("querySelector must traverse host descendants")
+          if (queryRoot.querySelectorAll("button, [data-query-target]").length !== 2) throw new Error("querySelectorAll must use canonical host selectors")
+          '''
+          if additions.strip() not in parity:
+            if parity.count(insert_after) != 1:
+              raise SystemExit("parity event marker changed")
+            parity = parity.replace(insert_after, insert_after + additions, 1)
+          parity_path.write_text(parity)
+          PY
+      - name: Validate consolidated core
+        run: |
+          cd packages/solid1
+          bun install --no-save
+          bun run test
+          bun run typecheck
+          cd ../../examples/solid1-kobalte
+          bun install --no-save
+          bun run typecheck
+          cd ../solid1-daw
+          bun install --no-save
+          bun run typecheck
+      - name: Commit validated consolidation
+        run: |
+          rm .github/workflows/core-dom-consolidation.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/solid1/src/host/nodes.ts packages/solid/src/host/nodes.ts packages/solid1/src/host/events.ts packages/solid/src/host/events.ts packages/solid1/src/dom-environment.ts packages/solid1/src/web.ts packages/solid1/scripts/check-host-parity.ts .github/workflows/core-dom-consolidation.yml
+          git diff --check
+          git commit -m "refactor: consolidate DOM semantics in core host"
+          git push origin HEAD:fix/source-first-example-fidelity
