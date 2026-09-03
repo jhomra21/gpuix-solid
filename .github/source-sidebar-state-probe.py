@@ -45,17 +45,33 @@ for events_path in [Path("packages/solid1/src/host/events.ts"), Path("packages/s
         let clickNode: DomCompatTarget | undefined = clickTarget
         while (clickNode) {
           clickPath.push({
+            id: "id" in clickNode ? clickNode.id : undefined,
             tagName: "tagName" in clickNode ? clickNode.tagName : undefined,
+            testId: "getAttribute" in clickNode && typeof clickNode.getAttribute === "function" ? clickNode.getAttribute("testId") : undefined,
             ariaLabel: "getAttribute" in clickNode && typeof clickNode.getAttribute === "function" ? clickNode.getAttribute("aria-label") : undefined,
             title: "getAttribute" in clickNode && typeof clickNode.getAttribute === "function" ? clickNode.getAttribute("title") : undefined,
+            style: "style" in clickNode ? clickNode.style : undefined,
           })
           if (!("parentElement" in clickNode)) break
           const parent = clickNode.parentElement
           clickNode = parent && typeof parent === "object" ? parent as DomCompatTarget : undefined
         }
-        console.log("source sidebar native click path", JSON.stringify({ elementId: event.elementId, path: clickPath }))
+        console.log("source sidebar native click path", JSON.stringify({ elementId: event.elementId, x: event.x, y: event.y, path: clickPath }))
         if (!this.#nativePointerDown.has(event.elementId)) {
 '''
     if old_click not in events:
         raise SystemExit(f"event click probe anchor missing in {events_path}")
     events_path.write_text(events.replace(old_click, new_click, 1))
+
+test_path = Path("examples/solid1-daw/src/test.tsx")
+test = test_path.read_text()
+anchor = '''  const muteBackground = app.renderer.styleCustomProps(muteOn).backgroundColor
+  app.renderer.clickCustomProps(muteOn)
+'''
+probe = '''  const muteBackground = app.renderer.styleCustomProps(muteOn).backgroundColor
+  console.log("source sidebar mute bounds", JSON.stringify(app.renderer.boundsCustomProps(muteOn)))
+  app.renderer.clickCustomProps(muteOn)
+'''
+if anchor not in test:
+    raise SystemExit("mute bounds probe anchor missing")
+test_path.write_text(test.replace(anchor, probe, 1))
