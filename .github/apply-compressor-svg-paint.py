@@ -83,9 +83,14 @@ replace_once(
   if (descendant && focus) throw new Error(`Unsupported focused descendant native Tailwind candidate ${JSON.stringify(candidate)}`)
   if (descendant && lightCompiled.lineHeightMultiplier !== undefined) throw new Error(`Unsupported relative line-height descendant native Tailwind candidate ${JSON.stringify(candidate)}`)
   if (descendant && svg) throw new Error(`Unsupported SVG paint descendant native Tailwind candidate ${JSON.stringify(candidate)}`)
-  classes[candidate] = descendant
-    ? { descendants: { [descendant]: variant } }
-    : { ...variant, ...(focus ? { focus } : {}), ...lineHeightMetadata, ...(svg ? { svg } : {}) }
+  if (descendant) {
+    classes[candidate] = { descendants: { [descendant]: variant } }
+  } else {
+    const entry = { ...variant, ...lineHeightMetadata }
+    if (focus) entry.focus = focus
+    if (svg) entry.svg = svg
+    classes[candidate] = entry
+  }
 ''',
 )
 
@@ -273,12 +278,12 @@ replace_once(
 ''',
     '''  const knobBorderPaint = resolveNativeClassSvgPaint("stroke-border", undefined)
   requireCondition(
-    typeof knobBorderPaint?.stroke === "string" && (knobBorderPaint.stroke.startsWith("#") || knobBorderPaint.stroke.startsWith("rgba(")),
+    knobBorderPaint?.stroke !== undefined && (knobBorderPaint.stroke.startsWith("#") || knobBorderPaint.stroke.startsWith("rgba(")),
     `stroke-border should compile to normalized native SVG paint, got ${JSON.stringify(knobBorderPaint)}`,
   )
   const knobActivePaint = resolveNativeClassSvgPaint("stroke-cyan-400", undefined)
   requireCondition(
-    typeof knobActivePaint?.stroke === "string" && knobActivePaint.stroke !== knobBorderPaint?.stroke,
+    knobActivePaint?.stroke !== undefined && knobActivePaint.stroke !== knobBorderPaint?.stroke,
     "source knob accent stroke should remain distinct from the border stroke",
   )
 
