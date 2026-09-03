@@ -84,7 +84,7 @@ function requireAncestorBounds(
   predicate: (bounds: NativeBounds) => boolean,
   label: string,
 ): NativeBounds {
-  const match = bounds.find(predicate)
+  const match = [...bounds].reverse().find(predicate)
   if (!match) throw new Error(`${label}: no matching painted ancestor in ${JSON.stringify(bounds)}`)
   return match
 }
