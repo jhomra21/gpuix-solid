@@ -12,7 +12,8 @@ elif new not in source:
 path = Path("examples/solid1-daw/src/test.tsx")
 source = path.read_text()
 anchor = '  requireCondition(returnTimeline.y >= timelineFooter.y, "Return timeline row should live inside the sticky footer")'
-if anchor not in source:
+rewritten = 'exact source Return sidebar row should align with the Return timeline row'
+if anchor not in source or rewritten not in source:
     raise SystemExit(0)
 probe = '''  console.log("source sidebar geometry probe", JSON.stringify({
     timelineFooter,
