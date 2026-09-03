@@ -10,6 +10,17 @@ export interface NativeStyleVariant {
   dark?: StyleDesc
 }
 
+export interface NativeSvgPaint {
+  fill?: string
+  stroke?: string
+}
+
+export interface NativeSvgPaintVariant {
+  base?: NativeSvgPaint
+  light?: NativeSvgPaint
+  dark?: NativeSvgPaint
+}
+
 /** Fractional visual translation resolved against the element's own native size. */
 export interface NativeStyleTranslation {
   xFraction?: number
@@ -30,6 +41,9 @@ export interface NativeStyleManifestEntry extends NativeStyleVariant {
   /** Source :focus / :focus-visible styles applied by compatibility components that own focus state. */
   focus?: NativeStyleVariant
   descendants?: Record<string, NativeStyleVariant>
+  attributeVariants?: Record<string, Record<string, NativeStyleVariant>>
+  lineHeightMultiplier?: number
+  svg?: NativeSvgPaintVariant
   textTransform?: NativeTextTransform
 }
 
@@ -71,6 +85,50 @@ export function onNativeStyleEnvironmentChange(listener: () => void): () => void
 export function resolveNativeClassStyle(
   className: string | undefined,
   classList: NativeClassList | undefined,
+  contextFontSize?: number,
+): StyleDesc | undefined {
+  const candidates = classCandidates(className, classList)
+  if (candidates.length === 0) return undefined
+  const activeManifest = requireManifest()
+
+  let resolved: StyleDesc | undefined
+  let lineHeightMultiplier: number | undefined
+  for (const candidate of candidates) {
+    const entry = activeManifest.classes[candidate]
+    if (!entry) throw missingCandidate(candidate)
+    resolved = mergeNativeStyles(resolved, resolveVariant(entry))
+    if (entry.lineHeightMultiplier !== undefined) lineHeightMultiplier = entry.lineHeightMultiplier
+  }
+  const fontSize = resolved?.fontSize ?? contextFontSize
+  if (lineHeightMultiplier !== undefined && fontSize !== undefined) {
+    resolved = mergeNativeStyles(resolved, { lineHeight: lineHeightMultiplier * fontSize })
+  }
+  return resolved
+}
+
+export function resolveNativeClassSvgPaint(
+  className: string | undefined,
+  classList: NativeClassList | undefined,
+): NativeSvgPaint | undefined {
+  const candidates = classCandidates(className, classList)
+  if (candidates.length === 0) return undefined
+  const activeManifest = requireManifest()
+
+  let resolved: NativeSvgPaint | undefined
+  for (const candidate of candidates) {
+    const entry = activeManifest.classes[candidate]
+    if (!entry) throw missingCandidate(candidate)
+    const paint = resolveSvgPaintVariant(entry.svg)
+    if (!paint) continue
+    resolved = { ...resolved, ...paint }
+  }
+  return resolved
+}
+
+export function resolveNativeClassAttributeStyle(
+  className: string | undefined,
+  classList: NativeClassList | undefined,
+  attributes: ReadonlyMap<string, unknown>,
 ): StyleDesc | undefined {
   const candidates = classCandidates(className, classList)
   if (candidates.length === 0) return undefined
@@ -80,7 +138,12 @@ export function resolveNativeClassStyle(
   for (const candidate of candidates) {
     const entry = activeManifest.classes[candidate]
     if (!entry) throw missingCandidate(candidate)
-    resolved = mergeNativeStyles(resolved, resolveVariant(entry))
+    if (!entry.attributeVariants) continue
+    for (const [attributeName, values] of Object.entries(entry.attributeVariants)) {
+      const attributeValue = attributes.get(attributeName)
+      if (attributeValue === undefined || attributeValue === null) continue
+      resolved = mergeNativeStyles(resolved, resolveVariant(values[String(attributeValue)]))
+    }
   }
   return resolved
 }
@@ -231,6 +294,7 @@ export function resolveNativeDescendantClassStyle(
   classList: NativeClassList | undefined,
   tagName: string,
   directChild: boolean,
+  directChildIndex?: number,
 ): StyleDesc | undefined {
   const candidates = classCandidates(className, classList)
   if (candidates.length === 0) return undefined
@@ -245,6 +309,10 @@ export function resolveNativeDescendantClassStyle(
     resolved = mergeNativeStyles(resolved, resolveVariant(descendants[tagName]))
     if (directChild) {
       resolved = mergeNativeStyles(resolved, resolveVariant(descendants[`>${tagName}`]))
+      if (directChildIndex !== undefined) {
+        resolved = mergeNativeStyles(resolved, resolveVariant(descendants[`>:nth-child(${directChildIndex})`]))
+        resolved = mergeNativeStyles(resolved, resolveVariant(descendants[`>${tagName}:nth-child(${directChildIndex})`]))
+      }
     }
   }
   return resolved
@@ -257,6 +325,15 @@ export function mergeNativeStyles(...styles: Array<StyleDesc | undefined>): Styl
     result = mergeStylePair(result, style)
   }
   return result
+}
+
+function resolveSvgPaintVariant(variant: NativeSvgPaintVariant | undefined): NativeSvgPaint | undefined {
+  if (!variant) return undefined
+  const themed = colorMode === "dark" ? variant.dark : variant.light
+  const paint = { ...variant.base, ...themed }
+  if (paint.fill !== undefined) paint.fill = normalizePublishedNativeColor(paint.fill)
+  if (paint.stroke !== undefined) paint.stroke = normalizePublishedNativeColor(paint.stroke)
+  return Object.keys(paint).length > 0 ? paint : undefined
 }
 
 function requireManifest(): NativeStyleManifest {

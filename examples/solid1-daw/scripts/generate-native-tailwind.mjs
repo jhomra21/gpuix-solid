@@ -23,6 +23,25 @@ const nativeTextTransforms = new Map([
 // one intrinsic center zone. Other entries below translate source geometry
 // into native fields without editing the copied DAW components.
 const nativeCompatEntries = new Map([
+  ["shadow-[0_0_6px_rgba(239,68,68,0.75)]", {
+    base: {
+      boxShadow: {
+        offsetX: 0,
+        offsetY: 0,
+        blurRadius: 6,
+        spreadRadius: 0,
+        color: "rgba(239, 68, 68, 0.75)",
+      },
+    },
+  }],
+  ["effect-shell", {
+    base: {},
+    attributeVariants: {
+      "data-device-collapsed": {
+        "true": { base: { width: 26, minWidth: 26, maxWidth: 26, flexGrow: 0, flexShrink: 0, flexBasis: 26 } },
+      },
+    },
+  }],
   // Custom classes below are owned by the pinned DAW src/index.css. Keep the
   // source class names intact and translate only the native representation.
   ["mixer-volume-slider", {
@@ -58,6 +77,23 @@ const nativeCompatEntries = new Map([
     },
   }],
   ["grid-cols-2", { base: { gridTemplateColumns: 2 } }],
+  ["grid-cols-3", { base: { gridTemplateColumns: 3 } }],
+  ["grid-cols-4", { base: { gridTemplateColumns: 4 } }],
+  ["grid-cols-[84px_1fr_96px]", {
+    base: { display: "flex", flexDirection: "row" },
+    descendants: {
+      ">:nth-child(1)": { base: { width: 84, minWidth: 84, flexGrow: 0, flexShrink: 0 } },
+      ">:nth-child(2)": { base: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: 0 } },
+      ">:nth-child(3)": { base: { width: 96, minWidth: 96, flexGrow: 0, flexShrink: 0 } },
+    },
+  }],
+  ["grid-cols-[auto_1fr]", {
+    base: { display: "flex", flexDirection: "row" },
+    descendants: {
+      ">:nth-child(1)": { base: { flexGrow: 0, flexShrink: 0 } },
+      ">:nth-child(2)": { base: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: 0 } },
+    },
+  }],
   ["max-h-screen", { base: { maxHeight: "100%" } }],
   ["top-full", { base: {}, parentPosition: { topFraction: 1 } }],
   ["ring-1", { base: { boxShadow: { offsetX: 0, offsetY: 0, blurRadius: 0, spreadRadius: 1, color: "rgba(0, 0, 0, 0)" } } }],
@@ -90,6 +126,17 @@ const nativeCompatEntries = new Map([
 ])
 
 const explicitlyIgnored = new Map([
+  ["effect-shell-chevron", "the source class is only a selector anchor for chevron transform state; GPUIX 0.7 has no general CSS transform field"],
+  ["effect-shell-chevron-icon", "the source rotates this icon with CSS transform; GPUIX 0.7 has no general CSS transform field"],
+  ["duration-100", "GPUIX 0.7 does not publish CSS transition timing; native state changes remain immediate"],
+  ["duration-150", "GPUIX 0.7 does not publish CSS transition timing; native state changes remain immediate"],
+  ["transition-transform", "GPUIX 0.7 does not publish CSS transitions; source transform transitions remain immediate"],
+  ["rotate-180", "GPUIX 0.7 StyleDesc has no general CSS transform; exact collapsed-device rotation remains source-locked but cannot be reproduced natively"],
+  ["focus-visible:ring-1", "GPUIX 0.7 does not publish browser focus-visible ring painting through StyleDesc; keyboard focus semantics remain native"],
+  ["focus-visible:ring-inset", "GPUIX 0.7 BoxShadow has no inset focus-ring mode; the exact source utility remains source-locked"],
+  ["focus-visible:ring-cyan-300/70", "GPUIX 0.7 does not publish browser focus-visible ring color through StyleDesc; keyboard focus semantics remain native"],
+  ["[writing-mode:vertical-rl]", "GPUIX 0.7 does not publish CSS writing-mode; the exact collapsed device label remains source-locked while native cannot reproduce vertical text orientation"],
+  ["mt-auto", "GPUIX 0.7 publishes numeric margins only; the exact Compressor Auto toggle keeps its source utility while native cannot reproduce CSS auto-margin free-space absorption without changing sibling geometry"],
   ["duration-75", "native StyleDesc transitions are not published in GPUIX 0.7"],
   ["transition-all", "native StyleDesc transitions are not published in GPUIX 0.7"],
   ["transition-opacity", "native StyleDesc transitions are not published in GPUIX 0.7"],
@@ -155,7 +202,6 @@ const explicitlyIgnored = new Map([
   ["data-[state=open]:bg-accent", "the native DropdownMenu sub adapter owns open-state highlighting"],
   ["peer-disabled:cursor-not-allowed", "peer variants require native relationship-state styling"],
   ["peer-disabled:opacity-70", "peer variants require native relationship-state styling"],
-  ["leading-none", "relative line-height needs merged font-size context before it can be represented exactly"],
   ["appearance-none", "GPUIX native inputs do not have browser user-agent appearance chrome to suppress"],
   ["fill-current", "inline GPUIX SVG styling does not expose CSS fill through StyleDesc; source currentColor stroke still inherits normally"],
   ["tabular-nums", "font-variant-numeric is not exposed by GPUIX 0.7"],
@@ -248,11 +294,30 @@ for (const candidate of rawCandidates) {
       ? { base: lightCompiled.focus }
       : { light: lightCompiled.focus, dark: darkCompiled.focus }
     : undefined
+  if (lightCompiled.lineHeightMultiplier !== darkCompiled.lineHeightMultiplier) {
+    throw new Error(`Theme-dependent relative line-height is unsupported for ${JSON.stringify(candidate)}`)
+  }
+  const lineHeightMetadata = lightCompiled.lineHeightMultiplier === undefined
+    ? {}
+    : { lineHeightMultiplier: lightCompiled.lineHeightMultiplier }
+  const hasSvgPaint = Object.keys(lightCompiled.svgPaint).length > 0 || Object.keys(darkCompiled.svgPaint).length > 0
+  const svg = hasSvgPaint
+    ? JSON.stringify(lightCompiled.svgPaint) === JSON.stringify(darkCompiled.svgPaint)
+      ? { base: lightCompiled.svgPaint }
+      : { light: lightCompiled.svgPaint, dark: darkCompiled.svgPaint }
+    : undefined
 
   if (descendant && focus) throw new Error(`Unsupported focused descendant native Tailwind candidate ${JSON.stringify(candidate)}`)
-  classes[candidate] = descendant
-    ? { descendants: { [descendant]: variant } }
-    : focus ? { ...variant, focus } : variant
+  if (descendant && lightCompiled.lineHeightMultiplier !== undefined) throw new Error(`Unsupported relative line-height descendant native Tailwind candidate ${JSON.stringify(candidate)}`)
+  if (descendant && svg) throw new Error(`Unsupported SVG paint descendant native Tailwind candidate ${JSON.stringify(candidate)}`)
+  if (descendant) {
+    classes[candidate] = { descendants: { [descendant]: variant } }
+  } else {
+    const entry = { ...variant, ...lineHeightMetadata }
+    if (focus) entry.focus = focus
+    if (svg) entry.svg = svg
+    classes[candidate] = entry
+  }
 }
 
 if (unknownCandidates.length > 0) {
@@ -510,22 +575,35 @@ function compileRule(rule, candidate, themeVariables) {
   const hover = {}
   const active = {}
   const focus = {}
+  const svgPaint = {}
+  let lineHeightMultiplier
 
   rule.walkDecls((declaration) => {
     if (declaration.prop.startsWith("--")) return
     const state = declarationState(declaration, rule, candidate)
     const target = state === "hover" ? hover : state === "active" ? active : state === "focus" ? focus : base
     const value = resolveCssValue(declaration.value, { ...themeVariables, ...localVariables })
+    if (declaration.prop === "stroke" || declaration.prop === "fill") {
+      if (state !== "base") throw new Error(`Stateful SVG paint is not supported for ${JSON.stringify(candidate)}`)
+      svgPaint[declaration.prop] = colorValue(value, declaration.prop, candidate)
+      return
+    }
+    const relativeLineHeight = declaration.prop === "line-height" ? lineHeightMultiplierValue(value) : undefined
+    if (relativeLineHeight !== undefined) {
+      if (state !== "base") throw new Error(`Relative line-height state variants are not supported for ${JSON.stringify(candidate)}`)
+      lineHeightMultiplier = relativeLineHeight
+      return
+    }
     mapDeclaration(target, declaration.prop, value, candidate)
   })
 
   const result = { ...base }
   if (Object.keys(hover).length > 0) result.hover = hover
   if (Object.keys(active).length > 0) result.active = active
-  if (Object.keys(result).length === 0 && Object.keys(focus).length === 0) {
+  if (Object.keys(result).length === 0 && Object.keys(focus).length === 0 && lineHeightMultiplier === undefined && Object.keys(svgPaint).length === 0) {
     throw new Error(`Tailwind candidate ${JSON.stringify(candidate)} produced no native styles`)
   }
-  return { style: result, focus }
+  return { style: result, focus, lineHeightMultiplier, svgPaint }
 }
 
 function declarationState(declaration, candidateRule, candidate) {
@@ -829,17 +907,24 @@ function lengthValue(value, property, candidate) {
   throw new Error(`Unsupported ${property} length from ${JSON.stringify(candidate)}: ${value}`)
 }
 
-function lineHeightValue(value, fontSize, property, candidate) {
+function lineHeightMultiplierValue(value) {
   const unitless = value.match(/^(-?\d+(?:\.\d+)?)$/)
-  if (unitless) return relativeLineHeight(Number(unitless[1]), fontSize, candidate)
-
-  const ratio = value.match(/^calc\(\s*(-?\d+(?:\.\d+)?)\s*\/\s*(-?\d+(?:\.\d+)?)\s*\)$/)
-  if (ratio) {
-    const denominator = Number(ratio[2])
-    if (denominator === 0) throw new Error(`Unsupported line-height division by zero from ${JSON.stringify(candidate)}: ${value}`)
-    return relativeLineHeight(Number(ratio[1]) / denominator, fontSize, candidate)
+  if (unitless) {
+    const multiplier = Number(unitless[1])
+    return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : undefined
   }
 
+  const ratio = value.match(/^calc\(\s*(-?\d+(?:\.\d+)?)\s*\/\s*(-?\d+(?:\.\d+)?)\s*\)$/)
+  if (!ratio) return undefined
+  const denominator = Number(ratio[2])
+  if (denominator === 0) return undefined
+  const multiplier = Number(ratio[1]) / denominator
+  return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : undefined
+}
+
+function lineHeightValue(value, fontSize, property, candidate) {
+  const multiplier = lineHeightMultiplierValue(value)
+  if (multiplier !== undefined) return relativeLineHeight(multiplier, fontSize, candidate)
   return lengthValue(value, property, candidate)
 }
 

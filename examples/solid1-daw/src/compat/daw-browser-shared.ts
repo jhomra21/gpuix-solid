@@ -269,3 +269,141 @@ export type EqBandParams = {
   enabled: boolean
   type: EqBandType
 }
+
+
+export type CompressorDetectorMode = "peak" | "rms"
+export type CompressorDynamicsMode = "compress" | "expand"
+export type CompressorEnvelopeCurve = "log" | "linear"
+export type CompressorSidechainFilterType = "lowpass" | "highpass" | "bandpass"
+
+export type CompressorSidechainParams = {
+  enabled: boolean
+  filterType: CompressorSidechainFilterType
+  frequencyHz: number
+  q: number
+}
+
+export type CompressorParams = {
+  enabled: boolean
+  thresholdDb: number
+  ratio: number
+  attackMs: number
+  releaseMs: number
+  autoRelease: boolean
+  makeupDb: number
+  outputDb: number
+  dryWet: number
+  kneeDb: number
+  lookaheadMs: number
+  detectorMode: CompressorDetectorMode
+  dynamicsMode: CompressorDynamicsMode
+  envelopeCurve: CompressorEnvelopeCurve
+  sidechain: CompressorSidechainParams
+}
+
+export type CompressorParamsInput = Partial<Omit<CompressorParams, "sidechain">> & {
+  sidechain?: Partial<CompressorSidechainParams>
+}
+
+export const COMPRESSOR_THRESHOLD_DB_MIN = -60
+export const COMPRESSOR_THRESHOLD_DB_MAX = 0
+export const COMPRESSOR_RATIO_MIN = 1
+export const COMPRESSOR_RATIO_MAX = 100
+export const COMPRESSOR_ATTACK_MS_MIN = 0.1
+export const COMPRESSOR_ATTACK_MS_MAX = 100
+export const COMPRESSOR_RELEASE_MS_MIN = 5
+export const COMPRESSOR_RELEASE_MS_MAX = 1000
+export const COMPRESSOR_GAIN_DB_MIN = -36
+export const COMPRESSOR_GAIN_DB_MAX = 36
+export const COMPRESSOR_DRY_WET_MIN = 0
+export const COMPRESSOR_DRY_WET_MAX = 1
+export const COMPRESSOR_KNEE_DB_MIN = 0
+export const COMPRESSOR_KNEE_DB_MAX = 24
+export const COMPRESSOR_LOOKAHEAD_MS_MIN = 0
+export const COMPRESSOR_LOOKAHEAD_MS_MAX = 10
+export const COMPRESSOR_SIDECHAIN_FREQUENCY_HZ_MIN = 20
+export const COMPRESSOR_SIDECHAIN_FREQUENCY_HZ_MAX = 20000
+export const COMPRESSOR_SIDECHAIN_Q_MIN = 0.1
+export const COMPRESSOR_SIDECHAIN_Q_MAX = 18
+
+const defaultCompressorSidechainParams: CompressorSidechainParams = {
+  enabled: false,
+  filterType: "highpass",
+  frequencyHz: 120,
+  q: 0.707,
+}
+
+const defaultCompressorParams: CompressorParams = {
+  enabled: true,
+  thresholdDb: -24,
+  ratio: 4,
+  attackMs: 10,
+  releaseMs: 120,
+  autoRelease: true,
+  makeupDb: 0,
+  outputDb: 0,
+  dryWet: 1,
+  kneeDb: 6,
+  lookaheadMs: 0,
+  detectorMode: "rms",
+  dynamicsMode: "compress",
+  envelopeCurve: "log",
+  sidechain: defaultCompressorSidechainParams,
+}
+
+const clampCompressorValue = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
+
+export function createDefaultCompressorParams(): CompressorParams {
+  return {
+    ...defaultCompressorParams,
+    sidechain: { ...defaultCompressorSidechainParams },
+  }
+}
+
+function normalizeCompressorParams(input: CompressorParamsInput = {}): CompressorParams {
+  const sidechain = input.sidechain
+  return {
+    enabled: input.enabled ?? defaultCompressorParams.enabled,
+    thresholdDb: clampCompressorValue(input.thresholdDb ?? defaultCompressorParams.thresholdDb, COMPRESSOR_THRESHOLD_DB_MIN, COMPRESSOR_THRESHOLD_DB_MAX),
+    ratio: clampCompressorValue(input.ratio ?? defaultCompressorParams.ratio, COMPRESSOR_RATIO_MIN, COMPRESSOR_RATIO_MAX),
+    attackMs: clampCompressorValue(input.attackMs ?? defaultCompressorParams.attackMs, COMPRESSOR_ATTACK_MS_MIN, COMPRESSOR_ATTACK_MS_MAX),
+    releaseMs: clampCompressorValue(input.releaseMs ?? defaultCompressorParams.releaseMs, COMPRESSOR_RELEASE_MS_MIN, COMPRESSOR_RELEASE_MS_MAX),
+    autoRelease: input.autoRelease ?? defaultCompressorParams.autoRelease,
+    makeupDb: clampCompressorValue(input.makeupDb ?? defaultCompressorParams.makeupDb, COMPRESSOR_GAIN_DB_MIN, COMPRESSOR_GAIN_DB_MAX),
+    outputDb: clampCompressorValue(input.outputDb ?? defaultCompressorParams.outputDb, COMPRESSOR_GAIN_DB_MIN, COMPRESSOR_GAIN_DB_MAX),
+    dryWet: clampCompressorValue(input.dryWet ?? defaultCompressorParams.dryWet, COMPRESSOR_DRY_WET_MIN, COMPRESSOR_DRY_WET_MAX),
+    kneeDb: clampCompressorValue(input.kneeDb ?? defaultCompressorParams.kneeDb, COMPRESSOR_KNEE_DB_MIN, COMPRESSOR_KNEE_DB_MAX),
+    lookaheadMs: clampCompressorValue(input.lookaheadMs ?? defaultCompressorParams.lookaheadMs, COMPRESSOR_LOOKAHEAD_MS_MIN, COMPRESSOR_LOOKAHEAD_MS_MAX),
+    detectorMode: input.detectorMode === "peak" ? "peak" : "rms",
+    dynamicsMode: input.dynamicsMode === "expand" ? "expand" : "compress",
+    envelopeCurve: input.envelopeCurve === "linear" ? "linear" : "log",
+    sidechain: {
+      enabled: sidechain?.enabled ?? defaultCompressorSidechainParams.enabled,
+      filterType: sidechain?.filterType === "lowpass" || sidechain?.filterType === "bandpass" ? sidechain.filterType : "highpass",
+      frequencyHz: clampCompressorValue(sidechain?.frequencyHz ?? defaultCompressorSidechainParams.frequencyHz, COMPRESSOR_SIDECHAIN_FREQUENCY_HZ_MIN, COMPRESSOR_SIDECHAIN_FREQUENCY_HZ_MAX),
+      q: clampCompressorValue(sidechain?.q ?? defaultCompressorSidechainParams.q, COMPRESSOR_SIDECHAIN_Q_MIN, COMPRESSOR_SIDECHAIN_Q_MAX),
+    },
+  }
+}
+
+export function computeCompressorStaticCurveDb(inputDb: number, params: CompressorParamsInput = {}): number {
+  const normalized = normalizeCompressorParams(params)
+  const threshold = normalized.thresholdDb
+  const ratio = normalized.ratio
+  const knee = normalized.kneeDb
+  if (normalized.dynamicsMode === "expand") {
+    if (inputDb >= threshold) return inputDb
+    const expanded = threshold + (inputDb - threshold) * ratio
+    if (knee <= 0 || inputDb <= threshold - knee / 2) return expanded
+    const distance = threshold - inputDb
+    return inputDb - (2 * (ratio - 1) * distance * distance) / knee
+  }
+  const compressed = threshold + (inputDb - threshold) / ratio
+  if (knee <= 0) return inputDb <= threshold ? inputDb : compressed
+  const lower = threshold - knee / 2
+  const upper = threshold + knee / 2
+  if (inputDb <= lower) return inputDb
+  if (inputDb >= upper) return compressed
+  const x = inputDb - lower
+  return inputDb + ((1 / ratio - 1) * x * x) / (2 * knee)
+}

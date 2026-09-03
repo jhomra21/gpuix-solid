@@ -81,7 +81,7 @@ const DIV_SEMANTIC_TAGS = new Set([
 ])
 
 const SVG_CHILD_TAGS = new Set([
-  "path", "g", "defs", "linearGradient", "radialGradient", "stop", "rect", "circle",
+  "path", "g", "defs", "pattern", "linearGradient", "radialGradient", "stop", "rect", "circle",
   "ellipse", "line", "polyline", "polygon", "clipPath", "mask", "title", "desc", "use",
 ])
 
@@ -195,7 +195,7 @@ function setNativeProperty<T>(
 
   const semanticTag = semanticTags.get(node)
   if (semanticTag && isSvgMarkupTag(semanticTag)) {
-    if (semanticTag !== "svg") {
+    if (semanticTag !== "svg" && isSvgMarkupAttribute(name)) {
       setSvgAttribute(node, name, value)
       refreshInlineSvg(node)
       return

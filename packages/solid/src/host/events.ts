@@ -63,6 +63,7 @@ type GlobalEventHandler = (event: EventPayload) => void
 const globalListeners = new Map<string, Set<GlobalEventHandler>>()
 const EVENT_STATE = new WeakMap<object, { defaultPrevented: boolean; propagationStopped: boolean }>()
 const POINTER_ID = 0
+const PERSISTENT_DEVICE_ID = 0
 const DOUBLE_CLICK_MS = 500
 const DOUBLE_CLICK_DISTANCE_PX = 4
 
@@ -143,6 +144,7 @@ function domCompatibleEvent(
     clientY: y,
     pointerId: POINTER_ID,
     pointerType: "mouse",
+    persistentDeviceId: PERSISTENT_DEVICE_ID,
     shiftKey: event.modifiers?.shift ?? false,
     metaKey: event.modifiers?.cmd ?? false,
     altKey: event.modifiers?.alt ?? false,
@@ -173,6 +175,7 @@ function createTargetEvent(eventType: string, event: EventPayload, target: Event
     clientY: { configurable: true, value: event.clientY ?? 0 },
     pointerId: { configurable: true, value: event.pointerId ?? POINTER_ID },
     pointerType: { configurable: true, value: event.pointerType ?? "mouse" },
+    persistentDeviceId: { configurable: true, value: event.persistentDeviceId ?? PERSISTENT_DEVICE_ID },
     button: { configurable: true, value: event.button ?? 0 },
     shiftKey: { configurable: true, value: event.shiftKey ?? false },
     metaKey: { configurable: true, value: event.metaKey ?? false },
@@ -207,6 +210,7 @@ function createGlobalDomEvent(name: string, event: EventPayload, currentTarget: 
     clientY: { configurable: true, value: event.clientY ?? 0 },
     pointerId: { configurable: true, value: event.pointerId ?? POINTER_ID },
     pointerType: { configurable: true, value: event.pointerType ?? "mouse" },
+    persistentDeviceId: { configurable: true, value: event.persistentDeviceId ?? PERSISTENT_DEVICE_ID },
     button: { configurable: true, value: event.button ?? 0 },
     shiftKey: { configurable: true, value: event.shiftKey ?? false },
     metaKey: { configurable: true, value: event.metaKey ?? false },

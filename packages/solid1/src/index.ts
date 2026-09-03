@@ -17,6 +17,8 @@ export {
   getNativeStyleColorMode,
   mergeNativeStyles,
   resolveNativeClassStyle,
+  resolveNativeClassAttributeStyle,
+  resolveNativeClassSvgPaint,
   resolveNativeClassParentPosition,
   resolveNativeClassTranslation,
   resolveNativeDescendantClassStyle,

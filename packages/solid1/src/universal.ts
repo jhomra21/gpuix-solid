@@ -23,6 +23,8 @@ import {
   mergeNativeStyles,
   onNativeStyleEnvironmentChange,
   resolveNativeClassStyle,
+  resolveNativeClassAttributeStyle,
+  resolveNativeClassSvgPaint,
   resolveNativeClassParentPosition,
   resolveNativeClassTranslation,
   resolveNativeClassTextTransform,
@@ -124,6 +126,7 @@ const SVG_CHILD_TAGS = new Set([
   "path",
   "g",
   "defs",
+  "pattern",
   "linearGradient",
   "radialGradient",
   "stop",
@@ -176,6 +179,7 @@ onNativeStyleEnvironmentChange(() => {
       continue
     }
     reapplyNativeStyleSubtree(node)
+    refreshInlineSvg(node)
   }
 })
 
@@ -223,18 +227,24 @@ const runtime = createRenderer<HostNode | HostParent>({
       }
       if (name === "class") {
         setNativeClass(node, parseNativeClassName(value))
+        refreshInlineSvg(node)
         return
       }
       if (name === "className") {
         setNativeClassName(node, parseNativeClassName(value))
+        refreshInlineSvg(node)
         return
       }
       if (name === "classList") {
         setNativeClassList(node, parseNativeClassList(value))
+        refreshInlineSvg(node)
         return
       }
     }
     setHostProperty(node, name, value, previous)
+    if (node.kind === "element" && (name.startsWith("data-") || name.startsWith("aria-"))) {
+      reapplyNativeStyleSubtree(node)
+    }
   },
   insertNode(parent, node, anchor) {
     if (parent.kind === "text" || node.kind === "root") {
@@ -354,6 +364,12 @@ function serializeSvgElement(node: HostElementNode, root: boolean): string {
   if (!tagName || !isSvgMarkupTag(tagName)) return ""
 
   const attributes = new Map(svgAttributes.get(node) ?? [])
+  const state = styleStates.get(node)
+  if (state && hasNativeClasses(state)) {
+    const paint = resolveNativeClassSvgPaint(combinedClassName(state), state.classList)
+    if (paint?.fill !== undefined) attributes.set("fill", paint.fill)
+    if (paint?.stroke !== undefined) attributes.set("stroke", paint.stroke)
+  }
   if (root && !attributes.has("xmlns")) attributes.set("xmlns", "http://www.w3.org/2000/svg")
   const renderedAttributes = [...attributes]
     .map(([name, value]) => `${serializeSvgAttributeName(name)}="${escapeXmlAttribute(value)}"`)
@@ -553,7 +569,9 @@ function applyNativeStyleState(node: HostElementNode): void {
   const className = combinedClassName(state)
   const inheritedStyle = resolveInheritedNativeStyle(node)
   const ancestorStyle = resolveAncestorDescendantStyle(node)
-  const classStyle = resolveNativeClassStyle(className, state.classList)
+  const preClassStyle = mergeNativeStyles(inheritedStyle, ancestorStyle)
+  const classStyle = resolveNativeClassStyle(className, state.classList, state.inlineStyle?.fontSize ?? preClassStyle?.fontSize)
+  const classAttributeStyle = resolveNativeClassAttributeStyle(className, state.classList, node.props)
   const classParentPosition = resolveNativeClassParentPosition(className, state.classList)
   const classTranslation = resolveNativeClassTranslation(className, state.classList)
   const inheritedTextTransform = resolveInheritedTextTransform(node)
@@ -561,7 +579,7 @@ function applyNativeStyleState(node: HostElementNode): void {
   const textTransform = classTextTransform ?? inheritedTextTransform
   if (textTransform === undefined) textTransforms.delete(node)
   else textTransforms.set(node, textTransform)
-  const mergedStyle = mergeNativeStyles(inheritedStyle, ancestorStyle, classStyle, state.inlineStyle)
+  const mergedStyle = mergeNativeStyles(preClassStyle, classStyle, classAttributeStyle, state.inlineStyle)
   const parentWidth = resolvedNativeNodeSize(node.parent, "x")
   const parentHeight = resolvedNativeNodeSize(node.parent, "y")
   const positionedStyle = applyNativeStyleParentPosition(
@@ -663,6 +681,9 @@ function resolveAncestorDescendantStyle(node: HostElementNode): StyleDesc | unde
 
   const tagName = semanticTags.get(node) ?? node.type
   const directParent = node.parent
+  const directChildIndex = directParent?.kind === "element"
+    ? directParent.children.filter((child) => child.kind === "element").indexOf(node) + 1
+    : undefined
   let resolved: StyleDesc | undefined
   for (const ancestor of ancestors) {
     const state = styleStates.get(ancestor)
@@ -674,6 +695,7 @@ function resolveAncestorDescendantStyle(node: HostElementNode): StyleDesc | unde
         state.classList,
         tagName,
         directParent === ancestor,
+        directParent === ancestor ? directChildIndex : undefined,
       ),
     )
   }

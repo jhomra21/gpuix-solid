@@ -1,3 +1,9 @@
+declare global {
+  interface PointerEvent {
+    readonly persistentDeviceId: number
+  }
+}
+
 import type { JSX as SolidJSX } from "solid-js"
 import type {
   AnchoredProps,
@@ -61,6 +67,8 @@ type InlineSvgChildProps = NativeClassProps & SolidJSX.DOMAttributes<SVGElement>
   transform?: string | undefined
   viewBox?: string | undefined
   preserveAspectRatio?: string | undefined
+  patternUnits?: string | undefined
+  pathLength?: string | number | undefined
   href?: string | undefined
   "stroke-width"?: string | number | undefined
   "stroke-linecap"?: string | undefined
@@ -129,6 +137,7 @@ export namespace JSX {
     path: InlineSvgChildProps
     g: InlineSvgChildProps
     defs: InlineSvgChildProps
+    pattern: InlineSvgChildProps
     linearGradient: InlineSvgChildProps
     radialGradient: InlineSvgChildProps
     stop: InlineSvgChildProps

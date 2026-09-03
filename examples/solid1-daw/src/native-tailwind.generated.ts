@@ -5,6 +5,7 @@ import type { NativeStyleManifest } from "@jhomra21/gpuix-solid1"
 // the corresponding GPUIX/native contract can represent it faithfully.
 // - !duration-150: native StyleDesc transitions are not published in GPUIX 0.7
 // - !transition-transform: native StyleDesc transitions are not published in GPUIX 0.7
+// - [writing-mode:vertical-rl]: GPUIX 0.7 does not publish CSS writing-mode; the exact collapsed device label remains source-locked while native cannot reproduce vertical text orientation
 // - active:scale-97: GPUIX 0.7 has no transform/scale StyleDesc field
 // - appearance-none: GPUIX native inputs do not have browser user-agent appearance chrome to suppress
 // - aspect-square: the copied avatar already supplies equal native width and height through size utilities
@@ -37,7 +38,11 @@ import type { NativeStyleManifest } from "@jhomra21/gpuix-solid1"
 // - disabled:opacity-50: the native Kobalte adapter owns disabled opacity
 // - disabled:opacity-60: the native input/browser adapter owns disabled opacity
 // - disabled:pointer-events-none: the native Kobalte adapter owns disabled pointer behavior
+// - duration-100: GPUIX 0.7 does not publish CSS transition timing; native state changes remain immediate
+// - duration-150: GPUIX 0.7 does not publish CSS transition timing; native state changes remain immediate
 // - duration-75: native StyleDesc transitions are not published in GPUIX 0.7
+// - effect-shell-chevron: the source class is only a selector anchor for chevron transform state; GPUIX 0.7 has no general CSS transform field
+// - effect-shell-chevron-icon: the source rotates this icon with CSS transform; GPUIX 0.7 has no general CSS transform field
 // - file:bg-transparent: native input has no browser file-selector pseudo-element
 // - file:border-0: native input has no browser file-selector pseudo-element
 // - file:font-medium: native input has no browser file-selector pseudo-element
@@ -48,7 +53,10 @@ import type { NativeStyleManifest } from "@jhomra21/gpuix-solid1"
 // - focus-visible:outline-none: native focus-visible styling is not exposed by GPUIX 0.7
 // - focus-visible:outline-offset-[-2px]: GPUIX 0.7 does not publish browser focus-outline offset through StyleDesc
 // - focus-visible:outline-primary: GPUIX 0.7 does not publish browser focus-outline color through StyleDesc
+// - focus-visible:ring-1: GPUIX 0.7 does not publish browser focus-visible ring painting through StyleDesc; keyboard focus semantics remain native
 // - focus-visible:ring-2: native focus-visible styling is not exposed by GPUIX 0.7
+// - focus-visible:ring-cyan-300/70: GPUIX 0.7 does not publish browser focus-visible ring color through StyleDesc; keyboard focus semantics remain native
+// - focus-visible:ring-inset: GPUIX 0.7 BoxShadow has no inset focus-ring mode; the exact source utility remains source-locked
 // - focus-visible:ring-offset-2: native focus-visible styling is not exposed by GPUIX 0.7
 // - focus-visible:ring-ring: native focus-visible styling is not exposed by GPUIX 0.7
 // - focus:bg-app-surface/60: native input focus background pseudo styling is not published by GPUIX 0.7
@@ -63,15 +71,16 @@ import type { NativeStyleManifest } from "@jhomra21/gpuix-solid1"
 // - group-hover:text-foreground: the copied browser item already has text-foreground as its base color; native group relationship hover styling is not exposed
 // - hover:brightness-110: GPUIX 0.7 does not publish CSS filter effects; this is only hover feedback on unselected clips and does not alter clip geometry or state
 // - hover:underline: native text decoration is not exposed by GPUIX 0.7
-// - leading-none: relative line-height needs merged font-size context before it can be represented exactly
 // - max-h-(--kb-menu-content-available-height): native Kobalte FloatingLayer owns available-space popup placement/sizing; the browser CSS custom property does not exist natively
 // - ml-auto: GPUIX 0.7 exposes numeric margins only; CSS auto main-axis margins are unavailable
+// - mt-auto: GPUIX 0.7 publishes numeric margins only; the exact Compressor Auto toggle keeps its source utility while native cannot reproduce CSS auto-margin free-space absorption without changing sibling geometry
 // - origin-[var(--kb-menu-content-transform-origin)]: native Kobalte FloatingLayer owns popup placement; CSS transform-origin is not exposed by GPUIX 0.7
 // - outline-none: GPUIX native inputs and menu primitives do not paint the browser outline suppressed by this utility
 // - peer-disabled:cursor-not-allowed: peer variants require native relationship-state styling
 // - peer-disabled:opacity-70: peer variants require native relationship-state styling
 // - placeholder:text-muted-foreground: native input placeholder styling is not separately exposed by GPUIX 0.7
 // - ring-offset-background: native focus ring offset styling is not exposed by GPUIX 0.7
+// - rotate-180: GPUIX 0.7 StyleDesc has no general CSS transform; exact collapsed-device rotation remains source-locked but cannot be reproduced natively
 // - row-start-1: GPUIX 0.7 does not publish grid-item row placement; the native DAW verifier asserts the collapsed controls preserve the source one-row ordering
 // - selection:bg-primary/40: native text selection has its own selectionColor contract rather than CSS ::selection variants
 // - shadow-background/40: this only recolors the copied context menu's layered shadow-md; GPUIX 0.7 exposes one BoxShadow and cannot represent Tailwind's layered shadow-md geometry
@@ -90,6 +99,7 @@ import type { NativeStyleManifest } from "@jhomra21/gpuix-solid1"
 // - transition-all: native StyleDesc transitions are not published in GPUIX 0.7
 // - transition-colors: native StyleDesc transitions are not published in GPUIX 0.7
 // - transition-opacity: native StyleDesc transitions are not published in GPUIX 0.7
+// - transition-transform: GPUIX 0.7 does not publish CSS transitions; source transform transitions remain immediate
 // - underline-offset-4: native text decoration offset is not exposed by GPUIX 0.7
 // - w-fit: native floating content uses intrinsic sizing instead of CSS fit-content
 // - w-max: native floating content uses intrinsic sizing; GPUIX 0.7 dimensions do not accept CSS max-content
@@ -117,6 +127,16 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "left": -6
       }
     },
+    "-ml-2": {
+      "base": {
+        "marginLeft": -8
+      }
+    },
+    "-mr-2": {
+      "base": {
+        "marginRight": -8
+      }
+    },
     "-mx-0.5": {
       "base": {
         "marginLeft": -2,
@@ -127,6 +147,12 @@ export const nativeTailwindManifest: NativeStyleManifest = {
       "base": {
         "marginLeft": -4,
         "marginRight": -4
+      }
+    },
+    "-my-1": {
+      "base": {
+        "marginTop": -4,
+        "marginBottom": -4
       }
     },
     "-right-1.5": {
@@ -217,6 +243,9 @@ export const nativeTailwindManifest: NativeStyleManifest = {
           }
         }
       }
+    },
+    "[writing-mode:vertical-rl]": {
+      "base": {}
     },
     "absolute": {
       "base": {
@@ -315,6 +344,14 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "backgroundColor": "color-mix(in oklab, oklch(0.141 0.005 285.823) 50%, transparent)"
       }
     },
+    "bg-background/80": {
+      "light": {
+        "backgroundColor": "color-mix(in oklab, oklch(1 0 0) 80%, transparent)"
+      },
+      "dark": {
+        "backgroundColor": "color-mix(in oklab, oklch(0.141 0.005 285.823) 80%, transparent)"
+      }
+    },
     "bg-background/90": {
       "light": {
         "backgroundColor": "color-mix(in oklab, oklch(1 0 0) 90%, transparent)"
@@ -354,6 +391,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "backgroundColor": "currentColor"
       }
     },
+    "bg-cyan-500/10": {
+      "base": {
+        "backgroundColor": "color-mix(in oklab, oklch(71.5% 0.143 215.221) 10%, transparent)"
+      }
+    },
     "bg-cyan-500/15": {
       "base": {
         "backgroundColor": "color-mix(in oklab, oklch(71.5% 0.143 215.221) 15%, transparent)"
@@ -370,6 +412,14 @@ export const nativeTailwindManifest: NativeStyleManifest = {
       },
       "dark": {
         "backgroundColor": "oklch(0.396 0.141 25.723)"
+      }
+    },
+    "bg-device-graph-background": {
+      "light": {
+        "backgroundColor": "oklch(0.985 0.001 286)"
+      },
+      "dark": {
+        "backgroundColor": "oklch(0.11 0.003 286)"
       }
     },
     "bg-emerald-950/40": {
@@ -432,6 +482,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "bg-neutral-900/70": {
       "base": {
         "backgroundColor": "color-mix(in oklab, oklch(20.5% 0 0) 70%, transparent)"
+      }
+    },
+    "bg-orange-400": {
+      "base": {
+        "backgroundColor": "oklch(75% 0.183 55.934)"
       }
     },
     "bg-popover": {
@@ -918,7 +973,36 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "disabled:pointer-events-none": {
       "base": {}
     },
+    "duration-100": {
+      "base": {}
+    },
+    "duration-150": {
+      "base": {}
+    },
     "duration-75": {
+      "base": {}
+    },
+    "effect-shell": {
+      "base": {},
+      "attributeVariants": {
+        "data-device-collapsed": {
+          "true": {
+            "base": {
+              "width": 26,
+              "minWidth": 26,
+              "maxWidth": 26,
+              "flexGrow": 0,
+              "flexShrink": 0,
+              "flexBasis": 26
+            }
+          }
+        }
+      }
+    },
+    "effect-shell-chevron": {
+      "base": {}
+    },
+    "effect-shell-chevron-icon": {
       "base": {}
     },
     "file:bg-transparent": {
@@ -983,7 +1067,16 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "focus-visible:outline-primary": {
       "base": {}
     },
+    "focus-visible:ring-1": {
+      "base": {}
+    },
     "focus-visible:ring-2": {
+      "base": {}
+    },
+    "focus-visible:ring-cyan-300/70": {
+      "base": {}
+    },
+    "focus-visible:ring-inset": {
       "base": {}
     },
     "focus-visible:ring-offset-2": {
@@ -1064,6 +1157,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "fontWeight": 500
       }
     },
+    "font-mono": {
+      "base": {
+        "fontFamily": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\",\n      \"Courier New\", monospace"
+      }
+    },
     "font-normal": {
       "base": {
         "fontWeight": 400
@@ -1074,9 +1172,19 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "fontWeight": 600
       }
     },
+    "gap-0.5": {
+      "base": {
+        "gap": 2
+      }
+    },
     "gap-1": {
       "base": {
         "gap": 4
+      }
+    },
+    "gap-1.5": {
+      "base": {
+        "gap": 6
       }
     },
     "gap-2": {
@@ -1119,10 +1227,74 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "gridTemplateColumns": 2
       }
     },
+    "grid-cols-3": {
+      "base": {
+        "gridTemplateColumns": 3
+      }
+    },
+    "grid-cols-4": {
+      "base": {
+        "gridTemplateColumns": 4
+      }
+    },
     "grid-cols-[1fr_auto_1fr]": {
       "base": {
         "display": "flex",
         "flexDirection": "row"
+      }
+    },
+    "grid-cols-[84px_1fr_96px]": {
+      "base": {
+        "display": "flex",
+        "flexDirection": "row"
+      },
+      "descendants": {
+        ">:nth-child(1)": {
+          "base": {
+            "width": 84,
+            "minWidth": 84,
+            "flexGrow": 0,
+            "flexShrink": 0
+          }
+        },
+        ">:nth-child(2)": {
+          "base": {
+            "minWidth": 0,
+            "flexGrow": 1,
+            "flexShrink": 1,
+            "flexBasis": 0
+          }
+        },
+        ">:nth-child(3)": {
+          "base": {
+            "width": 96,
+            "minWidth": 96,
+            "flexGrow": 0,
+            "flexShrink": 0
+          }
+        }
+      }
+    },
+    "grid-cols-[auto_1fr]": {
+      "base": {
+        "display": "flex",
+        "flexDirection": "row"
+      },
+      "descendants": {
+        ">:nth-child(1)": {
+          "base": {
+            "flexGrow": 0,
+            "flexShrink": 0
+          }
+        },
+        ">:nth-child(2)": {
+          "base": {
+            "minWidth": 0,
+            "flexGrow": 1,
+            "flexShrink": 1,
+            "flexBasis": 0
+          }
+        }
       }
     },
     "grid-cols-[minmax(0,1fr)_20px]": {
@@ -1287,6 +1459,13 @@ export const nativeTailwindManifest: NativeStyleManifest = {
       "dark": {
         "hover": {
           "backgroundColor": "oklch(0.16 0.005 286)"
+        }
+      }
+    },
+    "hover:bg-cyan-500/15": {
+      "base": {
+        "hover": {
+          "backgroundColor": "color-mix(in oklab, oklch(71.5% 0.143 215.221) 15%, transparent)"
         }
       }
     },
@@ -1466,6 +1645,14 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "left": 0
       }
     },
+    "inset-1.5": {
+      "base": {
+        "top": 6,
+        "right": 6,
+        "bottom": 6,
+        "left": 6
+      }
+    },
     "inset-x-0": {
       "base": {
         "left": 0,
@@ -1491,6 +1678,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "items-start": {
       "base": {
         "alignItems": "flex-start"
+      }
+    },
+    "items-stretch": {
+      "base": {
+        "alignItems": "stretch"
       }
     },
     "justify-between": {
@@ -1548,7 +1740,12 @@ export const nativeTailwindManifest: NativeStyleManifest = {
       }
     },
     "leading-none": {
-      "base": {}
+      "base": {},
+      "lineHeightMultiplier": 1
+    },
+    "leading-tight": {
+      "base": {},
+      "lineHeightMultiplier": 1.25
     },
     "left-0": {
       "base": {
@@ -1577,6 +1774,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "max-h-screen": {
       "base": {
         "maxHeight": "100%"
+      }
+    },
+    "max-w-full": {
+      "base": {
+        "maxWidth": "100%"
       }
     },
     "max-w-lg": {
@@ -1614,6 +1816,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "minWidth": 0
       }
     },
+    "min-w-10": {
+      "base": {
+        "minWidth": 40
+      }
+    },
     "min-w-28": {
       "base": {
         "minWidth": 112
@@ -1627,6 +1834,16 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "min-w-40": {
       "base": {
         "minWidth": 160
+      }
+    },
+    "min-w-6": {
+      "base": {
+        "minWidth": 24
+      }
+    },
+    "min-w-[560px]": {
+      "base": {
+        "minWidth": 560
       }
     },
     "mixer-volume-slider": {
@@ -1654,6 +1871,9 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "marginTop": 4
       }
     },
+    "mt-auto": {
+      "base": {}
+    },
     "my-0.5": {
       "base": {
         "marginTop": 2,
@@ -1679,6 +1899,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "opacity-30": {
       "base": {
         "opacity": 0.3
+      }
+    },
+    "opacity-50": {
+      "base": {
+        "opacity": 0.5
       }
     },
     "opacity-60": {
@@ -1834,6 +2059,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "paddingTop": 4
       }
     },
+    "pt-2": {
+      "base": {
+        "paddingTop": 8
+      }
+    },
     "px-0": {
       "base": {
         "paddingLeft": 0,
@@ -1886,6 +2116,12 @@ export const nativeTailwindManifest: NativeStyleManifest = {
       "base": {
         "paddingLeft": 32,
         "paddingRight": 32
+      }
+    },
+    "py-0": {
+      "base": {
+        "paddingTop": 0,
+        "paddingBottom": 0
       }
     },
     "py-0.5": {
@@ -1969,6 +2205,9 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "ring-offset-background": {
       "base": {}
     },
+    "rotate-180": {
+      "base": {}
+    },
     "rounded": {
       "base": {
         "borderRadius": 4
@@ -1994,6 +2233,22 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     },
     "selection:bg-primary/40": {
       "base": {}
+    },
+    "self-stretch": {
+      "base": {
+        "alignSelf": "stretch"
+      }
+    },
+    "shadow-[0_0_6px_rgba(239,68,68,0.75)]": {
+      "base": {
+        "boxShadow": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "blurRadius": 6,
+          "spreadRadius": 0,
+          "color": "rgba(239, 68, 68, 0.75)"
+        }
+      }
     },
     "shadow-background/40": {
       "base": {}
@@ -2049,6 +2304,12 @@ export const nativeTailwindManifest: NativeStyleManifest = {
       "base": {
         "width": 16,
         "height": 16
+      }
+    },
+    "size-6": {
+      "base": {
+        "width": 24,
+        "height": 24
       }
     },
     "size-full": {
@@ -2115,6 +2376,60 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "position": "sticky"
       }
     },
+    "stroke-border": {
+      "base": {},
+      "svg": {
+        "light": {
+          "stroke": "oklch(0.92 0.004 286.32)"
+        },
+        "dark": {
+          "stroke": "oklch(0.274 0.006 286.033)"
+        }
+      }
+    },
+    "stroke-cyan-400": {
+      "base": {},
+      "svg": {
+        "base": {
+          "stroke": "oklch(78.9% 0.154 211.53)"
+        }
+      }
+    },
+    "stroke-foreground": {
+      "base": {},
+      "svg": {
+        "light": {
+          "stroke": "oklch(0.141 0.005 285.823)"
+        },
+        "dark": {
+          "stroke": "oklch(0.985 0 0)"
+        }
+      }
+    },
+    "stroke-red-500": {
+      "base": {},
+      "svg": {
+        "base": {
+          "stroke": "oklch(63.7% 0.237 25.331)"
+        }
+      }
+    },
+    "stroke-sky-100": {
+      "base": {},
+      "svg": {
+        "base": {
+          "stroke": "oklch(95.1% 0.026 236.824)"
+        }
+      }
+    },
+    "stroke-sky-300": {
+      "base": {},
+      "svg": {
+        "base": {
+          "stroke": "oklch(82.8% 0.111 230.318)"
+        }
+      }
+    },
     "tabular-nums": {
       "base": {}
     },
@@ -2122,6 +2437,12 @@ export const nativeTailwindManifest: NativeStyleManifest = {
       "base": {
         "fontSize": 10,
         "lineHeight": 14
+      }
+    },
+    "text-3xs": {
+      "base": {
+        "fontSize": 8,
+        "lineHeight": 10
       }
     },
     "text-[10px]": {
@@ -2154,6 +2475,14 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "color": "oklch(87.9% 0.169 91.605)"
       }
     },
+    "text-background": {
+      "light": {
+        "color": "oklch(1 0 0)"
+      },
+      "dark": {
+        "color": "oklch(0.141 0.005 285.823)"
+      }
+    },
     "text-black": {
       "base": {
         "color": "#000"
@@ -2177,6 +2506,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "text-cyan-200": {
       "base": {
         "color": "oklch(91.7% 0.08 205.041)"
+      }
+    },
+    "text-cyan-300": {
+      "base": {
+        "color": "oklch(86.5% 0.127 207.078)"
       }
     },
     "text-destructive": {
@@ -2238,9 +2572,9 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     },
     "text-lg": {
       "base": {
-        "fontSize": 18,
-        "lineHeight": 28
-      }
+        "fontSize": 18
+      },
+      "lineHeightMultiplier": 1.5555555555555556
     },
     "text-muted-foreground": {
       "light": {
@@ -2334,20 +2668,25 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     },
     "text-sm": {
       "base": {
-        "fontSize": 14,
-        "lineHeight": 20
-      }
+        "fontSize": 14
+      },
+      "lineHeightMultiplier": 1.4285714285714286
     },
     "text-xs": {
       "base": {
-        "fontSize": 12,
-        "lineHeight": 16
-      }
+        "fontSize": 12
+      },
+      "lineHeightMultiplier": 1.3333333333333333
     },
     "text-xxs": {
       "base": {
         "fontSize": 11,
         "lineHeight": 14
+      }
+    },
+    "text-yellow-300": {
+      "base": {
+        "color": "oklch(90.5% 0.182 98.111)"
       }
     },
     "top-0": {
@@ -2444,6 +2783,9 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "transition-opacity": {
       "base": {}
     },
+    "transition-transform": {
+      "base": {}
+    },
     "translate-x-1/2": {
       "base": {},
       "translation": {
@@ -2528,6 +2870,16 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "w-8": {
       "base": {
         "width": 32
+      }
+    },
+    "w-9": {
+      "base": {
+        "width": 36
+      }
+    },
+    "w-[560px]": {
+      "base": {
+        "width": 560
       }
     },
     "w-auto": {

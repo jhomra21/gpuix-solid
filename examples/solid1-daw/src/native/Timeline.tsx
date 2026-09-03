@@ -51,7 +51,7 @@ function findClip(tracks: NativeTrack[], clipId: string): { track: NativeTrack; 
   return undefined
 }
 
-function nextGroupIdentity(tracks: readonly NativeTrack[]): { id: string; name: string } {
+function nextGroupIdentity(tracks: readonly NativeTrack[]) {
   let index = 1
   while (tracks.some((track) => track.id === `group-${index}` || track.name === `Group ${index}`)) index += 1
   return { id: `group-${index}`, name: `Group ${index}` }

@@ -4,6 +4,8 @@ import {
   createTestRoot,
   hasNativeTestRenderer,
   resolveNativeClassStyle,
+  resolveNativeClassAttributeStyle,
+  resolveNativeClassSvgPaint,
   resolveNativeDescendantClassStyle,
   setNativeStyleColorMode,
 } from "@jhomra21/gpuix-solid1"
@@ -64,6 +66,45 @@ if (!hasNativeTestRenderer) {
   requireCondition(app.renderer.hasTestId("master-timeline"), "Master timeline row should be mounted")
   requireCondition(app.renderer.hasTestId("effects-panel"), "effects panel should start open")
   requireCondition(!rootText().includes("Drop files here to create a new track"), "fixture must not invent the new-track drop row")
+
+  const compressorColumnLeft = resolveNativeDescendantClassStyle("grid-cols-[84px_1fr_96px]", undefined, "div", true, 1)
+  const compressorColumnMiddle = resolveNativeDescendantClassStyle("grid-cols-[84px_1fr_96px]", undefined, "div", true, 2)
+  const compressorColumnRight = resolveNativeDescendantClassStyle("grid-cols-[84px_1fr_96px]", undefined, "div", true, 3)
+  requireCondition(compressorColumnLeft?.width === 84 && compressorColumnLeft.minWidth === 84, "positional descendant compatibility should preserve the source 84px Compressor left column")
+  requireCondition(compressorColumnMiddle?.flexGrow === 1 && compressorColumnMiddle.flexBasis === 0 && compressorColumnMiddle.minWidth === 0, "positional descendant compatibility should preserve the source flexible Compressor middle column")
+  requireCondition(compressorColumnRight?.width === 96 && compressorColumnRight.minWidth === 96, "positional descendant compatibility should preserve the source 96px Compressor right column")
+
+  const compressorStatusTypography = resolveNativeClassStyle("text-2xs leading-tight", undefined)
+  requireCondition(compressorStatusTypography?.fontSize === 10, "text-2xs should preserve the source 10px Compressor status size")
+  requireCondition(compressorStatusTypography?.lineHeight === 12.5, "leading-tight should resolve against the merged 10px source font size")
+  const inheritedLeadingNone = resolveNativeClassStyle("leading-none", undefined, 12)
+  requireCondition(inheritedLeadingNone?.lineHeight === 12, "leading-none should resolve against inherited native font size")
+
+  const knobBorderPaint = resolveNativeClassSvgPaint("stroke-border", undefined)
+  requireCondition(
+    knobBorderPaint?.stroke !== undefined && (knobBorderPaint.stroke.startsWith("#") || knobBorderPaint.stroke.startsWith("rgba(")),
+    `stroke-border should compile to normalized native SVG paint, got ${JSON.stringify(knobBorderPaint)}`,
+  )
+  const knobActivePaint = resolveNativeClassSvgPaint("stroke-cyan-400", undefined)
+  requireCondition(
+    knobActivePaint?.stroke !== undefined && knobActivePaint.stroke !== knobBorderPaint?.stroke,
+    "source knob accent stroke should remain distinct from the border stroke",
+  )
+
+  const collapsedEffectShell = resolveNativeClassAttributeStyle(
+    "effect-shell",
+    undefined,
+    new Map([["data-device-collapsed", "true"]]),
+  )
+  requireCondition(
+    collapsedEffectShell?.width === 26 &&
+      collapsedEffectShell.minWidth === 26 &&
+      collapsedEffectShell.maxWidth === 26 &&
+      collapsedEffectShell.flexGrow === 0 &&
+      collapsedEffectShell.flexShrink === 0 &&
+      collapsedEffectShell.flexBasis === 26,
+    "attribute-conditioned native styles should preserve the exact 26px collapsed EffectShell flex contract",
+  )
 
   const browserBounds = app.renderer.boundsTestId("browser-sidebar")
   const timelineBounds = app.renderer.boundsTestId("timeline-surface")
@@ -178,10 +219,10 @@ if (!hasNativeTestRenderer) {
   requireCondition(Math.abs(oneAutomationLaneHeight - oneAutomationSidebarHeight) <= 1, "one automation lane should keep timeline and mixer geometry aligned")
 
   app.renderer.clickCenterTestId("track-synth-automation-add")
-  const twoAutomationLaneHeight = app.renderer.boundsTestId("lane-synth").height
-  const twoAutomationSidebarHeight = app.renderer.boundsTestId("track-synth").height
-  requireCondition(Math.abs(twoAutomationLaneHeight - oneAutomationLaneHeight - 48) <= 1, "adding automation should add exactly one 48px lane")
-  requireCondition(Math.abs(twoAutomationLaneHeight - twoAutomationSidebarHeight) <= 1, "multiple automation lanes should keep timeline and mixer geometry aligned")
+  const afterUnavailableAutomationAddLaneHeight = app.renderer.boundsTestId("lane-synth").height
+  const afterUnavailableAutomationAddSidebarHeight = app.renderer.boundsTestId("track-synth").height
+  requireCondition(Math.abs(afterUnavailableAutomationAddLaneHeight - oneAutomationLaneHeight) <= 1, "Add automation must not invent a second lane when Volume is the only source parameter")
+  requireCondition(Math.abs(afterUnavailableAutomationAddSidebarHeight - oneAutomationSidebarHeight) <= 1, "disabled Add automation must not change mixer geometry")
 
   app.renderer.scrollTestId("track-sidebar-scrolling", 0, -260)
   const visibleAutomationHide = app.renderer.boundsTestId("track-synth-automation-hide")
@@ -190,10 +231,8 @@ if (!hasNativeTestRenderer) {
     `Synth automation hide should be visible before interaction, control ${JSON.stringify(visibleAutomationHide)}, mixer ${JSON.stringify(sidebarScrolling)}`,
   )
   app.renderer.clickCenterTestId("track-synth-automation-hide")
-  requireCondition(Math.abs(app.renderer.boundsTestId("lane-synth").height - oneAutomationLaneHeight) <= 1, "hiding one automation lane should remove exactly 48px")
-  app.renderer.clickCenterTestId("track-synth-automation-hide")
-  requireCondition(!app.renderer.hasTestId("lane-synth-automation"), "hiding the final automation lane should close timeline automation")
-  requireCondition(!app.renderer.hasTestId("track-synth-automation-lanes"), "hiding the final automation lane should close mixer automation")
+  requireCondition(!app.renderer.hasTestId("lane-synth-automation"), "hiding the only source automation target should close timeline automation")
+  requireCondition(!app.renderer.hasTestId("track-synth-automation-lanes"), "hiding the only source automation target should close mixer automation")
   requireCondition(Math.abs(app.renderer.boundsTestId("lane-synth").height - synthLaneHeight) <= 1, "closing automation should restore timeline geometry")
   requireCondition(Math.abs(app.renderer.boundsTestId("track-synth").height - synthSidebarHeight) <= 1, "closing automation should restore mixer geometry")
   app.renderer.scrollTestId("track-sidebar-scrolling", 0, 0)

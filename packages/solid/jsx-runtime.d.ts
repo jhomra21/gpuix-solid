@@ -1,3 +1,9 @@
+declare global {
+  interface PointerEvent {
+    readonly persistentDeviceId: number
+  }
+}
+
 import type { Element as SolidElement } from "solid-js"
 import type {
   AnchoredProps,
@@ -112,10 +118,19 @@ type InlineSvgChildProps = NativeClassProps & AriaAttributes & DataAttributes & 
   transform?: string | undefined
   viewBox?: string | undefined
   preserveAspectRatio?: string | undefined
+  patternUnits?: string | undefined
+  pathLength?: string | number | undefined
   href?: string | undefined
   onClick?: HostEventHandler | undefined
   onPointerDown?: HostEventHandler | undefined
+  onPointerMove?: HostEventHandler | undefined
   onPointerUp?: HostEventHandler | undefined
+  onPointerCancel?: HostEventHandler | undefined
+  onPointerEnter?: HostEventHandler | undefined
+  onPointerLeave?: HostEventHandler | undefined
+  onDblClick?: HostEventHandler | undefined
+  onContextMenu?: HostEventHandler | undefined
+  onKeyDown?: HostEventHandler | undefined
   "stroke-width"?: string | number | undefined
   "stroke-linecap"?: string | undefined
   "stroke-linejoin"?: string | undefined
@@ -178,6 +193,7 @@ export namespace JSX {
     path: InlineSvgChildProps
     g: InlineSvgChildProps
     defs: InlineSvgChildProps
+    pattern: InlineSvgChildProps
     linearGradient: InlineSvgChildProps
     radialGradient: InlineSvgChildProps
     stop: InlineSvgChildProps
