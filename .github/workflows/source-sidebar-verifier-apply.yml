@@ -8,6 +8,7 @@ on:
       - ".github/workflows/source-sidebar-verifier-apply.yml"
       - ".github/source-sidebar-verifier-apply.py"
       - ".github/source-sidebar-geometry-probe.py"
+      - ".github/source-sidebar-postprocess.py"
 
 permissions:
   contents: read
@@ -27,6 +28,7 @@ jobs:
         run: |
           python3 .github/source-sidebar-geometry-probe.py
           python3 .github/source-sidebar-verifier-apply.py
+          python3 .github/source-sidebar-postprocess.py
           python3 .github/source-sidebar-geometry-probe.py
       - run: bun install --frozen-lockfile
       - name: Validate on native macOS
