@@ -10,6 +10,7 @@ on:
       - ".github/apply-compressor-typography-collapse.py"
       - ".github/apply-compressor-svg-paint.py"
       - ".github/apply-compressor-shadow-compat.py"
+      - ".github/apply-compressor-host-types.py"
       - ".github/workflows/apply-source-first-compressor.yml"
 
 permissions:
@@ -108,15 +109,24 @@ jobs:
           python3 .github/apply-compressor-typography-collapse.py
           python3 .github/apply-compressor-svg-paint.py
           python3 .github/apply-compressor-shadow-compat.py
+          python3 .github/apply-compressor-host-types.py
       - run: bun install --frozen-lockfile
       - name: Validate exact Compressor subtree
+        shell: bash
         run: |
+          set -euo pipefail
           bun run lint
           bun run typecheck
           bun run test
           bun run build
           bun run solid1:package
-          bun run solid1:daw
+          if ! bun run solid1:daw; then
+            if [[ -f examples/solid1-daw/src/native-tailwind.generated.ts ]]; then
+              echo "--- generated manifest around previous type failure ---"
+              nl -ba examples/solid1-daw/src/native-tailwind.generated.ts | sed -n '1866,1884p'
+            fi
+            exit 1
+          fi
           git diff --check
       - name: Commit validated source closure and remove scaffolding
         run: |
@@ -125,6 +135,7 @@ jobs:
           rm -f .github/apply-compressor-typography-collapse.py
           rm -f .github/apply-compressor-svg-paint.py
           rm -f .github/apply-compressor-shadow-compat.py
+          rm -f .github/apply-compressor-host-types.py
           rm -f .github/workflows/apply-source-first-compressor.yml
           git diff --check
           git config user.name "github-actions[bot]"
