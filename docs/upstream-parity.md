@@ -25,9 +25,11 @@ The repository keeps pinned source snapshots and verifies them with Git blob has
 - `TanStack/router@b6984af74dd561b8ee7e2d7369898a536dda70c2`;
 - `jhomra21/cloudflare-workers-solid-tanstack-spa-betterauth-D1-KV@47139f07c018dc2ba505bbb5915750fdba19e961`;
 - `diffusionstudio/editor@585fb010dcca36919f096f4b1275d535acab0cb9`;
-- `jhomra21/daw-browser-convex@2eaad47813b15aa8511bab8dc04625510c977b12` — the DAW fixture currently protects a 58-file exact source closure.
+- `jhomra21/daw-browser-convex@2eaad47813b15aa8511bab8dc04625510c977b12` — the DAW fixture currently protects a 68-file exact source closure.
 
-The DAW Tailwind manifest is generated from that copied source rather than from a parallel style rewrite. Compatibility for the fixed 1440×900 native target is handled below the copied components: parent-relative percentage positioning and half-translation are resolved from native geometry, the active desktop `sm:` dialog variants are compiled for the reference viewport, and `sr-only` retains its visual-hiding contract. GPUIX 0.7 gaps such as z-index, letter spacing, browser transitions/focus effects, CSS filters, touch-action policy and layered/inset shadows stay individually audited instead of being silently ignored as a class of styles.
+The DAW Tailwind manifest is generated from that copied source rather than from a parallel style rewrite. Compatibility for the fixed 1440×900 native target is handled below the copied components: parent-relative percentage positioning and half-translation are resolved from native geometry, the active desktop `sm:` dialog variants are compiled for the reference viewport, `sr-only` retains its visual-hiding contract, relative line-height is resolved against the final native font size, copied SVG paint classes are serialized into the native inline-SVG source, and source `data-*` state selectors can contribute audited native variants. GPUIX 0.7 gaps such as z-index, letter spacing, browser transitions/focus effects, CSS filters, touch-action policy, CSS auto margins, writing mode and layered/inset shadows stay individually audited instead of being silently ignored as a class of styles.
+
+The exact pinned DAW Compressor now owns the visible device UI. Its `EffectShell`, Knobs, SVG graph, reset/toggle behavior and collapse semantics run from copied source; deterministic fixture state replaces the audio backend only. Browser accessibility metadata (`role` and `aria-*`) is retained through built-in native host nodes so native tests can exercise exact source controls without adding fixture-only IDs, and semantic `hidden` maps to native `display: none` so source collapse behavior affects layout as well as state.
 
 ## Example parity
 
