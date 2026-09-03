@@ -23,7 +23,19 @@ jobs:
         with:
           bun-version: 1.3.14
       - name: Apply probe patch
-        run: python3 .github/source-sidebar-verifier-apply.py
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.github/source-sidebar-verifier-apply.py')
+          source = path.read_text()
+          old = 'mixer_end = test.index("  for (const testId of [", mixer_start)'
+          new = 'mixer_end = test.index(\'  for (const testId of [\\n    "Hide browser sidebar"\', mixer_start)'
+          if old not in source:
+              raise SystemExit('mixer end probe anchor missing')
+          path.write_text(source.replace(old, new, 1))
+          PY
+          python3 .github/source-sidebar-verifier-apply.py
       - run: bun install --frozen-lockfile
       - name: Validate on native macOS
         run: |
