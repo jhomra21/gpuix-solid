@@ -34,22 +34,21 @@ if old_sync not in sidebar:
     raise SystemExit("source track store probe anchor missing")
 sidebar_path.write_text(sidebar.replace(old_sync, new_sync, 1))
 
-events_path = Path("packages/solid1/src/host/events.ts")
-events = events_path.read_text()
-old_click = '''      case "click": {
+for events_path in [Path("packages/solid1/src/host/events.ts"), Path("packages/solid/src/host/events.ts")]:
+    events = events_path.read_text()
+    old_click = '''      case "click": {
         if (!this.#nativePointerDown.has(event.elementId)) {
 '''
-new_click = '''      case "click": {
+    new_click = '''      case "click": {
         const clickTarget = this.#targets.get(event.elementId)
         console.log("source sidebar native click target", JSON.stringify({
           elementId: event.elementId,
           tagName: clickTarget && "tagName" in clickTarget ? clickTarget.tagName : undefined,
-          ariaLabel: clickTarget?.getAttribute?.("aria-label"),
-          title: clickTarget?.getAttribute?.("title"),
-          text: clickTarget && "textContent" in clickTarget ? clickTarget.textContent : undefined,
+          ariaLabel: clickTarget && "getAttribute" in clickTarget && typeof clickTarget.getAttribute === "function" ? clickTarget.getAttribute("aria-label") : undefined,
+          title: clickTarget && "getAttribute" in clickTarget && typeof clickTarget.getAttribute === "function" ? clickTarget.getAttribute("title") : undefined,
         }))
         if (!this.#nativePointerDown.has(event.elementId)) {
 '''
-if old_click not in events:
-    raise SystemExit("event click probe anchor missing")
-events_path.write_text(events.replace(old_click, new_click, 1))
+    if old_click not in events:
+        raise SystemExit(f"event click probe anchor missing in {events_path}")
+    events_path.write_text(events.replace(old_click, new_click, 1))
