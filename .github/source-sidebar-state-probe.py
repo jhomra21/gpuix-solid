@@ -70,60 +70,59 @@ click_probe = '''  clickCustomProps(query: TestCustomPropQuery): void {
       const tree = parseTree(this.#native.getTreeJson())
       const containing: Array<Record<string, unknown>> = []
       let order = 0
+      const summarize = (node: NativeTreeNode, parentId: number | null, depth: number) => {
+        const nativeBounds = this.#native.getElementBounds(node.id)
+        return {
+          id: node.id,
+          parentId,
+          depth,
+          type: node.type,
+          bounds: nativeBounds && nativeBounds.length >= 4
+            ? { x: nativeBounds[0], y: nativeBounds[1], width: nativeBounds[2], height: nativeBounds[3] }
+            : null,
+          text: node.text ?? null,
+          ariaLabel: node.customProps?.["aria-label"] ?? null,
+          title: node.customProps?.title ?? null,
+          disabled: node.customProps?.disabled ?? null,
+          pointerEvents: node.style?.pointerEvents ?? null,
+          display: node.style?.display ?? null,
+          position: node.style?.position ?? null,
+          top: node.style?.top ?? null,
+          right: node.style?.right ?? null,
+          bottom: node.style?.bottom ?? null,
+          left: node.style?.left ?? null,
+          height: node.style?.height ?? null,
+          minHeight: node.style?.minHeight ?? null,
+          flexGrow: node.style?.flexGrow ?? null,
+          flexShrink: node.style?.flexShrink ?? null,
+          overflow: node.style?.overflow ?? null,
+          overflowX: node.style?.overflowX ?? null,
+          overflowY: node.style?.overflowY ?? null,
+          backgroundColor: node.style?.backgroundColor ?? null,
+        }
+      }
       const visit = (node: NativeTreeNode, depth: number, parentId: number | null) => {
         order += 1
-        const nativeBounds = this.#native.getElementBounds(node.id)
-        if (nativeBounds && nativeBounds.length >= 4) {
-          const [x, y, width, height] = nativeBounds
-          if (
-            x !== undefined && y !== undefined && width !== undefined && height !== undefined &&
-            point.x >= x && point.x <= x + width && point.y >= y && point.y <= y + height
-          ) {
-            containing.push({
-              id: node.id,
-              parentId,
-              order,
-              depth,
-              type: node.type,
-              bounds: { x, y, width, height },
-              ariaLabel: node.customProps?.["aria-label"] ?? null,
-              title: node.customProps?.title ?? null,
-              disabled: node.customProps?.disabled ?? null,
-              pointerEvents: node.style?.pointerEvents ?? null,
-              display: node.style?.display ?? null,
-              position: node.style?.position ?? null,
-              overflow: node.style?.overflow ?? null,
-              overflowX: node.style?.overflowX ?? null,
-              overflowY: node.style?.overflowY ?? null,
-              backgroundColor: node.style?.backgroundColor ?? null,
-            })
-          }
+        const summary = summarize(node, parentId, depth)
+        const bounds = summary.bounds as { x: number; y: number; width: number; height: number } | null
+        if (bounds && point.x >= bounds.x && point.x <= bounds.x + bounds.width && point.y >= bounds.y && point.y <= bounds.y + bounds.height) {
+          containing.push({ order, ...summary })
         }
         for (const child of node.children ?? []) visit(child, depth + 1, node.id)
       }
       if (tree) visit(tree, 0, null)
       const parent = tree ? findParentNode(tree, queriedNode.id) : undefined
-      const siblingDetails = (parent?.children ?? []).map((sibling, siblingIndex) => {
-        const nativeBounds = this.#native.getElementBounds(sibling.id)
-        return {
-          index: siblingIndex,
-          id: sibling.id,
-          type: sibling.type,
-          bounds: nativeBounds && nativeBounds.length >= 4
-            ? { x: nativeBounds[0], y: nativeBounds[1], width: nativeBounds[2], height: nativeBounds[3] }
-            : null,
-          ariaLabel: sibling.customProps?.["aria-label"] ?? null,
-          title: sibling.customProps?.title ?? null,
-          display: sibling.style?.display ?? null,
-          pointerEvents: sibling.style?.pointerEvents ?? null,
-        }
-      })
+      const row = tree ? findNodeById(tree, 742) : undefined
       console.log("source sidebar arm hit stack", JSON.stringify({
         point,
         queriedNodeId: queriedNode.id,
         queriedParentId: parent?.id ?? null,
         queriedBounds: this.#native.getElementBounds(queriedNode.id),
-        siblings: siblingDetails,
+        siblings: (parent?.children ?? []).map((node) => summarize(node, parent?.id ?? null, 0)),
+        row742: row ? {
+          self: summarize(row, tree ? findParentNode(tree, row.id)?.id ?? null : null, 0),
+          children: (row.children ?? []).map((node) => summarize(node, row.id, 1)),
+        } : null,
         containing,
       }))
     }
