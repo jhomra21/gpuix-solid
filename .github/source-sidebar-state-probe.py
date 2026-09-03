@@ -64,7 +64,69 @@ click_anchor = '''  clickCustomProps(query: TestCustomPropQuery): void {
   }
 '''
 click_probe = '''  clickCustomProps(query: TestCustomPropQuery): void {
-    const point = insetPoint(this.boundsNode(this.requireCustomProps(query), `custom props ${JSON.stringify(query)}`))
+    const queriedNode = this.requireCustomProps(query)
+    const point = insetPoint(this.boundsNode(queriedNode, `custom props ${JSON.stringify(query)}`))
+    if (query["aria-label"] === "Arm track 1 for recording") {
+      const tree = parseTree(this.#native.getTreeJson())
+      const containing: Array<Record<string, unknown>> = []
+      let order = 0
+      const visit = (node: NativeTreeNode, depth: number, parentId: number | null) => {
+        order += 1
+        const nativeBounds = this.#native.getElementBounds(node.id)
+        if (nativeBounds && nativeBounds.length >= 4) {
+          const [x, y, width, height] = nativeBounds
+          if (
+            x !== undefined && y !== undefined && width !== undefined && height !== undefined &&
+            point.x >= x && point.x <= x + width && point.y >= y && point.y <= y + height
+          ) {
+            containing.push({
+              id: node.id,
+              parentId,
+              order,
+              depth,
+              type: node.type,
+              bounds: { x, y, width, height },
+              ariaLabel: node.customProps?.["aria-label"] ?? null,
+              title: node.customProps?.title ?? null,
+              disabled: node.customProps?.disabled ?? null,
+              pointerEvents: node.style?.pointerEvents ?? null,
+              display: node.style?.display ?? null,
+              position: node.style?.position ?? null,
+              overflow: node.style?.overflow ?? null,
+              overflowX: node.style?.overflowX ?? null,
+              overflowY: node.style?.overflowY ?? null,
+              backgroundColor: node.style?.backgroundColor ?? null,
+            })
+          }
+        }
+        for (const child of node.children ?? []) visit(child, depth + 1, node.id)
+      }
+      if (tree) visit(tree, 0, null)
+      const parent = tree ? findParentNode(tree, queriedNode.id) : undefined
+      const siblingDetails = (parent?.children ?? []).map((sibling, siblingIndex) => {
+        const nativeBounds = this.#native.getElementBounds(sibling.id)
+        return {
+          index: siblingIndex,
+          id: sibling.id,
+          type: sibling.type,
+          bounds: nativeBounds && nativeBounds.length >= 4
+            ? { x: nativeBounds[0], y: nativeBounds[1], width: nativeBounds[2], height: nativeBounds[3] }
+            : null,
+          ariaLabel: sibling.customProps?.["aria-label"] ?? null,
+          title: sibling.customProps?.title ?? null,
+          display: sibling.style?.display ?? null,
+          pointerEvents: sibling.style?.pointerEvents ?? null,
+        }
+      })
+      console.log("source sidebar arm hit stack", JSON.stringify({
+        point,
+        queriedNodeId: queriedNode.id,
+        queriedParentId: parent?.id ?? null,
+        queriedBounds: this.#native.getElementBounds(queriedNode.id),
+        siblings: siblingDetails,
+        containing,
+      }))
+    }
     this.#native.simulateClick(point.x, point.y)
     const root = this.#root
     if (!root) throw new Error("TestRenderer is not bound to a Solid 1 root")
