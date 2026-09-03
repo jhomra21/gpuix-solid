@@ -1,0 +1,277 @@
+from pathlib import Path
+
+
+testing_path = Path("packages/solid1/src/testing.ts")
+testing = testing_path.read_text()
+marker = '''  hasCustomProps(query: TestCustomPropQuery): boolean {
+    return findNodeByCustomProps(parseTree(this.#native.getTreeJson()), query) !== undefined
+  }
+
+  clickCustomProps'''
+replacement = '''  hasCustomProps(query: TestCustomPropQuery): boolean {
+    return findNodeByCustomProps(parseTree(this.#native.getTreeJson()), query) !== undefined
+  }
+
+  boundsCustomProps(query: TestCustomPropQuery): TestBounds {
+    return this.boundsNode(this.requireCustomProps(query), `custom props ${JSON.stringify(query)}`)
+  }
+
+  styleCustomProps(query: TestCustomPropQuery): StyleDesc {
+    return this.requireCustomProps(query).style ?? {}
+  }
+
+  ancestorBoundsCustomProps(query: TestCustomPropQuery): TestBounds[] {
+    this.#native.flush()
+    const root = parseTree(this.#native.getTreeJson())
+    if (!root) throw new Error("Expected a retained native root")
+    let current = findNodeByCustomProps(root, query)
+    if (!current) throw new Error(`Expected custom props ${JSON.stringify(query)}`)
+    const bounds: TestBounds[] = []
+    for (;;) {
+      const parent = findParentNode(root, current.id)
+      if (!parent) break
+      const nativeBounds = this.#native.getElementBounds(parent.id)
+      if (nativeBounds && nativeBounds.length >= 4) {
+        const [x, y, width, height] = nativeBounds
+        if (x !== undefined && y !== undefined && width !== undefined && height !== undefined) {
+          bounds.push({ x, y, width, height })
+        }
+      }
+      current = parent
+    }
+    return bounds
+  }
+
+  dragCustomProps(query: TestCustomPropQuery, deltaX: number, deltaY: number): void {
+    const start = insetPoint(this.boundsCustomProps(query))
+    const endX = start.x + deltaX
+    const endY = start.y + deltaY
+    this.#native.simulateMouseMove(start.x, start.y)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+    this.#native.simulateMouseDown(start.x, start.y, 0)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+    this.#native.simulateMouseMove(endX, endY, 0)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+    this.#native.simulateMouseUp(endX, endY, 0)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+  }
+
+  clickCustomProps'''
+if marker not in testing:
+    raise SystemExit("testing custom-prop anchor missing")
+testing_path.write_text(testing.replace(marker, replacement, 1))
+
+
+test_path = Path("examples/solid1-daw/src/test.tsx")
+test = test_path.read_text()
+
+helper_marker = '''function right(bounds: { x: number; width: number }): number {
+  return bounds.x + bounds.width
+}
+
+const transportFrameStyle'''
+helper_replacement = '''function right(bounds: { x: number; width: number }): number {
+  return bounds.x + bounds.width
+}
+
+type NativeBounds = { x: number; y: number; width: number; height: number }
+function requireAncestorBounds(
+  bounds: NativeBounds[],
+  predicate: (bounds: NativeBounds) => boolean,
+  label: string,
+): NativeBounds {
+  const match = bounds.find(predicate)
+  if (!match) throw new Error(`${label}: no matching painted ancestor in ${JSON.stringify(bounds)}`)
+  return match
+}
+
+const transportFrameStyle'''
+if helper_marker not in test:
+    raise SystemExit("test helper anchor missing")
+test = test.replace(helper_marker, helper_replacement, 1)
+
+initial_marker = '''  requireCondition(app.renderer.hasTestId("browser-sidebar"), "browser sidebar should start open")
+  requireCondition(app.renderer.hasTestId("track-sidebar"), "track sidebar should be mounted")
+  requireCondition(app.renderer.hasTestId("master-sidebar"), "Master sidebar row should be mounted")
+  requireCondition(app.renderer.hasTestId("master-timeline"), "Master timeline row should be mounted")
+  requireCondition(app.renderer.hasTestId("effects-panel"), "effects panel should start open")'''
+initial_replacement = '''  requireCondition(app.renderer.hasTestId("browser-sidebar"), "browser sidebar should start open")
+  const drumsTrack = { "aria-label": "Select track 1: Drums" } as const
+  const returnTrack = { "aria-label": "Select track 5: A-Reverb" } as const
+  const masterEffects = { title: "Show master effects" } as const
+  requireCondition(app.renderer.hasCustomProps(drumsTrack), "exact source TrackSidebar should mount the first track selector")
+  requireCondition(app.renderer.hasCustomProps(returnTrack), "exact source TrackSidebar should mount the Return track selector")
+  requireCondition(app.renderer.hasCustomProps(masterEffects), "exact source MasterSidebarRow should mount the Master effects control")
+  requireCondition(app.renderer.hasTestId("master-timeline"), "Master timeline row should be mounted")
+  requireCondition(app.renderer.hasTestId("effects-panel"), "effects panel should start open")'''
+if initial_marker not in test:
+    raise SystemExit("initial stale sidebar assertion block missing")
+test = test.replace(initial_marker, initial_replacement, 1)
+
+geometry_marker = '''  const browserBounds = app.renderer.boundsTestId("browser-sidebar")
+  const timelineBounds = app.renderer.boundsTestId("timeline-surface")
+  const sidebarBounds = app.renderer.boundsTestId("track-sidebar")
+  requireCondition(browserBounds.width >= 275, `browser should preserve ~280px source width, got ${browserBounds.width}`)
+  requireCondition(Math.abs(app.renderer.boundsTextWithinTestId("browser-sidebar", "Assets").height - 24) <= 1, "browser tabs should preserve 24px rows")
+  requireCondition(sidebarBounds.width >= 330, `track sidebar should preserve ~336px source width, got ${sidebarBounds.width}`)
+  requireCondition(browserBounds.x < timelineBounds.x && sidebarBounds.x > timelineBounds.x, "browser / timeline / mixer ordering should match source")
+  requireCondition(app.renderer.boundsTestId("lane-synth").height >= 92, "normal timeline lanes should preserve ~96px source height")
+
+  const timelineScrolling = app.renderer.boundsTestId("timeline-scrolling-tracks")
+  const sidebarScrolling = app.renderer.boundsTestId("track-sidebar-scrolling")
+  const timelineFooter = app.renderer.boundsTestId("timeline-sticky-footer")
+  const sidebarFooter = app.renderer.boundsTestId("track-sidebar-sticky-footer")
+  requireCondition(
+    Math.abs(timelineFooter.y - sidebarFooter.y) <= 2 && Math.abs(timelineFooter.height - sidebarFooter.height) <= 2,
+    `timeline/sidebar sticky footer shells should align, timeline ${JSON.stringify(timelineFooter)}, sidebar ${JSON.stringify(sidebarFooter)}`,
+  )
+  requireCondition(Math.abs(bottom(timelineScrolling) - timelineFooter.y) <= 2, "timeline scrolling viewport should end at the sticky Return/Master footer")
+  requireCondition(Math.abs(bottom(sidebarScrolling) - sidebarFooter.y) <= 2, "sidebar scrolling viewport should end at the sticky Return/Master footer")
+
+  const returnTimeline = app.renderer.boundsTestId("lane-return-a")
+  const returnSidebar = app.renderer.boundsTestId("track-return-a")
+  const masterTimeline = app.renderer.boundsTestId("master-timeline")
+  const masterSidebar = app.renderer.boundsTestId("master-sidebar")
+  requireCondition(returnTimeline.y >= timelineFooter.y, "Return timeline row should live inside the sticky footer")
+  requireCondition(returnSidebar.y >= sidebarFooter.y, "Return sidebar row should live inside the sticky footer")
+  requireCondition(masterTimeline.y > returnTimeline.y + 80, "Master timeline row should follow Return")
+  requireCondition(masterSidebar.y > returnSidebar.y + 70, "Master sidebar row should follow Return")'''
+geometry_replacement = '''  const browserBounds = app.renderer.boundsTestId("browser-sidebar")
+  const timelineBounds = app.renderer.boundsTestId("timeline-surface")
+  const drumsAncestors = app.renderer.ancestorBoundsCustomProps(drumsTrack)
+  const sidebarBounds = requireAncestorBounds(
+    drumsAncestors,
+    (bounds) => bounds.width >= 330 && bounds.width <= 340 && bounds.height > 300,
+    "exact source TrackSidebar bounds",
+  )
+  requireCondition(browserBounds.width >= 275, `browser should preserve ~280px source width, got ${browserBounds.width}`)
+  requireCondition(Math.abs(app.renderer.boundsTextWithinTestId("browser-sidebar", "Assets").height - 24) <= 1, "browser tabs should preserve 24px rows")
+  requireCondition(sidebarBounds.width >= 330, `track sidebar should preserve ~336px source width, got ${sidebarBounds.width}`)
+  requireCondition(browserBounds.x < timelineBounds.x && sidebarBounds.x > timelineBounds.x, "browser / timeline / mixer ordering should match source")
+  requireCondition(app.renderer.boundsTestId("lane-drums").height >= 92, "normal timeline lanes should preserve ~96px source height")
+
+  const timelineScrolling = app.renderer.boundsTestId("timeline-scrolling-tracks")
+  const timelineFooter = app.renderer.boundsTestId("timeline-sticky-footer")
+  requireCondition(Math.abs(bottom(timelineScrolling) - timelineFooter.y) <= 2, "timeline scrolling viewport should end at the sticky Return/Master footer")
+
+  const returnTimeline = app.renderer.boundsTestId("lane-return-a")
+  const returnSidebar = requireAncestorBounds(
+    app.renderer.ancestorBoundsCustomProps(returnTrack),
+    (bounds) => bounds.width >= 330 && bounds.width <= 340 && bounds.height >= 90 && bounds.height <= 100,
+    "exact source Return sidebar row",
+  )
+  const masterTimeline = app.renderer.boundsTestId("master-timeline")
+  const masterSidebar = requireAncestorBounds(
+    app.renderer.ancestorBoundsCustomProps(masterEffects),
+    (bounds) => bounds.width >= 330 && bounds.width <= 340 && bounds.height >= 90 && bounds.height <= 100,
+    "exact source Master sidebar row",
+  )
+  requireCondition(returnTimeline.y >= timelineFooter.y, "Return timeline row should live inside the sticky footer")
+  requireCondition(Math.abs(returnSidebar.y - returnTimeline.y) <= 2, "exact source Return sidebar row should align with the Return timeline row")
+  requireCondition(masterTimeline.y > returnTimeline.y + 80, "Master timeline row should follow Return")
+  requireCondition(Math.abs(masterSidebar.y - masterTimeline.y) <= 2, "exact source Master sidebar row should align with the Master timeline row")'''
+if geometry_marker not in test:
+    raise SystemExit("stale sidebar geometry block missing")
+test = test.replace(geometry_marker, geometry_replacement, 1)
+
+mixer_start = test.index('  const synthLaneHeight = app.renderer.boundsTestId("lane-synth").height')
+mixer_end = test.index("  for (const testId of [", mixer_start)
+mixer_replacement = '''  const drumsLaneHeight = app.renderer.boundsTestId("lane-drums").height
+  const drumsRow = () => requireAncestorBounds(
+    app.renderer.ancestorBoundsCustomProps(drumsTrack),
+    (bounds) => bounds.width >= 330 && bounds.width <= 340 && bounds.height >= 30 && bounds.height <= 160,
+    "exact source Drums sidebar row",
+  )
+  const drumsSidebarHeight = drumsRow().height
+  requireCondition(Math.abs(drumsLaneHeight - drumsSidebarHeight) <= 1, "Drums timeline and exact source mixer row should start aligned")
+
+  requireCondition(app.renderer.hasCustomProps({ title: "Track output" }), "exact source routing output select should be mounted")
+  requireCondition(app.renderer.hasCustomProps({ title: "Track send" }), "exact source routing send select should be mounted")
+
+  app.renderer.scrollTestId("daw-test-viewport", -320, 0)
+  const muteOn = { "aria-label": "Deactivate track 1" } as const
+  const muteOff = { "aria-label": "Activate track 1" } as const
+  const soloOff = { "aria-label": "Solo track 1" } as const
+  const soloOn = { "aria-label": "Unsolo track 1" } as const
+  const armOff = { "aria-label": "Arm track 1 for recording" } as const
+  const armOn = { "aria-label": "Disarm track 1 for recording" } as const
+  const volume = { "aria-label": "Track 1 volume" } as const
+  const visibleMixerControl = app.renderer.boundsCustomProps(muteOn)
+  requireCondition(
+    visibleMixerControl.x >= 0 && right(visibleMixerControl) <= viewportWidth,
+    `exact source mixer controls should be visible before interaction, got ${JSON.stringify(visibleMixerControl)}`,
+  )
+
+  const muteBackground = app.renderer.styleCustomProps(muteOn).backgroundColor
+  app.renderer.clickCustomProps(muteOn)
+  requireCondition(app.renderer.hasCustomProps(muteOff), "exact source mute should expose Activate after muting")
+  requireCondition(app.renderer.styleCustomProps(muteOff).backgroundColor !== muteBackground, "exact source mute should change its painted state")
+  app.renderer.clickCustomProps(muteOff)
+  requireCondition(app.renderer.hasCustomProps(muteOn), "exact source mute should restore Deactivate after unmuting")
+
+  app.renderer.clickCustomProps(soloOff)
+  requireCondition(app.renderer.hasCustomProps(soloOn), "exact source solo should expose Unsolo after activation")
+  app.renderer.clickCustomProps(soloOn)
+  requireCondition(app.renderer.hasCustomProps(soloOff), "exact source solo should restore after second activation")
+
+  app.renderer.clickCustomProps(armOff)
+  requireCondition(app.renderer.hasCustomProps(armOn), "exact source record arm should expose Disarm after activation")
+  app.renderer.clickCustomProps(armOn)
+  requireCondition(app.renderer.hasCustomProps(armOff), "exact source record arm should restore after second activation")
+
+  const volumeBefore = app.renderer.customPropByCustomProps(volume, "aria-valuetext")
+  app.renderer.dragCustomProps(volume, 20, 0)
+  const volumeAfter = app.renderer.customPropByCustomProps(volume, "aria-valuetext")
+  requireCondition(volumeAfter !== volumeBefore, `exact source mixer volume should respond to pointer drag, before ${JSON.stringify(volumeBefore)}, after ${JSON.stringify(volumeAfter)}`)
+
+  app.renderer.clickCustomProps({ title: "Collapse track" })
+  const collapsedLaneHeight = app.renderer.boundsTestId("lane-drums").height
+  const collapsedSidebarHeight = drumsRow().height
+  requireCondition(Math.abs(collapsedLaneHeight - 32) <= 1, `collapsed timeline lane should preserve source 32px height, got ${collapsedLaneHeight}`)
+  requireCondition(Math.abs(collapsedSidebarHeight - 32) <= 1, `collapsed exact source mixer row should preserve 32px height, got ${collapsedSidebarHeight}`)
+  requireCondition(Math.abs(collapsedLaneHeight - collapsedSidebarHeight) <= 1, "collapsed timeline and exact source mixer geometry should stay aligned")
+  app.renderer.clickCustomProps({ title: "Expand track" })
+  requireCondition(Math.abs(app.renderer.boundsTestId("lane-drums").height - drumsLaneHeight) <= 1, "expanding should restore the original timeline lane height")
+  requireCondition(Math.abs(drumsRow().height - drumsSidebarHeight) <= 1, "expanding should restore the original exact source mixer row height")
+
+  const showAutomation = { "aria-label": "Show automation for track 1" } as const
+  const hideAutomation = { "aria-label": "Hide automation for track 1" } as const
+  const addAutomation = { "aria-label": "Add automation lane for track 1" } as const
+  app.renderer.clickCustomProps(showAutomation)
+  requireCondition(app.renderer.hasCustomProps(hideAutomation), "exact source A control should switch to Hide automation")
+  requireCondition(app.renderer.hasTestId("lane-drums-automation"), "exact source A control should expose the timeline automation lane")
+  const oneAutomationLaneHeight = app.renderer.boundsTestId("lane-drums").height
+  const oneAutomationSidebarHeight = drumsRow().height
+  requireCondition(Math.abs(oneAutomationLaneHeight - drumsLaneHeight - 48) <= 1, "one automation lane should add the source 48px lane height")
+  requireCondition(Math.abs(oneAutomationLaneHeight - oneAutomationSidebarHeight) <= 1, "one automation lane should keep timeline and exact source mixer geometry aligned")
+
+  requireCondition(app.renderer.hasCustomProps(addAutomation), "exact source disabled Add automation control should remain mounted")
+  app.renderer.clickCustomProps(addAutomation)
+  requireCondition(Math.abs(app.renderer.boundsTestId("lane-drums").height - oneAutomationLaneHeight) <= 1, "Add automation must not invent a second lane when Volume is the only source parameter")
+  requireCondition(Math.abs(drumsRow().height - oneAutomationSidebarHeight) <= 1, "disabled Add automation must not change exact source mixer geometry")
+
+  app.renderer.clickCustomProps(hideAutomation)
+  requireCondition(app.renderer.hasCustomProps(showAutomation), "exact source A control should restore Show automation after hiding")
+  requireCondition(!app.renderer.hasTestId("lane-drums-automation"), "hiding the only source automation target should close timeline automation")
+  requireCondition(Math.abs(app.renderer.boundsTestId("lane-drums").height - drumsLaneHeight) <= 1, "closing automation should restore timeline geometry")
+  requireCondition(Math.abs(drumsRow().height - drumsSidebarHeight) <= 1, "closing automation should restore exact source mixer geometry")
+  app.renderer.scrollTestId("daw-test-viewport", 0, 0)
+
+'''
+test = test[:mixer_start] + mixer_replacement + test[mixer_end:]
+
+stale = [
+    '"track-sidebar"', '"track-sidebar-scrolling"', '"track-sidebar-sticky-footer"',
+    '"track-synth"', '"track-synth-send"', '"track-synth-output"', '"track-synth-mute"',
+    '"track-synth-solo"', '"track-synth-arm"', '"track-synth-volume"', '"track-synth-collapse"',
+    '"track-synth-automation"', '"track-synth-automation-lanes"', '"track-synth-automation-add"',
+    '"track-synth-automation-hide"', '"track-return-a"', '"master-sidebar"',
+]
+leftovers = [value for value in stale if value in test]
+if leftovers:
+    raise SystemExit(f"stale handmade sidebar ids remain: {leftovers}")
+test_path.write_text(test)
