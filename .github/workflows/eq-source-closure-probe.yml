@@ -116,6 +116,17 @@ jobs:
 
           ''' + audio
           audio_path.write_text(audio)
+
+          generator_path = Path('examples/solid1-daw/scripts/generate-native-tailwind.mjs')
+          generator = generator_path.read_text()
+          anchor = 'const nativeCompatEntries = new Map([\n'
+          if anchor not in generator:
+              raise SystemExit('native compat map anchor missing')
+          generator_path.write_text(generator.replace(
+              anchor,
+              anchor + '  ["row-span-2", { base: {} }], // probe only: reveal blockers beyond unsupported native grid span\n',
+              1,
+          ))
           PY
       - run: bun install --frozen-lockfile
       - name: Run strict EQ source compile probe
