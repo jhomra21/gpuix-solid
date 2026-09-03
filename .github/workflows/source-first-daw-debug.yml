@@ -42,6 +42,19 @@ jobs:
             libvulkan1 \
             vulkan-validationlayers
       - run: bun install --frozen-lockfile
+      - name: Probe audited automation shadow omission
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("examples/solid1-daw/scripts/generate-native-tailwind.mjs")
+          text = path.read_text()
+          anchor = '  ["shadow-black/50", "this only recolors the copied automation picker shadow-xl; GPUIX 0.7 cannot represent that layered source shadow exactly"],\n'
+          replacement = anchor + '  ["shadow-black/30", "this only recolors the copied automation lane readout shadow-lg; GPUIX 0.7 cannot represent that layered source shadow exactly"],\n'
+          if anchor not in text:
+              raise SystemExit("shadow omission anchor missing")
+          path.write_text(text.replace(anchor, replacement, 1))
+          PY
       - name: Capture DAW validation
         shell: bash
         run: |
