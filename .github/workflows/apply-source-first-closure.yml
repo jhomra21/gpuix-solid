@@ -55,6 +55,10 @@ jobs:
               '# Solid2 host receives the equivalent event fallthrough as a separate reviewed edit.',
               1,
           )
+          text = text.replace(
+              'borderBottomWidth: 1, borderBottomColor: "rgb(38 38 38)"',
+              'borderBottomWidth: 1, borderColor: "rgb(38 38 38)"',
+          )
           text += '''
           replace_once(
               "examples/solid1-daw/src/native/SourceTrackSidebar.tsx",
