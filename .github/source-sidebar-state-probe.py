@@ -12,6 +12,8 @@ new_sync = '''  createEffect(() => {
       nativeMuted: props.tracks[0]?.muted,
       adaptedMuted: sourceTrackStore.tracks[0]?.muted,
       nativeArmedTrackId: props.tracks.find((track) => track.armed)?.id ?? null,
+      adaptedKind: sourceTrackStore.tracks[0]?.kind,
+      adaptedChannelRole: sourceTrackStore.tracks[0]?.channelRole,
     }))
   })
 '''
@@ -56,6 +58,8 @@ arm_anchor = '''  app.renderer.clickCustomProps(armOff)
 arm_probe = '''  console.log("source sidebar arm geometry", JSON.stringify({
     button: app.renderer.boundsCustomProps(armOff),
     ancestors: app.renderer.ancestorBoundsCustomProps(armOff),
+    disabled: app.renderer.customPropByCustomProps(armOff, "disabled"),
+    ariaPressed: app.renderer.customPropByCustomProps(armOff, "aria-pressed"),
   }))
   app.renderer.clickCustomProps(armOff)
   requireCondition(app.renderer.hasCustomProps(armOn), "exact source record arm should expose Disarm after activation")
