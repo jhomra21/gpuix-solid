@@ -49,7 +49,7 @@ jobs:
           text = path.read_text()
           old = 'replace_once("packages/solid/src/host/universal.ts", svg_property_anchor, svg_property_replacement)'
           new = '''solid2_svg_property_anchor = """  if (semanticTag && isSvgMarkupTag(semanticTag)) {
-            if (semanticTag !== \\\"svg\\\") {
+            if (semanticTag !== "svg") {
               setSvgAttribute(node, name, value)
               refreshInlineSvg(node)
               return
@@ -62,7 +62,7 @@ jobs:
           }
           """
           solid2_svg_property_replacement = """  if (semanticTag && isSvgMarkupTag(semanticTag)) {
-            if (semanticTag !== \\\"svg\\\") {
+            if (semanticTag !== "svg") {
               if (isSvgMarkupAttribute(name)) {
                 setSvgAttribute(node, name, value)
                 refreshInlineSvg(node)
@@ -75,7 +75,7 @@ jobs:
             }
           }
           """
-          replace_once(\\\"packages/solid/src/host/universal.ts\\\", solid2_svg_property_anchor, solid2_svg_property_replacement)'''
+          replace_once("packages/solid/src/host/universal.ts", solid2_svg_property_anchor, solid2_svg_property_replacement)'''
           if old not in text:
               raise SystemExit('Solid2 closure call anchor missing')
           text = text.replace(old, new, 1)
