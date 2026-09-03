@@ -23,23 +23,19 @@ replace_once(
 )
 
 # Native descendant manifests already express source-owned child layout. Extend
-# that contract with CSS-like direct positional selectors so nonuniform grids
-# can stay in exact upstream markup.
-for path in [
+# the Solid1 host used by this fixture with CSS-like direct positional selectors
+# so nonuniform grids can stay in exact upstream markup. Solid2 receives the
+# equivalent reviewed mirror after this source closure is certified.
+replace_once(
     "packages/solid1/src/native-style.ts",
-    "packages/solid/src/native-style.ts",
-]:
-    replace_once(
-        path,
-        '''  tagName: string,
+    '''  tagName: string,
   directChild: boolean,
 ): StyleDesc | undefined {''',
-        '''  tagName: string,
+    '''  tagName: string,
   directChild: boolean,
   directChildIndex?: number,
 ): StyleDesc | undefined {''',
-    )
-
+)
 replace_once(
     "packages/solid1/src/native-style.ts",
     '''    if (directChild) {
@@ -56,47 +52,29 @@ replace_once(
 ''',
 )
 replace_once(
-    "packages/solid/src/native-style.ts",
-    '''    if (directChild) resolved = mergeNativeStyles(resolved, resolveVariant(descendants[`>${tagName}`]))
-''',
-    '''    if (directChild) {
-      resolved = mergeNativeStyles(resolved, resolveVariant(descendants[`>${tagName}`]))
-      if (directChildIndex !== undefined) {
-        resolved = mergeNativeStyles(resolved, resolveVariant(descendants[`>:nth-child(${directChildIndex})`]))
-        resolved = mergeNativeStyles(resolved, resolveVariant(descendants[`>${tagName}:nth-child(${directChildIndex})`]))
-      }
-    }
-''',
-)
-
-for path in [
     "packages/solid1/src/universal.ts",
-    "packages/solid/src/host/universal.ts",
-]:
-    replace_once(
-        path,
-        '''  const tagName = semanticTags.get(node) ?? node.type
+    '''  const tagName = semanticTags.get(node) ?? node.type
   const directParent = node.parent
   let resolved: StyleDesc | undefined
 ''',
-        '''  const tagName = semanticTags.get(node) ?? node.type
+    '''  const tagName = semanticTags.get(node) ?? node.type
   const directParent = node.parent
   const directChildIndex = directParent?.kind === "element"
     ? directParent.children.filter((child) => child.kind === "element").indexOf(node) + 1
     : undefined
   let resolved: StyleDesc | undefined
 ''',
-    )
-    replace_once(
-        path,
-        '''        tagName,
+)
+replace_once(
+    "packages/solid1/src/universal.ts",
+    '''        tagName,
         directParent === ancestor,
       ),''',
-        '''        tagName,
+    '''        tagName,
         directParent === ancestor,
         directParent === ancestor ? directChildIndex : undefined,
       ),''',
-    )
+)
 
 # Exact Compressor grid contracts. Equal-column grids map directly. Nonuniform
 # templates use flex plus positional descendant widths, preserving 84/1fr/96
