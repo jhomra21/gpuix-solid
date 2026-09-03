@@ -26,7 +26,7 @@ replace_once(
 # Compressor's exact graph uses <pattern>. This is generic inline-SVG support,
 # so add it to both host generations rather than special-casing the DAW.
 for path in [
-    "packages/solid1/src/host/universal.ts",
+    "packages/solid1/src/universal.ts",
     "packages/solid/src/host/universal.ts",
 ]:
     replace_once(
