@@ -9,21 +9,39 @@ def replace_once(path: str, anchor: str, replacement: str) -> None:
     target.write_text(text.replace(anchor, replacement, 1))
 
 
+generator = "examples/solid1-daw/scripts/generate-native-tailwind.mjs"
 shadow_anchor = '  ["shadow-black/50", "this only recolors the copied automation picker shadow-xl; GPUIX 0.7 cannot represent that layered source shadow exactly"],\n'
 replace_once(
-    "examples/solid1-daw/scripts/generate-native-tailwind.mjs",
+    generator,
     shadow_anchor,
     shadow_anchor + '  ["shadow-black/30", "this only recolors the copied automation lane readout shadow-lg; GPUIX 0.7 cannot represent that layered source shadow exactly"],\n',
 )
 
 compat_anchor = 'const nativeCompatEntries = new Map([\n'
 replace_once(
-    "examples/solid1-daw/scripts/generate-native-tailwind.mjs",
+    generator,
     compat_anchor,
     compat_anchor
-    + '  // Probe only: the final implementation must translate the pinned index.css rules rather than leave these selectors empty.\n'
+    + '  // Probe only: final entries must translate the pinned index.css rules or document a real native limitation.\n'
     + '  ["mixer-volume-slider", { base: {} }],\n'
-    + '  ["mixer-volume-slider-automated", { base: {} }],\n',
+    + '  ["mixer-volume-slider-automated", { base: {} }],\n'
+    + '  ["track-row-divider", { base: {} }],\n'
+    + '  ["track-row-selected-wash", { base: {} }],\n',
+)
+
+cva_anchor = '''      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "cva") {
+        for (const argument of node.arguments) collectClassExpression(argument, candidates)
+        return
+      }
+'''
+replace_once(
+    generator,
+    cva_anchor,
+    '''      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && (node.expression.text === "cn" || node.expression.text === "clsx" || node.expression.text === "cva")) {
+        for (const argument of node.arguments) collectClassExpression(argument, candidates)
+        return
+      }
+''',
 )
 
 replace_once(
