@@ -108,9 +108,7 @@ export default function Timeline(): JSX.Element {
   }
 
   const hideAutomationLane = (id: string): void => {
-    updateTrack(id, (track) => track.automationLaneCount > 1
-      ? { ...track, automationLaneCount: track.automationLaneCount - 1 }
-      : { ...track, automationVisible: false })
+    updateTrack(id, (track) => ({ ...track, automationVisible: false }))
   }
 
   const selectTrack = (id: string): void => {
@@ -310,9 +308,6 @@ export default function Timeline(): JSX.Element {
           onToggleArm: (id) => updateTrack(id, (track) => ({ ...track, armed: !track.armed })),
           onVolumeChange: (id, value) => updateTrack(id, (track) => ({ ...track, volume: value })),
           onToggleAutomation: (id) => updateTrack(id, (track) => ({ ...track, automationVisible: !track.automationVisible })),
-          onAddAutomationLane: (id) => updateTrack(id, (track) => track.automationVisible && track.automationLaneCount < 3
-            ? { ...track, automationLaneCount: track.automationLaneCount + 1 }
-            : track),
           onHideAutomationLane: hideAutomationLane,
           onMasterVolumeChange: setMasterVolume,
           onSetTrackColor: (id, color) => updateTrack(id, (track) => ({ ...track, color })),

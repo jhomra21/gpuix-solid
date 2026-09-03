@@ -23,6 +23,40 @@ const nativeTextTransforms = new Map([
 // one intrinsic center zone. Other entries below translate source geometry
 // into native fields without editing the copied DAW components.
 const nativeCompatEntries = new Map([
+  // Custom classes below are owned by the pinned DAW src/index.css. Keep the
+  // source class names intact and translate only the native representation.
+  ["mixer-volume-slider", {
+    base: { height: 20, borderWidth: 0.5 },
+    light: { borderColor: "oklch(0.92 0.004 286.32)", backgroundColor: "oklch(0.552 0.016 285.938)" },
+    dark: { borderColor: "oklch(0.274 0.006 286.033)", backgroundColor: "oklch(0.705 0.015 286.067)" },
+  }],
+  // The browser source layers an automation-range gradient over the volume
+  // meter. GPUIX 0.7 publishes one background and cannot represent both
+  // CSS-variable-driven layers; the exact source class remains registered.
+  ["mixer-volume-slider-automated", { base: {} }],
+  // The browser rules use inset/layered shadows. A one-pixel bottom border is
+  // the native divider fallback; selected state still comes from the source
+  // row background/color classes.
+  ["track-row-divider", { base: { borderBottomWidth: 1, borderColor: "rgb(38 38 38)" } }],
+  ["track-row-selected-wash", { base: { borderBottomWidth: 1, borderColor: "rgb(38 38 38)" } }],
+  ["track-row-control-panel", { base: { width: 101 } }],
+  ["track-row-control-stack", { base: { width: 81 } }],
+  ["track-meter-strip", { base: { width: 12 } }],
+  ["track-automation-indicator", { base: { boxShadow: { offsetX: 0, offsetY: 0, blurRadius: 6, spreadRadius: 0, color: "rgba(239, 68, 68, 0.75)" } } }],
+  // GPUIX 0.7 only publishes equal-count grid tracks. Preserve the source
+  // column count for the two three-column layouts; fixed control widths remain
+  // source-owned by track-row-control-panel/stack/meter-strip above.
+  ["track-expanded-row-grid", { base: { gridTemplateColumns: 3 } }],
+  ["grid-cols-[minmax(72px,96px)_minmax(96px,1fr)_101px]", { base: { gridTemplateColumns: 3 } }],
+  // This two-column source layout can be represented exactly as flex because
+  // its children are one flexible div followed by one fixed 20px button.
+  ["grid-cols-[minmax(0,1fr)_20px]", {
+    base: { display: "flex", flexDirection: "row" },
+    descendants: {
+      ">div": { base: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0 } },
+      ">button": { base: { width: 20, flexShrink: 0 } },
+    },
+  }],
   ["grid-cols-2", { base: { gridTemplateColumns: 2 } }],
   ["max-h-screen", { base: { maxHeight: "100%" } }],
   ["top-full", { base: {}, parentPosition: { topFraction: 1 } }],
@@ -70,6 +104,7 @@ const explicitlyIgnored = new Map([
   ["shadow-background/40", "this only recolors the copied context menu's layered shadow-md; GPUIX 0.7 exposes one BoxShadow and cannot represent Tailwind's layered shadow-md geometry"],
   ["shadow-xl", "Tailwind shadow-xl is layered; GPUIX 0.7 exposes one native BoxShadow and cannot represent both source shadow layers faithfully"],
   ["shadow-black/50", "this only recolors the copied automation picker shadow-xl; GPUIX 0.7 cannot represent that layered source shadow exactly"],
+  ["shadow-black/30", "this only recolors the copied automation lane readout shadow-lg; GPUIX 0.7 cannot represent that layered source shadow exactly"],
   ["shadow-inner", "GPUIX 0.7 BoxShadow has no inset mode; the exact armed-record state remains preserved by its red border, background, and foreground styles"],
   ["touch-none", "touch-action is a browser gesture policy; the exact fade interaction owns native gesture continuity with pointer capture and window pointer listeners"],
   ["tracking-tight", "letter-spacing is not exposed by GPUIX 0.7; keep the exact copied title utility registered without silently broadening unsupported typography"],
@@ -173,6 +208,7 @@ const root = postcss.parse(compiledCss, { from: themePath })
 const variables = collectThemeVariables(root)
 const classes = {}
 const omissions = []
+const unknownCandidates = []
 
 for (const candidate of rawCandidates) {
   const compatEntry = nativeCompatEntries.get(candidate)
@@ -195,7 +231,10 @@ for (const candidate of rawCandidates) {
   }
 
   const rule = findCandidateRule(root, candidate)
-  if (!rule) continue
+  if (!rule) {
+    unknownCandidates.push(candidate)
+    continue
+  }
 
   const descendant = descendantTarget(candidate)
   const lightCompiled = compileRule(rule, candidate, variables.light)
@@ -214,6 +253,10 @@ for (const candidate of rawCandidates) {
   classes[candidate] = descendant
     ? { descendants: { [descendant]: variant } }
     : focus ? { ...variant, focus } : variant
+}
+
+if (unknownCandidates.length > 0) {
+  throw new Error(`Source class candidates have no Tailwind rule or explicit native compatibility entry: ${unknownCandidates.map((candidate) => JSON.stringify(candidate)).join(", ")}`)
 }
 
 const omissionsComment = omissions.length === 0
@@ -253,8 +296,13 @@ function collectCandidates(sources) {
         }
       }
 
-      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "cva") {
+      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && (node.expression.text === "cn" || node.expression.text === "clsx")) {
         for (const argument of node.arguments) collectClassExpression(argument, candidates)
+        return
+      }
+
+      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "cva") {
+        collectCvaCall(node, candidates)
         return
       }
 
@@ -270,6 +318,11 @@ function collectCandidates(sources) {
 function collectClassExpression(node, candidates) {
   if (!node) return
 
+  if (ts.isJsxExpression(node) || ts.isParenthesizedExpression(node)) {
+    collectClassExpression(node.expression, candidates)
+    return
+  }
+
   if (ts.isStringLiteralLike(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
     addClassString(node.text, candidates)
     return
@@ -284,7 +337,80 @@ function collectClassExpression(node, candidates) {
     return
   }
 
-  ts.forEachChild(node, (child) => collectClassExpression(child, candidates))
+  if (ts.isConditionalExpression(node)) {
+    collectClassExpression(node.whenTrue, candidates)
+    collectClassExpression(node.whenFalse, candidates)
+    return
+  }
+
+  if (ts.isBinaryExpression(node)) {
+    if (node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
+      collectClassExpression(node.right, candidates)
+      return
+    }
+    if (
+      node.operatorToken.kind === ts.SyntaxKind.BarBarToken ||
+      node.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken ||
+      node.operatorToken.kind === ts.SyntaxKind.PlusToken
+    ) {
+      collectClassExpression(node.left, candidates)
+      collectClassExpression(node.right, candidates)
+    }
+    return
+  }
+
+  if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && (node.expression.text === "cn" || node.expression.text === "clsx")) {
+    for (const argument of node.arguments) collectClassExpression(argument, candidates)
+    return
+  }
+
+  if (ts.isArrayLiteralExpression(node)) {
+    for (const element of node.elements) collectClassExpression(element, candidates)
+    return
+  }
+
+  if (ts.isObjectLiteralExpression(node)) {
+    for (const property of node.properties) {
+      if (ts.isPropertyAssignment(property) || ts.isShorthandPropertyAssignment(property)) {
+        collectClassListKey(property.name, candidates)
+      }
+    }
+  }
+}
+
+function propertyNameText(name) {
+  if (ts.isIdentifier(name) || ts.isStringLiteralLike(name) || ts.isNoSubstitutionTemplateLiteral(name)) return name.text
+  return undefined
+}
+
+function collectCvaCall(node, candidates) {
+  collectClassExpression(node.arguments[0], candidates)
+  const config = node.arguments[1]
+  if (!config || !ts.isObjectLiteralExpression(config)) return
+
+  for (const property of config.properties) {
+    if (!ts.isPropertyAssignment(property)) continue
+    const name = propertyNameText(property.name)
+    if (name === "variants" && ts.isObjectLiteralExpression(property.initializer)) {
+      for (const variant of property.initializer.properties) {
+        if (!ts.isPropertyAssignment(variant) || !ts.isObjectLiteralExpression(variant.initializer)) continue
+        for (const option of variant.initializer.properties) {
+          if (ts.isPropertyAssignment(option)) collectClassExpression(option.initializer, candidates)
+        }
+      }
+      continue
+    }
+    if (name === "compoundVariants" && ts.isArrayLiteralExpression(property.initializer)) {
+      for (const compound of property.initializer.elements) {
+        if (!ts.isObjectLiteralExpression(compound)) continue
+        for (const entry of compound.properties) {
+          if (!ts.isPropertyAssignment(entry)) continue
+          const entryName = propertyNameText(entry.name)
+          if (entryName === "class" || entryName === "className") collectClassExpression(entry.initializer, candidates)
+        }
+      }
+    }
+  }
 }
 
 function collectClassListExpression(node, candidates) {

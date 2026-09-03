@@ -7,6 +7,7 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const upstreamRevision = "2eaad47813b15aa8511bab8dc04625510c977b12"
 
 const copiedSources = [
+  ["src/upstream/index.css", "src/index.css", "49cd4caf64052b7bc042af98d83a4f550cb4f88e"],
   ["src/upstream/packages/timeline-core/types.ts", "packages/timeline-core/src/types.ts", "98fd4d48599e618a3e50964269ab2ba55617696a"],
   ["src/upstream/packages/timeline-core/clip-fades.ts", "packages/timeline-core/src/clip-fades.ts", "cbb99bf3a58390cb12fbe2c99cc93c83b15eca58"],
   ["src/upstream/packages/timeline-core/clip-placement.ts", "packages/timeline-core/src/clip-placement.ts", "28cc2d615614d72eae44e8f2645624c36e2c8104"],

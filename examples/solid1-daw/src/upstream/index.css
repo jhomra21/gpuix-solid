@@ -1,4 +1,6 @@
-@import "tailwindcss" source(none);
+@import 'tailwindcss';
+
+@plugin "tailwindcss-animate";
 
 @theme {
   --text-xxs: 0.6875rem;
@@ -9,7 +11,7 @@
   --text-2xs--line-height: 0.875rem;
 }
 
-/* Theme tokens are derived from the exact pinned src/upstream/index.css source. */
+/* Tailwind v4: define color tokens with @theme so utilities like bg-primary, text-primary-foreground, ring-ring, etc. are available */
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.141 0.005 285.823);
@@ -207,4 +209,321 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* @theme [data-kb-theme="dark"] {
+  --color-background: 240 10% 3.9%;
+  --color-foreground: 0 0% 98%;
+  --color-muted: 240 3.7% 15.9%;
+  --color-muted-foreground: 240 5% 64.9%;
+  --color-accent: 240 3.7% 15.9%;
+  --color-accent-foreground: 0 0% 98%;
+  --color-popover: 240 10% 3.9%;
+  --color-popover-foreground: 0 0% 98%;
+  --color-border: 240 3.7% 15.9%;
+  --color-input: 240 3.7% 15.9%;
+  --color-card: 240 10% 3.9%;
+  --color-card-foreground: 0 0% 98%;
+  --color-primary: 0 0% 98%;
+  --color-primary-foreground: 240 5.9% 10%;
+  --color-secondary: 240 3.7% 15.9%;
+  --color-secondary-foreground: 0 0% 98%;
+  --color-destructive: 0 62.8% 30.6%;
+  --color-destructive-foreground: 0 0% 98%;
+  --color-info: 204 94% 94%;
+  --color-info-foreground: 199 89% 48%;
+  --color-success: 149 80% 90%;
+  --color-success-foreground: 160 84% 39%;
+  --color-warning: 48 96% 89%;
+  --color-warning-foreground: 25 95% 53%;
+  --color-error: 0 93% 94%;
+  --color-error-foreground: 0 84% 60%;
+  --color-ring: 240 4.9% 83.9%;
+} */
+
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer base {
+  * {
+    /* Tailwind v4 may not generate `border-border` if the theme doesn't expose it.
+       Set the base border color directly from our CSS variable instead. */
+    border-color: var(--border);
+  }
+  body {
+    /* Use CSS variables directly to avoid relying on generated utilities */
+    background-color: var(--background);
+    color: var(--foreground);
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1;
+  }
+
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  *::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer utilities {
+  .effect-shell[data-device-collapsed="true"] {
+    width: 26px !important;
+    min-width: 26px !important;
+    max-width: 26px !important;
+    flex: 0 0 26px !important;
+  }
+
+  .effect-shell-chevron-icon {
+    transform: rotate(180deg);
+  }
+
+  .effect-shell-chevron[aria-expanded="false"] .effect-shell-chevron-icon {
+    transform: rotate(0deg);
+  }
+
+  .device-lofi {
+    width: 400px;
+    min-width: 400px;
+  }
+
+  .device-lofi-grid {
+    grid-template-columns: 1fr 8rem;
+  }
+
+  .device-autofilter,
+  .device-gate {
+    width: 520px;
+    min-width: 520px;
+  }
+
+  .device-autofilter-grid {
+    grid-template-columns: 7rem 1fr;
+  }
+
+  .device-gate-grid {
+    grid-template-columns: 1fr 9rem;
+  }
+
+  .device-phaser {
+    width: 280px;
+    min-width: 280px;
+  }
+
+  .device-phaser-grid {
+    grid-template-columns: 1fr 3rem;
+  }
+
+  .device-spectral {
+    width: 620px;
+    min-width: 620px;
+  }
+
+  .device-spectral-header-grid {
+    grid-template-columns: 7rem 6rem minmax(0, 1fr) 7rem;
+  }
+
+  .device-controls-with-footer {
+    grid-template-rows: 1fr auto;
+  }
+
+  .device-spectral-grid {
+    grid-template-rows: auto 1fr auto;
+  }
+
+  .track-row-divider {
+    box-shadow: inset 0 -1px 0 rgb(38 38 38);
+  }
+
+  .track-row-selected-wash {
+    box-shadow:
+      inset 0 0 0 9999px rgb(0 0 0 / 12%),
+      inset 0 -1px 0 rgb(38 38 38);
+  }
+
+  .track-expanded-row-grid {
+    grid-template-columns: minmax(72px, 96px) minmax(96px, 1fr) 101px;
+  }
+
+  .track-row-control-panel {
+    width: 101px;
+  }
+
+  .track-row-control-stack {
+    width: 81px;
+  }
+
+  .track-meter-strip {
+    width: 12px;
+  }
+
+  .track-automation-indicator {
+    box-shadow: 0 0 6px rgb(239 68 68 / 75%);
+  }
+
+  .step {
+    counter-increment: step;
+  }
+
+  .step:before {
+    @apply absolute w-9 h-9 bg-muted font-mono font-medium text-center text-base inline-flex items-center justify-center -indent-px border-4;
+    /* Set border color directly using our token variable */
+    border-color: var(--background);
+    @apply ml-[-50px] mt-[-4px];
+    content: counter(step);
+  }
+}
+
+@layer components {
+  @keyframes about-enter {
+    from {
+      opacity: 0;
+      transform: translateY(1.5rem);
+      filter: blur(8px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+      filter: blur(0);
+    }
+  }
+
+  @keyframes about-reveal {
+    from {
+      opacity: 0;
+      transform: translateY(2rem);
+      filter: blur(10px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+      filter: blur(0);
+    }
+  }
+
+  .about-page .about-hero-copy {
+    animation: about-enter 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .about-page .about-hero-media {
+    animation: about-enter 320ms cubic-bezier(0.22, 1, 0.36, 1) 150ms both;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    html:has(.about-page) {
+      scroll-behavior: smooth;
+    }
+  }
+
+  @supports (animation-timeline: view()) {
+    .about-page .about-feature-card {
+      will-change: transform, opacity, filter;
+      animation-name: about-reveal;
+      animation-duration: auto;
+      animation-timing-function: linear;
+      animation-fill-mode: both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 35%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .about-page .about-hero-copy,
+    .about-page .about-hero-media,
+    .about-page .about-feature-card {
+      animation: none;
+      transform: none;
+      opacity: 1;
+      filter: none;
+    }
+  }
+}
+
+@media (max-width: 640px) {
+  .container {
+    @apply px-4;
+  }
+}
+
+html {
+  overscroll-behavior: none;
+}
+
+.mixer-volume-slider {
+  height: 1.25rem;
+  appearance: none;
+  touch-action: none;
+  border: 0.5px solid var(--border);
+  background: linear-gradient(
+    to right,
+    var(--warning-foreground) 0 var(--mixer-volume-percent),
+    var(--muted-foreground) var(--mixer-volume-percent) 100%
+  );
+}
+
+.mixer-volume-slider-automated {
+  background:
+    linear-gradient(
+      to right,
+      transparent 0 var(--mixer-volume-automation-start),
+      var(--automation) var(--mixer-volume-automation-start) var(--mixer-volume-automation-end),
+      transparent var(--mixer-volume-automation-end) 100%
+    ),
+    linear-gradient(
+      to right,
+      var(--warning-foreground) 0 var(--mixer-volume-percent),
+      var(--muted-foreground) var(--mixer-volume-percent) 100%
+    );
+  background-position: 0 0, 0 0;
+  background-repeat: no-repeat;
+  background-size: 100% 4px, 100% 100%;
+}
+
+.mixer-volume-slider::-webkit-slider-runnable-track {
+  height: 100%;
+  background: transparent;
+}
+
+.mixer-volume-slider::-webkit-slider-thumb {
+  width: 0;
+  height: 1.25rem;
+  appearance: none;
+}
+
+.mixer-volume-slider::-moz-range-track {
+  height: 100%;
+  background: var(--muted-foreground);
+}
+
+.mixer-volume-slider::-moz-range-progress {
+  height: 100%;
+  background: var(--warning-foreground);
+}
+
+.mixer-volume-slider::-moz-range-thumb {
+  width: 0;
+  height: 0;
+  border: 0;
+}
+
+.mixer-volume-slider:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.track-row-divider button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
 }

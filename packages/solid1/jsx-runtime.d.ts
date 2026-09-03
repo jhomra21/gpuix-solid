@@ -36,7 +36,7 @@ type SemanticDomProps = DomCompatibleProps<HostProps, SolidJSX.HTMLAttributes<HT
 
 type InlineSvgProps = JSXProps<SvgProps> | SolidJSX.SvgSVGAttributes<SVGSVGElement>
 
-type InlineSvgChildProps = NativeClassProps & {
+type InlineSvgChildProps = NativeClassProps & SolidJSX.DOMAttributes<SVGElement> & {
   children?: SolidJSX.Element | SolidJSX.Element[] | undefined
   id?: string | undefined
   d?: string | undefined

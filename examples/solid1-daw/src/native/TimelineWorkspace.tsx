@@ -41,7 +41,7 @@ interface GridLine {
 function trackRowHeight(track: NativeTrack): number {
   const clipLaneHeight = track.collapsed ? layout.collapsedLaneHeight : layout.laneHeight
   if (track.collapsed || !track.automationVisible) return clipLaneHeight
-  return clipLaneHeight + track.automationLaneCount * 48
+  return clipLaneHeight + 48
 }
 
 function sourceClip(clip: NativeTrack["clips"][number]): RuntimeClip {

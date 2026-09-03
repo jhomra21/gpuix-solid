@@ -27,7 +27,6 @@ export interface NativeTrack {
   collapsed?: boolean
   groupId?: string
   automationVisible: boolean
-  automationLaneCount: number
   outputTarget: string
   sendTarget: string
   clips: NativeClip[]
@@ -59,7 +58,6 @@ export const initialTracks: NativeTrack[] = [
     soloed: false,
     armed: false,
     automationVisible: false,
-    automationLaneCount: 1,
     outputTarget: "Master",
     sendTarget: "A-Reverb",
     clips: [
@@ -80,7 +78,6 @@ export const initialTracks: NativeTrack[] = [
     soloed: false,
     armed: false,
     automationVisible: false,
-    automationLaneCount: 1,
     outputTarget: "Master",
     sendTarget: "A-Reverb",
     clips: [
@@ -100,7 +97,6 @@ export const initialTracks: NativeTrack[] = [
     soloed: false,
     armed: true,
     automationVisible: false,
-    automationLaneCount: 1,
     outputTarget: "Master",
     sendTarget: "A-Reverb",
     clips: [
@@ -120,7 +116,6 @@ export const initialTracks: NativeTrack[] = [
     soloed: false,
     armed: false,
     automationVisible: false,
-    automationLaneCount: 1,
     outputTarget: "Master",
     sendTarget: "A-Reverb",
     clips: [
@@ -141,7 +136,6 @@ export const initialTracks: NativeTrack[] = [
     soloed: false,
     armed: false,
     automationVisible: false,
-    automationLaneCount: 1,
     outputTarget: "Master",
     sendTarget: "None",
     clips: [],

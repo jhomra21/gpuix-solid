@@ -203,11 +203,12 @@ const runtime = createRenderer<HostNode | HostParent>({
       const semanticTag = semanticTags.get(node)
       if (semanticTag && isSvgMarkupTag(semanticTag)) {
         if (semanticTag !== "svg") {
-          setSvgAttribute(node, name, value)
-          refreshInlineSvg(node)
-          return
-        }
-        if (isSvgMarkupAttribute(name)) {
+          if (isSvgMarkupAttribute(name)) {
+            setSvgAttribute(node, name, value)
+            refreshInlineSvg(node)
+            return
+          }
+        } else if (isSvgMarkupAttribute(name)) {
           setSvgAttribute(node, name, value)
           refreshInlineSvg(node)
           return

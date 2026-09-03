@@ -30,7 +30,7 @@ export type SourceTrackSidebarProps = {
   onToggleArm: (id: string) => void
   onVolumeChange: (id: string, value: number) => void
   onToggleAutomation: (id: string) => void
-  onAddAutomationLane: (id: string) => void
+  onAddAutomationLane?: (id: string) => void
   onHideAutomationLane: (id: string) => void
   onMasterVolumeChange: (value: number) => void
   onSetTrackColor: (id: string, color: string | undefined) => void
@@ -139,7 +139,7 @@ export default function SourceTrackSidebar(props: SourceTrackSidebarProps): JSX.
     actions: {
       toggleMasterVisibility: () => setMasterAutomationVisible((visible) => !visible),
       toggleTrackVisibility: props.onToggleAutomation,
-      addTrackLane: props.onAddAutomationLane,
+      addTrackLane: (trackId) => props.onAddAutomationLane?.(trackId),
       showTrackLane: (trackId, selection) => {
         setSelections((current) => ({ ...current, [trackId]: selection }))
         const nativeTrack = props.tracks.find((track) => track.id === trackId)

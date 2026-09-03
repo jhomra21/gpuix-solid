@@ -75,6 +75,7 @@ import type { NativeStyleManifest } from "@jhomra21/gpuix-solid1"
 // - row-start-1: GPUIX 0.7 does not publish grid-item row placement; the native DAW verifier asserts the collapsed controls preserve the source one-row ordering
 // - selection:bg-primary/40: native text selection has its own selectionColor contract rather than CSS ::selection variants
 // - shadow-background/40: this only recolors the copied context menu's layered shadow-md; GPUIX 0.7 exposes one BoxShadow and cannot represent Tailwind's layered shadow-md geometry
+// - shadow-black/30: this only recolors the copied automation lane readout shadow-lg; GPUIX 0.7 cannot represent that layered source shadow exactly
 // - shadow-black/50: this only recolors the copied automation picker shadow-xl; GPUIX 0.7 cannot represent that layered source shadow exactly
 // - shadow-inner: GPUIX 0.7 BoxShadow has no inset mode; the exact armed-record state remains preserved by its red border, background, and foreground styles
 // - shadow-lg: Tailwind shadow-lg is layered; GPUIX 0.7 exposes one native BoxShadow
@@ -1124,6 +1125,33 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "flexDirection": "row"
       }
     },
+    "grid-cols-[minmax(0,1fr)_20px]": {
+      "base": {
+        "display": "flex",
+        "flexDirection": "row"
+      },
+      "descendants": {
+        ">div": {
+          "base": {
+            "flexGrow": 1,
+            "flexShrink": 1,
+            "flexBasis": 0,
+            "minWidth": 0
+          }
+        },
+        ">button": {
+          "base": {
+            "width": 20,
+            "flexShrink": 0
+          }
+        }
+      }
+    },
+    "grid-cols-[minmax(72px,96px)_minmax(96px,1fr)_101px]": {
+      "base": {
+        "gridTemplateColumns": 3
+      }
+    },
     "group": {
       "base": {}
     },
@@ -1601,6 +1629,23 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "minWidth": 160
       }
     },
+    "mixer-volume-slider": {
+      "base": {
+        "height": 20,
+        "borderWidth": 0.5
+      },
+      "light": {
+        "borderColor": "oklch(0.92 0.004 286.32)",
+        "backgroundColor": "oklch(0.552 0.016 285.938)"
+      },
+      "dark": {
+        "borderColor": "oklch(0.274 0.006 286.033)",
+        "backgroundColor": "oklch(0.705 0.015 286.067)"
+      }
+    },
+    "mixer-volume-slider-automated": {
+      "base": {}
+    },
     "ml-auto": {
       "base": {}
     },
@@ -1889,6 +1934,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "rightFraction": 0.5
       }
     },
+    "right-2": {
+      "base": {
+        "right": 8
+      }
+    },
     "right-4": {
       "base": {
         "right": 16
@@ -1946,6 +1996,9 @@ export const nativeTailwindManifest: NativeStyleManifest = {
       "base": {}
     },
     "shadow-background/40": {
+      "base": {}
+    },
+    "shadow-black/30": {
       "base": {}
     },
     "shadow-black/50": {
@@ -2326,6 +2379,49 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     },
     "touch-none": {
       "base": {}
+    },
+    "track-automation-indicator": {
+      "base": {
+        "boxShadow": {
+          "offsetX": 0,
+          "offsetY": 0,
+          "blurRadius": 6,
+          "spreadRadius": 0,
+          "color": "rgba(239, 68, 68, 0.75)"
+        }
+      }
+    },
+    "track-expanded-row-grid": {
+      "base": {
+        "gridTemplateColumns": 3
+      }
+    },
+    "track-meter-strip": {
+      "base": {
+        "width": 12
+      }
+    },
+    "track-row-control-panel": {
+      "base": {
+        "width": 101
+      }
+    },
+    "track-row-control-stack": {
+      "base": {
+        "width": 81
+      }
+    },
+    "track-row-divider": {
+      "base": {
+        "borderBottomWidth": 1,
+        "borderColor": "rgb(38 38 38)"
+      }
+    },
+    "track-row-selected-wash": {
+      "base": {
+        "borderBottomWidth": 1,
+        "borderColor": "rgb(38 38 38)"
+      }
     },
     "tracking-normal": {
       "base": {}
