@@ -1,7 +1,7 @@
 import { createMemo, createSignal, type JSX } from "solid-js"
 import { automationTargetKey, type AutomationParameterSelection } from "../compat/daw-browser-shared"
 import type { TimelineWorkspaceAutomationModel } from "../compat/useTimelineAutomationController"
-import type { RuntimeClip, Track, TrackSend } from "../compat/timeline-core-types"
+import type { TrackSend } from "../compat/timeline-core-types"
 import UpstreamTrackSidebar, { type TrackSidebarModel } from "../upstream/components/timeline/TrackSidebar"
 import { masterAreaHeight } from "../upstream/components/timeline/MasterSidebarRow"
 import {
@@ -12,7 +12,8 @@ import {
 } from "../upstream/lib/timeline-track-layout"
 import type { TrackDropTarget } from "../upstream/lib/track-group-ops"
 import type { NativeTrack } from "./model"
-import { dawTheme, layout } from "./theme"
+import { sourceTracks } from "./sourceTrackAdapter"
+import { layout } from "./theme"
 
 export type SourceTrackSidebarProps = {
   tracks: NativeTrack[]
@@ -43,42 +44,13 @@ export type SourceTrackSidebarProps = {
   onReorderTracks?: (ids: string[], target: TrackDropTarget) => void
 }
 
-function sourceClip(clip: NativeTrack["clips"][number]): RuntimeClip {
-  return {
-    ...clip,
-    color: clip.color ?? (clip.kind === "midi" ? dawTheme.clipMidi : dawTheme.clipAudio),
-    sourceKind: clip.kind === "audio" ? "upload" : undefined,
-    midi: clip.kind === "midi" ? { notes: [] } : undefined,
-  }
-}
-
-function sourceTrack(track: NativeTrack, tracks: NativeTrack[]): Track {
-  const output = tracks.find((candidate) => candidate.name === track.outputTarget)
-  const sendTarget = tracks.find((candidate) => candidate.name === track.sendTarget && candidate.kind === "return")
-  return {
-    id: track.id,
-    name: track.name,
-    kind: track.kind === "midi" ? "instrument" : track.kind === "audio" ? "audio" : undefined,
-    channelRole: track.kind === "return" ? "return" : track.kind === "group" ? "group" : "track",
-    collapsed: track.collapsed,
-    color: track.color,
-    clips: track.clips.map(sourceClip),
-    groupId: track.groupId,
-    outputTargetId: output?.kind === "group" ? output.id : undefined,
-    sends: sendTarget && track.send > 0.0001 ? [{ targetId: sendTarget.id, amount: track.send }] : [],
-    volume: track.volume,
-    muted: track.muted,
-    soloed: track.soloed,
-  }
-}
-
 export default function SourceTrackSidebar(props: SourceTrackSidebarProps): JSX.Element {
   const [laneHeights, setLaneHeights] = createSignal<Record<string, number>>({})
   const [selections, setSelections] = createSignal<Record<string, AutomationParameterSelection>>({})
   const [masterAutomationVisible, setMasterAutomationVisible] = createSignal(false)
   const [masterAutomationHeight, setMasterAutomationHeight] = createSignal(48)
 
-  const tracks = createMemo(() => props.tracks.map((track) => sourceTrack(track, props.tracks)))
+  const tracks = createMemo(() => sourceTracks(props.tracks))
   const trackById = createMemo(() => new Map(tracks().map((track) => [track.id, track])))
   const visibleByTrackId = createMemo<Record<string, boolean>>(() => Object.fromEntries(
     props.tracks.map((track) => [track.id, track.automationVisible]),
@@ -154,12 +126,12 @@ export default function SourceTrackSidebar(props: SourceTrackSidebarProps): JSX.
   }))
 
   const sidebar = createMemo<TrackSidebarModel>(() => {
-    const sourceTracks = tracks()
+    const sourceTracksValue = tracks()
     const sourceTrackById = trackById()
     const returnsHeight = trackLayout().returnHeightPx
     return {
-      tracks: sourceTracks,
-      allTracks: sourceTracks,
+      tracks: sourceTracksValue,
+      allTracks: sourceTracksValue,
       trackById: sourceTrackById,
       trackLayout: trackLayout(),
       scrollElement: props.scrollElement,
