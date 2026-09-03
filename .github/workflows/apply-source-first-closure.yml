@@ -40,6 +40,59 @@ jobs:
             https://raw.githubusercontent.com/jhomra21/daw-browser-convex/2eaad47813b15aa8511bab8dc04625510c977b12/src/index.css \
             --output examples/solid1-daw/src/upstream/index.css
           test "$(git hash-object examples/solid1-daw/src/upstream/index.css)" = "49cd4caf64052b7bc042af98d83a4f550cb4f88e"
+      - name: Normalize closure host variants
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/apply-source-first-closure.py')
+          text = path.read_text()
+          old = 'replace_once("packages/solid/src/host/universal.ts", svg_property_anchor, svg_property_replacement)'
+          new = '''solid2_svg_property_anchor = """  if (semanticTag && isSvgMarkupTag(semanticTag)) {
+            if (semanticTag !== \\\"svg\\\") {
+              setSvgAttribute(node, name, value)
+              refreshInlineSvg(node)
+              return
+            }
+            if (isSvgMarkupAttribute(name)) {
+              setSvgAttribute(node, name, value)
+              refreshInlineSvg(node)
+              return
+            }
+          }
+          """
+          solid2_svg_property_replacement = """  if (semanticTag && isSvgMarkupTag(semanticTag)) {
+            if (semanticTag !== \\\"svg\\\") {
+              if (isSvgMarkupAttribute(name)) {
+                setSvgAttribute(node, name, value)
+                refreshInlineSvg(node)
+                return
+              }
+            } else if (isSvgMarkupAttribute(name)) {
+              setSvgAttribute(node, name, value)
+              refreshInlineSvg(node)
+              return
+            }
+          }
+          """
+          replace_once(\\\"packages/solid/src/host/universal.ts\\\", solid2_svg_property_anchor, solid2_svg_property_replacement)'''
+          if old not in text:
+              raise SystemExit('Solid2 closure call anchor missing')
+          text = text.replace(old, new, 1)
+          text += '''
+          replace_once(
+              "examples/solid1-daw/src/native/SourceTrackSidebar.tsx",
+              "  onAddAutomationLane: (id: string) => void\\n",
+              "  onAddAutomationLane?: (id: string) => void\\n",
+          )
+          replace_once(
+              "examples/solid1-daw/src/native/SourceTrackSidebar.tsx",
+              "      addTrackLane: props.onAddAutomationLane,\\n",
+              "      addTrackLane: (trackId) => props.onAddAutomationLane?.(trackId),\\n",
+          )
+          '''
+          path.write_text(text)
+          PY
       - name: Apply permanent closure
         run: python3 .github/apply-source-first-closure.py
       - run: bun install --frozen-lockfile
