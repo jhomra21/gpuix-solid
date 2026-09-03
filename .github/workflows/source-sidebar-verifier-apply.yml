@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/workflows/source-sidebar-verifier-apply.yml"
       - ".github/source-sidebar-verifier-apply.py"
+      - ".github/source-sidebar-geometry-probe.py"
 
 permissions:
   contents: read
@@ -22,39 +23,11 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.3.14
-      - name: Apply and instrument probe patch
-        shell: bash
+      - name: Apply verifier patch
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path('.github/source-sidebar-verifier-apply.py')
-          source = path.read_text()
-          old = 'mixer_end = test.index("  for (const testId of [", mixer_start)'
-          new = 'mixer_end = test.index(\'  for (const testId of [\\n    "Hide browser sidebar"\', mixer_start)'
-          if old not in source:
-              raise SystemExit('mixer end probe anchor missing')
-          path.write_text(source.replace(old, new, 1))
-          PY
+          python3 .github/source-sidebar-geometry-probe.py
           python3 .github/source-sidebar-verifier-apply.py
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path('examples/solid1-daw/src/test.tsx')
-          source = path.read_text()
-          anchor = '  requireCondition(returnTimeline.y >= timelineFooter.y, "Return timeline row should live inside the sticky footer")'
-          probe = '''  console.log("source sidebar geometry probe", JSON.stringify({
-            timelineFooter,
-            returnTimeline,
-            returnAncestors: app.renderer.ancestorBoundsCustomProps(returnTrack),
-            returnSidebar,
-            masterTimeline,
-            masterAncestors: app.renderer.ancestorBoundsCustomProps(masterEffects),
-            masterSidebar,
-          }))
-'''
-          if anchor not in source:
-              raise SystemExit('return geometry assertion anchor missing')
-          path.write_text(source.replace(anchor, probe + anchor, 1))
-          PY
+          python3 .github/source-sidebar-geometry-probe.py
       - run: bun install --frozen-lockfile
       - name: Validate on native macOS
         run: |
