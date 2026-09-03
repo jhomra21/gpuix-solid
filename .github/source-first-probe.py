@@ -45,6 +45,12 @@ replace_once(
 )
 
 replace_once(
+    generator,
+    '  const rule = findCandidateRule(root, candidate)\n  if (!rule) continue\n',
+    '  const rule = findCandidateRule(root, candidate)\n  if (!rule) throw new Error(`Source class candidate ${JSON.stringify(candidate)} has no Tailwind rule or explicit native compatibility entry`)\n',
+)
+
+replace_once(
     "packages/solid1/jsx-runtime.d.ts",
     "type InlineSvgChildProps = NativeClassProps & {",
     "type InlineSvgChildProps = NativeClassProps & SolidJSX.DOMAttributes<SVGElement> & {",
