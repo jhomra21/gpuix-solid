@@ -9,6 +9,7 @@ on:
       - ".github/source-sidebar-verifier-apply.py"
       - ".github/source-sidebar-geometry-probe.py"
       - ".github/source-sidebar-postprocess.py"
+      - "examples/solid1-daw/src/native/SourceTrackSidebar.tsx"
 
 permissions:
   contents: read
