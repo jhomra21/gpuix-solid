@@ -13,6 +13,7 @@ on:
       - ".github/inline-grid-compat-probe.py"
       - ".github/empty-text-compat-probe.py"
       - ".github/interactive-hit-surface-probe.py"
+      - ".github/arm-edge-hit-probe.py"
       - "packages/solid1/src/browser-grid-compat.ts"
       - "packages/solid1/scripts/check-browser-grid-compat.ts"
       - "packages/solid1/package.json"
@@ -41,6 +42,7 @@ jobs:
           python3 .github/inline-grid-compat-probe.py
           python3 .github/empty-text-compat-probe.py
           python3 .github/interactive-hit-surface-probe.py
+          python3 .github/arm-edge-hit-probe.py
       - run: bun install --frozen-lockfile
       - name: Validate on native macOS
         run: |
