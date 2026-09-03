@@ -1,6 +1,6 @@
 import type { StyleDesc } from "./host/types.js"
 
-type BrowserGridTrack =
+export type BrowserGridTrack =
   | { kind: "fraction"; fraction: number; minWidth: number }
   | { kind: "fixed"; width: number; minWidth: number; maxWidth: number; flexShrink: number }
 
