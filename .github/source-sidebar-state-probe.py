@@ -50,17 +50,15 @@ mute_probe = '''  const muteBackground = app.renderer.styleCustomProps(muteOn).b
 if mute_anchor not in test:
     raise SystemExit("mute geometry probe anchor missing")
 test = test.replace(mute_anchor, mute_probe, 1)
-arm_anchor = '''  const armOn = { "aria-label": "Arm track 1 for recording" } as const
-  const armOff = { "aria-label": "Disarm track 1 for recording" } as const
-  app.renderer.clickCustomProps(armOn)
+arm_anchor = '''  app.renderer.clickCustomProps(armOff)
+  requireCondition(app.renderer.hasCustomProps(armOn), "exact source record arm should expose Disarm after activation")
 '''
-arm_probe = '''  const armOn = { "aria-label": "Arm track 1 for recording" } as const
-  const armOff = { "aria-label": "Disarm track 1 for recording" } as const
-  console.log("source sidebar arm geometry", JSON.stringify({
-    button: app.renderer.boundsCustomProps(armOn),
-    ancestors: app.renderer.ancestorBoundsCustomProps(armOn),
+arm_probe = '''  console.log("source sidebar arm geometry", JSON.stringify({
+    button: app.renderer.boundsCustomProps(armOff),
+    ancestors: app.renderer.ancestorBoundsCustomProps(armOff),
   }))
-  app.renderer.clickCustomProps(armOn)
+  app.renderer.clickCustomProps(armOff)
+  requireCondition(app.renderer.hasCustomProps(armOn), "exact source record arm should expose Disarm after activation")
 '''
 if arm_anchor not in test:
     raise SystemExit("arm geometry probe anchor missing")
