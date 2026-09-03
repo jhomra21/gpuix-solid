@@ -29,7 +29,6 @@ jobs:
           python3 .github/source-sidebar-geometry-probe.py
           python3 .github/source-sidebar-verifier-apply.py
           python3 .github/source-sidebar-postprocess.py
-          python3 .github/source-sidebar-geometry-probe.py
       - run: bun install --frozen-lockfile
       - name: Validate on native macOS
         run: |
