@@ -9,6 +9,7 @@ on:
       - ".github/source-sidebar-verifier-apply.py"
       - ".github/source-sidebar-geometry-probe.py"
       - ".github/source-sidebar-postprocess.py"
+      - ".github/source-sidebar-state-probe.py"
       - "examples/solid1-daw/src/native/SourceTrackSidebar.tsx"
 
 permissions:
@@ -30,6 +31,7 @@ jobs:
           python3 .github/source-sidebar-geometry-probe.py
           python3 .github/source-sidebar-verifier-apply.py
           python3 .github/source-sidebar-postprocess.py
+          python3 .github/source-sidebar-state-probe.py
       - run: bun install --frozen-lockfile
       - name: Validate on native macOS
         run: |
