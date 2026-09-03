@@ -14,11 +14,11 @@ for file_name in ["packages/solid1/src/host/nodes.ts", "packages/solid/src/host/
     replace_text = '''export function replaceHostText(node: HostTextNode, value: string): void {
   const text = String(value)
   if (node.text === text) return
-  const visibilityChanged = (node.text.length === 0) !== (text.length === 0)
+  const layoutChanged = (node.text.length === 0) !== (text.length === 0)
   node.text = text
   if (!node.root || !node.nativeAlive) return
   node.root.driver.enqueue("setText", node.id, text)
-  if (visibilityChanged) node.root.driver.enqueue("setStyle", node.id, nativeTextLayoutStyle(text))
+  if (layoutChanged) node.root.driver.enqueue("setStyle", node.id, nativeTextLayoutStyle(text))
 }
 '''
     if replace_anchor not in source:
@@ -41,7 +41,20 @@ for file_name in ["packages/solid1/src/host/nodes.ts", "packages/solid/src/host/
     helper_anchor = '''function dataAttributeProperty(name: string): string {
 '''
     helper_text = '''function nativeTextLayoutStyle(text: string): StyleDesc {
-  return text.length === 0 ? { display: "none" } : {}
+  return text.length === 0
+    ? {
+        display: "none",
+        width: 0,
+        height: 0,
+        minWidth: 0,
+        minHeight: 0,
+        maxWidth: 0,
+        maxHeight: 0,
+        flexGrow: 0,
+        flexShrink: 0,
+        flexBasis: 0,
+      }
+    : {}
 }
 
 function dataAttributeProperty(name: string): string {
