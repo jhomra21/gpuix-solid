@@ -129,12 +129,5 @@ jobs:
           ))
           PY
       - run: bun install --frozen-lockfile
-      - name: Run strict EQ source compile probe
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd examples/solid1-daw
-          bun install --no-save
-          bun run host:build
-          bun run generate:styles
-          bun run typecheck
+      - name: Run exact EQ through normal DAW validation path
+        run: bun run solid1:daw
