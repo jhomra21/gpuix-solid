@@ -97,7 +97,7 @@ jobs:
           replace_once(
               "examples/solid1-daw/scripts/generate-native-tailwind.mjs",
               'const explicitlyIgnored = new Map([\\n',
-              'const explicitlyIgnored = new Map([\\n  ["[writing-mode:vertical-rl]", "GPUIX 0.7 does not publish CSS writing-mode; the exact collapsed device label remains source-locked while native cannot reproduce vertical text orientation"],\\n',
+              'const explicitlyIgnored = new Map([\\n  ["[writing-mode:vertical-rl]", "GPUIX 0.7 does not publish CSS writing-mode; the exact collapsed device label remains source-locked while native cannot reproduce vertical text orientation"],\\n  ["mt-auto", "GPUIX 0.7 publishes numeric margins only; the exact Compressor Auto toggle keeps its source utility while native cannot reproduce CSS auto-margin free-space absorption without changing sibling geometry"],\\n',
           )
           '''
           path.write_text(text)
