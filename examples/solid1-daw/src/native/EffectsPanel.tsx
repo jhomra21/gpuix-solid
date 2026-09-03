@@ -1,6 +1,8 @@
-import type { EqBandParams, EqBandType } from "@daw-browser/shared"
+import { createDefaultCompressorParams, type CompressorParams, type EqBandParams, type EqBandType } from "@daw-browser/shared"
 import { For, createSignal, type JSX } from "solid-js"
+import Compressor from "~/components/effects/Compressor"
 import EqFilterTypeSelect from "~/components/effects/eq-filter-type-select"
+import { DeviceCollapseProvider, safeDeviceContentId } from "~/components/timeline/create-effects-panel-device-collapse"
 import { dawTheme, text2xs, text3xs, textXs } from "./theme"
 
 interface KnobProps {
@@ -45,40 +47,6 @@ function DeviceHeader(props: { title: string; typeLabel: string; enabled: boolea
   )
 }
 
-function ToggleButton(props: { label: string; active: boolean; disabled?: boolean; onClick: () => void }): JSX.Element {
-  return (
-    <div
-      onClick={() => { if (!props.disabled) props.onClick() }}
-      style={{
-        display: "flex",
-        flexDirection: "row",
-        minWidth: 34,
-        height: 22,
-        paddingLeft: 5,
-        paddingRight: 5,
-        alignItems: "center",
-        justifyContent: "center",
-        borderWidth: 1,
-        borderColor: dawTheme.border,
-        backgroundColor: props.active ? dawTheme.amber : dawTheme.timelineSurfaceMuted,
-        opacity: props.disabled ? 0.5 : 1,
-        cursor: props.disabled ? "default" : "pointer",
-      }}
-    >
-      <text style={{ ...text3xs, color: props.active ? "#111111" : dawTheme.mutedForeground }}>{props.label}</text>
-    </div>
-  )
-}
-
-function MiniStatus(props: { label: string; value: string; tone?: "cyan" | "yellow" }): JSX.Element {
-  return (
-    <div style={{ flexGrow: 1, minWidth: 0, padding: 5, borderWidth: 1, borderColor: dawTheme.border, backgroundColor: "#09090bcc" }}>
-      <text style={{ ...text3xs, color: dawTheme.mutedForeground }}>{props.label}</text>
-      <text style={{ ...text2xs, color: props.tone === "cyan" ? "#67e8f9" : props.tone === "yellow" ? "#fde047" : dawTheme.foreground, fontFamily: "monospace" }}>{props.value}</text>
-    </div>
-  )
-}
-
 export interface EffectsPanelProps {
   compressorEnabled: boolean
   onToggleCompressor: () => void
@@ -104,6 +72,7 @@ export interface EffectsPanelProps {
 
 const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value))
 const signedDb = (value: number): string => `${value > 0 ? "+" : ""}${value.toFixed(1)} dB`
+const COMPRESSOR_DEFAULTS = createDefaultCompressorParams()
 
 const EQ_INITIAL_FREQUENCIES = [40, 120, 300, 650, 1200, 3000, 7800, 16000]
 const EQ_INITIAL_Q = [0.7, 1, 1, 1, 1, 1, 1, 0.7]
@@ -112,14 +81,14 @@ const EQ_DEFAULT_Q = [1, 1, 1, 1, 1, 1, 1, 1]
 const EQ_DEFAULT_TYPES: EqBandType[] = ["lowshelf", "peaking", "peaking", "peaking", "peaking", "peaking", "peaking", "highshelf"]
 
 const EffectsPanel = (props: EffectsPanelProps): JSX.Element => {
-  const [compressorAutoRelease, setCompressorAutoRelease] = createSignal(false)
-  const [compressorKnee, setCompressorKnee] = createSignal(6)
-  const [compressorLookahead, setCompressorLookahead] = createSignal(0)
-  const [compressorMakeup, setCompressorMakeup] = createSignal(0)
-  const [compressorDetector, setCompressorDetector] = createSignal<"PEAK" | "RMS">("PEAK")
-  const [compressorDynamics, setCompressorDynamics] = createSignal<"Compress" | "Expand">("Compress")
-  const [compressorEnvelope, setCompressorEnvelope] = createSignal<"Log" | "Linear">("Log")
-  const [compressorView, setCompressorView] = createSignal<"Transfer" | "GR" | "Output">("Transfer")
+  const [compressorAutoRelease, setCompressorAutoRelease] = createSignal(COMPRESSOR_DEFAULTS.autoRelease)
+  const [compressorKnee, setCompressorKnee] = createSignal(COMPRESSOR_DEFAULTS.kneeDb)
+  const [compressorLookahead, setCompressorLookahead] = createSignal(COMPRESSOR_DEFAULTS.lookaheadMs)
+  const [compressorMakeup, setCompressorMakeup] = createSignal(COMPRESSOR_DEFAULTS.makeupDb)
+  const [compressorDetector, setCompressorDetector] = createSignal(COMPRESSOR_DEFAULTS.detectorMode)
+  const [compressorDynamics, setCompressorDynamics] = createSignal(COMPRESSOR_DEFAULTS.dynamicsMode)
+  const [compressorEnvelope, setCompressorEnvelope] = createSignal(COMPRESSOR_DEFAULTS.envelopeCurve)
+  const [compressorCollapsed, setCompressorCollapsed] = createSignal(false)
 
   const [eqSelectedBand, setEqSelectedBand] = createSignal(4)
   const [eqFrequencies, setEqFrequencies] = createSignal([...EQ_INITIAL_FREQUENCIES])
@@ -167,20 +136,54 @@ const EffectsPanel = (props: EffectsPanelProps): JSX.Element => {
     setEqQ((current) => current.map((q, entry) => entry === index ? clamp(value, 0.1, 18) : q))
   }
 
+  const compressorParams = (): CompressorParams => ({
+    enabled: props.compressorEnabled,
+    thresholdDb: props.compressorThreshold,
+    ratio: props.compressorRatio,
+    attackMs: props.compressorAttack,
+    releaseMs: props.compressorRelease,
+    autoRelease: compressorAutoRelease(),
+    makeupDb: compressorMakeup(),
+    outputDb: COMPRESSOR_DEFAULTS.outputDb,
+    dryWet: props.compressorWet,
+    kneeDb: compressorKnee(),
+    lookaheadMs: compressorLookahead(),
+    detectorMode: compressorDetector(),
+    dynamicsMode: compressorDynamics(),
+    envelopeCurve: compressorEnvelope(),
+    sidechain: COMPRESSOR_DEFAULTS.sidechain,
+  })
+
+  const updateCompressor = (updates: Partial<CompressorParams>): void => {
+    if (updates.enabled !== undefined && updates.enabled !== props.compressorEnabled) props.onToggleCompressor()
+    if (updates.thresholdDb !== undefined) props.onThresholdChange(updates.thresholdDb)
+    if (updates.ratio !== undefined) props.onRatioChange(updates.ratio)
+    if (updates.attackMs !== undefined) props.onAttackChange(updates.attackMs)
+    if (updates.releaseMs !== undefined) props.onReleaseChange(updates.releaseMs)
+    if (updates.autoRelease !== undefined) setCompressorAutoRelease(updates.autoRelease)
+    if (updates.makeupDb !== undefined) setCompressorMakeup(updates.makeupDb)
+    if (updates.dryWet !== undefined) props.onWetChange(updates.dryWet)
+    if (updates.kneeDb !== undefined) setCompressorKnee(updates.kneeDb)
+    if (updates.lookaheadMs !== undefined) setCompressorLookahead(updates.lookaheadMs)
+    if (updates.detectorMode !== undefined) setCompressorDetector(updates.detectorMode)
+    if (updates.dynamicsMode !== undefined) setCompressorDynamics(updates.dynamicsMode)
+    if (updates.envelopeCurve !== undefined) setCompressorEnvelope(updates.envelopeCurve)
+  }
+
   const resetCompressor = (): void => {
     if (!props.compressorEnabled) props.onToggleCompressor()
-    props.onThresholdChange(-24)
-    props.onRatioChange(4)
-    props.onAttackChange(10)
-    props.onReleaseChange(120)
-    props.onWetChange(1)
-    setCompressorAutoRelease(true)
-    setCompressorKnee(6)
-    setCompressorLookahead(0)
-    setCompressorMakeup(0)
-    setCompressorDetector("RMS")
-    setCompressorDynamics("Compress")
-    setCompressorEnvelope("Log")
+    props.onThresholdChange(COMPRESSOR_DEFAULTS.thresholdDb)
+    props.onRatioChange(COMPRESSOR_DEFAULTS.ratio)
+    props.onAttackChange(COMPRESSOR_DEFAULTS.attackMs)
+    props.onReleaseChange(COMPRESSOR_DEFAULTS.releaseMs)
+    props.onWetChange(COMPRESSOR_DEFAULTS.dryWet)
+    setCompressorAutoRelease(COMPRESSOR_DEFAULTS.autoRelease)
+    setCompressorKnee(COMPRESSOR_DEFAULTS.kneeDb)
+    setCompressorLookahead(COMPRESSOR_DEFAULTS.lookaheadMs)
+    setCompressorMakeup(COMPRESSOR_DEFAULTS.makeupDb)
+    setCompressorDetector(COMPRESSOR_DEFAULTS.detectorMode)
+    setCompressorDynamics(COMPRESSOR_DEFAULTS.dynamicsMode)
+    setCompressorEnvelope(COMPRESSOR_DEFAULTS.envelopeCurve)
   }
 
   const resetEq = (): void => {
@@ -203,57 +206,23 @@ const EffectsPanel = (props: EffectsPanelProps): JSX.Element => {
   return (
     <div testId="effects-panel" style={{ height: "100%", minHeight: 0, overflowX: "auto", overflowY: "hidden", padding: 4, backgroundColor: dawTheme.appSurface }}>
       <div style={{ height: "100%", display: "flex", alignItems: "stretch", gap: 12, minWidth: 1290 }}>
-        <div testId="compressor-device" style={{ width: 560, minWidth: 560, height: "100%", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.timelineSurface, opacity: props.compressorEnabled ? 1 : 0.7 }}>
-          <DeviceHeader title="Compressor" typeLabel="Audio" enabled={props.compressorEnabled} resetTestId="compressor-reset" onReset={resetCompressor} onToggle={props.onToggleCompressor} />
-          <div style={{ flexGrow: 1, minHeight: 0, display: "flex", gap: 8, padding: 10 }}>
-            <div style={{ width: 84, minWidth: 84, display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
-              <Knob testId="compressor-ratio" label="Ratio" valueLabel={`${props.compressorRatio.toFixed(props.compressorRatio < 10 ? 1 : 0)}:1`} active={props.compressorEnabled} onDecrease={() => props.onRatioChange(clamp(props.compressorRatio - 0.5, 1, 20))} onIncrease={() => props.onRatioChange(clamp(props.compressorRatio + 0.5, 1, 20))} />
-              <Knob testId="compressor-attack" label="Attack" valueLabel={`${props.compressorAttack.toFixed(props.compressorAttack < 10 ? 1 : 0)} ms`} active={props.compressorEnabled} onDecrease={() => props.onAttackChange(clamp(props.compressorAttack - 1, 0, 100))} onIncrease={() => props.onAttackChange(clamp(props.compressorAttack + 1, 0, 100))} />
-              <Knob testId="compressor-release" label="Release" valueLabel={`${Math.round(props.compressorRelease)} ms`} active={props.compressorEnabled && !compressorAutoRelease()} onDecrease={() => props.onReleaseChange(clamp(props.compressorRelease - 10, 20, 800))} onIncrease={() => props.onReleaseChange(clamp(props.compressorRelease + 10, 20, 800))} />
-              <ToggleButton label="Auto" active={compressorAutoRelease()} disabled={!props.compressorEnabled} onClick={() => setCompressorAutoRelease((active) => !active)} />
-            </div>
-
-            <div style={{ flexGrow: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-              <div style={{ height: 38, minHeight: 38, display: "flex", gap: 4 }}>
-                <MiniStatus label="THRESH" value={`${props.compressorThreshold.toFixed(1)} dB`} tone="cyan" />
-                <MiniStatus label="GR" value="-3.8 dB" tone="yellow" />
-                <MiniStatus label="OUTPUT" value="-7.2 dB" />
-                <MiniStatus label="OUT" value="0.0 dB" />
-              </div>
-
-              <div style={{ flexGrow: 1, minHeight: 105, position: "relative", overflow: "hidden", backgroundColor: dawTheme.deviceGraphBackground, borderWidth: 1, borderColor: dawTheme.border }}>
-                <For each={[1,2,3,4,5,6,7,8]}>{(index) => <div style={{ position: "absolute", left: index * 40, top: 0, width: 1, height: 150, backgroundColor: dawTheme.deviceGraphGrid }} />}</For>
-                <For each={[1,2,3,4]}>{(index) => <div style={{ position: "absolute", top: index * 30, left: 0, width: 320, height: 1, backgroundColor: dawTheme.deviceGraphGrid }} />}</For>
-                <div style={{ position: "absolute", left: 18, top: 116, width: 282, height: 2, backgroundColor: dawTheme.deviceGraphAccent }} />
-                <div style={{ position: "absolute", left: 116, top: 18, width: 1, height: 120, backgroundColor: dawTheme.deviceGraphAccent }} />
-              </div>
-
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                <div style={{ display: "flex", gap: 3, paddingTop: 8 }}>
-                  <For each={["Transfer", "GR", "Output"] as const}>{(mode) => <ToggleButton label={mode} active={compressorView() === mode} disabled={!props.compressorEnabled} onClick={() => setCompressorView(mode)} />}</For>
-                </div>
-                <div style={{ flexGrow: 1, display: "flex", justifyContent: "flex-end", gap: 2 }}>
-                  <Knob testId="compressor-threshold" label="Thresh" valueLabel={`${props.compressorThreshold.toFixed(1)} dB`} active={props.compressorEnabled} onDecrease={() => props.onThresholdChange(clamp(props.compressorThreshold - 1, -60, 0))} onIncrease={() => props.onThresholdChange(clamp(props.compressorThreshold + 1, -60, 0))} />
-                  <Knob testId="compressor-knee" label="Knee" valueLabel={`${compressorKnee().toFixed(1)} dB`} active={props.compressorEnabled} onDecrease={() => setCompressorKnee((value) => clamp(value - 1, 0, 40))} onIncrease={() => setCompressorKnee((value) => clamp(value + 1, 0, 40))} />
-                  <Knob testId="compressor-look" label="Look" valueLabel={`${compressorLookahead().toFixed(1)} ms`} active={props.compressorEnabled} onDecrease={() => setCompressorLookahead((value) => clamp(value - 0.5, 0, 20))} onIncrease={() => setCompressorLookahead((value) => clamp(value + 0.5, 0, 20))} />
-                </div>
-              </div>
-            </div>
-
-            <div style={{ width: 96, minWidth: 96, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-              <Knob testId="compressor-makeup" label="Makeup" valueLabel={`${compressorMakeup().toFixed(1)} dB`} active={props.compressorEnabled} onDecrease={() => setCompressorMakeup((value) => clamp(value - 1, -24, 24))} onIncrease={() => setCompressorMakeup((value) => clamp(value + 1, -24, 24))} />
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 3, justifyContent: "center" }}>
-                <ToggleButton label="PEAK" active={compressorDetector() === "PEAK"} disabled={!props.compressorEnabled} onClick={() => setCompressorDetector("PEAK")} />
-                <ToggleButton label="RMS" active={compressorDetector() === "RMS"} disabled={!props.compressorEnabled} onClick={() => setCompressorDetector("RMS")} />
-                <ToggleButton label="Compress" active={compressorDynamics() === "Compress"} disabled={!props.compressorEnabled} onClick={() => setCompressorDynamics("Compress")} />
-                <ToggleButton label="Expand" active={compressorDynamics() === "Expand"} disabled={!props.compressorEnabled} onClick={() => setCompressorDynamics("Expand")} />
-                <ToggleButton label="Log" active={compressorEnvelope() === "Log"} disabled={!props.compressorEnabled} onClick={() => setCompressorEnvelope("Log")} />
-                <ToggleButton label="Linear" active={compressorEnvelope() === "Linear"} disabled={!props.compressorEnabled} onClick={() => setCompressorEnvelope("Linear")} />
-              </div>
-              <Knob testId="compressor-wet" label="Dry/Wet" valueLabel={`${Math.round(props.compressorWet * 100)}%`} active={props.compressorEnabled} onDecrease={() => props.onWetChange(clamp(props.compressorWet - 0.1, 0, 1))} onIncrease={() => props.onWetChange(clamp(props.compressorWet + 0.1, 0, 1))} />
-            </div>
+        <DeviceCollapseProvider
+          collapsed={compressorCollapsed}
+          toggle={() => setCompressorCollapsed((collapsed) => !collapsed)}
+          contentId={() => safeDeviceContentId("audio-effect:fixture-compressor")}
+          canWrite={() => true}
+        >
+          <div testId="compressor-device" style={{ height: "100%", display: "flex", flexShrink: 0 }}>
+            <Compressor
+              params={compressorParams()}
+              onChange={updateCompressor}
+              onToggleEnabled={(enabled) => {
+                if (enabled !== props.compressorEnabled) props.onToggleCompressor()
+              }}
+              onReset={resetCompressor}
+            />
           </div>
-        </div>
+        </DeviceCollapseProvider>
 
         <div testId="eq-device" style={{ width: 704, minWidth: 704, height: "100%", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.timelineSurface, opacity: props.eqEnabled ? 1 : 0.7 }}>
           <DeviceHeader title="EQ Eight" typeLabel={eqChannelMode()} enabled={props.eqEnabled} resetTestId="eq-reset" onReset={resetEq} onToggle={props.onToggleEq} />

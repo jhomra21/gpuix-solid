@@ -11,6 +11,10 @@ import type {
 const RESERVED_PROPS = new Set(["children", "ref", "style", "className", "key"])
 const BUILT_IN_TYPES = new Set<ElementType>(["div", "text"])
 const UNIVERSAL_PROPS = new Set(["autoFocus", "tabIndex", "motion", "testId", "highlight", "title"])
+
+function isForwardedBuiltInProp(name: string): boolean {
+  return UNIVERSAL_PROPS.has(name) || name === "hidden" || name === "role" || name.startsWith("aria-")
+}
 const DOCUMENT_POSITION_DISCONNECTED = 0x01
 const DOCUMENT_POSITION_PRECEDING = 0x02
 const DOCUMENT_POSITION_FOLLOWING = 0x04
@@ -399,7 +403,7 @@ export function setHostProperty<T>(
   if (value === undefined) node.props.delete(name)
   else node.props.set(name, customPropValue(value))
   if (!node.root || !node.nativeAlive || isReserved(name)) return
-  if (BUILT_IN_TYPES.has(node.type) && !UNIVERSAL_PROPS.has(name)) return
+  if (BUILT_IN_TYPES.has(node.type) && !isForwardedBuiltInProp(name)) return
   node.root.driver.enqueue("setCustomProp", node.id, name, customPropValue(value))
 }
 
@@ -586,7 +590,7 @@ function adopt(root: HostRootNode, node: HostNode): void {
     }
     for (const [name, value] of node.props) {
       if (isReserved(name)) continue
-      if (BUILT_IN_TYPES.has(node.type) && !UNIVERSAL_PROPS.has(name)) continue
+      if (BUILT_IN_TYPES.has(node.type) && !isForwardedBuiltInProp(name)) continue
       root.driver.enqueue("setCustomProp", node.id, name, customPropValue(value))
     }
   }

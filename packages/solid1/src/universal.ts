@@ -38,6 +38,7 @@ interface NativeStyleState {
   className: string | undefined
   classList: NativeClassList | undefined
   inlineStyle: StyleDesc | undefined
+  hidden: boolean
 }
 
 type NativeInlineStyleInput = Omit<StyleDesc, "gap" | "rowGap" | "columnGap" | "top" | "right" | "bottom" | "left"> & {
@@ -238,6 +239,11 @@ const runtime = createRenderer<HostNode | HostParent>({
       if (name === "classList") {
         setNativeClassList(node, parseNativeClassList(value))
         refreshInlineSvg(node)
+        return
+      }
+      if (name === "hidden") {
+        setHostProperty(node, name, value, previous)
+        setNativeHidden(node, Boolean(value))
         return
       }
     }
@@ -517,6 +523,7 @@ function nativeStyleState(node: HostElementNode): NativeStyleState {
     className: undefined,
     classList: undefined,
     inlineStyle: undefined,
+    hidden: false,
   }
 }
 
@@ -541,6 +548,12 @@ function setNativeClassName(node: HostElementNode, className: string | undefined
 function setNativeClassList(node: HostElementNode, classList: NativeClassList | undefined): void {
   const state = nativeStyleState(node)
   state.classList = classList
+  commitNativeStyleState(node, state)
+}
+
+function setNativeHidden(node: HostElementNode, hidden: boolean): void {
+  const state = nativeStyleState(node)
+  state.hidden = hidden
   commitNativeStyleState(node, state)
 }
 
@@ -579,7 +592,8 @@ function applyNativeStyleState(node: HostElementNode): void {
   const textTransform = classTextTransform ?? inheritedTextTransform
   if (textTransform === undefined) textTransforms.delete(node)
   else textTransforms.set(node, textTransform)
-  const mergedStyle = mergeNativeStyles(preClassStyle, classStyle, classAttributeStyle, state.inlineStyle)
+  const hiddenStyle: StyleDesc | undefined = state.hidden ? { display: "none" } : undefined
+  const mergedStyle = mergeNativeStyles(preClassStyle, classStyle, classAttributeStyle, state.inlineStyle, hiddenStyle)
   const parentWidth = resolvedNativeNodeSize(node.parent, "x")
   const parentHeight = resolvedNativeNodeSize(node.parent, "y")
   const positionedStyle = applyNativeStyleParentPosition(

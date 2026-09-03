@@ -31,6 +31,7 @@ interface NativeStyleState {
   className: string | undefined
   classList: NativeClassList | undefined
   inlineStyle: StyleDesc | undefined
+  hidden: boolean
 }
 
 type NativeInlineStyleInput = Omit<StyleDesc, "gap" | "rowGap" | "columnGap"> & {
@@ -225,6 +226,11 @@ function setNativeProperty<T>(
     setNativeClassList(node, parseNativeClassList(value))
     return
   }
+  if (name === "hidden") {
+    setHostProperty(node, name, value, previous)
+    setNativeHidden(node, Boolean(value))
+    return
+  }
   setHostProperty(node, name, value, previous)
 }
 
@@ -405,7 +411,7 @@ function normalizeInlineNumericLength(value: DimensionValue | undefined): number
 }
 
 function nativeStyleState(node: HostElementNode): NativeStyleState {
-  return styleStates.get(node) ?? { class: undefined, className: undefined, classList: undefined, inlineStyle: undefined }
+  return styleStates.get(node) ?? { class: undefined, className: undefined, classList: undefined, inlineStyle: undefined, hidden: false }
 }
 
 function setNativeInlineStyle(node: HostElementNode, style: StyleDesc | undefined): void {
@@ -429,6 +435,12 @@ function setNativeClassName(node: HostElementNode, className: string | undefined
 function setNativeClassList(node: HostElementNode, classList: NativeClassList | undefined): void {
   const state = nativeStyleState(node)
   state.classList = classList
+  commitNativeStyleState(node, state)
+}
+
+function setNativeHidden(node: HostElementNode, hidden: boolean): void {
+  const state = nativeStyleState(node)
+  state.hidden = hidden
   commitNativeStyleState(node, state)
 }
 
@@ -464,7 +476,8 @@ function applyNativeStyleState(node: HostElementNode): void {
   if (textTransform === undefined) textTransforms.delete(node)
   else textTransforms.set(node, textTransform)
 
-  const resolvedStyle = mergeNativeStyles(inheritedStyle, ancestorStyle, classStyle, state.inlineStyle)
+  const hiddenStyle: StyleDesc | undefined = state.hidden ? { display: "none" } : undefined
+  const resolvedStyle = mergeNativeStyles(inheritedStyle, ancestorStyle, classStyle, state.inlineStyle, hiddenStyle)
   if (resolvedStyle === undefined) {
     if (!appliedStyleNodes.has(node)) return
     setHostProperty(node, "style", {})

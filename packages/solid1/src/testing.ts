@@ -25,6 +25,8 @@ interface NativeTreeNode {
   children?: NativeTreeNode[]
 }
 
+type TestCustomPropQuery = Readonly<Record<string, string | number | boolean | null>>
+
 export interface TestBounds {
   x: number
   y: number
@@ -54,6 +56,23 @@ function findNode(node: NativeTreeNode | null, testId: string): NativeTreeNode |
   if (node.testId === testId) return node
   for (const child of node.children ?? []) {
     const found = findNode(child, testId)
+    if (found) return found
+  }
+  return undefined
+}
+
+function matchesCustomProps(node: NativeTreeNode, query: TestCustomPropQuery): boolean {
+  for (const [key, expected] of Object.entries(query)) {
+    if (node.customProps?.[key] !== expected) return false
+  }
+  return true
+}
+
+function findNodeByCustomProps(node: NativeTreeNode | null, query: TestCustomPropQuery): NativeTreeNode | undefined {
+  if (!node) return undefined
+  if (matchesCustomProps(node, query)) return node
+  for (const child of node.children ?? []) {
+    const found = findNodeByCustomProps(child, query)
     if (found) return found
   }
   return undefined
@@ -333,6 +352,34 @@ export class TestRenderer {
     return findNode(parseTree(this.#native.getTreeJson()), testId) !== undefined
   }
 
+  hasCustomProps(query: TestCustomPropQuery): boolean {
+    return findNodeByCustomProps(parseTree(this.#native.getTreeJson()), query) !== undefined
+  }
+
+  clickCustomProps(query: TestCustomPropQuery): void {
+    const point = insetPoint(this.boundsNode(this.requireCustomProps(query), `custom props ${JSON.stringify(query)}`))
+    this.#native.simulateClick(point.x, point.y)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+  }
+
+  pressKeyCustomProps(query: TestCustomPropQuery, key: string): void {
+    const node = this.requireCustomProps(query)
+    this.#native.focusElement(node.id)
+    this.pressKey(key)
+  }
+
+  customPropByCustomProps(query: TestCustomPropQuery, key: string): MutationValue | undefined {
+    return this.requireCustomProps(query).customProps?.[key]
+  }
+
+  styleCustomPropsWithinTestId(testId: string, query: TestCustomPropQuery): StyleDesc {
+    const parent = this.requireTestId(testId)
+    const node = findNodeByCustomProps(parent, query)
+    if (!node) throw new Error(`Expected custom props ${JSON.stringify(query)} inside ${testId}`)
+    return node.style ?? {}
+  }
+
   textContent(testId: string): string {
     return nodeText(this.requireTestId(testId))
   }
@@ -382,6 +429,12 @@ export class TestRenderer {
     if (!root) throw new Error("Expected a native tree")
     const node = findElementByExactText(root, text)
     if (!node) throw new Error(`Expected visible text ${JSON.stringify(text)} in native tree`)
+    return node
+  }
+
+  private requireCustomProps(query: TestCustomPropQuery): NativeTreeNode {
+    const node = findNodeByCustomProps(parseTree(this.#native.getTreeJson()), query)
+    if (!node) throw new Error(`Expected custom props ${JSON.stringify(query)} in native tree`)
     return node
   }
 

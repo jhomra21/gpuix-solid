@@ -287,11 +287,36 @@ if (!hasNativeTestRenderer) {
 
   app.renderer.scrollTestId("daw-test-viewport", 0, -260)
   requireCondition((app.renderer.scrollOffsetTestId("daw-test-viewport")?.[1] ?? 0) < 0, "test viewport should scroll to lower controls")
-  app.renderer.clickCenterTestId("compressor-threshold-plus")
-  requireText(app.renderer.textContent("compressor-threshold-value"), "-17.0 dB", "compressor threshold")
-  app.renderer.clickCenterTestId("compressor-reset")
-  requireText(app.renderer.textContent("compressor-threshold-value"), "-24.0 dB", "compressor source reset threshold")
-  requireText(app.renderer.textContent("compressor-attack-value"), "10 ms", "compressor source reset attack")
+  const thresholdSlider = { role: "slider", "aria-label": "Thresh" } as const
+  const attackSlider = { role: "slider", "aria-label": "Attack" } as const
+  requireCondition(
+    app.renderer.customPropByCustomProps(thresholdSlider, "aria-valuetext") === "-18.0 dB",
+    `exact Compressor threshold should start at fixture -18.0 dB, got ${JSON.stringify(app.renderer.customPropByCustomProps(thresholdSlider, "aria-valuetext"))}`,
+  )
+  app.renderer.pressKeyCustomProps(thresholdSlider, "PageUp")
+  requireCondition(
+    app.renderer.customPropByCustomProps(thresholdSlider, "aria-valuetext") === "-17.0 dB",
+    `exact Compressor threshold PageUp should use upstream 1 dB large step, got ${JSON.stringify(app.renderer.customPropByCustomProps(thresholdSlider, "aria-valuetext"))}`,
+  )
+  const compressorText = app.renderer.textContent("compressor-device")
+  requireText(compressorText, "-120.0 dB", "exact Compressor no-engine output fallback")
+  requireCondition(!compressorText.includes("-3.8 dB") && !compressorText.includes("-7.2 dB"), "exact Compressor must not retain invented meter values")
+  requireCondition(!app.renderer.hasTestId("compressor-threshold-plus"), "exact Compressor must not retain handmade +/- controls")
+  app.renderer.clickTextWithinTestId("compressor-device", "Reset")
+  requireCondition(
+    app.renderer.customPropByCustomProps(thresholdSlider, "aria-valuetext") === "-24.0 dB",
+    `exact Compressor reset should restore source threshold, got ${JSON.stringify(app.renderer.customPropByCustomProps(thresholdSlider, "aria-valuetext"))}`,
+  )
+  requireCondition(
+    app.renderer.customPropByCustomProps(attackSlider, "aria-valuetext") === "10 ms",
+    `exact Compressor reset should restore source attack, got ${JSON.stringify(app.renderer.customPropByCustomProps(attackSlider, "aria-valuetext"))}`,
+  )
+  app.renderer.clickCustomProps({ "aria-label": "Fold device" })
+  requireCondition(app.renderer.hasCustomProps({ "aria-label": "Unfold device" }), "exact EffectShell chevron should expose unfolded action after collapse")
+  const collapsedContentStyle = app.renderer.styleCustomPropsWithinTestId("compressor-device", { hidden: true })
+  requireCondition(collapsedContentStyle.display === "none", `semantic hidden content should map to native display:none, got ${JSON.stringify(collapsedContentStyle)}`)
+  app.renderer.clickCustomProps({ "aria-label": "Unfold device" })
+  requireCondition(app.renderer.hasCustomProps({ "aria-label": "Fold device" }), "exact EffectShell chevron should restore fold action after expansion")
 
   app.renderer.scrollTestId("daw-test-viewport", -320, -260)
   app.renderer.scrollTestId("effects-panel", -540, 0)
