@@ -43,7 +43,7 @@ replace_once(
       }
 
       if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "cva") {
-        for (const argument of node.arguments) collectCvaExpression(argument, candidates)
+        collectCvaCall(node, candidates)
         return
       }
 ''',
@@ -132,23 +132,38 @@ new_collector = '''function collectClassExpression(node, candidates) {
   }
 }
 
-function collectCvaExpression(node, candidates) {
-  if (!node) return
-  if (ts.isStringLiteralLike(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
-    addClassString(node.text, candidates)
-    return
-  }
-  if (ts.isTemplateExpression(node)) {
-    addClassString(node.head.text, candidates)
-    for (const span of node.templateSpans) addClassString(span.literal.text, candidates)
-    return
-  }
-  if (ts.isPropertyAssignment(node)) {
-    collectCvaExpression(node.initializer, candidates)
-    return
-  }
-  if (ts.isArrayLiteralExpression(node) || ts.isObjectLiteralExpression(node)) {
-    ts.forEachChild(node, (child) => collectCvaExpression(child, candidates))
+function propertyNameText(name) {
+  if (ts.isIdentifier(name) || ts.isStringLiteralLike(name) || ts.isNoSubstitutionTemplateLiteral(name)) return name.text
+  return undefined
+}
+
+function collectCvaCall(node, candidates) {
+  collectClassExpression(node.arguments[0], candidates)
+  const config = node.arguments[1]
+  if (!config || !ts.isObjectLiteralExpression(config)) return
+
+  for (const property of config.properties) {
+    if (!ts.isPropertyAssignment(property)) continue
+    const name = propertyNameText(property.name)
+    if (name === "variants" && ts.isObjectLiteralExpression(property.initializer)) {
+      for (const variant of property.initializer.properties) {
+        if (!ts.isPropertyAssignment(variant) || !ts.isObjectLiteralExpression(variant.initializer)) continue
+        for (const option of variant.initializer.properties) {
+          if (ts.isPropertyAssignment(option)) collectClassExpression(option.initializer, candidates)
+        }
+      }
+      continue
+    }
+    if (name === "compoundVariants" && ts.isArrayLiteralExpression(property.initializer)) {
+      for (const compound of property.initializer.elements) {
+        if (!ts.isObjectLiteralExpression(compound)) continue
+        for (const entry of compound.properties) {
+          if (!ts.isPropertyAssignment(entry)) continue
+          const entryName = propertyNameText(entry.name)
+          if (entryName === "class" || entryName === "className") collectClassExpression(entry.initializer, candidates)
+        }
+      }
+    }
   }
 }
 '''
@@ -156,8 +171,18 @@ replace_once(generator, old_collector, new_collector)
 
 replace_once(
     generator,
+    'const classes = {}\nconst omissions = []\n',
+    'const classes = {}\nconst omissions = []\nconst unknownCandidates = []\n',
+)
+replace_once(
+    generator,
     '  const rule = findCandidateRule(root, candidate)\n  if (!rule) continue\n',
-    '  const rule = findCandidateRule(root, candidate)\n  if (!rule) throw new Error(`Source class candidate ${JSON.stringify(candidate)} has no Tailwind rule or explicit native compatibility entry`)\n',
+    '  const rule = findCandidateRule(root, candidate)\n  if (!rule) {\n    unknownCandidates.push(candidate)\n    continue\n  }\n',
+)
+replace_once(
+    generator,
+    'const omissionsComment = omissions.length === 0\n',
+    'if (unknownCandidates.length > 0) {\n  throw new Error(`Source class candidates have no Tailwind rule or explicit native compatibility entry: ${unknownCandidates.map((candidate) => JSON.stringify(candidate)).join(", ")}`)\n}\n\nconst omissionsComment = omissions.length === 0\n',
 )
 
 replace_once(
