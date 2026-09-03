@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/apply-source-first-compressor.py"
       - ".github/apply-compressor-layout-compat.py"
+      - ".github/apply-compressor-typography-collapse.py"
       - ".github/workflows/apply-source-first-compressor.yml"
 
 permissions:
@@ -102,6 +103,7 @@ jobs:
         run: |
           python3 .github/apply-source-first-compressor.py
           python3 .github/apply-compressor-layout-compat.py
+          python3 .github/apply-compressor-typography-collapse.py
       - run: bun install --frozen-lockfile
       - name: Validate exact Compressor subtree
         run: |
@@ -116,6 +118,7 @@ jobs:
         run: |
           rm -f .github/apply-source-first-compressor.py
           rm -f .github/apply-compressor-layout-compat.py
+          rm -f .github/apply-compressor-typography-collapse.py
           rm -f .github/workflows/apply-source-first-compressor.yml
           git diff --check
           git config user.name "github-actions[bot]"
