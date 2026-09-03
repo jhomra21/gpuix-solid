@@ -8,9 +8,10 @@ old_sync = '''  createEffect(() => {
 '''
 new_sync = '''  createEffect(() => {
     setSourceTrackStore("tracks", reconcile(sourceTracks(props.tracks), { key: "id" }))
-    console.log("source sidebar adapted mute state", JSON.stringify({
+    console.log("source sidebar adapted state", JSON.stringify({
       nativeMuted: props.tracks[0]?.muted,
       adaptedMuted: sourceTrackStore.tracks[0]?.muted,
+      nativeArmedTrackId: props.tracks.find((track) => track.armed)?.id ?? null,
     }))
   })
 '''
@@ -18,18 +19,49 @@ if old_sync not in sidebar:
     raise SystemExit("source track store probe anchor missing")
 sidebar_path.write_text(sidebar.replace(old_sync, new_sync, 1))
 
+timeline_path = Path("examples/solid1-daw/src/native/Timeline.tsx")
+timeline = timeline_path.read_text()
+old_arm = '          onToggleArm: (id) => updateTrack(id, (track) => ({ ...track, armed: !track.armed })),\n'
+new_arm = '''          onToggleArm: (id) => {
+            updateTrack(id, (track) => ({ ...track, armed: !track.armed }))
+            console.log("source sidebar arm callback", JSON.stringify({
+              id,
+              armed: tracks().find((track) => track.id === id)?.armed,
+              armedTrackIds: tracks().filter((track) => track.armed).map((track) => track.id),
+            }))
+          },
+'''
+if old_arm not in timeline:
+    raise SystemExit("arm callback probe anchor missing")
+timeline_path.write_text(timeline.replace(old_arm, new_arm, 1))
+
 test_path = Path("examples/solid1-daw/src/test.tsx")
 test = test_path.read_text()
-anchor = '''  const muteBackground = app.renderer.styleCustomProps(muteOn).backgroundColor
+mute_anchor = '''  const muteBackground = app.renderer.styleCustomProps(muteOn).backgroundColor
   app.renderer.clickCustomProps(muteOn)
 '''
-probe = '''  const muteBackground = app.renderer.styleCustomProps(muteOn).backgroundColor
+mute_probe = '''  const muteBackground = app.renderer.styleCustomProps(muteOn).backgroundColor
   console.log("source sidebar mute geometry", JSON.stringify({
     button: app.renderer.boundsCustomProps(muteOn),
     ancestors: app.renderer.ancestorBoundsCustomProps(muteOn),
   }))
   app.renderer.clickCustomProps(muteOn)
 '''
-if anchor not in test:
+if mute_anchor not in test:
     raise SystemExit("mute geometry probe anchor missing")
-test_path.write_text(test.replace(anchor, probe, 1))
+test = test.replace(mute_anchor, mute_probe, 1)
+arm_anchor = '''  const armOn = { "aria-label": "Arm track 1 for recording" } as const
+  const armOff = { "aria-label": "Disarm track 1 for recording" } as const
+  app.renderer.clickCustomProps(armOn)
+'''
+arm_probe = '''  const armOn = { "aria-label": "Arm track 1 for recording" } as const
+  const armOff = { "aria-label": "Disarm track 1 for recording" } as const
+  console.log("source sidebar arm geometry", JSON.stringify({
+    button: app.renderer.boundsCustomProps(armOn),
+    ancestors: app.renderer.ancestorBoundsCustomProps(armOn),
+  }))
+  app.renderer.clickCustomProps(armOn)
+'''
+if arm_anchor not in test:
+    raise SystemExit("arm geometry probe anchor missing")
+test_path.write_text(test.replace(arm_anchor, arm_probe, 1))
