@@ -3,6 +3,7 @@ name: Source-first DAW debug
 on:
   pull_request:
     paths:
+      - ".github/source-first-probe.py"
       - ".github/workflows/source-first-daw-debug.yml"
       - "examples/solid1-daw/**"
       - "packages/solid1/**"
@@ -41,61 +42,8 @@ jobs:
             libvulkan1 \
             vulkan-validationlayers
       - run: bun install --frozen-lockfile
-      - name: Probe source compatibility fixes
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          tailwind = Path("examples/solid1-daw/scripts/generate-native-tailwind.mjs")
-          text = tailwind.read_text()
-          anchor = '  ["shadow-black/50", "this only recolors the copied automation picker shadow-xl; GPUIX 0.7 cannot represent that layered source shadow exactly"],\n'
-          replacement = anchor + '  ["shadow-black/30", "this only recolors the copied automation lane readout shadow-lg; GPUIX 0.7 cannot represent that layered source shadow exactly"],\n'
-          if anchor not in text:
-              raise SystemExit("shadow omission anchor missing")
-          tailwind.write_text(text.replace(anchor, replacement, 1))
-
-          jsx = Path("packages/solid1/jsx-runtime.d.ts")
-          text = jsx.read_text()
-          anchor = "type InlineSvgChildProps = NativeClassProps & {"
-          replacement = "type InlineSvgChildProps = NativeClassProps & SolidJSX.DOMAttributes<SVGElement> & {"
-          if anchor not in text:
-              raise SystemExit("inline SVG JSX anchor missing")
-          jsx.write_text(text.replace(anchor, replacement, 1))
-
-          universal = Path("packages/solid1/src/universal.ts")
-          text = universal.read_text()
-          anchor = '''      if (semanticTag && isSvgMarkupTag(semanticTag)) {
-        if (semanticTag !== "svg") {
-          setSvgAttribute(node, name, value)
-          refreshInlineSvg(node)
-          return
-        }
-        if (isSvgMarkupAttribute(name)) {
-          setSvgAttribute(node, name, value)
-          refreshInlineSvg(node)
-          return
-        }
-      }
-'''
-          replacement = '''      if (semanticTag && isSvgMarkupTag(semanticTag)) {
-        if (semanticTag !== "svg") {
-          if (isSvgMarkupAttribute(name)) {
-            setSvgAttribute(node, name, value)
-            refreshInlineSvg(node)
-            return
-          }
-        } else if (isSvgMarkupAttribute(name)) {
-          setSvgAttribute(node, name, value)
-          refreshInlineSvg(node)
-          return
-        }
-      }
-'''
-          if anchor not in text:
-              raise SystemExit("inline SVG property anchor missing")
-          universal.write_text(text.replace(anchor, replacement, 1))
-          PY
+      - name: Apply source-first probe
+        run: python3 .github/source-first-probe.py
       - name: Capture DAW validation
         shell: bash
         run: |
