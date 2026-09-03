@@ -41,12 +41,19 @@ for events_path in [Path("packages/solid1/src/host/events.ts"), Path("packages/s
 '''
     new_click = '''      case "click": {
         const clickTarget = this.#targets.get(event.elementId)
-        console.log("source sidebar native click target", JSON.stringify({
-          elementId: event.elementId,
-          tagName: clickTarget && "tagName" in clickTarget ? clickTarget.tagName : undefined,
-          ariaLabel: clickTarget && "getAttribute" in clickTarget && typeof clickTarget.getAttribute === "function" ? clickTarget.getAttribute("aria-label") : undefined,
-          title: clickTarget && "getAttribute" in clickTarget && typeof clickTarget.getAttribute === "function" ? clickTarget.getAttribute("title") : undefined,
-        }))
+        const clickPath: Array<Record<string, unknown>> = []
+        let clickNode: DomCompatTarget | undefined = clickTarget
+        while (clickNode) {
+          clickPath.push({
+            tagName: "tagName" in clickNode ? clickNode.tagName : undefined,
+            ariaLabel: "getAttribute" in clickNode && typeof clickNode.getAttribute === "function" ? clickNode.getAttribute("aria-label") : undefined,
+            title: "getAttribute" in clickNode && typeof clickNode.getAttribute === "function" ? clickNode.getAttribute("title") : undefined,
+          })
+          if (!("parentElement" in clickNode)) break
+          const parent = clickNode.parentElement
+          clickNode = parent && typeof parent === "object" ? parent as DomCompatTarget : undefined
+        }
+        console.log("source sidebar native click path", JSON.stringify({ elementId: event.elementId, path: clickPath }))
         if (!this.#nativePointerDown.has(event.elementId)) {
 '''
     if old_click not in events:
