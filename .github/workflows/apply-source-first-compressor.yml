@@ -1,0 +1,82 @@
+name: Apply exact Compressor source
+
+on:
+  push:
+    branches:
+      - fix/source-first-example-fidelity
+    paths:
+      - ".github/apply-source-first-compressor.py"
+      - ".github/workflows/apply-source-first-compressor.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: fix/source-first-example-fidelity
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.3.14
+      - name: Install GPUI Linux runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libfontconfig-dev \
+            libwayland-dev \
+            libxkbcommon-x11-dev \
+            libx11-xcb-dev \
+            libssl-dev \
+            libzstd-dev \
+            libvulkan1 \
+            vulkan-validationlayers
+      - name: Restore exact pinned Compressor subtree
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=https://raw.githubusercontent.com/jhomra21/daw-browser-convex/2eaad47813b15aa8511bab8dc04625510c977b12
+          while IFS='|' read -r local upstream expected; do
+            mkdir -p "$(dirname "$local")"
+            curl --fail --location --silent --show-error "$base/$upstream" --output "$local"
+            actual=$(git hash-object "$local")
+            if [[ "$actual" != "$expected" ]]; then
+              echo "blob mismatch: $local expected=$expected actual=$actual" >&2
+              exit 1
+            fi
+          done <<'FILES'
+          examples/solid1-daw/src/upstream/components/effects/Compressor.tsx|src/components/effects/Compressor.tsx|9ef86711b844b93cc647ef9a9d9c98c82441cba6
+          examples/solid1-daw/src/upstream/components/effects/EffectShell.tsx|src/components/effects/EffectShell.tsx|bf2d4642b623d683099c430201daffac4f7b61cf
+          examples/solid1-daw/src/upstream/components/ui/device-control.tsx|src/components/ui/device-control.tsx|dc2695685384e3db17ad216e18a3f7e21d3f0613
+          examples/solid1-daw/src/upstream/components/ui/knob.tsx|src/components/ui/knob.tsx|78eae9b67c603e0f25154241aa3dcb806a7d7c64
+          examples/solid1-daw/src/upstream/hooks/useSteppedValueControl.ts|src/hooks/useSteppedValueControl.ts|2a9c056f1632d258c62f099c3e65bdbda3286179
+          examples/solid1-daw/src/upstream/hooks/useDrag.ts|src/hooks/useDrag.ts|a0fa4e76b10dd504a3ca3204cf9135ff50e73243
+          examples/solid1-daw/src/upstream/components/timeline/create-effects-panel-device-collapse.tsx|src/components/timeline/create-effects-panel-device-collapse.tsx|98cd13fcb1464ea5c47d5e7c63b3416dc05d297c
+          examples/solid1-daw/src/upstream/components/timeline/device-interaction.ts|src/components/timeline/device-interaction.ts|8d017592bce6f3a4b47688c79c6306822c37872d
+          FILES
+      - name: Apply compatibility closure
+        run: python3 .github/apply-source-first-compressor.py
+      - run: bun install --frozen-lockfile
+      - name: Validate exact Compressor subtree
+        run: |
+          bun run lint
+          bun run typecheck
+          bun run test
+          bun run build
+          bun run solid1:package
+          bun run solid1:daw
+          git diff --check
+      - name: Commit validated source closure and remove scaffolding
+        run: |
+          rm -f .github/apply-source-first-compressor.py
+          rm -f .github/workflows/apply-source-first-compressor.yml
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: restore exact DAW Compressor source"
+          git push origin HEAD:fix/source-first-example-fidelity
