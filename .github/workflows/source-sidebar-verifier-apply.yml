@@ -40,9 +40,8 @@ jobs:
           from pathlib import Path
           path = Path('examples/solid1-daw/src/test.tsx')
           source = path.read_text()
-          marker = '''  requireCondition(returnTimeline.y >= timelineFooter.y, "Return timeline row should live inside the sticky footer")
-          requireCondition(Math.abs(returnSidebar.y - returnTimeline.y) <= 2, "exact source Return sidebar row should align with the Return timeline row")'''
-          replacement = '''  console.log("source sidebar geometry probe", JSON.stringify({
+          anchor = '  requireCondition(returnTimeline.y >= timelineFooter.y, "Return timeline row should live inside the sticky footer")'
+          probe = '''  console.log("source sidebar geometry probe", JSON.stringify({
             timelineFooter,
             returnTimeline,
             returnAncestors: app.renderer.ancestorBoundsCustomProps(returnTrack),
@@ -51,11 +50,10 @@ jobs:
             masterAncestors: app.renderer.ancestorBoundsCustomProps(masterEffects),
             masterSidebar,
           }))
-          requireCondition(returnTimeline.y >= timelineFooter.y, "Return timeline row should live inside the sticky footer")
-          requireCondition(Math.abs(returnSidebar.y - returnTimeline.y) <= 2, "exact source Return sidebar row should align with the Return timeline row")'''
-          if marker not in source:
+'''
+          if anchor not in source:
               raise SystemExit('return geometry assertion anchor missing')
-          path.write_text(source.replace(marker, replacement, 1))
+          path.write_text(source.replace(anchor, probe + anchor, 1))
           PY
       - run: bun install --frozen-lockfile
       - name: Validate on native macOS
