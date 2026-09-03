@@ -1,10 +1,18 @@
 import { createMemo, createSignal, onCleanup, type JSX } from "solid-js"
 import { getBottomPanelMountedFootprintPx } from "../upstream/lib/bottom-panel-layout"
+import {
+  planGroupTracks,
+  planMoveTrackToGroup,
+  planTrackReorder,
+  planUngroupTracks,
+  type TrackDropTarget,
+} from "../upstream/lib/track-group-ops"
 import { DEFAULT_PIXELS_PER_SECOND } from "../compat/timeline-view"
 import TimelineChrome from "./TimelineChrome"
 import TimelinePanels from "./TimelinePanels"
 import TimelineWorkspace from "./TimelineWorkspace"
 import { initialTracks, type BottomTab, type BrowserTab, type NativeClip, type NativeTrack } from "./model"
+import { nativeOutputTargetName, renumberNativeTracks, sourceTracks } from "./sourceTrackAdapter"
 import { dawTheme, layout } from "./theme"
 
 interface DragState {
@@ -43,6 +51,11 @@ function findClip(tracks: NativeTrack[], clipId: string): { track: NativeTrack; 
   return undefined
 }
 
+function nextGroupIdentity(tracks: readonly NativeTrack[]): { id: string; name: string } {
+  let index = 1
+  while (tracks.some((track) => track.id === `group-${index}` || track.name === `Group ${index}`)) index += 1
+  return { id: `group-${index}`, name: `Group ${index}` }
+}
 
 export default function Timeline(): JSX.Element {
   const [tracks, setTracks] = createSignal<NativeTrack[]>(initialTracks)
@@ -105,6 +118,119 @@ export default function Timeline(): JSX.Element {
       sendTarget: target?.name ?? "None",
       send: send?.amount ?? 0,
     }))
+  }
+
+  const groupTracks = (trackIds: string[]): void => {
+    setTracks((current) => {
+      const identity = nextGroupIdentity(current)
+      const plan = planGroupTracks({
+        tracks: sourceTracks(current),
+        selectedTrackIds: trackIds,
+        groupTrackId: identity.id,
+        groupName: identity.name,
+      })
+      if (!plan) return current
+
+      const groupTrack: NativeTrack = {
+        id: identity.id,
+        number: 0,
+        name: plan.groupTrack.name,
+        kind: "group",
+        color: plan.groupTrack.color,
+        volume: 1,
+        pan: 0,
+        send: 0,
+        muted: false,
+        soloed: false,
+        armed: false,
+        collapsed: false,
+        automationVisible: false,
+        outputTarget: "Master",
+        sendTarget: "None",
+        clips: [],
+      }
+      const routingTracks = [...current, groupTrack]
+      const childUpdates = new Map(plan.childUpdates.map((update) => [update.trackId, update]))
+      const updated = current.map((track) => {
+        const update = childUpdates.get(track.id)
+        return update
+          ? {
+              ...track,
+              groupId: update.groupId,
+              outputTarget: nativeOutputTargetName(routingTracks, update.outputTargetId),
+            }
+          : track
+      })
+      updated.splice(plan.groupTrack.index, 0, groupTrack)
+      return renumberNativeTracks(updated)
+    })
+  }
+
+  const ungroupTrack = (groupId: string): void => {
+    const currentTracks = tracks()
+    const directChildren = currentTracks.filter((track) => track.groupId === groupId)
+    const plan = planUngroupTracks({ tracks: sourceTracks(currentTracks), groupId })
+    if (!plan) return
+    const updates = new Map(plan.childUpdates.map((update) => [update.trackId, update]))
+    setTracks((current) => renumberNativeTracks(
+      current
+        .filter((track) => track.id !== groupId)
+        .map((track) => {
+          const update = updates.get(track.id)
+          return update
+            ? {
+                ...track,
+                groupId: update.groupId,
+                outputTarget: nativeOutputTargetName(current, update.outputTargetId),
+              }
+            : track
+        }),
+    ))
+    if (selectedTrackId() === groupId) {
+      const next = directChildren[0]
+      if (next) selectTrack(next.id)
+      else selectMaster()
+    }
+  }
+
+  const moveTrackToGroup = (trackId: string, groupId: string | undefined): void => {
+    setTracks((current) => {
+      const plan = planMoveTrackToGroup({ tracks: sourceTracks(current), trackId, groupId })
+      if (!plan) return current
+      return current.map((track) => track.id === plan.trackId
+        ? {
+            ...track,
+            groupId: plan.groupId,
+            outputTarget: nativeOutputTargetName(current, plan.outputTargetId),
+          }
+        : track)
+    })
+  }
+
+  const reorderTracks = (trackIds: string[], target: TrackDropTarget): void => {
+    setTracks((current) => {
+      const source = sourceTracks(current).map((track, index) => ({ ...track, index }))
+      const plan = planTrackReorder({ tracks: source, moveRootIds: trackIds, target })
+      if (!plan) return current
+      const patchById = new Map(plan.patches.map((patch) => [patch.trackId, patch]))
+      const originalIndex = new Map(current.map((track, index) => [track.id, index]))
+      const expandGroupIds = new Set(plan.expandGroupIds)
+      const updated = current.map((track) => {
+        const patch = patchById.get(track.id)
+        return {
+          ...track,
+          groupId: patch ? patch.groupId : track.groupId,
+          outputTarget: patch ? nativeOutputTargetName(current, patch.outputTargetId) : track.outputTarget,
+          collapsed: expandGroupIds.has(track.id) ? false : track.collapsed,
+        }
+      })
+      updated.sort((left, right) => {
+        const leftIndex = patchById.get(left.id)?.index ?? originalIndex.get(left.id) ?? 0
+        const rightIndex = patchById.get(right.id)?.index ?? originalIndex.get(right.id) ?? 0
+        return leftIndex - rightIndex
+      })
+      return renumberNativeTracks(updated)
+    })
   }
 
   const hideAutomationLane = (id: string): void => {
@@ -322,7 +448,11 @@ export default function Timeline(): JSX.Element {
               color: clip.kind === "midi" ? dawTheme.clipMidi : dawTheme.clipAudio,
             })),
           })),
-          onDeleteTrack: (id) => setTracks((current) => current.filter((track) => track.id !== id)),
+          onDeleteTrack: (id) => setTracks((current) => renumberNativeTracks(current.filter((track) => track.id !== id))),
+          onGroupTracks: groupTracks,
+          onUngroupTrack: ungroupTrack,
+          onMoveTrackToGroup: moveTrackToGroup,
+          onReorderTracks: reorderTracks,
         }}
         onSelectClip={selectClip}
         onOpenClip={openClip}
