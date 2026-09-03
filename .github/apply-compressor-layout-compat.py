@@ -81,11 +81,11 @@ replace_once(
 # and auto/1fr without changing the source component.
 replace_once(
     "examples/solid1-daw/scripts/generate-native-tailwind.mjs",
-    '''  ["grid-cols-2", { base: { display: "grid", gridTemplateColumns: 2 } }],
+    '''  ["grid-cols-2", { base: { gridTemplateColumns: 2 } }],
 ''',
-    '''  ["grid-cols-2", { base: { display: "grid", gridTemplateColumns: 2 } }],
-  ["grid-cols-3", { base: { display: "grid", gridTemplateColumns: 3 } }],
-  ["grid-cols-4", { base: { display: "grid", gridTemplateColumns: 4 } }],
+    '''  ["grid-cols-2", { base: { gridTemplateColumns: 2 } }],
+  ["grid-cols-3", { base: { gridTemplateColumns: 3 } }],
+  ["grid-cols-4", { base: { gridTemplateColumns: 4 } }],
   ["grid-cols-[84px_1fr_96px]", {
     base: { display: "flex", flexDirection: "row" },
     descendants: {
