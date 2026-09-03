@@ -38,22 +38,101 @@ replace_once(
     generator,
     cva_anchor,
     '''      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && (node.expression.text === "cn" || node.expression.text === "clsx")) {
-        for (const argument of node.arguments) collectClassCombinerExpression(argument, candidates)
+        for (const argument of node.arguments) collectClassExpression(argument, candidates)
         return
       }
 
       if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "cva") {
-        for (const argument of node.arguments) collectClassExpression(argument, candidates)
+        for (const argument of node.arguments) collectCvaExpression(argument, candidates)
         return
       }
 ''',
 )
 
-class_expression_anchor = 'function collectClassExpression(node, candidates) {\n'
-replace_once(
-    generator,
-    class_expression_anchor,
-    '''function collectClassCombinerExpression(node, candidates) {
+old_collector = '''function collectClassExpression(node, candidates) {
+  if (!node) return
+
+  if (ts.isStringLiteralLike(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+    addClassString(node.text, candidates)
+    return
+  }
+
+  if (ts.isTemplateExpression(node)) {
+    addClassString(node.head.text, candidates)
+    for (const span of node.templateSpans) {
+      collectClassExpression(span.expression, candidates)
+      addClassString(span.literal.text, candidates)
+    }
+    return
+  }
+
+  ts.forEachChild(node, (child) => collectClassExpression(child, candidates))
+}
+'''
+new_collector = '''function collectClassExpression(node, candidates) {
+  if (!node) return
+
+  if (ts.isJsxExpression(node) || ts.isParenthesizedExpression(node)) {
+    collectClassExpression(node.expression, candidates)
+    return
+  }
+
+  if (ts.isStringLiteralLike(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+    addClassString(node.text, candidates)
+    return
+  }
+
+  if (ts.isTemplateExpression(node)) {
+    addClassString(node.head.text, candidates)
+    for (const span of node.templateSpans) {
+      collectClassExpression(span.expression, candidates)
+      addClassString(span.literal.text, candidates)
+    }
+    return
+  }
+
+  if (ts.isConditionalExpression(node)) {
+    collectClassExpression(node.whenTrue, candidates)
+    collectClassExpression(node.whenFalse, candidates)
+    return
+  }
+
+  if (ts.isBinaryExpression(node)) {
+    if (node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
+      collectClassExpression(node.right, candidates)
+      return
+    }
+    if (
+      node.operatorToken.kind === ts.SyntaxKind.BarBarToken ||
+      node.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken ||
+      node.operatorToken.kind === ts.SyntaxKind.PlusToken
+    ) {
+      collectClassExpression(node.left, candidates)
+      collectClassExpression(node.right, candidates)
+    }
+    return
+  }
+
+  if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && (node.expression.text === "cn" || node.expression.text === "clsx")) {
+    for (const argument of node.arguments) collectClassExpression(argument, candidates)
+    return
+  }
+
+  if (ts.isArrayLiteralExpression(node)) {
+    for (const element of node.elements) collectClassExpression(element, candidates)
+    return
+  }
+
+  if (ts.isObjectLiteralExpression(node)) {
+    for (const property of node.properties) {
+      if (ts.isPropertyAssignment(property) || ts.isShorthandPropertyAssignment(property)) {
+        collectClassListKey(property.name, candidates)
+      }
+    }
+  }
+}
+
+function collectCvaExpression(node, candidates) {
   if (!node) return
   if (ts.isStringLiteralLike(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
     addClassString(node.text, candidates)
@@ -64,37 +143,16 @@ replace_once(
     for (const span of node.templateSpans) addClassString(span.literal.text, candidates)
     return
   }
-  if (ts.isConditionalExpression(node)) {
-    collectClassCombinerExpression(node.whenTrue, candidates)
-    collectClassCombinerExpression(node.whenFalse, candidates)
+  if (ts.isPropertyAssignment(node)) {
+    collectCvaExpression(node.initializer, candidates)
     return
   }
-  if (ts.isBinaryExpression(node)) {
-    if (node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
-      collectClassCombinerExpression(node.right, candidates)
-      return
-    }
-    if (node.operatorToken.kind === ts.SyntaxKind.BarBarToken || node.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken) {
-      collectClassCombinerExpression(node.left, candidates)
-      collectClassCombinerExpression(node.right, candidates)
-      return
-    }
-  }
-  if (ts.isArrayLiteralExpression(node)) {
-    for (const element of node.elements) collectClassCombinerExpression(element, candidates)
-    return
-  }
-  if (ts.isObjectLiteralExpression(node)) {
-    for (const property of node.properties) {
-      if (ts.isPropertyAssignment(property) || ts.isShorthandPropertyAssignment(property)) collectClassListKey(property.name, candidates)
-    }
-    return
+  if (ts.isArrayLiteralExpression(node) || ts.isObjectLiteralExpression(node)) {
+    ts.forEachChild(node, (child) => collectCvaExpression(child, candidates))
   }
 }
-
-function collectClassExpression(node, candidates) {
-''',
-)
+'''
+replace_once(generator, old_collector, new_collector)
 
 replace_once(
     generator,
