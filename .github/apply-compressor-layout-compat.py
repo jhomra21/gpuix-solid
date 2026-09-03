@@ -9,8 +9,9 @@ def replace_once(path: str, old: str, new: str) -> None:
     file.write_text(text.replace(old, new, 1))
 
 
-# Source transitions/rotation have no GPUIX 0.7 animation/transform equivalent.
-# Keep these omissions candidate-specific so unrelated unsupported CSS still fails.
+# Source transitions/rotation/focus-ring paint have no exact GPUIX 0.7
+# equivalent. Keep these omissions candidate-specific so unrelated unsupported
+# CSS still fails instead of silently broadening the compatibility surface.
 replace_once(
     "examples/solid1-daw/scripts/generate-native-tailwind.mjs",
     'const explicitlyIgnored = new Map([\n',
@@ -19,6 +20,9 @@ replace_once(
   ["duration-150", "GPUIX 0.7 does not publish CSS transition timing; native state changes remain immediate"],
   ["transition-transform", "GPUIX 0.7 does not publish CSS transitions; source transform transitions remain immediate"],
   ["rotate-180", "GPUIX 0.7 StyleDesc has no general CSS transform; exact collapsed-device rotation remains source-locked but cannot be reproduced natively"],
+  ["focus-visible:ring-1", "GPUIX 0.7 does not publish browser focus-visible ring painting through StyleDesc; keyboard focus semantics remain native"],
+  ["focus-visible:ring-inset", "GPUIX 0.7 BoxShadow has no inset focus-ring mode; the exact source utility remains source-locked"],
+  ["focus-visible:ring-cyan-300/70", "GPUIX 0.7 does not publish browser focus-visible ring color through StyleDesc; keyboard focus semantics remain native"],
 ''',
 )
 
@@ -101,5 +105,68 @@ replace_once(
       ">:nth-child(2)": { base: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: 0 } },
     },
   }],
+''',
+)
+
+# Change-detector for the generic positional descendant feature. The exact
+# Compressor markup keeps three div children; native compatibility must resolve
+# them to the source 84px / flexible / 96px contract without wrapper JSX.
+replace_once(
+    "examples/solid1-daw/src/test.tsx",
+    '''  requireCondition(!rootText().includes("Drop files here to create a new track"), "fixture must not invent the new-track drop row")
+
+  const browserBounds = app.renderer.boundsTestId("browser-sidebar")
+''',
+    '''  requireCondition(!rootText().includes("Drop files here to create a new track"), "fixture must not invent the new-track drop row")
+
+  const compressorColumnLeft = resolveNativeDescendantClassStyle("grid-cols-[84px_1fr_96px]", undefined, "div", true, 1)
+  const compressorColumnMiddle = resolveNativeDescendantClassStyle("grid-cols-[84px_1fr_96px]", undefined, "div", true, 2)
+  const compressorColumnRight = resolveNativeDescendantClassStyle("grid-cols-[84px_1fr_96px]", undefined, "div", true, 3)
+  requireCondition(compressorColumnLeft?.width === 84 && compressorColumnLeft.minWidth === 84, "positional descendant compatibility should preserve the source 84px Compressor left column")
+  requireCondition(compressorColumnMiddle?.flexGrow === 1 && compressorColumnMiddle.flexBasis === 0 && compressorColumnMiddle.minWidth === 0, "positional descendant compatibility should preserve the source flexible Compressor middle column")
+  requireCondition(compressorColumnRight?.width === 96 && compressorColumnRight.minWidth === 96, "positional descendant compatibility should preserve the source 96px Compressor right column")
+
+  const browserBounds = app.renderer.boundsTestId("browser-sidebar")
+''',
+)
+
+# The fixture exposes only the real Volume automation target. Once that target
+# is visible, exact TrackSidebarRow disables Add automation. The old verifier
+# encoded the removed fake second lane; guard the source-correct no-op instead.
+replace_once(
+    "examples/solid1-daw/src/test.tsx",
+    '''  app.renderer.clickCenterTestId("track-synth-automation-add")
+  const twoAutomationLaneHeight = app.renderer.boundsTestId("lane-synth").height
+  const twoAutomationSidebarHeight = app.renderer.boundsTestId("track-synth").height
+  requireCondition(Math.abs(twoAutomationLaneHeight - oneAutomationLaneHeight - 48) <= 1, "adding automation should add exactly one 48px lane")
+  requireCondition(Math.abs(twoAutomationLaneHeight - twoAutomationSidebarHeight) <= 1, "multiple automation lanes should keep timeline and mixer geometry aligned")
+
+  app.renderer.scrollTestId("track-sidebar-scrolling", 0, -260)
+  const visibleAutomationHide = app.renderer.boundsTestId("track-synth-automation-hide")
+  requireCondition(
+    visibleAutomationHide.y >= sidebarScrolling.y && bottom(visibleAutomationHide) <= bottom(sidebarScrolling),
+    `Synth automation hide should be visible before interaction, control ${JSON.stringify(visibleAutomationHide)}, mixer ${JSON.stringify(sidebarScrolling)}`,
+  )
+  app.renderer.clickCenterTestId("track-synth-automation-hide")
+  requireCondition(Math.abs(app.renderer.boundsTestId("lane-synth").height - oneAutomationLaneHeight) <= 1, "hiding one automation lane should remove exactly 48px")
+  app.renderer.clickCenterTestId("track-synth-automation-hide")
+  requireCondition(!app.renderer.hasTestId("lane-synth-automation"), "hiding the final automation lane should close timeline automation")
+  requireCondition(!app.renderer.hasTestId("track-synth-automation-lanes"), "hiding the final automation lane should close mixer automation")
+''',
+    '''  app.renderer.clickCenterTestId("track-synth-automation-add")
+  const afterUnavailableAutomationAddLaneHeight = app.renderer.boundsTestId("lane-synth").height
+  const afterUnavailableAutomationAddSidebarHeight = app.renderer.boundsTestId("track-synth").height
+  requireCondition(Math.abs(afterUnavailableAutomationAddLaneHeight - oneAutomationLaneHeight) <= 1, "Add automation must not invent a second lane when Volume is the only source parameter")
+  requireCondition(Math.abs(afterUnavailableAutomationAddSidebarHeight - oneAutomationSidebarHeight) <= 1, "disabled Add automation must not change mixer geometry")
+
+  app.renderer.scrollTestId("track-sidebar-scrolling", 0, -260)
+  const visibleAutomationHide = app.renderer.boundsTestId("track-synth-automation-hide")
+  requireCondition(
+    visibleAutomationHide.y >= sidebarScrolling.y && bottom(visibleAutomationHide) <= bottom(sidebarScrolling),
+    `Synth automation hide should be visible before interaction, control ${JSON.stringify(visibleAutomationHide)}, mixer ${JSON.stringify(sidebarScrolling)}`,
+  )
+  app.renderer.clickCenterTestId("track-synth-automation-hide")
+  requireCondition(!app.renderer.hasTestId("lane-synth-automation"), "hiding the only source automation target should close timeline automation")
+  requireCondition(!app.renderer.hasTestId("track-synth-automation-lanes"), "hiding the only source automation target should close mixer automation")
 ''',
 )
