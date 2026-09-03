@@ -11,6 +11,7 @@ on:
       - ".github/source-sidebar-postprocess.py"
       - ".github/source-sidebar-state-probe.py"
       - ".github/inline-grid-compat-probe.py"
+      - ".github/empty-text-compat-probe.py"
       - "packages/solid1/src/browser-grid-compat.ts"
       - "packages/solid1/scripts/check-browser-grid-compat.ts"
       - "packages/solid1/package.json"
@@ -37,6 +38,7 @@ jobs:
           python3 .github/source-sidebar-postprocess.py
           python3 .github/source-sidebar-state-probe.py
           python3 .github/inline-grid-compat-probe.py
+          python3 .github/empty-text-compat-probe.py
       - run: bun install --frozen-lockfile
       - name: Validate on native macOS
         run: |
@@ -48,6 +50,7 @@ jobs:
         with:
           name: source-sidebar-verifier-files
           path: |
+            packages/solid1/src/host/nodes.ts
             packages/solid1/src/universal.ts
             packages/solid1/src/testing.ts
             examples/solid1-daw/src/test.tsx
