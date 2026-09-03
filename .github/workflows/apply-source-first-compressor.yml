@@ -58,7 +58,7 @@ jobs:
           examples/solid1-daw/src/upstream/components/timeline/create-effects-panel-device-collapse.tsx|src/components/timeline/create-effects-panel-device-collapse.tsx|98cd13fcb1464ea5c47d5e7c63b3416dc05d297c
           examples/solid1-daw/src/upstream/components/timeline/device-interaction.ts|src/components/timeline/device-interaction.ts|8d017592bce6f3a4b47688c79c6306822c37872d
           FILES
-      - name: Normalize host-specific SVG patch anchors
+      - name: Normalize host and audited native compatibility patches
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -87,7 +87,15 @@ jobs:
           '''
           if old not in text:
               raise SystemExit('combined SVG patch anchor missing')
-          path.write_text(text.replace(old, new, 1))
+          text = text.replace(old, new, 1)
+          text += '''
+          replace_once(
+              "examples/solid1-daw/scripts/generate-native-tailwind.mjs",
+              'const explicitlyIgnored = new Map([\\n',
+              'const explicitlyIgnored = new Map([\\n  ["[writing-mode:vertical-rl]", "GPUIX 0.7 does not publish CSS writing-mode; the exact collapsed device label remains source-locked while native cannot reproduce vertical text orientation"],\\n',
+          )
+          '''
+          path.write_text(text)
           PY
       - name: Apply compatibility closure
         run: python3 .github/apply-source-first-compressor.py
