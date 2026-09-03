@@ -26,11 +26,8 @@ merge_anchor = '''  const hiddenStyle: StyleDesc | undefined = state.hidden ? { 
 merge_replacement = '''  const hiddenStyle: StyleDesc | undefined = state.hidden ? { display: "none" } : undefined
   const sourceStyle = mergeNativeStyles(preClassStyle, classStyle, classAttributeStyle, state.inlineStyle, hiddenStyle)
   const interactiveHitStyle: StyleDesc | undefined =
-    node.events.size > 0 &&
-    sourceStyle?.pointerEvents !== "none" &&
-    sourceStyle?.background === undefined &&
-    sourceStyle?.backgroundColor === undefined
-      ? { backgroundColor: "rgba(0, 0, 0, 0)" }
+    node.events.size > 0 && sourceStyle?.pointerEvents === undefined
+      ? { pointerEvents: "auto" }
       : undefined
   const mergedStyle = mergeNativeStyles(sourceStyle, interactiveHitStyle)
 '''
