@@ -1,7 +1,8 @@
-import { createMemo, createSignal, type JSX } from "solid-js"
+import { createEffect, createMemo, createSignal, type JSX } from "solid-js"
+import { createStore, reconcile } from "solid-js/store"
 import { automationTargetKey, type AutomationParameterSelection } from "../compat/daw-browser-shared"
 import type { TimelineWorkspaceAutomationModel } from "../compat/useTimelineAutomationController"
-import type { TrackSend } from "../compat/timeline-core-types"
+import type { Track, TrackSend } from "../compat/timeline-core-types"
 import UpstreamTrackSidebar, { type TrackSidebarModel } from "../upstream/components/timeline/TrackSidebar"
 import { masterAreaHeight } from "../upstream/components/timeline/MasterSidebarRow"
 import {
@@ -49,8 +50,15 @@ export default function SourceTrackSidebar(props: SourceTrackSidebarProps): JSX.
   const [selections, setSelections] = createSignal<Record<string, AutomationParameterSelection>>({})
   const [masterAutomationVisible, setMasterAutomationVisible] = createSignal(false)
   const [masterAutomationHeight, setMasterAutomationHeight] = createSignal(48)
+  const [sourceTrackStore, setSourceTrackStore] = createStore<{ tracks: Track[] }>({
+    tracks: sourceTracks(props.tracks),
+  })
 
-  const tracks = createMemo(() => sourceTracks(props.tracks))
+  createEffect(() => {
+    setSourceTrackStore("tracks", reconcile(sourceTracks(props.tracks), { key: "id" }))
+  })
+
+  const tracks = () => sourceTrackStore.tracks
   const trackById = createMemo(() => new Map(tracks().map((track) => [track.id, track])))
   const visibleByTrackId = createMemo<Record<string, boolean>>(() => Object.fromEntries(
     props.tracks.map((track) => [track.id, track.automationVisible]),
