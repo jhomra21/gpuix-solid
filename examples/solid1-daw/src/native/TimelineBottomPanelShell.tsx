@@ -9,6 +9,8 @@ export interface TimelineBottomPanelShellProps {
   heightPx: number
   footer: JSX.Element
   children: JSX.Element
+  onHeightPreview: (heightPx: number) => void
+  onHeightCommit: (heightPx: number) => void
 }
 
 const TimelineBottomPanelShell = (props: TimelineBottomPanelShellProps): JSX.Element => {
@@ -16,8 +18,8 @@ const TimelineBottomPanelShell = (props: TimelineBottomPanelShellProps): JSX.Ele
     get heightPx(): number {
       return props.heightPx
     },
-    onHeightPreview(_heightPx: number): void {},
-    onHeightCommit(_heightPx: number): void {},
+    onHeightPreview: props.onHeightPreview,
+    onHeightCommit: props.onHeightCommit,
   }
 
   const footprint = () => props.heightPx + BOTTOM_PANEL_FOOTER_HEIGHT_PX + BOTTOM_PANEL_EDGE_PADDING_PX
