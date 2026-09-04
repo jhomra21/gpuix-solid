@@ -97,13 +97,7 @@ function promoteNativePopperPositioner(element: HostElementNode): void {
   if (element.root || element.nativeAlive) {
     throw new Error("Kobalte popper positioner must be promoted before native adoption")
   }
-  // SAFETY: HostElementNode.type is writable at runtime while detached; changing it before adoption controls only the native createElement opcode while semantic div metadata remains unchanged for Kobalte.
-  Object.defineProperty(element, "type", {
-    configurable: true,
-    enumerable: true,
-    writable: false,
-    value: "anchored",
-  })
+  element.nativeType = "anchored"
   nativePopperPositioners.add(element)
   setHostProperty(element, "position", { x: 0, y: 0 })
   setHostProperty(element, "fit", "snap")
