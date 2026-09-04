@@ -69,10 +69,12 @@ if menu_slot_old not in sidebar:
 sidebar = sidebar.replace(menu_slot_old, menu_slot_new, 1)
 
 sidebar_tail = '''        </div>\n      </div>\n    </div>\n  )\n}'''
-if not sidebar.endswith(sidebar_tail):
+trailing_newline = "\n" if sidebar.endswith("\n") else ""
+sidebar_body = sidebar[:-1] if trailing_newline else sidebar
+if not sidebar_body.endswith(sidebar_tail):
     raise SystemExit("Diffusion SidebarLeft final-child anchor missing")
 sidebar_tail_new = '''        </div>\n      </div>\n      <div style={{ position: "absolute", left: 10, top: 50 }}>\n        <ProjectMenu state={props.state} onImport={importAsset} onRemoveUnused={removeUnused} onDownloadAssets={downloadAssets} />\n      </div>\n    </div>\n  )\n}'''
-sidebar = sidebar[:-len(sidebar_tail)] + sidebar_tail_new
+sidebar = sidebar_body[:-len(sidebar_tail)] + sidebar_tail_new + trailing_newline
 sidebar_path.write_text(sidebar)
 
 # The promoted product must not retain diagnostic output from the exploratory probes.
