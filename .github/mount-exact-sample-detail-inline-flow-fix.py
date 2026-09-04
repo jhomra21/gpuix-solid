@@ -111,8 +111,12 @@ if position_replacement not in universal:
 
 helper_anchor = '''function applyNativeTextTransform(node: HostTextNode): void {
 '''
-helper = '''function browserInlineFlowEligible(node: HostElementNode): boolean {
-  if (node.nativeType !== "div" || sourceDisplay(node) !== undefined) return false
+helper = '''function hasExplicitSourceDisplay(node: HostElementNode): boolean {
+  return styleStates.has(node) && sourceDisplay(node) !== undefined
+}
+
+function browserInlineFlowEligible(node: HostElementNode): boolean {
+  if (node.nativeType !== "div" || hasExplicitSourceDisplay(node)) return false
 
   let inlineChildren = 0
   for (const child of node.children) {
@@ -123,7 +127,7 @@ helper = '''function browserInlineFlowEligible(node: HostElementNode): boolean {
     }
 
     const semanticTag = semanticTags.get(child)
-    if (!semanticTag || !INLINE_TEXT_SEMANTIC_TAGS.has(semanticTag) || sourceDisplay(child) !== undefined) {
+    if (!semanticTag || !INLINE_TEXT_SEMANTIC_TAGS.has(semanticTag) || hasExplicitSourceDisplay(child)) {
       return false
     }
     inlineChildren += 1
