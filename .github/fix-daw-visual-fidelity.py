@@ -54,7 +54,7 @@ for host_path in [
 replace_once(
     "examples/solid1-daw/scripts/generate-native-tailwind.mjs",
     '''  ["track-row-control-stack", { base: { width: 81 } }],\n''',
-    '''  // Browser flex-column defaults stretch these source grid rows across the\n  // fixed 81px control stack. Materialize that cross-axis default because GPUIX\n  // otherwise shrink-wraps the rows and collapses the w-full volume slider.\n  ["track-row-control-stack", { base: { width: 81, alignItems: "stretch" } }],\n''',
+    '''  // Browser flex-column defaults stretch these source grid rows across the\n  // fixed 81px control stack. Materialize the child align-self default because\n  // GPUIX otherwise shrink-wraps the rows and collapses the w-full volume slider.\n  ["track-row-control-stack", {\n    base: { width: 81, alignItems: "stretch" },\n    descendants: { ">div": { base: { alignSelf: "stretch" } } },\n  }],\n''',
 )
 
 solid_color_old = '''function normalizePublishedNativeColor(value: string): string {
