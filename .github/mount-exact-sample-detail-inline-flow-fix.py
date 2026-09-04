@@ -42,6 +42,15 @@ if "const INLINE_TEXT_SEMANTIC_TAGS" not in universal:
         raise SystemExit("inline text semantic anchor missing")
     universal = universal.replace(semantic_anchor, semantic_replacement, 1)
 
+state_anchor = '''const sourceTextValues = new WeakMap<HostTextNode, string>()
+'''
+state_replacement = state_anchor + '''const browserInlineFlowNodes = new WeakSet<HostElementNode>()
+'''
+if "const browserInlineFlowNodes" not in universal:
+    if state_anchor not in universal:
+        raise SystemExit("inline flow state anchor missing")
+    universal = universal.replace(state_anchor, state_replacement, 1)
+
 insert_anchor = '''    insertHostNode(parent, node, anchor ?? null)
     if (node.kind === "element") reapplyNativeStyleSubtree(node)
     else applyNativeTextTransform(node)
@@ -50,7 +59,7 @@ insert_anchor = '''    insertHostNode(parent, node, anchor ?? null)
 insert_replacement = '''    insertHostNode(parent, node, anchor ?? null)
     if (node.kind === "element") reapplyNativeStyleSubtree(node)
     else applyNativeTextTransform(node)
-    if (parent.kind === "element") applyNativeStyleState(parent)
+    refreshBrowserInlineFlowParent(parent)
     refreshInlineSvgFromParent(parent)
 '''
 if insert_replacement not in universal:
@@ -64,7 +73,7 @@ remove_anchor = '''    if (node.kind === "element") classStyledNodes.delete(node
 '''
 remove_replacement = '''    if (node.kind === "element") classStyledNodes.delete(node)
     removeHostNode(parent, node)
-    if (parent.kind === "element") applyNativeStyleState(parent)
+    refreshBrowserInlineFlowParent(parent)
     if (svgRoot) refreshInlineSvg(svgRoot)
 '''
 if remove_replacement not in universal:
@@ -77,6 +86,8 @@ style_anchor = '''  const mergedStyle = mergeNativeStyles(preClassStyle, classSt
 '''
 style_replacement = '''  const mergedStyle = mergeNativeStyles(preClassStyle, classStyle, classAttributeStyle, state.inlineStyle, hiddenStyle, selectOptionStyle)
   const browserInlineFlow = resolveBrowserInlineFlowStyle(node, mergedStyle)
+  if (browserInlineFlow) browserInlineFlowNodes.add(node)
+  else browserInlineFlowNodes.delete(node)
   const flowedStyle = mergeNativeStyles(mergedStyle, browserInlineFlow)
   const parentWidth = resolvedNativeNodeSize(node.parent, "x")
 '''
@@ -100,11 +111,8 @@ if position_replacement not in universal:
 
 helper_anchor = '''function applyNativeTextTransform(node: HostTextNode): void {
 '''
-helper = '''function resolveBrowserInlineFlowStyle(
-  node: HostElementNode,
-  style: StyleDesc | undefined,
-): StyleDesc | undefined {
-  if (node.nativeType !== "div" || style?.display !== undefined) return undefined
+helper = '''function browserInlineFlowEligible(node: HostElementNode): boolean {
+  if (node.nativeType !== "div" || sourceDisplay(node) !== undefined) return false
 
   let inlineChildren = 0
   for (const child of node.children) {
@@ -116,12 +124,23 @@ helper = '''function resolveBrowserInlineFlowStyle(
 
     const semanticTag = semanticTags.get(child)
     if (!semanticTag || !INLINE_TEXT_SEMANTIC_TAGS.has(semanticTag) || sourceDisplay(child) !== undefined) {
-      return undefined
+      return false
     }
     inlineChildren += 1
   }
+  return inlineChildren >= 2
+}
 
-  if (inlineChildren < 2) return undefined
+function refreshBrowserInlineFlowParent(parent: HostParent): void {
+  if (parent.kind !== "element") return
+  if (browserInlineFlowNodes.has(parent) || browserInlineFlowEligible(parent)) applyNativeStyleState(parent)
+}
+
+function resolveBrowserInlineFlowStyle(
+  node: HostElementNode,
+  style: StyleDesc | undefined,
+): StyleDesc | undefined {
+  if (style?.display !== undefined || !browserInlineFlowEligible(node)) return undefined
   const flowStyle: StyleDesc = {
     display: "flex",
     flexDirection: "row",
