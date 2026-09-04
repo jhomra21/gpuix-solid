@@ -72,12 +72,10 @@ if remove_replacement not in universal:
         raise SystemExit("inline flow remove anchor missing")
     universal = universal.replace(remove_anchor, remove_replacement, 1)
 
-style_anchor = '''  const hiddenStyle: StyleDesc | undefined = state.hidden ? { display: "none" } : undefined
-  const mergedStyle = mergeNativeStyles(preClassStyle, classStyle, classAttributeStyle, state.inlineStyle, hiddenStyle)
+style_anchor = '''  const mergedStyle = mergeNativeStyles(preClassStyle, classStyle, classAttributeStyle, state.inlineStyle, hiddenStyle, selectOptionStyle)
   const parentWidth = resolvedNativeNodeSize(node.parent, "x")
 '''
-style_replacement = '''  const hiddenStyle: StyleDesc | undefined = state.hidden ? { display: "none" } : undefined
-  const mergedStyle = mergeNativeStyles(preClassStyle, classStyle, classAttributeStyle, state.inlineStyle, hiddenStyle)
+style_replacement = '''  const mergedStyle = mergeNativeStyles(preClassStyle, classStyle, classAttributeStyle, state.inlineStyle, hiddenStyle, selectOptionStyle)
   const browserInlineFlow = resolveBrowserInlineFlowStyle(node, mergedStyle)
   const flowedStyle = mergeNativeStyles(mergedStyle, browserInlineFlow)
   const parentWidth = resolvedNativeNodeSize(node.parent, "x")
