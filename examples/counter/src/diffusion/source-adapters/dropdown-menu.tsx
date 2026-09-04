@@ -128,7 +128,15 @@ export function DropdownMenuItem(props: ItemProps): SolidElement {
       {props.children}
       <div
         onClick={onClick}
-        style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, cursor: props.disabled ? "default" : "pointer" }}
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          top: 0,
+          bottom: 0,
+          cursor: props.disabled ? "default" : "pointer",
+          pointerEvents: "auto",
+        }}
       />
     </div>
   )
