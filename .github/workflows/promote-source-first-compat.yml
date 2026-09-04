@@ -1,0 +1,47 @@
+name: Promote source-first compatibility
+
+on:
+  push:
+    branches:
+      - fix/source-first-example-fidelity
+    paths:
+      - .github/promote-source-first-compat.py
+      - .github/workflows/promote-source-first-compat.yml
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: fix/source-first-example-fidelity
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: 1.3.14
+      - name: Apply validated compatibility changes
+        run: python3 .github/promote-source-first-compat.py
+      - name: Install
+        run: bun install --frozen-lockfile
+      - name: Validate clean promoted tree
+        run: |
+          bun run lint
+          bun run typecheck
+          bun run test
+          bun run build
+          bun run solid1:package
+          bun run solid1:daw
+          git diff --check
+      - name: Commit validated product changes
+        run: |
+          rm .github/promote-source-first-compat.py
+          rm .github/workflows/promote-source-first-compat.yml
+          git add -A
+          test -n "$(git status --porcelain)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix: promote source-first native compatibility"
+          git push origin HEAD:fix/source-first-example-fidelity
