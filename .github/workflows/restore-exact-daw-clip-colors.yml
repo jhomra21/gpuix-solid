@@ -30,15 +30,53 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          path = Path('.github/restore-exact-daw-clip-colors.py')
-          text = path.read_text()
+
+          script_path = Path('.github/restore-exact-daw-clip-colors.py')
+          script = script_path.read_text()
           old = '        mix_helper,\n        text,\n'
           new = '        lambda _match: mix_helper,\n        text,\n'
-          if text.count(old) != 1:
+          if script.count(old) != 1:
               raise SystemExit('expected one regex replacement callback anchor')
-          path.write_text(text.replace(old, new, 1))
+          script_path.write_text(script.replace(old, new, 1))
           PY
           python3 .github/restore-exact-daw-clip-colors.py
+          python3 - <<'PY'
+          from pathlib import Path
+
+          test_path = Path('examples/solid1-daw/src/test.tsx')
+          text = test_path.read_text()
+          old = '''  const drumsAudioClip = { title: "Drum Loop 01" } as const
+          requireCondition(app.renderer.hasCustomProps(drumsAudioClip), "exact ClipComponent should expose the source clip title")
+          app.renderer.clickCenterCustomProps(drumsAudioClip)
+          requireCondition(app.renderer.hasTestId("effects-panel") && !app.renderer.hasTestId("clip-panel"), "first exact audio-clip tap should select without opening Sample Detail")
+          requireCondition(
+            app.renderer.styleCustomPropsWithinTestId("lane-drums", drumsAudioClip).borderColor === "#60a5fa",
+            `first exact audio-clip tap should select the source ClipComponent, got ${JSON.stringify(app.renderer.styleCustomPropsWithinTestId("lane-drums", drumsAudioClip))}`,
+          )
+          '''
+          new = '''  const drumsAudioClip = { title: "Drum Loop 01" } as const
+          requireCondition(app.renderer.hasCustomProps(drumsAudioClip), "exact ClipComponent should expose the source clip title")
+          const unselectedDrumsClipStyle = app.renderer.styleCustomPropsWithinTestId("lane-drums", drumsAudioClip)
+          requireCondition(
+            unselectedDrumsClipStyle.backgroundColor === "rgba(0, 167, 108, 0.2)",
+            `exact unselected audio clip should preserve the source 20% color mix, got ${JSON.stringify(unselectedDrumsClipStyle)}`,
+          )
+          requireCondition(
+            unselectedDrumsClipStyle.borderRadius === undefined,
+            `exact source ClipComponent should not gain a native rounded-corner approximation, got ${JSON.stringify(unselectedDrumsClipStyle)}`,
+          )
+          app.renderer.clickCenterCustomProps(drumsAudioClip)
+          requireCondition(app.renderer.hasTestId("effects-panel") && !app.renderer.hasTestId("clip-panel"), "first exact audio-clip tap should select without opening Sample Detail")
+          const selectedDrumsClipStyle = app.renderer.styleCustomPropsWithinTestId("lane-drums", drumsAudioClip)
+          requireCondition(
+            selectedDrumsClipStyle.backgroundColor === "rgba(0, 167, 108, 0.3)" && selectedDrumsClipStyle.boxShadow !== undefined,
+            `first exact audio-clip tap should preserve the source 30% selected color mix and selection ring, got ${JSON.stringify(selectedDrumsClipStyle)}`,
+          )
+          '''
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one stale clip-selection verifier block, found {text.count(old)}')
+          test_path.write_text(text.replace(old, new, 1))
+          PY
 
       - name: Install
         run: bun install --frozen-lockfile
