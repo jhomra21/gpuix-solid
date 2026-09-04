@@ -8,6 +8,10 @@ replacements = {
         '  requireText(rootText(), "SAMPLE DETAIL", "exact Sample Detail rail")\n',
     '  requireText(rootText(), "Beat Grid", "exact SampleDetailWaveform header")\n':
         '  requireText(rootText(), "BEAT GRID", "exact SampleDetailWaveform header")\n',
+    '  app.renderer.clickText("Hide")\n':
+        '  app.renderer.clickText("HIDE")\n',
+    '  app.renderer.clickTextWithinTestId("bottom-panel-closed", "Effects")\n':
+        '  app.renderer.clickTextWithinTestId("bottom-panel-closed", "EFFECTS")\n',
 }
 
 for old, new in replacements.items():
