@@ -8,26 +8,163 @@ FILES = [
 for path in FILES:
     text = path.read_text()
 
-    old = '''  if (name === "style") {\n    node.style = createHostStyleDeclaration(node, isStyle(value) ? value : {})\n    if (node.root && node.nativeAlive) node.root.driver.enqueue("setStyle", node.id, node.style)\n    return\n  }'''
-    new = '''  if (name === "style") {\n    const previousPointerEvents = node.style.pointerEvents\n    node.style = createHostStyleDeclaration(node, isStyle(value) ? value : {})\n    if (node.root && node.nativeAlive) {\n      node.root.driver.enqueue("setStyle", node.id, nativeStyleFor(node))\n      if (previousPointerEvents !== node.style.pointerEvents) {\n        for (const child of node.children) refreshInheritedPointerEvents(child)\n      }\n    }\n    return\n  }'''
+    old = '''const customStyleProperties = new WeakMap<HostElementNode, Map<string, string>>()'''
+    new = '''const customStyleProperties = new WeakMap<HostElementNode, Map<string, string>>()
+const appliedPointerEvents = new WeakMap<HostElementNode, StyleDesc["pointerEvents"] | undefined>()'''
+    if old not in text:
+        raise SystemExit(f"custom style map marker not found in {path}")
+    text = text.replace(old, new, 1)
+
+    old = '''  if (name === "style") {
+    node.style = createHostStyleDeclaration(node, isStyle(value) ? value : {})
+    if (node.root && node.nativeAlive) node.root.driver.enqueue("setStyle", node.id, node.style)
+    return
+  }'''
+    new = '''  if (name === "style") {
+    const previousPointerEvents = effectivePointerEvents(node)
+    node.style = createHostStyleDeclaration(node, isStyle(value) ? value : {})
+    if (node.root && node.nativeAlive) {
+      const nextPointerEvents = effectivePointerEvents(node)
+      node.root.driver.enqueue("setStyle", node.id, nativeStyleFor(node, nextPointerEvents))
+      appliedPointerEvents.set(node, nextPointerEvents)
+      if (previousPointerEvents !== nextPointerEvents) {
+        for (const child of node.children) refreshInheritedPointerEvents(child)
+      }
+    }
+    return
+  }'''
     if old not in text:
         raise SystemExit(f"style update block not found in {path}")
     text = text.replace(old, new, 1)
 
-    old = '''  const index = anchor ? parent.children.indexOf(anchor) : parent.children.length\n  parent.children.splice(index, 0, node)\n  node.parent = parent\n\n  if (!root) return'''
-    new = '''  const index = anchor ? parent.children.indexOf(anchor) : parent.children.length\n  parent.children.splice(index, 0, node)\n  node.parent = parent\n\n  if (root) refreshInheritedPointerEvents(node)\n  if (!root) return'''
+    old = '''  const eventType = EVENT_PROP_TO_TYPE.get(name)
+  if (eventType) {
+    const nativeEventType = nativeEventTypeForDomEvent(eventType)
+    const hadNativeHandler = nativeEventType ? hasNativeEventHandler(node, nativeEventType) : false
+    const handler = isHostEventHandler(value) ? value : undefined
+    if (handler) node.events.set(eventType, handler)
+    else node.events.delete(eventType)
+
+    if (!node.root || !node.nativeAlive) return
+    if (handler) node.root.events.set(node.id, eventType, handler)
+    else node.root.events.delete(node.id, eventType)
+
+    if (nativeEventType) {
+      const hasNativeHandler = hasNativeEventHandler(node, nativeEventType)
+      if (hadNativeHandler != hasNativeHandler) {
+        node.root.driver.enqueue("setEventListener", node.id, nativeEventType, hasNativeHandler)
+      }
+    }
+    return
+  }'''
+    new = '''  const eventType = EVENT_PROP_TO_TYPE.get(name)
+  if (eventType) {
+    const previousPointerEvents = effectivePointerEvents(node)
+    const nativeEventType = nativeEventTypeForDomEvent(eventType)
+    const hadNativeHandler = nativeEventType ? hasNativeEventHandler(node, nativeEventType) : false
+    const handler = isHostEventHandler(value) ? value : undefined
+    if (handler) node.events.set(eventType, handler)
+    else node.events.delete(eventType)
+
+    if (!node.root || !node.nativeAlive) return
+    if (handler) node.root.events.set(node.id, eventType, handler)
+    else node.root.events.delete(node.id, eventType)
+
+    if (nativeEventType) {
+      const hasNativeHandler = hasNativeEventHandler(node, nativeEventType)
+      if (hadNativeHandler != hasNativeHandler) {
+        node.root.driver.enqueue("setEventListener", node.id, nativeEventType, hasNativeHandler)
+      }
+    }
+
+    const nextPointerEvents = effectivePointerEvents(node)
+    if (previousPointerEvents !== nextPointerEvents) {
+      node.root.driver.enqueue("setStyle", node.id, nativeStyleFor(node, nextPointerEvents))
+      appliedPointerEvents.set(node, nextPointerEvents)
+    }
+    return
+  }'''
+    if old not in text:
+        raise SystemExit(f"event update block not found in {path}")
+    text = text.replace(old, new, 1)
+
+    old = '''  const index = anchor ? parent.children.indexOf(anchor) : parent.children.length
+  parent.children.splice(index, 0, node)
+  node.parent = parent
+
+  if (!root) return'''
+    new = '''  const index = anchor ? parent.children.indexOf(anchor) : parent.children.length
+  parent.children.splice(index, 0, node)
+  node.parent = parent
+
+  if (root) refreshInheritedPointerEvents(node)
+  if (!root) return'''
     if old not in text:
         raise SystemExit(f"insert block not found in {path}")
     text = text.replace(old, new, 1)
 
     old = '''function createHostStyleDeclaration(node: HostElementNode, style: StyleDesc): HostStyleDeclaration {'''
-    new = '''function inheritedPointerEvents(node: HostElementNode): StyleDesc["pointerEvents"] | undefined {\n  let parent = node.parent\n  while (parent?.kind === "element") {\n    if (parent.style.pointerEvents !== undefined) return parent.style.pointerEvents\n    parent = parent.parent\n  }\n  return undefined\n}\n\nfunction nativeStyleFor(node: HostElementNode): StyleDesc {\n  // Preserve explicit source ownership first. In particular, a descendant\n  // pointer-events:auto must be able to re-enable itself beneath an inherited none.\n  if (node.style.pointerEvents !== undefined) return node.style\n\n  // GPUIX does not synthesize browser bubbling from arbitrary decorative hit\n  // descendants. Materialize inherited none so source-transparent subtrees stay\n  // transparent, but do not materialize inherited auto onto decorative children.\n  if (inheritedPointerEvents(node) === "none") {\n    return { ...node.style, pointerEvents: "none" }\n  }\n\n  // A browser element that owns handlers needs a GPUIX hit surface when it is\n  // otherwise interactive. Keeping this here (rather than in the source style)\n  // preserves the distinction between explicit source auto and host compatibility.\n  if (node.events.size > 0) return { ...node.style, pointerEvents: "auto" }\n  return node.style\n}\n\nfunction refreshInheritedPointerEvents(node: HostNode): void {\n  if (node.kind === "text") return\n  if (node.root && node.nativeAlive) {\n    // Always send the effective style so removing inherited none also clears the\n    // previously materialized native pointer-events value.\n    node.root.driver.enqueue("setStyle", node.id, nativeStyleFor(node))\n  }\n  for (const child of node.children) refreshInheritedPointerEvents(child)\n}\n\nfunction createHostStyleDeclaration(node: HostElementNode, style: StyleDesc): HostStyleDeclaration {'''
+    new = '''function inheritedPointerEvents(node: HostElementNode): StyleDesc["pointerEvents"] | undefined {
+  let parent = node.parent
+  while (parent?.kind === "element") {
+    if (parent.style.pointerEvents !== undefined) return parent.style.pointerEvents
+    parent = parent.parent
+  }
+  return undefined
+}
+
+function effectivePointerEvents(node: HostElementNode): StyleDesc["pointerEvents"] | undefined {
+  // Preserve explicit source ownership first. In particular, a descendant
+  // pointer-events:auto must be able to re-enable itself beneath an inherited none.
+  if (node.style.pointerEvents !== undefined) return node.style.pointerEvents
+
+  // Browser pointer-events:none applies through the subtree until a descendant
+  // explicitly re-enables itself. Materialize only that inherited none; inherited
+  // auto is intentionally left implicit so decorative descendants do not become
+  // separate GPUIX hit targets.
+  if (inheritedPointerEvents(node) === "none") return "none"
+
+  // GPUIX 0.7 needs an explicit hit surface for transparent DOM elements that own
+  // handlers. This is host compatibility, not source styling.
+  if (node.events.size > 0) return "auto"
+  return undefined
+}
+
+function nativeStyleFor(
+  node: HostElementNode,
+  pointerEvents = effectivePointerEvents(node),
+): StyleDesc {
+  if (node.style.pointerEvents !== undefined || pointerEvents === undefined) return node.style
+  return { ...node.style, pointerEvents }
+}
+
+function refreshInheritedPointerEvents(node: HostNode): void {
+  if (node.kind === "text") return
+  const nextPointerEvents = effectivePointerEvents(node)
+  const previousPointerEvents = appliedPointerEvents.get(node)
+  if (node.root && node.nativeAlive && previousPointerEvents !== nextPointerEvents) {
+    // A transition back to undefined intentionally sends the base style once so
+    // a previously materialized auto/none value is cleared natively.
+    node.root.driver.enqueue("setStyle", node.id, nativeStyleFor(node, nextPointerEvents))
+    appliedPointerEvents.set(node, nextPointerEvents)
+  }
+  for (const child of node.children) refreshInheritedPointerEvents(child)
+}
+
+function createHostStyleDeclaration(node: HostElementNode, style: StyleDesc): HostStyleDeclaration {'''
     if old not in text:
         raise SystemExit(f"style declaration marker not found in {path}")
     text = text.replace(old, new, 1)
 
-    old = '''    if (Object.keys(node.style).length > 0) {\n      root.driver.enqueue("setStyle", node.id, node.style)\n    }'''
-    new = '''    const nativeStyle = nativeStyleFor(node)\n    if (Object.keys(nativeStyle).length > 0) {\n      root.driver.enqueue("setStyle", node.id, nativeStyle)\n    }'''
+    old = '''    if (Object.keys(node.style).length > 0) {
+      root.driver.enqueue("setStyle", node.id, node.style)
+    }'''
+    new = '''    const pointerEvents = effectivePointerEvents(node)
+    const nativeStyle = nativeStyleFor(node, pointerEvents)
+    if (Object.keys(nativeStyle).length > 0) {
+      root.driver.enqueue("setStyle", node.id, nativeStyle)
+    }
+    appliedPointerEvents.set(node, pointerEvents)'''
     if old not in text:
         raise SystemExit(f"adopt style block not found in {path}")
     text = text.replace(old, new, 1)
