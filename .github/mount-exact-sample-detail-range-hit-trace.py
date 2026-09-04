@@ -177,3 +177,96 @@ if new not in test:
         raise SystemExit("exact Clip Gain trace verifier anchor missing")
     test = test.replace(old, new, 1)
 test_path.write_text(test)
+
+# Trace the exact footer click after the Clip Gain gate so the next failure can
+# distinguish hit targeting from callback/state propagation.
+testing = testing_path.read_text()
+click_anchor = '''  clickText(text: string): void {
+    const node = this.requireText(text)
+    const point = insetPoint(this.boundsNode(node, `root text ${JSON.stringify(text)}`))
+    this.#native.simulateClick(point.x, point.y)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+  }
+'''
+click_trace = click_anchor + '''
+  clickTextTrace(text: string) {
+    const root = this.#root
+    if (!root) throw new Error("TestRenderer is not bound to a Solid 1 root")
+    const node = this.requireText(text)
+    const nodeBounds = this.boundsNode(node, `root text ${JSON.stringify(text)}`)
+    const point = insetPoint(nodeBounds)
+    const tree = parseTree(this.#native.getTreeJson())
+    const summarizeNode = (target: NativeTreeNode) => {
+      const nativeBounds = this.#native.getElementBounds(target.id)
+      return {
+        id: target.id,
+        type: target.type,
+        text: nodeText(target).replace(/\\s+/g, " ").trim().slice(0, 120),
+        testId: target.testId,
+        customProps: target.customProps,
+        style: target.style,
+        bounds: nativeBounds && nativeBounds.length >= 4
+          ? { x: nativeBounds[0] ?? 0, y: nativeBounds[1] ?? 0, width: nativeBounds[2] ?? 0, height: nativeBounds[3] ?? 0 }
+          : undefined,
+      }
+    }
+    const ancestors: Array<ReturnType<typeof summarizeNode>> = []
+    if (tree) {
+      let currentId = node.id
+      for (;;) {
+        const parent = findParentNode(tree, currentId)
+        if (!parent) break
+        ancestors.push(summarizeNode(parent))
+        currentId = parent.id
+      }
+    }
+    this.#native.simulateClick(point.x, point.y)
+    const events = this.#native.drainEvents()
+    const currentTree = parseTree(this.#native.getTreeJson())
+    const eventTrace: Array<{
+      elementId: number
+      eventType: string
+      type: string | undefined
+      testId: string | undefined
+      bounds: TestBounds | undefined
+    }> = []
+    for (const event of events) {
+      const target = findNodeById(currentTree, event.elementId)
+      const nativeBounds = target ? this.#native.getElementBounds(target.id) : null
+      eventTrace.push({
+        elementId: event.elementId,
+        eventType: event.eventType,
+        type: target?.type,
+        testId: target?.testId,
+        bounds: nativeBounds && nativeBounds.length >= 4
+          ? { x: nativeBounds[0] ?? 0, y: nativeBounds[1] ?? 0, width: nativeBounds[2] ?? 0, height: nativeBounds[3] ?? 0 }
+          : undefined,
+      })
+      root.dispatch(event)
+    }
+    this.#native.flush()
+    return { node: summarizeNode(node), point, ancestors, events: eventTrace }
+  }
+'''
+if "clickTextTrace(text" not in testing:
+    if click_anchor not in testing:
+        raise SystemExit("solid1 clickText trace anchor missing")
+    testing = testing.replace(click_anchor, click_trace, 1)
+testing_path.write_text(testing)
+
+test = test_path.read_text()
+hide_old = '''  app.renderer.clickText("HIDE")
+  requireCondition(app.renderer.hasTestId("bottom-panel-closed"), "exact Sample Detail footer Hide should close the shared panel")
+'''
+hide_new = '''  const hideTrace = app.renderer.clickTextTrace("HIDE")
+  requireCondition(
+    app.renderer.hasTestId("bottom-panel-closed"),
+    `exact Sample Detail footer Hide should close the shared panel: ${JSON.stringify(hideTrace)}`,
+  )
+'''
+if hide_new not in test:
+    if hide_old not in test:
+        raise SystemExit("exact Sample Detail footer trace anchor missing")
+    test = test.replace(hide_old, hide_new, 1)
+test_path.write_text(test)
