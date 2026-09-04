@@ -26,6 +26,26 @@ for relative in PRODUCT_PATCHES:
         raise SystemExit(f"required validated patch is missing: {relative}")
     subprocess.run(["python3", str(path)], cwd=ROOT, check=True)
 
+# Tighten I/O contracts exposed by the exploratory helpers before the root
+# anti-slop lint gate. These boundaries already receive parsed domain values.
+grid_path = ROOT / "packages/solid1/src/browser-grid-compat.ts"
+grid = grid_path.read_text()
+grid = grid.replace(
+    "export function parseBrowserGridTemplateColumns(value: unknown): BrowserGridTrack[] | undefined {\n  if (typeof value !== \"string\") return undefined",
+    "export function parseBrowserGridTemplateColumns(value: string | undefined): BrowserGridTrack[] | undefined {\n  if (value === undefined) return undefined",
+    1,
+)
+grid_path.write_text(grid)
+
+testing_path = ROOT / "packages/solid1/src/testing.ts"
+testing = testing_path.read_text()
+testing = testing.replace(
+    '''  const value = node.customProps?.[name]\n  if (typeof value === "string" && fragments.every((fragment) => value.includes(fragment))) return value''',
+    '''  const value = node.customProps?.[name]\n  const text = value === undefined || value === null ? undefined : String(value)\n  if (text !== undefined && fragments.every((fragment) => text.includes(fragment))) return text''',
+    1,
+)
+testing_path.write_text(testing)
+
 # The promoted product must not retain diagnostic output from the exploratory probes.
 for relative in [
     "packages/solid1/src/host/nodes.ts",
