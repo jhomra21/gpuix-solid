@@ -260,7 +260,7 @@ hide_old = '''  app.renderer.clickText("HIDE")
   requireCondition(app.renderer.hasTestId("bottom-panel-closed"), "exact Sample Detail footer Hide should close the shared panel")
 '''
 hide_new = '''  app.renderer.scrollTestId("daw-test-viewport", -320, -260)
-  const exactHideBounds = app.renderer.boundsTextWithinTestId("bottom-panel", "HIDE")
+  const exactHideBounds = app.renderer.boundsText("HIDE")
   requireCondition(
     exactHideBounds.x >= 0 && right(exactHideBounds) <= viewportWidth,
     `exact Sample Detail HIDE should be visible before interaction, got ${JSON.stringify(exactHideBounds)}`,
