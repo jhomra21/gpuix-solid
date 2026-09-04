@@ -34,21 +34,30 @@ for relative in PRODUCT_PATCHES:
 # anti-slop lint gate. These boundaries already receive parsed domain values.
 grid_path = ROOT / "packages/solid1/src/browser-grid-compat.ts"
 grid = grid_path.read_text()
-grid = grid.replace(
-    "export function parseBrowserGridTemplateColumns(value: unknown): BrowserGridTrack[] | undefined {\n  if (typeof value !== \"string\") return undefined",
-    "export function parseBrowserGridTemplateColumns(value: string | undefined): BrowserGridTrack[] | undefined {\n  if (value === undefined) return undefined",
-    1,
-)
-grid_path.write_text(grid)
+grid_old = "export function parseBrowserGridTemplateColumns(value: unknown): BrowserGridTrack[] | undefined {\n  if (typeof value !== \"string\") return undefined"
+grid_new = "export function parseBrowserGridTemplateColumns(value: string | undefined): BrowserGridTrack[] | undefined {\n  if (value === undefined) return undefined"
+if grid_old not in grid:
+    raise SystemExit("browser grid parser boundary anchor missing")
+grid_path.write_text(grid.replace(grid_old, grid_new, 1))
 
 testing_path = ROOT / "packages/solid1/src/testing.ts"
 testing = testing_path.read_text()
-testing = testing.replace(
-    '''  const value = node.customProps?.[name]\n  if (typeof value === "string" && fragments.every((fragment) => value.includes(fragment))) return value''',
-    '''  const value = node.customProps?.[name]\n  const text = value === undefined || value === null ? undefined : String(value)\n  if (text !== undefined && fragments.every((fragment) => text.includes(fragment))) return text''',
-    1,
-)
-testing_path.write_text(testing)
+testing_old = '''  const value = node.customProps?.[name]\n  if (typeof value === "string" && fragments.every((fragment) => value.includes(fragment))) return value'''
+testing_new = '''  const value = node.customProps?.[name]\n  const text = value === undefined || value === null ? undefined : String(value)\n  if (text !== undefined && fragments.every((fragment) => text.includes(fragment))) return text'''
+if testing_old not in testing:
+    raise SystemExit("testing custom-prop boundary anchor missing")
+testing_path.write_text(testing.replace(testing_old, testing_new, 1))
+
+# The reconstructed project menu is a native compatibility surface. Mark its rows
+# with their actual semantic role so the promoted host gives them the same explicit
+# hit ownership as browser menu items instead of relying on incidental div behavior.
+sidebar_path = ROOT / "examples/counter/src/diffusion/sidebar-left-native.tsx"
+sidebar = sidebar_path.read_text()
+menu_row_old = '''  return (\n    <div testId={props.testId} onClick={props.onClick} style={{ height: 28,'''
+menu_row_new = '''  return (\n    <div role="menuitem" testId={props.testId} onClick={props.onClick} style={{ height: 28,'''
+if menu_row_old not in sidebar:
+    raise SystemExit("Diffusion MenuRow semantic-role anchor missing")
+sidebar_path.write_text(sidebar.replace(menu_row_old, menu_row_new, 1))
 
 # The promoted product must not retain diagnostic output from the exploratory probes.
 for relative in [
