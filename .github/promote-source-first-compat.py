@@ -11,7 +11,6 @@ PRODUCT_PATCHES = [
     ".github/source-sidebar-postprocess.py",
     ".github/inline-grid-compat-probe.py",
     ".github/empty-text-compat-probe.py",
-    ".github/interactive-hit-surface-probe.py",
     ".github/range-native-backing-probe.py",
     ".github/pointer-events-inheritance-probe.py",
     ".github/document-classlist-probe.py",
