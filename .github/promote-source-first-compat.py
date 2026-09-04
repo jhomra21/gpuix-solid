@@ -12,6 +12,8 @@ PRODUCT_PATCHES = [
     ".github/inline-grid-compat-probe.py",
     ".github/empty-text-compat-probe.py",
     ".github/range-native-backing-probe.py",
+    # Pointer ownership is promoted only for semantic controls/roles; plain
+    # event containers keep their existing native hit behavior.
     ".github/pointer-events-inheritance-probe.py",
     ".github/pointer-events-contract-probe.py",
     ".github/document-classlist-probe.py",
