@@ -80,8 +80,29 @@ trace_method = method_anchor + '''
         bounds,
       }
     }
+    const summarizeDescendants = (target: NativeTreeNode, maxDepth: number) => {
+      const descendants: Array<{
+        depth: number
+        parentId: number
+        node: ReturnType<typeof summarizeNode>
+      }> = []
+      let level = (target.children ?? []).map((child) => ({ child, parentId: target.id }))
+      for (let depth = 1; depth <= maxDepth && level.length > 0; depth += 1) {
+        const next: typeof level = []
+        for (const entry of level) {
+          descendants.push({ depth, parentId: entry.parentId, node: summarizeNode(entry.child) })
+          for (const child of entry.child.children ?? []) next.push({ child, parentId: entry.child.id })
+        }
+        level = next
+      }
+      return descendants
+    }
     const ancestors: Array<ReturnType<typeof summarizeNode>> = []
-    const ancestorChildren: Array<{ ancestorId: number; children: Array<ReturnType<typeof summarizeNode>> }> = []
+    const ancestorChildren: Array<{
+      ancestorId: number
+      children: Array<ReturnType<typeof summarizeNode>>
+      descendants: ReturnType<typeof summarizeDescendants>
+    }> = []
     if (tree) {
       let currentId = node.id
       for (;;) {
@@ -89,7 +110,11 @@ trace_method = method_anchor + '''
         if (!parent) break
         ancestors.push(summarizeNode(parent))
         if (ancestorChildren.length < 3) {
-          ancestorChildren.push({ ancestorId: parent.id, children: (parent.children ?? []).map(summarizeNode) })
+          ancestorChildren.push({
+            ancestorId: parent.id,
+            children: (parent.children ?? []).map(summarizeNode),
+            descendants: summarizeDescendants(parent, 4),
+          })
         }
         currentId = parent.id
       }
