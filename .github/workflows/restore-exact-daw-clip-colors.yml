@@ -27,7 +27,18 @@ jobs:
           bun-version: 1.3.14
 
       - name: Apply exact source and host compatibility
-        run: python3 .github/restore-exact-daw-clip-colors.py
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.github/restore-exact-daw-clip-colors.py')
+          text = path.read_text()
+          old = '        mix_helper,\n        text,\n'
+          new = '        lambda _match: mix_helper,\n        text,\n'
+          if text.count(old) != 1:
+              raise SystemExit('expected one regex replacement callback anchor')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          python3 .github/restore-exact-daw-clip-colors.py
 
       - name: Install
         run: bun install --frozen-lockfile
