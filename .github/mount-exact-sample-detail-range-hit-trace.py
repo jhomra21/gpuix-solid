@@ -66,23 +66,31 @@ trace_method = method_anchor + '''
       bounds?: TestBounds | undefined
     }> = []
     const tree = parseTree(this.#native.getTreeJson())
-    const ancestors: Array<{
-      id: number
-      type: string
-      testId?: string | undefined
-      style?: StyleDesc | undefined
-      bounds?: TestBounds | undefined
-    }> = []
+    const summarizeNode = (target: NativeTreeNode) => {
+      const nativeBounds = this.#native.getElementBounds(target.id)
+      const bounds = nativeBounds && nativeBounds.length >= 4
+        ? { x: nativeBounds[0] ?? 0, y: nativeBounds[1] ?? 0, width: nativeBounds[2] ?? 0, height: nativeBounds[3] ?? 0 }
+        : undefined
+      return {
+        id: target.id,
+        type: target.type,
+        text: nodeText(target).replace(/\\s+/g, " ").trim().slice(0, 120),
+        testId: target.testId,
+        style: target.style,
+        bounds,
+      }
+    }
+    const ancestors: Array<ReturnType<typeof summarizeNode>> = []
+    const ancestorChildren: Array<{ ancestorId: number; children: Array<ReturnType<typeof summarizeNode>> }> = []
     if (tree) {
       let currentId = node.id
       for (;;) {
         const parent = findParentNode(tree, currentId)
         if (!parent) break
-        const nativeBounds = this.#native.getElementBounds(parent.id)
-        const bounds = nativeBounds && nativeBounds.length >= 4
-          ? { x: nativeBounds[0] ?? 0, y: nativeBounds[1] ?? 0, width: nativeBounds[2] ?? 0, height: nativeBounds[3] ?? 0 }
-          : undefined
-        ancestors.push({ id: parent.id, type: parent.type, testId: parent.testId, style: parent.style, bounds })
+        ancestors.push(summarizeNode(parent))
+        if (ancestorChildren.length < 3) {
+          ancestorChildren.push({ ancestorId: parent.id, children: (parent.children ?? []).map(summarizeNode) })
+        }
         currentId = parent.id
       }
     }
@@ -115,7 +123,7 @@ trace_method = method_anchor + '''
     dispatch()
     this.#native.simulateMouseUp(endX, endY, 0)
     dispatch()
-    return { nodeId: node.id, nodeBounds, start, end: { x: endX, y: endY }, ancestors, events: trace }
+    return { nodeId: node.id, nodeBounds, start, end: { x: endX, y: endY }, ancestors, ancestorChildren, events: trace }
   }
 '''
 if "dragCustomPropsTrace(query" not in testing:
