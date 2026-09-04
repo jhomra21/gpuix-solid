@@ -48,16 +48,32 @@ if testing_old not in testing:
     raise SystemExit("testing custom-prop boundary anchor missing")
 testing_path.write_text(testing.replace(testing_old, testing_new, 1))
 
-# The reconstructed project menu is a native compatibility surface. Mark its rows
-# with their actual semantic role so the promoted host gives them the same explicit
-# hit ownership as browser menu items instead of relying on incidental div behavior.
+# The reconstructed project menu is a native compatibility surface. Its rows are
+# semantic menu items, and the floating subtree must be later than the sidebar body
+# in retained-tree order because GPUIX 0.7 does not expose browser z-index stacking.
+# Keep the original 28px trigger slot and exact x/y geometry while mounting the
+# actual menu as the sidebar's final absolute child so lower menu rows are not
+# intercepted by later asset/search siblings.
 sidebar_path = ROOT / "examples/counter/src/diffusion/sidebar-left-native.tsx"
 sidebar = sidebar_path.read_text()
 menu_row_old = '''  return (\n    <div testId={props.testId} onClick={props.onClick} style={{ height: 28,'''
 menu_row_new = '''  return (\n    <div role="menuitem" testId={props.testId} onClick={props.onClick} style={{ height: 28,'''
 if menu_row_old not in sidebar:
     raise SystemExit("Diffusion MenuRow semantic-role anchor missing")
-sidebar_path.write_text(sidebar.replace(menu_row_old, menu_row_new, 1))
+sidebar = sidebar.replace(menu_row_old, menu_row_new, 1)
+
+menu_slot_old = '''        <ProjectMenu state={props.state} onImport={importAsset} onRemoveUnused={removeUnused} onDownloadAssets={downloadAssets} />'''
+menu_slot_new = '''        <div style={{ width: 28, height: 28, flexShrink: 0 }} />'''
+if menu_slot_old not in sidebar:
+    raise SystemExit("Diffusion ProjectMenu inline slot anchor missing")
+sidebar = sidebar.replace(menu_slot_old, menu_slot_new, 1)
+
+sidebar_tail = '''        </div>\n      </div>\n    </div>\n  )\n}'''
+if not sidebar.endswith(sidebar_tail):
+    raise SystemExit("Diffusion SidebarLeft final-child anchor missing")
+sidebar_tail_new = '''        </div>\n      </div>\n      <div style={{ position: "absolute", left: 10, top: 50 }}>\n        <ProjectMenu state={props.state} onImport={importAsset} onRemoveUnused={removeUnused} onDownloadAssets={downloadAssets} />\n      </div>\n    </div>\n  )\n}'''
+sidebar = sidebar[:-len(sidebar_tail)] + sidebar_tail_new
+sidebar_path.write_text(sidebar)
 
 # The promoted product must not retain diagnostic output from the exploratory probes.
 for relative in [
