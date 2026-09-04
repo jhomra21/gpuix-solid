@@ -259,11 +259,18 @@ test = test_path.read_text()
 hide_old = '''  app.renderer.clickText("HIDE")
   requireCondition(app.renderer.hasTestId("bottom-panel-closed"), "exact Sample Detail footer Hide should close the shared panel")
 '''
-hide_new = '''  const hideTrace = app.renderer.clickTextTrace("HIDE")
+hide_new = '''  app.renderer.scrollTestId("daw-test-viewport", -320, -260)
+  const exactHideBounds = app.renderer.boundsTextWithinTestId("bottom-panel", "HIDE")
+  requireCondition(
+    exactHideBounds.x >= 0 && right(exactHideBounds) <= viewportWidth,
+    `exact Sample Detail HIDE should be visible before interaction, got ${JSON.stringify(exactHideBounds)}`,
+  )
+  const hideTrace = app.renderer.clickTextTrace("HIDE")
   requireCondition(
     app.renderer.hasTestId("bottom-panel-closed"),
     `exact Sample Detail footer Hide should close the shared panel: ${JSON.stringify(hideTrace)}`,
   )
+  app.renderer.scrollTestId("daw-test-viewport", 0, -260)
 '''
 if hide_new not in test:
     if hide_old not in test:
