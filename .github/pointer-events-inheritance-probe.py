@@ -105,12 +105,26 @@ const INTERACTIVE_ROLES = new Set([
         raise SystemExit(f"event update block not found in {path}")
     text = text.replace(old, new, 1)
 
+    # range-native-backing-probe.py runs first and inserts the detached range
+    # backing decision into this property block. Match that composed shape
+    # deliberately instead of loosening the patch anchor.
     old = '''  if (value === undefined) node.props.delete(name)
   else node.props.set(name, customPropValue(value))
-  if (!node.root || !node.nativeAlive || isReserved(name)) return'''
+
+  if (name === "type" && node.tagName === "INPUT" && !node.nativeAlive) {
+    node.nativeType = String(value).toLowerCase() === "range" ? "div" : "input"
+  }
+
+  if (!node.root || !node.nativeAlive || isReserved(name)) return
+  if (BUILT_IN_TYPES.has(node.nativeType) && !isForwardedBuiltInProp(name)) return'''
     new = '''  const previousPointerEvents = name === "role" ? effectivePointerEvents(node) : undefined
   if (value === undefined) node.props.delete(name)
   else node.props.set(name, customPropValue(value))
+
+  if (name === "type" && node.tagName === "INPUT" && !node.nativeAlive) {
+    node.nativeType = String(value).toLowerCase() === "range" ? "div" : "input"
+  }
+
   if (node.root && node.nativeAlive && name === "role") {
     const nextPointerEvents = effectivePointerEvents(node)
     if (previousPointerEvents !== nextPointerEvents) {
@@ -118,9 +132,10 @@ const INTERACTIVE_ROLES = new Set([
       appliedPointerEvents.set(node, nextPointerEvents)
     }
   }
-  if (!node.root || !node.nativeAlive || isReserved(name)) return'''
+  if (!node.root || !node.nativeAlive || isReserved(name)) return
+  if (BUILT_IN_TYPES.has(node.nativeType) && !isForwardedBuiltInProp(name)) return'''
     if old not in text:
-        raise SystemExit(f"prop update block not found in {path}")
+        raise SystemExit(f"post-range prop update block not found in {path}")
     text = text.replace(old, new, 1)
 
     old = '''  const index = anchor ? parent.children.indexOf(anchor) : parent.children.length
