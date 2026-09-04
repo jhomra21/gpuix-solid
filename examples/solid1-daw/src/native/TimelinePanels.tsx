@@ -45,7 +45,12 @@ const TimelinePanels = (props: TimelinePanelsProps): JSX.Element => {
     />
   )
   const effectsPanel = () => (
-    <TimelineBottomPanelShell heightPx={props.heightPx} footer={footer()}>
+    <TimelineBottomPanelShell
+      heightPx={props.heightPx}
+      footer={footer()}
+      onHeightPreview={props.onHeightPreview}
+      onHeightCommit={props.onHeightCommit}
+    >
       <EffectsPanel
         compressorEnabled={props.compressorEnabled}
         onToggleCompressor={props.onToggleCompressor}
