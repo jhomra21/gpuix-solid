@@ -59,10 +59,10 @@ trace_method = method_anchor + '''
     const trace: Array<{
       elementId: number
       eventType: string
-      type?: string
-      testId?: string
-      customProps?: Record<string, MutationValue>
-      bounds?: TestBounds
+      type?: string | undefined
+      testId?: string | undefined
+      customProps?: Record<string, MutationValue> | undefined
+      bounds?: TestBounds | undefined
     }> = []
     const dispatch = () => {
       const events = this.#native.drainEvents()
