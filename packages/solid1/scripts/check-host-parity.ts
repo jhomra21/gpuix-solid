@@ -10,6 +10,8 @@ import {
 } from "../src/native-style.ts"
 import { EventRegistry } from "../src/host/events.ts"
 import { createHostElement, insertHostNode, setHostProperty } from "../src/host/nodes.ts"
+import { createElement as createSemanticElement, createTextNode as createSemanticText, insertNode as insertSemanticNode, setProp as setSemanticProp } from "../src/universal.ts"
+import { installDomEventEnvironment } from "../src/dom-environment.ts"
 
 const packageRoot = new URL("../", import.meta.url)
 const repoRoot = new URL("../../../", import.meta.url)
@@ -36,6 +38,8 @@ clearNativeStyleManifest()
 if (combinedClassListStyle?.backgroundColor !== "#111111" || combinedClassListStyle.color !== "#eeeeee") {
   throw new Error("Solid 1 native classList must split multi-class keys before manifest lookup")
 }
+
+installDomEventEnvironment()
 
 const selectorRoot = createHostElement("div", "section")
 const selectorButton = createHostElement("div", "button")
@@ -70,6 +74,39 @@ if (centeredStyle?.left !== 8) {
 }
 selectorButton.removeAttribute("data-track-name")
 if (selectorLabel.closest("[data-track-name]") !== null) throw new Error("removeAttribute must update selector matching")
+
+const resizeElement = document.createElement("div")
+let resizeHeight: number | undefined
+const resizeObserver = new ResizeObserver((entries) => {
+  resizeHeight = entries[0]?.contentRect.height
+})
+resizeObserver.observe(resizeElement)
+await new Promise((resolve) => setTimeout(resolve, 24))
+resizeObserver.disconnect()
+if (resizeHeight === undefined) throw new Error("native ResizeObserver must report initial host bounds")
+
+const semanticSelect = createSemanticElement("select")
+const repitchOption = createSemanticElement("option")
+const stretchOption = createSemanticElement("option")
+if (semanticSelect.kind !== "element" || repitchOption.kind !== "element" || stretchOption.kind !== "element") {
+  throw new Error("semantic select fixture must create host elements")
+}
+setSemanticProp(repitchOption, "value", "repitch", undefined)
+setSemanticProp(stretchOption, "value", "stretch", undefined)
+insertSemanticNode(repitchOption, createSemanticText("Re-Pitch"))
+insertSemanticNode(stretchOption, createSemanticText("Stretch"))
+setSemanticProp(semanticSelect, "value", "repitch", undefined)
+insertSemanticNode(semanticSelect, repitchOption)
+insertSemanticNode(semanticSelect, stretchOption)
+if (semanticSelect.value !== "repitch") throw new Error("semantic select must retain its controlled browser value")
+if (repitchOption.style.display === "none" || stretchOption.style.display !== "none") {
+  throw new Error(`collapsed semantic select must paint only the selected option: ${JSON.stringify({ repitch: repitchOption.style, stretch: stretchOption.style })}`)
+}
+setSemanticProp(semanticSelect, "value", "stretch", "repitch")
+if (semanticSelect.value !== "stretch") throw new Error("semantic select controlled value must update reactively")
+if (repitchOption.style.display !== "none" || stretchOption.style.display === "none") {
+  throw new Error(`semantic select value update must swap the painted option: ${JSON.stringify({ repitch: repitchOption.style, stretch: stretchOption.style })}`)
+}
 
 const semanticButton = createHostElement("div", "button")
 if (semanticButton.localName !== "button" || semanticButton.tagName !== "BUTTON") throw new Error("host must retain semantic tag identity")
@@ -110,6 +147,50 @@ setHostProperty(separateHandlers, "onMouseDown", () => { mouseDownCount += 1 })
 setHostProperty(separateHandlers, "onPointerDown", () => { pointerDownCount += 1 })
 if (!separateHandlers.events.has("mouseDown") || !separateHandlers.events.has("pointerDown")) {
   throw new Error("mouse and pointer handlers must coexist without overwriting each other")
+}
+
+const checkboxRegistry = new EventRegistry()
+const checkboxTarget = createHostElement("input", "input")
+setHostProperty(checkboxTarget, "type", "checkbox")
+setHostProperty(checkboxTarget, "checked", false)
+checkboxRegistry.activate(4)
+checkboxRegistry.setTarget(4, checkboxTarget)
+const checkboxEvents: string[] = []
+checkboxRegistry.set(4, "click", (event) => checkboxEvents.push(`click:${String(event.currentTarget?.checked)}`))
+checkboxRegistry.set(4, "input", (event) => checkboxEvents.push(`input:${String(event.currentTarget?.checked)}`))
+checkboxRegistry.set(4, "change", (event) => checkboxEvents.push(`change:${String(event.currentTarget?.checked)}`))
+checkboxRegistry.dispatch({ elementId: 4, eventType: "click", button: 0 } satisfies Parameters<EventRegistry["dispatch"]>[0])
+if (!checkboxTarget.checked) throw new Error("checkbox click must toggle currentTarget.checked before handlers run")
+if (checkboxEvents.join(",") !== "click:true,input:true,change:true") {
+  throw new Error(`checkbox click must emit browser-order click/input/change with toggled checked state: ${checkboxEvents.join(",")}`)
+}
+checkboxRegistry.set(4, "click", (event) => event.preventDefault?.())
+checkboxRegistry.dispatch({ elementId: 4, eventType: "click", button: 0 } satisfies Parameters<EventRegistry["dispatch"]>[0])
+if (!checkboxTarget.checked) throw new Error("prevented checkbox click must restore the previous checked state")
+if (checkboxEvents.join(",") !== "click:true,input:true,change:true") {
+  throw new Error("prevented checkbox click must not emit input/change")
+}
+
+const rangeRegistry = new EventRegistry()
+const rangeTarget = createHostElement("input", "input")
+setHostProperty(rangeTarget, "type", "range")
+setHostProperty(rangeTarget, "min", "-60")
+setHostProperty(rangeTarget, "max", "6")
+setHostProperty(rangeTarget, "step", "0.1")
+setHostProperty(rangeTarget, "value", "-60")
+Object.defineProperty(rangeTarget, "getBoundingClientRect", {
+  configurable: true,
+  value: () => ({ left: 0, top: 0, right: 100, bottom: 16, width: 100, height: 16 }),
+})
+rangeRegistry.activate(5)
+rangeRegistry.setTarget(5, rangeTarget)
+let rangeChangeValue = ""
+rangeRegistry.set(5, "change", (event) => { rangeChangeValue = event.currentTarget?.value ?? "" })
+rangeRegistry.dispatch({ elementId: 5, eventType: "mouseDown", button: 0, x: 25, y: 8 } satisfies Parameters<EventRegistry["dispatch"]>[0])
+rangeRegistry.dispatch({ elementId: 5, eventType: "mouseMove", button: 0, x: 75, y: 8 } satisfies Parameters<EventRegistry["dispatch"]>[0])
+rangeRegistry.dispatch({ elementId: 5, eventType: "mouseUp", button: 0, x: 75, y: 8 } satisfies Parameters<EventRegistry["dispatch"]>[0])
+if (rangeTarget.value !== "-10.5" || rangeChangeValue !== "-10.5") {
+  throw new Error(`range drag must quantize value and commit change on pointer release: ${rangeTarget.value}/${rangeChangeValue}`)
 }
 
 const doubleClickRegistry = new EventRegistry()

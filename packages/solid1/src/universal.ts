@@ -88,6 +88,7 @@ const semanticTags = new WeakMap<HostElementNode, string>()
 const svgAttributes = new WeakMap<HostElementNode, Map<string, SvgAttributeValue>>()
 const textTransforms = new WeakMap<HostElementNode, NativeTextTransform>()
 const sourceTextValues = new WeakMap<HostTextNode, string>()
+const browserInlineFlowNodes = new WeakSet<HostElementNode>()
 
 const TEXT_SEMANTIC_TAGS = new Set([
   "span",
@@ -107,6 +108,18 @@ const TEXT_SEMANTIC_TAGS = new Set([
   "samp",
   "output",
   "option",
+])
+
+const INLINE_TEXT_SEMANTIC_TAGS = new Set([
+  "span",
+  "strong",
+  "em",
+  "small",
+  "label",
+  "time",
+  "kbd",
+  "samp",
+  "output",
 ])
 
 const DIV_SEMANTIC_TAGS = new Set([
@@ -257,6 +270,11 @@ const runtime = createRenderer<HostNode | HostParent>({
       }
     }
     setHostProperty(node, name, value, previous)
+    if (node.kind === "element" && semanticTags.get(node) === "select" && name === "value") {
+      for (const child of node.children) {
+        if (child.kind === "element") reapplyNativeStyleSubtree(child)
+      }
+    }
     if (node.kind === "element" && (name.startsWith("data-") || name.startsWith("aria-"))) {
       reapplyNativeStyleSubtree(node)
     }
@@ -269,6 +287,7 @@ const runtime = createRenderer<HostNode | HostParent>({
     insertHostNode(parent, node, anchor ?? null)
     if (node.kind === "element") reapplyNativeStyleSubtree(node)
     else applyNativeTextTransform(node)
+    refreshBrowserInlineFlowParent(parent)
     refreshInlineSvgFromParent(parent)
   },
   isTextNode(node) {
@@ -281,6 +300,7 @@ const runtime = createRenderer<HostNode | HostParent>({
     const svgRoot = parent.kind === "element" ? inlineSvgRoot(parent) : undefined
     if (node.kind === "element") classStyledNodes.delete(node)
     removeHostNode(parent, node)
+    refreshBrowserInlineFlowParent(parent)
     if (svgRoot) refreshInlineSvg(svgRoot)
   },
   getParentNode(node) {
@@ -610,11 +630,16 @@ function applyNativeStyleState(node: HostElementNode): void {
   if (textTransform === undefined) textTransforms.delete(node)
   else textTransforms.set(node, textTransform)
   const hiddenStyle: StyleDesc | undefined = state.hidden ? { display: "none" } : undefined
-  const mergedStyle = mergeNativeStyles(preClassStyle, classStyle, classAttributeStyle, state.inlineStyle, hiddenStyle)
+  const selectOptionStyle: StyleDesc | undefined = isUnselectedSelectOption(node) ? { display: "none" } : undefined
+  const mergedStyle = mergeNativeStyles(preClassStyle, classStyle, classAttributeStyle, state.inlineStyle, hiddenStyle, selectOptionStyle)
+  const browserInlineFlow = resolveBrowserInlineFlowStyle(node, mergedStyle)
+  if (browserInlineFlow) browserInlineFlowNodes.add(node)
+  else browserInlineFlowNodes.delete(node)
+  const flowedStyle = mergeNativeStyles(mergedStyle, browserInlineFlow)
   const parentWidth = resolvedNativeNodeSize(node.parent, "x")
   const parentHeight = resolvedNativeNodeSize(node.parent, "y")
   const positionedStyle = applyNativeStyleParentPosition(
-    mergedStyle,
+    flowedStyle,
     classParentPosition,
     parentWidth,
     parentHeight,
@@ -624,6 +649,68 @@ function applyNativeStyleState(node: HostElementNode): void {
     "style",
     applyNativeStyleTranslation(positionedStyle, classTranslation) ?? {},
   )
+}
+
+function isUnselectedSelectOption(node: HostElementNode): boolean {
+  if (semanticTags.get(node) !== "option") return false
+  const parent = node.parent
+  if (!parent || parent.kind !== "element" || semanticTags.get(parent) !== "select") return false
+
+  const options = parent.children.filter(
+    (child): child is HostElementNode => child.kind === "element" && semanticTags.get(child) === "option",
+  )
+  const selected = parent.props.get("value")
+  if (selected === undefined || selected === null) return options[0] !== node
+
+  const explicitValue = node.props.get("value")
+  const optionValue = explicitValue === undefined || explicitValue === null
+    ? node.children.map((child) => child.kind === "text" ? child.text : "").join("")
+    : String(explicitValue)
+  return optionValue !== String(selected)
+}
+
+function hasExplicitSourceDisplay(node: HostElementNode): boolean {
+  return styleStates.has(node) && sourceDisplay(node) !== undefined
+}
+
+function browserInlineFlowEligible(node: HostElementNode): boolean {
+  if (node.nativeType !== "div" || hasExplicitSourceDisplay(node)) return false
+
+  let inlineChildren = 0
+  for (const child of node.children) {
+    if (child.kind === "text") {
+      if (child.text.length === 0) continue
+      inlineChildren += 1
+      continue
+    }
+
+    const semanticTag = semanticTags.get(child)
+    if (!semanticTag || !INLINE_TEXT_SEMANTIC_TAGS.has(semanticTag) || hasExplicitSourceDisplay(child)) {
+      return false
+    }
+    inlineChildren += 1
+  }
+  return inlineChildren >= 2
+}
+
+function refreshBrowserInlineFlowParent(parent: HostParent): void {
+  if (parent.kind !== "element") return
+  if (browserInlineFlowNodes.has(parent) || browserInlineFlowEligible(parent)) applyNativeStyleState(parent)
+}
+
+function resolveBrowserInlineFlowStyle(
+  node: HostElementNode,
+  style: StyleDesc | undefined,
+): StyleDesc | undefined {
+  if (style?.display !== undefined || !browserInlineFlowEligible(node)) return undefined
+  const flowStyle: StyleDesc = {
+    display: "flex",
+    flexDirection: "row",
+    flexWrap: "wrap",
+  }
+  if (style?.textAlign === "center") flowStyle.justifyContent = "center"
+  else if (style?.textAlign === "right") flowStyle.justifyContent = "flex-end"
+  return flowStyle
 }
 
 function applyNativeTextTransform(node: HostTextNode): void {

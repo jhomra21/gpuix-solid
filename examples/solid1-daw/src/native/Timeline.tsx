@@ -1,4 +1,8 @@
 import { createMemo, createSignal, onCleanup, type JSX } from "solid-js"
+import { createDeterministicAudioEngine } from "../compat/audio-engine"
+import { createBpmDetectionService } from "../compat/bpm-detection-service"
+import type { AudioWarp } from "../upstream/packages/timeline-core/types"
+import { clampBottomPanelHeight } from "../upstream/lib/bottom-panel-preferences"
 import { getBottomPanelMountedFootprintPx } from "../upstream/lib/bottom-panel-layout"
 import {
   planGroupTracks,
@@ -78,6 +82,7 @@ export default function Timeline(): JSX.Element {
   const [playheadSec, setPlayheadSec] = createSignal(2.75)
   const [bottomPanelOpen, setBottomPanelOpen] = createSignal(true)
   const [bottomTab, setBottomTab] = createSignal<BottomTab>("effects")
+  const [bottomPanelHeight, setBottomPanelHeight] = createSignal<number>(layout.bottomPanelHeight)
   const [drag, setDrag] = createSignal<DragState>()
   const [masterVolume, setMasterVolume] = createSignal(1)
 
@@ -91,6 +96,8 @@ export default function Timeline(): JSX.Element {
   const [eqLowGain, setEqLowGain] = createSignal(-1)
   const [eqMidGain, setEqMidGain] = createSignal(2)
   const [eqHighGain, setEqHighGain] = createSignal(0)
+  const audioEngine = createDeterministicAudioEngine()
+  const bpmDetection = createBpmDetectionService()
 
   let pendingDrag: DragState | undefined
   let dragListenersArmed = false
@@ -98,11 +105,22 @@ export default function Timeline(): JSX.Element {
   const selectedClip = createMemo(() => findClip(tracks(), selectedClipId())?.clip)
   const bottomPanelOffsetPx = () => getBottomPanelMountedFootprintPx({
     open: bottomPanelOpen(),
-    heightPx: layout.bottomPanelHeight,
+    heightPx: bottomPanelHeight(),
   })
 
   const updateTrack = (id: string, update: (track: NativeTrack) => NativeTrack): void => {
     setTracks((current) => current.map((track) => track.id === id ? update(track) : track))
+  }
+
+  const updateClip = (id: string, update: (clip: NativeClip) => NativeClip): void => {
+    setTracks((current) => current.map((track) => ({
+      ...track,
+      clips: track.clips.map((clip) => clip.id === id ? update(clip) : clip),
+    })))
+  }
+
+  const setBottomPanelHeightFromSource = (heightPx: number): void => {
+    setBottomPanelHeight(clampBottomPanelHeight(heightPx, window.innerHeight))
   }
 
   const setOutputTarget = (id: string, targetId?: string): void => {
@@ -463,13 +481,19 @@ export default function Timeline(): JSX.Element {
       <TimelinePanels
         open={bottomPanelOpen()}
         activeTab={bottomTab()}
-        heightPx={layout.bottomPanelHeight}
+        heightPx={bottomPanelHeight()}
         projectBpm={bpm()}
         onOpen={() => setBottomPanelOpen(true)}
         onClose={() => setBottomPanelOpen(false)}
         onEffectsTabClick={() => { setBottomTab("effects"); setBottomPanelOpen(true) }}
         onClipTabClick={() => { if (selectedClip()?.kind === "audio") { setBottomTab("clip"); setBottomPanelOpen(true) } }}
+        onHeightPreview={setBottomPanelHeightFromSource}
+        onHeightCommit={setBottomPanelHeightFromSource}
         selectedClip={selectedClip()}
+        audioEngine={audioEngine}
+        bpmDetection={bpmDetection}
+        onClipWarpChange={(clipId: string, audioWarp: AudioWarp) => updateClip(clipId, (clip) => ({ ...clip, audioWarp }))}
+        onClipGainChange={(clipId: string, gain: number) => updateClip(clipId, (clip) => ({ ...clip, gain }))}
         compressorEnabled={compressorEnabled()}
         onToggleCompressor={() => setCompressorEnabled((enabled) => !enabled)}
         compressorRatio={compressorRatio()}

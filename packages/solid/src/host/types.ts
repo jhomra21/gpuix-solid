@@ -320,6 +320,8 @@ export interface HighlightMatch {
 
 export type DomCompatTarget = EventTarget & {
   value: string
+  checked: boolean
+  getAttribute: (name: string) => string | null
   scrollTop: number
   scrollLeft: number
   style: object

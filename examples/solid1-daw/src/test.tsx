@@ -358,32 +358,58 @@ if (!hasNativeTestRenderer) {
   )
   app.renderer.clickCenterCustomProps(drumsAudioClip)
   app.renderer.scrollTestId("daw-test-viewport", 0, -260)
-  requireCondition(app.renderer.hasTestId("clip-panel") && !app.renderer.hasTestId("effects-panel"), "second audio-clip tap should open Sample Detail like upstream")
-  const clipText = app.renderer.textContent("clip-panel")
-  requireText(clipText, "SAMPLE DETAIL", "sample detail rail")
-  requireText(clipText, "Drum Loop 01", "selected audio sample")
-  requireText(clipText, "Source BPM", "sample controls")
-  requireText(clipText, "BEAT GRID", "sample waveform header")
+  requireCondition(!app.renderer.hasTestId("effects-panel"), "second exact audio-clip tap should replace Effects with Sample Detail")
+  requireText(rootText(), "SAMPLE DETAIL", "exact Sample Detail rail")
+  requireText(rootText(), "Drum Loop 01", "exact selected audio sample")
+  requireText(rootText(), "Source BPM", "exact sample controls")
+  requireText(rootText(), "BEAT GRID", "exact SampleDetailWaveform header")
 
-  app.renderer.clickCenterTestId("sample-warp-toggle")
-  requireText(app.renderer.textContent("clip-panel"), "Beat Offset", "Warp should reveal source beat controls")
-  app.renderer.clickCenterTestId("sample-warp-mode")
-  requireText(app.renderer.textContent("sample-warp-mode"), "Stretch", "warp mode should be interactive")
-  app.renderer.clickCenterTestId("sample-beat-offset-plus")
-  requireText(app.renderer.textContent("sample-beat-offset-value"), "0.001", "beat offset")
-  app.renderer.clickCenterTestId("sample-beat-offset-reset")
-  requireText(app.renderer.textContent("sample-beat-offset-value"), "0.000", "beat offset reset")
+  const warpToggle = { type: "checkbox" } as const
+  requireCondition(app.renderer.hasCustomProps(warpToggle), "exact SampleClipPanel Warp checkbox should mount")
+  app.renderer.clickCustomProps(warpToggle)
+  requireText(rootText(), "Beat Offset", "exact Warp control should reveal source beat controls")
+  requireCondition(
+    app.renderer.hasCustomProps({ type: "number", min: "-16", max: "16", step: "0.001" }),
+    "exact SampleClipPanel Beat Offset input should mount",
+  )
 
-  app.renderer.clickCenterTestId("sample-analyze-bpm")
-  requireText(app.renderer.textContent("sample-bpm-suggestion"), "Suggested 118.00 BPM", "deterministic BPM analysis")
-  app.renderer.clickCenterTestId("sample-apply-bpm")
-  requireText(app.renderer.textContent("sample-source-bpm-value"), "118.00", "applied source BPM")
-  requireText(app.renderer.textContent("sample-warp-mode"), "Stretch", "applying BPM should select source Stretch mode")
-  app.renderer.clickCenterTestId("sample-gain-plus")
-  requireText(app.renderer.textContent("sample-gain-value"), "+0.5 dB", "clip gain")
+  const sourceBpmInput = { type: "number", min: "1", step: "0.01" } as const
+  requireCondition(Number(app.renderer.customPropByCustomProps(sourceBpmInput, "value")) === 120, "exact Source BPM should start at project tempo")
+  requireCondition(app.renderer.hasCustomProps({ value: "repitch" }), "exact warp Mode select should start in Re-Pitch")
 
-  app.renderer.clickTextWithinTestId("bottom-panel", "EFFECTS")
-  requireCondition(app.renderer.hasTestId("effects-panel"), "Effects tab should restore devices")
+  app.renderer.clickText("Analyze")
+  // The pinned source intentionally chains ensureClipBuffer -> analyzeClip ->
+  // async analysis -> autoApply. Drain that deterministic promise chain before
+  // asserting the final applied state; one microtask only observes an
+  // intermediate state and races the exact source behavior.
+  for (let turn = 0; turn < 6; turn++) await Promise.resolve()
+  app.renderer.flush()
+  requireText(rootText(), "Suggested 118.00 BPM, confidence 94%. Applied.", "deterministic BPM service through exact source UI")
+  requireCondition(Number(app.renderer.customPropByCustomProps(sourceBpmInput, "value")) === 118, "high-confidence source BPM analysis should auto-apply")
+  requireCondition(app.renderer.hasCustomProps({ value: "stretch" }), "high-confidence BPM analysis should switch the exact Mode select to Stretch")
+
+  const gainInput = { type: "range", min: "-60", max: "6.02", step: "0.1" } as const
+  const gainBounds = app.renderer.boundsCustomProps(gainInput)
+  const gainStyle = app.renderer.styleCustomProps(gainInput)
+  requireCondition(gainBounds.width > 100 && gainBounds.height > 0, `exact Clip Gain must have intrinsic painted bounds: ${JSON.stringify(gainBounds)}`)
+  requireCondition(gainBounds.x >= 0 && gainBounds.y >= 0 && gainBounds.x + gainBounds.width <= 1280 && gainBounds.y + gainBounds.height <= 900, `exact Clip Gain must remain inside the native viewport: ${JSON.stringify(gainBounds)}`)
+  requireCondition(gainStyle.pointerEvents === "auto", `exact Clip Gain must own a native hit surface: ${JSON.stringify(gainStyle)}`)
+  const gainBefore = app.renderer.customPropByCustomProps(gainInput, "value")
+  app.renderer.dragCustomProps(gainInput, 20, 0)
+  const gainAfter = app.renderer.customPropByCustomProps(gainInput, "value")
+  requireCondition(gainAfter !== gainBefore, `exact Clip Gain range should update fixture clip state: ${JSON.stringify(gainBefore)} -> ${JSON.stringify(gainAfter)}`)
+
+  app.renderer.scrollTestId("daw-test-viewport", -320, -260)
+  const exactHideBounds = app.renderer.boundsText("HIDE")
+  requireCondition(
+    exactHideBounds.x >= 0 && right(exactHideBounds) <= viewportWidth,
+    `exact Sample Detail HIDE should be visible before interaction, got ${JSON.stringify(exactHideBounds)}`,
+  )
+  app.renderer.clickText("HIDE")
+  requireCondition(app.renderer.hasTestId("bottom-panel-closed"), "exact Sample Detail footer Hide should close the shared panel")
+  app.renderer.scrollTestId("daw-test-viewport", 0, -260)
+  app.renderer.clickTextWithinTestId("bottom-panel-closed", "EFFECTS")
+  requireCondition(app.renderer.hasTestId("effects-panel"), "closed source footer Effects action should restore devices")
 
   app.renderer.scrollTestId("daw-test-viewport", -320, -260)
   const hideBounds = app.renderer.boundsTextWithinTestId("bottom-panel", "HIDE")

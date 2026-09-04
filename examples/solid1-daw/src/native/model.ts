@@ -1,3 +1,5 @@
+import type { AudioWarp } from "../upstream/packages/timeline-core/types"
+
 export type TrackKind = "audio" | "midi" | "return" | "group"
 export type BrowserTab = "assets" | "effects" | "midi-instruments"
 export type BottomTab = "effects" | "clip"
@@ -10,6 +12,8 @@ export interface NativeClip {
   duration: number
   color?: string
   waveform: number[]
+  audioWarp?: AudioWarp
+  gain?: number
 }
 
 export interface NativeTrack {

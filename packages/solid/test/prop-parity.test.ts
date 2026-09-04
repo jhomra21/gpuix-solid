@@ -92,6 +92,79 @@ describe("React host prop forwarding parity", () => {
     expect(renderer.batches.at(-1)).toEqual([["setCustomProp", 1, "testId", null]])
   })
 
+  it("subscribes checkbox change handlers to native click activation", () => {
+    const { renderer, driver, root } = fixture()
+    const node = createHostElement("input", "input")
+
+    setHostProperty(node, "type", "checkbox", undefined)
+    setHostProperty(node, "onChange", () => {}, undefined)
+    insertHostNode(root, node)
+    driver.flush()
+
+    expect(renderer.batches[0]).toEqual([
+      ["createElement", 1, "input"],
+      ["setStyle", 1, { pointerEvents: "auto" }],
+      ["setEventListener", 1, "change", true],
+      ["setEventListener", 1, "click", true],
+      ["setCustomProp", 1, "type", "checkbox"],
+      ["setRoot", 1],
+    ])
+
+    setHostProperty(node, "onChange", undefined, () => {})
+    driver.flush()
+    expect(renderer.batches.at(-1)).toEqual([
+      ["setEventListener", 1, "change", false],
+      ["setEventListener", 1, "click", false],
+      ["setStyle", 1, {}],
+    ])
+  })
+
+  it("forwards controlled value for a semantic select backed by a native div", () => {
+    const { renderer, driver, root } = fixture()
+    const select = createHostElement("div", "select")
+
+    setHostProperty(select, "value", "repitch", undefined)
+    setHostProperty(select, "src", "still-ignored", undefined)
+    insertHostNode(root, select)
+    driver.flush()
+
+    expect(renderer.batches[0]).toEqual([
+      ["createElement", 1, "div"],
+      ["setCustomProp", 1, "value", "repitch"],
+      ["setRoot", 1],
+    ])
+
+    setHostProperty(select, "value", "stretch", "repitch")
+    driver.flush()
+    expect(renderer.batches.at(-1)).toEqual([["setCustomProp", 1, "value", "stretch"]])
+  })
+
+  it("preserves semantic range identity and native drag subscriptions", () => {
+    const { renderer, driver, root } = fixture()
+    const node = createHostElement("input", "input")
+
+    setHostProperty(node, "type", "range", undefined)
+    setHostProperty(node, "min", "-60", undefined)
+    setHostProperty(node, "max", "6", undefined)
+    setHostProperty(node, "step", "0.1", undefined)
+    setHostProperty(node, "value", "-12", undefined)
+    setHostProperty(node, "onChange", () => {}, undefined)
+    insertHostNode(root, node)
+    driver.flush()
+
+    const firstBatch = renderer.batches[0] ?? []
+    expect(firstBatch).toContainEqual(["createElement", 1, "div"])
+    expect(firstBatch).toContainEqual(["setEventListener", 1, "change", true])
+    expect(firstBatch).toContainEqual(["setEventListener", 1, "mouseDown", true])
+    expect(firstBatch).toContainEqual(["setEventListener", 1, "mouseMove", true])
+    expect(firstBatch).toContainEqual(["setEventListener", 1, "mouseUp", true])
+    expect(firstBatch).toContainEqual(["setCustomProp", 1, "type", "range"])
+    expect(firstBatch).toContainEqual(["setCustomProp", 1, "min", "-60"])
+    expect(firstBatch).toContainEqual(["setCustomProp", 1, "max", "6"])
+    expect(firstBatch).toContainEqual(["setCustomProp", 1, "step", "0.1"])
+    expect(firstBatch).toContainEqual(["setCustomProp", 1, "value", "-12"])
+  })
+
   it("forwards custom-element values and serializes unsupported values as null", () => {
     const { renderer, driver, root } = fixture()
     const node = createHostElement("img")

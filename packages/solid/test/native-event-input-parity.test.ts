@@ -7,6 +7,7 @@ import {
   insertNode,
   setProp,
 } from "../src/host/universal.js"
+import type { HostElementNode } from "../src/host/nodes.js"
 import { createTestRoot, hasNativeTestRenderer } from "../src/testing.js"
 
 const nativeIt = hasNativeTestRenderer ? it : it.skip
@@ -58,6 +59,45 @@ describe("native event/input parity", () => {
 
     expect(testRoot.renderer.getAllText()).toContain("Value: hi")
     expect(testRoot.renderer.getPaintedText()).toContain("hi")
+    testRoot.unmount()
+  })
+
+  nativeIt("gives an unstyled controlled range intrinsic bounds and commits a drag", () => {
+    const testRoot = createTestRoot()
+    const [value, setValue] = createSignal("0")
+    let range: HostElementNode | undefined
+
+    testRoot.render(() => {
+      const root = createElement("div")
+      setProp(root, "style", { width: 400, height: 80 })
+
+      const rangeNode = createElement("input")
+      if (rangeNode.kind !== "element") throw new TypeError("Expected host range element")
+      range = rangeNode
+      setProp(rangeNode, "type", "range")
+      setProp(rangeNode, "min", "-60")
+      setProp(rangeNode, "max", "6.02")
+      setProp(rangeNode, "step", "0.1")
+      setProp(rangeNode, "onChange", () => setValue(rangeNode.value))
+      bindValue(rangeNode, value)
+
+      insertNode(root, rangeNode)
+      return root
+    })
+
+    expect(range).toBeDefined()
+    const bounds = range?.getBoundingClientRect()
+    expect(bounds?.width).toBeGreaterThan(100)
+    expect(bounds?.height).toBeGreaterThan(0)
+
+    const startX = (bounds?.left ?? 0) + 4
+    const y = (bounds?.top ?? 0) + (bounds?.height ?? 0) / 2
+    testRoot.renderer.nativeSimulateMouseDown(startX, y, 0)
+    testRoot.renderer.nativeSimulateMouseMove(startX + 20, y, 0)
+    testRoot.renderer.nativeSimulateMouseUp(startX + 20, y, 0)
+
+    expect(value()).not.toBe("0")
+    expect(Number(value())).toBeGreaterThan(-60)
     testRoot.unmount()
   })
 

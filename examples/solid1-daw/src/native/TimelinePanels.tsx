@@ -1,10 +1,15 @@
-import { For, Show, createEffect, createSignal, type JSX } from "solid-js"
+import { Show, type JSX } from "solid-js"
+import type { AudioEngine } from "../compat/audio-engine"
+import type { BpmDetectionService } from "../compat/bpm-detection-service"
+import type { AudioWarp } from "../upstream/packages/timeline-core/types"
+import SampleDetailPanel from "../upstream/components/timeline/SampleDetailPanel"
 import { getBottomPanelMountedFootprintPx } from "../upstream/lib/bottom-panel-layout"
 import EffectsPanel, { type EffectsPanelProps } from "./EffectsPanel"
 import TimelineBottomPanelFooter from "./TimelineBottomPanelFooter"
 import TimelineBottomPanelShell from "./TimelineBottomPanelShell"
 import type { BottomTab, NativeClip } from "./model"
-import { dawTheme, text2xs, text3xs, textSm, textXs } from "./theme"
+import { sourceClip } from "./sourceTrackAdapter"
+import { dawTheme } from "./theme"
 
 export interface TimelinePanelsProps extends EffectsPanelProps {
   open: boolean
@@ -15,156 +20,21 @@ export interface TimelinePanelsProps extends EffectsPanelProps {
   onClose: () => void
   onEffectsTabClick: () => void
   onClipTabClick: () => void
+  onHeightPreview: (heightPx: number) => void
+  onHeightCommit: (heightPx: number) => void
   selectedClip: NativeClip | undefined
-}
-
-function Field(props: { label: string; value: string; width?: number }): JSX.Element {
-  const width = props.width ?? 80
-  return (
-    <div style={{ width, minWidth: width, gap: 4 }}>
-      <text style={{ ...text3xs, color: dawTheme.mutedForeground }}>{props.label}</text>
-      <div style={{ width, height: 24, display: "flex", flexDirection: "row", alignItems: "center", paddingLeft: 7, paddingRight: 7, borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.appSurface }}>
-        <text style={{ ...textXs, color: dawTheme.foreground, whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{props.value}</text>
-      </div>
-    </div>
-  )
-}
-
-const ClipPanel = (props: { clip: NativeClip | undefined; projectBpm: number }): JSX.Element => {
-  const [warpEnabled, setWarpEnabled] = createSignal(false)
-  const [sourceBpm, setSourceBpm] = createSignal(props.projectBpm)
-  const [warpMode, setWarpMode] = createSignal<"Re-Pitch" | "Stretch">("Re-Pitch")
-  const [gainDb, setGainDb] = createSignal(0)
-  const [analysisBpm, setAnalysisBpm] = createSignal<number>()
-  const [beatOffset, setBeatOffset] = createSignal(0)
-  const ratio = () => props.projectBpm / Math.max(1, sourceBpm())
-
-  createEffect(() => {
-    void props.clip?.id
-    const projectBpm = props.projectBpm
-    setWarpEnabled(false)
-    setSourceBpm(projectBpm)
-    setWarpMode("Re-Pitch")
-    setGainDb(0)
-    setAnalysisBpm(undefined)
-    setBeatOffset(0)
-  })
-
-  return (
-    <div testId="clip-panel" style={{ height: "100%", minHeight: 0, display: "flex", gap: 12, padding: 12, overflowX: "auto", overflowY: "hidden", backgroundColor: dawTheme.appSurface }}>
-      <div style={{ width: 80, minWidth: 80, height: "100%", display: "flex", alignItems: "center", justifyContent: "center", borderRightWidth: 1, borderColor: dawTheme.border }}>
-        <text style={{ ...textSm, color: dawTheme.mutedForeground, fontWeight: 700, whiteSpace: "nowrap" }}>SAMPLE DETAIL</text>
-      </div>
-
-      <div style={{ width: 288, minWidth: 288, height: "100%", paddingTop: 8, paddingBottom: 8, paddingLeft: 12, paddingRight: 12, gap: 7, backgroundColor: dawTheme.background }}>
-        <div style={{ height: 38, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-          <div style={{ minWidth: 0, flexGrow: 1 }}>
-            <text style={{ ...text2xs, color: dawTheme.mutedForeground, fontWeight: 700 }}>SAMPLE</text>
-            <text style={{ ...textSm, color: dawTheme.foreground, whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{props.clip?.name ?? "No clip selected"}</text>
-          </div>
-          <div testId="sample-warp-toggle" onClick={() => setWarpEnabled((enabled) => !enabled)} style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 5, cursor: "pointer" }}>
-            <div style={{ width: 12, height: 12, borderWidth: 1, borderColor: warpEnabled() ? "#67e8f9" : dawTheme.border, backgroundColor: warpEnabled() ? "#0e4a5d" : dawTheme.timelineSurfaceMuted }} />
-            <text style={{ ...textXs, color: warpEnabled() ? dawTheme.foreground : dawTheme.mutedForeground }}>Warp</text>
-          </div>
-        </div>
-
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          <div style={{ width: 80, minWidth: 80, gap: 4 }}>
-            <text style={{ ...text3xs, color: dawTheme.mutedForeground }}>Source BPM</text>
-            <div style={{ width: 80, height: 24, display: "flex", flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.appSurface }}>
-              <div testId="sample-source-bpm-minus" onClick={() => setSourceBpm((value) => Math.max(1, value - 1))} style={{ width: 18, height: 22, display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center", cursor: "pointer" }}><text style={{ ...text3xs, color: dawTheme.mutedForeground }}>−</text></div>
-              <text testId="sample-source-bpm-value" style={{ ...text3xs, flexGrow: 1, color: dawTheme.foreground, fontFamily: "monospace", textAlign: "center" }}>{sourceBpm().toFixed(2)}</text>
-              <div testId="sample-source-bpm-plus" onClick={() => setSourceBpm((value) => value + 1)} style={{ width: 18, height: 22, display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center", cursor: "pointer" }}><text style={{ ...text3xs, color: dawTheme.mutedForeground }}>+</text></div>
-            </div>
-          </div>
-          <Field label="Project BPM" value={props.projectBpm.toFixed(2)} />
-          <Field label="Ratio" value={`${ratio().toFixed(3)}x`} />
-          <div style={{ width: 80, minWidth: 80, gap: 4 }}>
-            <text style={{ ...text3xs, color: dawTheme.mutedForeground }}>Mode</text>
-            <div testId="sample-warp-mode" onClick={() => setWarpMode((mode) => mode === "Re-Pitch" ? "Stretch" : "Re-Pitch")} style={{ width: 80, height: 24, display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingLeft: 7, paddingRight: 7, borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.appSurface, cursor: "pointer" }}>
-              <text style={{ ...text3xs, color: dawTheme.foreground }}>{warpMode()}</text>
-              <text style={{ ...text3xs, color: dawTheme.mutedForeground }}>⌄</text>
-            </div>
-          </div>
-        </div>
-
-        <Show when={warpEnabled()}>
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 6, borderTopWidth: 1, borderColor: dawTheme.border, paddingTop: 7 }}>
-            <div style={{ width: 96, gap: 4 }}>
-              <text style={{ ...text3xs, color: dawTheme.mutedForeground }}>Beat Offset</text>
-              <div style={{ height: 24, display: "flex", flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.appSurface }}>
-                <div testId="sample-beat-offset-minus" onClick={() => setBeatOffset((value) => value - 0.001)} style={{ width: 22, height: 22, display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center", cursor: "pointer" }}><text style={{ ...text3xs, color: dawTheme.mutedForeground }}>−</text></div>
-                <text testId="sample-beat-offset-value" style={{ ...text3xs, flexGrow: 1, color: dawTheme.foreground, fontFamily: "monospace", textAlign: "center" }}>{beatOffset().toFixed(3)}</text>
-                <div testId="sample-beat-offset-plus" onClick={() => setBeatOffset((value) => value + 0.001)} style={{ width: 22, height: 22, display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center", cursor: "pointer" }}><text style={{ ...text3xs, color: dawTheme.mutedForeground }}>+</text></div>
-              </div>
-            </div>
-            <Show when={beatOffset() !== 0}>
-              <div testId="sample-beat-offset-reset" onClick={() => setBeatOffset(0)} style={{ height: 24, paddingLeft: 8, paddingRight: 8, display: "flex", flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: dawTheme.border, cursor: "pointer" }}><text style={{ ...text3xs, color: dawTheme.foreground }}>Reset</text></div>
-            </Show>
-          </div>
-        </Show>
-
-        <div style={{ borderTopWidth: 1, borderColor: dawTheme.border, paddingTop: 7, gap: 5 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <text style={{ ...textXs, color: dawTheme.mutedForeground }}>Auto BPM</text>
-            <div testId="sample-analyze-bpm" onClick={() => setAnalysisBpm(118)} style={{ height: 24, display: "flex", flexDirection: "row", alignItems: "center", paddingLeft: 9, paddingRight: 9, borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.timelineSurface, cursor: "pointer" }}>
-              <text style={{ ...textXs, color: dawTheme.foreground }}>Analyze</text>
-            </div>
-          </div>
-          <Show when={analysisBpm() !== undefined} fallback={<text style={{ ...text3xs, color: dawTheme.mutedForeground }}>Loop tempo analysis is available when media is loaded.</text>}>
-            <div style={{ gap: 4 }}>
-              <text testId="sample-bpm-suggestion" style={{ ...text3xs, color: dawTheme.mutedForeground }}>Suggested {analysisBpm()?.toFixed(2)} BPM, confidence 94%.</text>
-              <div testId="sample-apply-bpm" onClick={() => { const suggested = analysisBpm(); if (suggested !== undefined) { setSourceBpm(suggested); setWarpEnabled(true); setWarpMode("Stretch") } }} style={{ width: 112, height: 24, display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: dawTheme.border, cursor: "pointer" }}>
-                <text style={{ ...text3xs, color: dawTheme.foreground }}>Apply Source BPM</text>
-              </div>
-            </div>
-          </Show>
-        </div>
-
-        <div style={{ borderTopWidth: 1, borderColor: dawTheme.border, paddingTop: 7, gap: 5 }}>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <text style={{ ...text2xs, color: dawTheme.mutedForeground, fontWeight: 700 }}>CLIP GAIN</text>
-            <text testId="sample-gain-value" style={{ ...textXs, color: dawTheme.foreground }}>{gainDb() > 0 ? "+" : ""}{gainDb().toFixed(1)} dB</text>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <div testId="sample-gain-minus" onClick={() => setGainDb((value) => Math.max(-60, value - 0.5))} style={{ width: 20, height: 18, display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: dawTheme.border, cursor: "pointer" }}><text style={{ ...text3xs, color: dawTheme.mutedForeground }}>−</text></div>
-            <div style={{ flexGrow: 1, height: 7, backgroundColor: dawTheme.timelineSurfaceMuted, borderWidth: 1, borderColor: dawTheme.border, position: "relative" }}>
-              <div style={{ position: "absolute", left: 1, top: 1, width: Math.max(1, Math.round(((gainDb() + 60) / 66) * 184)), height: 3, backgroundColor: dawTheme.foreground }} />
-            </div>
-            <div testId="sample-gain-plus" onClick={() => setGainDb((value) => Math.min(6, value + 0.5))} style={{ width: 20, height: 18, display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: dawTheme.border, cursor: "pointer" }}><text style={{ ...text3xs, color: dawTheme.mutedForeground }}>+</text></div>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ width: 980, minWidth: 980, height: "100%", minHeight: 0, paddingTop: 8, paddingBottom: 8, paddingLeft: 12, paddingRight: 12, gap: 8, backgroundColor: dawTheme.timelineBackground }}>
-        <div style={{ height: 34, minHeight: 34, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div>
-            <text style={{ ...text2xs, color: dawTheme.mutedForeground, fontWeight: 700 }}>BEAT GRID</text>
-            <text style={{ ...textXs, color: dawTheme.mutedForeground }}>{warpEnabled() ? `${warpMode()} · ${sourceBpm().toFixed(2)} BPM` : "Warp off, grid follows project BPM"}</text>
-          </div>
-        </div>
-        <div style={{ flexGrow: 1, minHeight: 108, width: 960, position: "relative", overflow: "hidden", borderWidth: 1, borderColor: dawTheme.border, backgroundColor: dawTheme.timelineBackground }}>
-          <For each={[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]}>
-            {(index) => <div style={{ position: "absolute", left: index * 60, top: 0, width: 1, height: 250, backgroundColor: index % 4 === 0 ? dawTheme.timelineGridMajor : dawTheme.timelineGridMinor }} />}
-          </For>
-          <div style={{ position: "absolute", left: 0, right: 0, top: 124, height: 1, backgroundColor: dawTheme.timelineGridMajor }} />
-          <Show when={props.clip}>
-            {(clip) => (
-              <div style={{ position: "absolute", left: 12, right: 12, top: 28, bottom: 28, display: "flex", alignItems: "center", gap: 6, overflow: "hidden" }}>
-                <For each={Array.from({ length: 4 }, () => clip().waveform).flat()}>
-                  {(amplitude) => <div style={{ width: 8, minWidth: 8, height: Math.max(8, Math.round(amplitude * 150)), backgroundColor: clip().color ?? dawTheme.clipAudio, opacity: 0.8 }} />}
-                </For>
-              </div>
-            )}
-          </Show>
-        </div>
-      </div>
-    </div>
-  )
+  audioEngine: AudioEngine
+  bpmDetection: BpmDetectionService
+  onClipWarpChange: (clipId: string, audioWarp: AudioWarp) => void
+  onClipGainChange: (clipId: string, gain: number) => void
 }
 
 const TimelinePanels = (props: TimelinePanelsProps): JSX.Element => {
   const canOpenClip = () => props.selectedClip?.kind === "audio"
+  const sourceAudioClip = () => {
+    const clip = props.selectedClip
+    return clip?.kind === "audio" ? sourceClip(clip) : undefined
+  }
   const footer = () => (
     <TimelineBottomPanelFooter
       activeTab={props.activeTab}
@@ -174,7 +44,32 @@ const TimelinePanels = (props: TimelinePanelsProps): JSX.Element => {
       onToggle={props.open ? props.onClose : props.onOpen}
     />
   )
-
+  const effectsPanel = () => (
+    <TimelineBottomPanelShell heightPx={props.heightPx} footer={footer()}>
+      <EffectsPanel
+        compressorEnabled={props.compressorEnabled}
+        onToggleCompressor={props.onToggleCompressor}
+        compressorRatio={props.compressorRatio}
+        onRatioChange={props.onRatioChange}
+        compressorAttack={props.compressorAttack}
+        onAttackChange={props.onAttackChange}
+        compressorRelease={props.compressorRelease}
+        onReleaseChange={props.onReleaseChange}
+        compressorThreshold={props.compressorThreshold}
+        onThresholdChange={props.onThresholdChange}
+        compressorWet={props.compressorWet}
+        onWetChange={props.onWetChange}
+        eqEnabled={props.eqEnabled}
+        onToggleEq={props.onToggleEq}
+        eqLowGain={props.eqLowGain}
+        onEqLowGain={props.onEqLowGain}
+        eqMidGain={props.eqMidGain}
+        onEqMidGain={props.onEqMidGain}
+        eqHighGain={props.eqHighGain}
+        onEqHighGain={props.onEqHighGain}
+      />
+    </TimelineBottomPanelShell>
+  )
   const closedFootprint = () => getBottomPanelMountedFootprintPx({ open: false, heightPx: props.heightPx })
 
   return (
@@ -198,32 +93,30 @@ const TimelinePanels = (props: TimelinePanelsProps): JSX.Element => {
         </div>
       )}
     >
-      <TimelineBottomPanelShell heightPx={props.heightPx} footer={footer()}>
-        <Show when={props.activeTab === "effects"} fallback={<ClipPanel clip={props.selectedClip} projectBpm={props.projectBpm} />}>
-          <EffectsPanel
-            compressorEnabled={props.compressorEnabled}
-            onToggleCompressor={props.onToggleCompressor}
-            compressorRatio={props.compressorRatio}
-            onRatioChange={props.onRatioChange}
-            compressorAttack={props.compressorAttack}
-            onAttackChange={props.onAttackChange}
-            compressorRelease={props.compressorRelease}
-            onReleaseChange={props.onReleaseChange}
-            compressorThreshold={props.compressorThreshold}
-            onThresholdChange={props.onThresholdChange}
-            compressorWet={props.compressorWet}
-            onWetChange={props.onWetChange}
-            eqEnabled={props.eqEnabled}
-            onToggleEq={() => props.onToggleEq()}
-            eqLowGain={props.eqLowGain}
-            onEqLowGain={props.onEqLowGain}
-            eqMidGain={props.eqMidGain}
-            onEqMidGain={props.onEqMidGain}
-            eqHighGain={props.eqHighGain}
-            onEqHighGain={props.onEqHighGain}
+      <Show
+        when={props.activeTab === "clip" ? sourceAudioClip() : undefined}
+        fallback={effectsPanel()}
+      >
+        {(clip) => (
+          <SampleDetailPanel
+            clip={clip()}
+            projectBpm={props.projectBpm}
+            audioEngine={props.audioEngine}
+            bpmDetection={props.bpmDetection}
+            ensureClipBuffer={async () => {}}
+            canWriteClip={() => true}
+            onWarpChange={(source, audioWarp) => props.onClipWarpChange(source.id, audioWarp)}
+            onGainChange={(source, gain) => props.onClipGainChange(source.id, gain)}
+            shell={{
+              get heightPx() { return props.heightPx },
+              onHeightPreview: props.onHeightPreview,
+              onHeightCommit: props.onHeightCommit,
+            }}
+            onClose={props.onEffectsTabClick}
+            onHide={props.onClose}
           />
-        </Show>
-      </TimelineBottomPanelShell>
+        )}
+      </Show>
     </Show>
   )
 }

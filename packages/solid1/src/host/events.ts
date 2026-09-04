@@ -74,6 +74,8 @@ function fallbackTarget(event: NativeEventPayload): DomCompatTarget {
   const y = event.y ?? 0
   return {
     value: event.value ?? "",
+    checked: false,
+    getAttribute: () => null,
     scrollTop: 0,
     scrollLeft: 0,
     style: {},
@@ -286,6 +288,17 @@ type LastClick = {
   at: number
 }
 
+function finiteRangeNumber(value: string | null | undefined, fallback: number): number {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+function normalizeRangeNumber(value: number, stepAttribute: string | null | undefined): number {
+  if (!stepAttribute || stepAttribute.toLowerCase() === "any") return Number(value.toFixed(6))
+  const decimal = stepAttribute.includes(".") ? stepAttribute.split(".")[1]?.length ?? 0 : 0
+  return Number(value.toFixed(Math.min(12, decimal)))
+}
+
 export class EventRegistry {
   readonly #handlers = new Map<number, Map<string, HostEventHandler>>()
   readonly #live = new Set<number>()
@@ -294,6 +307,7 @@ export class EventRegistry {
   readonly #activePointers = new Set<number>()
   readonly #pointerCapture = new Map<number, number>()
   readonly #lastPointerEvent = new Map<number, NativeEventPayload>()
+  #activeRangeId: number | undefined
   #lastClick: LastClick | undefined
 
   activate(id: number): void {
@@ -314,6 +328,7 @@ export class EventRegistry {
     this.#handlers.delete(id)
     this.#targets.delete(id)
     this.#nativePointerDown.delete(id)
+    if (this.#activeRangeId === id) this.#activeRangeId = undefined
   }
 
   set(id: number, eventType: string, handler: HostEventHandler): void {
@@ -345,6 +360,7 @@ export class EventRegistry {
     this.#activePointers.clear()
     this.#pointerCapture.clear()
     this.#lastPointerEvent.clear()
+    this.#activeRangeId = undefined
     this.#lastClick = undefined
   }
 
@@ -376,6 +392,10 @@ export class EventRegistry {
       case "mouseDown": {
         this.#activePointers.add(POINTER_ID)
         this.#lastPointerEvent.set(POINTER_ID, event)
+        if ((event.button ?? 0) === 0 && this.#isRangeTarget(event.elementId)) {
+          this.#activeRangeId = event.elementId
+          if (this.#updateRangeValue(event.elementId, event)) this.#dispatchDom(event.elementId, "input", event)
+        }
         this.#nativePointerDown.add(event.elementId)
         queueMicrotask(() => this.#nativePointerDown.delete(event.elementId))
         this.#dispatchDom(event.elementId, "pointerDown", event)
@@ -384,6 +404,10 @@ export class EventRegistry {
       }
       case "mouseMove": {
         this.#lastPointerEvent.set(POINTER_ID, event)
+        const activeRangeId = this.#activeRangeId
+        if (activeRangeId !== undefined && this.#updateRangeValue(activeRangeId, event)) {
+          this.#dispatchDom(activeRangeId, "input", { ...event, elementId: activeRangeId })
+        }
         const capturedId = this.#pointerCapture.get(POINTER_ID)
         this.#dispatchDom(capturedId ?? event.elementId, "pointerMove", event)
         this.#dispatchDom(event.elementId, "mouseMove", event)
@@ -391,6 +415,13 @@ export class EventRegistry {
       }
       case "mouseUp": {
         this.#lastPointerEvent.set(POINTER_ID, event)
+        const activeRangeId = this.#activeRangeId
+        if (activeRangeId !== undefined) {
+          const rangeEvent = { ...event, elementId: activeRangeId }
+          if (this.#updateRangeValue(activeRangeId, rangeEvent)) this.#dispatchDom(activeRangeId, "input", rangeEvent)
+          this.#dispatchDom(activeRangeId, "change", rangeEvent)
+          this.#activeRangeId = undefined
+        }
         const capturedId = this.#pointerCapture.get(POINTER_ID)
         this.#dispatchDom(capturedId ?? event.elementId, "pointerUp", event)
         this.#dispatchDom(event.elementId, "mouseUp", event)
@@ -403,7 +434,19 @@ export class EventRegistry {
         if (!this.#nativePointerDown.has(event.elementId)) {
           this.#dispatchDom(event.elementId, "pointerDown", event, true)
         }
-        this.#dispatchDom(event.elementId, "click", event)
+        const target = this.#targets.get(event.elementId)
+        const checkbox = target?.getAttribute("type")?.toLowerCase() === "checkbox" ? target : undefined
+        const previousChecked = checkbox?.checked
+        if (checkbox) checkbox.checked = !checkbox.checked
+        const clickEvent = this.#dispatchDom(event.elementId, "click", event)
+        if (checkbox && previousChecked !== undefined) {
+          if (clickEvent?.defaultPrevented) {
+            checkbox.checked = previousChecked
+          } else {
+            this.#dispatchDom(event.elementId, "input", event)
+            this.#dispatchDom(event.elementId, "change", event)
+          }
+        }
         this.#maybeDispatchDoubleClick(event)
         return
       }
@@ -424,6 +467,30 @@ export class EventRegistry {
           this.#dispatchDom(event.elementId, domEventType, event)
         }
     }
+  }
+
+  #isRangeTarget(elementId: number): boolean {
+    return this.#targets.get(elementId)?.getAttribute("type")?.toLowerCase() === "range"
+  }
+
+  #updateRangeValue(elementId: number, event: NativeEventPayload): boolean {
+    const target = this.#targets.get(elementId)
+    if (!target || target.getAttribute("type")?.toLowerCase() !== "range") return false
+    const bounds = target.getBoundingClientRect()
+    if (!(bounds.width > 0)) return false
+    const min = finiteRangeNumber(target.getAttribute("min"), 0)
+    const max = finiteRangeNumber(target.getAttribute("max"), 100)
+    const low = Math.min(min, max)
+    const high = Math.max(min, max)
+    const ratio = Math.max(0, Math.min(1, ((event.x ?? bounds.left) - bounds.left) / bounds.width))
+    const raw = low + (high - low) * ratio
+    const stepAttribute = target.getAttribute("step")
+    const step = stepAttribute?.toLowerCase() === "any" ? undefined : finiteRangeNumber(stepAttribute, 1)
+    const quantized = step && step > 0 ? low + Math.round((raw - low) / step) * step : raw
+    const next = String(normalizeRangeNumber(Math.max(low, Math.min(high, quantized)), stepAttribute))
+    if (target.value === next) return false
+    target.value = next
+    return true
   }
 
   #dispatchDom(
