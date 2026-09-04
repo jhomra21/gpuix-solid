@@ -20,19 +20,9 @@ if set_property_anchor not in source:
     raise SystemExit("setProperty reapply anchor missing")
 source = source.replace(set_property_anchor, set_property_replacement, 1)
 
-merge_anchor = '''  const hiddenStyle: StyleDesc | undefined = state.hidden ? { display: "none" } : undefined
-  const mergedStyle = mergeNativeStyles(preClassStyle, classStyle, classAttributeStyle, state.inlineStyle, hiddenStyle)
-'''
-merge_replacement = '''  const hiddenStyle: StyleDesc | undefined = state.hidden ? { display: "none" } : undefined
-  const sourceStyle = mergeNativeStyles(preClassStyle, classStyle, classAttributeStyle, state.inlineStyle, hiddenStyle)
-  const interactiveHitStyle: StyleDesc | undefined =
-    node.events.size > 0 && sourceStyle?.pointerEvents === undefined
-      ? { pointerEvents: "auto" }
-      : undefined
-  const mergedStyle = mergeNativeStyles(sourceStyle, interactiveHitStyle)
-'''
-if merge_anchor not in source:
-    raise SystemExit("native style merge anchor missing")
-source = source.replace(merge_anchor, merge_replacement, 1)
+# Native hit ownership is resolved in host/nodes.ts where parent pointer-events
+# state and the node's actual event registry are both available. Do not inject
+# pointerEvents:auto into the source style here: doing so would erase the
+# distinction between explicit source auto and a compatibility-owned hit surface.
 
 path.write_text(source)
