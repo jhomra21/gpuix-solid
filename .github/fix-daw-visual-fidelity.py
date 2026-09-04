@@ -253,6 +253,7 @@ daw_geometry_replacement = '''  const visibleMixerControl = app.renderer.boundsC
   const soloBounds = app.renderer.boundsCustomProps(soloOff)
   const armBounds = app.renderer.boundsCustomProps(armOff)
   const volumeBounds = app.renderer.boundsCustomProps(volume)
+  const volumeAncestors = app.renderer.ancestorBoundsCustomProps(volume)
   requireCondition(
     visibleMixerControl.width >= soloBounds.width * 2.5 && visibleMixerControl.width <= soloBounds.width * 3.5,
     `source 3fr/1fr mixer geometry should keep the track button roughly three times Solo width: ${JSON.stringify({ mute: visibleMixerControl, solo: soloBounds })}`,
@@ -263,7 +264,7 @@ daw_geometry_replacement = '''  const visibleMixerControl = app.renderer.boundsC
   )
   requireCondition(
     volumeBounds.width >= soloBounds.width * 2.5 && volumeBounds.width < 70,
-    `source mixer volume should shrink into its 3fr column instead of retaining intrinsic range width: ${JSON.stringify(volumeBounds)}`,
+    `source mixer volume should shrink into its 3fr column instead of retaining intrinsic range width: ${JSON.stringify({ volume: volumeBounds, ancestors: volumeAncestors })}`,
   )
 
   const muteBackground = app.renderer.styleCustomProps(muteOn).backgroundColor
