@@ -226,8 +226,14 @@ if (!hasNativeTestRenderer) {
   app.renderer.clickCustomProps(soloOn)
   requireCondition(app.renderer.hasCustomProps(soloOff), "exact source solo should restore after second activation")
 
+  const armInactiveBackground = app.renderer.styleCustomProps(armOff).backgroundColor ?? ""
   app.renderer.clickCustomProps(armOff)
   requireCondition(app.renderer.hasCustomProps(armOn), "exact source record arm should expose Disarm after activation")
+  const armActiveBackground = app.renderer.styleCustomProps(armOn).backgroundColor ?? ""
+  requireCondition(
+    armActiveBackground !== "" && armActiveBackground !== armInactiveBackground,
+    `exact source record-arm bg-red-500 state should change native paint, got ${JSON.stringify({ inactive: armInactiveBackground, active: armActiveBackground })}`,
+  )
   app.renderer.clickCustomProps(armOn)
   requireCondition(app.renderer.hasCustomProps(armOff), "exact source record arm should restore after second activation")
 
@@ -371,11 +377,21 @@ if (!hasNativeTestRenderer) {
   app.renderer.scrollTestId("daw-test-viewport", 0, 0)
   const drumsAudioClip = { title: "Drum Loop 01" } as const
   requireCondition(app.renderer.hasCustomProps(drumsAudioClip), "exact ClipComponent should expose the source clip title")
+  const unselectedDrumsClipStyle = app.renderer.styleCustomPropsWithinTestId("lane-drums", drumsAudioClip)
+  requireCondition(
+    unselectedDrumsClipStyle.backgroundColor === "rgba(0, 167, 108, 0.2)",
+    `exact unselected audio clip should preserve the source 20% color mix, got ${JSON.stringify(unselectedDrumsClipStyle)}`,
+  )
+  requireCondition(
+    unselectedDrumsClipStyle.borderRadius === undefined,
+    `exact source ClipComponent should not gain a native rounded-corner approximation, got ${JSON.stringify(unselectedDrumsClipStyle)}`,
+  )
   app.renderer.clickCenterCustomProps(drumsAudioClip)
   requireCondition(app.renderer.hasTestId("effects-panel") && !app.renderer.hasTestId("clip-panel"), "first exact audio-clip tap should select without opening Sample Detail")
+  const selectedDrumsClipStyle = app.renderer.styleCustomPropsWithinTestId("lane-drums", drumsAudioClip)
   requireCondition(
-    app.renderer.styleCustomPropsWithinTestId("lane-drums", drumsAudioClip).borderColor === "#60a5fa",
-    `first exact audio-clip tap should select the source ClipComponent, got ${JSON.stringify(app.renderer.styleCustomPropsWithinTestId("lane-drums", drumsAudioClip))}`,
+    selectedDrumsClipStyle.backgroundColor === "rgba(0, 167, 108, 0.3)" && selectedDrumsClipStyle.boxShadow !== undefined,
+    `first exact audio-clip tap should preserve the source 30% selected color mix and selection ring, got ${JSON.stringify(selectedDrumsClipStyle)}`,
   )
   app.renderer.clickCenterCustomProps(drumsAudioClip)
   app.renderer.scrollTestId("daw-test-viewport", 0, -260)

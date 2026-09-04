@@ -248,7 +248,7 @@ function missingCandidate(candidate: string): Error {
 function resolveVariant(variant: NativeStyleVariant | undefined): StyleDesc | undefined {
   if (!variant) return undefined
   const themed = colorMode === "dark" ? variant.dark : variant.light
-  return normalizePublishedNativeColors(mergeNativeStyles(variant.base, themed))
+  return normalizeNativeStyleColors(mergeNativeStyles(variant.base, themed))
 }
 
 function classCandidates(className: string | undefined, classList: NativeClassList | undefined): string[] {
@@ -280,7 +280,7 @@ function mergeNestedState(
   return { ...base, ...override }
 }
 
-function normalizePublishedNativeColors(style: StyleDesc | undefined): StyleDesc | undefined {
+export function normalizeNativeStyleColors(style: StyleDesc | undefined): StyleDesc | undefined {
   if (!style) return undefined
   const result: StyleDesc = { ...style }
   const background = result.background
@@ -306,7 +306,7 @@ function normalizePublishedNativeColors(style: StyleDesc | undefined): StyleDesc
 }
 
 function normalizeNestedColors(style: Omit<StyleDesc, "hover" | "active">): Omit<StyleDesc, "hover" | "active"> {
-  const normalized = normalizePublishedNativeColors(style)
+  const normalized = normalizeNativeStyleColors(style)
   if (!normalized) return style
   const { hover: _hover, active: _active, ...nested } = normalized
   return nested
@@ -320,8 +320,9 @@ function isLinearGradientBackground(
 
 function normalizePublishedNativeColor(value: string): string {
   const trimmed = value.trim()
-  const transparentMix = normalizeTransparentOklchMix(trimmed)
-  const normalized = transparentMix ?? trimmed
+  const transparentMix = normalizeTransparentColorMix(trimmed)
+  if (transparentMix !== undefined) return transparentMix
+  const normalized = trimmed
   const oklch = parseOklch(normalized)
   if (oklch) {
     const [red, green, blue] = oklchToSrgb(oklch.lightness, oklch.chroma, oklch.hue)
@@ -338,14 +339,51 @@ function normalizePublishedNativeColor(value: string): string {
 }
 
 
-function normalizeTransparentOklchMix(value: string): string | undefined {
+function normalizeTransparentColorMix(value: string): string | undefined {
   const match = value.match(
-    /^color-mix\(in oklab,\s*(oklch\([^)]*\))\s+(\d+(?:\.\d+)?)%,\s*transparent\s*\)$/i,
+    /^color-mix\(in\s+(?:srgb|oklab),\s*(.+)\s+(\d+(?:\.\d+)?)%,\s*transparent\s*\)$/i,
   )
-  const color = match?.[1]
-  const alpha = match?.[2]
-  if (!color || !alpha || color.includes("/")) return undefined
-  return color.replace(/\)$/, ` / ${alpha}%)`)
+  const color = match?.[1]?.trim()
+  const percent = match?.[2]
+  if (!color || percent === undefined) return undefined
+
+  const mixAlpha = Number(percent) / 100
+  if (!Number.isFinite(mixAlpha)) return undefined
+  const alpha = clamp(mixAlpha, 0, 1)
+
+  const oklch = parseOklch(color)
+  if (oklch) {
+    const [red, green, blue] = oklchToSrgb(oklch.lightness, oklch.chroma, oklch.hue)
+    return formatSrgbColor(red, green, blue, oklch.alpha * alpha)
+  }
+
+  const hsl = parseHsl(color)
+  if (hsl) {
+    const [red, green, blue] = hslToSrgb(hsl.hue, hsl.saturation, hsl.lightness)
+    return formatSrgbColor(red, green, blue, hsl.alpha * alpha)
+  }
+
+  const rgb = parseRgb(color)
+  if (rgb) return formatSrgbColor(rgb.red, rgb.green, rgb.blue, rgb.alpha * alpha)
+
+  const hex = parseHexSrgb(color)
+  if (hex) return formatSrgbColor(hex.red, hex.green, hex.blue, hex.alpha * alpha)
+  return undefined
+}
+
+function parseHexSrgb(value: string): ParsedRgb | undefined {
+  const match = value.match(/^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i)
+  const source = match?.[1]
+  if (!source) return undefined
+  const expanded = source.length <= 4
+    ? [...source].map((digit) => `${digit}${digit}`).join("")
+    : source
+  const red = Number.parseInt(expanded.slice(0, 2), 16)
+  const green = Number.parseInt(expanded.slice(2, 4), 16)
+  const blue = Number.parseInt(expanded.slice(4, 6), 16)
+  const alpha = expanded.length === 8 ? Number.parseInt(expanded.slice(6, 8), 16) / 255 : 1
+  if (![red, green, blue, alpha].every(Number.isFinite)) return undefined
+  return { red, green, blue, alpha }
 }
 
 interface ParsedOklch { lightness: number; chroma: number; hue: number; alpha: number }

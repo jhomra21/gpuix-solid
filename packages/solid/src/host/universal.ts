@@ -18,6 +18,7 @@ import {
 import type { DimensionValue, ElementType, StyleDesc } from "./types.js"
 import {
   mergeNativeStyles,
+  normalizeNativeStyleColors,
   onNativeStyleEnvironmentChange,
   resolveNativeClassStyle,
   resolveNativeClassTextTransform,
@@ -390,7 +391,7 @@ function normalizeNativeInlineStyle(style: NativeInlineStyleInput | undefined): 
   if (parsedGap !== undefined) normalized.gap = parsedGap
   if (parsedRowGap !== undefined) normalized.rowGap = parsedRowGap
   if (parsedColumnGap !== undefined) normalized.columnGap = parsedColumnGap
-  return normalized
+  return normalizeNativeStyleColors(normalized) ?? normalized
 }
 
 function normalizeInlineDimension(value: DimensionValue): DimensionValue {

@@ -27,6 +27,7 @@ import {
   applyNativeStyleParentPosition,
   applyNativeStyleTranslation,
   mergeNativeStyles,
+  normalizeNativeStyleColors,
   onNativeStyleEnvironmentChange,
   resolveNativeClassStyle,
   resolveNativeClassAttributeStyle,
@@ -532,7 +533,7 @@ function normalizeNativeInlineStyle(style: NativeInlineStyleInput | undefined): 
   if (parsedRowGap !== undefined) normalized.rowGap = parsedRowGap
   if (parsedColumnGap !== undefined) normalized.columnGap = parsedColumnGap
 
-  return normalized
+  return normalizeNativeStyleColors(normalized) ?? normalized
 }
 
 function normalizeInlineDimension(value: DimensionValue): DimensionValue {

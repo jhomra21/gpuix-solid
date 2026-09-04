@@ -24,6 +24,7 @@ const copiedSources = [
   ["src/upstream/lib/track-sidebar-mixer.ts", "src/lib/track-sidebar-mixer.ts", "6839a4b5a9b18b3c01df4d11b3370f8470085758"],
   ["src/upstream/lib/track-group-ops.ts", "src/lib/track-group-ops.ts", "f972910d0db21776a3b3948fee87f12b6c16bba7"],
   ["src/upstream/lib/color.ts", "src/lib/color.ts", "45aeae66c920ae4aecc7241a396cb054c0ec027b"],
+  ["src/upstream/lib/clip-color.ts", "src/lib/clip-color.ts", "227b11ddf401770a0b7fdf2a89ec6bdb17ff5f01"],
   ["src/upstream/components/ui/avatar.tsx", "src/components/ui/avatar.tsx", "d09d0be1c256fac704ab97f3c32dd8bc9457c221"],
   ["src/upstream/components/ui/button.tsx", "src/components/ui/button.tsx", "8e4bd51105ee7c39bff9f813eefc9e51047396fd"],
   ["src/upstream/components/ui/context-menu.tsx", "src/components/ui/context-menu.tsx", "1d260f8079c0dd11cbfb85fb98d56d54684fc588"],

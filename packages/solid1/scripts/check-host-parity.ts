@@ -54,6 +54,17 @@ if (!translucentBlue?.backgroundColor?.startsWith("rgba(") || !translucentBlue.b
   throw new Error(`transparent Tailwind color-mix must normalize to native sRGB alpha: ${JSON.stringify(translucentBlue)}`)
 }
 
+configureNativeStyleManifest({
+  classes: {
+    sourceClip: { base: { backgroundColor: "color-mix(in srgb, #00a76c 20%, transparent)" } },
+  },
+})
+const sourceClip = resolveNativeClassStyle("sourceClip", undefined)
+clearNativeStyleManifest()
+if (sourceClip?.backgroundColor !== "rgba(0, 167, 108, 0.2)") {
+  throw new Error(`source sRGB color-mix must normalize to native alpha: ${JSON.stringify(sourceClip)}`)
+}
+
 installDomEventEnvironment()
 
 const selectorRoot = createHostElement("div", "section")

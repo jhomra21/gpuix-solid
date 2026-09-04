@@ -29,7 +29,10 @@
         "src/compat/useTransportTempoController.ts"
       ],
       "~/lib/clip-color": [
-        "src/compat/clip-color.ts"
+        "src/upstream/lib/clip-color.ts"
+      ],
+      "~/lib/theme/theme-resolver": [
+        "src/compat/theme-resolver.ts"
       ],
       "~/lib/project-save-status": [
         "src/compat/project-save-status.ts"

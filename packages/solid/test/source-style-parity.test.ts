@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   clearNativeStyleManifest,
   configureNativeStyleManifest,
+  resolveNativeClassStyle,
 } from "../src/native-style.js"
 import type { HostElementNode } from "../src/host/nodes.js"
 import {
@@ -62,6 +63,19 @@ describe("copied Solid source styling", () => {
       if (span.children[0]?.kind === "text") expect(span.children[0].text).toBe("COPIED SOURCE")
     } finally {
       root?.unmount()
+      clearNativeStyleManifest()
+    }
+  })
+
+  it("normalizes source sRGB transparent color mixes", () => {
+    configureNativeStyleManifest({
+      classes: {
+        clip: { base: { backgroundColor: "color-mix(in srgb, #00a76c 20%, transparent)" } },
+      },
+    })
+    try {
+      expect(resolveNativeClassStyle("clip", undefined)?.backgroundColor).toBe("rgba(0, 167, 108, 0.2)")
+    } finally {
       clearNativeStyleManifest()
     }
   })
