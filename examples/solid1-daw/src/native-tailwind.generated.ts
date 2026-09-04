@@ -127,6 +127,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "left": -6
       }
     },
+    "-left-2": {
+      "base": {
+        "left": -8
+      }
+    },
     "-ml-2": {
       "base": {
         "marginLeft": -8
@@ -268,9 +273,19 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "aspect-square": {
       "base": {}
     },
+    "bg-amber-300/30": {
+      "base": {
+        "backgroundColor": "color-mix(in oklab, oklch(87.9% 0.169 91.605) 30%, transparent)"
+      }
+    },
     "bg-amber-400": {
       "base": {
         "backgroundColor": "oklch(82.8% 0.189 84.429)"
+      }
+    },
+    "bg-amber-400/10": {
+      "base": {
+        "backgroundColor": "color-mix(in oklab, oklch(82.8% 0.189 84.429) 10%, transparent)"
       }
     },
     "bg-amber-500/20": {
@@ -533,6 +548,21 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "backgroundColor": "oklch(0.274 0.006 286.033)"
       }
     },
+    "bg-sky-300": {
+      "base": {
+        "backgroundColor": "oklch(82.8% 0.111 230.318)"
+      }
+    },
+    "bg-sky-400": {
+      "base": {
+        "backgroundColor": "oklch(74.6% 0.16 232.661)"
+      }
+    },
+    "bg-sky-400/80": {
+      "base": {
+        "backgroundColor": "color-mix(in oklab, oklch(74.6% 0.16 232.661) 80%, transparent)"
+      }
+    },
     "bg-sky-950/40": {
       "base": {
         "backgroundColor": "color-mix(in oklab, oklch(29.3% 0.066 243.157) 40%, transparent)"
@@ -604,6 +634,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "border-[0.5px]": {
       "base": {
         "borderWidth": 0.5
+      }
+    },
+    "border-amber-300/80": {
+      "base": {
+        "borderColor": "color-mix(in oklab, oklch(87.9% 0.169 91.605) 80%, transparent)"
       }
     },
     "border-amber-500/60": {
@@ -768,6 +803,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "border-red-900": {
       "base": {
         "borderColor": "oklch(39.6% 0.141 25.723)"
+      }
+    },
+    "border-sky-300": {
+      "base": {
+        "borderColor": "oklch(82.8% 0.111 230.318)"
       }
     },
     "border-sky-900/70": {
@@ -1538,6 +1578,13 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         }
       }
     },
+    "hover:bg-sky-500": {
+      "base": {
+        "hover": {
+          "backgroundColor": "oklch(68.5% 0.169 237.323)"
+        }
+      }
+    },
     "hover:bg-timeline-surface-muted": {
       "light": {
         "hover": {
@@ -1776,6 +1823,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
         "maxHeight": "100%"
       }
     },
+    "max-w-48": {
+      "base": {
+        "maxWidth": 192
+      }
+    },
     "max-w-full": {
       "base": {
         "maxWidth": "100%"
@@ -1839,6 +1891,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "min-w-6": {
       "base": {
         "minWidth": 24
+      }
+    },
+    "min-w-72": {
+      "base": {
+        "minWidth": 288
       }
     },
     "min-w-[560px]": {
@@ -1935,6 +1992,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "overflow-visible": {
       "base": {
         "overflow": "visible"
+      }
+    },
+    "overflow-x-auto": {
+      "base": {
+        "overflowX": "auto"
       }
     },
     "overflow-x-clip": {
@@ -2057,6 +2119,11 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "pt-1": {
       "base": {
         "paddingTop": 4
+      }
+    },
+    "pt-1.5": {
+      "base": {
+        "paddingTop": 6
       }
     },
     "pt-2": {
@@ -2830,6 +2897,16 @@ export const nativeTailwindManifest: NativeStyleManifest = {
     "w-2": {
       "base": {
         "width": 8
+      }
+    },
+    "w-20": {
+      "base": {
+        "width": 80
+      }
+    },
+    "w-24": {
+      "base": {
+        "width": 96
       }
     },
     "w-3": {

@@ -407,3 +407,75 @@ export function computeCompressorStaticCurveDb(inputDb: number, params: Compress
   const x = inputDb - lower
   return inputDb + ((1 / ratio - 1) * x * x) / (2 * knee)
 }
+
+
+const MIN_WARP_BPM = 30
+const MAX_WARP_BPM = 300
+const MIN_SOURCE_BEAT_OFFSET = -16
+const MAX_SOURCE_BEAT_OFFSET = 16
+const SOURCE_BEAT_OFFSET_PRECISION = 1_000
+
+const normalizeWarpBpm = (value: number | undefined) => (
+  value !== undefined && Number.isFinite(value)
+    ? Math.round(Math.min(MAX_WARP_BPM, Math.max(MIN_WARP_BPM, value)) * 100) / 100
+    : undefined
+)
+
+export const normalizeSourceBeatOffsetValue = (value: number) => (
+  Math.round(Math.min(MAX_SOURCE_BEAT_OFFSET, Math.max(MIN_SOURCE_BEAT_OFFSET, value)) * SOURCE_BEAT_OFFSET_PRECISION)
+  / SOURCE_BEAT_OFFSET_PRECISION
+)
+
+export function mapTimelineBeatToSourceBeat(markers: readonly AudioWarpMarker[], timelineBeat: number): number {
+  if (markers.length === 0) return timelineBeat
+  if (markers.length === 1) return timelineBeat + markers[0].sourceBeat - markers[0].timelineBeat
+  let left = markers[0]
+  let right = markers[1]
+  for (let index = 0; index < markers.length - 1; index += 1) {
+    const candidateRight = markers[index + 1]
+    if (timelineBeat <= candidateRight.timelineBeat || index === markers.length - 2) {
+      left = markers[index]
+      right = candidateRight
+      break
+    }
+  }
+  const timelineSpan = Math.max(1e-6, right.timelineBeat - left.timelineBeat)
+  return left.sourceBeat + (timelineBeat - left.timelineBeat) * ((right.sourceBeat - left.sourceBeat) / timelineSpan)
+}
+
+export function mapSourceBeatToTimelineBeat(markers: readonly AudioWarpMarker[], sourceBeat: number): number {
+  if (markers.length === 0) return sourceBeat
+  if (markers.length === 1) return sourceBeat + markers[0].timelineBeat - markers[0].sourceBeat
+  let left = markers[0]
+  let right = markers[1]
+  for (let index = 0; index < markers.length - 1; index += 1) {
+    const candidateRight = markers[index + 1]
+    if (sourceBeat <= candidateRight.sourceBeat || index === markers.length - 2) {
+      left = markers[index]
+      right = candidateRight
+      break
+    }
+  }
+  const sourceSpan = Math.max(1e-6, right.sourceBeat - left.sourceBeat)
+  return left.timelineBeat + (sourceBeat - left.sourceBeat) * ((right.timelineBeat - left.timelineBeat) / sourceSpan)
+}
+
+export const normalizeClipGain = (gain: number) => Math.min(2, Math.max(0, gain))
+export const linearGainToDb = (gain: number) => gain <= 0 ? Number.NEGATIVE_INFINITY : 20 * Math.log10(gain)
+export const dbToLinearGain = (db: number) => Number.isFinite(db) ? normalizeClipGain(10 ** (db / 20)) : 0
+
+export function createDefaultAudioWarp(projectBpm: number): AudioWarpPayload {
+  return { enabled: false, sourceBpm: normalizeWarpBpm(projectBpm), mode: "repitch" }
+}
+
+export function normalizeAudioWarp(value: Partial<AudioWarpPayload> | undefined): AudioWarpPayload | undefined {
+  if (value === undefined) return undefined
+  const sourceBeatOffset = value.sourceBeatOffset === undefined ? undefined : normalizeSourceBeatOffsetValue(value.sourceBeatOffset)
+  return {
+    enabled: value.enabled === true,
+    sourceBpm: normalizeWarpBpm(value.sourceBpm),
+    sourceBeatOffset: sourceBeatOffset === 0 ? undefined : sourceBeatOffset,
+    markers: value.markers,
+    mode: value.mode === "stretch" ? "stretch" : "repitch",
+  }
+}

@@ -41,5 +41,8 @@
   "src/upstream/components/timeline/TimelineBottomPanelShell.tsx",
   "src/upstream/components/timeline/local-save-failure-banner.tsx",
   "src/upstream-ui-probe.tsx",
-  "src/native-tailwind-runtime-candidates.tsx"
+  "src/native-tailwind-runtime-candidates.tsx",
+  "src/upstream/components/timeline/SampleDetailPanel.tsx",
+  "src/upstream/components/timeline/SampleClipPanel.tsx",
+  "src/upstream/components/timeline/SampleDetailWaveform.tsx"
 ]

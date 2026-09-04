@@ -9,7 +9,7 @@ type WaveformRenderOptions = {
   cssH: number
   fillStyle: string
   boundaryStyle: string
-  maxHeightFraction: number
+  maxHeightFraction?: number
   amplitudeScaleAtColumn?: (column: number) => number
 }
 

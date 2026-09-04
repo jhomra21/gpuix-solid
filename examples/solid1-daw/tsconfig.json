@@ -123,6 +123,18 @@
       ],
       "~/lib/track-sidebar-mixer": [
         "src/upstream/lib/track-sidebar-mixer.ts"
+      ],
+      "@daw-browser/timeline-core/audio-clip-time-map": [
+        "src/upstream/packages/timeline-core/audio-clip-time-map.ts"
+      ],
+      "~/lib/bpm-detection-service": [
+        "src/compat/bpm-detection-service.ts"
+      ],
+      "~/lib/audio-warp-patch": [
+        "src/upstream/lib/audio-warp-patch.ts"
+      ],
+      "~/lib/audio-waveform-layout": [
+        "src/upstream/lib/audio-waveform-layout.ts"
       ]
     },
     "types": [

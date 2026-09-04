@@ -74,6 +74,12 @@ const copiedSources = [
   ["src/upstream/lib/bottom-panel-layout.ts", "src/lib/bottom-panel-layout.ts", "aa7e348a31969ba8a1c16957464ddc9e2a3fb884"],
   ["src/upstream/lib/bottom-panel-preferences.ts", "src/lib/bottom-panel-preferences.ts", "b91be08986cffe7cab1d21a7f9790bb897f7098f"],
   ["src/upstream/lib/utils.ts", "src/lib/utils.ts", "d084ccade0d8b5bd77fd5174993bcef7b57644c9"],
+  ["src/upstream/components/timeline/SampleDetailPanel.tsx", "src/components/timeline/SampleDetailPanel.tsx", "0bff56a5d6ba7f2792c744c22c2b63de10a07f0a"],
+  ["src/upstream/components/timeline/SampleClipPanel.tsx", "src/components/timeline/SampleClipPanel.tsx", "de98fc3e8c9fa372390b2e66e332b326d434062d"],
+  ["src/upstream/components/timeline/SampleDetailWaveform.tsx", "src/components/timeline/SampleDetailWaveform.tsx", "9b219e2d2e318a8c08c0b91d07d052b0abee5ee1"],
+  ["src/upstream/lib/audio-warp-patch.ts", "src/lib/audio-warp-patch.ts", "3dda1b964e078e4bf6270738fe7e66e660f12c5b"],
+  ["src/upstream/lib/audio-waveform-layout.ts", "src/lib/audio-waveform-layout.ts", "c934e48ac108931aa81b2e0dafff4e7c555fc3ce"],
+  ["src/upstream/packages/timeline-core/audio-clip-time-map.ts", "packages/timeline-core/src/audio-clip-time-map.ts", "6e9bbc5882e3acdca7612cfe54a64abd362c5a30"],
   ["src/compat/timeline-view.ts", "src/lib/timeline-view.ts", "9457d9d86a9cea1a9931c9a4f4aa2137bd239976"],
 ]
 
