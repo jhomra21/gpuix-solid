@@ -192,6 +192,22 @@ if (!hasNativeTestRenderer) {
     visibleMixerControl.x >= 0 && right(visibleMixerControl) <= viewportWidth,
     `exact source mixer controls should be visible before interaction, got ${JSON.stringify(visibleMixerControl)}`,
   )
+  const soloBounds = app.renderer.boundsCustomProps(soloOff)
+  const armBounds = app.renderer.boundsCustomProps(armOff)
+  const volumeBounds = app.renderer.boundsCustomProps(volume)
+  const volumeAncestors = app.renderer.ancestorBoundsCustomProps(volume)
+  requireCondition(
+    visibleMixerControl.width >= soloBounds.width * 2.5 && visibleMixerControl.width <= soloBounds.width * 3.5,
+    `source 3fr/1fr mixer geometry should keep the track button roughly three times Solo width: ${JSON.stringify({ mute: visibleMixerControl, solo: soloBounds })}`,
+  )
+  requireCondition(
+    Math.abs(soloBounds.width - armBounds.width) <= 2 && soloBounds.width <= 20 && armBounds.width <= 20,
+    `source Solo/Record 1fr controls should stay compact and equal width: ${JSON.stringify({ solo: soloBounds, arm: armBounds })}`,
+  )
+  requireCondition(
+    volumeBounds.width >= soloBounds.width * 2.5 && volumeBounds.width < 70,
+    `source mixer volume should shrink into its 3fr column instead of retaining intrinsic range width: ${JSON.stringify({ volume: volumeBounds, ancestors: volumeAncestors })}`,
+  )
 
   const muteBackground = app.renderer.styleCustomProps(muteOn).backgroundColor
   app.renderer.clickCustomProps(muteOn)
@@ -202,6 +218,11 @@ if (!hasNativeTestRenderer) {
 
   app.renderer.clickCustomProps(soloOff)
   requireCondition(app.renderer.hasCustomProps(soloOn), "exact source solo should expose Unsolo after activation")
+  const soloActiveBackground = app.renderer.styleCustomProps(soloOn).backgroundColor ?? ""
+  requireCondition(
+    soloActiveBackground.startsWith("rgba(") && soloActiveBackground.endsWith(", 0.9)"),
+    `exact source bg-blue-500/90 Solo state should reach native as translucent sRGB, got ${JSON.stringify(soloActiveBackground)}`,
+  )
   app.renderer.clickCustomProps(soloOn)
   requireCondition(app.renderer.hasCustomProps(soloOff), "exact source solo should restore after second activation")
 

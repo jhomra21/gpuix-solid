@@ -39,6 +39,21 @@ if (combinedClassListStyle?.backgroundColor !== "#111111" || combinedClassListSt
   throw new Error("Solid 1 native classList must split multi-class keys before manifest lookup")
 }
 
+configureNativeStyleManifest({
+  classes: {
+    translucentBlue: {
+      base: {
+        backgroundColor: "color-mix(in oklab, oklch(62.3% 0.214 259.815) 90%, transparent)",
+      },
+    },
+  },
+})
+const translucentBlue = resolveNativeClassStyle("translucentBlue", undefined)
+clearNativeStyleManifest()
+if (!translucentBlue?.backgroundColor?.startsWith("rgba(") || !translucentBlue.backgroundColor.endsWith(", 0.9)")) {
+  throw new Error(`transparent Tailwind color-mix must normalize to native sRGB alpha: ${JSON.stringify(translucentBlue)}`)
+}
+
 installDomEventEnvironment()
 
 const selectorRoot = createHostElement("div", "section")
@@ -106,6 +121,23 @@ setSemanticProp(semanticSelect, "value", "stretch", "repitch")
 if (semanticSelect.value !== "stretch") throw new Error("semantic select controlled value must update reactively")
 if (repitchOption.style.display !== "none" || stretchOption.style.display === "none") {
   throw new Error(`semantic select value update must swap the painted option: ${JSON.stringify({ repitch: repitchOption.style, stretch: stretchOption.style })}`)
+}
+
+const semanticCanvas = createSemanticElement("canvas")
+if (semanticCanvas.kind !== "element" || semanticCanvas.nativeType !== "div" || semanticCanvas.localName !== "canvas") {
+  throw new Error(`semantic canvas must use a supported native layout box: ${JSON.stringify(semanticCanvas)}`)
+}
+if (semanticCanvas.getContext("2d") !== null) throw new Error("semantic canvas must preserve browser feature detection")
+
+const centeredSemanticButton = createSemanticElement("button")
+if (centeredSemanticButton.kind !== "element") throw new Error("semantic button fixture must create a host element")
+setSemanticProp(centeredSemanticButton, "style", {}, undefined)
+if (
+  centeredSemanticButton.style.display !== "flex" ||
+  centeredSemanticButton.style.alignItems !== "center" ||
+  centeredSemanticButton.style.justifyContent !== "center"
+) {
+  throw new Error(`semantic button must receive browser-like native centering defaults: ${JSON.stringify(centeredSemanticButton.style)}`)
 }
 
 const semanticButton = createHostElement("div", "button")

@@ -687,11 +687,16 @@ function nativeStyleFor(
   node: HostElementNode,
   pointerEvents = effectivePointerEvents(node),
 ): StyleDesc {
-  // Browser range inputs have an intrinsic hit surface even without author CSS.
-  // GPUIX intentionally backs them with a div, so preserve a small intrinsic
-  // height and let normal flex layout determine the available width.
-  const style = isRangeInput(node)
-    ? { minHeight: 16, height: 16, width: 129, minWidth: 129, ...node.style }
+  // Browser range controls contribute their intrinsic width to auto flex sizing,
+  // but an authored width such as w-full must still be allowed to shrink below
+  // that preferred size. Preserve the 129px browser-like basis while removing
+  // the 129px minimum that previously forced compact mixer cells to overflow.
+  const style: StyleDesc = isRangeInput(node)
+    ? node.style.width === undefined
+      ? { minHeight: 16, height: 16, width: 129, minWidth: 129, ...node.style }
+      : node.style.width === "100%"
+        ? { minHeight: 16, height: 16, ...node.style, width: 129, minWidth: 0, flexShrink: 1 }
+        : { minHeight: 16, height: 16, minWidth: 0, ...node.style }
     : node.style
   if (node.style.pointerEvents !== undefined || pointerEvents === undefined) return style
   return { ...style, pointerEvents }

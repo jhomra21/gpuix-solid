@@ -320,19 +320,32 @@ function isLinearGradientBackground(
 
 function normalizePublishedNativeColor(value: string): string {
   const trimmed = value.trim()
-  const oklch = parseOklch(trimmed)
+  const transparentMix = normalizeTransparentOklchMix(trimmed)
+  const normalized = transparentMix ?? trimmed
+  const oklch = parseOklch(normalized)
   if (oklch) {
     const [red, green, blue] = oklchToSrgb(oklch.lightness, oklch.chroma, oklch.hue)
     return formatSrgbColor(red, green, blue, oklch.alpha)
   }
-  const hsl = parseHsl(trimmed)
+  const hsl = parseHsl(normalized)
   if (hsl) {
     const [red, green, blue] = hslToSrgb(hsl.hue, hsl.saturation, hsl.lightness)
     return formatSrgbColor(red, green, blue, hsl.alpha)
   }
-  const rgb = parseRgb(trimmed)
+  const rgb = parseRgb(normalized)
   if (!rgb) return value
   return formatSrgbColor(rgb.red, rgb.green, rgb.blue, rgb.alpha)
+}
+
+
+function normalizeTransparentOklchMix(value: string): string | undefined {
+  const match = value.match(
+    /^color-mix\(in oklab,\s*(oklch\([^)]*\))\s+(\d+(?:\.\d+)?)%,\s*transparent\s*\)$/i,
+  )
+  const color = match?.[1]
+  const alpha = match?.[2]
+  if (!color || !alpha || color.includes("/")) return undefined
+  return color.replace(/\)$/, ` / ${alpha}%)`)
 }
 
 interface ParsedOklch { lightness: number; chroma: number; hue: number; alpha: number }

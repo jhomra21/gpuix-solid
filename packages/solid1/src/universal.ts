@@ -339,7 +339,6 @@ function nativeElementType(tagName: string): ElementType {
     case "text":
     case "img":
     case "svg":
-    case "canvas":
     case "input":
     case "textarea":
     case "anchored":
@@ -348,6 +347,10 @@ function nativeElementType(tagName: string): ElementType {
     case "markdown":
     case "virtual-list":
       return tagName
+    case "canvas":
+      // GPUIX 0.7 has no Canvas2D element. Preserve semantic canvas identity on
+      // a supported layout box so browser source can feature-detect getContext().
+      return "div"
     default:
       if (TEXT_SEMANTIC_TAGS.has(tagName)) return "text"
       if (DIV_SEMANTIC_TAGS.has(tagName) || SVG_CHILD_TAGS.has(tagName)) return "div"
@@ -614,6 +617,18 @@ function reapplyNativeStyleSubtree(node: HostElementNode): void {
   }
 }
 
+function browserSemanticDefaultStyle(node: HostElementNode): StyleDesc | undefined {
+  if ((semanticTags.get(node) ?? node.localName) !== "button") return undefined
+  // Native div backing does not receive the browser button UA stylesheet.
+  // Supply only the centering baseline that copied browser source relies on;
+  // authored class and inline styles merge later and remain authoritative.
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  }
+}
+
 function applyNativeStyleState(node: HostElementNode): void {
   const state = nativeStyleState(node)
   const className = combinedClassName(state)
@@ -631,7 +646,16 @@ function applyNativeStyleState(node: HostElementNode): void {
   else textTransforms.set(node, textTransform)
   const hiddenStyle: StyleDesc | undefined = state.hidden ? { display: "none" } : undefined
   const selectOptionStyle: StyleDesc | undefined = isUnselectedSelectOption(node) ? { display: "none" } : undefined
-  const mergedStyle = mergeNativeStyles(preClassStyle, classStyle, classAttributeStyle, state.inlineStyle, hiddenStyle, selectOptionStyle)
+  const semanticDefaultStyle = browserSemanticDefaultStyle(node)
+  const mergedStyle = mergeNativeStyles(
+    semanticDefaultStyle,
+    preClassStyle,
+    classStyle,
+    classAttributeStyle,
+    state.inlineStyle,
+    hiddenStyle,
+    selectOptionStyle,
+  )
   const browserInlineFlow = resolveBrowserInlineFlowStyle(node, mergedStyle)
   if (browserInlineFlow) browserInlineFlowNodes.add(node)
   else browserInlineFlowNodes.delete(node)
