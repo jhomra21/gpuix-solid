@@ -28,14 +28,28 @@ jobs:
           python3 .github/sample-detail-closure-fix.py
       - name: Install
         run: bun install --frozen-lockfile
-      - name: Validate source closure
+      - name: Validate repository
         run: |
           bun run lint
           bun run typecheck
           bun run test
           bun run build
-          bun run solid1:daw
-          git diff --check
+      - name: Build the Solid1 host once
+        run: |
+          cd packages/solid1
+          bun install --no-save
+          bun run build
+      - name: Validate DAW against the built host
+        run: |
+          cd examples/solid1-daw
+          bun install --no-save
+          bun run source:check
+          bun run generate:styles
+          ./node_modules/.bin/tsc --noEmit
+          ./node_modules/.bin/vite build --config vite.test.config.ts
+          bun scripts/run-test.mjs
+      - name: Check patch
+        run: git diff --check
       - name: Commit validated source closure
         run: |
           rm .github/vendor-sample-detail.py .github/sample-detail-closure-fix.py .github/workflows/vendor-sample-detail.yml
