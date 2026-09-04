@@ -49,17 +49,7 @@ method_anchor = '''  dragCustomProps(query: TestCustomPropQuery, deltaX: number,
   }
 '''
 trace_method = method_anchor + '''
-  dragCustomPropsTrace(query: TestCustomPropQuery, deltaX: number, deltaY: number): {
-    nodeId: number
-    events: Array<{
-      elementId: number
-      eventType: string
-      type?: string
-      testId?: string
-      customProps?: Record<string, MutationValue>
-      bounds?: TestBounds
-    }>
-  } {
+  dragCustomPropsTrace(query: TestCustomPropQuery, deltaX: number, deltaY: number) {
     const root = this.#root
     if (!root) throw new Error("TestRenderer is not bound to a Solid 1 root")
     const node = this.requireCustomProps(query)
