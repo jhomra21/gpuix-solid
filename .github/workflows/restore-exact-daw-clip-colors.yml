@@ -45,17 +45,9 @@ jobs:
 
           test_path = Path('examples/solid1-daw/src/test.tsx')
           text = test_path.read_text()
-          old = '''  const drumsAudioClip = { title: "Drum Loop 01" } as const
-          requireCondition(app.renderer.hasCustomProps(drumsAudioClip), "exact ClipComponent should expose the source clip title")
-          app.renderer.clickCenterCustomProps(drumsAudioClip)
-          requireCondition(app.renderer.hasTestId("effects-panel") && !app.renderer.hasTestId("clip-panel"), "first exact audio-clip tap should select without opening Sample Detail")
-          requireCondition(
-            app.renderer.styleCustomPropsWithinTestId("lane-drums", drumsAudioClip).borderColor === "#60a5fa",
-            `first exact audio-clip tap should select the source ClipComponent, got ${JSON.stringify(app.renderer.styleCustomPropsWithinTestId("lane-drums", drumsAudioClip))}`,
-          )
-          '''
-          new = '''  const drumsAudioClip = { title: "Drum Loop 01" } as const
-          requireCondition(app.renderer.hasCustomProps(drumsAudioClip), "exact ClipComponent should expose the source clip title")
+
+          select_anchor = '  requireCondition(app.renderer.hasCustomProps(drumsAudioClip), "exact ClipComponent should expose the source clip title")\n  app.renderer.clickCenterCustomProps(drumsAudioClip)\n'
+          select_replacement = '''  requireCondition(app.renderer.hasCustomProps(drumsAudioClip), "exact ClipComponent should expose the source clip title")
           const unselectedDrumsClipStyle = app.renderer.styleCustomPropsWithinTestId("lane-drums", drumsAudioClip)
           requireCondition(
             unselectedDrumsClipStyle.backgroundColor === "rgba(0, 167, 108, 0.2)",
@@ -66,16 +58,25 @@ jobs:
             `exact source ClipComponent should not gain a native rounded-corner approximation, got ${JSON.stringify(unselectedDrumsClipStyle)}`,
           )
           app.renderer.clickCenterCustomProps(drumsAudioClip)
-          requireCondition(app.renderer.hasTestId("effects-panel") && !app.renderer.hasTestId("clip-panel"), "first exact audio-clip tap should select without opening Sample Detail")
-          const selectedDrumsClipStyle = app.renderer.styleCustomPropsWithinTestId("lane-drums", drumsAudioClip)
+          '''
+          if text.count(select_anchor) != 1:
+              raise SystemExit(f'expected one clip-selection insertion anchor, found {text.count(select_anchor)}')
+          text = text.replace(select_anchor, select_replacement, 1)
+
+          stale_assertion = '''  requireCondition(
+            app.renderer.styleCustomPropsWithinTestId("lane-drums", drumsAudioClip).borderColor === "#60a5fa",
+            `first exact audio-clip tap should select the source ClipComponent, got ${JSON.stringify(app.renderer.styleCustomPropsWithinTestId("lane-drums", drumsAudioClip))}`,
+          )
+          '''
+          exact_assertion = '''  const selectedDrumsClipStyle = app.renderer.styleCustomPropsWithinTestId("lane-drums", drumsAudioClip)
           requireCondition(
             selectedDrumsClipStyle.backgroundColor === "rgba(0, 167, 108, 0.3)" && selectedDrumsClipStyle.boxShadow !== undefined,
             `first exact audio-clip tap should preserve the source 30% selected color mix and selection ring, got ${JSON.stringify(selectedDrumsClipStyle)}`,
           )
           '''
-          if text.count(old) != 1:
-              raise SystemExit(f'expected one stale clip-selection verifier block, found {text.count(old)}')
-          test_path.write_text(text.replace(old, new, 1))
+          if text.count(stale_assertion) != 1:
+              raise SystemExit(f'expected one stale clip-selection assertion, found {text.count(stale_assertion)}')
+          test_path.write_text(text.replace(stale_assertion, exact_assertion, 1))
           PY
 
       - name: Install
