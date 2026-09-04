@@ -13,6 +13,7 @@ PRODUCT_PATCHES = [
     ".github/empty-text-compat-probe.py",
     ".github/range-native-backing-probe.py",
     ".github/pointer-events-inheritance-probe.py",
+    ".github/pointer-events-contract-probe.py",
     ".github/document-classlist-probe.py",
     ".github/custom-props-center-click-probe.py",
     ".github/automation-verifier-source-marker-probe.py",
