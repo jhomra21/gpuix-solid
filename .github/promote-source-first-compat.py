@@ -14,6 +14,8 @@ PRODUCT_PATCHES = [
     ".github/range-native-backing-probe.py",
     # Pointer ownership composes after the range patch and is promoted only for
     # semantic controls/roles; plain event containers keep their native hit behavior.
+    # Compatibility adapters that intentionally own an overlay hit surface declare
+    # pointerEvents:auto explicitly in their own source.
     ".github/pointer-events-inheritance-probe.py",
     ".github/pointer-events-contract-probe.py",
     ".github/document-classlist-probe.py",
