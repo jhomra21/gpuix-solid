@@ -37,7 +37,7 @@ new_helpers = '''function dataAttributeProperty(name: string): string {
     .join("")
 }
 
-function datasetFromHost(node: HostElementNode): CompatDataset {
+function datasetFromHost(node: HostElementNode) {
   const dataset: CompatDataset = {}
   for (const [name, value] of node.props) {
     if (!name.startsWith("data-") || value === null) continue
@@ -46,7 +46,7 @@ function datasetFromHost(node: HostElementNode): CompatDataset {
   return dataset
 }
 
-function datasetFromAttributes(attributes: ReadonlyMap<string, string>): CompatDataset {
+function datasetFromAttributes(attributes: ReadonlyMap<string, string>) {
   const dataset: CompatDataset = {}
   for (const [name, value] of attributes) {
     if (!name.startsWith("data-")) continue
