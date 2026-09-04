@@ -19,6 +19,7 @@ on:
       - ".github/automation-verifier-source-marker-probe.py"
       - ".github/clip-verifier-source-marker-probe.py"
       - ".github/clip-hit-stack-probe.py"
+      - ".github/custom-props-center-click-probe.py"
       - ".github/dom-event-bubbling-probe.py"
       - ".github/pointer-events-inheritance-probe.py"
       - "packages/solid1/src/browser-grid-compat.ts"
@@ -53,6 +54,7 @@ jobs:
           python3 .github/range-native-backing-probe.py
           python3 .github/range-event-probe.py
           python3 .github/pointer-events-inheritance-probe.py
+          python3 .github/custom-props-center-click-probe.py
           python3 .github/clip-hit-stack-probe.py
           python3 .github/automation-verifier-source-marker-probe.py
           python3 .github/clip-verifier-source-marker-probe.py
