@@ -32,12 +32,12 @@ host_new = '''function nativeStyleFor(
   // Browser range inputs have an intrinsic width only when the source does not
   // author one. GPUIX 0.7 does not resolve CSS percentage width in the same way
   // inside flex/grid tracks, so a browser w-full range becomes a zero-basis flex
-  // item that grows to the available parent width.
+  // item that grows and shrinks with the available parent width.
   const style: StyleDesc = isRangeInput(node)
     ? node.style.width === undefined
       ? { minHeight: 16, height: 16, width: 129, minWidth: 129, ...node.style }
       : node.style.width === "100%"
-        ? { minHeight: 16, height: 16, ...node.style, width: 0, minWidth: 0, flexGrow: 1 }
+        ? { minHeight: 16, height: 16, ...node.style, width: 0, minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: 0 }
         : { minHeight: 16, height: 16, minWidth: 0, ...node.style }
     : node.style
   if (node.style.pointerEvents !== undefined || pointerEvents === undefined) return style
@@ -50,6 +50,12 @@ for host_path in [
     "packages/solid1/src/host/nodes.ts",
 ]:
     replace_once(host_path, host_old, host_new)
+
+replace_once(
+    "examples/solid1-daw/scripts/generate-native-tailwind.mjs",
+    '''  ["track-row-control-stack", { base: { width: 81 } }],\n''',
+    '''  // Browser flex-column defaults stretch these source grid rows across the\n  // fixed 81px control stack. Materialize that cross-axis default because GPUIX\n  // otherwise shrink-wraps the rows and collapses the w-full volume slider.\n  ["track-row-control-stack", { base: { width: 81, alignItems: "stretch" } }],\n''',
+)
 
 solid_color_old = '''function normalizePublishedNativeColor(value: string): string {
   const trimmed = value.trim()
