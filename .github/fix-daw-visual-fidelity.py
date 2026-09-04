@@ -75,7 +75,7 @@ solid_rgb_old = '''  const rgb = parseRgb(trimmed)
 solid_rgb_new = '''  const rgb = parseRgb(normalized)
 '''
 
-mix_helper = '''
+mix_helper = r'''
 function normalizeTransparentOklchMix(value: string): string | undefined {
   const match = value.match(
     /^color-mix\(in oklab,\s*(oklch\([^)]*\))\s+(\d+(?:\.\d+)?)%,\s*transparent\s*\)$/i,
@@ -209,9 +209,9 @@ solo_anchor = '''  app.renderer.clickCustomProps(soloOff)
 '''
 solo_replacement = '''  app.renderer.clickCustomProps(soloOff)
   requireCondition(app.renderer.hasCustomProps(soloOn), "exact source solo should expose Unsolo after activation")
-  const soloActiveBackground = app.renderer.styleCustomProps(soloOn).backgroundColor
+  const soloActiveBackground = app.renderer.styleCustomProps(soloOn).backgroundColor ?? ""
   requireCondition(
-    typeof soloActiveBackground === "string" && soloActiveBackground.startsWith("rgba(") && soloActiveBackground.endsWith(", 0.9)"),
+    soloActiveBackground.startsWith("rgba(") && soloActiveBackground.endsWith(", 0.9)"),
     `exact source bg-blue-500/90 Solo state should reach native as translucent sRGB, got ${JSON.stringify(soloActiveBackground)}`,
   )
   app.renderer.clickCustomProps(soloOn)
