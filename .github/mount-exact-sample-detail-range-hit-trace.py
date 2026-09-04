@@ -53,7 +53,8 @@ trace_method = method_anchor + '''
     const root = this.#root
     if (!root) throw new Error("TestRenderer is not bound to a Solid 1 root")
     const node = this.requireCustomProps(query)
-    const start = insetPoint(this.boundsNode(node, `custom props ${JSON.stringify(query)}`))
+    const nodeBounds = this.boundsNode(node, `custom props ${JSON.stringify(query)}`)
+    const start = insetPoint(nodeBounds)
     const endX = start.x + deltaX
     const endY = start.y + deltaY
     const trace: Array<{
@@ -64,11 +65,32 @@ trace_method = method_anchor + '''
       customProps?: Record<string, MutationValue> | undefined
       bounds?: TestBounds | undefined
     }> = []
+    const tree = parseTree(this.#native.getTreeJson())
+    const ancestors: Array<{
+      id: number
+      type: string
+      testId?: string | undefined
+      style?: StyleDesc | undefined
+      bounds?: TestBounds | undefined
+    }> = []
+    if (tree) {
+      let currentId = node.id
+      for (;;) {
+        const parent = findParentNode(tree, currentId)
+        if (!parent) break
+        const nativeBounds = this.#native.getElementBounds(parent.id)
+        const bounds = nativeBounds && nativeBounds.length >= 4
+          ? { x: nativeBounds[0] ?? 0, y: nativeBounds[1] ?? 0, width: nativeBounds[2] ?? 0, height: nativeBounds[3] ?? 0 }
+          : undefined
+        ancestors.push({ id: parent.id, type: parent.type, testId: parent.testId, style: parent.style, bounds })
+        currentId = parent.id
+      }
+    }
     const dispatch = () => {
       const events = this.#native.drainEvents()
-      const tree = parseTree(this.#native.getTreeJson())
+      const currentTree = parseTree(this.#native.getTreeJson())
       for (const event of events) {
-        const target = findNodeById(tree, event.elementId)
+        const target = findNodeById(currentTree, event.elementId)
         const nativeBounds = target ? this.#native.getElementBounds(target.id) : null
         const bounds = nativeBounds && nativeBounds.length >= 4
           ? { x: nativeBounds[0] ?? 0, y: nativeBounds[1] ?? 0, width: nativeBounds[2] ?? 0, height: nativeBounds[3] ?? 0 }
@@ -93,7 +115,7 @@ trace_method = method_anchor + '''
     dispatch()
     this.#native.simulateMouseUp(endX, endY, 0)
     dispatch()
-    return { nodeId: node.id, events: trace }
+    return { nodeId: node.id, nodeBounds, start, end: { x: endX, y: endY }, ancestors, events: trace }
   }
 '''
 if "dragCustomPropsTrace(query" not in testing:
