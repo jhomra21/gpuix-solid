@@ -12,6 +12,7 @@ on:
       - .github/mount-exact-sample-detail-resize-test-fix.py
       - .github/mount-exact-sample-detail-signal-fix.py
       - .github/mount-exact-sample-detail-label-fix.py
+      - .github/mount-exact-sample-detail-checkbox-fix.py
       - .github/workflows/mount-exact-sample-detail.yml
 
 permissions:
@@ -36,6 +37,7 @@ jobs:
           python3 .github/mount-exact-sample-detail-resize-test-fix.py
           python3 .github/mount-exact-sample-detail-signal-fix.py
           python3 .github/mount-exact-sample-detail-label-fix.py
+          python3 .github/mount-exact-sample-detail-checkbox-fix.py
       - name: Install
         run: bun install --frozen-lockfile
       - name: Validate repository
@@ -68,7 +70,7 @@ jobs:
         run: git diff --check
       - name: Commit validated mount
         run: |
-          rm .github/mount-exact-sample-detail.py .github/mount-exact-sample-detail-order-fix.py .github/mount-exact-sample-detail-dataset-fix.py .github/mount-exact-sample-detail-resize-fix.py .github/mount-exact-sample-detail-resize-test-fix.py .github/mount-exact-sample-detail-signal-fix.py .github/mount-exact-sample-detail-label-fix.py .github/workflows/mount-exact-sample-detail.yml
+          rm .github/mount-exact-sample-detail.py .github/mount-exact-sample-detail-order-fix.py .github/mount-exact-sample-detail-dataset-fix.py .github/mount-exact-sample-detail-resize-fix.py .github/mount-exact-sample-detail-resize-test-fix.py .github/mount-exact-sample-detail-signal-fix.py .github/mount-exact-sample-detail-label-fix.py .github/mount-exact-sample-detail-checkbox-fix.py .github/workflows/mount-exact-sample-detail.yml
           git add -A
           test -n "$(git status --porcelain)"
           git config user.name "github-actions[bot]"
