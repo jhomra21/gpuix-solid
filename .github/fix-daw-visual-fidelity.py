@@ -29,21 +29,14 @@ host_new = '''function nativeStyleFor(
   node: HostElementNode,
   pointerEvents = effectivePointerEvents(node),
 ): StyleDesc {
-  // Semantic buttons are backed by native divs, so supply the browser control's
-  // centered content baseline unless source styles explicitly override it.
-  const buttonStyle: StyleDesc = node.localName === "button"
-    ? { display: "flex", alignItems: "center", justifyContent: "center" }
-    : {}
-
   // Browser range inputs have an intrinsic width only when the source does not
   // author one. A source width such as w-full must be allowed to shrink inside
   // fractional grid/flex tracks rather than retaining the browser 129px minimum.
-  const rangeStyle: StyleDesc = isRangeInput(node)
+  const style: StyleDesc = isRangeInput(node)
     ? node.style.width === undefined
-      ? { minHeight: 16, height: 16, width: 129, minWidth: 129 }
-      : { minHeight: 16, height: 16, minWidth: 0 }
-    : {}
-  const style = { ...buttonStyle, ...rangeStyle, ...node.style }
+      ? { minHeight: 16, height: 16, width: 129, minWidth: 129, ...node.style }
+      : { minHeight: 16, height: 16, minWidth: 0, ...node.style }
+    : node.style
   if (node.style.pointerEvents !== undefined || pointerEvents === undefined) return style
   return { ...style, pointerEvents }
 }
@@ -121,6 +114,60 @@ replace_once(
 ''',
 )
 
+semantic_helper_anchor = '''function reapplyNativeStyleSubtree(node: HostElementNode): void {
+  applyNativeStyleState(node)
+  for (const child of node.children) {
+    if (child.kind === "element") reapplyNativeStyleSubtree(child)
+    else applyNativeTextTransform(child)
+  }
+}
+
+function applyNativeStyleState(node: HostElementNode): void {
+'''
+semantic_helper_replacement = '''function reapplyNativeStyleSubtree(node: HostElementNode): void {
+  applyNativeStyleState(node)
+  for (const child of node.children) {
+    if (child.kind === "element") reapplyNativeStyleSubtree(child)
+    else applyNativeTextTransform(child)
+  }
+}
+
+function browserSemanticDefaultStyle(node: HostElementNode): StyleDesc | undefined {
+  if ((semanticTags.get(node) ?? node.localName) !== "button") return undefined
+  // Native div backing does not receive the browser button UA stylesheet.
+  // Supply only the centering baseline that copied browser source relies on;
+  // authored class and inline styles merge later and remain authoritative.
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  }
+}
+
+function applyNativeStyleState(node: HostElementNode): void {
+'''
+replace_once("packages/solid1/src/universal.ts", semantic_helper_anchor, semantic_helper_replacement)
+replace_once(
+    "packages/solid1/src/universal.ts",
+    '''  const hiddenStyle: StyleDesc | undefined = state.hidden ? { display: "none" } : undefined
+  const selectOptionStyle: StyleDesc | undefined = isUnselectedSelectOption(node) ? { display: "none" } : undefined
+  const mergedStyle = mergeNativeStyles(preClassStyle, classStyle, classAttributeStyle, state.inlineStyle, hiddenStyle, selectOptionStyle)
+''',
+    '''  const hiddenStyle: StyleDesc | undefined = state.hidden ? { display: "none" } : undefined
+  const selectOptionStyle: StyleDesc | undefined = isUnselectedSelectOption(node) ? { display: "none" } : undefined
+  const semanticDefaultStyle = browserSemanticDefaultStyle(node)
+  const mergedStyle = mergeNativeStyles(
+    semanticDefaultStyle,
+    preClassStyle,
+    classStyle,
+    classAttributeStyle,
+    state.inlineStyle,
+    hiddenStyle,
+    selectOptionStyle,
+  )
+''',
+)
+
 parity_color_anchor = '''if (combinedClassListStyle?.backgroundColor !== "#111111" || combinedClassListStyle.color !== "#eeeeee") {
   throw new Error("Solid 1 native classList must split multi-class keys before manifest lookup")
 }
@@ -165,6 +212,17 @@ if (semanticCanvas.kind !== "element" || semanticCanvas.nativeType !== "div" || 
   throw new Error(`semantic canvas must use a supported native layout box: ${JSON.stringify(semanticCanvas)}`)
 }
 if (semanticCanvas.getContext("2d") !== null) throw new Error("semantic canvas must preserve browser feature detection")
+
+const centeredSemanticButton = createSemanticElement("button")
+if (centeredSemanticButton.kind !== "element") throw new Error("semantic button fixture must create a host element")
+setSemanticProp(centeredSemanticButton, "style", {}, undefined)
+if (
+  centeredSemanticButton.style.display !== "flex" ||
+  centeredSemanticButton.style.alignItems !== "center" ||
+  centeredSemanticButton.style.justifyContent !== "center"
+) {
+  throw new Error(`semantic button must receive browser-like native centering defaults: ${JSON.stringify(centeredSemanticButton.style)}`)
+}
 
 const semanticButton = createHostElement("div", "button")
 '''
