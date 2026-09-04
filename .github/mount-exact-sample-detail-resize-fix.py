@@ -70,7 +70,7 @@ new = '''class CompatResizeObserver {
     for (const target of this.#targets) {
       const contentRect = target.getBoundingClientRect()
       const previous = this.#bounds.get(target)
-      if (!previous || !sameRect(previous, contentRect)) entries.push({ target, contentRect })
+      if (!previous || !sameSize(previous, contentRect)) entries.push({ target, contentRect })
       this.#bounds.set(target, contentRect)
     }
     if (entries.length > 0) this.#callback(entries)
@@ -78,11 +78,8 @@ new = '''class CompatResizeObserver {
   }
 }
 
-function sameRect(left: CompatRect, right: CompatRect): boolean {
-  return left.x === right.x
-    && left.y === right.y
-    && left.width === right.width
-    && left.height === right.height
+function sameSize(left: CompatRect, right: CompatRect): boolean {
+  return left.width === right.width && left.height === right.height
 }
 '''
 
