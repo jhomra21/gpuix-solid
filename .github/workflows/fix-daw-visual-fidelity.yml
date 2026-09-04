@@ -54,6 +54,8 @@ jobs:
                   packages/solid1/src/native-style.ts \
                   packages/solid1/src/universal.ts \
                   packages/solid1/scripts/check-host-parity.ts \
+                  examples/solid1-daw/scripts/generate-native-tailwind.mjs \
+                  examples/solid1-daw/src/native-tailwind.generated.ts \
                   examples/solid1-daw/src/test.tsx \
                   .github/fix-daw-visual-fidelity.py \
                   .github/workflows/fix-daw-visual-fidelity.yml
