@@ -29,7 +29,6 @@ probe = '''    if (query.title === "Drum Loop 01") {
           left: node.style?.left ?? null,
           width: node.style?.width ?? null,
           height: node.style?.height ?? null,
-          zIndex: node.style?.zIndex ?? null,
           overflow: node.style?.overflow ?? null,
           backgroundColor: node.style?.backgroundColor ?? null,
         }
