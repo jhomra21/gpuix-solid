@@ -78,6 +78,22 @@ function findNodeByCustomProps(node: NativeTreeNode | null, query: TestCustomPro
   return undefined
 }
 
+function findCustomPropStringContainingAll(
+  node: NativeTreeNode | null,
+  name: string,
+  fragments: readonly string[],
+): string | undefined {
+  if (!node) return undefined
+  const value = node.customProps?.[name]
+  const text = value === undefined || value === null ? undefined : String(value)
+  if (text !== undefined && fragments.every((fragment) => text.includes(fragment))) return text
+  for (const child of node.children ?? []) {
+    const found = findCustomPropStringContainingAll(child, name, fragments)
+    if (found !== undefined) return found
+  }
+  return undefined
+}
+
 function findFirstNodeOfType(node: NativeTreeNode, type: string): NativeTreeNode | undefined {
   if (node.type === type) return node
   for (const child of node.children ?? []) {
@@ -354,6 +370,70 @@ export class TestRenderer {
 
   hasCustomProps(query: TestCustomPropQuery): boolean {
     return findNodeByCustomProps(parseTree(this.#native.getTreeJson()), query) !== undefined
+  }
+
+  customPropStringContainingAll(name: string, fragments: readonly string[]): string {
+    this.#native.flush()
+    const value = findCustomPropStringContainingAll(parseTree(this.#native.getTreeJson()), name, fragments)
+    if (value === undefined) {
+      throw new Error(`Expected string custom prop ${JSON.stringify(name)} containing ${JSON.stringify(fragments)}`)
+    }
+    return value
+  }
+
+  boundsCustomProps(query: TestCustomPropQuery): TestBounds {
+    return this.boundsNode(this.requireCustomProps(query), `custom props ${JSON.stringify(query)}`)
+  }
+
+  styleCustomProps(query: TestCustomPropQuery): StyleDesc {
+    return this.requireCustomProps(query).style ?? {}
+  }
+
+  ancestorBoundsCustomProps(query: TestCustomPropQuery): TestBounds[] {
+    this.#native.flush()
+    const root = parseTree(this.#native.getTreeJson())
+    if (!root) throw new Error("Expected a retained native root")
+    let current = findNodeByCustomProps(root, query)
+    if (!current) throw new Error(`Expected custom props ${JSON.stringify(query)}`)
+    const bounds: TestBounds[] = []
+    for (;;) {
+      const parent = findParentNode(root, current.id)
+      if (!parent) break
+      const nativeBounds = this.#native.getElementBounds(parent.id)
+      if (nativeBounds && nativeBounds.length >= 4) {
+        const [x, y, width, height] = nativeBounds
+        if (x !== undefined && y !== undefined && width !== undefined && height !== undefined) {
+          bounds.push({ x, y, width, height })
+        }
+      }
+      current = parent
+    }
+    return bounds
+  }
+
+  dragCustomProps(query: TestCustomPropQuery, deltaX: number, deltaY: number): void {
+    const start = insetPoint(this.boundsCustomProps(query))
+    const endX = start.x + deltaX
+    const endY = start.y + deltaY
+    this.#native.simulateMouseMove(start.x, start.y)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+    this.#native.simulateMouseDown(start.x, start.y, 0)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+    this.#native.simulateMouseMove(endX, endY, 0)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+    this.#native.simulateMouseUp(endX, endY, 0)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+  }
+
+  clickCenterCustomProps(query: TestCustomPropQuery): void {
+    const point = centerPoint(this.boundsCustomProps(query))
+    this.#native.simulateClick(point.x, point.y)
+    this.dispatchNativeEvents()
+    this.#native.flush()
   }
 
   clickCustomProps(query: TestCustomPropQuery): void {

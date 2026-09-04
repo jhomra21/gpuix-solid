@@ -33,6 +33,24 @@ type HostStyleDeclaration = StyleDesc & {
 }
 
 const customStyleProperties = new WeakMap<HostElementNode, Map<string, string>>()
+const appliedPointerEvents = new WeakMap<HostElementNode, StyleDesc["pointerEvents"] | undefined>()
+const INTERACTIVE_TAG_NAMES = new Set(["a", "button", "input", "label", "select", "summary", "textarea"])
+const INTERACTIVE_ROLES = new Set([
+  "button",
+  "checkbox",
+  "combobox",
+  "link",
+  "menuitem",
+  "menuitemcheckbox",
+  "menuitemradio",
+  "option",
+  "radio",
+  "slider",
+  "spinbutton",
+  "switch",
+  "tab",
+  "textbox",
+])
 
 export class HostRootNode {
   readonly kind = "root" as const
@@ -62,6 +80,7 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
 
   readonly kind = "element" as const
   readonly type: ElementType
+  nativeType: ElementType
   readonly tagName: string
   readonly localName: string
   readonly nodeName: string
@@ -81,6 +100,7 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
 
   constructor(type: ElementType, tagName: string = type) {
     this.type = type
+    this.nativeType = type
     this.localName = tagName
     this.tagName = tagName.toUpperCase()
     this.nodeName = this.tagName
@@ -360,8 +380,11 @@ export function createHostText(value: string): HostTextNode {
 export function replaceHostText(node: HostTextNode, value: string): void {
   const text = String(value)
   if (node.text === text) return
+  const layoutChanged = (node.text.length === 0) !== (text.length === 0)
   node.text = text
-  if (node.root && node.nativeAlive) node.root.driver.enqueue("setText", node.id, text)
+  if (!node.root || !node.nativeAlive) return
+  node.root.driver.enqueue("setText", node.id, text)
+  if (layoutChanged) node.root.driver.enqueue("setStyle", node.id, nativeTextLayoutStyle(text))
 }
 
 export function setHostProperty<T>(
@@ -374,13 +397,22 @@ export function setHostProperty<T>(
   if (name === "children" || name === "ref" || name === "key") return
 
   if (name === "style") {
+    const previousPointerEvents = effectivePointerEvents(node)
     node.style = createHostStyleDeclaration(node, isStyle(value) ? value : {})
-    if (node.root && node.nativeAlive) node.root.driver.enqueue("setStyle", node.id, node.style)
+    if (node.root && node.nativeAlive) {
+      const nextPointerEvents = effectivePointerEvents(node)
+      node.root.driver.enqueue("setStyle", node.id, nativeStyleFor(node, nextPointerEvents))
+      appliedPointerEvents.set(node, nextPointerEvents)
+      if (previousPointerEvents !== nextPointerEvents) {
+        for (const child of node.children) refreshInheritedPointerEvents(child)
+      }
+    }
     return
   }
 
   const eventType = EVENT_PROP_TO_TYPE.get(name)
   if (eventType) {
+    const previousPointerEvents = effectivePointerEvents(node)
     const nativeEventType = nativeEventTypeForDomEvent(eventType)
     const hadNativeHandler = nativeEventType ? hasNativeEventHandler(node, nativeEventType) : false
     const handler = isHostEventHandler(value) ? value : undefined
@@ -397,13 +429,32 @@ export function setHostProperty<T>(
         node.root.driver.enqueue("setEventListener", node.id, nativeEventType, hasNativeHandler)
       }
     }
+
+    const nextPointerEvents = effectivePointerEvents(node)
+    if (previousPointerEvents !== nextPointerEvents) {
+      node.root.driver.enqueue("setStyle", node.id, nativeStyleFor(node, nextPointerEvents))
+      appliedPointerEvents.set(node, nextPointerEvents)
+    }
     return
   }
 
+  const previousPointerEvents = name === "role" ? effectivePointerEvents(node) : undefined
   if (value === undefined) node.props.delete(name)
   else node.props.set(name, customPropValue(value))
+
+  if (name === "type" && node.tagName === "INPUT" && !node.nativeAlive) {
+    node.nativeType = String(value).toLowerCase() === "range" ? "div" : "input"
+  }
+
+  if (node.root && node.nativeAlive && name === "role") {
+    const nextPointerEvents = effectivePointerEvents(node)
+    if (previousPointerEvents !== nextPointerEvents) {
+      node.root.driver.enqueue("setStyle", node.id, nativeStyleFor(node, nextPointerEvents))
+      appliedPointerEvents.set(node, nextPointerEvents)
+    }
+  }
   if (!node.root || !node.nativeAlive || isReserved(name)) return
-  if (BUILT_IN_TYPES.has(node.type) && !isForwardedBuiltInProp(name)) return
+  if (BUILT_IN_TYPES.has(node.nativeType) && !isForwardedBuiltInProp(name)) return
   node.root.driver.enqueue("setCustomProp", node.id, name, customPropValue(value))
 }
 
@@ -426,6 +477,7 @@ export function insertHostNode(parent: HostParent, node: HostNode, anchor?: Host
   parent.children.splice(index, 0, node)
   node.parent = parent
 
+  if (root) refreshInheritedPointerEvents(node)
   if (!root) return
   if (parent.kind === "root") {
     root.driver.enqueue("setRoot", node.id)
@@ -464,6 +516,23 @@ export function getNextSibling(node: HostNode): HostNode | undefined {
 
 export function isHostTextNode(node: HostNode | HostParent): node is HostTextNode {
   return node.kind === "text"
+}
+
+function nativeTextLayoutStyle(text: string): StyleDesc {
+  return text.length === 0
+    ? {
+        display: "none",
+        width: 0,
+        height: 0,
+        minWidth: 0,
+        minHeight: 0,
+        maxWidth: 0,
+        maxHeight: 0,
+        flexGrow: 0,
+        flexShrink: 0,
+        flexBasis: 0,
+      }
+    : {}
 }
 
 function dataAttributeProperty(name: string): string {
@@ -529,6 +598,60 @@ function hostTreePath(node: HostNode): HostTreeNode[] {
   return path
 }
 
+function inheritedPointerEvents(node: HostElementNode): StyleDesc["pointerEvents"] | undefined {
+  let parent = node.parent
+  while (parent?.kind === "element") {
+    if (parent.style.pointerEvents !== undefined) return parent.style.pointerEvents
+    parent = parent.parent
+  }
+  return undefined
+}
+
+function ownsSemanticHitSurface(node: HostElementNode): boolean {
+  if (INTERACTIVE_TAG_NAMES.has(node.localName)) return true
+  const role = node.props.get("role")
+  return role !== undefined && role !== null && INTERACTIVE_ROLES.has(String(role))
+}
+
+function effectivePointerEvents(node: HostElementNode): StyleDesc["pointerEvents"] | undefined {
+  // Preserve explicit source ownership first. In particular, a descendant
+  // pointer-events:auto must be able to re-enable itself beneath an inherited none.
+  if (node.style.pointerEvents !== undefined) return node.style.pointerEvents
+
+  // Browser pointer-events:none applies through the subtree until a descendant
+  // explicitly re-enables itself. Materialize only that inherited none; inherited
+  // auto is intentionally left implicit so decorative descendants do not become
+  // separate GPUIX hit targets.
+  if (inheritedPointerEvents(node) === "none") return "none"
+
+  // GPUIX 0.7 needs an explicit hit surface for transparent semantic controls.
+  // Plain event-bearing divs keep their existing paint/hit behavior so parent
+  // containers do not become new occluding surfaces.
+  if (node.events.size > 0 && ownsSemanticHitSurface(node)) return "auto"
+  return undefined
+}
+
+function nativeStyleFor(
+  node: HostElementNode,
+  pointerEvents = effectivePointerEvents(node),
+): StyleDesc {
+  if (node.style.pointerEvents !== undefined || pointerEvents === undefined) return node.style
+  return { ...node.style, pointerEvents }
+}
+
+function refreshInheritedPointerEvents(node: HostNode): void {
+  if (node.kind === "text") return
+  const nextPointerEvents = effectivePointerEvents(node)
+  const previousPointerEvents = appliedPointerEvents.get(node)
+  if (node.root && node.nativeAlive && previousPointerEvents !== nextPointerEvents) {
+    // A transition back to undefined intentionally sends the base style once so
+    // a previously materialized auto/none value is cleared natively.
+    node.root.driver.enqueue("setStyle", node.id, nativeStyleFor(node, nextPointerEvents))
+    appliedPointerEvents.set(node, nextPointerEvents)
+  }
+  for (const child of node.children) refreshInheritedPointerEvents(child)
+}
+
 function createHostStyleDeclaration(node: HostElementNode, style: StyleDesc): HostStyleDeclaration {
   // SAFETY: methods are installed non-enumerably so native style serialization sees only StyleDesc fields.
   const declaration = { ...style } as HostStyleDeclaration
@@ -570,16 +693,20 @@ function adopt(root: HostRootNode, node: HostNode): void {
 
   node.nativeAlive = true
   root.events.activate(node.id)
-  root.driver.enqueue("createElement", node.id, node.type)
+  root.driver.enqueue("createElement", node.id, node.kind === "element" ? node.nativeType : node.type)
 
   if (node.kind === "text") {
     root.driver.enqueue("setText", node.id, node.text)
+    if (node.text.length === 0) root.driver.enqueue("setStyle", node.id, nativeTextLayoutStyle(node.text))
   } else {
     root.events.setTarget(node.id, node)
     const nativeEventTypes = new Set<string>()
-    if (Object.keys(node.style).length > 0) {
-      root.driver.enqueue("setStyle", node.id, node.style)
+    const pointerEvents = effectivePointerEvents(node)
+    const nativeStyle = nativeStyleFor(node, pointerEvents)
+    if (Object.keys(nativeStyle).length > 0) {
+      root.driver.enqueue("setStyle", node.id, nativeStyle)
     }
+    appliedPointerEvents.set(node, pointerEvents)
     for (const [eventType, handler] of node.events) {
       root.events.set(node.id, eventType, handler)
       const nativeEventType = nativeEventTypeForDomEvent(eventType)
@@ -590,7 +717,7 @@ function adopt(root: HostRootNode, node: HostNode): void {
     }
     for (const [name, value] of node.props) {
       if (isReserved(name)) continue
-      if (BUILT_IN_TYPES.has(node.type) && !isForwardedBuiltInProp(name)) continue
+      if (BUILT_IN_TYPES.has(node.nativeType) && !isForwardedBuiltInProp(name)) continue
       root.driver.enqueue("setCustomProp", node.id, name, customPropValue(value))
     }
   }

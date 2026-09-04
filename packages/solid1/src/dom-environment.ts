@@ -54,6 +54,13 @@ type CompatDocument = CompatEventTarget & {
   ) => CompatTreeWalker
 }
 
+type CompatClassList = {
+  add(...tokens: string[]): void
+  remove(...tokens: string[]): void
+  contains(token: string): boolean
+  toggle(token: string, force?: boolean): boolean
+}
+
 type CompatDocumentNode = CompatEventTarget & {
   ownerDocument: CompatDocument
   nodeName: string
@@ -62,6 +69,7 @@ type CompatDocumentNode = CompatEventTarget & {
   parentElement: CompatDocumentNode | null
   readonly children: readonly CompatTreeElement[]
   readonly dataset: CompatDataset
+  readonly classList: CompatClassList
   clientWidth: number
   clientHeight: number
   clientLeft: number
@@ -268,6 +276,31 @@ function createDocumentNode(
 ): CompatDocumentNode {
   const upperTagName = tagName.toUpperCase()
   const attributes = new Map<string, string>()
+  const classes = new Set<string>()
+  const syncClassAttribute = () => {
+    if (classes.size === 0) attributes.delete("class")
+    else attributes.set("class", [...classes].join(" "))
+  }
+  const classList: CompatClassList = {
+    add(...tokens) {
+      for (const token of tokens) if (token) classes.add(token)
+      syncClassAttribute()
+    },
+    remove(...tokens) {
+      for (const token of tokens) classes.delete(token)
+      syncClassAttribute()
+    },
+    contains(token) {
+      return classes.has(token)
+    },
+    toggle(token, force) {
+      const shouldAdd = force ?? !classes.has(token)
+      if (shouldAdd) classes.add(token)
+      else classes.delete(token)
+      syncClassAttribute()
+      return shouldAdd
+    },
+  }
   const node: CompatDocumentNode = {
     ownerDocument,
     nodeName: upperTagName,
@@ -281,6 +314,7 @@ function createDocumentNode(
     get dataset() {
       return datasetFromAttributes(attributes)
     },
+    classList,
     get clientWidth() {
       return windowTarget.innerWidth ?? 800
     },
@@ -301,10 +335,17 @@ function createDocumentNode(
       return attributes.get(name) ?? null
     },
     setAttribute(name, value) {
-      attributes.set(name, String(value))
+      const next = String(value)
+      attributes.set(name, next)
+      if (name === "class") {
+        classes.clear()
+        for (const token of next.split(/\s+/)) if (token) classes.add(token)
+        syncClassAttribute()
+      }
     },
     removeAttribute(name) {
       attributes.delete(name)
+      if (name === "class") classes.clear()
     },
     contains(candidate) {
       if (candidate === node) return true

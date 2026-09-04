@@ -21,7 +21,7 @@ const muted = { color: C.mutedForeground, fontSize: 11 }
 
 function Button(props: { testId?: string; active?: boolean; children: SolidElement; onClick?: () => void }): SolidElement {
   return (
-    <div testId={props.testId} onClick={props.onClick} style={{ height: 28, minWidth: 28, paddingLeft: 7, paddingRight: 7, borderRadius: 6, display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center", cursor: props.onClick ? "pointer" : "default", backgroundColor: props.active ? C.secondary : "#00000000", hover: props.onClick ? { backgroundColor: C.secondaryHover } : undefined }}>
+    <div role="menuitem" testId={props.testId} onClick={props.onClick} style={{ height: 28, minWidth: 28, paddingLeft: 7, paddingRight: 7, borderRadius: 6, display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center", cursor: props.onClick ? "pointer" : "default", backgroundColor: props.active ? C.secondary : "#00000000", hover: props.onClick ? { backgroundColor: C.secondaryHover } : undefined }}>
       {props.children}
     </div>
   )
@@ -210,7 +210,7 @@ export function SidebarLeft(props: { state: DiffusionEditorState }): SolidElemen
       </div>
 
       <div style={{ height: 48, flexShrink: 0, display: "flex", flexDirection: "row", alignItems: "center", gap: 7, paddingLeft: 10, paddingRight: 16 }}>
-        <ProjectMenu state={props.state} onImport={importAsset} onRemoveUnused={removeUnused} onDownloadAssets={downloadAssets} />
+        <div style={{ width: 28, height: 28, flexShrink: 0 }} />
         <input
           testId="diffusion-project-name"
           value={projectNameDraft() ?? props.state.projectName()}
@@ -248,6 +248,9 @@ export function SidebarLeft(props: { state: DiffusionEditorState }): SolidElemen
             )}
           </For>
         </div>
+      </div>
+      <div style={{ position: "absolute", left: 10, top: 50 }}>
+        <ProjectMenu state={props.state} onImport={importAsset} onRemoveUnused={removeUnused} onDownloadAssets={downloadAssets} />
       </div>
     </div>
   )

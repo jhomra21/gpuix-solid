@@ -4,8 +4,8 @@ export type BrowserGridTrack =
   | { kind: "fraction"; fraction: number; minWidth: number }
   | { kind: "fixed"; width: number; minWidth: number; maxWidth: number; flexShrink: number }
 
-export function parseBrowserGridTemplateColumns(value: unknown): BrowserGridTrack[] | undefined {
-  if (typeof value !== "string") return undefined
+export function parseBrowserGridTemplateColumns(value: string | undefined): BrowserGridTrack[] | undefined {
+  if (value === undefined) return undefined
   const tokens = splitTopLevelWhitespace(value.trim())
   if (tokens.length === 0) return undefined
   const tracks: BrowserGridTrack[] = []
