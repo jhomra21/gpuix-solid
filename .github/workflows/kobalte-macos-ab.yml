@@ -18,6 +18,16 @@ jobs:
         include:
           - name: accepted
             ref: 93901e31a54f9b967b571b0a94eee5404c742f5f
+          - name: semantic-host
+            ref: 2f2e344770cc7573bb00ee2312d0f5299218064f
+          - name: pointer-core
+            ref: d1a3aa831dac4cef71d2d250e6f5fa637f76a626
+          - name: exact-clip-graph
+            ref: 2cea150fc8fb54f9677aa13ad79c26efb68d14ff
+          - name: style-closure
+            ref: d33e9e7844393f6b39c0ace214a4337d9f99a44e
+          - name: compressor
+            ref: 925ee6cb341aed3cdfe442142f4562049b6d0949
           - name: current
             ref: fix/source-first-example-fidelity
     name: ${{ matrix.name }}
