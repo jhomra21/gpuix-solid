@@ -30,12 +30,15 @@ host_new = '''function nativeStyleFor(
   pointerEvents = effectivePointerEvents(node),
 ): StyleDesc {
   // Browser range inputs have an intrinsic width only when the source does not
-  // author one. A source width such as w-full must be allowed to shrink inside
-  // fractional grid/flex tracks rather than retaining the browser 129px minimum.
+  // author one. GPUIX 0.7 does not resolve CSS percentage width in the same way
+  // inside flex/grid tracks, so a browser w-full range becomes a zero-basis flex
+  // item that grows to the available parent width.
   const style: StyleDesc = isRangeInput(node)
     ? node.style.width === undefined
       ? { minHeight: 16, height: 16, width: 129, minWidth: 129, ...node.style }
-      : { minHeight: 16, height: 16, minWidth: 0, ...node.style }
+      : node.style.width === "100%"
+        ? { minHeight: 16, height: 16, ...node.style, width: 0, minWidth: 0, flexGrow: 1 }
+        : { minHeight: 16, height: 16, minWidth: 0, ...node.style }
     : node.style
   if (node.style.pointerEvents !== undefined || pointerEvents === undefined) return style
   return { ...style, pointerEvents }
