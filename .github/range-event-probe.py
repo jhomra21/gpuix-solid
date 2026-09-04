@@ -12,13 +12,12 @@ for package in ["packages/solid1", "packages/solid"]:
     replacement = '''  setPointerCapture(pointerId: number): void {
     const root = this.root
     if (!root || !this.nativeAlive) throw new DOMException("Pointer capture target is not connected", "InvalidStateError")
-    if (this.tagName === "INPUT" && this.getAttribute("type") === "range") {
-      console.log("range pointer capture request", JSON.stringify({
+    if (this.tagName === "INPUT") {
+      console.log("input pointer capture request", JSON.stringify({
         id: this.id,
         pointerId,
         value: this.value,
         bounds: this.getBoundingClientRect(),
-        testId: this.getAttribute("testId"),
       }))
     }
     root.events.setPointerCapture(this.id, pointerId)
@@ -37,8 +36,8 @@ for package in ["packages/solid1", "packages/solid"]:
     replacement = '''  dispatch(event: NativeEventPayload): void {
     if (!this.#live.has(event.elementId)) return
     const debugTarget = this.#targets.get(event.elementId)
-    if (debugTarget && "tagName" in debugTarget && debugTarget.tagName === "INPUT" && debugTarget.getAttribute("type") === "range") {
-      console.log("range native dispatch", JSON.stringify({
+    if (debugTarget && "tagName" in debugTarget && debugTarget.tagName === "INPUT") {
+      console.log("input native dispatch", JSON.stringify({
         eventType: event.eventType,
         elementId: event.elementId,
         x: event.x,
@@ -47,7 +46,6 @@ for package in ["packages/solid1", "packages/solid"]:
         targetValue: debugTarget.value,
         capturedBy: this.#pointerCapture.get(POINTER_ID),
         activePointer: this.#activePointers.has(POINTER_ID),
-        testId: debugTarget.getAttribute("testId"),
       }))
     }
     switch (event.eventType) {
