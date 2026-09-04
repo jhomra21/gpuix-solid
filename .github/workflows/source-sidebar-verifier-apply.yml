@@ -17,6 +17,7 @@ on:
       - ".github/range-event-probe.py"
       - ".github/range-native-backing-probe.py"
       - ".github/automation-verifier-source-marker-probe.py"
+      - ".github/clip-verifier-source-marker-probe.py"
       - "packages/solid1/src/browser-grid-compat.ts"
       - "packages/solid1/scripts/check-browser-grid-compat.ts"
       - "packages/solid1/package.json"
@@ -49,6 +50,7 @@ jobs:
           python3 .github/range-native-backing-probe.py
           python3 .github/range-event-probe.py
           python3 .github/automation-verifier-source-marker-probe.py
+          python3 .github/clip-verifier-source-marker-probe.py
       - run: bun install --frozen-lockfile
       - name: Validate on native macOS
         run: |
