@@ -4,6 +4,9 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[1]
 
 PRODUCT_PATCHES = [
+    # This first pass only narrows the verifier rewrite range. It exits before
+    # adding its later diagnostic log because the rewritten verifier is not yet present.
+    ".github/source-sidebar-geometry-probe.py",
     ".github/source-sidebar-verifier-apply.py",
     ".github/source-sidebar-postprocess.py",
     ".github/inline-grid-compat-probe.py",
@@ -34,6 +37,7 @@ for relative in [
 ]:
     text = (ROOT / relative).read_text()
     forbidden = (
+        "source sidebar geometry probe",
         "source sidebar adapted state",
         "source sidebar custom click target",
         "source sidebar arm hit stack",
