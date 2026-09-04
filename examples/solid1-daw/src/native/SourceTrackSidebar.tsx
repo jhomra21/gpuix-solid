@@ -168,7 +168,11 @@ export default function SourceTrackSidebar(props: SourceTrackSidebarProps): JSX.
       onToggleMute: props.onToggleMute,
       onToggleSolo: props.onToggleSolo,
       recordArmTrackId: props.tracks.find((track) => track.armed)?.id ?? null,
-      onToggleRecordArm: props.onToggleArm,
+      onToggleRecordArm: (trackId) => {
+        const currentArmedId = props.tracks.find((track) => track.armed)?.id
+        if (currentArmedId && currentArmedId !== trackId) props.onToggleArm(currentArmedId)
+        props.onToggleArm(trackId)
+      },
       onToggleTrackCollapsed: (trackId) => {
         const track = sourceTrackById.get(trackId)
         if (track) props.onSetCollapsed(trackId, track.collapsed !== true)
