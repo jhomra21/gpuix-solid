@@ -122,17 +122,14 @@ helper = '''function resolveBrowserInlineFlowStyle(
   }
 
   if (inlineChildren < 2) return undefined
-  const justifyContent = style?.textAlign === "center"
-    ? "center"
-    : style?.textAlign === "right"
-      ? "flex-end"
-      : undefined
-  return {
+  const flowStyle: StyleDesc = {
     display: "flex",
     flexDirection: "row",
     flexWrap: "wrap",
-    ...(justifyContent ? { justifyContent } : {}),
   }
+  if (style?.textAlign === "center") flowStyle.justifyContent = "center"
+  else if (style?.textAlign === "right") flowStyle.justifyContent = "flex-end"
+  return flowStyle
 }
 
 '''
