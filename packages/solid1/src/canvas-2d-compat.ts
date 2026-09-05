@@ -10,6 +10,7 @@ import { normalizeNativeStyleColors } from "./native-style.js"
 type CanvasPoint = readonly [number, number]
 type CanvasMatrix = readonly [number, number, number, number, number, number]
 type CanvasSize = { width: number; height: number }
+type CanvasPaint = CanvasRenderingContext2D["fillStyle"]
 type CanvasCommand =
   | { kind: "fill"; points: readonly CanvasPoint[]; color: string }
   | { kind: "stroke"; points: readonly CanvasPoint[]; color: string; width: number }
@@ -26,22 +27,23 @@ export function createCanvas2DCompatSurface(
   let commands: CanvasCommand[] = []
   let path: CanvasPoint[] = []
   let transform: CanvasMatrix = [1, 0, 0, 1, 0, 0]
-  let fillStyle: string | CanvasGradient | CanvasPattern = "#000000"
-  let strokeStyle: string | CanvasGradient | CanvasPattern = "#000000"
+  let fillStyle: CanvasPaint = "#000000"
+  let strokeStyle: CanvasPaint = "#000000"
   let lineWidth = 1
   let imageSmoothingEnabled = true
 
+  // SAFETY: This retained compatibility context intentionally implements only the Canvas2D operations exercised by the pinned DAW source; unsupported APIs remain absent rather than being approximated.
   const context = {
     get fillStyle() {
       return fillStyle
     },
-    set fillStyle(value: string | CanvasGradient | CanvasPattern) {
+    set fillStyle(value: CanvasPaint) {
       fillStyle = value
     },
     get strokeStyle() {
       return strokeStyle
     },
-    set strokeStyle(value: string | CanvasGradient | CanvasPattern) {
+    set strokeStyle(value: CanvasPaint) {
       strokeStyle = value
     },
     get lineWidth() {
@@ -95,7 +97,7 @@ export function createCanvas2DCompatSurface(
       })
       onChange()
     },
-  } as unknown as CanvasRenderingContext2D
+  } as CanvasRenderingContext2D
 
   return {
     context,
@@ -114,37 +116,37 @@ type RuntimeCanvasState = {
 }
 
 const runtimeCanvases = new WeakMap<HostElementNode, RuntimeCanvasState>()
-const hostPrototype = HostElementNode.prototype as unknown as {
-  getContext(contextId: string): CanvasRenderingContext2D | null
-}
-const fallbackGetContext = hostPrototype.getContext
+const fallbackGetContext = HostElementNode.prototype.getContext
 
-hostPrototype.getContext = function getContext(this: HostElementNode, contextId: string) {
-  if (this.localName !== "canvas" || contextId !== "2d" || !this.nativeAlive || !this.root) {
-    return fallbackGetContext.call(this, contextId)
-  }
-
-  let state = runtimeCanvases.get(this)
-  if (!state) {
-    if (this.style.position === undefined) {
-      setHostProperty(this, "style", { ...this.style, position: "relative" })
+Object.defineProperty(HostElementNode.prototype, "getContext", {
+  configurable: true,
+  value(this: HostElementNode, contextId: string): CanvasRenderingContext2D | null {
+    if (this.localName !== "canvas" || contextId !== "2d" || !this.nativeAlive || !this.root) {
+      return fallbackGetContext.call(this, contextId)
     }
-    const surface = createHostElement("svg", "svg")
-    const nextState = {} as RuntimeCanvasState
-    const compat = createCanvas2DCompatSurface(
-      () => canvasBackingSize(this),
-      () => scheduleRuntimeCanvasRender(this, nextState),
-    )
-    nextState.surface = surface
-    nextState.compat = compat
-    nextState.queued = false
-    state = nextState
-    runtimeCanvases.set(this, state)
-    insertHostNode(this, surface)
-    scheduleRuntimeCanvasRender(this, state)
-  }
-  return state.compat.context
-}
+
+    let state = runtimeCanvases.get(this)
+    if (!state) {
+      if (this.style.position === undefined) {
+        setHostProperty(this, "style", { ...this.style, position: "relative" })
+      }
+      const surface = createHostElement("svg", "svg")
+      let nextState: RuntimeCanvasState | undefined
+      const compat = createCanvas2DCompatSurface(
+        () => canvasBackingSize(this),
+        () => {
+          if (nextState) scheduleRuntimeCanvasRender(this, nextState)
+        },
+      )
+      nextState = { surface, compat, queued: false }
+      state = nextState
+      runtimeCanvases.set(this, state)
+      insertHostNode(this, surface)
+      scheduleRuntimeCanvasRender(this, state)
+    }
+    return state.compat.context
+  },
+})
 
 function scheduleRuntimeCanvasRender(node: HostElementNode, state: RuntimeCanvasState): void {
   if (state.queued) return
@@ -170,17 +172,15 @@ function scheduleRuntimeCanvasRender(node: HostElementNode, state: RuntimeCanvas
 }
 
 function canvasBackingSize(node: HostElementNode): CanvasSize {
-  const canvas = node as unknown as { width?: unknown; height?: unknown }
   const bounds = node.getBoundingClientRect()
   return normalizedSize({
-    width: finitePositive(canvas.width) ?? bounds.width,
-    height: finitePositive(canvas.height) ?? bounds.height,
+    width: finitePositive(Number(Reflect.get(node, "width"))) ?? bounds.width,
+    height: finitePositive(Number(Reflect.get(node, "height"))) ?? bounds.height,
   })
 }
 
-function finitePositive(value: unknown): number | undefined {
-  const numeric = Number(value)
-  return Number.isFinite(numeric) && numeric > 0 ? numeric : undefined
+function finitePositive(value: number): number | undefined {
+  return Number.isFinite(value) && value > 0 ? value : undefined
 }
 
 function normalizedSize(size: CanvasSize): CanvasSize {
@@ -229,11 +229,9 @@ function transformedLineWidth(width: number, matrix: CanvasMatrix): number {
   return width * scale
 }
 
-function normalizeCanvasPaint(value: string | CanvasGradient | CanvasPattern): string {
-  if (typeof value !== "string") {
-    throw new TypeError("GPUIX Canvas2D compatibility currently supports string fillStyle/strokeStyle values")
-  }
-  return normalizeNativeStyleColors({ color: value })?.color ?? value
+function normalizeCanvasPaint(value: CanvasPaint): string {
+  const color = String(value)
+  return normalizeNativeStyleColors({ color })?.color ?? color
 }
 
 function serializeCommand(command: CanvasCommand): string {
