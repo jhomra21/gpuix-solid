@@ -11,6 +11,7 @@ type CanvasPoint = readonly [number, number]
 type CanvasMatrix = readonly [number, number, number, number, number, number]
 type CanvasSize = { width: number; height: number }
 type CanvasPaint = CanvasRenderingContext2D["fillStyle"]
+type CanvasHostDimensions = HostElementNode & { width?: number; height?: number }
 type CanvasCommand =
   | { kind: "fill"; points: readonly CanvasPoint[]; color: string }
   | { kind: "stroke"; points: readonly CanvasPoint[]; color: string; width: number }
@@ -172,10 +173,12 @@ function scheduleRuntimeCanvasRender(node: HostElementNode, state: RuntimeCanvas
 }
 
 function canvasBackingSize(node: HostElementNode): CanvasSize {
+  // SAFETY: Browser canvas source assigns numeric width/height properties directly on this semantic host node before drawing; this named contract exposes only those two authored dimensions.
+  const canvas = node as CanvasHostDimensions
   const bounds = node.getBoundingClientRect()
   return normalizedSize({
-    width: finitePositive(Number(Reflect.get(node, "width"))) ?? bounds.width,
-    height: finitePositive(Number(Reflect.get(node, "height"))) ?? bounds.height,
+    width: finitePositive(Number(canvas.width)) ?? bounds.width,
+    height: finitePositive(Number(canvas.height)) ?? bounds.height,
   })
 }
 
