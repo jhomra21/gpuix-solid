@@ -1,3 +1,4 @@
+import "./canvas-2d-compat.js"
 import { GpuixRenderer, type EventPayload, type WindowOptions } from "@gpuix/native"
 import type { Element as SolidElement } from "solid-js"
 import { enableAutomation } from "./automation/server.js"

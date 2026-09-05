@@ -79,7 +79,7 @@
     "clean": "bun scripts/clean.ts",
     "build": "bun run clean && tsc -p tsconfig.build.json",
     "typecheck": "bun run build && tsc --noEmit",
-    "test": "bun scripts/check-host-parity.ts && bun scripts/check-browser-grid-compat.ts",
+    "test": "bun scripts/check-host-parity.ts && bun scripts/check-browser-grid-compat.ts && bun scripts/check-canvas-2d-compat.ts",
     "validate:package": "node scripts/validate-package.mjs",
     "smoke:package": "node scripts/smoke-package.mjs"
   },
