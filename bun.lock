@@ -12,7 +12,7 @@
     "examples/counter": {
       "name": "gpuix-solid-counter",
       "dependencies": {
-        "@gpuix/native": "^0.6.0",
+        "@gpuix/native": "^0.7.0",
         "diff": "^7.0.0",
         "gpuix-solid": "workspace:*",
         "safe-mdx": "1.14.0",
@@ -30,7 +30,7 @@
       "name": "gpuix-solid",
       "version": "0.1.0-beta.4",
       "dependencies": {
-        "@gpuix/native": "^0.6.0",
+        "@gpuix/native": "^0.7.0",
         "@solidjs/universal": "2.0.0-rc.0",
         "eventsource-parser": "^4.1.0",
         "zod": "^4.4.3",
@@ -107,13 +107,13 @@
 
     "@emnapi/wasi-threads": ["@emnapi/wasi-threads@1.2.2", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-c95qOXkHdydNKhscBTebqEC1CVAZpyqOfVfBzQ1qgzyl3gfeldUjIggDbIZgDKsHLgnsM+igH7TJ/eAasaVuMA=="],
 
-    "@gpuix/native": ["@gpuix/native@0.6.0", "", { "optionalDependencies": { "@gpuix/native-darwin-arm64": "0.6.0", "@gpuix/native-linux-x64-gnu": "0.6.0", "@gpuix/native-win32-x64-msvc": "0.6.0" } }, "sha512-tpbA+csf12kTzK/vNyAtNAEdJG5GDdBNjDQAfaAkal9m6oCkNGsbeUDhWYsh14Rwa2oRxYoMZ+NQHHXU1EoSyQ=="],
+    "@gpuix/native": ["@gpuix/native@0.7.0", "", { "optionalDependencies": { "@gpuix/native-darwin-arm64": "0.7.0", "@gpuix/native-linux-x64-gnu": "0.7.0", "@gpuix/native-win32-x64-msvc": "0.7.0" } }, "sha512-nyYTs+edJ4aztXltcwkRzbmFwVEHcP0r4OmnHfvufbM/m+vOISkAZOMGw7F8QmDd0x/PPHUTCTVi76U5VBal8Q=="],
 
-    "@gpuix/native-darwin-arm64": ["@gpuix/native-darwin-arm64@0.6.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-Aarqk7h5Vz/1JYuEC1uSXA8QvT+yeUPsNrs6INXt0yH6c01FF7L+x6+37zh1rwVeQFADAyZ2Btzqbdqfd+YsaA=="],
+    "@gpuix/native-darwin-arm64": ["@gpuix/native-darwin-arm64@0.7.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-ZnAdAqoL60tZH+u4sJKWSY4Cx9cfsFxtqkgMoD39FdMSAgtXhg5b6qHaSltBrc7VMs5z8cVxxI9fK9KR+LjTNg=="],
 
-    "@gpuix/native-linux-x64-gnu": ["@gpuix/native-linux-x64-gnu@0.6.0", "", { "os": "linux", "cpu": "x64" }, "sha512-ttcc3K+EBjfS+NW0K8yYJ/hFFfmZox8ulp6o11BGbaUykOuvEgFMxdDrJmohDeYCBwj3Hd2gIKA1Zk14ctVs/Q=="],
+    "@gpuix/native-linux-x64-gnu": ["@gpuix/native-linux-x64-gnu@0.7.0", "", { "os": "linux", "cpu": "x64" }, "sha512-jch73oOMDX5kr+Qe6SjFQ7jroCnjgo42cYEVQ8UonWLOVxRIhXo0InJEgLk70HJ9bgNkKXwBSoqBTXBpG/Xgng=="],
 
-    "@gpuix/native-win32-x64-msvc": ["@gpuix/native-win32-x64-msvc@0.6.0", "", { "os": "win32", "cpu": "x64" }, "sha512-/b76q0dAmy3HPZTQI0G4lbbSjqDTKDaN/bVmI75UJP06Kh+soMoizCC1E8vLlNRI6Q77+ClKWUvu/j0SdbDRVQ=="],
+    "@gpuix/native-win32-x64-msvc": ["@gpuix/native-win32-x64-msvc@0.7.0", "", { "os": "win32", "cpu": "x64" }, "sha512-NTJPEmyU2Cxn+nejY7H8f7htZS3WVz79ek+R7gnAlFtASKvPaUtUYCKHrhAb1HToxqVm7cvaKf3ZxjY3ej4BCw=="],
 
     "@jridgewell/gen-mapping": ["@jridgewell/gen-mapping@0.3.13", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.0", "@jridgewell/trace-mapping": "^0.3.24" } }, "sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA=="],
 

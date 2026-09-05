@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "host:build": "cd ../../packages/solid1 && bun install --no-save && bun run build",
-    "source:check": "node scripts/check-upstream-source-parity.mjs",
+    "source:check": "node scripts/check-upstream-source-parity.mjs && node scripts/check-waveform-source-parity.mjs",
     "generate:styles": "bun scripts/generate-native-tailwind.mjs",
     "build": "bun run host:build && bun run generate:styles && vite build",
     "build:test": "bun run host:build && bun run generate:styles && vite build --config vite.test.config.ts",
@@ -14,7 +14,7 @@
     "run": "bun run build && bun run start"
   },
   "dependencies": {
-    "@gpuix/native": "^0.6.0",
+    "@gpuix/native": "^0.7.0",
     "@jhomra21/gpuix-solid1": "file:../../packages/solid1",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",

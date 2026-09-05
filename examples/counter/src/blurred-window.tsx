@@ -141,12 +141,15 @@ function Welcome(props: { onSubmit: (name: string) => void }) {
           >
             <animate.div
               initial={{ width: 28, height: 28 }}
-              to={{
-                width: hasName() ? 84 : 28,
-                height: hasName() ? 46 : 28,
-              }}
+              to={{ width: hasName() ? 84 : 28, height: hasName() ? 46 : 28 }}
               transition={{ duration: BUTTON_GROW_DURATION, ease: "linear" }}
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                overflow: "hidden",
+              }}
             >
               <Show when={surfaceVisible()}>
                 <div
@@ -167,8 +170,26 @@ function Welcome(props: { onSubmit: (name: string) => void }) {
                     active: { backgroundColor: "#FFFFFFB8" },
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 20, flexShrink: 0 }}>
-                    <text style={{ color: "#17181C", fontSize: Math.max(1, 13 * labelProgress()), fontWeight: 650, opacity: labelProgress() }}>Enter</text>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 36,
+                      height: 20,
+                      flexShrink: 0,
+                    }}
+                  >
+                    <text
+                      style={{
+                        color: "#17181C",
+                        fontSize: Math.max(1, 13 * labelProgress()),
+                        fontWeight: 650,
+                        opacity: labelProgress(),
+                      }}
+                    >
+                      Enter
+                    </text>
                   </div>
                 </div>
               </Show>

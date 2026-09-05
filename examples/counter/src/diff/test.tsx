@@ -8,7 +8,7 @@ import {
   createTestRoot,
   hasNativeTestRenderer,
 } from "gpuix-solid"
-import { DiffViewer, UNCHANGED_CODE_BG } from "./app"
+import { DiffViewer, UNCHANGED_CODE_BG, exampleHunks } from "./app"
 
 const simpleHunks: Hunk[] = [
   {
@@ -32,18 +32,19 @@ const multiHunkPatch: Hunk[] = [
     newStart: 1,
     newLines: 7,
     lines: [
-      " import React from 'react'",
-      " import { useState } from 'react'",
+      ' import { createSignal } from "solid-js"',
+      '+import { render } from "gpuix-solid"',
       " ",
-      "-function Counter({ initial }: { initial: number }) {",
-      "-  const [count, setCount] = useState(initial)",
+      "-function Counter(props: { initial: number }) {",
+      "-  const [count, setCount] = createSignal(props.initial)",
       "+interface CounterProps {",
       "+  initial: number",
       "+  step?: number",
       "+}",
       "+",
-      "+function Counter({ initial, step = 1 }: CounterProps) {",
-      "+  const [count, setCount] = useState(initial)",
+      "+function Counter(props: CounterProps) {",
+      "+  const [count, setCount] = createSignal(props.initial)",
+      "+  const step = () => props.step ?? 1",
     ],
   },
   {
@@ -52,16 +53,20 @@ const multiHunkPatch: Hunk[] = [
     newStart: 12,
     newLines: 6,
     lines: [
-      "       <span>{count}</span>",
-      "-      <button onClick={() => setCount(c => c + 1)}>+</button>",
-      "-      <button onClick={() => setCount(c => c - 1)}>-</button>",
-      "+      <button onClick={() => setCount(c => c + step)}>",
-      "+        Increment by {step}",
-      "+      </button>",
-      "+      <button onClick={() => setCount(c => c - step)}>",
-      "+        Decrement by {step}",
-      "+      </button>",
+      "-      <text>{count()}</text>",
+      "+      <text>{count()}</text>",
+      "-      <div onClick={() => setCount((value) => value + 1)}>+</div>",
+      "-      <div onClick={() => setCount((value) => value - 1)}>-</div>",
+      "+      <div onClick={() => setCount((value) => value + step())}>",
+      "+        Increment by {step()}",
+      "+      </div>",
+      "+      <div onClick={() => setCount((value) => value - step())}>",
+      "+        Decrement by {step()}",
+      "+      </div>",
       "     </div>",
+      "+}",
+      "+",
+      "+render(() => <Counter initial={0} step={1} />, { title: \"GPUIX Solid Counter\" })",
     ],
   },
 ]
@@ -149,6 +154,13 @@ async function main(): Promise<void> {
   }
 
   {
+    const exampleCode = exampleHunks.flatMap((hunk) => hunk.lines).join("\n")
+    assert.match(exampleCode, /createSignal/)
+    assert.doesNotMatch(exampleCode, /from ["']react["']/)
+    assert.doesNotMatch(exampleCode, /useState/)
+  }
+
+  {
     const root = renderFixture(simpleHunks, "test.ts", false)
     const path = screenshotPath("unified-simple")
     try {
@@ -168,7 +180,8 @@ async function main(): Promise<void> {
     try {
       const text = allText(root)
       assert.match(text, /import/)
-      assert.match(text, /button/)
+      assert.match(text, /onClick/)
+      assert.match(text, /<div/)
       assert.match(text, /\.\.\./)
       clean(path)
       root.renderer.captureScreenshot(path)

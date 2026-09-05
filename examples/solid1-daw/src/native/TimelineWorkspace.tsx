@@ -1,5 +1,4 @@
 import { createMemo, For, Show, type JSX } from "solid-js"
-import type { EventPayload } from "@jhomra21/gpuix-solid1"
 import UpstreamTimelineRuler from "../upstream/components/timeline/TimelineRuler"
 import type { RuntimeClip, Track } from "../compat/timeline-core-types"
 import { timelineDurationSec } from "../compat/timeline-utils"
@@ -7,7 +6,7 @@ import { selectTimelineGridIntervals } from "../compat/timeline-view"
 import { TimelineLeftBrowser, type TimelineLeftBrowserProps } from "./TimelineLeftBrowser"
 import ArrangementOverview from "./ArrangementOverview"
 import TrackLane from "./TrackLane"
-import TrackSidebar, { type TrackSidebarProps } from "./TrackSidebar"
+import SourceTrackSidebar, { type SourceTrackSidebarProps } from "./SourceTrackSidebar"
 import type { NativeTrack } from "./model"
 import { dawTheme, layout } from "./theme"
 
@@ -27,17 +26,22 @@ export interface TimelineWorkspaceProps {
   bottomPanelOffsetPx: number
   onSetLoopRegion: (startSec: number, endSec: number) => void
   onRulerScrub: (sec: number) => void
-  sidebar: Omit<TrackSidebarProps, "tracks" | "selectedTrackId" | "bottomPanelOffsetPx">
+  sidebar: Omit<SourceTrackSidebarProps, "tracks" | "selectedTrackId" | "bottomPanelOffsetPx" | "scrollElement">
   onSelectClip: (trackId: string, clipId: string) => void
+  onOpenClip: (trackId: string, clipId: string) => void
   onClipMouseDown: (trackId: string, clipId: string, event: PointerEvent) => void
   dragging: boolean
-  onDragMove: (event: EventPayload) => void
-  onDragEnd: () => void
 }
 
 interface GridLine {
   left: number
   major: boolean
+}
+
+function trackRowHeight(track: NativeTrack): number {
+  const clipLaneHeight = track.collapsed ? layout.collapsedLaneHeight : layout.laneHeight
+  if (track.collapsed || !track.automationVisible) return clipLaneHeight
+  return clipLaneHeight + 48
 }
 
 function sourceClip(clip: NativeTrack["clips"][number]): RuntimeClip {
@@ -53,7 +57,8 @@ function sourceTrack(track: NativeTrack): Track {
   return {
     id: track.id,
     name: track.name,
-    kind: track.kind === "midi" ? "instrument" : track.kind,
+    volume: track.volume,
+    kind: track.kind === "midi" ? "instrument" : track.kind === "audio" ? "audio" : undefined,
     channelRole: track.kind === "return" ? "return" : track.kind === "group" ? "group" : "track",
     collapsed: track.collapsed,
     color: track.color,
@@ -73,10 +78,12 @@ function TimelineGrid(props: {
     if (!props.enabled) return []
     const intervals = selectTimelineGridIntervals(props.pixelsPerSecond, props.bpm, props.denominator, true)
     if (!(intervals.minorSec > 0 && intervals.majorSec > 0)) return []
-    const majorEvery = Math.max(1, Math.round(intervals.majorSec / intervals.minorSec))
-    const count = Math.ceil(props.durationSec / intervals.minorSec)
+    const minorSec = intervals.minorSec
+    const majorSec = intervals.majorSec
+    const majorEvery = Math.max(1, Math.round(majorSec / minorSec))
+    const count = Math.ceil(props.durationSec / minorSec)
     return Array.from({ length: count + 1 }, (_, index) => ({
-      left: index * intervals.minorSec * props.pixelsPerSecond,
+      left: index * minorSec * props.pixelsPerSecond,
       major: index % majorEvery === 0,
     }))
   })
@@ -102,11 +109,12 @@ function TimelineGrid(props: {
 }
 
 const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
+  let scrollingTrackElement: HTMLDivElement | undefined
   const durationSec = () => timelineDurationSec(props.tracks)
   const sourceTracks = createMemo(() => props.tracks.map(sourceTrack))
   const scrollingTracks = createMemo(() => props.tracks.filter((track) => track.kind !== "return"))
   const returnTracks = createMemo(() => props.tracks.filter((track) => track.kind === "return"))
-  const returnAreaHeight = () => returnTracks().length * layout.laneHeight
+  const returnAreaHeight = () => returnTracks().reduce((height, track) => height + trackRowHeight(track), 0)
   const stickyFooterHeight = () => returnAreaHeight() + layout.laneHeight
   const scrollingBottom = () => props.bottomPanelOffsetPx + stickyFooterHeight()
   const timelineViewportWidth = () => Math.max(
@@ -128,6 +136,7 @@ const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
       gridDenominator={props.gridDenominator}
       durationSec={durationSec()}
       onSelectClip={props.onSelectClip}
+      onOpenClip={props.onOpenClip}
       onClipMouseDown={props.onClipMouseDown}
     />
   )
@@ -171,6 +180,7 @@ const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
 
           <div
             testId="timeline-scrolling-tracks"
+            ref={(element) => { scrollingTrackElement = element }}
             style={{
               position: "absolute",
               top: layout.headerHeight,
@@ -237,10 +247,11 @@ const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
           />
         </div>
 
-        <TrackSidebar
+        <SourceTrackSidebar
           tracks={props.tracks}
           selectedTrackId={props.selectedTrackId}
           bottomPanelOffsetPx={props.bottomPanelOffsetPx}
+          scrollElement={() => scrollingTrackElement}
           {...props.sidebar}
         />
       </div>
@@ -248,8 +259,6 @@ const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
       <Show when={props.dragging}>
         <div
           testId="timeline-drag-layer"
-          onMouseMove={props.onDragMove}
-          onMouseUp={props.onDragEnd}
           style={{
             position: "absolute",
             top: layout.headerHeight,

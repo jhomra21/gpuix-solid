@@ -3,11 +3,17 @@ import type { EventPayload, TestGpuixRenderer as NativeTestRendererApi } from "@
 import type { JSX } from "solid-js"
 import { adaptBatchRenderer } from "./batch-renderer-adapter.js"
 import { useDestroyUnlinksParentBatch, type MutationValue } from "./host/mutations.js"
-import type { StyleDesc } from "./host/types.js"
+import type { StyleDesc, WindowKeyEventHandlers } from "./host/types.js"
 import { createRoot, type Root } from "./root.js"
 
-type NativeTestRendererConstructor = new () => NativeTestRendererApi
-type NativeModule = { TestGpuixRenderer?: NativeTestRendererConstructor }
+type NativeTestRendererConstructor = new (
+  width?: number | null,
+  height?: number | null,
+) => NativeTestRendererApi
+type NativeModule = {
+  TestGpuixRenderer?: NativeTestRendererConstructor
+  hasTestGpuixRenderer?: () => boolean
+}
 
 interface NativeTreeNode {
   id: number
@@ -18,6 +24,8 @@ interface NativeTreeNode {
   customProps?: Record<string, MutationValue>
   children?: NativeTreeNode[]
 }
+
+type TestCustomPropQuery = Readonly<Record<string, string | number | boolean | null>>
 
 export interface TestBounds {
   x: number
@@ -31,6 +39,7 @@ function loadNativeTestRenderer(): NativeTestRendererConstructor | undefined {
     const require = createRequire(import.meta.url)
     // SAFETY: @gpuix/native exports TestGpuixRenderer when the installed platform binding includes test support.
     const nativeModule = require("@gpuix/native") as NativeModule
+    if (nativeModule.hasTestGpuixRenderer?.() !== true) return undefined
     return nativeModule.TestGpuixRenderer
   } catch {
     return undefined
@@ -48,6 +57,39 @@ function findNode(node: NativeTreeNode | null, testId: string): NativeTreeNode |
   for (const child of node.children ?? []) {
     const found = findNode(child, testId)
     if (found) return found
+  }
+  return undefined
+}
+
+function matchesCustomProps(node: NativeTreeNode, query: TestCustomPropQuery): boolean {
+  for (const [key, expected] of Object.entries(query)) {
+    if (node.customProps?.[key] !== expected) return false
+  }
+  return true
+}
+
+function findNodeByCustomProps(node: NativeTreeNode | null, query: TestCustomPropQuery): NativeTreeNode | undefined {
+  if (!node) return undefined
+  if (matchesCustomProps(node, query)) return node
+  for (const child of node.children ?? []) {
+    const found = findNodeByCustomProps(child, query)
+    if (found) return found
+  }
+  return undefined
+}
+
+function findCustomPropStringContainingAll(
+  node: NativeTreeNode | null,
+  name: string,
+  fragments: readonly string[],
+): string | undefined {
+  if (!node) return undefined
+  const value = node.customProps?.[name]
+  const text = value === undefined || value === null ? undefined : String(value)
+  if (text !== undefined && fragments.every((fragment) => text.includes(fragment))) return text
+  for (const child of node.children ?? []) {
+    const found = findCustomPropStringContainingAll(child, name, fragments)
+    if (found !== undefined) return found
   }
   return undefined
 }
@@ -97,6 +139,13 @@ function insetPoint(bounds: TestBounds) {
   }
 }
 
+function centerPoint(bounds: TestBounds) {
+  return {
+    x: bounds.x + bounds.width / 2,
+    y: bounds.y + bounds.height / 2,
+  }
+}
+
 const NativeTestRenderer = loadNativeTestRenderer()
 export const hasNativeTestRenderer = NativeTestRenderer !== undefined
 
@@ -104,9 +153,9 @@ export class TestRenderer {
   readonly #native: NativeTestRendererApi
   #root: Root | undefined
 
-  constructor() {
+  constructor(width?: number, height?: number) {
     if (!NativeTestRenderer) throw new Error("Native TestGpuixRenderer is unavailable")
-    this.#native = new NativeTestRenderer()
+    this.#native = new NativeTestRenderer(width, height)
   }
 
   bindRoot(root: Root): void {
@@ -115,6 +164,9 @@ export class TestRenderer {
 
   applyBatch(json: string): number[] { return this.#native.applyBatch(json) }
   focusElement(elementId: number): void { this.#native.focusElement(elementId) }
+  focusNext(): void { this.#native.focusNext() }
+  focusPrevious(): void { this.#native.focusPrevious() }
+  setWindowKeyEvents(keyDown: boolean, keyUp: boolean, eventId: number): void { this.#native.setWindowKeyEvents(keyDown, keyUp, eventId) }
   getElementBounds(elementId: number): number[] | null { return this.#native.getElementBounds(elementId) }
 
   flush(): void { this.#native.flush() }
@@ -131,6 +183,13 @@ export class TestRenderer {
 
   clickTestId(testId: string): void {
     const point = insetPoint(this.boundsTestId(testId))
+    this.#native.simulateClick(point.x, point.y)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+  }
+
+  clickCenterTestId(testId: string): void {
+    const point = centerPoint(this.boundsTestId(testId))
     this.#native.simulateClick(point.x, point.y)
     this.dispatchNativeEvents()
     this.#native.flush()
@@ -309,6 +368,98 @@ export class TestRenderer {
     return findNode(parseTree(this.#native.getTreeJson()), testId) !== undefined
   }
 
+  hasCustomProps(query: TestCustomPropQuery): boolean {
+    return findNodeByCustomProps(parseTree(this.#native.getTreeJson()), query) !== undefined
+  }
+
+  customPropStringContainingAll(name: string, fragments: readonly string[]): string {
+    this.#native.flush()
+    const value = findCustomPropStringContainingAll(parseTree(this.#native.getTreeJson()), name, fragments)
+    if (value === undefined) {
+      throw new Error(`Expected string custom prop ${JSON.stringify(name)} containing ${JSON.stringify(fragments)}`)
+    }
+    return value
+  }
+
+  boundsCustomProps(query: TestCustomPropQuery): TestBounds {
+    return this.boundsNode(this.requireCustomProps(query), `custom props ${JSON.stringify(query)}`)
+  }
+
+  styleCustomProps(query: TestCustomPropQuery): StyleDesc {
+    return this.requireCustomProps(query).style ?? {}
+  }
+
+  ancestorBoundsCustomProps(query: TestCustomPropQuery): TestBounds[] {
+    this.#native.flush()
+    const root = parseTree(this.#native.getTreeJson())
+    if (!root) throw new Error("Expected a retained native root")
+    let current = findNodeByCustomProps(root, query)
+    if (!current) throw new Error(`Expected custom props ${JSON.stringify(query)}`)
+    const bounds: TestBounds[] = []
+    for (;;) {
+      const parent = findParentNode(root, current.id)
+      if (!parent) break
+      const nativeBounds = this.#native.getElementBounds(parent.id)
+      if (nativeBounds && nativeBounds.length >= 4) {
+        const [x, y, width, height] = nativeBounds
+        if (x !== undefined && y !== undefined && width !== undefined && height !== undefined) {
+          bounds.push({ x, y, width, height })
+        }
+      }
+      current = parent
+    }
+    return bounds
+  }
+
+  dragCustomProps(query: TestCustomPropQuery, deltaX: number, deltaY: number): void {
+    const start = insetPoint(this.boundsCustomProps(query))
+    const endX = start.x + deltaX
+    const endY = start.y + deltaY
+    this.#native.simulateMouseMove(start.x, start.y)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+    this.#native.simulateMouseDown(start.x, start.y, 0)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+    this.#native.simulateMouseMove(endX, endY, 0)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+    this.#native.simulateMouseUp(endX, endY, 0)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+  }
+
+  clickCenterCustomProps(query: TestCustomPropQuery): void {
+    const point = centerPoint(this.boundsCustomProps(query))
+    this.#native.simulateClick(point.x, point.y)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+  }
+
+  clickCustomProps(query: TestCustomPropQuery): void {
+    const point = insetPoint(this.boundsNode(this.requireCustomProps(query), `custom props ${JSON.stringify(query)}`))
+    this.#native.simulateClick(point.x, point.y)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+  }
+
+  pressKeyCustomProps(query: TestCustomPropQuery, key: string): void {
+    const node = this.requireCustomProps(query)
+    this.#native.focusElement(node.id)
+    this.pressKey(key)
+  }
+
+  customPropByCustomProps(query: TestCustomPropQuery, key: string): MutationValue | undefined {
+    return this.requireCustomProps(query).customProps?.[key]
+  }
+
+  styleCustomPropsWithinTestId(testId: string, query: TestCustomPropQuery): StyleDesc {
+    const parent = this.requireTestId(testId)
+    const node = findNodeByCustomProps(parent, query)
+    if (!node) throw new Error(`Expected custom props ${JSON.stringify(query)} inside ${testId}`)
+    return node.style ?? {}
+  }
+
   textContent(testId: string): string {
     return nodeText(this.requireTestId(testId))
   }
@@ -361,6 +512,12 @@ export class TestRenderer {
     return node
   }
 
+  private requireCustomProps(query: TestCustomPropQuery): NativeTreeNode {
+    const node = findNodeByCustomProps(parseTree(this.#native.getTreeJson()), query)
+    if (!node) throw new Error(`Expected custom props ${JSON.stringify(query)} in native tree`)
+    return node
+  }
+
   private requireTestId(testId: string): NativeTreeNode {
     const node = findNode(parseTree(this.#native.getTreeJson()), testId)
     if (!node) throw new Error(`Expected ${testId} in native tree`)
@@ -375,11 +532,11 @@ export interface TestRoot {
   unmount(): void
 }
 
-export function createTestRoot(): TestRoot {
-  const renderer = new TestRenderer()
+export function createTestRoot(width?: number, height?: number, windowKeyEventHandlers: WindowKeyEventHandlers = {}): TestRoot {
+  const renderer = new TestRenderer(width, height)
   const hostRenderer = adaptBatchRenderer(renderer)
   useDestroyUnlinksParentBatch(hostRenderer)
-  const root = createRoot(hostRenderer)
+  const root = createRoot(hostRenderer, windowKeyEventHandlers)
   renderer.bindRoot(root)
   return {
     root,

@@ -1,4 +1,4 @@
-import { EVENT_PROP_TO_TYPE, type DomCompatTarget, type EventRegistry } from "./events.js"
+import { EVENT_PROP_TO_TYPE, nativeEventTypeForDomEvent, type DomCompatTarget, type EventRegistry } from "./events.js"
 import type { MutationDriver, MutationValue } from "./mutations.js"
 import type {
   ElementType,
@@ -10,7 +10,22 @@ import type {
 
 const RESERVED_PROPS = new Set(["children", "ref", "style", "className", "key"])
 const BUILT_IN_TYPES = new Set<ElementType>(["div", "text"])
-const UNIVERSAL_PROPS = new Set(["autoFocus", "tabIndex", "motion", "testId", "highlight"])
+const UNIVERSAL_PROPS = new Set(["autoFocus", "tabIndex", "motion", "testId", "highlight", "title"])
+
+const RANGE_INPUT_PROPS = new Set(["type", "min", "max", "step", "value", "disabled"])
+
+function isRangeInput(node: HostElementNode): boolean {
+  return node.localName === "input" && String(node.props.get("type") ?? "").toLowerCase() === "range"
+}
+
+function isForwardedBuiltInProp(node: HostElementNode, name: string): boolean {
+  return UNIVERSAL_PROPS.has(name) ||
+    name === "hidden" ||
+    name === "role" ||
+    name.startsWith("aria-") ||
+    (node.localName === "select" && name === "value") ||
+    (isRangeInput(node) && RANGE_INPUT_PROPS.has(name))
+}
 const DOCUMENT_POSITION_DISCONNECTED = 0x01
 const DOCUMENT_POSITION_PRECEDING = 0x02
 const DOCUMENT_POSITION_FOLLOWING = 0x04
@@ -29,6 +44,24 @@ type HostStyleDeclaration = StyleDesc & {
 }
 
 const customStyleProperties = new WeakMap<HostElementNode, Map<string, string>>()
+const appliedPointerEvents = new WeakMap<HostElementNode, StyleDesc["pointerEvents"] | undefined>()
+const INTERACTIVE_TAG_NAMES = new Set(["a", "button", "input", "label", "select", "summary", "textarea"])
+const INTERACTIVE_ROLES = new Set([
+  "button",
+  "checkbox",
+  "combobox",
+  "link",
+  "menuitem",
+  "menuitemcheckbox",
+  "menuitemradio",
+  "option",
+  "radio",
+  "slider",
+  "spinbutton",
+  "switch",
+  "tab",
+  "textbox",
+])
 
 export class HostRootNode {
   readonly kind = "root" as const
@@ -58,6 +91,7 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
 
   readonly kind = "element" as const
   readonly type: ElementType
+  nativeType: ElementType
   readonly tagName: string
   readonly localName: string
   readonly nodeName: string
@@ -73,10 +107,11 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     add: (..._tokens: string[]): void => undefined,
     remove: (..._tokens: string[]): void => undefined,
   }
-  readonly #capturedPointers = new Set<number>()
+  readonly #eventListeners = new Map<string, Set<EventListenerOrEventListenerObject>>()
 
   constructor(type: ElementType, tagName: string = type) {
     this.type = type
+    this.nativeType = type
     this.localName = tagName
     this.tagName = tagName.toUpperCase()
     this.nodeName = this.tagName
@@ -97,6 +132,11 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
 
   get parentElement(): HostElementNode | null {
     return this.parentNode
+  }
+
+  getContext(_contextId: string): null {
+    // GPUIX 0.7 does not expose Canvas 2D; browser-source code can feature-detect a null context.
+    return null
   }
 
   get clientWidth(): number {
@@ -140,6 +180,14 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     setHostProperty(this, "value", value)
   }
 
+  get checked(): boolean {
+    return this.props.get("checked") === true
+  }
+
+  set checked(value: boolean) {
+    setHostProperty(this, "checked", Boolean(value))
+  }
+
   focus(): void {
     const root = this.root
     if (!root || !this.nativeAlive) return
@@ -179,23 +227,103 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   }
 
   setPointerCapture(pointerId: number): void {
-    this.#capturedPointers.add(pointerId)
+    const root = this.root
+    if (!root || !this.nativeAlive) throw new DOMException("Pointer capture target is not connected", "InvalidStateError")
+    root.events.setPointerCapture(this.id, pointerId)
   }
 
   releasePointerCapture(pointerId: number): void {
-    this.#capturedPointers.delete(pointerId)
+    this.root?.events.releasePointerCapture(this.id, pointerId)
   }
 
   hasPointerCapture(pointerId: number): boolean {
-    return this.#capturedPointers.has(pointerId)
+    return this.root?.events.hasPointerCapture(this.id, pointerId) ?? false
   }
 
-  compareDocumentPosition(other: HostElementNode): number {
+    compareDocumentPosition(other: HostElementNode): number {
     return compareHostDocumentPosition(this, other)
   }
 
-  closest(_selector: string): HostElementNode | null {
+  get dataset() {
+    const dataset: Record<string, string> = {}
+    for (const [name, value] of this.props) {
+      if (!name.startsWith("data-") || value === null || value === undefined) continue
+      dataset[dataAttributeProperty(name.slice(5))] = String(value)
+    }
+    return dataset
+  }
+
+  getAttribute(name: string): string | null {
+    const value = this.props.get(name)
+    return value === null || value === undefined ? null : String(value)
+  }
+
+  hasAttribute(name: string): boolean {
+    return this.props.has(name)
+  }
+
+  setAttribute(name: string, value: string): void {
+    setHostProperty(this, name, String(value))
+  }
+
+  removeAttribute(name: string): void {
+    setHostProperty(this, name, undefined)
+  }
+
+  contains(other: HostElementNode | null): boolean {
+    if (!other) return false
+    let current: HostElementNode | null = other
+    while (current) {
+      if (current === this) return true
+      current = current.parentElement
+    }
+    return false
+  }
+
+  matches(selector: string): boolean {
+    return selector.split(",").some((candidate) => matchesSimpleSelector(this, candidate.trim()))
+  }
+
+  closest(selector: string): HostElementNode | null {
+    if (this.matches(selector)) return this
+    let current = this.parentElement
+    while (current) {
+      if (current.matches(selector)) return current
+      current = current.parentElement
+    }
     return null
+  }
+
+  addEventListener(
+    type: string,
+    listener: EventListenerOrEventListenerObject | null,
+  ): void {
+    if (!listener) return
+    const listeners = this.#eventListeners.get(type) ?? new Set<EventListenerOrEventListenerObject>()
+    listeners.add(listener)
+    this.#eventListeners.set(type, listeners)
+  }
+
+  removeEventListener(
+    type: string,
+    listener: EventListenerOrEventListenerObject | null,
+  ): void {
+    if (!listener) return
+    const listeners = this.#eventListeners.get(type)
+    listeners?.delete(listener)
+    if (listeners?.size === 0) this.#eventListeners.delete(type)
+  }
+
+  dispatchEvent(event: Event): boolean {
+    if (event.target === null) {
+      Object.defineProperty(event, "target", { configurable: true, value: this })
+    }
+    Object.defineProperty(event, "currentTarget", { configurable: true, value: this })
+    for (const listener of this.#eventListeners.get(event.type) ?? []) {
+      if (listener instanceof Function) listener.call(this, event)
+      else listener.handleEvent(event)
+    }
+    return !event.defaultPrevented
   }
 
   getBoundingClientRect(): {
@@ -271,28 +399,45 @@ export function createHostText(value: string): HostTextNode {
 export function replaceHostText(node: HostTextNode, value: string): void {
   const text = String(value)
   if (node.text === text) return
+  const layoutChanged = (node.text.length === 0) !== (text.length === 0)
   node.text = text
-  if (node.root && node.nativeAlive) node.root.driver.enqueue("setText", node.id, text)
+  if (!node.root || !node.nativeAlive) return
+  node.root.driver.enqueue("setText", node.id, text)
+  if (layoutChanged) node.root.driver.enqueue("setStyle", node.id, nativeTextLayoutStyle(text))
 }
 
 export function setHostProperty<T>(
   node: HostNode,
   name: string,
   value: T,
-  previous?: T,
+  _previous?: T,
 ): void {
   if (node.kind === "text") return
   if (name === "children" || name === "ref" || name === "key") return
 
   if (name === "style") {
+    const previousPointerEvents = effectivePointerEvents(node)
     node.style = createHostStyleDeclaration(node, isStyle(value) ? value : {})
-    if (node.root && node.nativeAlive) node.root.driver.enqueue("setStyle", node.id, node.style)
+    if (node.root && node.nativeAlive) {
+      const nextPointerEvents = effectivePointerEvents(node)
+      node.root.driver.enqueue("setStyle", node.id, nativeStyleFor(node, nextPointerEvents))
+      appliedPointerEvents.set(node, nextPointerEvents)
+      if (previousPointerEvents !== nextPointerEvents) {
+        for (const child of node.children) refreshInheritedPointerEvents(child)
+      }
+    }
     return
   }
 
   const eventType = EVENT_PROP_TO_TYPE.get(name)
   if (eventType) {
-    const oldHandler = isHostEventHandler(previous) ? previous : undefined
+    const previousPointerEvents = effectivePointerEvents(node)
+    const nativeEventType = nativeEventTypeForDomEvent(eventType)
+    const hadNativeHandler = nativeEventType ? hasNativeEventHandler(node, nativeEventType) : false
+    const hadNativeClickHandler = hasNativeEventHandler(node, "click")
+    const hadRangeNativeHandlers = new Map(
+      (["mouseDown", "mouseMove", "mouseUp"] as const).map((nativeType) => [nativeType, hasNativeEventHandler(node, nativeType)]),
+    )
     const handler = isHostEventHandler(value) ? value : undefined
     if (handler) node.events.set(eventType, handler)
     else node.events.delete(eventType)
@@ -301,20 +446,67 @@ export function setHostProperty<T>(
     if (handler) node.root.events.set(node.id, eventType, handler)
     else node.root.events.delete(node.id, eventType)
 
-    const nativeType = nativeEventType(eventType)
-    const hasNativeHandler = nativeType === "mouseUp"
-      ? node.root.events.has(node.id, "mouseUp") || node.root.events.has(node.id, "contextMenu")
-      : node.root.events.has(node.id, nativeType)
-    if (Boolean(oldHandler) !== Boolean(handler) || eventType === "contextMenu" || eventType === "mouseUp") {
-      node.root.driver.enqueue("setEventListener", node.id, nativeType, hasNativeHandler)
+    if (nativeEventType) {
+      const hasNativeHandler = hasNativeEventHandler(node, nativeEventType)
+      if (hadNativeHandler != hasNativeHandler) {
+        node.root.driver.enqueue("setEventListener", node.id, nativeEventType, hasNativeHandler)
+      }
+    }
+    if (nativeEventType !== "click") {
+      const hasNativeClickHandler = hasNativeEventHandler(node, "click")
+      if (hadNativeClickHandler !== hasNativeClickHandler) {
+        node.root.driver.enqueue("setEventListener", node.id, "click", hasNativeClickHandler)
+      }
+    }
+    for (const rangeNativeType of ["mouseDown", "mouseMove", "mouseUp"] as const) {
+      const hadRangeHandler = hadRangeNativeHandlers.get(rangeNativeType) ?? false
+      const hasRangeHandler = hasNativeEventHandler(node, rangeNativeType)
+      if (hadRangeHandler !== hasRangeHandler) {
+        node.root.driver.enqueue("setEventListener", node.id, rangeNativeType, hasRangeHandler)
+      }
+    }
+
+    const nextPointerEvents = effectivePointerEvents(node)
+    if (previousPointerEvents !== nextPointerEvents) {
+      node.root.driver.enqueue("setStyle", node.id, nativeStyleFor(node, nextPointerEvents))
+      appliedPointerEvents.set(node, nextPointerEvents)
     }
     return
   }
 
+  const previousPointerEvents = name === "role" ? effectivePointerEvents(node) : undefined
+  const previousTypeClickHandler = name === "type" ? hasNativeEventHandler(node, "click") : false
+  const previousTypeRangeHandlers = name === "type"
+    ? new Map((["mouseDown", "mouseMove", "mouseUp"] as const).map((nativeType) => [nativeType, hasNativeEventHandler(node, nativeType)]))
+    : undefined
   if (value === undefined) node.props.delete(name)
   else node.props.set(name, customPropValue(value))
+
+  if (name === "type" && node.tagName === "INPUT" && !node.nativeAlive) {
+    node.nativeType = String(value).toLowerCase() === "range" ? "div" : "input"
+  }
+
+  if (node.root && node.nativeAlive && name === "role") {
+    const nextPointerEvents = effectivePointerEvents(node)
+    if (previousPointerEvents !== nextPointerEvents) {
+      node.root.driver.enqueue("setStyle", node.id, nativeStyleFor(node, nextPointerEvents))
+      appliedPointerEvents.set(node, nextPointerEvents)
+    }
+  }
+  if (node.root && node.nativeAlive && name === "type") {
+    const nextTypeClickHandler = hasNativeEventHandler(node, "click")
+    if (previousTypeClickHandler !== nextTypeClickHandler) {
+      node.root.driver.enqueue("setEventListener", node.id, "click", nextTypeClickHandler)
+    }
+    for (const rangeNativeType of ["mouseDown", "mouseMove", "mouseUp"] as const) {
+      const previous = previousTypeRangeHandlers?.get(rangeNativeType) ?? false
+      const next = hasNativeEventHandler(node, rangeNativeType)
+      if (previous !== next) node.root.driver.enqueue("setEventListener", node.id, rangeNativeType, next)
+    }
+    node.root.driver.enqueue("setStyle", node.id, nativeStyleFor(node))
+  }
   if (!node.root || !node.nativeAlive || isReserved(name)) return
-  if (BUILT_IN_TYPES.has(node.type) && !UNIVERSAL_PROPS.has(name)) return
+  if (BUILT_IN_TYPES.has(node.nativeType) && !isForwardedBuiltInProp(node, name)) return
   node.root.driver.enqueue("setCustomProp", node.id, name, customPropValue(value))
 }
 
@@ -337,6 +529,7 @@ export function insertHostNode(parent: HostParent, node: HostNode, anchor?: Host
   parent.children.splice(index, 0, node)
   node.parent = parent
 
+  if (root) refreshInheritedPointerEvents(node)
   if (!root) return
   if (parent.kind === "root") {
     root.driver.enqueue("setRoot", node.id)
@@ -375,6 +568,39 @@ export function getNextSibling(node: HostNode): HostNode | undefined {
 
 export function isHostTextNode(node: HostNode | HostParent): node is HostTextNode {
   return node.kind === "text"
+}
+
+function nativeTextLayoutStyle(text: string): StyleDesc {
+  return text.length === 0
+    ? {
+        display: "none",
+        width: 0,
+        height: 0,
+        minWidth: 0,
+        minHeight: 0,
+        maxWidth: 0,
+        maxHeight: 0,
+        flexGrow: 0,
+        flexShrink: 0,
+        flexBasis: 0,
+      }
+    : {}
+}
+
+function dataAttributeProperty(name: string): string {
+  return name.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase())
+}
+
+function matchesSimpleSelector(node: HostElementNode, selector: string): boolean {
+  if (!selector) return false
+  const attribute = selector.match(/^\[([A-Za-z_:][\w:.-]*)(?:=(['"]?)(.*?)\2)?\]$/)
+  if (attribute) {
+    const name = attribute[1]
+    if (!name || !node.hasAttribute(name)) return false
+    const expected = attribute[3]
+    return expected === undefined || node.getAttribute(name) === expected
+  }
+  return /^[A-Za-z][A-Za-z0-9-]*$/.test(selector) && node.localName === selector.toLowerCase()
 }
 
 function compareHostDocumentPosition(reference: HostNode, other: HostNode): number {
@@ -424,6 +650,71 @@ function hostTreePath(node: HostNode): HostTreeNode[] {
   return path
 }
 
+function inheritedPointerEvents(node: HostElementNode): StyleDesc["pointerEvents"] | undefined {
+  let parent = node.parent
+  while (parent?.kind === "element") {
+    if (parent.style.pointerEvents !== undefined) return parent.style.pointerEvents
+    parent = parent.parent
+  }
+  return undefined
+}
+
+function ownsSemanticHitSurface(node: HostElementNode): boolean {
+  if (INTERACTIVE_TAG_NAMES.has(node.localName)) return true
+  const role = node.props.get("role")
+  return role !== undefined && role !== null && INTERACTIVE_ROLES.has(String(role))
+}
+
+function effectivePointerEvents(node: HostElementNode): StyleDesc["pointerEvents"] | undefined {
+  // Preserve explicit source ownership first. In particular, a descendant
+  // pointer-events:auto must be able to re-enable itself beneath an inherited none.
+  if (node.style.pointerEvents !== undefined) return node.style.pointerEvents
+
+  // Browser pointer-events:none applies through the subtree until a descendant
+  // explicitly re-enables itself. Materialize only that inherited none; inherited
+  // auto is intentionally left implicit so decorative descendants do not become
+  // separate GPUIX hit targets.
+  if (inheritedPointerEvents(node) === "none") return "none"
+
+  // GPUIX 0.7 needs an explicit hit surface for transparent semantic controls.
+  // Plain event-bearing divs keep their existing paint/hit behavior so parent
+  // containers do not become new occluding surfaces.
+  if (node.events.size > 0 && ownsSemanticHitSurface(node)) return "auto"
+  return undefined
+}
+
+function nativeStyleFor(
+  node: HostElementNode,
+  pointerEvents = effectivePointerEvents(node),
+): StyleDesc {
+  // Browser range controls contribute their intrinsic width to auto flex sizing,
+  // but an authored width such as w-full must still be allowed to shrink below
+  // that preferred size. Preserve the 129px browser-like basis while removing
+  // the 129px minimum that previously forced compact mixer cells to overflow.
+  const style: StyleDesc = isRangeInput(node)
+    ? node.style.width === undefined
+      ? { minHeight: 16, height: 16, width: 129, minWidth: 129, ...node.style }
+      : node.style.width === "100%"
+        ? { minHeight: 16, height: 16, ...node.style, width: 129, minWidth: 0, flexShrink: 1 }
+        : { minHeight: 16, height: 16, minWidth: 0, ...node.style }
+    : node.style
+  if (node.style.pointerEvents !== undefined || pointerEvents === undefined) return style
+  return { ...style, pointerEvents }
+}
+
+function refreshInheritedPointerEvents(node: HostNode): void {
+  if (node.kind === "text") return
+  const nextPointerEvents = effectivePointerEvents(node)
+  const previousPointerEvents = appliedPointerEvents.get(node)
+  if (node.root && node.nativeAlive && previousPointerEvents !== nextPointerEvents) {
+    // A transition back to undefined intentionally sends the base style once so
+    // a previously materialized auto/none value is cleared natively.
+    node.root.driver.enqueue("setStyle", node.id, nativeStyleFor(node, nextPointerEvents))
+    appliedPointerEvents.set(node, nextPointerEvents)
+  }
+  for (const child of node.children) refreshInheritedPointerEvents(child)
+}
+
 function createHostStyleDeclaration(node: HostElementNode, style: StyleDesc): HostStyleDeclaration {
   // SAFETY: methods are installed non-enumerably so native style serialization sees only StyleDesc fields.
   const declaration = { ...style } as HostStyleDeclaration
@@ -465,26 +756,37 @@ function adopt(root: HostRootNode, node: HostNode): void {
 
   node.nativeAlive = true
   root.events.activate(node.id)
-  root.driver.enqueue("createElement", node.id, node.type)
+  root.driver.enqueue("createElement", node.id, node.kind === "element" ? node.nativeType : node.type)
 
   if (node.kind === "text") {
     root.driver.enqueue("setText", node.id, node.text)
+    if (node.text.length === 0) root.driver.enqueue("setStyle", node.id, nativeTextLayoutStyle(node.text))
   } else {
     root.events.setTarget(node.id, node)
     const nativeEventTypes = new Set<string>()
-    if (Object.keys(node.style).length > 0) {
-      root.driver.enqueue("setStyle", node.id, node.style)
+    const pointerEvents = effectivePointerEvents(node)
+    const nativeStyle = nativeStyleFor(node, pointerEvents)
+    if (Object.keys(nativeStyle).length > 0) {
+      root.driver.enqueue("setStyle", node.id, nativeStyle)
     }
+    appliedPointerEvents.set(node, pointerEvents)
     for (const [eventType, handler] of node.events) {
       root.events.set(node.id, eventType, handler)
-      nativeEventTypes.add(nativeEventType(eventType))
+      const nativeEventType = nativeEventTypeForDomEvent(eventType)
+      if (nativeEventType) nativeEventTypes.add(nativeEventType)
+    }
+    if (hasCheckboxActivationHandler(node)) nativeEventTypes.add("click")
+    if (hasRangeChangeHandler(node)) {
+      nativeEventTypes.add("mouseDown")
+      nativeEventTypes.add("mouseMove")
+      nativeEventTypes.add("mouseUp")
     }
     for (const eventType of nativeEventTypes) {
       root.driver.enqueue("setEventListener", node.id, eventType, true)
     }
     for (const [name, value] of node.props) {
       if (isReserved(name)) continue
-      if (BUILT_IN_TYPES.has(node.type) && !UNIVERSAL_PROPS.has(name)) continue
+      if (BUILT_IN_TYPES.has(node.nativeType) && !isForwardedBuiltInProp(node, name)) continue
       root.driver.enqueue("setCustomProp", node.id, name, customPropValue(value))
     }
   }
@@ -495,8 +797,23 @@ function adopt(root: HostRootNode, node: HostNode): void {
   }
 }
 
-function nativeEventType(eventType: string): string {
-  return eventType === "contextMenu" ? "mouseUp" : eventType
+function hasCheckboxActivationHandler(node: HostElementNode): boolean {
+  return node.tagName === "INPUT" &&
+    String(node.props.get("type") ?? "").toLowerCase() === "checkbox" &&
+    (node.events.has("change") || node.events.has("input"))
+}
+
+function hasRangeChangeHandler(node: HostElementNode): boolean {
+  return isRangeInput(node) && (node.events.has("change") || node.events.has("input"))
+}
+
+function hasNativeEventHandler(node: HostElementNode, nativeEventType: string): boolean {
+  if (nativeEventType === "click" && hasCheckboxActivationHandler(node)) return true
+  if ((nativeEventType === "mouseDown" || nativeEventType === "mouseMove" || nativeEventType === "mouseUp") && hasRangeChangeHandler(node)) return true
+  for (const eventType of node.events.keys()) {
+    if (nativeEventTypeForDomEvent(eventType) === nativeEventType) return true
+  }
+  return false
 }
 
 function markNativeDead(root: HostRootNode, node: HostNode): void {

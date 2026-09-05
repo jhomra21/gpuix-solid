@@ -109,6 +109,31 @@ export type {
 } from "./components/animate.js"
 
 export {
+  applyNativeStyleParentPosition,
+  applyNativeStyleTranslation,
+  clearNativeStyleManifest,
+  configureNativeStyleManifest,
+  getNativeStyleColorMode,
+  mergeNativeStyles,
+  resolveNativeClassStyle,
+  resolveNativeClassParentPosition,
+  resolveNativeClassTranslation,
+  resolveNativeClassTextTransform,
+  resolveNativeDescendantClassStyle,
+  setNativeStyleColorMode,
+} from "./native-style.js"
+export type {
+  NativeClassList,
+  NativeColorMode,
+  NativeStyleManifest,
+  NativeStyleManifestEntry,
+  NativeStyleParentPosition,
+  NativeStyleTranslation,
+  NativeStyleVariant,
+  NativeTextTransform,
+} from "./native-style.js"
+
+export {
   effect,
   memo,
   createComponent,
@@ -140,8 +165,12 @@ export type {
   GpuixTheme,
   HighlightMatch,
   HighlightSpec,
+  HostEventHandler,
   HostProps,
+  HostRef,
   ImgProps,
+  LinearGradientBackground,
+  LinearGradientStop,
   InputProps,
   MarkdownProps,
   NativeRenderer,
@@ -152,6 +181,8 @@ export type {
   SvgProps,
   TextareaProps,
   VirtualListProps,
+  WindowKeyEventHandler,
+  WindowKeyEventHandlers,
 } from "./host/types.js"
 
 export { GpuixRenderer } from "@gpuix/native"

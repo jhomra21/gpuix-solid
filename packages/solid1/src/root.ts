@@ -4,7 +4,6 @@ import { installBrowserElementIdentity } from "./browser-element-identity.js"
 import {
   browserCompatibleNativeEvent,
   dispatchBrowserKeyboardEvent,
-  installBrowserEventCompatibility,
 } from "./browser-event-compat.js"
 import { installBrowserPreflushCompatibility } from "./browser-preflush-compat.js"
 import { syncBrowserViewportSize } from "./browser-viewport-compat.js"
@@ -12,9 +11,17 @@ import { GpuixContext, type ViewportSize } from "./context.js"
 import { EventRegistry } from "./host/events.js"
 import { MutationDriver } from "./host/mutations.js"
 import { HostRootNode, removeHostNode } from "./host/nodes.js"
-import type { DimensionValue, NativeRenderer } from "./host/types.js"
+import type { DimensionValue, NativeRenderer, WindowKeyEventHandlers } from "./host/types.js"
 import { registerNativePortalRoot, unregisterNativePortalRoot } from "./native-portal.js"
 import { universalRender } from "./universal.js"
+
+const windowKeyEventIds = new WeakMap<NativeRenderer, number>()
+
+function nextWindowKeyEventId(renderer: NativeRenderer): number {
+  const id = (windowKeyEventIds.get(renderer) ?? 0) + 1
+  windowKeyEventIds.set(renderer, id)
+  return id
+}
 
 export interface Root {
   render(code: () => JSX.Element): void
@@ -39,12 +46,17 @@ function elementBounds(renderer: NativeRenderer, elementId: number): number[] | 
   return boundsRenderer.getElementBounds?.(elementId)
 }
 
-export function createRoot(renderer: NativeRenderer): Root {
+export function createRoot(renderer: NativeRenderer, windowKeyEventHandlers: WindowKeyEventHandlers = {}): Root {
   installBrowserElementIdentity()
-  installBrowserEventCompatibility()
   const events = new EventRegistry()
   const driver = new MutationDriver(renderer, events)
   const container = new HostRootNode(renderer, events, driver)
+  const windowKeyEventId = nextWindowKeyEventId(renderer)
+  renderer.setWindowKeyEvents?.(
+    Boolean(windowKeyEventHandlers.onKeyDown),
+    Boolean(windowKeyEventHandlers.onKeyUp),
+    windowKeyEventId,
+  )
   installBrowserPreflushCompatibility(container, driver)
   let dispose: (() => void) | undefined
 
@@ -102,6 +114,14 @@ export function createRoot(renderer: NativeRenderer): Root {
     },
     dispatch(event) {
       try {
+        if (event.eventType === "windowKeyDown" || event.eventType === "windowKeyUp") {
+          if (event.elementId !== windowKeyEventId) return
+          const handler = event.eventType === "windowKeyDown"
+            ? windowKeyEventHandlers.onKeyDown
+            : windowKeyEventHandlers.onKeyUp
+          handler?.(event, renderer)
+          return
+        }
         const browserEvent = browserCompatibleNativeEvent(event)
         events.dispatch(browserEvent)
         dispatchBrowserKeyboardEvent(browserEvent)
@@ -117,6 +137,9 @@ export function createRoot(renderer: NativeRenderer): Root {
       unregisterNativePortalRoot(renderer)
       flushNative()
       events.clear()
+      if (windowKeyEventIds.get(renderer) === windowKeyEventId) {
+        renderer.setWindowKeyEvents?.(false, false, windowKeyEventId)
+      }
       driver.dispose()
     },
   }

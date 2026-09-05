@@ -9,38 +9,26 @@ const C = {
   border: "#E6EAF212",
   text: "#E2E2E2",
   secondary: "#A3A3A3",
+  tertiary: "#7D7D7D",
   ghost: "#575757",
   accent: "#E2795B",
+  codeText: "#E0A882",
 } as const
 
-const FONT_MONO = process.platform === "darwin" ? "Menlo" : "monospace"
-
-const MD_TEXT: StyleDesc = {
-  fontSize: 15,
-  lineHeight: 26,
-  color: C.text,
-  maxWidth: "100%",
-  minWidth: 0,
-}
-
-const CODE_BODY_STYLE: StyleDesc = {
-  minWidth: 0,
-  paddingLeft: 12,
-  paddingRight: 12,
-  paddingTop: 10,
-  paddingBottom: 10,
-}
+const FONT_SANS = typeof window === "undefined" ? "Helvetica" : "IBM Plex Sans"
+const FONT_MONO = typeof window === "undefined" ? "Menlo" : "Lilex"
 
 const CHAT_THEME = {
   text: C.text,
   textMuted: C.secondary,
-  textFaint: C.ghost,
+  textFaint: C.tertiary,
   textDim: C.secondary,
   border: C.border,
   bg: C.canvas,
   accent: C.accent,
   caret: C.accent,
-  codeText: "#E0A882",
+  fontSans: FONT_SANS,
+  codeText: C.codeText,
   codeWash: "#E6EAF214",
   metrics: {
     mdTextSize: 14,
@@ -53,6 +41,14 @@ const CHAT_THEME = {
     diffLineHeight: 20,
     diffFileHeaderHeight: 34,
   },
+}
+
+const MD_TEXT: StyleDesc = {
+  fontSize: 15,
+  lineHeight: 26,
+  color: C.text,
+  maxWidth: "100%",
+  minWidth: 0,
 }
 
 interface MdxText {
@@ -201,8 +197,9 @@ type ChatMdxRoot = Omit<Root, "children"> & {
 }
 
 function parseChatMdx(source: string): ChatMdxRoot {
-  // SAFETY: safe-mdx returns an mdast Root after remark-mdx, remark-gfm, and
-  // frontmatter parsing. ChatMdxRoot names the subset this example renders.
+  // safe-mdx/parse returns an mdast Root after remark-mdx, remark-gfm, and
+  // frontmatter parsing. This is the React-only SafeMdxRenderer boundary:
+  // everything after parsing is rendered as ordinary Solid/GPUIX host nodes.
   return mdxParse(source) as ChatMdxRoot
 }
 
@@ -281,16 +278,16 @@ function renderInline(
     case "delete":
       return <text style={{ ...MD_TEXT, color: C.ghost }}>{inlineText(node)}</text>
     case "link": {
-      const text = inlineText(node)
-      if (!onLinkClick) return <text style={{ ...MD_TEXT, color: C.accent }}>{text}</text>
+      const label = inlineText(node)
+      if (!onLinkClick) return <text style={{ ...MD_TEXT, color: C.accent }}>{label}</text>
       return (
-        <text
+        <div
           testId={`mdx-link-${key}`}
+          style={{ display: "flex", flexDirection: "row", cursor: "pointer" }}
           onClick={() => onLinkClick(node.url)}
-          style={{ ...MD_TEXT, color: C.accent, cursor: "pointer" }}
         >
-          {text}
-        </text>
+          <text style={{ ...MD_TEXT, color: C.accent }}>{label}</text>
+        </div>
       )
     }
     case "break":
@@ -298,6 +295,36 @@ function renderInline(
     case "mdxJsxTextElement":
       return <text style={MD_TEXT}>{inlineText(node)}</text>
   }
+}
+
+function renderParagraph(
+  node: MdxParagraph,
+  key: string,
+  onLinkClick?: LinkHandler,
+): SolidElement {
+  if (node.children.length === 1 && node.children[0]?.type === "text") {
+    return <text testId={`mdx-paragraph-${key}`} style={{ ...MD_TEXT, width: "100%" }}>{node.children[0].value}</text>
+  }
+  return (
+    <div
+      testId={`mdx-paragraph-${key}`}
+      style={{
+        display: "flex",
+        flexDirection: "row",
+        flexWrap: "wrap",
+        alignItems: "start",
+        width: "100%",
+        minWidth: 0,
+        fontSize: 15,
+        lineHeight: 26,
+        color: C.text,
+      }}
+    >
+      {node.children.map((child, index) =>
+        renderInline(child, `${key}-${index}`, onLinkClick),
+      )}
+    </div>
+  )
 }
 
 function renderTable(node: MdxTable, key: string): SolidElement {
@@ -317,11 +344,16 @@ function renderTable(node: MdxTable, key: string): SolidElement {
           style={{
             display: "flex",
             flexDirection: "row",
+            flexWrap: "nowrap",
             padding: 8,
             minWidth: 96,
             flexShrink: 0,
             whiteSpace: "nowrap",
             backgroundColor: C.canvas,
+            fontSize: 15,
+            lineHeight: 26,
+            fontWeight: rowIndex === 0 ? 700 : 400,
+            color: C.text,
           }}
         >
           <text style={{ ...MD_TEXT, fontWeight: rowIndex === 0 ? 700 : 400 }}>
@@ -361,6 +393,9 @@ function renderBlock(
 ): SolidElement {
   switch (node.type) {
     case "heading": {
+      if (node.depth >= 4) {
+        return <text testId={`mdx-heading-${key}`} style={MD_TEXT}>{blockText(node)}</text>
+      }
       const size = node.depth === 1 ? 22 : node.depth === 2 ? 18 : 16
       return (
         <text
@@ -379,28 +414,21 @@ function renderBlock(
       )
     }
     case "paragraph":
-      return (
-        <div
-          testId={`mdx-paragraph-${key}`}
-          style={{
-            display: "flex",
-            flexDirection: "row",
-            flexWrap: "wrap",
-            alignItems: "start",
-            width: "100%",
-            minWidth: 0,
-          }}
-        >
-          {node.children.map((child, index) =>
-            renderInline(child, `${key}-${index}`, onLinkClick),
-          )}
-        </div>
-      )
+      return renderParagraph(node, key, onLinkClick)
     case "blockquote":
       return (
         <div style={{ display: "flex", flexDirection: "row", gap: 12, width: "100%", minWidth: 0 }}>
           <div style={{ width: 3, flexShrink: 0, backgroundColor: C.accent }} />
-          <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0, gap: 6 }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              flexGrow: 1,
+              minWidth: 0,
+              gap: 6,
+              color: C.secondary,
+            }}
+          >
             {node.children.map((child, index) =>
               renderBlock(child, `${key}-${index}`, onLinkClick),
             )}
@@ -411,7 +439,7 @@ function renderBlock(
       return <div style={{ height: 1, width: "100%", backgroundColor: C.border }} />
     case "list":
       return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", minWidth: 0 }}>
           {node.children.map((child, index) =>
             renderListItem(child, `${key}-${index}`, onLinkClick),
           )}
@@ -420,7 +448,7 @@ function renderBlock(
     case "table":
       return renderTable(node, key)
     case "code":
-      return <CodeBlock code={node.value} language={node.lang ?? undefined} />
+      return <CodeBlock code={node.value} language={node.lang ?? undefined} showLineNumbers />
     case "mdxJsxFlowElement":
       if (node.name !== "Callout") {
         return <>{node.children.map((child, index) =>
@@ -461,12 +489,21 @@ function renderListItem(
   onLinkClick?: LinkHandler,
 ): SolidElement {
   const marker = node.checked == null ? "•" : node.checked ? "✓" : "○"
+  const onlyParagraph = node.children.length === 1 ? node.children[0] : undefined
+  const onlyText = onlyParagraph?.type === "paragraph" && onlyParagraph.children.length === 1 && onlyParagraph.children[0]?.type === "text"
+    ? onlyParagraph.children[0].value
+    : undefined
+
   return (
     <div style={{ display: "flex", flexDirection: "row", gap: 9, width: "100%", minWidth: 0 }}>
       <text style={{ fontSize: 15, lineHeight: 26, color: C.secondary, flexShrink: 0 }}>{marker}</text>
       <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0 }}>
-        {node.children.map((child, index) =>
-          renderBlock(child, `${key}-${index}`, onLinkClick),
+        {onlyText !== undefined ? (
+          <text style={{ ...MD_TEXT, width: "100%" }}>{onlyText}</text>
+        ) : (
+          node.children.map((child, index) =>
+            renderBlock(child, `${key}-${index}`, onLinkClick),
+          )
         )}
       </div>
     </div>
@@ -476,9 +513,18 @@ function renderListItem(
 interface CodeBlockProps {
   code: string
   language?: string | undefined
+  showLineNumbers?: boolean | undefined
 }
 
 function CodeBlock(props: CodeBlockProps): SolidElement {
+  const bodyStyle: StyleDesc = {
+    minWidth: 0,
+    paddingLeft: 12,
+    paddingRight: 12,
+    paddingTop: 10,
+    paddingBottom: 10,
+  }
+
   return (
     <div
       style={{
@@ -512,16 +558,16 @@ function CodeBlock(props: CodeBlockProps): SolidElement {
         <code
           code={props.code}
           language={props.language}
-          showLineNumbers
+          showLineNumbers={props.showLineNumbers}
           theme={CHAT_THEME}
-          style={CODE_BODY_STYLE}
+          style={bodyStyle}
         />
       ) : (
         <code
           code={props.code}
-          showLineNumbers
+          showLineNumbers={props.showLineNumbers}
           theme={CHAT_THEME}
-          style={CODE_BODY_STYLE}
+          style={bodyStyle}
         />
       )}
     </div>

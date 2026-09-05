@@ -28,7 +28,13 @@ export function startFrameLoop(
   const tick = (): void => {
     if (stopped) return
     const started = performance.now()
-    if (!renderer.tick()) {
+    let running = true
+    try {
+      running = renderer.tick()
+    } catch (error) {
+      console.error("[gpuix-solid] tick error", error)
+    }
+    if (!running) {
       stop()
       options.onTerminated?.()
       return

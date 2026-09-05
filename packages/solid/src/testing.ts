@@ -8,6 +8,7 @@ import type {
   HighlightMatch,
   NativeRenderer,
   StyleDesc,
+  WindowKeyEventHandlers,
 } from "./host/types.js"
 import { createRoot, type Root } from "./root.js"
 
@@ -15,7 +16,10 @@ type NativeTestRendererConstructor = new (
   width?: number | null,
   height?: number | null,
 ) => NativeTestRendererApi
-type NativeModule = { TestGpuixRenderer?: NativeTestRendererConstructor }
+type NativeModule = {
+  TestGpuixRenderer?: NativeTestRendererConstructor
+  hasTestGpuixRenderer?: () => boolean
+}
 
 function loadNativeTestRenderer(): NativeTestRendererConstructor | undefined {
   try {
@@ -23,6 +27,7 @@ function loadNativeTestRenderer(): NativeTestRendererConstructor | undefined {
     // SAFETY: @gpuix/native's generated entrypoint exports this constructor
     // when the installed platform binding was built with native test support.
     const nativeModule = require("@gpuix/native") as NativeModule
+    if (nativeModule.hasTestGpuixRenderer?.() !== true) return undefined
     return nativeModule.TestGpuixRenderer
   } catch {
     return undefined
@@ -31,7 +36,7 @@ function loadNativeTestRenderer(): NativeTestRendererConstructor | undefined {
 
 const NativeTestRenderer = loadNativeTestRenderer()
 
-/** Whether this installed native build exports the GPU-backed test renderer. */
+/** Whether this installed native build provides the real GPU-backed test renderer. */
 export const hasNativeTestRenderer = NativeTestRenderer !== undefined
 
 type TestCustomProps = Record<string, MutationValue>
@@ -124,7 +129,7 @@ export class TestRenderer implements NativeRenderer {
   }
 
   commitMutations(): void {
-    // GPUIX 0.6 applyBatch commits immediately; compatibility calls above are already visible.
+    // GPUIX applyBatch commits immediately; compatibility calls above are already visible.
   }
 
   applyBatch(json: string): number[] {
@@ -253,6 +258,12 @@ export class TestRenderer implements NativeRenderer {
     this.#native.focusElement(elementId)
     this.dispatchNativeEvents()
     this.#native.flush()
+  }
+
+  focusNext(): void { this.#native.focusNext() }
+  focusPrevious(): void { this.#native.focusPrevious() }
+  setWindowKeyEvents(keyDown: boolean, keyUp: boolean, eventId: number): void {
+    this.#native.setWindowKeyEvents(keyDown, keyUp, eventId)
   }
 
   scrollTo(elementId: number, x: number, y: number): void {
@@ -463,10 +474,10 @@ export interface TestRoot {
 }
 
 /** Create a Solid root backed by the real GPUI native test renderer. */
-export function createTestRoot(width?: number, height?: number): TestRoot {
+export function createTestRoot(width?: number, height?: number, windowKeyEventHandlers: WindowKeyEventHandlers = {}): TestRoot {
   const renderer = new TestRenderer(width, height)
   useDestroyUnlinksParentBatch(renderer)
-  const root = createRoot(renderer)
+  const root = createRoot(renderer, windowKeyEventHandlers)
   renderer.bindRoot(root)
 
   const render = (code: () => SolidElement): void => {

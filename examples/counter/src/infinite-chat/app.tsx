@@ -146,7 +146,7 @@ function paragraph(random: () => number): string {
 function messageSource(index: number, count: number): string {
   const random = seededRandom(index + 1)
   const target = (index * 7 + 13) % count
-  const link = `[Open message ${String(target).padStart(3, "0")} ](/messages/${messageId(target)})`
+  const link = `[Open message ${String(target).padStart(3, "0")}](/messages/${messageId(target)})`
   const kind = Math.floor(random() * 6)
 
   if (kind === 0) {

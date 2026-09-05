@@ -1,3 +1,9 @@
+declare global {
+  interface PointerEvent {
+    readonly persistentDeviceId: number
+  }
+}
+
 import type { JSX as SolidJSX } from "solid-js"
 import type {
   AnchoredProps,
@@ -36,7 +42,7 @@ type SemanticDomProps = DomCompatibleProps<HostProps, SolidJSX.HTMLAttributes<HT
 
 type InlineSvgProps = JSXProps<SvgProps> | SolidJSX.SvgSVGAttributes<SVGSVGElement>
 
-type InlineSvgChildProps = NativeClassProps & {
+type InlineSvgChildProps = NativeClassProps & SolidJSX.DOMAttributes<SVGElement> & {
   children?: SolidJSX.Element | SolidJSX.Element[] | undefined
   id?: string | undefined
   d?: string | undefined
@@ -61,6 +67,8 @@ type InlineSvgChildProps = NativeClassProps & {
   transform?: string | undefined
   viewBox?: string | undefined
   preserveAspectRatio?: string | undefined
+  patternUnits?: string | undefined
+  pathLength?: string | number | undefined
   href?: string | undefined
   "stroke-width"?: string | number | undefined
   "stroke-linecap"?: string | undefined
@@ -71,6 +79,10 @@ type InlineSvgChildProps = NativeClassProps & {
   "fill-rule"?: string | undefined
   "clip-rule"?: string | undefined
   "clip-path"?: string | undefined
+  "vector-effect"?: string | undefined
+  "data-fade-hover-side"?: string | undefined
+  "on:pointerenter"?: ((event: PointerEvent) => void) | undefined
+  "on:pointerleave"?: ((event: PointerEvent) => void) | undefined
   "stop-color"?: string | undefined
   "stop-opacity"?: string | number | undefined
 }
@@ -100,6 +112,9 @@ export namespace JSX {
     kbd: SemanticDomProps
     samp: SemanticDomProps
     button: SemanticDomProps
+    output: DomCompatibleProps<HostProps, SolidJSX.HTMLAttributes<HTMLOutputElement>>
+    select: DomCompatibleProps<HostProps, SolidJSX.SelectHTMLAttributes<HTMLSelectElement>>
+    option: DomCompatibleProps<HostProps, SolidJSX.OptionHTMLAttributes<HTMLOptionElement>>
     section: SemanticDomProps
     main: SemanticDomProps
     header: SemanticDomProps
@@ -122,6 +137,7 @@ export namespace JSX {
     path: InlineSvgChildProps
     g: InlineSvgChildProps
     defs: InlineSvgChildProps
+    pattern: InlineSvgChildProps
     linearGradient: InlineSvgChildProps
     radialGradient: InlineSvgChildProps
     stop: InlineSvgChildProps
@@ -136,7 +152,7 @@ export namespace JSX {
     title: InlineSvgChildProps
     desc: InlineSvgChildProps
     use: InlineSvgChildProps
-    canvas: JSXProps<HostProps>
+    canvas: DomCompatibleProps<HostProps, SolidJSX.CanvasHTMLAttributes<HTMLCanvasElement>>
     input: DomCompatibleProps<InputProps, SolidJSX.InputHTMLAttributes<HTMLInputElement>>
     textarea: DomCompatibleProps<TextareaProps, SolidJSX.TextareaHTMLAttributes<HTMLTextAreaElement>>
     anchored: JSXProps<AnchoredProps>

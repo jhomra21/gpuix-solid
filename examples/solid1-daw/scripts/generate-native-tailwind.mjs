@@ -17,12 +17,95 @@ const nativeTextTransforms = new Map([
   ["normal-case", "none"],
 ])
 
-// GPUIX 0.4.0 supports equal-count CSS grid tracks, but not arbitrary CSS
+// GPUIX 0.7 supports equal-count CSS grid tracks, but not arbitrary CSS
 // templates or justify-self. Preserve the copied transport's 1fr/auto/1fr
 // semantics with the equivalent flex layout: equal flexible side zones around
 // one intrinsic center zone. Other entries below translate source geometry
 // into native fields without editing the copied DAW components.
 const nativeCompatEntries = new Map([
+  ["shadow-[0_0_6px_rgba(239,68,68,0.75)]", {
+    base: {
+      boxShadow: {
+        offsetX: 0,
+        offsetY: 0,
+        blurRadius: 6,
+        spreadRadius: 0,
+        color: "rgba(239, 68, 68, 0.75)",
+      },
+    },
+  }],
+  ["effect-shell", {
+    base: {},
+    attributeVariants: {
+      "data-device-collapsed": {
+        "true": { base: { width: 26, minWidth: 26, maxWidth: 26, flexGrow: 0, flexShrink: 0, flexBasis: 26 } },
+      },
+    },
+  }],
+  // Custom classes below are owned by the pinned DAW src/index.css. Keep the
+  // source class names intact and translate only the native representation.
+  ["mixer-volume-slider", {
+    base: { height: 20, borderWidth: 0.5 },
+    light: { borderColor: "oklch(0.92 0.004 286.32)", backgroundColor: "oklch(0.552 0.016 285.938)" },
+    dark: { borderColor: "oklch(0.274 0.006 286.033)", backgroundColor: "oklch(0.705 0.015 286.067)" },
+  }],
+  // The browser source layers an automation-range gradient over the volume
+  // meter. GPUIX 0.7 publishes one background and cannot represent both
+  // CSS-variable-driven layers; the exact source class remains registered.
+  ["mixer-volume-slider-automated", { base: {} }],
+  // The browser rules use inset/layered shadows. A one-pixel bottom border is
+  // the native divider fallback; selected state still comes from the source
+  // row background/color classes.
+  ["track-row-divider", { base: { borderBottomWidth: 1, borderColor: "rgb(38 38 38)" } }],
+  ["track-row-selected-wash", { base: { borderBottomWidth: 1, borderColor: "rgb(38 38 38)" } }],
+  ["track-row-control-panel", { base: { width: 101 } }],
+  ["track-row-control-stack", { base: { width: 81 } }],
+  ["track-meter-strip", { base: { width: 12 } }],
+  ["track-automation-indicator", { base: { boxShadow: { offsetX: 0, offsetY: 0, blurRadius: 6, spreadRadius: 0, color: "rgba(239, 68, 68, 0.75)" } } }],
+  // GPUIX 0.7 only publishes equal-count grid tracks. Preserve the source
+  // column count for the two three-column layouts; fixed control widths remain
+  // source-owned by track-row-control-panel/stack/meter-strip above.
+  ["track-expanded-row-grid", { base: { gridTemplateColumns: 3 } }],
+  ["grid-cols-[minmax(72px,96px)_minmax(96px,1fr)_101px]", { base: { gridTemplateColumns: 3 } }],
+  // This two-column source layout can be represented exactly as flex because
+  // its children are one flexible div followed by one fixed 20px button.
+  ["grid-cols-[minmax(0,1fr)_20px]", {
+    base: { display: "flex", flexDirection: "row" },
+    descendants: {
+      ">div": { base: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0 } },
+      ">button": { base: { width: 20, flexShrink: 0 } },
+    },
+  }],
+  ["grid-cols-2", { base: { gridTemplateColumns: 2 } }],
+  ["grid-cols-3", { base: { gridTemplateColumns: 3 } }],
+  ["grid-cols-4", { base: { gridTemplateColumns: 4 } }],
+  ["grid-cols-[84px_1fr_96px]", {
+    base: { display: "flex", flexDirection: "row" },
+    descendants: {
+      ">:nth-child(1)": { base: { width: 84, minWidth: 84, flexGrow: 0, flexShrink: 0 } },
+      ">:nth-child(2)": { base: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: 0 } },
+      ">:nth-child(3)": { base: { width: 96, minWidth: 96, flexGrow: 0, flexShrink: 0 } },
+    },
+  }],
+  ["grid-cols-[auto_1fr]", {
+    base: { display: "flex", flexDirection: "row" },
+    descendants: {
+      ">:nth-child(1)": { base: { flexGrow: 0, flexShrink: 0 } },
+      ">:nth-child(2)": { base: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: 0 } },
+    },
+  }],
+  ["max-h-screen", { base: { maxHeight: "100%" } }],
+  ["top-full", { base: {}, parentPosition: { topFraction: 1 } }],
+  ["ring-1", { base: { boxShadow: { offsetX: 0, offsetY: 0, blurRadius: 0, spreadRadius: 1, color: "rgba(0, 0, 0, 0)" } } }],
+  ["ring-blue-400/80", { base: { boxShadow: { offsetX: 0, offsetY: 0, blurRadius: 0, spreadRadius: 1, color: "rgba(81, 162, 255, 0.8)" } } }],
+  ["space-y-1.5", { base: { gap: 6 } }],
+  ["sr-only", { base: { position: "absolute", width: 1, height: 1, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, marginTop: -1, marginRight: -1, marginBottom: -1, marginLeft: -1, overflow: "hidden", whiteSpace: "nowrap", borderWidth: 0 } }],
+  ["sm:items-center", { base: { alignItems: "center" } }],
+  ["sm:text-left", { base: { textAlign: "left" } }],
+  ["sm:flex-row", { base: { flexDirection: "row" } }],
+  ["sm:justify-end", { base: { justifyContent: "flex-end" } }],
+  ["sm:space-x-2", { base: { gap: 8 } }],
+  ["left-1/2", { base: {}, parentPosition: { leftFraction: 0.5 } }],
   ["grid-cols-[1fr_auto_1fr]", { base: { display: "flex", flexDirection: "row" } }],
   ["justify-self-start", { base: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, justifyContent: "flex-start" } }],
   ["justify-self-center", { base: { flexGrow: 0, flexShrink: 0 } }],
@@ -32,44 +115,79 @@ const nativeCompatEntries = new Map([
   ["rounded-full", { base: { borderRadius: 9999 } }],
   // Browser resize handle: parent is 8px wide and the rail is 4px wide, so
   // CSS right:50% + translateX(50%) is exactly a 2px right inset natively.
-  ["right-1/2", { base: { right: 2 } }],
-  ["translate-x-1/2", { base: {} }],
+  ["right-1/2", { base: {}, parentPosition: { rightFraction: 0.5 } }],
+  ["translate-x-1/2", { base: {}, translation: { xFraction: 0.5 } }],
+  ["-translate-x-1/2", { base: {}, translation: { xFraction: -0.5 } }],
   // Bottom-panel resize handle is 16px tall and its center rail is 4px tall.
   // CSS top:50% + translateY(-50%) therefore lands at top:6px exactly.
-  ["top-1/2", { base: { top: 6 } }],
-  ["-translate-y-1/2", { base: {} }],
+  ["top-1/2", { base: {}, parentPosition: { topFraction: 0.5 } }],
+  ["translate-y-1/2", { base: {}, translation: { yFraction: 0.5 } }],
+  ["-translate-y-1/2", { base: {}, translation: { yFraction: -0.5 } }],
 ])
 
 const explicitlyIgnored = new Map([
-  ["active:scale-97", "@gpuix/native@0.4.0 has no transform/scale StyleDesc field"],
+  ["effect-shell-chevron", "the source class is only a selector anchor for chevron transform state; GPUIX 0.7 has no general CSS transform field"],
+  ["effect-shell-chevron-icon", "the source rotates this icon with CSS transform; GPUIX 0.7 has no general CSS transform field"],
+  ["duration-100", "GPUIX 0.7 does not publish CSS transition timing; native state changes remain immediate"],
+  ["duration-150", "GPUIX 0.7 does not publish CSS transition timing; native state changes remain immediate"],
+  ["transition-transform", "GPUIX 0.7 does not publish CSS transitions; source transform transitions remain immediate"],
+  ["rotate-180", "GPUIX 0.7 StyleDesc has no general CSS transform; exact collapsed-device rotation remains source-locked but cannot be reproduced natively"],
+  ["focus-visible:ring-1", "GPUIX 0.7 does not publish browser focus-visible ring painting through StyleDesc; keyboard focus semantics remain native"],
+  ["focus-visible:ring-inset", "GPUIX 0.7 BoxShadow has no inset focus-ring mode; the exact source utility remains source-locked"],
+  ["focus-visible:ring-cyan-300/70", "GPUIX 0.7 does not publish browser focus-visible ring color through StyleDesc; keyboard focus semantics remain native"],
+  ["[writing-mode:vertical-rl]", "GPUIX 0.7 does not publish CSS writing-mode; the exact collapsed device label remains source-locked while native cannot reproduce vertical text orientation"],
+  ["mt-auto", "GPUIX 0.7 publishes numeric margins only; the exact Compressor Auto toggle keeps its source utility while native cannot reproduce CSS auto-margin free-space absorption without changing sibling geometry"],
+  ["duration-75", "native StyleDesc transitions are not published in GPUIX 0.7"],
+  ["transition-all", "native StyleDesc transitions are not published in GPUIX 0.7"],
+  ["transition-opacity", "native StyleDesc transitions are not published in GPUIX 0.7"],
+  ["focus-visible:outline", "GPUIX 0.7 does not publish browser focus-outline painting through StyleDesc"],
+  ["focus-visible:outline-2", "GPUIX 0.7 does not publish browser focus-outline width through StyleDesc"],
+  ["focus-visible:outline-offset-[-2px]", "GPUIX 0.7 does not publish browser focus-outline offset through StyleDesc"],
+  ["focus-visible:outline-primary", "GPUIX 0.7 does not publish browser focus-outline color through StyleDesc"],
+  ["focus:ring-2", "GPUIX 0.7 does not publish browser focus-ring painting through StyleDesc"],
+  ["focus:ring-ring", "GPUIX 0.7 does not publish browser focus-ring color through StyleDesc"],
+  ["focus:ring-offset-2", "GPUIX 0.7 does not publish browser focus-ring offset through StyleDesc"],
+  ["hover:brightness-110", "GPUIX 0.7 does not publish CSS filter effects; this is only hover feedback on unselected clips and does not alter clip geometry or state"],
+  ["shadow-background/40", "this only recolors the copied context menu's layered shadow-md; GPUIX 0.7 exposes one BoxShadow and cannot represent Tailwind's layered shadow-md geometry"],
+  ["shadow-xl", "Tailwind shadow-xl is layered; GPUIX 0.7 exposes one native BoxShadow and cannot represent both source shadow layers faithfully"],
+  ["shadow-black/50", "this only recolors the copied automation picker shadow-xl; GPUIX 0.7 cannot represent that layered source shadow exactly"],
+  ["shadow-black/30", "this only recolors the copied automation lane readout shadow-lg; GPUIX 0.7 cannot represent that layered source shadow exactly"],
+  ["shadow-inner", "GPUIX 0.7 BoxShadow has no inset mode; the exact armed-record state remains preserved by its red border, background, and foreground styles"],
+  ["touch-none", "touch-action is a browser gesture policy; the exact fade interaction owns native gesture continuity with pointer capture and window pointer listeners"],
+  ["tracking-tight", "letter-spacing is not exposed by GPUIX 0.7; keep the exact copied title utility registered without silently broadening unsupported typography"],
+  ["z-0", "published native StyleDesc has no z-index; retained-tree order owns this source baseline stacking level"],
+  ["z-20", "published native StyleDesc has no z-index; retained-tree order owns this source intermediate stacking level"],
+  ["box-border", "GPUIX 0.7 has no box-sizing StyleDesc field; native DAW footer bounds tests already verify the intended total border-box geometry"],
+  ["col-start-3", "GPUIX 0.7 does not publish grid-item column placement; the native DAW verifier asserts the collapsed source control group remains right-aligned before this omission is accepted"],
+  ["col-start-4", "GPUIX 0.7 does not publish grid-item column placement; the native DAW verifier asserts collapsed mute/solo/arm/volume order and right alignment"],
+  ["row-start-1", "GPUIX 0.7 does not publish grid-item row placement; the native DAW verifier asserts the collapsed controls preserve the source one-row ordering"],
+  ["active:scale-97", "GPUIX 0.7 has no transform/scale StyleDesc field"],
   ["group", "Tailwind group is a relationship-state marker and has no direct painted native style"],
-  ["group-hover:bg-sky-500/20", "group relationship hover styling is not exposed by @gpuix/native@0.4.0"],
-  ["group-active:bg-sky-500/20", "group relationship active styling is not exposed by @gpuix/native@0.4.0"],
+  ["group-hover:bg-sky-500/20", "group relationship hover styling is not exposed by GPUIX 0.7"],
+  ["group-active:bg-sky-500/20", "group relationship active styling is not exposed by GPUIX 0.7"],
   ["group-hover:text-foreground", "the copied browser item already has text-foreground as its base color; native group relationship hover styling is not exposed"],
-  ["!transition-transform", "native StyleDesc transitions are not published in @gpuix/native@0.4.0"],
-  ["!duration-150", "native StyleDesc transitions are not published in @gpuix/native@0.4.0"],
-  ["transition-colors", "native StyleDesc transitions are not published in @gpuix/native@0.4.0"],
-  ["ring-offset-background", "native focus ring offset styling is not exposed by @gpuix/native@0.4.0"],
-  ["focus-visible:outline-none", "native focus-visible styling is not exposed by @gpuix/native@0.4.0"],
-  ["focus-visible:ring-2", "native focus-visible styling is not exposed by @gpuix/native@0.4.0"],
-  ["focus-visible:ring-ring", "native focus-visible styling is not exposed by @gpuix/native@0.4.0"],
-  ["focus-visible:ring-offset-2", "native focus-visible styling is not exposed by @gpuix/native@0.4.0"],
+  ["!transition-transform", "native StyleDesc transitions are not published in GPUIX 0.7"],
+  ["!duration-150", "native StyleDesc transitions are not published in GPUIX 0.7"],
+  ["transition-colors", "native StyleDesc transitions are not published in GPUIX 0.7"],
+  ["ring-offset-background", "native focus ring offset styling is not exposed by GPUIX 0.7"],
+  ["focus-visible:outline-none", "native focus-visible styling is not exposed by GPUIX 0.7"],
+  ["focus-visible:ring-2", "native focus-visible styling is not exposed by GPUIX 0.7"],
+  ["focus-visible:ring-ring", "native focus-visible styling is not exposed by GPUIX 0.7"],
+  ["focus-visible:ring-offset-2", "native focus-visible styling is not exposed by GPUIX 0.7"],
   ["focus:border-border", "native focus pseudo styling is not published; this input already has the same border-border base color"],
   ["focus:outline-none", "native inputs do not paint a browser focus outline"],
-  ["focus:bg-app-surface/60", "native input focus background pseudo styling is not published by @gpuix/native@0.4.0"],
-  ["focus:bg-accent", "native Kobalte menu adapters own item hover/focus highlighting"],
-  ["focus:text-accent-foreground", "native Kobalte menu adapters own item hover/focus foreground state"],
+  ["focus:bg-app-surface/60", "native input focus background pseudo styling is not published by GPUIX 0.7"],
   ["outline-none", "GPUIX native inputs and menu primitives do not paint the browser outline suppressed by this utility"],
   ["disabled:pointer-events-none", "the native Kobalte adapter owns disabled pointer behavior"],
   ["disabled:opacity-50", "the native Kobalte adapter owns disabled opacity"],
   ["disabled:opacity-60", "the native input/browser adapter owns disabled opacity"],
-  ["underline-offset-4", "native text decoration offset is not exposed by @gpuix/native@0.4.0"],
-  ["hover:underline", "native text decoration is not exposed by @gpuix/native@0.4.0"],
+  ["underline-offset-4", "native text decoration offset is not exposed by GPUIX 0.7"],
+  ["hover:underline", "native text decoration is not exposed by GPUIX 0.7"],
   ["file:border-0", "native input has no browser file-selector pseudo-element"],
   ["file:bg-transparent", "native input has no browser file-selector pseudo-element"],
   ["file:text-sm", "native input has no browser file-selector pseudo-element"],
   ["file:font-medium", "native input has no browser file-selector pseudo-element"],
-  ["placeholder:text-muted-foreground", "native input placeholder styling is not separately exposed by @gpuix/native@0.4.0"],
+  ["placeholder:text-muted-foreground", "native input placeholder styling is not separately exposed by GPUIX 0.7"],
   ["selection:bg-primary/40", "native text selection has its own selectionColor contract rather than CSS ::selection variants"],
   ["disabled:cursor-not-allowed", "the native Kobalte adapter owns disabled interaction"],
   ["data-[disabled]:pointer-events-none", "native Kobalte menu adapters own disabled item hit testing"],
@@ -84,16 +202,15 @@ const explicitlyIgnored = new Map([
   ["data-[state=open]:bg-accent", "the native DropdownMenu sub adapter owns open-state highlighting"],
   ["peer-disabled:cursor-not-allowed", "peer variants require native relationship-state styling"],
   ["peer-disabled:opacity-70", "peer variants require native relationship-state styling"],
-  ["leading-none", "relative line-height needs merged font-size context before it can be represented exactly"],
   ["appearance-none", "GPUIX native inputs do not have browser user-agent appearance chrome to suppress"],
   ["fill-current", "inline GPUIX SVG styling does not expose CSS fill through StyleDesc; source currentColor stroke still inherits normally"],
-  ["tabular-nums", "font-variant-numeric is not exposed by @gpuix/native@0.4.0"],
-  ["tracking-normal", "letter-spacing is not exposed by @gpuix/native@0.4.0"],
-  ["tracking-wide", "letter-spacing is not exposed by @gpuix/native@0.4.0; keep the copied source unchanged until the native text contract supports it"],
-  ["tracking-widest", "letter-spacing is not exposed by @gpuix/native@0.4.0"],
-  ["border-dashed", "@gpuix/native@0.4.0 exposes border width/color but not border style; native fallback remains solid"],
+  ["tabular-nums", "font-variant-numeric is not exposed by GPUIX 0.7"],
+  ["tracking-normal", "letter-spacing is not exposed by GPUIX 0.7"],
+  ["tracking-wide", "letter-spacing is not exposed by GPUIX 0.7; keep the copied source unchanged until the native text contract supports it"],
+  ["tracking-widest", "letter-spacing is not exposed by GPUIX 0.7"],
+  ["border-dashed", "GPUIX 0.7 exposes border width/color but not border style; native fallback remains solid"],
   ["max-h-(--kb-menu-content-available-height)", "native Kobalte FloatingLayer owns available-space popup placement/sizing; the browser CSS custom property does not exist natively"],
-  ["origin-[var(--kb-menu-content-transform-origin)]", "native Kobalte FloatingLayer owns popup placement; CSS transform-origin is not exposed by @gpuix/native@0.4.0"],
+  ["origin-[var(--kb-menu-content-transform-origin)]", "native Kobalte FloatingLayer owns popup placement; CSS transform-origin is not exposed by GPUIX 0.7"],
   ["data-[expanded]:animate-in", "native Kobalte menus mount directly without browser CSS enter animations"],
   ["data-[closed]:animate-out", "native Kobalte menus unmount directly without browser CSS exit animations"],
   ["data-[closed]:fade-out-0", "native Kobalte menus unmount directly without browser CSS opacity animation"],
@@ -111,10 +228,10 @@ const explicitlyIgnored = new Map([
   ["z-40", "published native StyleDesc has no z-index; retained-tree/layer order owns stacking"],
   ["z-50", "native anchored-layer priority owns popup stacking"],
   ["w-fit", "native floating content uses intrinsic sizing instead of CSS fit-content"],
-  ["w-max", "native floating content uses intrinsic sizing; @gpuix/native@0.4.0 dimensions do not accept CSS max-content"],
-  ["shadow-md", "boxShadow exists upstream but is not published in @gpuix/native@0.4.0"],
-  ["shadow-lg", "boxShadow exists upstream but is not published in @gpuix/native@0.4.0"],
-  ["ml-auto", "@gpuix/native@0.4.0 exposes numeric margins only; CSS auto main-axis margins are unavailable"],
+  ["w-max", "native floating content uses intrinsic sizing; GPUIX 0.7 dimensions do not accept CSS max-content"],
+  ["shadow-md", "Tailwind shadow-md is layered; GPUIX 0.7 exposes one native BoxShadow"],
+  ["shadow-lg", "Tailwind shadow-lg is layered; GPUIX 0.7 exposes one native BoxShadow"],
+  ["ml-auto", "GPUIX 0.7 exposes numeric margins only; CSS auto main-axis margins are unavailable"],
 ])
 
 const themeCss = await readFile(themePath, "utf8")
@@ -137,6 +254,7 @@ const root = postcss.parse(compiledCss, { from: themePath })
 const variables = collectThemeVariables(root)
 const classes = {}
 const omissions = []
+const unknownCandidates = []
 
 for (const candidate of rawCandidates) {
   const compatEntry = nativeCompatEntries.get(candidate)
@@ -159,18 +277,51 @@ for (const candidate of rawCandidates) {
   }
 
   const rule = findCandidateRule(root, candidate)
-  if (!rule) continue
+  if (!rule) {
+    unknownCandidates.push(candidate)
+    continue
+  }
 
   const descendant = descendantTarget(candidate)
-  const light = compileRule(rule, candidate, variables.light)
-  const dark = compileRule(rule, candidate, variables.dark)
-  const variant = JSON.stringify(light) === JSON.stringify(dark)
-    ? { base: light }
-    : { light, dark }
+  const lightCompiled = compileRule(rule, candidate, variables.light)
+  const darkCompiled = compileRule(rule, candidate, variables.dark)
+  const variant = JSON.stringify(lightCompiled.style) === JSON.stringify(darkCompiled.style)
+    ? { base: lightCompiled.style }
+    : { light: lightCompiled.style, dark: darkCompiled.style }
+  const hasFocus = Object.keys(lightCompiled.focus).length > 0 || Object.keys(darkCompiled.focus).length > 0
+  const focus = hasFocus
+    ? JSON.stringify(lightCompiled.focus) === JSON.stringify(darkCompiled.focus)
+      ? { base: lightCompiled.focus }
+      : { light: lightCompiled.focus, dark: darkCompiled.focus }
+    : undefined
+  if (lightCompiled.lineHeightMultiplier !== darkCompiled.lineHeightMultiplier) {
+    throw new Error(`Theme-dependent relative line-height is unsupported for ${JSON.stringify(candidate)}`)
+  }
+  const lineHeightMetadata = lightCompiled.lineHeightMultiplier === undefined
+    ? {}
+    : { lineHeightMultiplier: lightCompiled.lineHeightMultiplier }
+  const hasSvgPaint = Object.keys(lightCompiled.svgPaint).length > 0 || Object.keys(darkCompiled.svgPaint).length > 0
+  const svg = hasSvgPaint
+    ? JSON.stringify(lightCompiled.svgPaint) === JSON.stringify(darkCompiled.svgPaint)
+      ? { base: lightCompiled.svgPaint }
+      : { light: lightCompiled.svgPaint, dark: darkCompiled.svgPaint }
+    : undefined
 
-  classes[candidate] = descendant
-    ? { descendants: { [descendant]: variant } }
-    : variant
+  if (descendant && focus) throw new Error(`Unsupported focused descendant native Tailwind candidate ${JSON.stringify(candidate)}`)
+  if (descendant && lightCompiled.lineHeightMultiplier !== undefined) throw new Error(`Unsupported relative line-height descendant native Tailwind candidate ${JSON.stringify(candidate)}`)
+  if (descendant && svg) throw new Error(`Unsupported SVG paint descendant native Tailwind candidate ${JSON.stringify(candidate)}`)
+  if (descendant) {
+    classes[candidate] = { descendants: { [descendant]: variant } }
+  } else {
+    const entry = { ...variant, ...lineHeightMetadata }
+    if (focus) entry.focus = focus
+    if (svg) entry.svg = svg
+    classes[candidate] = entry
+  }
+}
+
+if (unknownCandidates.length > 0) {
+  throw new Error(`Source class candidates have no Tailwind rule or explicit native compatibility entry: ${unknownCandidates.map((candidate) => JSON.stringify(candidate)).join(", ")}`)
 }
 
 const omissionsComment = omissions.length === 0
@@ -198,13 +349,25 @@ function collectCandidates(sources) {
     const sourceFile = ts.createSourceFile(sourcePath, text, ts.ScriptTarget.Latest, true, scriptKind)
 
     const visit = (node) => {
-      if (ts.isJsxAttribute(node) && (node.name.text === "class" || node.name.text === "className")) {
-        collectClassExpression(node.initializer, candidates)
+      if (ts.isJsxAttribute(node)) {
+        const attributeName = node.name.text
+        if (attributeName === "class" || attributeName === "className") {
+          collectClassExpression(node.initializer, candidates)
+          return
+        }
+        if (attributeName === "classList") {
+          collectClassListExpression(node.initializer, candidates)
+          return
+        }
+      }
+
+      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && (node.expression.text === "cn" || node.expression.text === "clsx")) {
+        for (const argument of node.arguments) collectClassExpression(argument, candidates)
         return
       }
 
       if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "cva") {
-        for (const argument of node.arguments) collectClassExpression(argument, candidates)
+        collectCvaCall(node, candidates)
         return
       }
 
@@ -220,6 +383,11 @@ function collectCandidates(sources) {
 function collectClassExpression(node, candidates) {
   if (!node) return
 
+  if (ts.isJsxExpression(node) || ts.isParenthesizedExpression(node)) {
+    collectClassExpression(node.expression, candidates)
+    return
+  }
+
   if (ts.isStringLiteralLike(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
     addClassString(node.text, candidates)
     return
@@ -234,7 +402,115 @@ function collectClassExpression(node, candidates) {
     return
   }
 
-  ts.forEachChild(node, (child) => collectClassExpression(child, candidates))
+  if (ts.isConditionalExpression(node)) {
+    collectClassExpression(node.whenTrue, candidates)
+    collectClassExpression(node.whenFalse, candidates)
+    return
+  }
+
+  if (ts.isBinaryExpression(node)) {
+    if (node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
+      collectClassExpression(node.right, candidates)
+      return
+    }
+    if (
+      node.operatorToken.kind === ts.SyntaxKind.BarBarToken ||
+      node.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken ||
+      node.operatorToken.kind === ts.SyntaxKind.PlusToken
+    ) {
+      collectClassExpression(node.left, candidates)
+      collectClassExpression(node.right, candidates)
+    }
+    return
+  }
+
+  if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && (node.expression.text === "cn" || node.expression.text === "clsx")) {
+    for (const argument of node.arguments) collectClassExpression(argument, candidates)
+    return
+  }
+
+  if (ts.isArrayLiteralExpression(node)) {
+    for (const element of node.elements) collectClassExpression(element, candidates)
+    return
+  }
+
+  if (ts.isObjectLiteralExpression(node)) {
+    for (const property of node.properties) {
+      if (ts.isPropertyAssignment(property) || ts.isShorthandPropertyAssignment(property)) {
+        collectClassListKey(property.name, candidates)
+      }
+    }
+  }
+}
+
+function propertyNameText(name) {
+  if (ts.isIdentifier(name) || ts.isStringLiteralLike(name) || ts.isNoSubstitutionTemplateLiteral(name)) return name.text
+  return undefined
+}
+
+function collectCvaCall(node, candidates) {
+  collectClassExpression(node.arguments[0], candidates)
+  const config = node.arguments[1]
+  if (!config || !ts.isObjectLiteralExpression(config)) return
+
+  for (const property of config.properties) {
+    if (!ts.isPropertyAssignment(property)) continue
+    const name = propertyNameText(property.name)
+    if (name === "variants" && ts.isObjectLiteralExpression(property.initializer)) {
+      for (const variant of property.initializer.properties) {
+        if (!ts.isPropertyAssignment(variant) || !ts.isObjectLiteralExpression(variant.initializer)) continue
+        for (const option of variant.initializer.properties) {
+          if (ts.isPropertyAssignment(option)) collectClassExpression(option.initializer, candidates)
+        }
+      }
+      continue
+    }
+    if (name === "compoundVariants" && ts.isArrayLiteralExpression(property.initializer)) {
+      for (const compound of property.initializer.elements) {
+        if (!ts.isObjectLiteralExpression(compound)) continue
+        for (const entry of compound.properties) {
+          if (!ts.isPropertyAssignment(entry)) continue
+          const entryName = propertyNameText(entry.name)
+          if (entryName === "class" || entryName === "className") collectClassExpression(entry.initializer, candidates)
+        }
+      }
+    }
+  }
+}
+
+function collectClassListExpression(node, candidates) {
+  if (!node) return
+
+  if (ts.isJsxExpression(node)) {
+    collectClassListExpression(node.expression, candidates)
+    return
+  }
+
+  if (!ts.isObjectLiteralExpression(node)) return
+
+  for (const property of node.properties) {
+    if (ts.isPropertyAssignment(property)) {
+      collectClassListKey(property.name, candidates)
+      continue
+    }
+    if (ts.isSpreadAssignment(property)) {
+      collectClassListExpression(property.expression, candidates)
+    }
+  }
+}
+
+function collectClassListKey(name, candidates) {
+  if (ts.isStringLiteralLike(name) || ts.isNoSubstitutionTemplateLiteral(name)) {
+    addClassString(name.text, candidates)
+    return
+  }
+  if (ts.isIdentifier(name)) {
+    addClassString(name.text, candidates)
+    return
+  }
+  if (ts.isComputedPropertyName(name)) {
+    collectClassExpression(name.expression, candidates)
+  }
 }
 
 function addClassString(value, candidates) {
@@ -298,20 +574,36 @@ function compileRule(rule, candidate, themeVariables) {
   const base = {}
   const hover = {}
   const active = {}
+  const focus = {}
+  const svgPaint = {}
+  let lineHeightMultiplier
 
   rule.walkDecls((declaration) => {
     if (declaration.prop.startsWith("--")) return
     const state = declarationState(declaration, rule, candidate)
-    const target = state === "hover" ? hover : state === "active" ? active : base
+    const target = state === "hover" ? hover : state === "active" ? active : state === "focus" ? focus : base
     const value = resolveCssValue(declaration.value, { ...themeVariables, ...localVariables })
+    if (declaration.prop === "stroke" || declaration.prop === "fill") {
+      if (state !== "base") throw new Error(`Stateful SVG paint is not supported for ${JSON.stringify(candidate)}`)
+      svgPaint[declaration.prop] = colorValue(value, declaration.prop, candidate)
+      return
+    }
+    const relativeLineHeight = declaration.prop === "line-height" ? lineHeightMultiplierValue(value) : undefined
+    if (relativeLineHeight !== undefined) {
+      if (state !== "base") throw new Error(`Relative line-height state variants are not supported for ${JSON.stringify(candidate)}`)
+      lineHeightMultiplier = relativeLineHeight
+      return
+    }
     mapDeclaration(target, declaration.prop, value, candidate)
   })
 
   const result = { ...base }
   if (Object.keys(hover).length > 0) result.hover = hover
   if (Object.keys(active).length > 0) result.active = active
-  if (Object.keys(result).length === 0) throw new Error(`Tailwind candidate ${JSON.stringify(candidate)} produced no native styles`)
-  return result
+  if (Object.keys(result).length === 0 && Object.keys(focus).length === 0 && lineHeightMultiplier === undefined && Object.keys(svgPaint).length === 0) {
+    throw new Error(`Tailwind candidate ${JSON.stringify(candidate)} produced no native styles`)
+  }
+  return { style: result, focus, lineHeightMultiplier, svgPaint }
 }
 
 function declarationState(declaration, candidateRule, candidate) {
@@ -338,8 +630,9 @@ function stateFromSelector(selector) {
   const states = new Set()
   if (/(^|[^\\]):hover\b/.test(selector)) states.add("hover")
   if (/(^|[^\\]):active\b/.test(selector)) states.add("active")
+  if (/(^|[^\\]):focus(?:-visible)?\b/.test(selector)) states.add("focus")
 
-  const unsupported = ["focus", "focus-visible", "disabled", "checked"]
+  const unsupported = ["disabled", "checked"]
   for (const pseudo of unsupported) {
     const pattern = new RegExp(`(^|[^\\\\]):${pseudo.replace("-", "\\-")}\\b`)
     if (pattern.test(selector)) throw new Error(`Unsupported native Tailwind state variant :${pseudo}`)
@@ -614,17 +907,24 @@ function lengthValue(value, property, candidate) {
   throw new Error(`Unsupported ${property} length from ${JSON.stringify(candidate)}: ${value}`)
 }
 
-function lineHeightValue(value, fontSize, property, candidate) {
+function lineHeightMultiplierValue(value) {
   const unitless = value.match(/^(-?\d+(?:\.\d+)?)$/)
-  if (unitless) return relativeLineHeight(Number(unitless[1]), fontSize, candidate)
-
-  const ratio = value.match(/^calc\(\s*(-?\d+(?:\.\d+)?)\s*\/\s*(-?\d+(?:\.\d+)?)\s*\)$/)
-  if (ratio) {
-    const denominator = Number(ratio[2])
-    if (denominator === 0) throw new Error(`Unsupported line-height division by zero from ${JSON.stringify(candidate)}: ${value}`)
-    return relativeLineHeight(Number(ratio[1]) / denominator, fontSize, candidate)
+  if (unitless) {
+    const multiplier = Number(unitless[1])
+    return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : undefined
   }
 
+  const ratio = value.match(/^calc\(\s*(-?\d+(?:\.\d+)?)\s*\/\s*(-?\d+(?:\.\d+)?)\s*\)$/)
+  if (!ratio) return undefined
+  const denominator = Number(ratio[2])
+  if (denominator === 0) return undefined
+  const multiplier = Number(ratio[1]) / denominator
+  return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : undefined
+}
+
+function lineHeightValue(value, fontSize, property, candidate) {
+  const multiplier = lineHeightMultiplierValue(value)
+  if (multiplier !== undefined) return relativeLineHeight(multiplier, fontSize, candidate)
   return lengthValue(value, property, candidate)
 }
 

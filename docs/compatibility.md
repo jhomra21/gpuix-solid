@@ -8,7 +8,7 @@ GPUix Solid tracks GPUIX's published native contract instead of vendoring or for
 | --- | --- | --- |
 | `gpuix-solid` | current `0.1.0-beta.x` line | Solid 2 renderer in `packages/solid` |
 | `@jhomra21/gpuix-solid1` | current `0.1.0-beta.x` line in this repository | Solid 1 renderer in `packages/solid1` |
-| `@gpuix/native` | `^0.6.0` | GPUIX desktop renderer contract used by both Solid packages |
+| `@gpuix/native` | `^0.7.0` | GPUIX desktop renderer contract used by both Solid packages |
 | `solid-js` for Solid 2 | `^2.0.0-rc.0` peer | Compiled with the Solid universal renderer |
 | `@solidjs/universal` | `2.0.0-rc.0` | Solid 2 renderer dependency |
 | `solid-js` for Solid 1 | `>=1.9.0 <2` peer | Used by the Solid 1 compatibility package |
@@ -19,13 +19,15 @@ When `@gpuix/native` changes its element, style, event, window, testing, or auto
 
 ## Desktop targets
 
-The root lockfile currently resolves the GPUIX 0.6 native packages for:
+The root lockfile currently resolves the GPUIX 0.7 native packages for:
 
 - macOS arm64
 - Linux x64 GNU
 - Windows x64 MSVC
 
-Repository CI runs a native verification job on macOS, Ubuntu, and Windows. The current 0.6 line passes frozen install, lint, typecheck, tests, builds, Solid 1 package checks, Kobalte, Tailwind, DAW, release tests, and the separate exact-package smoke job.
+Repository CI runs a native verification job on macOS, Ubuntu, and Windows. The current 0.7 line passes frozen install, lint, typecheck, tests, builds, Solid 1 package checks, Kobalte, Tailwind, DAW, release tests, and the separate exact-package smoke job.
+
+GPUIX 0.7 also adds structured two-stop linear-gradient backgrounds, renderer-level window key registration, native focus traversal, and the public `hasTestGpuixRenderer()` availability contract. Both Solid renderer packages expose those capabilities at their host/runtime boundaries and keep regressions for the shared behavior.
 
 The blurred-window example uses GPUIX's macOS native blur support. The other examples should not be read as a promise that every GPUI window option behaves identically on every operating system.
 

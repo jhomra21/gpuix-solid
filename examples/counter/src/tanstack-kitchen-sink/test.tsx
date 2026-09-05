@@ -51,10 +51,21 @@ async function main(): Promise<void> {
 
     await app.getByTestId("dashboard-tab-users").click()
     await requireTestId(app, "users-workspace")
+    await requireTestId(app, "users-sidebar")
+    await requireTestId(app, "users-sort-toolbar")
+    await requireTestId(app, "users-sort-root")
     await requireTestId(app, "users-sort")
     assert.equal(await app.getByTestId("users-sort-value").textContent(), "name")
+    const workspaceBounds = await app.getByTestId("users-workspace").bounds()
+    const sidebarBounds = await app.getByTestId("users-sidebar").bounds()
+    const toolbarBounds = await app.getByTestId("users-sort-toolbar").bounds()
+    const sortRootBounds = await app.getByTestId("users-sort-root").bounds()
     const sortBounds = await app.getByTestId("users-sort").bounds()
-    assert.ok(sortBounds.width >= 140, `expected Sort By trigger to be full-width, got ${sortBounds.width}`)
+    const layout = `workspace=${workspaceBounds.width}; sidebar=${sidebarBounds.width}; toolbar=${toolbarBounds.width}; wrapper=${sortRootBounds.width}; trigger=${sortBounds.width}`
+    assert.ok(sidebarBounds.width >= 300, `expected Users sidebar to preserve its 310px source width; ${layout}`)
+    assert.ok(toolbarBounds.width >= 280, `expected Sort By toolbar to fill the Users sidebar; ${layout}`)
+    assert.ok(sortRootBounds.width >= 140, `expected Sort By wrapper to preserve flex-1 width; ${layout}`)
+    assert.ok(sortBounds.width >= 140, `expected Sort By trigger to fill wrapper; ${layout}`)
     assert.ok(sortBounds.height >= 30, `expected Sort By trigger to be normal control height, got ${sortBounds.height}`)
 
     await app.getByTestId("users-sort").click()

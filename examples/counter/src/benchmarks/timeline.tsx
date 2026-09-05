@@ -148,7 +148,7 @@ function main(): void {
   }
 
   console.log(
-    "[timeline.perf] workload matches the upstream GPUIX React 0.6 Timeline benchmark: " +
+    "[timeline.perf] workload matches the upstream GPUIX React 0.7 Timeline benchmark: " +
       "24 tracks, 900 seconds, cull-on/cull-off pan, and pointer-captured clip drag.",
   )
   console.log(

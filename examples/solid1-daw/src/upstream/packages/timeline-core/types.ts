@@ -1,0 +1,77 @@
+import type { AudioSourceKind, AudioWarpPayload, MidiClip } from '@daw-browser/shared'
+import type { ClipFades } from './clip-fades'
+export type { AudioWarpMode } from '@daw-browser/shared'
+export type TrackId = string
+
+export type TrackSend = {
+  targetId: TrackId
+  amount: number
+  tap?: 'pre-fx' | 'pre-fader' | 'post-fader'
+}
+
+export type TrackChannelRole = 'track' | 'group' | 'return'
+
+export type TrackRouting = {
+  outputTargetId?: TrackId
+  sends?: TrackSend[]
+}
+
+export type ExternalSidechainRoute = {
+  sourceTrackId: TrackId
+  targetTrackId: TrackId
+  effectInstanceId: string
+}
+
+export type AudioWarp = AudioWarpPayload
+
+type ClipRuntimeFields<TBuffer> = [TBuffer] extends [never]
+  ? unknown
+  : { buffer?: TBuffer | null }
+
+export type Clip<TBuffer = never> = {
+  id: string
+  historyRef?: string
+  name: string
+  mediaStatus?: 'missing' | 'permission-denied'
+  startSec: number
+  duration: number
+  sourceAssetKey?: string
+  waveformAssetKey?: string
+  sourceKind?: AudioSourceKind
+  sourceDurationSec?: number
+  sourceSampleRate?: number
+  sourceChannelCount?: number
+  leftPadSec?: number
+  bufferOffsetSec?: number
+  audioWarp?: AudioWarp
+  gain?: number
+  fades?: ClipFades
+  color: string
+  sampleUrl?: string
+  midi?: MidiClip
+  midiOffsetBeats?: number
+} & ClipRuntimeFields<TBuffer>
+
+export type Track<TBuffer = never> = {
+  id: TrackId
+  historyRef?: string
+  name: string
+  volume: number
+  clips: Clip<TBuffer>[]
+  muted?: boolean
+  soloed?: boolean
+  lockedBy?: string | null
+  lockedAt?: number | null
+  kind?: 'audio' | 'instrument'
+  channelRole?: TrackChannelRole
+  groupId?: TrackId
+  collapsed?: boolean
+  color?: string
+  outputTargetId?: TrackId
+  sends?: TrackSend[]
+}
+
+export type SelectedClip = {
+  trackId: TrackId
+  clipId: string
+} | null

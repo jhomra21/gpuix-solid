@@ -168,6 +168,7 @@ describe("native retained-tree parity", () => {
             ],
             "style": {
               "height": 40,
+              "pointerEvents": "auto",
               "width": 240,
             },
             "type": "input",

@@ -1,4 +1,9 @@
-import { createMemo, For, type JSX } from "solid-js"
+import { createMemo, createSignal, For, type JSX } from "solid-js"
+import {
+  automationTargetKey,
+  type AutomationEnvelope,
+  type AutomationParameterSelection,
+} from "../compat/daw-browser-shared"
 import UpstreamTrackLane from "../upstream/components/timeline/TrackLane"
 import type { RuntimeClip, Track } from "../compat/timeline-core-types"
 import { selectTimelineGridIntervals } from "../compat/timeline-view"
@@ -14,6 +19,7 @@ export interface TrackLaneProps {
   gridDenominator: number
   durationSec: number
   onSelectClip: (trackId: string, clipId: string) => void
+  onOpenClip: (trackId: string, clipId: string) => void
   onClipMouseDown: (trackId: string, clipId: string, event: PointerEvent) => void
 }
 
@@ -21,6 +27,8 @@ interface GridLine {
   left: number
   major: boolean
 }
+
+const automationSelections: AutomationParameterSelection[] = [{ parameterId: "volume" }]
 
 function sourceClip(clip: NativeTrack["clips"][number]): RuntimeClip {
   const runtimeClip: RuntimeClip = {
@@ -35,7 +43,8 @@ function sourceTrack(track: NativeTrack): Track {
   return {
     id: track.id,
     name: track.name,
-    kind: track.kind === "midi" ? "instrument" : track.kind,
+    volume: track.volume,
+    kind: track.kind === "midi" ? "instrument" : track.kind === "audio" ? "audio" : undefined,
     channelRole: track.kind === "return" ? "return" : track.kind === "group" ? "group" : "track",
     collapsed: track.collapsed,
     color: track.color,
@@ -43,7 +52,35 @@ function sourceTrack(track: NativeTrack): Track {
   }
 }
 
+function fixtureAutomationEnvelope(track: NativeTrack, durationSec: number): AutomationEnvelope {
+  const target = { kind: "track" as const, trackId: track.id }
+  const duration = Math.max(0.01, durationSec)
+  return {
+    id: `native-fixture:${track.id}:volume`,
+    projectId: "native-fixture",
+    target,
+    targetKey: automationTargetKey(target, "volume"),
+    parameterId: "volume",
+    enabled: true,
+    points: [
+      { id: `${track.id}:volume:1`, timeSec: duration * 0.15, value: track.volume, interpolation: "linear" },
+      { id: `${track.id}:volume:2`, timeSec: duration * 0.45, value: Math.min(2, track.volume + 0.24), interpolation: "linear" },
+      { id: `${track.id}:volume:3`, timeSec: duration * 0.8, value: Math.max(0, track.volume - 0.16), interpolation: "linear" },
+    ],
+    updatedAt: 0,
+  }
+}
+
 const TrackLane = (props: TrackLaneProps): JSX.Element => {
+  const clipLaneHeight = () => props.track.collapsed ? layout.collapsedLaneHeight : layout.laneHeight
+  const automationHeight = () => props.track.collapsed || !props.track.automationVisible ? 0 : 48
+  const totalHeight = () => clipLaneHeight() + automationHeight()
+  const [committedAutomation, setCommittedAutomation] = createSignal<AutomationEnvelope>(
+    fixtureAutomationEnvelope(props.track, props.durationSec),
+  )
+  const [previewAutomation, setPreviewAutomation] = createSignal<AutomationEnvelope>()
+  const automationEnvelope = () => previewAutomation() ?? committedAutomation()
+
   const gridLines = createMemo<GridLine[]>(() => {
     if (!props.gridEnabled) return []
     const intervals = selectTimelineGridIntervals(
@@ -67,8 +104,8 @@ const TrackLane = (props: TrackLaneProps): JSX.Element => {
     <div
       testId={`lane-${props.track.id}`}
       style={{
-        height: layout.laneHeight,
-        minHeight: layout.laneHeight,
+        height: totalHeight(),
+        minHeight: totalHeight(),
         position: "relative",
         overflow: "hidden",
         backgroundColor: dawTheme.timelineBackground,
@@ -83,7 +120,7 @@ const TrackLane = (props: TrackLaneProps): JSX.Element => {
                 left: line.left,
                 top: 0,
                 width: line.major ? 2 : 1,
-                height: layout.laneHeight,
+                height: totalHeight(),
                 backgroundColor: line.major ? dawTheme.timelineGridMajor : dawTheme.timelineGridMinor,
               }}
             />
@@ -94,9 +131,9 @@ const TrackLane = (props: TrackLaneProps): JSX.Element => {
         track={sourceTrack(props.track)}
         layout={{
           topPx: 0,
-          heightPx: layout.laneHeight,
-          clipLaneHeightPx: layout.laneHeight,
-          automationHeightPx: 0,
+          heightPx: totalHeight(),
+          clipLaneHeightPx: clipLaneHeight(),
+          automationHeightPx: automationHeight(),
         }}
         groupClipOverview={[]}
         selectedClipIds={new Set(props.selectedClipId ? [props.selectedClipId] : [])}
@@ -104,6 +141,7 @@ const TrackLane = (props: TrackLaneProps): JSX.Element => {
         onClipPointerDown={(trackId, clipId, event) => props.onClipMouseDown(trackId, clipId, event)}
         onClipPointerUp={() => {}}
         onClipResizeStart={() => {}}
+        onClipDblClick={props.onOpenClip}
         clipContextMenu={{
           selectClip: props.onSelectClip,
           duplicateSelectedClips: () => {},
@@ -119,14 +157,17 @@ const TrackLane = (props: TrackLaneProps): JSX.Element => {
         onCommitClipFades={() => {}}
         automation={{
           projectId: "native-fixture",
-          visible: false,
-          selections: [],
-          laneHeightPx: 0,
-          envelopeForSelection: () => undefined,
+          visible: props.track.automationVisible && !props.track.collapsed,
+          selections: automationSelections,
+          laneHeightPx: 48,
+          envelopeForSelection: (selection) => selection.parameterId === "volume" ? automationEnvelope() : undefined,
           durationSec: props.durationSec,
-          onPreview: () => {},
-          onCommit: () => {},
-          onCancelPreview: () => {},
+          onPreview: setPreviewAutomation,
+          onCommit: (envelope) => {
+            if (envelope) setCommittedAutomation(envelope)
+            setPreviewAutomation(undefined)
+          },
+          onCancelPreview: () => setPreviewAutomation(undefined),
         }}
       />
     </div>

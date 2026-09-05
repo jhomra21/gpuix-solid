@@ -132,6 +132,60 @@ describe("host tree", () => {
     ])
   })
 
+  it("materializes pointer ownership for semantic controls and clears it with the handler", () => {
+    const { renderer, driver, root } = fixture()
+    const node = createHostElement("div", "button")
+    insertHostNode(root, node)
+    driver.flush()
+
+    setHostProperty(node, "onClick", () => {}, undefined)
+    driver.flush()
+    expect(renderer.batches.at(-1)).toEqual([
+      ["setEventListener", 1, "click", true],
+      ["setStyle", 1, { pointerEvents: "auto" }],
+    ])
+
+    setHostProperty(node, "onClick", undefined, () => {})
+    driver.flush()
+    expect(renderer.batches.at(-1)).toEqual([
+      ["setEventListener", 1, "click", false],
+      ["setStyle", 1, {}],
+    ])
+  })
+
+  it("does not turn a plain event container into an extra native hit surface", () => {
+    const { renderer, driver, root } = fixture()
+    const node = createHostElement("div")
+    setHostProperty(node, "onClick", () => {}, undefined)
+    insertHostNode(root, node)
+    driver.flush()
+
+    expect(renderer.batches[0]).toEqual([
+      ["createElement", 1, "div"],
+      ["setEventListener", 1, "click", true],
+      ["setRoot", 1],
+    ])
+  })
+
+  it("preserves inherited pointer-events none and explicit descendant auto", () => {
+    const { renderer, driver, root } = fixture()
+    const parent = createHostElement("div")
+    const blocked = createHostElement("div", "button")
+    const reenabled = createHostElement("div", "button")
+    setHostProperty(parent, "style", { pointerEvents: "none" }, undefined)
+    setHostProperty(blocked, "onClick", () => {}, undefined)
+    setHostProperty(reenabled, "style", { pointerEvents: "auto" }, undefined)
+    setHostProperty(reenabled, "onClick", () => {}, undefined)
+    insertHostNode(parent, blocked)
+    insertHostNode(parent, reenabled)
+    insertHostNode(root, parent)
+    driver.flush()
+
+    const batch = renderer.batches[0]
+    expect(batch).toContainEqual(["setStyle", blocked.id, { pointerEvents: "none" }])
+    expect(batch).toContainEqual(["setStyle", reenabled.id, { pointerEvents: "auto" }])
+  })
+
   it("preserves recreated event handlers when destroy and recreate share a batch", () => {
     const { renderer, events, driver, root } = fixture()
     const parent = createHostElement("div")
