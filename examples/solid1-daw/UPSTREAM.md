@@ -1,165 +1,138 @@
 # DAW Browser Convex Solid 1 dogfood source
 
-This native example ports a focused UI slice from `jhomra21/daw-browser-convex`.
+This native example exercises a focused UI slice from `jhomra21/daw-browser-convex` against the Solid 1 GPUIX host.
 
 - source branch: `feat/model-independent-control-platform`
 - pinned revision: `2eaad47813b15aa8511bab8dc04625510c977b12`
 - framework: Solid 1
-- GPUIX native range: `^0.7.0` (the checked-in Bun lock currently resolves `0.7.0`)
+- GPUIX native range: `^0.7.0` (the checked-in Bun lock resolves `0.7.0`)
 
 ## Fidelity contract
 
-This fixture is not a generic DAW mock. The native GPUIX version must preserve the current application's recognizable component hierarchy, geometry, tokens, visible state and interaction semantics.
+This fixture is source-first, not screenshot-first. Browser-facing source is copied byte-for-byte whenever GPUIX can host it. Compatibility belongs below copied source—in the Solid host, generated style bridge, or narrow service/type adapters—not in edited replicas of the upstream component.
 
-The implementation is source-first, not screenshot-first. A browser-facing source component is copied verbatim when the GPUIX Solid host can represent its UI. Compatibility is fixed underneath that source instead of editing the copied component. A native visual leaf is allowed only when the pinned component depends on a browser rendering/runtime contract that GPUIX does not expose yet; those boundaries are listed explicitly below.
+Deterministic local data replaces Convex, collaboration, persistence, audio-engine and plugin backends. It must not replace visible source behavior. Controls included in the fixture remain interactive and keep their state at the fixture boundary.
 
-Fake local data replaces Convex, collaboration, persistence, audio engines and plugin backends. It does not replace or simplify UI behavior: visible controls in the included slice must remain interactive and keep their state at the fixture application boundary.
+`bun run source:check` hashes the copied files as Git blobs and rejects drift from the pinned revision. The current closure contains **75 exact upstream files**.
 
-`bun run source:check` hashes every verbatim source file as a Git blob and rejects drift from the pinned revision.
+## GPUIX version policy
 
-The current pin includes the workspace-contribution refactor. The browser surface is now selected through the DAW workspace extension registry in upstream `Timeline.tsx` / `timeline-workspace.tsx`; the built-in browser contribution still renders the same `TimelineLeftBrowser` UI used by this fixture.
+The repository targets the latest reviewed GPUIX release line, `@gpuix/native ^0.7.0`, rather than floating to an unreleased upstream commit. The root lock resolves `0.7.0` reproducibly. Moving to a later GPUIX minor requires an explicit dependency/lock update and the full Linux, macOS, Windows, package-smoke, Solid 1 and native-fidelity suite.
 
-## Dependency policy
+The Solid 1 and Solid 2 hosts both carry the GPUIX 0.7 contracts used by this fixture, including the published test-renderer availability guard, `WindowOptions` passthrough, raw window key handling, native lifecycle termination, and two-stop linear-gradient support.
 
-The repository uses `^0.7.0` for `@gpuix/native` rather than the npm `latest` tag. For a pre-1.0 package this accepts compatible `0.7.x` releases while preventing an unreviewed `0.8.0` API jump. The root Bun lock keeps CI and releases reproducible at the exact resolved native version. Moving to a new GPUIX minor requires updating the range, regenerating the lock with the repository's pinned Bun version, and rerunning the complete cross-platform fidelity suite.
+## Source that now runs directly
 
-## Pinned geometry
+The parity script is the authoritative file list. Important visible source now running through GPUIX includes:
 
-- left browser default width: 280px
-- track sidebar minimum width: 336px
-- arrangement overview: 24px
-- timeline ruler: 32px
-- normal track lane: 96px (`LANE_HEIGHT`)
-- group indent: 16px
-- shared bottom/effects panel body: 360px (`FX_PANEL_HEIGHT_PX`)
-- bottom panel footer: 28px
-- bottom edge padding: 4px
-- Compressor device shell: 560px
-- EQ Eight device shell: 704px
-- Sample Detail label rail: 80px
-- Sample Detail waveform: 960px
+- `TransportControls`
+- `TimelineLeftBrowser`
+- `TimelineRuler`
+- `ArrangementOverview`
+- `TrackLane` and its source `ClipComponent`
+- `TrackSidebar` / source sidebar rows through a fixture model adapter
+- `TimelineBottomPanelShell` and footer
+- `AutomationLane`
+- `SampleDetailPanel`, `SampleClipPanel`, and `SampleDetailWaveform`
+- `Compressor`, its `EffectShell`, controls and SVG graph
+- `EqFilterTypeSelect`
+- the copied DAW UI primitives and timeline/layout helpers used by those components
+- the exact `clip-color.ts` helper, including its selected/ghost `color-mix(in srgb, …, transparent)` output
 
-The native color constants are exact sRGB translations of the dark OKLCH tokens in the pinned `src/index.css`, including timeline background/surfaces, borders, clips, meters, playhead and device graph colors.
+`src/native/ArrangementOverview.tsx` is now only a re-export of the exact copied overview. The old retained-div recreation is gone.
 
-The deterministic fixture also starts from the pinned timeline defaults: 100px/sec, 120 BPM, grid enabled at 1/4, loop disabled with a 0–8s stored region, and the source `timelineDurationSec()` minimum of 30 seconds.
+The native Tailwind generator scans copied source directly and fails closed on unaccounted classes. It is rebuilt before DAW build, test and typecheck instead of maintaining a parallel handwritten class map.
 
-## Verbatim source running through GPUIX
+## Fixture adapters
 
-These files are copied byte-for-byte from the pinned DAW revision and are protected by `scripts/check-upstream-source-parity.mjs`:
+Adapters own deterministic application state and missing services; they do not redefine source UI that can run unchanged.
 
-- `src/components/effects/eq-filter-type-select.tsx`
-- `src/components/timeline/TransportControls.tsx`
-- `src/components/timeline/browser/timeline-left-browser.tsx`
-- `src/components/timeline/TimelineRuler.tsx`
-- `src/components/timeline/TrackLane.tsx`
-- `src/components/timeline/TimelineBottomPanelShell.tsx`
-- `src/components/timeline/TimelineBottomPanelFooter.tsx`
-- `src/components/timeline/grid-options.ts`
-- `src/components/timeline/local-save-failure-banner.tsx`
-- `src/components/timeline/toolbar-context.tsx`
-- the copied DAW UI primitives listed by the parity script
-- `src/lib/bottom-panel-layout.ts`
-- `src/lib/bottom-panel-preferences.ts`
-- `src/lib/utils.ts`
+| Adapter | Role |
+| --- | --- |
+| `src/native/Timeline.tsx` | deterministic project, transport, selection, record-arm, bottom-panel and routing state |
+| `src/native/TimelineChrome.tsx` | composes exact transport source while omitting browser-only hidden inputs |
+| `src/native/TransportControls.tsx` | deterministic project/menu/MIDI service boundary for exact transport UI |
+| `src/native/TimelineLeftBrowser.tsx` | maps fixture browser data/preferences into the exact browser model |
+| `src/native/TimelineWorkspace.tsx` | viewport/sidebar composition around exact ruler, overview and lane source |
+| `src/native/SourceTrackSidebar.tsx` | maps fixture tracks, routing and automation state into exact `TrackSidebar` models |
+| `src/native/TrackLane.tsx` | maps fixture clips/tracks and deterministic automation envelopes into exact `TrackLane` |
+| `src/native/TimelineBottomPanelShell.tsx` | retained positioning wrapper around the exact shell; preview/commit resize state is forwarded to the fixture |
+| `src/native/TimelinePanels.tsx` | switches exact Sample Detail against the effects chain and supplies deterministic audio/BPM services |
+| `src/native/EffectsPanel.tsx` | mounts exact Compressor and the remaining explicit EQ compatibility surface |
 
-`src/components/timeline/ArrangementOverview.tsx` is also copied byte-for-byte and parity-protected, but its multicolor SVG paint is represented by the explicit native leaf documented below because the current GPUIX SVG element applies one tint to the entire SVG.
+Record arm is singular at the fixture application boundary: arming one track disarms the previous track rather than preserving independent legacy booleans as simultaneous armed state.
 
-The DAW native Tailwind generator scans these source files directly. The generated style manifest is rebuilt before build, test and typecheck; it is not a hand-maintained translation of their class strings.
+## Remaining native/browser capability boundaries
 
-## Source-shaped adapters
+These are limitations of the current GPUIX/browser contract, not permission to invent alternate source UI.
 
-These files own deterministic fixture state or bridge application services, but do not redefine a browser component that can run unchanged:
+### Canvas 2D
 
-| Fixture adapter | Upstream responsibility | Native role |
-| --- | --- | --- |
-| `src/native/Timeline.tsx` | `src/components/Timeline.tsx` | deterministic project/transport/selection state and composition |
-| `src/native/TimelineChrome.tsx` | `src/components/timeline/timeline-chrome.tsx` | mounts exact `TransportControls`; browser-only hidden inputs are omitted |
-| `src/native/TransportControls.tsx` | exact `TransportControls.tsx` | supplies deterministic project/menu/MIDI services |
-| `src/native/TimelineLeftBrowser.tsx` | exact browser source | maps fixture browser data/preferences into the source model |
-| `src/native/TimelineWorkspace.tsx` | timeline workspace | composes the source ruler/lane structure around deterministic viewport/sidebar state and the native overview paint leaf; the current upstream contribution registry still resolves the same browser UI |
-| `src/native/TrackLane.tsx` | exact TrackLane source | maps fixture tracks into upstream-shaped types; clip composition remains source-owned while deterministic automation state preserves the source 48px lane geometry and visible parameter/point vocabulary |
-| `src/native/TimelineBottomPanelShell.tsx` | exact bottom shell | native sizing/event adapter around copied source |
-| `src/native/TimelineBottomPanelFooter.tsx` | exact footer | re-export/adapter only |
+GPUIX hosts `<canvas>` as a retained element but does not expose the browser `CanvasRenderingContext2D` API used by the DAW waveform code.
 
-## Explicit native visual leaves
+Exact `ClipComponent` and exact `SampleDetailWaveform` remain mounted. Their non-canvas DOM, geometry, controls, beat-grid/marker structure and interaction semantics stay source-owned. Canvas drawing is intentionally no-draw when a 2D context is unavailable; the fixture must not replace it with a fake hand-drawn waveform.
 
-The following visible pieces remain native implementations because the pinned browser components require capabilities that GPUIX 0.7 still cannot faithfully render. They must continue to follow the pinned source's dimensions, ordering and control vocabulary; they are not permission to invent a different design or reduce interaction.
+### EQ Eight
 
-GPUIX 0.7 adds native two-stop linear gradients and publishes the cross-platform `hasTestGpuixRenderer()` availability API. Those capabilities are used at the host boundary where applicable, but they do not remove the Canvas 2D, arbitrary mixed-grid, Web Audio or multicolor inline-SVG boundaries below.
+The pinned EQ surface still depends on browser capabilities that do not map faithfully to GPUIX 0.7: Canvas 2D, `ResizeObserver`-driven graph sizing, animation-frame drawing, Web Audio filter-response APIs, and child grid placement/span semantics used by the source layout.
 
-### ArrangementOverview paint
+`src/native/EffectsPanel.tsx` therefore keeps the EQ device surface as the remaining visible compatibility leaf. Its state is deterministic and interactive, and its filter-type picker is the exact pinned `EqFilterTypeSelect`. This boundary should shrink or disappear when the required generic host capabilities exist; copied EQ source must not be edited to work around them.
 
-Pinned `ArrangementOverview.tsx` draws all overview clips into one SVG with independent per-path `fill` colors. GPUIX 0.7's `<svg>` custom element remains a tintable icon surface, so running that paint path unchanged would make the multicolor clip overview monochrome.
+## Host compatibility proved by this port
 
-The exact source file remains copied and parity-protected. `src/native/ArrangementOverview.tsx` mirrors its track filtering, normalized 100×40 clip geometry, visible-range rectangle and pointer pan/resize/commit behavior, but paints each source clip rectangle as a retained native div so its real clip color survives. This boundary can disappear once GPUIX exposes untinted/multicolor inline SVG painting.
+The DAW source exposed generic gaps that were fixed in the host instead of being hidden in local replicas. Solid 1 and Solid 2 stay aligned where their framework contracts overlap.
 
-### ClipComponent
+Notable coverage includes:
 
-Pinned `src/components/timeline/ClipComponent.tsx` draws MIDI/audio content through an HTML Canvas 2D context and the waveform view-model. GPUIX exposes a native `<canvas>` host but not the browser `CanvasRenderingContext2D` API used by this component. `src/upstream/components/timeline/ClipComponent.tsx` is therefore a narrow bridge from exact `TrackLane` to `src/native/ClipComponent.tsx`.
+- production/test element bounds and browser-shaped `getBoundingClientRect()`
+- native focus, blur, selection, scroll offsets and pointer-capture bookkeeping
+- event target/currentTarget ownership and controlled input value synchronization
+- browser-compatible `Element` / `HTMLElement` identity where source checks it
+- global pointer forwarding used by unchanged timeline/ruler source
+- minimal `document.body.classList` drag-state compatibility
+- inline grid parsing needed by copied source
+- semantic hidden/data-attribute style handling
+- SVG event/paint compatibility used by copied components
+- native range elements with intrinsic control geometry rather than text-editor backing
+- transparent Tailwind OKLCH color mixing and exact upstream sRGB `color-mix(..., transparent)` normalization into native sRGB alpha
+- source pointer transparency/ownership semantics so decorative descendants do not steal hits
+- local Solid 1 host rebuilds before standalone example bundling, preventing stale ignored `dist` output from masking source changes
 
-The native leaf preserves clip start/duration geometry, 20px title header, waveform/MIDI visual vocabulary, selection treatment and drag hit target. Its data is deterministic, but selection/drag state is live. The source clip-open callback is preserved across this boundary: an audio clip's second tap/double-click opens Sample Detail, while a first tap only selects it and MIDI clips do not open the audio Sample Detail panel.
+These are host features. DAW code should not grow local versions of them.
 
-### TrackSidebar / TrackSidebarRow
+## Native acceptance coverage
 
-The visible row is coupled in upstream to routing/group operations, automation lane metadata, mixer automation, track drag/drop, live stereo meter subscriptions, return/master sections and several controller services. Those services are replaced by deterministic local state rather than removed from the visible UI.
+The automated native fixture exercises the included source slice across the normal CI matrix, including:
 
-The native row follows the pinned three-column geometry: track name/collapse, output/send routing, number/S/R controls, volume plus A/+ automation controls, and the stereo vertical meter strip. Collapse, routing/send selection, activation, solo, record arm, volume and automation controls must remain interactive against local fixture state.
+- transport and BPM state
+- browser tabs, tree and search
+- track selection, collapse, routing/sends, mute/solo, singular record arm, volume and automation controls
+- exact overview, ruler and lane composition
+- playhead/loop interaction
+- source clip selection/open behavior and exact selected clip paint
+- source clip colors and native alpha conversion
+- Effects / Clip bottom-panel switching, hide/show and resize state
+- exact Compressor control/reset/collapse semantics
+- EQ compatibility controls and exact source filter-type menu
+- exact Sample Detail controls with deterministic BPM/stretch services
+- package build/smoke and release-tool regression checks
 
-### Compressor / EQ Eight
+The macOS CI path also uploads the native DAW screenshot used for visual review. A green automated run does not waive a material visual mismatch found in manual side-by-side comparison.
 
-Pinned Compressor uses the DAW device shell, SVG transfer graph and a mixed CSS grid track definition (`84px 1fr 96px`). GPUIX 0.7 `StyleDesc` still exposes equal-count grid rows/columns rather than arbitrary mixed CSS grid tracks, so that source grid cannot be represented exactly.
+## Intentionally omitted systems
 
-Pinned EQ Eight additionally depends on Canvas 2D, `ResizeObserver`, requestAnimationFrame and Web Audio filter-response APIs. It cannot execute faithfully in the native host today. Its exact `EqFilterTypeSelect`, however, is dependency-compatible and now runs directly from the pinned source rather than through the former `HP / Bell / LP` approximation.
+The complete source application contains collaboration, Convex, TanStack Router, persistence/history, real audio rendering, VST3 hosting, the full device catalog and broader editing workflows. Those systems are outside this renderer fixture. Deterministic service adapters replace them only where needed to keep the included source UI executable.
 
-`src/native/EffectsPanel.tsx` therefore keeps the remaining device surfaces as explicit visual leaves while matching the pinned device structure:
+Some exact `TrackLane` callbacks for editing operations outside the focused fixture—such as full resize planning, duplicate/delete services, missing-media recovery and fade commits—remain outside the demonstrated application slice. They should be wired to source planners/services when that workflow is brought into scope rather than implemented as decorative local behavior.
 
-- Compressor: 560px shell; 84px left control stack; status/graph/Thresh-Knee-Look center; 96px Makeup/mode/Dry-Wet stack.
-- EQ Eight: 704px shell; 72px Freq/Gain/Q strip; central graph; 72px mode strip; 52px eight-band selector whose filter-type control is the exact pinned source component.
+## Merge and release gate
 
-Every visible device control in the fixture is backed by deterministic local state.
+This example is not accepted merely because it bundles. Before this source-first work merges or backs a beta:
 
-### Sample Detail waveform
+1. source hashes must match the pinned DAW revision;
+2. disposable promotion/probe workflows must be absent;
+3. lint, typecheck, tests, builds, Solid 1 checks and release tests must pass;
+4. package smoke and the normal Ubuntu/macOS/Windows matrix must be green;
+5. the macOS native window must remain recognizably faithful to the pinned source for the included slice.
 
-Pinned `SampleDetailWaveform.tsx` uses Canvas 2D, `ResizeObserver` and the waveform view-model. The native Clip tab therefore preserves the source composition instead of copying the canvas implementation: 80px Sample Detail rail, compact sample controls and a 960px native beat-grid/waveform leaf. Visible sample-detail controls remain interactive with local state.
-
-## GPUIX Solid compatibility added for this port
-
-The source crossover exposed reusable host gaps that are fixed in the Solid host rather than hidden in DAW adapters. Shared host behavior remains synchronized between Solid 1 and Solid 2 where the framework contracts overlap.
-
-- `HostElementNode.getBoundingClientRect()` uses production `GpuixRenderer.getElementBounds(id)`.
-- `TestGpuixRenderer.getElementBounds()` reports the painted content box for bordered divs, so fidelity tests reconstruct pinned border-box widths by adding the resolved left/right border widths.
-- the host uses GPUIX 0.7's `hasTestGpuixRenderer()` guard rather than inferring availability from whether the constructor export exists.
-- host elements expose `focus()`, `blur()`, `select()`, `scrollTop`, `scrollLeft` and pointer-capture bookkeeping.
-- native event dispatch supplies the real host element as `event.currentTarget` / `event.target` and synchronizes input `value` before the handler runs.
-- native host elements satisfy `instanceof Element` / `instanceof HTMLElement` in the Node runtime.
-- a small native `window.addEventListener` bridge forwards pointer move/up/down events to global pointer listeners used by unchanged DAW source such as the ruler.
-- a minimal `document.body.classList` facade supports source drag-state bookkeeping without browser DOM mutation.
-- enabled Solid `classList` keys are tokenized exactly like a normal `class` string, including keys that contain multiple utilities.
-- the standalone DAW launcher installs/builds the local Solid 1 package before bundling so an ignored stale `packages/solid1/dist` cannot diverge from the checked-in host source.
-
-These are generic GPUIX Solid capabilities. DAW source should not grow local replacements for them.
-
-## Native interaction coverage
-
-The focused fixture exercises:
-
-- exact transport controls and live BPM
-- browser tabs/tree/search
-- track selection, collapse, routing/send selection, activation/mute, solo, record-arm, volume and automation controls
-- source arrangement-overview geometry/state with native multicolor paint, exact ruler and exact lane composition
-- ruler playhead scrubbing and loop-region state through the source component
-- audio clip first-tap selection and source second-tap/double-click opening of Sample Detail
-- clip drag entry, snapping and compatible cross-track movement when native held-pointer continuation is available
-- Effects / Clip bottom-panel switching and hide/show
-- reactive Compressor and EQ native-leaf controls, including the exact eight-option source filter-type selector
-- source-shaped Sample Detail panel and controls
-
-Held-pointer drag automation remains an explicit acceptance item. The older native binding did not reliably deliver every held move/up sequence in the DAW verifier; GPUIX 0.7 changes test-renderer availability but does not by itself prove this interaction path fixed. The automated suite must only claim drag coverage after the 0.7 renderer demonstrates it consistently on the supported GPU-backed platforms. Physical-mouse behavior remains part of the manual macOS acceptance pass.
-
-## Intentionally omitted application systems
-
-The source application also contains collaboration, Convex, TanStack Router, Web Audio/native audio hosting, persistence, undo/history, full automation editing, VST3, drag-created tracks, multi-clip drag, Ctrl-drag duplication and a much larger device catalog. Those systems are not copied into this renderer fixture. Deterministic local adapters replace them so the test isolates Solid 1 reconciliation and GPUI rendering while retaining the source application's UI structure and interaction language.
-
-## Merge gate
-
-This example is not complete merely because it builds or its automated tests pass. Before the source-first PR can merge, the native window must be manually compared side-by-side on macOS with the pinned DAW branch and accepted as recognizably the same UI for the included slice. Material layout, hierarchy, typography, control, state-treatment or interaction differences remain defects.
+Material layout, hierarchy, typography, control, state-treatment or interaction differences remain defects. Genuine GPUIX capability gaps are documented explicitly instead of being hidden behind approximate source rewrites.
