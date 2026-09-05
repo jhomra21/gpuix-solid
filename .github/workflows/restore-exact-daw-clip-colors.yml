@@ -1,0 +1,79 @@
+name: Restore exact DAW clip colors
+
+on:
+  push:
+    branches:
+      - fix/source-first-example-fidelity
+    paths:
+      - .github/restore-exact-daw-clip-colors.py
+      - .github/workflows/restore-exact-daw-clip-colors.yml
+
+permissions:
+  contents: write
+
+jobs:
+  validate-and-promote:
+    runs-on: macos-26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: fix/source-first-example-fidelity
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Apply exact source and host compatibility
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.github/restore-exact-daw-clip-colors.py')
+          text = path.read_text()
+          old = '        mix_helper,\n        text,\n'
+          new = '        lambda _match: mix_helper,\n        text,\n'
+          if text.count(old) != 1:
+              raise SystemExit('expected one regex replacement callback anchor')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          python3 .github/restore-exact-daw-clip-colors.py
+
+      - name: Align verifier with exact selected clip paint
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('examples/solid1-daw/src/test.tsx')
+          text = path.read_text()
+          old = '''  requireCondition(\n    app.renderer.styleCustomPropsWithinTestId("lane-drums", drumsAudioClip).borderColor === "#60a5fa",\n    `first exact audio-clip tap should select the source ClipComponent, got ${JSON.stringify(app.renderer.styleCustomPropsWithinTestId("lane-drums", drumsAudioClip))}`,\n  )\n'''
+          new = '''  const selectedDrumsClipStyle = app.renderer.styleCustomPropsWithinTestId("lane-drums", drumsAudioClip)\n  const selectedDrumsClipPaint = JSON.stringify(selectedDrumsClipStyle)\n  requireCondition(\n    selectedDrumsClipStyle.backgroundColor === "rgba(0, 167, 108, 0.3)" &&\n      selectedDrumsClipPaint.includes('"boxShadow"') &&\n      selectedDrumsClipPaint.includes('"color":"rgba(81, 162, 255, 0.8)"'),\n    `first exact audio-clip tap should use source selected paint, got ${selectedDrumsClipPaint}`,\n  )\n'''
+          if text.count(old) != 1:
+              raise SystemExit('expected one stale selected clip verifier anchor')
+          path.write_text(text.replace(old, new, 1))
+          PY
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Validate release-facing tree
+        run: |
+          bun run lint
+          bun run typecheck
+          bun run test
+          bun run build
+          bun run solid1:check
+          bun run release:test
+          git diff --check
+
+      - name: Promote clean product changes
+        if: success()
+        run: |
+          rm .github/restore-exact-daw-clip-colors.py
+          rm .github/workflows/restore-exact-daw-clip-colors.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "fix: restore exact DAW clip colors"
+          git push origin HEAD:fix/source-first-example-fidelity
