@@ -122,7 +122,7 @@ const fallbackGetContext = HostElementNode.prototype.getContext
 Object.defineProperty(HostElementNode.prototype, "getContext", {
   configurable: true,
   value(this: HostElementNode, contextId: string): CanvasRenderingContext2D | null {
-    if (this.localName !== "canvas" || contextId !== "2d" || !this.nativeAlive || !this.root) {
+    if (this.localName !== "canvas" || contextId !== "2d") {
       return fallbackGetContext.call(this, contextId)
     }
 
