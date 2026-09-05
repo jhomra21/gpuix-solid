@@ -25,11 +25,11 @@ The repository keeps pinned source snapshots and verifies them with Git blob has
 - `TanStack/router@b6984af74dd561b8ee7e2d7369898a536dda70c2`;
 - `jhomra21/cloudflare-workers-solid-tanstack-spa-betterauth-D1-KV@47139f07c018dc2ba505bbb5915750fdba19e961`;
 - `diffusionstudio/editor@585fb010dcca36919f096f4b1275d535acab0cb9`;
-- `jhomra21/daw-browser-convex@2eaad47813b15aa8511bab8dc04625510c977b12` — the DAW fixture currently protects a 68-file exact source closure.
+- `jhomra21/daw-browser-convex@2eaad47813b15aa8511bab8dc04625510c977b12` — the DAW fixture currently protects a 75-file exact source closure.
 
-The DAW Tailwind manifest is generated from that copied source rather than from a parallel style rewrite. Compatibility for the fixed 1440×900 native target is handled below the copied components: parent-relative percentage positioning and half-translation are resolved from native geometry, the active desktop `sm:` dialog variants are compiled for the reference viewport, `sr-only` retains its visual-hiding contract, relative line-height is resolved against the final native font size, copied SVG paint classes are serialized into the native inline-SVG source, and source `data-*` state selectors can contribute audited native variants. GPUIX 0.7 gaps such as z-index, letter spacing, browser transitions/focus effects, CSS filters, touch-action policy, CSS auto margins, writing mode and layered/inset shadows stay individually audited instead of being silently ignored as a class of styles.
+The DAW Tailwind manifest is generated from that copied source rather than from a parallel style rewrite. Compatibility for the fixed 1440×900 native target is handled below the copied components: parent-relative percentage positioning and half-translation are resolved from native geometry, the active desktop `sm:` dialog variants are compiled for the reference viewport, `sr-only` retains its visual-hiding contract, relative line-height is resolved against the final native font size, copied SVG paint classes are serialized into the native inline-SVG source, source `data-*` state selectors can contribute audited native variants, intrinsic range geometry stays native, and transparent source `color-mix(...)` values are normalized at the host boundary. GPUIX 0.7 gaps such as z-index, letter spacing, browser transitions/focus effects, CSS filters, touch-action policy, CSS auto margins, writing mode and layered/inset shadows stay individually audited instead of being silently ignored as a class of styles.
 
-The exact pinned DAW Compressor now owns the visible device UI. Its `EffectShell`, Knobs, SVG graph, reset/toggle behavior and collapse semantics run from copied source; deterministic fixture state replaces the audio backend only. Browser accessibility metadata (`role` and `aria-*`) is retained through built-in native host nodes so native tests can exercise exact source controls without adding fixture-only IDs, and semantic `hidden` maps to native `display: none` so source collapse behavior affects layout as well as state.
+The exact pinned DAW Compressor now owns the visible device UI. Its `EffectShell`, Knobs, SVG graph, reset/toggle behavior and collapse semantics run from copied source; deterministic fixture state replaces the audio backend only. The exact TrackSidebar, TrackLane/ClipComponent, AutomationLane, ArrangementOverview, Sample Detail source hierarchy, bottom-panel shell/footer, and clip-color helper are also mounted from pinned source rather than parallel native lookalikes. Browser accessibility metadata (`role` and `aria-*`) is retained through built-in native host nodes so native tests can exercise exact source controls without adding fixture-only IDs, and semantic `hidden` maps to native `display: none` so source collapse behavior affects layout as well as state.
 
 ## Example parity
 
@@ -86,17 +86,20 @@ Infinite Chat builds on the same composed MDX renderer. It keeps a bounded page 
 
 The parity branch targets the published React 0.7 host and testing surface required by these examples. The Solid packages expose the same native capabilities while keeping Solid-specific naming where the framework API itself differs.
 
-| Area | Published React 0.7 capability | GPUix Solid status |
+| Area | Published React / native 0.7 capability | GPUix Solid status |
 | --- | --- | --- |
 | Host events | `onAuxClick`, `onHighlight` | parity |
 | Text find | `highlight`, `useTextSearch`, `findRanges` | parity |
 | Virtual list | logical `getListScrollTop`, `scrollToItem(..., offsetInItem)` | parity |
-| Window | insets and `activateWindow()` | parity |
+| Window | insets, `activateWindow()`, and `WindowOptions` passthrough including transparent titlebar / blurred background | parity |
 | Structured backgrounds | two-stop `linear-gradient` `StyleDesc` backgrounds | parity |
-| Window keyboard | root-level `onKeyDown` / `onKeyUp` through `setWindowKeyEvents` | parity |
+| Images | filesystem and GPUIX 0.7 data-URL `<img>` sources | parity; native screenshot regression covers both paths |
+| Window keyboard | root-level `onKeyDown` / `onKeyUp` through `setWindowKeyEvents`; Tab remains application-owned | parity |
 | Focus traversal | `focusNext()` / `focusPrevious()` | parity |
 | Test renderer | `hasTestGpuixRenderer()` availability, painted highlights and logical list anchor | parity |
-| Live automation | native click, fill and key input through the renderer | parity |
+| Process lifecycle | `tick()` reports final-window shutdown on Windows/Linux and the Solid frame loop terminates the process on that signal | parity |
+| Windows DPI | Per-Monitor V2 awareness before native window creation | inherited directly from `@gpuix/native@0.7.0`; no Solid translation layer |
+| Live automation | native click, fill and key input through the renderer | parity for published 0.7 |
 | Components | Select, Combobox, Tooltip, anchored floating surfaces | parity |
 | Animation | React `motion.div` | parity via Solid `animate.div` |
 
@@ -122,7 +125,23 @@ The serialization benchmark captures the actual mutation tuples emitted by Solid
 
 ## 0.7 release deltas adopted
 
-Structured two-stop gradients, root-level window key routing, focus traversal, and the public native test-renderer availability guard are now part of the published 0.7 baseline and are exposed by both Solid renderer packages. The GPUIX source lock points at the same immutable 0.7.0 release commit. Newer upstream-`main`-only work remains outside the compatibility baseline until it is separately audited.
+The published 0.7 baseline includes native two-stop gradients, data-URL images, application-owned Tab handling with root-level key routing, the public native test-renderer availability guard, Windows Per-Monitor V2 DPI awareness, final-window process termination on Windows/Linux, and the blurred/transparent macOS window options. GPUix Solid exposes or inherits each of those capabilities through `@gpuix/native ^0.7.0`, and the GPUIX source lock points at the same immutable 0.7.0 release commit.
+
+The Solid host additionally carries source-driven compatibility proven by the application fixtures: browser-shaped bounds and identity, focus/selection/scroll behavior, pointer capture and global pointer continuation, semantic SVG/event handling, native range geometry, and source color normalization. These are Solid binding responsibilities rather than forks of the Rust renderer.
+
+## Post-0.7 upstream `main` audit
+
+As audited on 2026-09-05, upstream `main` is 10 commits ahead of the immutable 0.7.0 release commit. Those commits have not produced a newer published `@gpuix/native` version, so they are not silently treated as part of the 0.7 compatibility baseline.
+
+Five pending changesets are relevant to renderer behavior:
+
+- embedded primary-button click delivery for retained/custom native elements — native + React patch; requires a future native package release;
+- live-automation mouse dispatch panic prevention — native patch; requires a future native package release;
+- macOS `tick()` starvation prevention — native patch; requires a future native package release;
+- keeping the frame pump and native window alive after JavaScript runtime errors — React binding patch; GPUix Solid carries the equivalent binding-side error containment and frame-loop resilience without vendoring native code;
+- preserving renderer event ownership and element IDs across `bun --hot` module remounts — React binding patch; this is not part of published 0.7 parity and requires a dedicated Solid renderer-lifetime/ID-ownership design rather than a local event workaround.
+
+The three native changes stay upstream instead of being copied into this repository. The package dependency remains `@gpuix/native ^0.7.0`; when a compatible upstream patch is published, it should be audited and the repository lockfile/compatibility pin refreshed before claiming parity with that new release. Full `bun --hot` remount ownership is tracked as post-0.7 Solid binding work and is not a blocker for the 0.7-based beta.
 
 ## Solid-specific coverage
 
