@@ -11,11 +11,15 @@ import { createRoot, type Root } from "./root.js"
 export { createRoot } from "./root.js"
 export type { Root } from "./root.js"
 
-const RUNTIME_ERROR_HANDLERS_KEY = Symbol.for("@gpuix-solid/runtime-error-handlers")
+type RuntimeGlobalState = typeof globalThis & {
+  __gpuixSolidRuntimeErrorHandlersInstalled?: boolean
+}
+
+const runtimeGlobalState: RuntimeGlobalState = globalThis
 
 function installRuntimeErrorHandlers(): void {
-  if (typeof process === "undefined" || Reflect.get(globalThis, RUNTIME_ERROR_HANDLERS_KEY)) return
-  Reflect.set(globalThis, RUNTIME_ERROR_HANDLERS_KEY, true)
+  if (runtimeGlobalState.__gpuixSolidRuntimeErrorHandlersInstalled) return
+  runtimeGlobalState.__gpuixSolidRuntimeErrorHandlersInstalled = true
   process.on("uncaughtException", (error) => {
     console.error("[gpuix-solid] uncaughtException", error)
   })
