@@ -7,6 +7,19 @@ import { useDestroyUnlinksParentBatch } from "./host/mutations.js"
 import type { DebugFrameOverlayMode, NativeRenderer, WindowKeyEventHandlers } from "./host/types.js"
 import { createRoot, type Root } from "./root.js"
 
+const RUNTIME_ERROR_HANDLERS_KEY = Symbol.for("@gpuix-solid/runtime-error-handlers")
+
+function installRuntimeErrorHandlers(): void {
+  if (typeof process === "undefined" || Reflect.get(globalThis, RUNTIME_ERROR_HANDLERS_KEY)) return
+  Reflect.set(globalThis, RUNTIME_ERROR_HANDLERS_KEY, true)
+  process.on("uncaughtException", (error) => {
+    console.error("[gpuix-solid] uncaughtException", error)
+  })
+  process.on("unhandledRejection", (reason) => {
+    console.error("[gpuix-solid] unhandledRejection", reason)
+  })
+}
+
 export interface RenderOptions extends WindowOptions, WindowKeyEventHandlers {
   renderer?: NativeRenderer
   onEvent?: (event: EventPayload) => void
@@ -40,6 +53,7 @@ export function render(code: () => JSX.Element, options: RenderOptions = {}): Re
     }
   }
 
+  installRuntimeErrorHandlers()
   let root: Root | undefined
   const nativeRenderer = new GpuixRenderer((error, event) => {
     if (error) {
@@ -47,8 +61,12 @@ export function render(code: () => JSX.Element, options: RenderOptions = {}): Re
       return
     }
     if (!event) return
-    root?.dispatch(event)
-    onEvent?.(event)
+    try {
+      root?.dispatch(event)
+      onEvent?.(event)
+    } catch (eventError) {
+      console.error("[gpuix-solid1] event handler error", eventError)
+    }
   })
   nativeRenderer.init(windowOptions)
   const renderer = adaptBatchRenderer(nativeRenderer)

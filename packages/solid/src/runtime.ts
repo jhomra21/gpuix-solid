@@ -11,6 +11,19 @@ import { createRoot, type Root } from "./root.js"
 export { createRoot } from "./root.js"
 export type { Root } from "./root.js"
 
+const RUNTIME_ERROR_HANDLERS_KEY = Symbol.for("@gpuix-solid/runtime-error-handlers")
+
+function installRuntimeErrorHandlers(): void {
+  if (typeof process === "undefined" || Reflect.get(globalThis, RUNTIME_ERROR_HANDLERS_KEY)) return
+  Reflect.set(globalThis, RUNTIME_ERROR_HANDLERS_KEY, true)
+  process.on("uncaughtException", (error) => {
+    console.error("[gpuix-solid] uncaughtException", error)
+  })
+  process.on("unhandledRejection", (reason) => {
+    console.error("[gpuix-solid] unhandledRejection", reason)
+  })
+}
+
 export function createRenderer(
   onEvent?: (event: EventPayload) => void,
 ): RendererBinding {
@@ -22,8 +35,12 @@ export function createRenderer(
       return
     }
     if (!event) return
-    root?.dispatch(event)
-    onEvent?.(event)
+    try {
+      root?.dispatch(event)
+      onEvent?.(event)
+    } catch (eventError) {
+      console.error("[gpuix-solid] event handler error", eventError)
+    }
   })
 
   const nativeInit = renderer.init.bind(renderer)
@@ -81,6 +98,7 @@ export function render(code: () => SolidElement, options: RenderOptions = {}): R
     }
   }
 
+  installRuntimeErrorHandlers()
   const native = createRenderer(onEvent)
   native.renderer.init(windowOptions)
   const renderer = adaptBatchRenderer(native.renderer)

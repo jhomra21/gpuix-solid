@@ -6,6 +6,7 @@
 
 - Align the Solid 2 and Solid 1 hosts with the current `@gpuix/native` 0.7 release line, including native two-stop linear gradients, `WindowOptions` passthrough, raw window key handling, last-window lifecycle termination, and the published native TestRenderer availability guard.
 - Improve browser-source compatibility in the native hosts with browser-shaped element bounds, focus/selection/scroll and pointer-capture behavior, controlled input/range synchronization, SVG/event semantics, intrinsic native range geometry, and transparent CSS color-mix normalization used by upstream component source.
+- Keep native windows responsive after JavaScript runtime failures by isolating event-handler exceptions, continuing the frame pump after a thrown tick, and installing one process-level uncaught-error logger for native-window renders.
 - Expand source-first dogfooding and regression coverage across pinned GPUIX, Kobalte, Diffusion Studio, and DAW source, including the DAW's exact TrackSidebar, ClipComponent, Sample Detail, Compressor, automation, overview, and clip-color paths while keeping documented Canvas/EQ capability boundaries explicit instead of replacing them with lookalikes.
 - Harden cross-platform validation so macOS, Ubuntu, Windows, Solid 1 compatibility, native DAW/Kobalte fixtures, release-tool tests, and exact-package smoke checks cover the source-first compatibility work before publication.
 
