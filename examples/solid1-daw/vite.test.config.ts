@@ -1,12 +1,14 @@
 import solid from "vite-plugin-solid"
 import { defineConfig } from "vite"
 import { kobalteNativeAliases } from "./kobalte-native-aliases.ts"
+import { dawNativeSourceAdaptations } from "./native-source-adaptations.ts"
 
 export default defineConfig({
   define: {
     "import.meta.env.VITE_DESKTOP": JSON.stringify("false"),
   },
   plugins: [
+    dawNativeSourceAdaptations(),
     solid({
       solid: {
         generate: "universal",
