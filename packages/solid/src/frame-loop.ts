@@ -7,11 +7,13 @@ export interface FrameLoop {
   stop(): void
 }
 
+export type FrameLoopError = Error | string
+
 const DEFAULT_FRAME_MS = 8
 
 export function startFrameLoop(
   renderer: TickRenderer,
-  options: { frameMs?: number; onTerminated?: () => void; onError?: (error: unknown) => void } = {},
+  options: { frameMs?: number; onTerminated?: () => void; onError?: (error: FrameLoopError) => void } = {},
 ): FrameLoop {
   if (!renderer.requiresTick()) return { stop() {} }
 
@@ -32,8 +34,9 @@ export function startFrameLoop(
     try {
       running = renderer.tick()
     } catch (error) {
-      if (options.onError) options.onError(error)
-      else console.error("[gpuix-solid] tick error", error)
+      const failure = error instanceof Error ? error : String(error)
+      if (options.onError) options.onError(failure)
+      else console.error("[gpuix-solid] tick error", failure)
     }
     if (!running) {
       stop()

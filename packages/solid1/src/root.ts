@@ -34,8 +34,16 @@ function hasLiveElement(container: HostRootNode, elementId: number): boolean {
   return false
 }
 
+export type Solid1RenderValue = JSX.Element | HostNode
+
+function asSolidContextChild(value: Solid1RenderValue): JSX.Element {
+  // SAFETY: Solid's universal renderer accepts GPUIX HostNode values as render results;
+  // the upstream Solid JSX type still models DOM Node and cannot express that custom host contract.
+  return value as JSX.Element
+}
+
 export interface Root {
-  render(code: () => JSX.Element): void
+  render(code: () => Solid1RenderValue): void
   flush(): void
   flushSync<Value>(fn: () => Value): Value
   setWindowKeyEventHandlers(handlers: WindowKeyEventHandlers): void
@@ -118,7 +126,7 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
         () => GpuixContext.Provider({
           value: { renderer, getViewportSize },
           get children() {
-            return code()
+            return asSolidContextChild(code())
           },
         }),
         container,

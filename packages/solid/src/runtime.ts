@@ -24,13 +24,15 @@ type RenderSlot = {
   loop: FrameLoop
   generation: number
   lastCode?: () => SolidElement
-  lastOptions?: RenderOptions
   overlayShown: boolean
 }
 
+type RuntimeFailure = Error | string
+type RuntimeRejectionReason = Error | string | number | boolean | bigint | symbol | object | null | undefined
+
 type RuntimeErrorHandlers = {
   uncaughtException: (error: Error) => void
-  unhandledRejection: (reason: unknown) => void
+  unhandledRejection: (reason: RuntimeRejectionReason) => void
 }
 
 type RuntimeGlobalState = typeof globalThis & {
@@ -63,16 +65,11 @@ function setRendererOnEvent(renderer: GpuixRenderer, onEvent?: (event: EventPayl
   else delete state.onEvent
 }
 
-function thrownToError(thrown: unknown): Error | string {
-  if (thrown instanceof Error) return thrown
-  try {
-    return String(thrown)
-  } catch {
-    return "Unknown error"
-  }
+function rejectionToFailure(reason: RuntimeRejectionReason): RuntimeFailure {
+  return reason instanceof Error ? reason : String(reason)
 }
 
-function formatRuntimeError(thrown: Error | string): RuntimeErrorDetails {
+function formatRuntimeError(thrown: RuntimeFailure): RuntimeErrorDetails {
   if (thrown instanceof Error) {
     const message = thrown.message || thrown.name || "Unknown error"
     const stack = thrown.stack ?? `${thrown.name}: ${thrown.message}`
@@ -89,7 +86,7 @@ function installRuntimeErrorHandlers(): void {
       scheduleRuntimeError(error)
     },
     unhandledRejection(reason) {
-      scheduleRuntimeError(thrownToError(reason))
+      scheduleRuntimeError(rejectionToFailure(reason))
     },
   }
   process.on("uncaughtException", handlers.uncaughtException)
@@ -105,7 +102,7 @@ function uninstallRuntimeErrorHandlers(): void {
   delete runtimeGlobalState.__gpuixSolidRuntimeErrorHandlers
 }
 
-function showRuntimeError(slot: RenderSlot, error: Error | string): void {
+function showRuntimeError(slot: RenderSlot, error: RuntimeFailure): void {
   if (runtimeGlobalState.__gpuixSolidRenderSlot !== slot || slot.overlayShown) return
   const formatted = formatRuntimeError(error)
   console.error("[gpuix-solid] runtime error", error)
@@ -120,7 +117,7 @@ function showRuntimeError(slot: RenderSlot, error: Error | string): void {
   }
 }
 
-function scheduleRuntimeError(error: Error | string): void {
+function scheduleRuntimeError(error: RuntimeFailure): void {
   const slot = runtimeGlobalState.__gpuixSolidRenderSlot
   if (!slot?.root || slot.overlayShown) return
   const failedGeneration = slot.generation
@@ -139,7 +136,7 @@ function reloadApp(slot: RenderSlot): void {
   try {
     slot.root.render(code)
   } catch (error) {
-    scheduleRuntimeError(thrownToError(error))
+    scheduleRuntimeError(error instanceof Error ? error : String(error))
   }
 }
 
@@ -159,7 +156,7 @@ export function createRenderer(
       const handled = state.root?.dispatch(event) ?? false
       if (handled) state.onEvent?.(event)
     } catch (eventError) {
-      scheduleRuntimeError(thrownToError(eventError))
+      scheduleRuntimeError(eventError instanceof Error ? eventError : String(eventError))
     }
   })
   setRendererOnEvent(renderer, onEvent)
@@ -228,13 +225,12 @@ function mountCode(slot: RenderSlot, code: () => SolidElement, options: RenderOp
   slot.root.setWindowKeyEventHandlers(windowKeyEventHandlers(onKeyDown, onKeyUp))
   applyDebugFrameOverlay(slot.host, debugFrameOverlay)
   slot.lastCode = code
-  slot.lastOptions = options
   slot.overlayShown = false
   slot.generation += 1
   try {
     slot.root.render(code)
   } catch (error) {
-    scheduleRuntimeError(thrownToError(error))
+    scheduleRuntimeError(error instanceof Error ? error : String(error))
   }
   return renderHandle(slot, slot.generation)
 }
@@ -292,7 +288,7 @@ export function render(code: () => SolidElement, options: RenderOptions = {}): R
   // not strand the native macOS window without future ticks.
   const loop = startFrameLoop(native.renderer, {
     onError(error) {
-      scheduleRuntimeError(thrownToError(error))
+      scheduleRuntimeError(error)
     },
     onTerminated() {
       process.exit(0)

@@ -4,9 +4,12 @@ import { adaptBatchRenderer } from "./batch-renderer-adapter.js"
 import { applyDebugFrameOverlay } from "./capabilities.js"
 import { startFrameLoop, type FrameLoop } from "./frame-loop.js"
 import { useDestroyUnlinksParentBatch } from "./host/mutations.js"
+import type { HostNode } from "./host/nodes.js"
 import type { DebugFrameOverlayMode, NativeRenderer, WindowKeyEventHandlers } from "./host/types.js"
 import { createRoot, type Root } from "./root.js"
 import { createRuntimeErrorOverlay, type RuntimeErrorDetails } from "./runtime-error-overlay.js"
+
+type Solid1RenderValue = JSX.Element | HostNode
 
 type RendererBindingState = {
   root?: Root
@@ -19,14 +22,16 @@ type RenderSlot = {
   root: Root
   loop: FrameLoop
   generation: number
-  lastCode?: () => JSX.Element
-  lastOptions?: RenderOptions
+  lastCode?: () => Solid1RenderValue
   overlayShown: boolean
 }
 
+type RuntimeFailure = Error | string
+type RuntimeRejectionReason = Error | string | number | boolean | bigint | symbol | object | null | undefined
+
 type RuntimeErrorHandlers = {
   uncaughtException: (error: Error) => void
-  unhandledRejection: (reason: unknown) => void
+  unhandledRejection: (reason: RuntimeRejectionReason) => void
 }
 
 type RuntimeGlobalState = typeof globalThis & {
@@ -59,16 +64,11 @@ function setRendererOnEvent(renderer: GpuixRenderer, onEvent?: (event: EventPayl
   else delete state.onEvent
 }
 
-function thrownToError(thrown: unknown): Error | string {
-  if (thrown instanceof Error) return thrown
-  try {
-    return String(thrown)
-  } catch {
-    return "Unknown error"
-  }
+function rejectionToFailure(reason: RuntimeRejectionReason): RuntimeFailure {
+  return reason instanceof Error ? reason : String(reason)
 }
 
-function formatRuntimeError(thrown: Error | string): RuntimeErrorDetails {
+function formatRuntimeError(thrown: RuntimeFailure): RuntimeErrorDetails {
   if (thrown instanceof Error) {
     const message = thrown.message || thrown.name || "Unknown error"
     const stack = thrown.stack ?? `${thrown.name}: ${thrown.message}`
@@ -85,7 +85,7 @@ function installRuntimeErrorHandlers(): void {
       scheduleRuntimeError(error)
     },
     unhandledRejection(reason) {
-      scheduleRuntimeError(thrownToError(reason))
+      scheduleRuntimeError(rejectionToFailure(reason))
     },
   }
   process.on("uncaughtException", handlers.uncaughtException)
@@ -101,7 +101,7 @@ function uninstallRuntimeErrorHandlers(): void {
   delete runtimeGlobalState.__gpuixSolid1RuntimeErrorHandlers
 }
 
-function showRuntimeError(slot: RenderSlot, error: Error | string): void {
+function showRuntimeError(slot: RenderSlot, error: RuntimeFailure): void {
   if (runtimeGlobalState.__gpuixSolid1RenderSlot !== slot || slot.overlayShown) return
   const formatted = formatRuntimeError(error)
   console.error("[gpuix-solid1] runtime error", error)
@@ -116,7 +116,7 @@ function showRuntimeError(slot: RenderSlot, error: Error | string): void {
   }
 }
 
-function scheduleRuntimeError(error: Error | string): void {
+function scheduleRuntimeError(error: RuntimeFailure): void {
   const slot = runtimeGlobalState.__gpuixSolid1RenderSlot
   if (!slot?.root || slot.overlayShown) return
   const failedGeneration = slot.generation
@@ -135,7 +135,7 @@ function reloadApp(slot: RenderSlot): void {
   try {
     slot.root.render(code)
   } catch (error) {
-    scheduleRuntimeError(thrownToError(error))
+    scheduleRuntimeError(error instanceof Error ? error : String(error))
   }
 }
 
@@ -152,7 +152,7 @@ function createNativeRenderer(onEvent?: (event: EventPayload) => void): GpuixRen
       const handled = state.root?.dispatch(event) ?? false
       if (handled) state.onEvent?.(event)
     } catch (eventError) {
-      scheduleRuntimeError(thrownToError(eventError))
+      scheduleRuntimeError(eventError instanceof Error ? eventError : String(eventError))
     }
   })
   setRendererOnEvent(renderer, onEvent)
@@ -191,19 +191,18 @@ function renderHandle(slot: RenderSlot, generation: number): RenderHandle {
   }
 }
 
-function mountCode(slot: RenderSlot, code: () => JSX.Element, options: RenderOptions): RenderHandle {
+function mountCode(slot: RenderSlot, code: () => Solid1RenderValue, options: RenderOptions): RenderHandle {
   const { onEvent, onKeyDown, onKeyUp, debugFrameOverlay } = options
   if (slot.nativeRenderer) setRendererOnEvent(slot.nativeRenderer, onEvent)
   slot.root.setWindowKeyEventHandlers(windowKeyEventHandlers(onKeyDown, onKeyUp))
   applyDebugFrameOverlay(slot.host, debugFrameOverlay)
   slot.lastCode = code
-  slot.lastOptions = options
   slot.overlayShown = false
   slot.generation += 1
   try {
     slot.root.render(code)
   } catch (error) {
-    scheduleRuntimeError(thrownToError(error))
+    scheduleRuntimeError(error instanceof Error ? error : String(error))
   }
   return renderHandle(slot, slot.generation)
 }
@@ -224,7 +223,7 @@ export function resetRender(): void {
 }
 
 /** Mount the app. Under `bun --hot`, later calls remount on the same native window. */
-export function render(code: () => JSX.Element, options: RenderOptions = {}): RenderHandle {
+export function render(code: () => Solid1RenderValue, options: RenderOptions = {}): RenderHandle {
   const { renderer: injected, onEvent, onKeyDown, onKeyUp, debugFrameOverlay, ...windowOptions } = options
   const existing = runtimeGlobalState.__gpuixSolid1RenderSlot
 
@@ -261,7 +260,7 @@ export function render(code: () => JSX.Element, options: RenderOptions = {}): Re
   // not strand the native macOS window without future ticks.
   const loop = startFrameLoop(nativeRenderer, {
     onError(error) {
-      scheduleRuntimeError(thrownToError(error))
+      scheduleRuntimeError(error)
     },
     onTerminated() {
       process.exit(0)
