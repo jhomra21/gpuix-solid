@@ -200,6 +200,7 @@ export interface StyleDesc {
   whiteSpace?: "normal" | "nowrap"
   textOverflow?: "ellipsis" | "ellipsis-start"
   lineClamp?: number
+  textDecoration?: "underline" | "line-through" | "none"
 
   overflow?: string
   overflowX?: string
@@ -406,6 +407,14 @@ export interface HostProps {
   highlight?: HighlightSpec | HighlightSpec[] | null
   autoFocus?: boolean
   tabIndex?: number
+  role?: string
+  "aria-label"?: string
+  "aria-description"?: string
+  "aria-id"?: string
+  "aria-expanded"?: boolean
+  "aria-selected"?: boolean
+  "aria-valuetext"?: string
+  "aria-level"?: number
   title?: string
   testId?: string
 }
