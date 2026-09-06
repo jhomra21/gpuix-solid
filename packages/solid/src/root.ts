@@ -1,7 +1,7 @@
 import type { EventPayload } from "@gpuix/native"
 import { flush as flushSolid, type Element as SolidElement } from "solid-js"
 import { GpuixContext, type GpuixContextValue } from "./context.js"
-import { EVENT_PROPS, EventRegistry } from "./host/events.js"
+import { EventRegistry } from "./host/events.js"
 import { MutationDriver } from "./host/mutations.js"
 import { HostRootNode, removeHostNode, type HostNode } from "./host/nodes.js"
 import type { NativeRenderer, WindowKeyEventHandlers } from "./host/types.js"
@@ -15,10 +15,15 @@ function nextWindowKeyEventId(renderer: NativeRenderer): number {
   return id
 }
 
-function hasLiveNativeHandler(events: EventRegistry, event: EventPayload): boolean {
-  return EVENT_PROPS.some(([, domEventType, nativeEventType]) =>
-    nativeEventType === event.eventType && events.has(event.elementId, domEventType),
-  )
+function hasLiveElement(container: HostRootNode, elementId: number): boolean {
+  const pending: HostNode[] = [...container.children]
+  while (pending.length > 0) {
+    const node = pending.pop()
+    if (!node) continue
+    if (node.kind === "element" && node.id === elementId && node.nativeAlive) return true
+    pending.push(...node.children)
+  }
+  return false
 }
 
 export interface Root {
@@ -115,7 +120,7 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
             handled = true
             return
           }
-          if (!hasLiveNativeHandler(events, event)) return
+          if (!hasLiveElement(container, event.elementId)) return
           events.dispatch(event)
           handled = true
         })
