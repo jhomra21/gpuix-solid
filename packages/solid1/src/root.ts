@@ -70,6 +70,7 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
     )
   }
   syncWindowKeyEvents()
+  installBrowserPreflushCompatibility(container, driver)
 
   const getViewportSize = (): ViewportSize => {
     const nativeSize = renderer.getWindowSize?.()

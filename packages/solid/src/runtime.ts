@@ -55,7 +55,7 @@ function setRendererOnEvent(renderer: GpuixRenderer, onEvent?: (event: EventPayl
 }
 
 function installRuntimeErrorHandlers(): void {
-  if (typeof process === "undefined" || runtimeGlobalState.__gpuixSolidRuntimeErrorHandlersInstalled) return
+  if (runtimeGlobalState.__gpuixSolidRuntimeErrorHandlersInstalled) return
   runtimeGlobalState.__gpuixSolidRuntimeErrorHandlersInstalled = true
   process.on("uncaughtException", (error) => {
     console.error("[gpuix-solid] uncaughtException", error)
