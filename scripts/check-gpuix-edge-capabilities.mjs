@@ -47,6 +47,7 @@ function checkAccessibility(Renderer) {
     ["setCustomProp", 5, "aria-label", "Messages"],
 
     ["createElement", 6, "text"],
+    ["setStyle", 6, { width: 200, height: 24 }],
     ["setText", 6, "Hello Ada!"],
 
     ["appendChild", 1, 2],
