@@ -27,7 +27,10 @@ type RenderSlot = {
 }
 
 type RuntimeFailure = Error | string
-type RuntimeRejectionReason = Error | string | number | boolean | bigint | symbol | object | null | undefined
+interface RuntimeRejectionReference {
+  toString(): string
+}
+type RuntimeRejectionReason = Error | string | number | boolean | bigint | symbol | RuntimeRejectionReference | null | undefined
 
 type RuntimeErrorHandlers = {
   uncaughtException: (error: Error) => void
