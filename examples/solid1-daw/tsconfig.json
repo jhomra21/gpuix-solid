@@ -14,7 +14,7 @@
         "src/compat/solid-web.ts"
       ],
       "@daw-browser/waveforms/render-waveform": [
-        "src/upstream/packages/waveforms/render-waveform.ts"
+        "src/compat/render-waveform.ts"
       ],
       "~/hooks/useClipWaveformViewModel": [
         "src/compat/useClipWaveformViewModel.ts"
