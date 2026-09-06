@@ -111,7 +111,6 @@ function showRuntimeError(slot: RenderSlot, error: RuntimeFailure): void {
   console.error("[gpuix-solid] runtime error", error)
   console.error(formatted.stack)
   slot.overlayShown = true
-  slot.generation += 1
   try {
     slot.root.render(() => createRuntimeErrorOverlay(formatted, () => reloadApp(slot)))
   } catch (overlayError) {
@@ -135,22 +134,25 @@ function reloadApp(slot: RenderSlot): void {
   const code = slot.lastCode
   if (!code || runtimeGlobalState.__gpuixSolidRenderSlot !== slot) return
   slot.overlayShown = false
-  slot.generation += 1
   slot.root.render(() => withRuntimeRecovery(slot, code))
 }
 
 function withRuntimeRecovery(slot: RenderSlot, code: () => SolidElement): SolidElement {
   return Errored({
-    fallback(error, reset) {
-      const failure = error instanceof Error ? error : String(error)
+    fallback(error) {
+      const value = error()
+      const failure = value instanceof Error ? value : String(value)
       const formatted = formatRuntimeError(failure)
       console.error("[gpuix-solid] runtime error", failure)
       console.error(formatted.stack)
       slot.overlayShown = true
-      return createRuntimeErrorOverlay(formatted, () => {
-        slot.overlayShown = false
-        reset()
+      const failedGeneration = slot.generation
+      queueMicrotask(() => {
+        const current = runtimeGlobalState.__gpuixSolidRenderSlot
+        if (current !== slot || current.generation !== failedGeneration || !slot.overlayShown) return
+        slot.root.render(() => createRuntimeErrorOverlay(formatted, () => reloadApp(slot)))
       })
+      return null
     },
     get children() {
       return code()
