@@ -19,7 +19,7 @@ function upstream(file: string): string {
 
 export const kobalteNativeAliases: Alias[] = [
   { find: /^solid-js\/web$/, replacement: compat("solid-web.ts") },
-  { find: /^@solid1-daw\/native-waveform$/, replacement: compat("NativeWaveformSvg.tsx") },
+  { find: /^@solid1-daw\/gpuix-solid-canvas$/, replacement: compat("gpuix-solid-canvas.ts") },
   { find: /^@kobalte\/core$/, replacement: adapter("index.tsx") },
   { find: /^@kobalte\/core\/polymorphic$/, replacement: adapter("polymorphic.ts") },
   { find: /^@kobalte\/core\/button$/, replacement: adapter("button.tsx") },
@@ -32,7 +32,7 @@ export const kobalteNativeAliases: Alias[] = [
   { find: /^@kobalte\/core\/context-menu$/, replacement: adapter("context-menu.tsx") },
   { find: /^@kobalte\/core\/menubar$/, replacement: adapter("menubar.tsx") },
   { find: /^@daw-browser\/shared$/, replacement: compat("daw-browser-shared.ts") },
-  { find: /^@daw-browser\/waveforms\/render-waveform$/, replacement: compat("render-waveform.ts") },
+  { find: /^@daw-browser\/waveforms\/render-waveform$/, replacement: upstream("packages/waveforms/render-waveform.ts") },
   { find: /^~\/hooks\/useClipWaveformViewModel$/, replacement: compat("useClipWaveformViewModel.ts") },
   { find: /^~\/lib\/timeline-runtime-types$/, replacement: upstream("lib/timeline-runtime-types.ts") },
   { find: /^@daw-browser\/audio-engine\/audio-engine$/, replacement: compat("audio-engine.ts") },

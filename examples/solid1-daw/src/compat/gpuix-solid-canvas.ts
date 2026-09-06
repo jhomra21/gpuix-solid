@@ -1,0 +1,256 @@
+import {
+  createElement as createNativeElement,
+  insertNode,
+  setProp,
+} from "@jhomra21/gpuix-solid1"
+
+export * from "@jhomra21/gpuix-solid1"
+
+type CanvasPoint = readonly [number, number]
+type CanvasMatrix = readonly [number, number, number, number, number, number]
+type CanvasSize = { width: number; height: number }
+type CanvasPaint = CanvasRenderingContext2D["fillStyle"]
+type CanvasHostNode = ReturnType<typeof createNativeElement> & {
+  width?: number
+  height?: number
+}
+type CanvasCommand =
+  | { kind: "fill"; points: readonly CanvasPoint[]; color: string }
+  | { kind: "stroke"; points: readonly CanvasPoint[]; color: string; width: number }
+
+type CanvasSurface = {
+  context: CanvasRenderingContext2D
+  toSvg(): string
+}
+
+type RuntimeCanvasState = {
+  surface: ReturnType<typeof createNativeElement>
+  drawing: CanvasSurface
+  queued: boolean
+}
+
+const runtimeCanvases = new WeakMap<CanvasHostNode, RuntimeCanvasState>()
+
+export function createElement(tagName: string): ReturnType<typeof createNativeElement> {
+  const node = createNativeElement(tagName)
+  if (tagName === "canvas") installCanvas2D(node)
+  return node
+}
+
+function installCanvas2D(node: CanvasHostNode): void {
+  Object.defineProperty(node, "getContext", {
+    configurable: true,
+    value(contextId: string): CanvasRenderingContext2D | null {
+      if (contextId !== "2d") return null
+      let state = runtimeCanvases.get(node)
+      if (!state) {
+        const surface = createNativeElement("svg")
+        let nextState: RuntimeCanvasState | undefined
+        const drawing = createCanvasSurface(
+          () => canvasBackingSize(node),
+          () => {
+            if (nextState) scheduleCanvasRender(node, nextState)
+          },
+        )
+        nextState = { surface, drawing, queued: false }
+        state = nextState
+        runtimeCanvases.set(node, state)
+        insertNode(node, surface)
+        scheduleCanvasRender(node, state)
+      }
+      return state.drawing.context
+    },
+  })
+}
+
+function scheduleCanvasRender(node: CanvasHostNode, state: RuntimeCanvasState): void {
+  if (state.queued) return
+  state.queued = true
+  queueMicrotask(() => {
+    state.queued = false
+    if (!node.nativeAlive || !node.root || !state.surface.nativeAlive) return
+    const bounds = node.getBoundingClientRect()
+    setProp(state.surface, "style", {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: Math.max(1, bounds.width),
+      height: Math.max(1, bounds.height),
+      pointerEvents: "none",
+      flexShrink: 0,
+    })
+    const source = state.drawing.toSvg()
+    setProp(state.surface, "source", source)
+    setProp(state.surface, "src", `data:image/svg+xml,${encodeURIComponent(source)}`)
+    node.root.driver.flush()
+  })
+}
+
+function createCanvasSurface(getSize: () => CanvasSize, onChange: () => void): CanvasSurface {
+  let commands: CanvasCommand[] = []
+  let path: CanvasPoint[] = []
+  let transform: CanvasMatrix = [1, 0, 0, 1, 0, 0]
+  let fillStyle: CanvasPaint = "#000000"
+  let strokeStyle: CanvasPaint = "#000000"
+  let lineWidth = 1
+  let imageSmoothingEnabled = true
+
+  // SAFETY: this compatibility context intentionally implements only the
+  // Canvas2D operations exercised by the pinned DAW source. Unsupported APIs
+  // stay absent rather than being silently approximated.
+  const context = {
+    get fillStyle() {
+      return fillStyle
+    },
+    set fillStyle(value: CanvasPaint) {
+      fillStyle = value
+    },
+    get strokeStyle() {
+      return strokeStyle
+    },
+    set strokeStyle(value: CanvasPaint) {
+      strokeStyle = value
+    },
+    get lineWidth() {
+      return lineWidth
+    },
+    set lineWidth(value: number) {
+      lineWidth = Number.isFinite(value) && value > 0 ? value : 1
+    },
+    get imageSmoothingEnabled() {
+      return imageSmoothingEnabled
+    },
+    set imageSmoothingEnabled(value: boolean) {
+      imageSmoothingEnabled = Boolean(value)
+    },
+    setTransform(a: number, b: number, c: number, d: number, e: number, f: number) {
+      transform = [a, b, c, d, e, f]
+    },
+    clearRect(x: number, y: number, width: number, height: number) {
+      const points = rectanglePoints(x, y, width, height, transform)
+      if (!coversSurface(points, getSize())) {
+        throw new Error("GPUIX Canvas2D compatibility currently supports only full-surface clearRect()")
+      }
+      commands = []
+      path = []
+      onChange()
+    },
+    fillRect(x: number, y: number, width: number, height: number) {
+      commands.push({
+        kind: "fill",
+        points: rectanglePoints(x, y, width, height, transform),
+        color: String(fillStyle),
+      })
+      onChange()
+    },
+    beginPath() {
+      path = []
+    },
+    moveTo(x: number, y: number) {
+      path = [transformPoint(x, y, transform)]
+    },
+    lineTo(x: number, y: number) {
+      path.push(transformPoint(x, y, transform))
+    },
+    stroke() {
+      if (path.length < 2) return
+      commands.push({
+        kind: "stroke",
+        points: [...path],
+        color: String(strokeStyle),
+        width: transformedLineWidth(lineWidth, transform),
+      })
+      onChange()
+    },
+  } as CanvasRenderingContext2D
+
+  return {
+    context,
+    toSvg() {
+      const size = normalizedSize(getSize())
+      const body = commands.map(serializeCommand).join("")
+      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${formatNumber(size.width)} ${formatNumber(size.height)}" preserveAspectRatio="none">${body}</svg>`
+    },
+  }
+}
+
+function canvasBackingSize(node: CanvasHostNode): CanvasSize {
+  const bounds = node.getBoundingClientRect()
+  return normalizedSize({
+    width: finitePositive(Number(node.width)) ?? bounds.width,
+    height: finitePositive(Number(node.height)) ?? bounds.height,
+  })
+}
+
+function finitePositive(value: number): number | undefined {
+  return Number.isFinite(value) && value > 0 ? value : undefined
+}
+
+function normalizedSize(size: CanvasSize): CanvasSize {
+  return {
+    width: finitePositive(size.width) ?? 1,
+    height: finitePositive(size.height) ?? 1,
+  }
+}
+
+function transformPoint(x: number, y: number, matrix: CanvasMatrix): CanvasPoint {
+  const [a, b, c, d, e, f] = matrix
+  return [a * x + c * y + e, b * x + d * y + f]
+}
+
+function rectanglePoints(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  matrix: CanvasMatrix,
+): readonly CanvasPoint[] {
+  return [
+    transformPoint(x, y, matrix),
+    transformPoint(x + width, y, matrix),
+    transformPoint(x + width, y + height, matrix),
+    transformPoint(x, y + height, matrix),
+  ]
+}
+
+function coversSurface(points: readonly CanvasPoint[], size: CanvasSize): boolean {
+  const normalized = normalizedSize(size)
+  const xs = points.map(([x]) => x)
+  const ys = points.map(([, y]) => y)
+  const epsilon = 0.01
+  return Math.min(...xs) <= epsilon &&
+    Math.min(...ys) <= epsilon &&
+    Math.max(...xs) >= normalized.width - epsilon &&
+    Math.max(...ys) >= normalized.height - epsilon
+}
+
+function transformedLineWidth(width: number, matrix: CanvasMatrix): number {
+  const [a, b, c, d] = matrix
+  const scaleX = Math.hypot(a, b)
+  const scaleY = Math.hypot(c, d)
+  const scale = Math.max(0.0001, (scaleX + scaleY) / 2)
+  return width * scale
+}
+
+function serializeCommand(command: CanvasCommand): string {
+  const points = command.points
+    .map(([x, y]) => `${formatNumber(x)},${formatNumber(y)}`)
+    .join(" ")
+  if (command.kind === "fill") {
+    return `<polygon points="${points}" fill="${escapeXmlAttribute(command.color)}"/>`
+  }
+  return `<polyline points="${points}" fill="none" stroke="${escapeXmlAttribute(command.color)}" stroke-width="${formatNumber(command.width)}"/>`
+}
+
+function formatNumber(value: number): string {
+  const rounded = Math.round(value * 1000) / 1000
+  return Object.is(rounded, -0) ? "0" : String(rounded)
+}
+
+function escapeXmlAttribute(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+}
