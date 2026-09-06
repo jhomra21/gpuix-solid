@@ -31,6 +31,9 @@ export default defineConfig({
     outDir: "dist/test",
     rollupOptions: {
       external: ["@gpuix/native"],
+      output: {
+        entryFileNames: "test.js",
+      },
     },
   },
 })
