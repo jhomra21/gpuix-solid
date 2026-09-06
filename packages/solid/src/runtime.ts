@@ -1,5 +1,5 @@
 import { GpuixRenderer, type EventPayload, type WindowOptions } from "@gpuix/native"
-import type { Element as SolidElement } from "solid-js"
+import { Errored, type Element as SolidElement } from "solid-js"
 import { enableAutomation } from "./automation/server.js"
 import { adaptBatchRenderer } from "./batch-renderer-adapter.js"
 import { applyDebugFrameOverlay } from "./capabilities.js"
@@ -136,11 +136,26 @@ function reloadApp(slot: RenderSlot): void {
   if (!code || runtimeGlobalState.__gpuixSolidRenderSlot !== slot) return
   slot.overlayShown = false
   slot.generation += 1
-  try {
-    slot.root.render(code)
-  } catch (error) {
-    scheduleRuntimeError(error instanceof Error ? error : String(error))
-  }
+  slot.root.render(() => withRuntimeRecovery(slot, code))
+}
+
+function withRuntimeRecovery(slot: RenderSlot, code: () => SolidElement): SolidElement {
+  return Errored({
+    fallback(error, reset) {
+      const failure = error instanceof Error ? error : String(error)
+      const formatted = formatRuntimeError(failure)
+      console.error("[gpuix-solid] runtime error", failure)
+      console.error(formatted.stack)
+      slot.overlayShown = true
+      return createRuntimeErrorOverlay(formatted, () => {
+        slot.overlayShown = false
+        reset()
+      })
+    },
+    get children() {
+      return code()
+    },
+  })
 }
 
 export function createRenderer(
@@ -230,11 +245,7 @@ function mountCode(slot: RenderSlot, code: () => SolidElement, options: RenderOp
   slot.lastCode = code
   slot.overlayShown = false
   slot.generation += 1
-  try {
-    slot.root.render(code)
-  } catch (error) {
-    scheduleRuntimeError(error instanceof Error ? error : String(error))
-  }
+  slot.root.render(() => withRuntimeRecovery(slot, code))
   return renderHandle(slot, slot.generation)
 }
 
