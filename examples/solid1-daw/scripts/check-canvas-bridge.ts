@@ -17,6 +17,7 @@ if (!hasNativeTestRenderer) {
 } else {
   const app = createTestRoot(240, 100)
   app.render(() => {
+    // SAFETY: the compatibility createElement facade returns a semantic canvas host instance for the literal "canvas" tag, and this detector immediately validates its Canvas2D contract before use.
     const canvas = createElement("canvas") as CompatCanvas
     setProp(canvas, "style", { width: 100, height: 40, position: "relative" })
     canvas.width = 100
