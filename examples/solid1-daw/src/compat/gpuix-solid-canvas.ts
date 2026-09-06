@@ -54,6 +54,7 @@ function installCanvas2D(node: CanvasHostNode): void {
       let state = runtimeCanvases.get(node)
       if (!state) {
         const surface = requireHostElement(createNativeElement("svg"), "svg")
+        setProp(surface, "testId", "gpuix-canvas-2d-surface")
         let nextState: RuntimeCanvasState | undefined
         const drawing = createCanvasSurface(
           () => canvasBackingSize(node),
