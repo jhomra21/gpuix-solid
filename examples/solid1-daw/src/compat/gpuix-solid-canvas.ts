@@ -10,7 +10,9 @@ type CanvasPoint = readonly [number, number]
 type CanvasMatrix = readonly [number, number, number, number, number, number]
 type CanvasSize = { width: number; height: number }
 type CanvasPaint = CanvasRenderingContext2D["fillStyle"]
-type CanvasHostNode = ReturnType<typeof createNativeElement> & {
+type NativeHostNode = ReturnType<typeof createNativeElement>
+type NativeHostElement = Extract<NativeHostNode, { kind: "element" }>
+type CanvasHostNode = NativeHostElement & {
   width?: number
   height?: number
 }
@@ -24,16 +26,23 @@ type CanvasSurface = {
 }
 
 type RuntimeCanvasState = {
-  surface: ReturnType<typeof createNativeElement>
+  surface: NativeHostElement
   drawing: CanvasSurface
   queued: boolean
 }
 
 const runtimeCanvases = new WeakMap<CanvasHostNode, RuntimeCanvasState>()
 
-export function createElement(tagName: string): ReturnType<typeof createNativeElement> {
+function requireHostElement(node: NativeHostNode, tagName: string): NativeHostElement {
+  if (node.kind !== "element") {
+    throw new Error(`GPUIX Solid compatibility expected <${tagName}> to create a host element`)
+  }
+  return node
+}
+
+export function createElement(tagName: string): NativeHostNode {
   const node = createNativeElement(tagName)
-  if (tagName === "canvas") installCanvas2D(node)
+  if (tagName === "canvas") installCanvas2D(requireHostElement(node, tagName))
   return node
 }
 
@@ -44,7 +53,7 @@ function installCanvas2D(node: CanvasHostNode): void {
       if (contextId !== "2d") return null
       let state = runtimeCanvases.get(node)
       if (!state) {
-        const surface = createNativeElement("svg")
+        const surface = requireHostElement(createNativeElement("svg"), "svg")
         let nextState: RuntimeCanvasState | undefined
         const drawing = createCanvasSurface(
           () => canvasBackingSize(node),
