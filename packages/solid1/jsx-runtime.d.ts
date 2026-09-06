@@ -40,6 +40,17 @@ type SemanticDomProps = DomCompatibleProps<HostProps, SolidJSX.HTMLAttributes<HT
   "aria-hidden"?: string | boolean | undefined
 }
 
+type AccessibilityProps = {
+  role?: string | undefined
+  "aria-label"?: string | undefined
+  "aria-description"?: string | undefined
+  "aria-id"?: string | undefined
+  "aria-expanded"?: boolean | undefined
+  "aria-selected"?: boolean | undefined
+  "aria-valuetext"?: string | undefined
+  "aria-level"?: number | undefined
+}
+
 type InlineSvgProps = JSXProps<SvgProps> | SolidJSX.SvgSVGAttributes<SVGSVGElement>
 
 type InlineSvgChildProps = NativeClassProps & SolidJSX.DOMAttributes<SVGElement> & {
@@ -159,6 +170,6 @@ export namespace JSX {
     code: JSXProps<CodeProps>
     diff: JSXProps<DiffProps>
     markdown: JSXProps<MarkdownProps>
-    "virtual-list": JSXProps<VirtualListProps>
+    "virtual-list": JSXProps<VirtualListProps> & AccessibilityProps
   }
 }

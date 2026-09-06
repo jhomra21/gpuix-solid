@@ -11,6 +11,17 @@ function element(): HostElementNode {
   return node
 }
 
+function testIdElementId(renderer: FakeRenderer, testId: string): number | undefined {
+  for (const batch of renderer.batches) {
+    for (const mutation of batch) {
+      if (mutation[0] !== "setCustomProp" || mutation[2] !== "testId" || mutation[3] !== testId) continue
+      const id = Number(mutation[1])
+      if (Number.isInteger(id)) return id
+    }
+  }
+  return undefined
+}
+
 afterEach(() => resetRender())
 
 describe("root lifecycle", () => {
@@ -155,5 +166,28 @@ describe("render hot remounts", () => {
 
     secondHandle.unmount()
     expect(renderer.batches.at(-1)).toEqual([["destroyElement", 2]])
+  })
+
+  it("shows a runtime error overlay and reloads the last render closure", async () => {
+    const renderer = new FakeRenderer()
+    let attempts = 0
+    const handle = render(() => {
+      attempts += 1
+      if (attempts === 1) throw new Error("runtime overlay detector")
+      const node = element()
+      setProp(node, "testId", "reloaded-app")
+      return node
+    }, { renderer })
+
+    await Promise.resolve()
+
+    expect(testIdElementId(renderer, "runtime-error-overlay")).toBeDefined()
+    const reloadId = testIdElementId(renderer, "runtime-error-reload")
+    expect(reloadId).toBeDefined()
+    if (reloadId === undefined) throw new Error("Expected runtime error Reload element")
+
+    expect(handle.root.dispatch({ elementId: reloadId, eventType: "click" })).toBe(true)
+    expect(attempts).toBe(2)
+    expect(testIdElementId(renderer, "reloaded-app")).toBeDefined()
   })
 })

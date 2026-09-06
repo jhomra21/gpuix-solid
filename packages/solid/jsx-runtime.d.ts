@@ -215,6 +215,6 @@ export namespace JSX {
     code: JSXProps<CodeProps>
     diff: JSXProps<DiffProps>
     markdown: JSXProps<MarkdownProps>
-    "virtual-list": JSXProps<VirtualListProps>
+    "virtual-list": JSXProps<VirtualListProps> & SourceMetadataProps & AriaAttributes
   }
 }

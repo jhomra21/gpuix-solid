@@ -11,7 +11,7 @@ const DEFAULT_FRAME_MS = 8
 
 export function startFrameLoop(
   renderer: TickRenderer,
-  options: { frameMs?: number; onTerminated?: () => void } = {},
+  options: { frameMs?: number; onTerminated?: () => void; onError?: (error: unknown) => void } = {},
 ): FrameLoop {
   if (!renderer.requiresTick()) return { stop() {} }
 
@@ -32,7 +32,8 @@ export function startFrameLoop(
     try {
       running = renderer.tick()
     } catch (error) {
-      console.error("[gpuix-solid] tick error", error)
+      if (options.onError) options.onError(error)
+      else console.error("[gpuix-solid] tick error", error)
     }
     if (!running) {
       stop()
