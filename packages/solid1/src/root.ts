@@ -8,7 +8,7 @@ import {
 import { installBrowserPreflushCompatibility } from "./browser-preflush-compat.js"
 import { syncBrowserViewportSize } from "./browser-viewport-compat.js"
 import { GpuixContext, type ViewportSize } from "./context.js"
-import { EventRegistry } from "./host/events.js"
+import { EVENT_PROPS, EventRegistry } from "./host/events.js"
 import { MutationDriver } from "./host/mutations.js"
 import { HostRootNode, removeHostNode } from "./host/nodes.js"
 import type { DimensionValue, NativeRenderer, WindowKeyEventHandlers } from "./host/types.js"
@@ -23,11 +23,18 @@ function nextWindowKeyEventId(renderer: NativeRenderer): number {
   return id
 }
 
+function hasLiveNativeHandler(events: EventRegistry, event: EventPayload): boolean {
+  return EVENT_PROPS.some(([, domEventType, nativeEventType]) =>
+    nativeEventType === event.eventType && events.has(event.elementId, domEventType),
+  )
+}
+
 export interface Root {
   render(code: () => JSX.Element): void
   flush(): void
   flushSync<Value>(fn: () => Value): Value
-  dispatch(event: EventPayload): void
+  setWindowKeyEventHandlers(handlers: WindowKeyEventHandlers): void
+  dispatch(event: EventPayload): boolean
   unmount(): void
 }
 
@@ -46,19 +53,23 @@ function elementBounds(renderer: NativeRenderer, elementId: number): number[] | 
   return boundsRenderer.getElementBounds?.(elementId)
 }
 
-export function createRoot(renderer: NativeRenderer, windowKeyEventHandlers: WindowKeyEventHandlers = {}): Root {
+export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandlers: WindowKeyEventHandlers = {}): Root {
   installBrowserElementIdentity()
   const events = new EventRegistry()
   const driver = new MutationDriver(renderer, events)
   const container = new HostRootNode(renderer, events, driver)
-  const windowKeyEventId = nextWindowKeyEventId(renderer)
-  renderer.setWindowKeyEvents?.(
-    Boolean(windowKeyEventHandlers.onKeyDown),
-    Boolean(windowKeyEventHandlers.onKeyUp),
-    windowKeyEventId,
-  )
-  installBrowserPreflushCompatibility(container, driver)
+  let windowKeyEventHandlers = initialWindowKeyEventHandlers
+  let windowKeyEventId = nextWindowKeyEventId(renderer)
   let dispose: (() => void) | undefined
+
+  const syncWindowKeyEvents = (): void => {
+    renderer.setWindowKeyEvents?.(
+      Boolean(windowKeyEventHandlers.onKeyDown),
+      Boolean(windowKeyEventHandlers.onKeyUp),
+      windowKeyEventId,
+    )
+  }
+  syncWindowKeyEvents()
 
   const getViewportSize = (): ViewportSize => {
     const nativeSize = renderer.getWindowSize?.()
@@ -85,6 +96,10 @@ export function createRoot(renderer: NativeRenderer, windowKeyEventHandlers: Win
   return {
     render(code) {
       if (dispose) {
+        // A remount owns a new renderer-level keyboard event id. Queued events
+        // from the replaced tree therefore cannot enter the replacement root.
+        windowKeyEventId = nextWindowKeyEventId(renderer)
+        syncWindowKeyEvents()
         dispose()
         dispose = undefined
         const mounted = container.children[0]
@@ -112,22 +127,31 @@ export function createRoot(renderer: NativeRenderer, windowKeyEventHandlers: Win
         flushNative()
       }
     },
+    setWindowKeyEventHandlers(handlers) {
+      windowKeyEventHandlers = handlers
+      syncWindowKeyEvents()
+    },
     dispatch(event) {
+      let handled = false
       try {
         if (event.eventType === "windowKeyDown" || event.eventType === "windowKeyUp") {
-          if (event.elementId !== windowKeyEventId) return
+          if (event.elementId !== windowKeyEventId) return false
           const handler = event.eventType === "windowKeyDown"
             ? windowKeyEventHandlers.onKeyDown
             : windowKeyEventHandlers.onKeyUp
-          handler?.(event, renderer)
-          return
+          if (!handler) return false
+          handler(event, renderer)
+          return true
         }
+        if (!hasLiveNativeHandler(events, event)) return false
         const browserEvent = browserCompatibleNativeEvent(event)
         events.dispatch(browserEvent)
         dispatchBrowserKeyboardEvent(browserEvent)
+        handled = true
       } finally {
         flushNative()
       }
+      return handled
     },
     unmount() {
       dispose?.()

@@ -11,14 +11,51 @@ import { createRoot, type Root } from "./root.js"
 export { createRoot } from "./root.js"
 export type { Root } from "./root.js"
 
-type RuntimeGlobalState = typeof globalThis & {
-  __gpuixSolidRuntimeErrorHandlersInstalled?: boolean
+type RendererBindingState = {
+  root?: Root
+  onEvent?: (event: EventPayload) => void
 }
 
-const runtimeGlobalState: RuntimeGlobalState = globalThis
+type RenderSlot = {
+  host: NativeRenderer
+  nativeRenderer?: GpuixRenderer
+  root: Root
+  loop: FrameLoop
+  generation: number
+}
+
+type RuntimeGlobalState = typeof globalThis & {
+  __gpuixSolidRuntimeErrorHandlersInstalled?: boolean
+  __gpuixSolidRendererBindings?: WeakMap<GpuixRenderer, RendererBindingState>
+  __gpuixSolidRenderSlot?: RenderSlot
+}
+
+// SAFETY: these optional properties are private GPUIX Solid runtime state stored
+// on globalThis so a Bun hot module replacement can find the existing renderer.
+const runtimeGlobalState = globalThis as RuntimeGlobalState
+
+function rendererBindingState(renderer: GpuixRenderer): RendererBindingState {
+  let bindings = runtimeGlobalState.__gpuixSolidRendererBindings
+  if (!bindings) {
+    bindings = new WeakMap<GpuixRenderer, RendererBindingState>()
+    runtimeGlobalState.__gpuixSolidRendererBindings = bindings
+  }
+  let state = bindings.get(renderer)
+  if (!state) {
+    state = {}
+    bindings.set(renderer, state)
+  }
+  return state
+}
+
+function setRendererOnEvent(renderer: GpuixRenderer, onEvent?: (event: EventPayload) => void): void {
+  const state = rendererBindingState(renderer)
+  if (onEvent) state.onEvent = onEvent
+  else delete state.onEvent
+}
 
 function installRuntimeErrorHandlers(): void {
-  if (runtimeGlobalState.__gpuixSolidRuntimeErrorHandlersInstalled) return
+  if (typeof process === "undefined" || runtimeGlobalState.__gpuixSolidRuntimeErrorHandlersInstalled) return
   runtimeGlobalState.__gpuixSolidRuntimeErrorHandlersInstalled = true
   process.on("uncaughtException", (error) => {
     console.error("[gpuix-solid] uncaughtException", error)
@@ -31,21 +68,23 @@ function installRuntimeErrorHandlers(): void {
 export function createRenderer(
   onEvent?: (event: EventPayload) => void,
 ): RendererBinding {
-  let root: Root | undefined
+  let renderer: GpuixRenderer
   let automationEnabled = false
-  const renderer = new GpuixRenderer((error, event) => {
+  renderer = new GpuixRenderer((error, event) => {
     if (error) {
       console.error("[gpuix-solid] native event error", error)
       return
     }
     if (!event) return
+    const state = rendererBindingState(renderer)
     try {
-      root?.dispatch(event)
-      onEvent?.(event)
+      const handled = state.root?.dispatch(event) ?? false
+      if (handled) state.onEvent?.(event)
     } catch (eventError) {
       console.error("[gpuix-solid] event handler error", eventError)
     }
   })
+  setRendererOnEvent(renderer, onEvent)
 
   const nativeInit = renderer.init.bind(renderer)
   renderer.init = (options) => {
@@ -58,8 +97,11 @@ export function createRenderer(
 
   return {
     renderer,
-    bindRoot(nextRoot) {
-      root = nextRoot
+    bindRoot(root) {
+      rendererBindingState(renderer).root = root
+    },
+    setOnEvent(nextOnEvent) {
+      setRendererOnEvent(renderer, nextOnEvent)
     },
   }
 }
@@ -73,6 +115,7 @@ export interface RenderOptions extends WindowOptions, WindowKeyEventHandlers {
 export interface RendererBinding {
   renderer: GpuixRenderer
   bindRoot(root: Root): void
+  setOnEvent(onEvent?: (event: EventPayload) => void): void
 }
 
 export interface RenderHandle {
@@ -82,48 +125,94 @@ export interface RenderHandle {
   unmount(): void
 }
 
+function windowKeyEventHandlers(onKeyDown: RenderOptions["onKeyDown"], onKeyUp: RenderOptions["onKeyUp"]): WindowKeyEventHandlers {
+  const handlers: WindowKeyEventHandlers = {}
+  if (onKeyDown) handlers.onKeyDown = onKeyDown
+  if (onKeyUp) handlers.onKeyUp = onKeyUp
+  return handlers
+}
+
+function renderHandle(slot: RenderSlot, generation: number): RenderHandle {
+  return {
+    root: slot.root,
+    renderer: slot.host,
+    loop: slot.loop,
+    unmount() {
+      if (runtimeGlobalState.__gpuixSolidRenderSlot !== slot || slot.generation !== generation) return
+      resetRender()
+    },
+  }
+}
+
+export function resetRender(): void {
+  const slot = runtimeGlobalState.__gpuixSolidRenderSlot
+  if (!slot) return
+  delete runtimeGlobalState.__gpuixSolidRenderSlot
+  slot.loop.stop()
+  slot.root.unmount()
+  if (slot.nativeRenderer) {
+    const state = rendererBindingState(slot.nativeRenderer)
+    delete state.root
+    delete state.onEvent
+  }
+}
+
+/** Mount the app. Under `bun --hot`, later calls remount on the same native window. */
 export function render(code: () => SolidElement, options: RenderOptions = {}): RenderHandle {
   const { renderer: injected, onEvent, onKeyDown, onKeyUp, debugFrameOverlay, ...windowOptions } = options
-  const windowKeyEventHandlers: WindowKeyEventHandlers = {}
-  if (onKeyDown) windowKeyEventHandlers.onKeyDown = onKeyDown
-  if (onKeyUp) windowKeyEventHandlers.onKeyUp = onKeyUp
+  const handlers = windowKeyEventHandlers(onKeyDown, onKeyUp)
+  const existing = runtimeGlobalState.__gpuixSolidRenderSlot
+
+  if (existing) {
+    if (injected && injected !== existing.host) {
+      throw new Error("GPUIX Solid already owns a renderer. Call resetRender() before rendering into a different renderer.")
+    }
+    if (existing.nativeRenderer) setRendererOnEvent(existing.nativeRenderer, onEvent)
+    existing.root.setWindowKeyEventHandlers(handlers)
+    applyDebugFrameOverlay(existing.host, debugFrameOverlay)
+    existing.root.render(code)
+    existing.generation += 1
+    return renderHandle(existing, existing.generation)
+  }
 
   if (injected) {
     applyDebugFrameOverlay(injected, debugFrameOverlay)
-    const root = createRoot(injected, windowKeyEventHandlers)
-    root.render(code)
-    return {
+    const root = createRoot(injected, handlers)
+    const slot: RenderSlot = {
+      host: injected,
       root,
-      renderer: injected,
       loop: { stop() {} },
-      unmount() {
-        root.unmount()
-      },
+      generation: 1,
     }
+    runtimeGlobalState.__gpuixSolidRenderSlot = slot
+    root.render(code)
+    return renderHandle(slot, slot.generation)
   }
 
   installRuntimeErrorHandlers()
   const native = createRenderer(onEvent)
   native.renderer.init(windowOptions)
-  const renderer = adaptBatchRenderer(native.renderer)
-  useDestroyUnlinksParentBatch(renderer)
-  applyDebugFrameOverlay(renderer, debugFrameOverlay)
-  const root = createRoot(renderer, windowKeyEventHandlers)
+  const host = adaptBatchRenderer(native.renderer)
+  useDestroyUnlinksParentBatch(host)
+  applyDebugFrameOverlay(host, debugFrameOverlay)
+  const root = createRoot(host, handlers)
   native.bindRoot(root)
-  root.render(code)
+
+  // Start the AppKit pump before the first Solid render. A mount-time throw must
+  // not strand the native macOS window without future ticks.
   const loop = startFrameLoop(native.renderer, {
     onTerminated() {
       process.exit(0)
     },
   })
-
-  return {
+  const slot: RenderSlot = {
+    host,
+    nativeRenderer: native.renderer,
     root,
-    renderer,
     loop,
-    unmount() {
-      loop.stop()
-      root.unmount()
-    },
+    generation: 1,
   }
+  runtimeGlobalState.__gpuixSolidRenderSlot = slot
+  root.render(code)
+  return renderHandle(slot, slot.generation)
 }

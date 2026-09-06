@@ -1,4 +1,4 @@
-export { render, createRenderer } from "./runtime.js"
+export { render, resetRender, createRenderer } from "./runtime.js"
 export type { RenderHandle, RenderOptions, RendererBinding } from "./runtime.js"
 export { createRoot } from "./root.js"
 export type { Root } from "./root.js"
