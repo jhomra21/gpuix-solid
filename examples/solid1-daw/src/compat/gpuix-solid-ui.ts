@@ -14,6 +14,7 @@ type SourceStyleValue = string | number | null | undefined
 type SourceStyle = Record<string, SourceStyleValue>
 type SourceClasses = { class?: string; className?: string }
 
+const GRID_OWNED_CLASS = "row-span-2"
 const sourceStyles = new WeakMap<HostElement, SourceStyle>()
 const sourceClasses = new WeakMap<HostElement, SourceClasses>()
 const gridDefinitions = new WeakMap<HostElement, TwoRowGridDefinition>()
@@ -57,7 +58,7 @@ export function setProp<T>(node: HostNode, name: string, value: T, previous?: T)
     if (name === "class") state.class = next
     else state.className = next
     sourceClasses.set(node, state)
-    base.setProp(node, name, value, previous)
+    base.setProp(node, name, nativeClassValue(value), nativeClassValue(previous))
     syncParentGrid(node)
     return
   }
@@ -72,6 +73,14 @@ export function insertNode(
 ): void {
   base.insertNode(parent, node, anchor)
   if (parent.kind === "element") syncGrid(parent)
+}
+
+function nativeClassValue(value: unknown): string | null | undefined {
+  if (value === null || value === undefined) return value
+  return String(value)
+    .split(/\s+/)
+    .filter((token) => token.length > 0 && token !== GRID_OWNED_CLASS)
+    .join(" ")
 }
 
 function optionalStyleText(style: SourceStyle, property: string): string | undefined {
@@ -103,7 +112,7 @@ function syncGrid(parent: HostElement): void {
   if (!definition) return
 
   const children = parent.children.filter((child): child is HostElement => child.kind === "element")
-  const rowSpans = children.map((child): 1 | 2 => hasClassToken(child, "row-span-2") ? 2 : 1)
+  const rowSpans = children.map((child): 1 | 2 => hasClassToken(child, GRID_OWNED_CLASS) ? 2 : 1)
   const placements = placeTwoRowGridItems(rowSpans)
   if (!placements || placements.length !== children.length) {
     restoreManagedChildren(parent)
