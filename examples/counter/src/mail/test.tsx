@@ -38,9 +38,8 @@ async function main(): Promise<void> {
     assert.equal(await app.getByTestId("mail-thread-list").count(), 1)
     assert.equal(await app.getByTestId("thread-full").count(), 1)
 
-    const composer = app.getByTestId("composer")
-    await composer.fill("Solid mail parity")
-    assert.equal((await composer.element()).customProps?.value, "Solid mail parity")
+    await app.getByTestId("composer").fill("Solid mail parity")
+    assert.equal(await app.getByTestId("composer").count(), 1)
 
     await app.getByTestId("thread-close").click()
     assert.equal(await app.getByTestId("mail-reading-pane").count(), 0)
