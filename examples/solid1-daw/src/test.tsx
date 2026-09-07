@@ -299,6 +299,23 @@ if (!hasNativeTestRenderer) {
   requireText(rootText(), "1/4", "source default grid resolution")
   requireCondition(!rootText().includes("1/32"), "fixture must not invent a 1/32 grid option")
 
+  for (let frame = 0; frame < 3; frame++) {
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+  }
+  await Promise.resolve()
+  app.renderer.flush()
+  const eqCanvasSource = app.renderer.customPropStringContainingAll("source", [
+    'preserveAspectRatio="none"',
+    'font-size="9"',
+    '<circle',
+    '>1</text>',
+    '>8</text>',
+  ])
+  requireCondition(
+    eqCanvasSource.includes('+0 dB') && eqCanvasSource.includes('>10k</text>'),
+    "exact EQ Canvas bridge should paint the source grid labels and all eight band nodes",
+  )
+
   const screenshotPath = "/tmp/gpuix-solid1-daw-source-structured.png"
   app.renderer.captureScreenshot(screenshotPath)
   requireCondition(existsSync(screenshotPath) && statSync(screenshotPath).size > 0, "DAW parity screenshot should exist and be non-empty")
@@ -349,26 +366,75 @@ if (!hasNativeTestRenderer) {
   app.renderer.scrollTestId("daw-test-viewport", -320, -260)
   app.renderer.scrollTestId("effects-panel", -540, 0)
   requireCondition((app.renderer.scrollOffsetTestId("effects-panel")?.[0] ?? 0) < 0, "effects chain should scroll horizontally to EQ")
-  const visibleEqBand = app.renderer.boundsTestId("eq-band-7")
+  const highShelfFilter = { title: "High Shelf filter" } as const
+  const visibleEqBand = app.renderer.boundsCustomProps(highShelfFilter)
   requireCondition(
     visibleEqBand.x >= 0 && right(visibleEqBand) <= viewportWidth,
-    `EQ high band should be visible before interaction, got ${JSON.stringify(visibleEqBand)}`,
+    `exact EQ high-shelf band should be visible before interaction, got ${JSON.stringify(visibleEqBand)}`,
   )
-  app.renderer.clickCenterTestId("eq-band-7")
-  requireText(app.renderer.textContent("eq-selected-gain-value"), "0.0 dB", "EQ high band selection")
-  app.renderer.clickCenterTestId("eq-filter-type-7")
+  app.renderer.clickCustomProps(highShelfFilter)
   const eqFilterMenuText = app.renderer.textContentRoot()
   for (const option of ["Low Pass", "High Pass", "Band Pass", "Notch", "Low Shelf", "High Shelf", "Peaking", "All Pass"]) {
-    requireText(eqFilterMenuText, option, `EQ filter source option ${option}`)
+    requireText(eqFilterMenuText, option, `exact EQ filter source option ${option}`)
   }
+  app.renderer.clickText("High Shelf")
+  requireCondition(!app.renderer.textContentRoot().includes("Low Pass"), "choosing the current exact EQ filter type should dismiss the source menu")
+
+  const eqFrequencySlider = { role: "slider", "aria-label": "Freq" } as const
+  const eqGainSlider = { role: "slider", "aria-label": "Gain" } as const
+  const eqQSlider = { role: "slider", "aria-label": "Q" } as const
+  requireCondition(
+    app.renderer.customPropByCustomProps(eqFrequencySlider, "aria-valuetext") === "12.00 kHz",
+    `selecting exact EQ band 8 should expose its source frequency, got ${JSON.stringify(app.renderer.customPropByCustomProps(eqFrequencySlider, "aria-valuetext"))}`,
+  )
+  requireCondition(
+    app.renderer.customPropByCustomProps(eqGainSlider, "aria-valuetext") === "0.00 dB",
+    `selecting exact EQ band 8 should expose its source gain, got ${JSON.stringify(app.renderer.customPropByCustomProps(eqGainSlider, "aria-valuetext"))}`,
+  )
+  requireCondition(
+    app.renderer.customPropByCustomProps(eqQSlider, "aria-valuetext") === "1.00",
+    `selecting exact EQ band 8 should expose its source Q, got ${JSON.stringify(app.renderer.customPropByCustomProps(eqQSlider, "aria-valuetext"))}`,
+  )
+  app.renderer.pressKeyCustomProps(eqGainSlider, "PageUp")
+  requireCondition(
+    app.renderer.customPropByCustomProps(eqGainSlider, "aria-valuetext") === "1.00 dB",
+    `exact EQ Gain PageUp should use the source 1 dB large step, got ${JSON.stringify(app.renderer.customPropByCustomProps(eqGainSlider, "aria-valuetext"))}`,
+  )
+
+  app.renderer.clickCustomProps(highShelfFilter)
   app.renderer.clickText("Notch")
-  requireCondition(!app.renderer.textContentRoot().includes("Low Pass"), "selecting an EQ filter type should dismiss the source menu")
-  app.renderer.clickCenterTestId("eq-selected-gain-plus")
-  requireText(app.renderer.textContent("eq-selected-gain-value"), "+1.0 dB", "EQ high gain")
-  app.renderer.clickCenterTestId("eq-reset")
-  requireText(app.renderer.textContent("eq-selected-gain-value"), "0.0 dB", "EQ source reset gain")
-  requireText(app.renderer.textContent("eq-selected-frequency-value"), "6.00 kHz", "EQ source reset frequency")
-  requireText(app.renderer.textContent("eq-selected-q-value"), "1.00", "EQ source reset Q")
+  requireCondition(app.renderer.hasCustomProps({ title: "Notch filter" }), "exact EQ filter trigger should reflect the selected Notch type")
+  requireCondition(
+    app.renderer.customPropByCustomProps(eqGainSlider, "aria-disabled") === true &&
+      app.renderer.customPropByCustomProps(eqGainSlider, "aria-valuetext") === "-",
+    "exact EQ Notch selection should disable Gain through the source Knob contract",
+  )
+
+  const disableBand8 = { "aria-label": "Disable EQ band 8" } as const
+  const enableBand8 = { "aria-label": "Enable EQ band 8" } as const
+  app.renderer.clickCustomProps(disableBand8)
+  requireCondition(app.renderer.hasCustomProps(enableBand8), "exact EQ band toggle should expose Enable after disabling band 8")
+  app.renderer.clickCustomProps(enableBand8)
+  requireCondition(app.renderer.hasCustomProps(disableBand8), "exact EQ band toggle should restore Disable after enabling band 8")
+
+  app.renderer.clickCustomProps({ title: "EQ channel mode" })
+  const eqModeMenuText = app.renderer.textContentRoot()
+  requireText(eqModeMenuText, "Mono", "exact EQ channel mode Mono option")
+  requireText(eqModeMenuText, "Stereo", "exact EQ channel mode Stereo option")
+  app.renderer.clickText("Mono")
+  requireText(app.renderer.textContent("eq-device"), "Mono", "exact EQ channel mode selection")
+
+  app.renderer.clickTextWithinTestId("eq-device", "Reset")
+  requireCondition(app.renderer.hasCustomProps(highShelfFilter), "exact EQ reset should restore band 8 High Shelf type")
+  requireCondition(app.renderer.hasCustomProps(disableBand8), "exact EQ reset should restore band 8 enabled state")
+  requireCondition(
+    app.renderer.customPropByCustomProps(eqFrequencySlider, "aria-valuetext") === "12.00 kHz" &&
+      app.renderer.customPropByCustomProps(eqGainSlider, "aria-valuetext") === "0.00 dB" &&
+      app.renderer.customPropByCustomProps(eqGainSlider, "aria-disabled") === false &&
+      app.renderer.customPropByCustomProps(eqQSlider, "aria-valuetext") === "1.00",
+    "exact EQ reset should restore source band 8 frequency, gain, enabled gain control, and Q",
+  )
+  requireText(app.renderer.textContent("eq-device"), "Stereo", "exact EQ reset channel mode")
 
   app.renderer.scrollTestId("daw-test-viewport", 0, -260)
   app.renderer.clickTextWithinTestId("bottom-panel", "CLIP")
