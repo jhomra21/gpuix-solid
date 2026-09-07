@@ -5,6 +5,7 @@ type HostElement = Extract<HostNode, { kind: "element" }>
 type CanvasHost = HostElement & { width?: number; height?: number }
 type CanvasPoint = readonly [number, number]
 type CanvasMatrix = readonly [number, number, number, number, number, number]
+type CanvasSize = { width: number; height: number }
 type CanvasTextAlignValue = CanvasRenderingContext2D["textAlign"]
 type CanvasTextBaselineValue = CanvasRenderingContext2D["textBaseline"]
 type CanvasPaint = CanvasRenderingContext2D["fillStyle"]
@@ -88,9 +89,13 @@ function scheduleRender(node: CanvasHost, state: RuntimeState): void {
     const bounds = node.getBoundingClientRect()
     const width = Math.max(1, bounds.width)
     const height = Math.max(1, bounds.height)
+    const canonicalSource = state.drawing.toSvg()
     const layers = state.drawing.toLayers()
 
-    base.setProp(node, "canvasSource", state.drawing.toSvg())
+    // Keep the exact combined Canvas command stream visible to existing source
+    // change-detectors even though native paint is split into tintable layers.
+    base.setProp(node, "source", canonicalSource)
+    base.setProp(node, "canvasSource", canonicalSource)
     base.setProp(node, "canvasLayerCount", layers.length)
 
     for (let index = 0; index < layers.length; index++) {
@@ -128,10 +133,7 @@ function scheduleRender(node: CanvasHost, state: RuntimeState): void {
   })
 }
 
-function createCanvasDrawing(
-  getSize: () => { width: number; height: number },
-  onChange: () => void,
-): CanvasDrawing {
+function createCanvasDrawing(getSize: () => CanvasSize, onChange: () => void): CanvasDrawing {
   let commands: CanvasCommand[] = []
   let path: CanvasPath | undefined
   let transform: CanvasMatrix = [1, 0, 0, 1, 0, 0]
@@ -143,6 +145,9 @@ function createCanvasDrawing(
   let textAlign: CanvasTextAlignValue = "start"
   let textBaseline: CanvasTextBaselineValue = "alphabetic"
 
+  // SAFETY: this intentionally partial object is only exposed as the narrow
+  // Canvas2D surface exercised by the pinned DAW source; unsupported methods
+  // remain absent and supported operations validate/fail closed below.
   const context = {
     get fillStyle() { return fillStyle },
     set fillStyle(value: CanvasPaint) { fillStyle = parseStringPaint(value, "fillStyle") },
@@ -238,9 +243,7 @@ function createCanvasDrawing(
       onChange()
     },
     fillText(value: string, x: number, y: number, maxWidth?: number) {
-      if (maxWidth !== undefined) {
-        throw new Error("Layered Canvas2D does not support fillText() maxWidth")
-      }
+      if (maxWidth !== undefined) throw new Error("Layered Canvas2D does not support fillText() maxWidth")
       if (!isIdentityTransform(transform)) {
         throw new Error("Layered Canvas2D supports fillText() only with the identity transform")
       }
@@ -284,7 +287,7 @@ function createCanvasDrawing(
   }
 }
 
-function canvasBackingSize(node: CanvasHost): { width: number; height: number } {
+function canvasBackingSize(node: CanvasHost): CanvasSize {
   const bounds = node.getBoundingClientRect()
   return normalizedSize({
     width: finitePositive(Number(node.width)) ?? bounds.width,
@@ -292,10 +295,7 @@ function canvasBackingSize(node: CanvasHost): { width: number; height: number } 
   })
 }
 
-function svgForCommands(
-  commands: readonly CanvasCommand[],
-  size: { width: number; height: number },
-): string {
+function svgForCommands(commands: readonly CanvasCommand[], size: CanvasSize): string {
   const normalized = normalizedSize(size)
   const body = commands.map(serializeCommand).join("")
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${formatNumber(normalized.width)} ${formatNumber(normalized.height)}" preserveAspectRatio="none">${body}</svg>`
@@ -304,9 +304,7 @@ function svgForCommands(
 function serializeCommand(command: CanvasCommand): string {
   if (command.kind === "fill-polygon" || command.kind === "stroke-polyline") {
     const points = command.points.map(([x, y]) => `${formatNumber(x)},${formatNumber(y)}`).join(" ")
-    if (command.kind === "fill-polygon") {
-      return `<polygon points="${points}" fill="${escapeXmlAttribute(command.color)}"/>`
-    }
+    if (command.kind === "fill-polygon") return `<polygon points="${points}" fill="${escapeXmlAttribute(command.color)}"/>`
     return `<polyline points="${points}" fill="none" stroke="${escapeXmlAttribute(command.color)}" stroke-width="${formatNumber(command.width)}"/>`
   }
 
@@ -328,7 +326,7 @@ function finitePositive(value: number): number | undefined {
   return Number.isFinite(value) && value > 0 ? value : undefined
 }
 
-function normalizedSize(size: { width: number; height: number }): { width: number; height: number } {
+function normalizedSize(size: CanvasSize): CanvasSize {
   return {
     width: finitePositive(size.width) ?? 1,
     height: finitePositive(size.height) ?? 1,
@@ -344,13 +342,7 @@ function cloneMatrix(matrix: CanvasMatrix): CanvasMatrix {
   return [matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]]
 }
 
-function rectanglePoints(
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  matrix: CanvasMatrix,
-): readonly CanvasPoint[] {
+function rectanglePoints(x: number, y: number, width: number, height: number, matrix: CanvasMatrix): readonly CanvasPoint[] {
   return [
     transformPoint(x, y, matrix),
     transformPoint(x + width, y, matrix),
@@ -359,7 +351,7 @@ function rectanglePoints(
   ]
 }
 
-function coversSurface(points: readonly CanvasPoint[], size: { width: number; height: number }): boolean {
+function coversSurface(points: readonly CanvasPoint[], size: CanvasSize): boolean {
   const normalized = normalizedSize(size)
   const xs = points.map(([x]) => x)
   const ys = points.map(([, y]) => y)
@@ -385,9 +377,7 @@ function isFullCircleArc(startAngle: number, endAngle: number): boolean {
 
 function parseStringPaint(paint: CanvasPaint, property: string): string {
   const serialized = String(paint)
-  if (paint !== serialized) {
-    throw new Error(`Layered Canvas2D currently supports string ${property} values only`)
-  }
+  if (paint !== serialized) throw new Error(`Layered Canvas2D currently supports string ${property} values only`)
   return serialized
 }
 
