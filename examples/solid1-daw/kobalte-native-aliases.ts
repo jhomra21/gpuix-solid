@@ -19,7 +19,7 @@ function upstream(file: string): string {
 
 export const kobalteNativeAliases: Alias[] = [
   { find: /^solid-js\/web$/, replacement: compat("solid-web.ts") },
-  { find: /^@solid1-daw\/gpuix-solid-canvas$/, replacement: compat("gpuix-solid-canvas.ts") },
+  { find: /^@solid1-daw\/gpuix-solid-canvas$/, replacement: compat("gpuix-solid-ui.ts") },
   { find: /^@kobalte\/core$/, replacement: adapter("index.tsx") },
   { find: /^@kobalte\/core\/polymorphic$/, replacement: adapter("polymorphic.ts") },
   { find: /^@kobalte\/core\/button$/, replacement: adapter("button.tsx") },
