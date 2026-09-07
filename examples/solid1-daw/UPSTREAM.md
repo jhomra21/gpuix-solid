@@ -31,6 +31,7 @@ The parity scripts are the authoritative file lists. Important visible source no
 - `ArrangementOverview`
 - `TrackLane` and its source `ClipComponent`
 - `TrackSidebar` / source sidebar rows through a fixture model adapter
+- `MixerVolumeSlider`, including its source-owned CSS-variable split and automated-range state
 - `TimelineBottomPanelShell` and footer
 - `AutomationLane`
 - `SampleDetailPanel`, `SampleClipPanel`, and `SampleDetailWaveform`
@@ -61,13 +62,21 @@ Adapters own deterministic application state and missing services; they do not r
 | `src/native/TimelinePanels.tsx` | switches exact Sample Detail against the effects chain and supplies deterministic audio/BPM services |
 | `src/native/EffectsPanel.tsx` | mounts exact Compressor and the remaining explicit EQ compatibility surface |
 | `src/compat/useClipWaveformViewModel.ts` | delegates waveform geometry to exact upstream `getAudioWaveformLayout` and supplies deterministic peak bytes in place of the unavailable audio/backend service |
-| `src/compat/gpuix-solid-canvas.ts` | gives semantic `<canvas>` nodes the narrow Canvas2D surface exercised by the pinned DAW waveform source and commits the retained drawing commands as an internal GPUIX SVG surface |
+| `src/compat/gpuix-solid-canvas.ts` | DAW universal-renderer facade for the narrow semantic Canvas2D surface plus explicitly registered CSS-variable paint patterns required by exact copied source |
 
 Record arm is singular at the fixture application boundary: arming one track disarms the previous track rather than preserving independent legacy booleans as simultaneous armed state.
 
 ## Remaining native/browser capability boundaries
 
 These are limitations of the current GPUIX/browser contract, not permission to invent alternate source UI.
+
+### Mixer volume paint
+
+The pinned `MixerVolumeSlider` remains byte-for-byte source. It writes `--mixer-volume-percent`, `--mixer-volume-automation-start`, and `--mixer-volume-automation-end`; the pinned stylesheet uses those variables to produce a hard warning/muted split plus a 4 px automation strip over that base.
+
+GPUIX 0.7 supports structured two-stop gradients, but it does not evaluate arbitrary browser CSS background strings driven by CSS custom properties. The DAW universal-renderer boundary therefore registers only those exact mixer paint variables. It converts the source hard split into a muted native base plus a retained warning segment, and converts a non-empty automation interval into a full-width retained flex layer containing a percentage-width spacer followed by the automation segment. This keeps the source component, source CSS, slider mapping, colors, and automation start/end math unchanged while using geometry GPUIX 0.7 actually accepts: numeric absolute offsets and percentage widths.
+
+This is not generic CSS-gradient or custom-property support. Styles with none of the registered mixer paint variables pass through unchanged, and an empty automation interval removes the overlay rather than leaving stale paint. Native regression coverage proves that isolation invariant, exact source-derived split/interval geometry, and reactive updates. The dedicated macOS automated-state screenshot additionally verifies that the 4 px automation color overlays the intact warning/muted base instead of replacing or displacing it.
 
 ### Canvas 2D
 
@@ -102,6 +111,7 @@ Notable coverage includes:
 - SVG event/paint compatibility used by copied components
 - native range elements with intrinsic control geometry rather than text-editor backing
 - transparent Tailwind OKLCH color mixing and exact upstream sRGB `color-mix(..., transparent)` normalization into native sRGB alpha
+- exact source mixer hard-split and automated-range paint through registered CSS-variable compatibility that leaves unrelated styles untouched
 - source pointer transparency/ownership semantics so decorative descendants do not steal hits
 - local Solid 1 host rebuilds before standalone example bundling, preventing stale ignored `dist` output from masking source changes
 - semantic DAW canvas handling through an instance-scoped Canvas2D compatibility facade rather than a global host-node prototype patch
@@ -115,18 +125,19 @@ The automated native fixture exercises the included source slice across the norm
 - transport and BPM state
 - browser tabs, tree and search
 - track selection, collapse, routing/sends, mute/solo, singular record arm, volume and automation controls
+- exact source `MixerVolumeSlider` hard-split geometry plus automated 4 px range overlay, including reactive range changes and unrelated-style isolation
 - exact overview, ruler and lane composition
 - playhead/loop interaction
 - source clip selection/open behavior and exact selected clip paint
 - source clip colors and native alpha conversion
-- exact ClipComponent waveform rendering through the Canvas2D compatibility boundary, with retained peak-bar and native-bounds assertions
+- exact `ClipComponent` waveform rendering through the Canvas2D compatibility boundary, with retained peak-bar and native-bounds assertions
 - Effects / Clip bottom-panel switching, hide/show and resize state
 - exact Compressor control/reset/collapse semantics
 - EQ compatibility controls and exact source filter-type menu
 - exact Sample Detail controls with deterministic BPM/stretch services
 - package build/smoke and release-tool regression checks
 
-The macOS CI path also uploads the native DAW screenshot used for visual review. A green automated run does not waive a material visual mismatch found in manual side-by-side comparison.
+The macOS CI path also uploads the native DAW screenshots used for visual review, including a dedicated automated mixer state. A green automated run does not waive a material visual mismatch found in manual side-by-side comparison.
 
 ## Intentionally omitted systems
 
@@ -142,7 +153,7 @@ This example is not accepted merely because it bundles. Before this source-first
 2. disposable promotion/probe workflows must be absent;
 3. lint, typecheck, tests, builds, Solid 1 checks and release tests must pass;
 4. package smoke and the normal Ubuntu/macOS/Windows matrix must be green;
-5. the actual DAW Canvas waveform detector must pass against the retained native tree;
-6. the macOS native window must remain recognizably faithful to the pinned source for the included slice.
+5. the DAW Canvas waveform detector and exact mixer hard-split/automation detector must pass against the retained native tree;
+6. the macOS native window and dedicated automated mixer capture must remain recognizably faithful to the pinned source for the included slice.
 
 Material layout, hierarchy, typography, control, state-treatment or interaction differences remain defects. Genuine GPUIX capability gaps are documented explicitly instead of being hidden behind approximate source rewrites.
