@@ -1,7 +1,6 @@
 import {
   createElement as createNativeElement,
   getNativeStyleColorMode,
-  insert as insertNative,
   insertNode as insertNativeNode,
   setProp as setNativeProp,
 } from "@jhomra21/gpuix-solid1"
@@ -35,7 +34,7 @@ type RuntimeCanvasState = {
 }
 
 type CssVariableValue = string | number | undefined
-type CssVariableHostStyle = NativeHostElement["style"] & {
+type CssVariableSourceStyle = NativeHostElement["style"] & {
   [property: `--${string}`]: CssVariableValue
 }
 
@@ -78,8 +77,16 @@ export function setProp<T>(
   value: T,
   previous?: T,
 ): void {
-  setNativeProp(node, name, value, previous)
-  if (node.kind === "element") reapplyCompatStyleSubtree(node)
+  if (name !== "style") {
+    setNativeProp(node, name, value, previous)
+    return
+  }
+
+  const nextStyle = resolveRegisteredCssVariableGradients(value)
+  const previousStyle = previous === undefined
+    ? undefined
+    : resolveRegisteredCssVariableGradients(previous)
+  setNativeProp(node, name, nextStyle, previousStyle)
 }
 
 export function insertNode(
@@ -88,42 +95,19 @@ export function insertNode(
   anchor?: Parameters<typeof insertNativeNode>[2],
 ): void {
   insertNativeNode(parent, node, anchor)
-  if (node.kind === "element") reapplyCompatStyleSubtree(node)
 }
 
-export function insert(...args: Parameters<typeof insertNative>): ReturnType<typeof insertNative> {
-  const result = insertNative(...args)
-  reapplyCompatStylesAfterInsert(args[0])
-  return result
-}
+function resolveRegisteredCssVariableGradients<T>(value: T): T {
+  if (!isStyleObject(value)) return value
 
-function reapplyCompatStylesAfterInsert(parent: Parameters<typeof insertNative>[0]): void {
-  if (parent.kind === "element") {
-    reapplyCompatStyleSubtree(parent)
-    return
-  }
-  if (parent.kind !== "root") return
-  for (const child of parent.children) {
-    if (child.kind === "element") reapplyCompatStyleSubtree(child)
-  }
-}
-
-function reapplyCompatStyleSubtree(node: NativeHostElement): void {
-  applyRegisteredCssVariableGradient(node)
-  for (const child of node.children) {
-    if (child.kind === "element") reapplyCompatStyleSubtree(child)
-  }
-}
-
-function applyRegisteredCssVariableGradient(node: NativeHostElement): void {
-  // SAFETY: the Solid universal style normalizer preserves CSS custom-property
-  // keys verbatim on the host style object; this view narrows only those keys
-  // to the scalar CSS values emitted by the copied DAW source.
-  const style = node.style as CssVariableHostStyle
+  // SAFETY: this compatibility boundary receives Solid's JSX style object before
+  // the native normalizer. The copied source uses scalar CSS custom properties,
+  // while all ordinary native StyleDesc fields keep their existing typed values.
+  const sourceStyle = value as T & CssVariableSourceStyle
   let gradient: LinearGradientBackground | undefined
   let appliedProperty: `--${string}` | undefined
   for (const [property, config] of cssVariableGradients) {
-    const position = cssUnitInterval(style[property])
+    const position = cssUnitInterval(sourceStyle[property])
     if (position === undefined) continue
     const colors = getNativeStyleColorMode() === "dark" ? config.dark : config.light
     gradient = {
@@ -137,14 +121,19 @@ function applyRegisteredCssVariableGradient(node: NativeHostElement): void {
     }
     appliedProperty = property
   }
-  if (!gradient || !appliedProperty) return
+  if (!gradient || !appliedProperty) return value
 
-  style.background = gradient
-  delete style.backgroundColor
-  delete style[appliedProperty]
-  if (node.root && node.nativeAlive) {
-    node.root.driver.enqueue("setStyle", node.id, style)
+  const nativeStyle = {
+    ...sourceStyle,
+    background: gradient,
   }
+  delete nativeStyle.backgroundColor
+  delete nativeStyle[appliedProperty]
+  return nativeStyle
+}
+
+function isStyleObject<T>(value: T): value is T & object {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
 }
 
 function cssUnitInterval(value: CssVariableValue): number | undefined {
