@@ -6,6 +6,7 @@ import {
   hasNativeTestRenderer,
   setNativeStyleColorMode,
 } from "@jhomra21/gpuix-solid1"
+import type { StyleDesc } from "@jhomra21/gpuix-solid1"
 import { DawSolid1Showcase } from "./app"
 import { nativeTailwindManifest } from "./native-tailwind.generated"
 
@@ -23,34 +24,23 @@ function overlaps(
     first.y + first.height > second.y
 }
 
-function gradientDetails(background: unknown): {
+function gradientDetails(background: StyleDesc["background"]): {
   split: number
   from: string
   to: string
 } | undefined {
-  if (!background || typeof background !== "object") return undefined
-  const candidate = background as {
-    type?: unknown
-    stops?: unknown
-  }
-  if (candidate.type !== "linear-gradient" || !Array.isArray(candidate.stops) || candidate.stops.length !== 2) {
-    return undefined
-  }
-  const from = candidate.stops[0] as { color?: unknown; position?: unknown } | undefined
-  const to = candidate.stops[1] as { color?: unknown; position?: unknown } | undefined
-  const fromPosition = Number(from?.position)
-  const toPosition = Number(to?.position)
+  if (!background || typeof background === "string") return undefined
+  if (background.type !== "linear-gradient") return undefined
+  const [from, to] = background.stops
   if (
-    typeof from?.color !== "string" ||
-    typeof to?.color !== "string" ||
-    !Number.isFinite(fromPosition) ||
-    !Number.isFinite(toPosition) ||
-    Math.abs(fromPosition - toPosition) > 0.0001
+    !Number.isFinite(from.position) ||
+    !Number.isFinite(to.position) ||
+    Math.abs(from.position - to.position) > 0.0001
   ) {
     return undefined
   }
   return {
-    split: fromPosition,
+    split: from.position,
     from: from.color,
     to: to.color,
   }
