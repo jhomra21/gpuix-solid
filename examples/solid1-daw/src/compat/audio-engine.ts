@@ -3,6 +3,7 @@ import type { Clip } from "../upstream/packages/timeline-core/types"
 export type TrackStereoLevels = { left: number; right: number }
 export type CompressorMeterFrame = { inputDb: number; outputDb: number; gainReductionDb: number; thresholdDb: number }
 export type CompressorMeterListener = (frame: CompressorMeterFrame) => void
+export type SpectrumFrame = { data: Float32Array; sampleRate: number }
 export type AudioStretchRenderState = { status: "idle" | "rendering" | "ready" | "failed"; error?: Error }
 
 export const isStretchQualityWarning = (playbackRate: number) => playbackRate < 0.75 || playbackRate > 1.33
