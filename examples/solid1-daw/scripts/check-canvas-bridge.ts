@@ -82,5 +82,62 @@ if (!hasNativeTestRenderer) {
   requireCondition(source.includes('viewBox="0 0 100 40"'), `Canvas bridge must preserve backing dimensions, got ${source}`)
   requireCondition(!source.includes("data-native-waveform-placeholder"), "Canvas bridge must not use the old static waveform placeholder")
   app.unmount()
-  console.log("DAW Canvas2D compatibility bridge: unrelated styles preserved and exact waveform renderer produced native SVG commands")
+
+  const eqApp = createTestRoot(260, 140)
+  eqApp.render(() => {
+    const canvas = createElement("canvas") as CompatCanvas
+    setProp(canvas, "style", { width: 160, height: 80, position: "relative" })
+    canvas.width = 160
+    canvas.height = 80
+    const context = canvas.getContext("2d")
+    if (!context) throw new Error("Semantic DAW canvas must expose the compatibility 2D context")
+
+    context.fillStyle = "#09090b"
+    context.fillRect(0, 0, 160, 80)
+    context.fillStyle = "#a1a1aa"
+    context.font = "9px ui-monospace, SFMono-Regular, Menlo, monospace"
+    context.textAlign = "left"
+    context.fillText("+12 dB", 12, 18)
+
+    let partialArcRejected = false
+    try {
+      context.beginPath()
+      context.arc(80, 40, 8, 0, Math.PI)
+    } catch {
+      partialArcRejected = true
+    }
+    requireCondition(partialArcRejected, "Canvas bridge must fail closed for partial arc paths it does not implement")
+
+    context.beginPath()
+    context.arc(80, 40, 8, 0, Math.PI * 2)
+    context.fillStyle = "#fac547"
+    context.strokeStyle = "#09090b"
+    context.lineWidth = 2
+    context.fill()
+    context.stroke()
+
+    context.fillStyle = "#09090b"
+    context.font = "bold 9px ui-monospace, SFMono-Regular, Menlo, monospace"
+    context.textAlign = "center"
+    context.textBaseline = "middle"
+    context.fillText("5", 80, 40.5)
+    return canvas
+  })
+
+  await Promise.resolve()
+  eqApp.root.flush()
+  eqApp.renderer.flush()
+  const eqSource = eqApp.renderer.customPropStringContainingAll("source", [
+    'viewBox="0 0 160 80"',
+    "<circle",
+    "<text",
+    'font-weight="700"',
+    'text-anchor="middle"',
+    'dominant-baseline="middle"',
+  ])
+  requireCondition(eqSource.includes(">+12 dB</text>"), `EQ Canvas label must remain in retained SVG output, got ${eqSource}`)
+  requireCondition(eqSource.includes(">5</text>"), `EQ Canvas band label must remain in retained SVG output, got ${eqSource}`)
+  eqApp.unmount()
+
+  console.log("DAW Canvas2D compatibility bridge: unrelated styles preserved, exact waveform renderer produced native SVG commands, and pinned EQ text/full-circle primitives are retained")
 }
