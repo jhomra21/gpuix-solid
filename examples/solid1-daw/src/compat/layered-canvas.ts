@@ -36,20 +36,14 @@ type CanvasCommand =
       baseline: CanvasTextBaselineValue
     }
 
-type CanvasLayer = {
-  color: string
-  source: string
-}
-
 type CanvasDrawing = {
   context: CanvasRenderingContext2D
   toSvg(): string
-  toLayers(): CanvasLayer[]
 }
 
 type RuntimeState = {
   drawing: CanvasDrawing
-  surfaces: HostElement[]
+  surface?: HostElement
   queued: boolean
 }
 
@@ -69,7 +63,7 @@ export function installLayeredCanvas2D(node: CanvasHost): void {
             if (nextState) scheduleRender(node, nextState)
           },
         )
-        nextState = { drawing, surfaces: [], queued: false }
+        nextState = { drawing, queued: false }
         state = nextState
         runtimeStates.set(node, state)
         scheduleRender(node, state)
@@ -89,45 +83,29 @@ function scheduleRender(node: CanvasHost, state: RuntimeState): void {
     const bounds = node.getBoundingClientRect()
     const width = Math.max(1, bounds.width)
     const height = Math.max(1, bounds.height)
-    const canonicalSource = state.drawing.toSvg()
-    const layers = state.drawing.toLayers()
+    const source = state.drawing.toSvg()
 
-    // Keep the exact combined Canvas command stream visible to existing source
-    // change-detectors even though native paint is split into tintable layers.
-    base.setProp(node, "source", canonicalSource)
-    base.setProp(node, "canvasSource", canonicalSource)
-    base.setProp(node, "canvasLayerCount", layers.length)
-
-    for (let index = 0; index < layers.length; index++) {
-      const layer = layers[index]
-      if (!layer) continue
-      let surface = state.surfaces[index]
-      if (!surface) {
-        const created = base.createElement("svg")
-        if (created.kind !== "element") throw new Error("Layered Canvas2D expected an SVG host element")
-        surface = created
-        state.surfaces.push(surface)
-        base.insertNode(node, surface)
-      }
-      base.setProp(surface, "testId", index === 0 ? "gpuix-canvas-2d-surface" : `gpuix-canvas-2d-layer-${index}`)
-      base.setProp(surface, "style", {
-        position: "absolute",
-        top: 0,
-        left: 0,
-        width,
-        height,
-        color: layer.color,
-        pointerEvents: "none",
-        flexShrink: 0,
-      })
-      base.setProp(surface, "source", layer.source)
-      base.setProp(surface, "src", `data:image/svg+xml,${encodeURIComponent(layer.source)}`)
+    let surface = state.surface
+    if (!surface) {
+      const created = base.createElement("img")
+      if (created.kind !== "element") throw new Error("Canvas2D image bridge expected an image host element")
+      surface = created
+      state.surface = surface
+      base.insertNode(node, surface)
     }
 
-    for (let index = layers.length; index < state.surfaces.length; index++) {
-      const surface = state.surfaces[index]
-      if (surface) base.setProp(surface, "style", { display: "none", pointerEvents: "none" })
-    }
+    base.setProp(surface, "testId", "gpuix-canvas-2d-surface")
+    base.setProp(surface, "style", {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width,
+      height,
+      pointerEvents: "none",
+      flexShrink: 0,
+    })
+    base.setProp(surface, "objectFit", "fill")
+    base.setProp(surface, "src", `data:image/svg+xml,${encodeURIComponent(source)}`)
 
     node.root.driver.flush()
   })
@@ -172,7 +150,7 @@ function createCanvasDrawing(getSize: () => CanvasSize, onChange: () => void): C
     clearRect(x: number, y: number, width: number, height: number) {
       const points = rectanglePoints(x, y, width, height, transform)
       if (!coversSurface(points, getSize())) {
-        throw new Error("Layered Canvas2D currently supports only full-surface clearRect()")
+        throw new Error("Canvas2D image bridge currently supports only full-surface clearRect()")
       }
       commands = []
       path = undefined
@@ -197,7 +175,7 @@ function createCanvasDrawing(getSize: () => CanvasSize, onChange: () => void): C
         return
       }
       if (path.kind !== "polyline") {
-        throw new Error("Layered Canvas2D does not mix line segments with an arc in one path")
+        throw new Error("Canvas2D image bridge does not mix line segments with an arc in one path")
       }
       path.points.push(point)
     },
@@ -210,10 +188,10 @@ function createCanvasDrawing(getSize: () => CanvasSize, onChange: () => void): C
       _counterclockwise?: boolean,
     ) {
       if (!Number.isFinite(radius) || radius < 0) {
-        throw new Error("Layered Canvas2D requires a finite non-negative arc radius")
+        throw new Error("Canvas2D image bridge requires a finite non-negative arc radius")
       }
       if (!isFullCircleArc(startAngle, endAngle)) {
-        throw new Error("Layered Canvas2D currently supports only full-circle arc() paths")
+        throw new Error("Canvas2D image bridge currently supports only full-circle arc() paths")
       }
       path = { kind: "circle", x, y, radius, transform: cloneMatrix(transform) }
     },
@@ -243,9 +221,9 @@ function createCanvasDrawing(getSize: () => CanvasSize, onChange: () => void): C
       onChange()
     },
     fillText(value: string, x: number, y: number, maxWidth?: number) {
-      if (maxWidth !== undefined) throw new Error("Layered Canvas2D does not support fillText() maxWidth")
+      if (maxWidth !== undefined) throw new Error("Canvas2D image bridge does not support fillText() maxWidth")
       if (!isIdentityTransform(transform)) {
-        throw new Error("Layered Canvas2D supports fillText() only with the identity transform")
+        throw new Error("Canvas2D image bridge supports fillText() only with the identity transform")
       }
       const [tx, ty] = transformPoint(x, y, transform)
       commands.push({
@@ -266,23 +244,6 @@ function createCanvasDrawing(getSize: () => CanvasSize, onChange: () => void): C
     context,
     toSvg() {
       return svgForCommands(commands, getSize())
-    },
-    toLayers() {
-      const layers: CanvasLayer[] = []
-      let color: string | undefined
-      let grouped: CanvasCommand[] = []
-      const flush = () => {
-        if (!color || grouped.length === 0) return
-        layers.push({ color, source: svgForCommands(grouped, getSize()) })
-        grouped = []
-      }
-      for (const command of commands) {
-        if (color !== undefined && command.color !== color) flush()
-        color = command.color
-        grouped.push(command)
-      }
-      flush()
-      return layers
     },
   }
 }
@@ -377,17 +338,17 @@ function isFullCircleArc(startAngle: number, endAngle: number): boolean {
 
 function parseStringPaint(paint: CanvasPaint, property: string): string {
   const serialized = String(paint)
-  if (paint !== serialized) throw new Error(`Layered Canvas2D currently supports string ${property} values only`)
+  if (paint !== serialized) throw new Error(`Canvas2D image bridge currently supports string ${property} values only`)
   return serialized
 }
 
 function parseCanvasFont(value: string): ParsedCanvasFont {
   const match = value.trim().match(/^(?:(normal|bold|[1-9]00)\s+)?(\d+(?:\.\d+)?)px\s+(.+)$/)
-  if (!match) throw new Error(`Layered Canvas2D cannot represent Canvas font ${JSON.stringify(value)}`)
+  if (!match) throw new Error(`Canvas2D image bridge cannot represent Canvas font ${JSON.stringify(value)}`)
   const size = Number(match[2])
   const family = match[3]?.trim()
   if (!Number.isFinite(size) || size <= 0 || !family) {
-    throw new Error(`Layered Canvas2D cannot represent Canvas font ${JSON.stringify(value)}`)
+    throw new Error(`Canvas2D image bridge cannot represent Canvas font ${JSON.stringify(value)}`)
   }
   const weightToken = match[1]
   const weight = weightToken === "bold"
