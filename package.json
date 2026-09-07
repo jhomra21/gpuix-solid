@@ -39,6 +39,7 @@
     "example:blurred-window": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:blurred-window",
     "example:todo": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:todo",
     "example:diff": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:diff",
+    "example:timeline": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:timeline",
     "example:diffusion": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:diffusion",
     "example:chat": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:chat",
     "example:infinite-chat": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:infinite-chat",
