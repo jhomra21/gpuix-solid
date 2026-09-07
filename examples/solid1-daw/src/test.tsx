@@ -304,17 +304,30 @@ if (!hasNativeTestRenderer) {
   }
   await Promise.resolve()
   app.renderer.flush()
-  const eqCanvasSource = app.renderer.customPropStringContainingAll("source", [
+  const eqGainLabelSource = app.renderer.customPropStringContainingAll("source", [
     'preserveAspectRatio="none"',
     'font-size="9"',
-    '<circle',
-    '>1</text>',
-    '>8</text>',
+    '>+0 dB</text>',
+  ])
+  const eqFrequencyLabelSource = app.renderer.customPropStringContainingAll("source", [
+    'preserveAspectRatio="none"',
+    'font-size="9"',
+    '>10k</text>',
   ])
   requireCondition(
-    eqCanvasSource.includes('+0 dB') && eqCanvasSource.includes('>10k</text>'),
-    "exact EQ Canvas bridge should paint the source grid labels and all eight band nodes",
+    eqGainLabelSource.includes('text-anchor="start"') && eqFrequencyLabelSource.includes('text-anchor="middle"'),
+    "exact EQ Canvas bridge should retain the source grid labels in native paint layers",
   )
+  for (let bandNumber = 1; bandNumber <= 8; bandNumber++) {
+    app.renderer.customPropStringContainingAll("source", [
+      'preserveAspectRatio="none"',
+      '<circle',
+      'font-size="9"',
+      'font-weight="700"',
+      'text-anchor="middle"',
+      `>${bandNumber}</text>`,
+    ])
+  }
 
   const screenshotPath = "/tmp/gpuix-solid1-daw-source-structured.png"
   app.renderer.captureScreenshot(screenshotPath)
