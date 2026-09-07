@@ -82,6 +82,8 @@ type HardSplitSurfaceState = {
 }
 
 type IntervalOverlaySurfaceState = {
+  container: NativeHostElement
+  spacer: NativeHostElement
   surface: NativeHostElement
 }
 
@@ -243,16 +245,34 @@ function syncIntervalOverlaySurfaces(
     active.add(overlay.key)
     let state = states.get(overlay.key)
     if (!state) {
+      const container = requireHostElement(createNativeElement("div"), "div")
+      const spacer = requireHostElement(createNativeElement("div"), "div")
       const surface = requireHostElement(createNativeElement("div"), "div")
       setNativeProp(surface, "testId", "gpuix-css-interval-overlay")
-      state = { surface }
+      insertNativeNode(container, spacer)
+      insertNativeNode(container, surface)
+      state = { container, spacer, surface }
       states.set(overlay.key, state)
-      insertNativeNode(node, surface)
+      insertNativeNode(node, container)
     }
-    setNativeProp(state.surface, "style", {
+
+    setNativeProp(state.container, "style", {
+      display: "flex",
+      flexDirection: "row",
       position: "absolute",
       top: 0,
-      left: `${overlay.start * 100}%`,
+      left: 0,
+      right: 0,
+      height: overlay.height,
+      pointerEvents: "none",
+    })
+    setNativeProp(state.spacer, "style", {
+      width: `${overlay.start * 100}%`,
+      height: overlay.height,
+      pointerEvents: "none",
+      flexShrink: 0,
+    })
+    setNativeProp(state.surface, "style", {
       width: `${(overlay.end - overlay.start) * 100}%`,
       height: overlay.height,
       backgroundColor: overlay.color,
@@ -263,7 +283,7 @@ function syncIntervalOverlaySurfaces(
 
   for (const [key, state] of states) {
     if (!active.has(key)) {
-      setNativeProp(state.surface, "style", { display: "none", pointerEvents: "none" })
+      setNativeProp(state.container, "style", { display: "none", pointerEvents: "none" })
     }
   }
 }
