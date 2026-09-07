@@ -1,5 +1,5 @@
 class CompatHTMLCanvasElement {
-  static [Symbol.hasInstance](value: unknown): boolean {
+  static [Symbol.hasInstance](value: HTMLElement): boolean {
     if (!Object.hasOwn(globalThis, "HTMLElement")) return false
     return value instanceof globalThis.HTMLElement && value.localName === "canvas"
   }
