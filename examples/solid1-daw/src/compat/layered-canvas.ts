@@ -105,6 +105,9 @@ function scheduleRender(node: CanvasHost, state: RuntimeState): void {
       flexShrink: 0,
     })
     base.setProp(surface, "objectFit", "fill")
+    // Keep the exact generated SVG visible to automation as a change detector;
+    // native <img> ignores this extra prop and paints only the data URL below.
+    base.setProp(surface, "source", source)
     base.setProp(surface, "src", `data:image/svg+xml,${encodeURIComponent(source)}`)
 
     node.root.driver.flush()
