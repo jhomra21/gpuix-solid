@@ -23,6 +23,39 @@ function overlaps(
     first.y + first.height > second.y
 }
 
+function gradientDetails(background: unknown): {
+  split: number
+  from: string
+  to: string
+} | undefined {
+  if (!background || typeof background !== "object") return undefined
+  const candidate = background as {
+    type?: unknown
+    stops?: unknown
+  }
+  if (candidate.type !== "linear-gradient" || !Array.isArray(candidate.stops) || candidate.stops.length !== 2) {
+    return undefined
+  }
+  const from = candidate.stops[0] as { color?: unknown; position?: unknown } | undefined
+  const to = candidate.stops[1] as { color?: unknown; position?: unknown } | undefined
+  const fromPosition = Number(from?.position)
+  const toPosition = Number(to?.position)
+  if (
+    typeof from?.color !== "string" ||
+    typeof to?.color !== "string" ||
+    !Number.isFinite(fromPosition) ||
+    !Number.isFinite(toPosition) ||
+    Math.abs(fromPosition - toPosition) > 0.0001
+  ) {
+    return undefined
+  }
+  return {
+    split: fromPosition,
+    from: from.color,
+    to: to.color,
+  }
+}
+
 if (hasNativeTestRenderer) {
   configureNativeStyleManifest(nativeTailwindManifest)
   setNativeStyleColorMode("dark")
@@ -63,6 +96,17 @@ if (hasNativeTestRenderer) {
     `Canvas2D compatibility surface must paint inside the Drums lane, got ${JSON.stringify({ surfaceBounds, drumsLaneBounds })}`,
   )
 
+  const volumeControl = { "aria-label": "Track 1 volume" } as const
+  const initialVolumeGradient = gradientDetails(app.renderer.styleCustomProps(volumeControl).background)
+  requireCondition(
+    initialVolumeGradient !== undefined &&
+      initialVolumeGradient.split > 0 &&
+      initialVolumeGradient.split < 1 &&
+      initialVolumeGradient.from === "#fac547" &&
+      initialVolumeGradient.to === "#9f9fa9",
+    `source mixer-volume-slider must paint its dark warning/muted hard-split gradient natively, got ${JSON.stringify(initialVolumeGradient)}`,
+  )
+
   app.renderer.captureScreenshot("/tmp/gpuix-solid1-daw-source-structured.png")
 
   // The native screenshot surface is narrower than the fixture's intentional
@@ -72,7 +116,7 @@ if (hasNativeTestRenderer) {
   const mixerControlBounds = app.renderer.boundsCustomProps({ "aria-label": "Deactivate track 1" })
   const soloBounds = app.renderer.boundsCustomProps({ "aria-label": "Solo track 1" })
   const armBounds = app.renderer.boundsCustomProps({ "aria-label": "Arm track 1 for recording" })
-  const volumeBounds = app.renderer.boundsCustomProps({ "aria-label": "Track 1 volume" })
+  const volumeBounds = app.renderer.boundsCustomProps(volumeControl)
   const viewportWidth = app.renderer.boundsTestId("daw-test-viewport").width
   requireCondition(
     mixerControlBounds.x >= 0 && mixerControlBounds.x + mixerControlBounds.width <= viewportWidth,
@@ -92,6 +136,16 @@ if (hasNativeTestRenderer) {
   )
   app.renderer.captureScreenshot("/tmp/gpuix-solid1-daw-mixer.png")
 
+  const splitBeforeDrag = initialVolumeGradient?.split
+  app.renderer.dragCustomProps(volumeControl, 20, 0)
+  const draggedVolumeGradient = gradientDetails(app.renderer.styleCustomProps(volumeControl).background)
+  requireCondition(
+    splitBeforeDrag !== undefined &&
+      draggedVolumeGradient !== undefined &&
+      Math.abs(draggedVolumeGradient.split - splitBeforeDrag) > 0.001,
+    `source --mixer-volume-percent must update the retained native gradient during volume drag: ${JSON.stringify({ before: initialVolumeGradient, after: draggedVolumeGradient })}`,
+  )
+
   app.unmount()
-  console.log(`solid1 DAW visual acceptance: exact Canvas2D waveform rendered ${waveformBars} retained peak bars; mixer visual captured`)
+  console.log(`solid1 DAW visual acceptance: exact Canvas2D waveform rendered ${waveformBars} retained peak bars; reactive mixer gradient and mixer visual passed`)
 }
