@@ -186,9 +186,9 @@ function resolveRegisteredCssVariablePaints<T>(value: T): ResolvedCssVariableSty
     ...sourceStyle,
     position: sourceStyle.position ?? "relative",
     overflow: sourceStyle.overflow ?? "hidden",
-    ...(hardSplit ? { backgroundColor: hardSplit.colors.to } : {}),
   }
   if (hardSplit) {
+    nativeStyle.backgroundColor = hardSplit.colors.to
     delete nativeStyle.background
     delete nativeStyle[hardSplit.property]
   }
