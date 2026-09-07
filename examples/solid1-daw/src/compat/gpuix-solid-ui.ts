@@ -1,4 +1,5 @@
 import * as base from "./gpuix-solid-canvas"
+import { installLayeredCanvas2D } from "./layered-canvas"
 import {
   parseTwoRowGridDefinition,
   placeTwoRowGridItems,
@@ -20,6 +21,12 @@ const sourceStyles = new WeakMap<HostElement, SourceStyle>()
 const sourceClasses = new WeakMap<HostElement, SourceClasses>()
 const gridDefinitions = new WeakMap<HostElement, TwoRowGridDefinition>()
 const managedGridChildren = new WeakMap<HostElement, Set<HostElement>>()
+
+export function createElement(tagName: string): ReturnType<typeof base.createElement> {
+  const node = base.createElement(tagName)
+  if (tagName === "canvas" && node.kind === "element") installLayeredCanvas2D(node)
+  return node
+}
 
 export function setProp<T>(node: HostNode, name: string, value: T, previous?: T): void {
   if (node.kind !== "element") {
