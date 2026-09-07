@@ -80,6 +80,22 @@ if (hasNativeTestRenderer) {
 
   app.renderer.captureScreenshot("/tmp/gpuix-solid1-daw-source-structured.png")
 
+  // The exact EQ sits to the right of Compressor in the source effects chain.
+  // Expose the whole device explicitly so visual review can judge the graph,
+  // controls, and two-row layout rather than accepting an off-screen render.
+  app.renderer.scrollTestId("daw-test-viewport", -320, -260)
+  app.renderer.scrollTestId("effects-panel", -540, 0)
+  app.root.flush()
+  app.renderer.flush()
+  const eqBandBounds = app.renderer.boundsCustomProps({ title: "High Shelf filter" })
+  const viewportWidth = app.renderer.boundsTestId("daw-test-viewport").width
+  requireCondition(
+    eqBandBounds.x >= 0 && eqBandBounds.x + eqBandBounds.width <= viewportWidth,
+    `EQ visual acceptance must expose the exact source band controls, got ${JSON.stringify(eqBandBounds)}`,
+  )
+  app.renderer.captureScreenshot("/tmp/gpuix-solid1-daw-eq.png")
+  app.renderer.scrollTestId("effects-panel", 0, 0)
+
   // The native screenshot surface is narrower than the fixture's intentional
   // 1180px minimum width. Reveal the source mixer columns explicitly so visual
   // review covers the controls that the interaction suite already exercises.
@@ -89,7 +105,6 @@ if (hasNativeTestRenderer) {
   const armBounds = app.renderer.boundsCustomProps({ "aria-label": "Arm track 1 for recording" })
   const volumeBounds = app.renderer.boundsCustomProps(volumeControl)
   const initialFillBounds = app.renderer.boundsTestId("gpuix-css-hard-split-fill")
-  const viewportWidth = app.renderer.boundsTestId("daw-test-viewport").width
   requireCondition(
     mixerControlBounds.x >= 0 && mixerControlBounds.x + mixerControlBounds.width <= viewportWidth,
     `mixer visual acceptance must expose the source track button, got ${JSON.stringify(mixerControlBounds)}`,
