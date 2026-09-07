@@ -4,7 +4,6 @@ import {
   insertNode as insertNativeNode,
   setProp as setNativeProp,
 } from "@jhomra21/gpuix-solid1"
-import type { LinearGradientBackground } from "@jhomra21/gpuix-solid1"
 
 export * from "@jhomra21/gpuix-solid1"
 
@@ -38,21 +37,36 @@ type CssVariableSourceStyle = NativeHostElement["style"] & {
   [property: `--${string}`]: CssVariableValue
 }
 
-type GradientColors = {
+type HardSplitColors = {
   from: string
   to: string
 }
 
-export type CssVariableLinearGradientCompat = {
+export type CssVariableHardSplitCompat = {
   property: `--${string}`
-  angle: number
-  colorSpace?: "srgb" | "oklab"
-  light: GradientColors
-  dark: GradientColors
+  light: HardSplitColors
+  dark: HardSplitColors
+}
+
+type ResolvedHardSplit = {
+  property: `--${string}`
+  position: number
+  colors: HardSplitColors
+}
+
+type ResolvedCssVariableStyle<T> = {
+  style: T
+  hardSplit?: ResolvedHardSplit
+}
+
+type HardSplitSurfaceState = {
+  property: `--${string}`
+  surface: NativeHostElement
 }
 
 const runtimeCanvases = new WeakMap<CanvasHostNode, RuntimeCanvasState>()
-const cssVariableGradients = new Map<`--${string}`, CssVariableLinearGradientCompat>()
+const cssVariableHardSplits = new Map<`--${string}`, CssVariableHardSplitCompat>()
+const hardSplitSurfaces = new WeakMap<NativeHostElement, HardSplitSurfaceState>()
 
 function requireHostElement(node: NativeHostNode, tagName: string): NativeHostElement {
   if (node.kind !== "element") {
@@ -61,8 +75,8 @@ function requireHostElement(node: NativeHostNode, tagName: string): NativeHostEl
   return node
 }
 
-export function registerCssVariableLinearGradient(config: CssVariableLinearGradientCompat): void {
-  cssVariableGradients.set(config.property, config)
+export function registerCssVariableHardSplit(config: CssVariableHardSplitCompat): void {
+  cssVariableHardSplits.set(config.property, config)
 }
 
 export function createElement(tagName: string): NativeHostNode {
@@ -82,11 +96,12 @@ export function setProp<T>(
     return
   }
 
-  const nextStyle = resolveRegisteredCssVariableGradients(value)
+  const next = resolveRegisteredCssVariableHardSplit(value)
   const previousStyle = previous === undefined
     ? undefined
-    : resolveRegisteredCssVariableGradients(previous)
-  setNativeProp(node, name, nextStyle, previousStyle)
+    : resolveRegisteredCssVariableHardSplit(previous).style
+  if (node.kind === "element") syncHardSplitSurface(node, next.hardSplit)
+  setNativeProp(node, name, next.style, previousStyle)
 }
 
 export function insertNode(
@@ -97,39 +112,66 @@ export function insertNode(
   insertNativeNode(parent, node, anchor)
 }
 
-function resolveRegisteredCssVariableGradients<T>(value: T): T {
-  if (!isStyleObject(value)) return value
+function resolveRegisteredCssVariableHardSplit<T>(value: T): ResolvedCssVariableStyle<T> {
+  if (!isStyleObject(value)) return { style: value }
 
   // SAFETY: this compatibility boundary receives Solid's JSX style object before
   // the native normalizer. The copied source uses scalar CSS custom properties,
   // while all ordinary native StyleDesc fields keep their existing typed values.
   const sourceStyle = value as T & CssVariableSourceStyle
-  let gradient: LinearGradientBackground | undefined
-  let appliedProperty: `--${string}` | undefined
-  for (const [property, config] of cssVariableGradients) {
+  let hardSplit: ResolvedHardSplit | undefined
+  for (const [property, config] of cssVariableHardSplits) {
     const position = cssUnitInterval(sourceStyle[property])
     if (position === undefined) continue
-    const colors = getNativeStyleColorMode() === "dark" ? config.dark : config.light
-    gradient = {
-      type: "linear-gradient",
-      angle: config.angle,
-      stops: [
-        { color: colors.from, position },
-        { color: colors.to, position },
-      ],
-      colorSpace: config.colorSpace,
+    if (hardSplit) {
+      throw new Error("GPUIX CSS hard-split compatibility supports one active split per host element")
     }
-    appliedProperty = property
+    hardSplit = {
+      property,
+      position,
+      colors: getNativeStyleColorMode() === "dark" ? config.dark : config.light,
+    }
   }
-  if (!gradient || !appliedProperty) return value
+  if (!hardSplit) return { style: value }
 
   const nativeStyle = {
     ...sourceStyle,
-    background: gradient,
+    position: sourceStyle.position ?? "relative",
+    overflow: sourceStyle.overflow ?? "hidden",
+    backgroundColor: hardSplit.colors.to,
   }
-  delete nativeStyle.backgroundColor
-  delete nativeStyle[appliedProperty]
-  return nativeStyle
+  delete nativeStyle.background
+  delete nativeStyle[hardSplit.property]
+  return { style: nativeStyle, hardSplit }
+}
+
+function syncHardSplitSurface(node: NativeHostElement, hardSplit: ResolvedHardSplit | undefined): void {
+  const existing = hardSplitSurfaces.get(node)
+  if (!hardSplit) {
+    if (existing) setNativeProp(existing.surface, "style", { display: "none", pointerEvents: "none" })
+    return
+  }
+
+  let state = existing
+  if (!state || state.property !== hardSplit.property) {
+    if (state) setNativeProp(state.surface, "style", { display: "none", pointerEvents: "none" })
+    const surface = requireHostElement(createNativeElement("div"), "div")
+    setNativeProp(surface, "testId", "gpuix-css-hard-split-fill")
+    state = { property: hardSplit.property, surface }
+    hardSplitSurfaces.set(node, state)
+    insertNativeNode(node, surface)
+  }
+
+  setNativeProp(state.surface, "style", {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: `${hardSplit.position * 100}%`,
+    backgroundColor: hardSplit.colors.from,
+    pointerEvents: "none",
+    flexShrink: 0,
+  })
 }
 
 function isStyleObject<T>(value: T): value is T & object {

@@ -6,7 +6,6 @@ import {
   hasNativeTestRenderer,
   setNativeStyleColorMode,
 } from "@jhomra21/gpuix-solid1"
-import type { LinearGradientBackground, StyleDesc } from "@jhomra21/gpuix-solid1"
 import { DawSolid1Showcase } from "./app"
 import { nativeTailwindManifest } from "./native-tailwind.generated"
 
@@ -22,41 +21,6 @@ function overlaps(
     first.x + first.width > second.x &&
     first.y < second.y + second.height &&
     first.y + first.height > second.y
-}
-
-function requiredLinearGradient(
-  background: StyleDesc["background"],
-  label: string,
-): LinearGradientBackground {
-  if (background === undefined) throw new Error(`${label}: expected a retained native background`)
-  // SAFETY: this parity verifier is specifically asserting the published GPUIX
-  // LinearGradientBackground contract. A string background yields no matching
-  // discriminant below and fails the verifier rather than being consumed as data.
-  const gradient = background as LinearGradientBackground
-  if (gradient.type !== "linear-gradient") {
-    throw new Error(`${label}: expected a retained native linear gradient`)
-  }
-  return gradient
-}
-
-function gradientDetails(background: LinearGradientBackground): {
-  split: number
-  from: string
-  to: string
-} | undefined {
-  const [from, to] = background.stops
-  if (
-    !Number.isFinite(from.position) ||
-    !Number.isFinite(to.position) ||
-    Math.abs(from.position - to.position) > 0.0001
-  ) {
-    return undefined
-  }
-  return {
-    split: from.position,
-    from: from.color,
-    to: to.color,
-  }
 }
 
 if (hasNativeTestRenderer) {
@@ -100,17 +64,15 @@ if (hasNativeTestRenderer) {
   )
 
   const volumeControl = { "aria-label": "Track 1 volume" } as const
-  const initialVolumeGradient = gradientDetails(requiredLinearGradient(
-    app.renderer.styleCustomProps(volumeControl).background,
-    "source mixer-volume-slider",
-  ))
+  const initialVolumeStyle = app.renderer.styleCustomProps(volumeControl)
+  const initialFillStyle = app.renderer.styleTestId("gpuix-css-hard-split-fill")
   requireCondition(
-    initialVolumeGradient !== undefined &&
-      initialVolumeGradient.split > 0 &&
-      initialVolumeGradient.split < 1 &&
-      initialVolumeGradient.from === "#fac547" &&
-      initialVolumeGradient.to === "#9f9fa9",
-    `source mixer-volume-slider must paint its dark warning/muted hard-split gradient natively, got ${JSON.stringify(initialVolumeGradient)}`,
+    initialVolumeStyle.backgroundColor === "#9f9fa9" && initialVolumeStyle.background === undefined,
+    `source mixer-volume-slider muted side must use native solid paint when GPUIX 0.7 cannot paint the retained gradient, got ${JSON.stringify(initialVolumeStyle)}`,
+  )
+  requireCondition(
+    initialFillStyle.backgroundColor === "#fac547" && initialFillStyle.pointerEvents === "none",
+    `source mixer-volume-slider warning side must use a pointer-inert native fill, got ${JSON.stringify(initialFillStyle)}`,
   )
 
   app.renderer.captureScreenshot("/tmp/gpuix-solid1-daw-source-structured.png")
@@ -123,6 +85,7 @@ if (hasNativeTestRenderer) {
   const soloBounds = app.renderer.boundsCustomProps({ "aria-label": "Solo track 1" })
   const armBounds = app.renderer.boundsCustomProps({ "aria-label": "Arm track 1 for recording" })
   const volumeBounds = app.renderer.boundsCustomProps(volumeControl)
+  const initialFillBounds = app.renderer.boundsTestId("gpuix-css-hard-split-fill")
   const viewportWidth = app.renderer.boundsTestId("daw-test-viewport").width
   requireCondition(
     mixerControlBounds.x >= 0 && mixerControlBounds.x + mixerControlBounds.width <= viewportWidth,
@@ -140,21 +103,24 @@ if (hasNativeTestRenderer) {
     volumeBounds.width >= soloBounds.width * 2.5 && volumeBounds.width < 70,
     `source mixer volume must remain in its compact 3fr column before visual capture: ${JSON.stringify({ volumeBounds, soloBounds })}`,
   )
+  requireCondition(
+    Math.abs(initialFillBounds.x - volumeBounds.x) <= 1 &&
+      Math.abs(initialFillBounds.y - volumeBounds.y) <= 1 &&
+      Math.abs(initialFillBounds.height - volumeBounds.height) <= 1 &&
+      initialFillBounds.width > 1 &&
+      initialFillBounds.width < volumeBounds.width,
+    `source hard-split fill must occupy the leading portion of Track 1 volume, got ${JSON.stringify({ fill: initialFillBounds, volume: volumeBounds })}`,
+  )
   app.renderer.captureScreenshot("/tmp/gpuix-solid1-daw-mixer.png")
 
-  const splitBeforeDrag = initialVolumeGradient?.split
+  const fillWidthBeforeDrag = initialFillBounds.width
   app.renderer.dragCustomProps(volumeControl, 20, 0)
-  const draggedVolumeGradient = gradientDetails(requiredLinearGradient(
-    app.renderer.styleCustomProps(volumeControl).background,
-    "dragged source mixer-volume-slider",
-  ))
+  const draggedFillBounds = app.renderer.boundsTestId("gpuix-css-hard-split-fill")
   requireCondition(
-    splitBeforeDrag !== undefined &&
-      draggedVolumeGradient !== undefined &&
-      Math.abs(draggedVolumeGradient.split - splitBeforeDrag) > 0.001,
-    `source --mixer-volume-percent must update the retained native gradient during volume drag: ${JSON.stringify({ before: initialVolumeGradient, after: draggedVolumeGradient })}`,
+    Math.abs(draggedFillBounds.width - fillWidthBeforeDrag) > 1,
+    `source --mixer-volume-percent must update retained native fill geometry during volume drag: ${JSON.stringify({ before: initialFillBounds, after: draggedFillBounds })}`,
   )
 
   app.unmount()
-  console.log(`solid1 DAW visual acceptance: exact Canvas2D waveform rendered ${waveformBars} retained peak bars; reactive mixer gradient and mixer visual passed`)
+  console.log(`solid1 DAW visual acceptance: exact Canvas2D waveform rendered ${waveformBars} retained peak bars; reactive mixer hard-split fill and mixer visual passed`)
 }
