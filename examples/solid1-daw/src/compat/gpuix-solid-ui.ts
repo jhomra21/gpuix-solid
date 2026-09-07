@@ -80,6 +80,7 @@ function optionalStyleText(style: SourceStyle, property: string): string | undef
 }
 
 function nativeSourceStyle(style: SourceStyle, definition: TwoRowGridDefinition | undefined): SourceStyle {
+  // SAFETY: filtering properties from a SourceStyle preserves every remaining SourceStyleValue unchanged.
   const next = Object.fromEntries(
     Object.entries(style).filter(([property]) => property !== "grid-template-rows"),
   ) as SourceStyle
