@@ -36,21 +36,13 @@ requireCondition(
 )
 
 const eqThemeTokens = useAppPreferences().appearance.themeTokens()
-const expectedEqThemeTokens = {
-  "muted-foreground": "#9f9fa9",
-  "meter-safe": "#00a76c",
-  "meter-clipping": "#f53e39",
-  "clip-selected": "#e6ad00",
-  "device-graph-background": "#040405",
-  "device-graph-grid": "#ffffff29",
-  "device-graph-accent": "#00c3db",
-} as const
-for (const [token, expected] of Object.entries(expectedEqThemeTokens)) {
-  requireCondition(
-    eqThemeTokens[token as keyof typeof eqThemeTokens] === expected,
-    `EQ theme token ${token} should use the exact pinned-source dark sRGB translation`,
-  )
-}
+requireCondition(eqThemeTokens["muted-foreground"] === "#9f9fa9", "EQ muted foreground should match the pinned dark theme")
+requireCondition(eqThemeTokens["meter-safe"] === "#00a76c", "EQ safe meter color should match the pinned dark theme")
+requireCondition(eqThemeTokens["meter-clipping"] === "#f53e39", "EQ clipping meter color should match the pinned dark theme")
+requireCondition(eqThemeTokens["clip-selected"] === "#e6ad00", "EQ selected band color should match the pinned dark theme")
+requireCondition(eqThemeTokens["device-graph-background"] === "#040405", "EQ graph background should match the pinned dark theme")
+requireCondition(eqThemeTokens["device-graph-grid"] === "#ffffff29", "EQ graph grid should match the pinned dark theme")
+requireCondition(eqThemeTokens["device-graph-accent"] === "#00c3db", "EQ graph accent should match the pinned dark theme")
 
 const responseContext = new OfflineAudioContext(1, 1, 44100)
 const filter = responseContext.createBiquadFilter()
