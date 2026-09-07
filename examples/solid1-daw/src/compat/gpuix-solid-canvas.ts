@@ -491,7 +491,7 @@ function createCanvasSurface(getSize: () => CanvasSize, onChange: () => void): C
     fill() {
       if (!path) return
       if (path.kind === "circle") {
-        commands.push({ kind: "fill-circle", ...path, color: fillStyle })
+        commands.push({ ...path, kind: "fill-circle", color: fillStyle })
       } else if (path.points.length >= 3) {
         commands.push({ kind: "fill-polygon", points: [...path.points], color: fillStyle })
       }
@@ -501,8 +501,8 @@ function createCanvasSurface(getSize: () => CanvasSize, onChange: () => void): C
       if (!path) return
       if (path.kind === "circle") {
         commands.push({
-          kind: "stroke-circle",
           ...path,
+          kind: "stroke-circle",
           color: strokeStyle,
           width: lineWidth,
         })
