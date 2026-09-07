@@ -9,6 +9,7 @@
   "src/upstream/components/ui/separator.tsx",
   "src/upstream/components/ui/text-field.tsx",
   "src/upstream/components/ui/tooltip.tsx",
+  "src/upstream/components/effects/Eq.tsx",
   "src/upstream/components/effects/eq-filter-type-select.tsx",
   "src/upstream/components/effects/Compressor.tsx",
   "src/upstream/components/effects/EffectShell.tsx",
