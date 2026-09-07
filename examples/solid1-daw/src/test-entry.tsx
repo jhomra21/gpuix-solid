@@ -6,7 +6,7 @@ import {
   hasNativeTestRenderer,
   setNativeStyleColorMode,
 } from "@jhomra21/gpuix-solid1"
-import type { StyleDesc } from "@jhomra21/gpuix-solid1"
+import type { LinearGradientBackground, StyleDesc } from "@jhomra21/gpuix-solid1"
 import { DawSolid1Showcase } from "./app"
 import { nativeTailwindManifest } from "./native-tailwind.generated"
 
@@ -24,13 +24,26 @@ function overlaps(
     first.y + first.height > second.y
 }
 
-function gradientDetails(background: StyleDesc["background"]): {
+function requiredLinearGradient(
+  background: StyleDesc["background"],
+  label: string,
+): LinearGradientBackground {
+  if (background === undefined) throw new Error(`${label}: expected a retained native background`)
+  // SAFETY: this parity verifier is specifically asserting the published GPUIX
+  // LinearGradientBackground contract. A string background yields no matching
+  // discriminant below and fails the verifier rather than being consumed as data.
+  const gradient = background as LinearGradientBackground
+  if (gradient.type !== "linear-gradient") {
+    throw new Error(`${label}: expected a retained native linear gradient`)
+  }
+  return gradient
+}
+
+function gradientDetails(background: LinearGradientBackground): {
   split: number
   from: string
   to: string
 } | undefined {
-  if (!background || typeof background === "string") return undefined
-  if (background.type !== "linear-gradient") return undefined
   const [from, to] = background.stops
   if (
     !Number.isFinite(from.position) ||
@@ -87,7 +100,10 @@ if (hasNativeTestRenderer) {
   )
 
   const volumeControl = { "aria-label": "Track 1 volume" } as const
-  const initialVolumeGradient = gradientDetails(app.renderer.styleCustomProps(volumeControl).background)
+  const initialVolumeGradient = gradientDetails(requiredLinearGradient(
+    app.renderer.styleCustomProps(volumeControl).background,
+    "source mixer-volume-slider",
+  ))
   requireCondition(
     initialVolumeGradient !== undefined &&
       initialVolumeGradient.split > 0 &&
@@ -128,7 +144,10 @@ if (hasNativeTestRenderer) {
 
   const splitBeforeDrag = initialVolumeGradient?.split
   app.renderer.dragCustomProps(volumeControl, 20, 0)
-  const draggedVolumeGradient = gradientDetails(app.renderer.styleCustomProps(volumeControl).background)
+  const draggedVolumeGradient = gradientDetails(requiredLinearGradient(
+    app.renderer.styleCustomProps(volumeControl).background,
+    "dragged source mixer-volume-slider",
+  ))
   requireCondition(
     splitBeforeDrag !== undefined &&
       draggedVolumeGradient !== undefined &&
