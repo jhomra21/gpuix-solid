@@ -74,7 +74,7 @@ if (!hasNativeTestRenderer) {
   await Promise.resolve()
   app.root.flush()
   app.renderer.flush()
-  const source = app.renderer.customPropStringContainingAll("canvasSource", [
+  const source = app.renderer.customPropStringContainingAll("source", [
     'preserveAspectRatio="none"',
     "<polygon",
     "<polyline",
@@ -82,7 +82,7 @@ if (!hasNativeTestRenderer) {
   requireCondition(source.includes('viewBox="0 0 100 40"'), `Canvas bridge must preserve backing dimensions, got ${source}`)
   requireCondition(!source.includes("data-native-waveform-placeholder"), "Canvas bridge must not use the old static waveform placeholder")
   requireCondition(
-    Number(app.renderer.customPropByCustomProps({ canvasSource: source }, "canvasLayerCount")) >= 2,
+    app.renderer.hasTestId("gpuix-canvas-2d-surface") && app.renderer.hasTestId("gpuix-canvas-2d-layer-1"),
     "waveform Canvas should retain separate native paint layers when source colors differ",
   )
   app.unmount()
@@ -132,7 +132,7 @@ if (!hasNativeTestRenderer) {
   await Promise.resolve()
   eqApp.root.flush()
   eqApp.renderer.flush()
-  const eqSource = eqApp.renderer.customPropStringContainingAll("canvasSource", [
+  const eqSource = eqApp.renderer.customPropStringContainingAll("source", [
     'viewBox="0 0 160 80"',
     "<circle",
     "<text",
@@ -143,10 +143,19 @@ if (!hasNativeTestRenderer) {
   requireCondition(eqSource.includes(">+12 dB</text>"), `EQ Canvas label must remain in canonical command output, got ${eqSource}`)
   requireCondition(eqSource.includes(">5</text>"), `EQ Canvas band label must remain in canonical command output, got ${eqSource}`)
   requireCondition(
-    Number(eqApp.renderer.customPropByCustomProps({ canvasSource: eqSource }, "canvasLayerCount")) >= 4,
-    "multicolor EQ Canvas should retain multiple ordered native paint layers",
+    appLayerIds(eqApp).every((testId) => eqApp.renderer.hasTestId(testId)),
+    "multicolor EQ Canvas should retain at least four ordered native paint layers",
   )
   eqApp.unmount()
 
   console.log("DAW Canvas2D compatibility bridge: unrelated styles preserved, canonical Canvas commands retained, and multicolor output split into ordered native SVG layers")
+}
+
+function appLayerIds(_root: ReturnType<typeof createTestRoot>): readonly string[] {
+  return [
+    "gpuix-canvas-2d-surface",
+    "gpuix-canvas-2d-layer-1",
+    "gpuix-canvas-2d-layer-2",
+    "gpuix-canvas-2d-layer-3",
+  ]
 }
