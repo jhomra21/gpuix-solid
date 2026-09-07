@@ -12,15 +12,21 @@ type CompatCanvas = ReturnType<typeof createElement> & {
   getContext(contextId: "2d"): CanvasRenderingContext2D | null
 }
 
-const EQ_LAYER_IDS = [
-  "gpuix-canvas-2d-surface",
-  "gpuix-canvas-2d-layer-1",
-  "gpuix-canvas-2d-layer-2",
-  "gpuix-canvas-2d-layer-3",
-] as const
+type TestRoot = ReturnType<typeof createTestRoot>
+
+const SVG_DATA_URL_PREFIX = "data:image/svg+xml,"
 
 function requireCondition(condition: boolean, message: string): void {
   if (!condition) throw new Error(message)
+}
+
+function canvasImageSvg(root: TestRoot, requiredFragments: readonly string[]): string {
+  const src = root.renderer.customPropStringContainingAll("src", [
+    SVG_DATA_URL_PREFIX,
+    ...requiredFragments.map((fragment) => encodeURIComponent(fragment)),
+  ])
+  requireCondition(src.startsWith(SVG_DATA_URL_PREFIX), `Canvas bridge must paint through an SVG image data URL, got ${src}`)
+  return decodeURIComponent(src.slice(SVG_DATA_URL_PREFIX.length))
 }
 
 if (!hasNativeTestRenderer) {
@@ -81,25 +87,20 @@ if (!hasNativeTestRenderer) {
   await Promise.resolve()
   app.root.flush()
   app.renderer.flush()
-  const waveformFillSource = app.renderer.customPropStringContainingAll("source", [
+  const waveformSource = canvasImageSvg(app, [
     'viewBox="0 0 100 40"',
     'preserveAspectRatio="none"',
     "<polygon",
-  ])
-  const waveformBoundarySource = app.renderer.customPropStringContainingAll("source", [
-    'viewBox="0 0 100 40"',
-    'preserveAspectRatio="none"',
     "<polyline",
   ])
+  requireCondition(!waveformSource.includes("data-native-waveform-placeholder"), "Canvas bridge must not use the old static waveform placeholder")
   requireCondition(
-    !waveformFillSource.includes("data-native-waveform-placeholder") &&
-      !waveformBoundarySource.includes("data-native-waveform-placeholder"),
-    "Canvas bridge must not use the old static waveform placeholder",
+    waveformSource.includes('fill="rgba(255,255,255,0.55)"') &&
+      waveformSource.includes('stroke="rgba(255,255,255,0.35)"'),
+    `waveform Canvas image must retain both source paints, got ${waveformSource}`,
   )
-  requireCondition(
-    app.renderer.hasTestId("gpuix-canvas-2d-surface") && app.renderer.hasTestId("gpuix-canvas-2d-layer-1"),
-    "waveform Canvas should retain separate native paint layers when source colors differ",
-  )
+  requireCondition(app.renderer.hasTestId("gpuix-canvas-2d-surface"), "waveform Canvas should retain one native image paint surface")
+  requireCondition(!app.renderer.hasTestId("gpuix-canvas-2d-layer-1"), "waveform Canvas should not split multicolor paint across tint-only SVG layers")
   app.unmount()
 
   const eqApp = createTestRoot(260, 140)
@@ -147,36 +148,23 @@ if (!hasNativeTestRenderer) {
   await Promise.resolve()
   eqApp.root.flush()
   eqApp.renderer.flush()
-  const eqBackgroundSource = eqApp.renderer.customPropStringContainingAll("source", [
+  const eqSource = canvasImageSvg(eqApp, [
     'viewBox="0 0 160 80"',
     "<polygon",
-  ])
-  const eqLabelSource = eqApp.renderer.customPropStringContainingAll("source", [
-    'viewBox="0 0 160 80"',
     ">+12 dB</text>",
-  ])
-  const eqSelectedNodeSource = eqApp.renderer.customPropStringContainingAll("source", [
-    'viewBox="0 0 160 80"',
-    "<circle",
-    'fill="#fac547"',
-  ])
-  const eqNumberSource = eqApp.renderer.customPropStringContainingAll("source", [
-    'viewBox="0 0 160 80"',
     "<circle",
     'font-weight="700"',
     'text-anchor="middle"',
     'dominant-baseline="middle"',
     ">5</text>",
   ])
-  requireCondition(eqBackgroundSource.includes('fill="#09090b"'), `EQ background layer must retain source paint, got ${eqBackgroundSource}`)
-  requireCondition(eqLabelSource.includes('fill="#a1a1aa"'), `EQ label layer must retain source paint, got ${eqLabelSource}`)
-  requireCondition(eqSelectedNodeSource.includes('fill="#fac547"'), `EQ selected-node layer must retain source paint, got ${eqSelectedNodeSource}`)
-  requireCondition(eqNumberSource.includes(">5</text>"), `EQ node number must remain in its ordered background-color layer, got ${eqNumberSource}`)
-  requireCondition(
-    EQ_LAYER_IDS.every((testId) => eqApp.renderer.hasTestId(testId)),
-    "multicolor EQ Canvas should retain at least four ordered native paint layers",
-  )
+  requireCondition(eqSource.includes('fill="#09090b"'), `EQ image must retain source background paint, got ${eqSource}`)
+  requireCondition(eqSource.includes('fill="#a1a1aa"'), `EQ image must retain source label paint, got ${eqSource}`)
+  requireCondition(eqSource.includes('fill="#fac547"'), `EQ image must retain selected-node paint, got ${eqSource}`)
+  requireCondition(eqSource.includes(">5</text>"), `EQ image must retain the node number, got ${eqSource}`)
+  requireCondition(eqApp.renderer.hasTestId("gpuix-canvas-2d-surface"), "multicolor EQ Canvas should retain one native image paint surface")
+  requireCondition(!eqApp.renderer.hasTestId("gpuix-canvas-2d-layer-1"), "multicolor EQ Canvas should not depend on tint-only SVG layers")
   eqApp.unmount()
 
-  console.log("DAW Canvas2D compatibility bridge: unrelated styles preserved, exact waveform commands retained, and multicolor output split into ordered native SVG layers")
+  console.log("DAW Canvas2D compatibility bridge: unrelated styles preserved and exact multicolor Canvas output retained in one native SVG image")
 }
