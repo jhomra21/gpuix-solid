@@ -32,11 +32,13 @@ const C = {
 } as const
 
 export const MAIL_WINDOW_BACKGROUND = C.sidebar
-const FONT = typeof window === "undefined" ? "Helvetica" : "IBM Plex Sans"
+// This Solid example has a single Node/native execution target. These are the
+// same branches the upstream runtime probes select when it runs natively.
+const FONT = "Helvetica"
 const SIDEBAR_WIDTH = 214
 const LIST_WIDTH = 328
 const TITLEBAR_HEIGHT = 48
-const TRAFFIC_LIGHT_CLEARANCE = typeof process !== "undefined" && process.platform === "darwin" ? 86 : 12
+const TRAFFIC_LIGHT_CLEARANCE = process.platform === "darwin" ? 86 : 12
 
 const SVG = {
   clock: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>`,
