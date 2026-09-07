@@ -33,11 +33,9 @@ type RuntimeCanvasState = {
   queued: boolean
 }
 
-type SourceStyleState = {
-  class?: string
-  className?: string
-  classList?: Readonly<Record<string, unknown>>
-  style?: Readonly<Record<string, unknown>>
+type CssVariableValue = string | number | undefined
+type CssVariableHostStyle = NativeHostElement["style"] & {
+  [property: `--${string}`]: CssVariableValue
 }
 
 type GradientColors = {
@@ -46,7 +44,6 @@ type GradientColors = {
 }
 
 export type CssVariableLinearGradientCompat = {
-  className: string
   property: `--${string}`
   angle: number
   colorSpace?: "srgb" | "oklab"
@@ -55,8 +52,7 @@ export type CssVariableLinearGradientCompat = {
 }
 
 const runtimeCanvases = new WeakMap<CanvasHostNode, RuntimeCanvasState>()
-const sourceStyleStates = new WeakMap<NativeHostElement, SourceStyleState>()
-const cssVariableGradients = new Map<string, CssVariableLinearGradientCompat>()
+const cssVariableGradients = new Map<`--${string}`, CssVariableLinearGradientCompat>()
 
 function requireHostElement(node: NativeHostNode, tagName: string): NativeHostElement {
   if (node.kind !== "element") {
@@ -66,7 +62,7 @@ function requireHostElement(node: NativeHostNode, tagName: string): NativeHostEl
 }
 
 export function registerCssVariableLinearGradient(config: CssVariableLinearGradientCompat): void {
-  cssVariableGradients.set(config.className, config)
+  cssVariableGradients.set(config.property, config)
 }
 
 export function createElement(tagName: string): NativeHostNode {
@@ -75,13 +71,12 @@ export function createElement(tagName: string): NativeHostNode {
   return node
 }
 
-export function setProp(
+export function setProp<T>(
   node: NativeHostNode,
   name: string,
-  value: unknown,
-  previous?: unknown,
+  value: T,
+  previous?: T,
 ): void {
-  if (node.kind === "element") rememberSourceStyle(node, name, value)
   setNativeProp(node, name, value, previous)
   if (node.kind === "element") reapplyCompatStyleSubtree(node)
 }
@@ -95,22 +90,6 @@ export function insertNode(
   if (node.kind === "element") reapplyCompatStyleSubtree(node)
 }
 
-function rememberSourceStyle(node: NativeHostElement, name: string, value: unknown): void {
-  if (name !== "class" && name !== "className" && name !== "classList" && name !== "style") return
-  const state = sourceStyleStates.get(node) ?? {}
-  if (name === "class") state.class = value == null ? undefined : String(value)
-  else if (name === "className") state.className = value == null ? undefined : String(value)
-  else if (name === "classList") state.classList = objectRecord(value)
-  else state.style = objectRecord(value)
-  sourceStyleStates.set(node, state)
-}
-
-function objectRecord(value: unknown): Readonly<Record<string, unknown>> | undefined {
-  return value !== null && typeof value === "object"
-    ? value as Readonly<Record<string, unknown>>
-    : undefined
-}
-
 function reapplyCompatStyleSubtree(node: NativeHostElement): void {
   applyRegisteredCssVariableGradient(node)
   for (const child of node.children) {
@@ -119,14 +98,14 @@ function reapplyCompatStyleSubtree(node: NativeHostElement): void {
 }
 
 function applyRegisteredCssVariableGradient(node: NativeHostElement): void {
-  const state = sourceStyleStates.get(node)
-  if (!state?.style) return
-  const classNames = activeSourceClassNames(state)
+  // SAFETY: the Solid universal style normalizer preserves CSS custom-property
+  // keys verbatim on the host style object; this view narrows only those keys
+  // to the scalar CSS values emitted by the copied DAW source.
+  const style = node.style as CssVariableHostStyle
   let gradient: LinearGradientBackground | undefined
-  for (const className of classNames) {
-    const config = cssVariableGradients.get(className)
-    if (!config) continue
-    const position = cssUnitInterval(state.style[config.property])
+  let appliedProperty: `--${string}` | undefined
+  for (const [property, config] of cssVariableGradients) {
+    const position = cssUnitInterval(style[property])
     if (position === undefined) continue
     const colors = getNativeStyleColorMode() === "dark" ? config.dark : config.light
     gradient = {
@@ -138,31 +117,20 @@ function applyRegisteredCssVariableGradient(node: NativeHostElement): void {
       ],
       colorSpace: config.colorSpace,
     }
+    appliedProperty = property
   }
-  if (!gradient) return
+  if (!gradient || !appliedProperty) return
 
-  node.style.background = gradient
-  delete node.style.backgroundColor
-  for (const key of Object.keys(node.style)) {
-    if (key.startsWith("--")) delete (node.style as Record<string, unknown>)[key]
-  }
+  style.background = gradient
+  delete style.backgroundColor
+  delete style[appliedProperty]
   if (node.root && node.nativeAlive) {
-    node.root.driver.enqueue("setStyle", node.id, node.style)
+    node.root.driver.enqueue("setStyle", node.id, style)
   }
 }
 
-function activeSourceClassNames(state: SourceStyleState): string[] {
-  const classes = [state.class, state.className]
-    .filter((value): value is string => Boolean(value))
-    .flatMap((value) => value.split(/\s+/).filter(Boolean))
-  for (const [classNames, enabled] of Object.entries(state.classList ?? {})) {
-    if (enabled) classes.push(...classNames.split(/\s+/).filter(Boolean))
-  }
-  return classes
-}
-
-function cssUnitInterval(value: unknown): number | undefined {
-  if (value === undefined || value === null) return undefined
+function cssUnitInterval(value: CssVariableValue): number | undefined {
+  if (value === undefined) return undefined
   const text = String(value).trim()
   const percentage = text.match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))%$/)
   const parsed = percentage ? Number(percentage[1]) / 100 : Number(text)
