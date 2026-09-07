@@ -380,8 +380,8 @@ function createCanvasSurface(getSize: () => CanvasSize, onChange: () => void): C
   let commands: CanvasCommand[] = []
   let path: CanvasPath | undefined
   let transform: CanvasMatrix = [1, 0, 0, 1, 0, 0]
-  let fillStyle: CanvasPaint = "#000000"
-  let strokeStyle: CanvasPaint = "#000000"
+  let fillStyle = "#000000"
+  let strokeStyle = "#000000"
   let lineWidth = 1
   let imageSmoothingEnabled = true
   let font = "10px sans-serif"
@@ -396,13 +396,13 @@ function createCanvasSurface(getSize: () => CanvasSize, onChange: () => void): C
       return fillStyle
     },
     set fillStyle(value: CanvasPaint) {
-      fillStyle = value
+      fillStyle = parseCanvasStringPaint(value, "fillStyle")
     },
     get strokeStyle() {
       return strokeStyle
     },
     set strokeStyle(value: CanvasPaint) {
-      strokeStyle = value
+      strokeStyle = parseCanvasStringPaint(value, "strokeStyle")
     },
     get lineWidth() {
       return lineWidth
@@ -451,7 +451,7 @@ function createCanvasSurface(getSize: () => CanvasSize, onChange: () => void): C
       commands.push({
         kind: "fill-polygon",
         points: rectanglePoints(x, y, width, height, transform),
-        color: requireStringPaint(fillStyle, "fillRect"),
+        color: fillStyle,
       })
       onChange()
     },
@@ -486,33 +486,31 @@ function createCanvasSurface(getSize: () => CanvasSize, onChange: () => void): C
       if (!isFullCircleArc(startAngle, endAngle)) {
         throw new Error("GPUIX Canvas2D compatibility currently supports only full-circle arc() paths")
       }
-      path = { kind: "circle", x, y, radius, transform: [...transform] as CanvasMatrix }
+      path = { kind: "circle", x, y, radius, transform: cloneCanvasMatrix(transform) }
     },
     fill() {
       if (!path) return
-      const color = requireStringPaint(fillStyle, "fill")
       if (path.kind === "circle") {
-        commands.push({ kind: "fill-circle", ...path, color })
+        commands.push({ kind: "fill-circle", ...path, color: fillStyle })
       } else if (path.points.length >= 3) {
-        commands.push({ kind: "fill-polygon", points: [...path.points], color })
+        commands.push({ kind: "fill-polygon", points: [...path.points], color: fillStyle })
       }
       onChange()
     },
     stroke() {
       if (!path) return
-      const color = requireStringPaint(strokeStyle, "stroke")
       if (path.kind === "circle") {
         commands.push({
           kind: "stroke-circle",
           ...path,
-          color,
-          width: transformedLineWidth(lineWidth, transform),
+          color: strokeStyle,
+          width: lineWidth,
         })
       } else if (path.points.length >= 2) {
         commands.push({
           kind: "stroke-polyline",
           points: [...path.points],
-          color,
+          color: strokeStyle,
           width: transformedLineWidth(lineWidth, transform),
         })
       } else {
@@ -524,13 +522,16 @@ function createCanvasSurface(getSize: () => CanvasSize, onChange: () => void): C
       if (maxWidth !== undefined) {
         throw new Error("GPUIX Canvas2D compatibility does not support fillText() maxWidth")
       }
+      if (!isIdentityTransform(transform)) {
+        throw new Error("GPUIX Canvas2D compatibility currently supports fillText() only with the identity transform")
+      }
       const [tx, ty] = transformPoint(x, y, transform)
       commands.push({
         kind: "text",
         x: tx,
         y: ty,
         value: String(value),
-        color: requireStringPaint(fillStyle, "fillText"),
+        color: fillStyle,
         font: parseCanvasFont(font),
         align: textAlign,
         baseline: textBaseline,
@@ -573,6 +574,14 @@ function transformPoint(x: number, y: number, matrix: CanvasMatrix): CanvasPoint
   return [a * x + c * y + e, b * x + d * y + f]
 }
 
+function cloneCanvasMatrix(matrix: CanvasMatrix): CanvasMatrix {
+  return [matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]]
+}
+
+function isIdentityTransform(matrix: CanvasMatrix): boolean {
+  return matrix[0] === 1 && matrix[1] === 0 && matrix[2] === 0 && matrix[3] === 1 && matrix[4] === 0 && matrix[5] === 0
+}
+
 function rectanglePoints(
   x: number,
   y: number,
@@ -607,11 +616,12 @@ function transformedLineWidth(width: number, matrix: CanvasMatrix): number {
   return width * scale
 }
 
-function requireStringPaint(paint: CanvasPaint, operation: string): string {
-  if (typeof paint !== "string") {
-    throw new Error(`GPUIX Canvas2D compatibility currently supports string paint for ${operation}() only`)
+function parseCanvasStringPaint(paint: CanvasPaint, property: string): string {
+  const serialized = String(paint)
+  if (paint !== serialized) {
+    throw new Error(`GPUIX Canvas2D compatibility currently supports string ${property} values only`)
   }
-  return paint
+  return serialized
 }
 
 function isFullCircleArc(startAngle: number, endAngle: number): boolean {
