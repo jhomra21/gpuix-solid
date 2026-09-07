@@ -1,13 +1,12 @@
 class CompatHTMLCanvasElement {
   static [Symbol.hasInstance](value: unknown): boolean {
-    const HTMLElementConstructor = globalThis.HTMLElement
-    if (typeof HTMLElementConstructor !== "function" || !(value instanceof HTMLElementConstructor)) return false
-    return value.localName === "canvas"
+    if (!Object.hasOwn(globalThis, "HTMLElement")) return false
+    return value instanceof globalThis.HTMLElement && value.localName === "canvas"
   }
 }
 
 export function installCanvasElementIdentity(): void {
-  if (typeof globalThis.HTMLCanvasElement !== "undefined") return
+  if (Object.hasOwn(globalThis, "HTMLCanvasElement")) return
   Object.defineProperty(globalThis, "HTMLCanvasElement", {
     configurable: true,
     writable: true,
