@@ -59,12 +59,12 @@ jobs:
           name: solid1-kobalte-native-macos
           path: /tmp/gpuix-solid1-kobalte-*.png
           if-no-files-found: ignore
-      - name: Upload native DAW screenshot
+      - name: Upload native DAW screenshots
         if: always() && matrix.os == 'macos-latest'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: solid1-daw-native-macos
-          path: /tmp/gpuix-solid1-daw-source-structured.png
+          path: /tmp/gpuix-solid1-daw-*.png
           if-no-files-found: ignore
       - run: node --test scripts/release.test.mjs
 
