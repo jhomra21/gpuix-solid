@@ -1,4 +1,5 @@
 import "../src/compat/eq-visual-audio"
+import { useAppPreferences } from "../src/compat/app-preferences"
 import {
   parseTwoRowGridDefinition,
   placeTwoRowGridItems,
@@ -22,7 +23,7 @@ requireCondition(placements?.length === 4, "EQ grid should place all four source
 requireCondition(placements?.[0]?.column === 0 && placements[0].rowSpan === 2, "left rail should span both rows")
 requireCondition(placements?.[1]?.column === 1 && placements[1].row === 0, "graph should occupy the center top cell")
 requireCondition(placements?.[2]?.column === 2 && placements[2].rowSpan === 2, "right rail should span both rows")
-requireCondition(placements?.[3]?.column === 1 && placements[3].row === 1, "band strip should occupy the center bottom cell")
+requireCondition(placements?.[3]?.column === 1 && placements[3].row === 1, "band strip should occupy the source center bottom cell")
 
 if (!definition || !placements) throw new Error("EQ grid detector requires parsed source geometry")
 const graphStyle = twoRowGridItemStyle(definition, placements[1]!)
@@ -33,6 +34,23 @@ requireCondition(
   parseTwoRowGridDefinition("repeat(3, 1fr)", "1fr 52px") === undefined,
   "unsupported grid syntax must fail closed",
 )
+
+const eqThemeTokens = useAppPreferences().appearance.themeTokens()
+const expectedEqThemeTokens = {
+  "muted-foreground": "#9f9fa9",
+  "meter-safe": "#00a76c",
+  "meter-clipping": "#f53e39",
+  "clip-selected": "#e6ad00",
+  "device-graph-background": "#040405",
+  "device-graph-grid": "#ffffff29",
+  "device-graph-accent": "#00c3db",
+} as const
+for (const [token, expected] of Object.entries(expectedEqThemeTokens)) {
+  requireCondition(
+    eqThemeTokens[token as keyof typeof eqThemeTokens] === expected,
+    `EQ theme token ${token} should use the exact pinned-source dark sRGB translation`,
+  )
+}
 
 const responseContext = new OfflineAudioContext(1, 1, 44100)
 const filter = responseContext.createBiquadFilter()
