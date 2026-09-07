@@ -9,6 +9,11 @@ type BiquadCoefficients = {
   a2: number
 }
 
+type BiquadResponse = {
+  magnitude: number
+  phase: number
+}
+
 class FakeBiquadFilter {
   type: BiquadFilterType = "lowpass"
   readonly frequency: FakeAudioParam = { value: 350 }
@@ -53,7 +58,7 @@ class FakeOfflineAudioContext {
 }
 
 export function installEqVisualAudioCompatibility(): void {
-  if (typeof globalThis.OfflineAudioContext !== "undefined") return
+  if (globalThis.OfflineAudioContext) return
   Object.defineProperty(globalThis, "OfflineAudioContext", {
     configurable: true,
     writable: true,
@@ -161,7 +166,7 @@ function biquadCoefficients(
   }
 }
 
-function evaluateBiquad(coefficients: BiquadCoefficients, omega: number): { magnitude: number; phase: number } {
+function evaluateBiquad(coefficients: BiquadCoefficients, omega: number): BiquadResponse {
   const cos1 = Math.cos(omega)
   const sin1 = Math.sin(omega)
   const cos2 = Math.cos(2 * omega)
