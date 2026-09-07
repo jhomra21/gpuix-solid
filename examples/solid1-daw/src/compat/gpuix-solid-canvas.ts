@@ -1,8 +1,10 @@
 import {
   createElement as createNativeElement,
-  insertNode,
-  setProp,
+  getNativeStyleColorMode,
+  insertNode as insertNativeNode,
+  setProp as setNativeProp,
 } from "@jhomra21/gpuix-solid1"
+import type { LinearGradientBackground } from "@jhomra21/gpuix-solid1"
 
 export * from "@jhomra21/gpuix-solid1"
 
@@ -31,7 +33,30 @@ type RuntimeCanvasState = {
   queued: boolean
 }
 
+type SourceStyleState = {
+  class?: string
+  className?: string
+  classList?: Readonly<Record<string, unknown>>
+  style?: Readonly<Record<string, unknown>>
+}
+
+type GradientColors = {
+  from: string
+  to: string
+}
+
+export type CssVariableLinearGradientCompat = {
+  className: string
+  property: `--${string}`
+  angle: number
+  colorSpace?: "srgb" | "oklab"
+  light: GradientColors
+  dark: GradientColors
+}
+
 const runtimeCanvases = new WeakMap<CanvasHostNode, RuntimeCanvasState>()
+const sourceStyleStates = new WeakMap<NativeHostElement, SourceStyleState>()
+const cssVariableGradients = new Map<string, CssVariableLinearGradientCompat>()
 
 function requireHostElement(node: NativeHostNode, tagName: string): NativeHostElement {
   if (node.kind !== "element") {
@@ -40,10 +65,109 @@ function requireHostElement(node: NativeHostNode, tagName: string): NativeHostEl
   return node
 }
 
+export function registerCssVariableLinearGradient(config: CssVariableLinearGradientCompat): void {
+  cssVariableGradients.set(config.className, config)
+}
+
 export function createElement(tagName: string): NativeHostNode {
   const node = createNativeElement(tagName)
   if (tagName === "canvas") installCanvas2D(requireHostElement(node, tagName))
   return node
+}
+
+export function setProp(
+  node: NativeHostNode,
+  name: string,
+  value: unknown,
+  previous?: unknown,
+): void {
+  if (node.kind === "element") rememberSourceStyle(node, name, value)
+  setNativeProp(node, name, value, previous)
+  if (node.kind === "element") reapplyCompatStyleSubtree(node)
+}
+
+export function insertNode(
+  parent: Parameters<typeof insertNativeNode>[0],
+  node: Parameters<typeof insertNativeNode>[1],
+  anchor?: Parameters<typeof insertNativeNode>[2],
+): void {
+  insertNativeNode(parent, node, anchor)
+  if (node.kind === "element") reapplyCompatStyleSubtree(node)
+}
+
+function rememberSourceStyle(node: NativeHostElement, name: string, value: unknown): void {
+  if (name !== "class" && name !== "className" && name !== "classList" && name !== "style") return
+  const state = sourceStyleStates.get(node) ?? {}
+  if (name === "class") state.class = value == null ? undefined : String(value)
+  else if (name === "className") state.className = value == null ? undefined : String(value)
+  else if (name === "classList") state.classList = objectRecord(value)
+  else state.style = objectRecord(value)
+  sourceStyleStates.set(node, state)
+}
+
+function objectRecord(value: unknown): Readonly<Record<string, unknown>> | undefined {
+  return value !== null && typeof value === "object"
+    ? value as Readonly<Record<string, unknown>>
+    : undefined
+}
+
+function reapplyCompatStyleSubtree(node: NativeHostElement): void {
+  applyRegisteredCssVariableGradient(node)
+  for (const child of node.children) {
+    if (child.kind === "element") reapplyCompatStyleSubtree(child)
+  }
+}
+
+function applyRegisteredCssVariableGradient(node: NativeHostElement): void {
+  const state = sourceStyleStates.get(node)
+  if (!state?.style) return
+  const classNames = activeSourceClassNames(state)
+  let gradient: LinearGradientBackground | undefined
+  for (const className of classNames) {
+    const config = cssVariableGradients.get(className)
+    if (!config) continue
+    const position = cssUnitInterval(state.style[config.property])
+    if (position === undefined) continue
+    const colors = getNativeStyleColorMode() === "dark" ? config.dark : config.light
+    gradient = {
+      type: "linear-gradient",
+      angle: config.angle,
+      stops: [
+        { color: colors.from, position },
+        { color: colors.to, position },
+      ],
+      colorSpace: config.colorSpace,
+    }
+  }
+  if (!gradient) return
+
+  node.style.background = gradient
+  delete node.style.backgroundColor
+  for (const key of Object.keys(node.style)) {
+    if (key.startsWith("--")) delete (node.style as Record<string, unknown>)[key]
+  }
+  if (node.root && node.nativeAlive) {
+    node.root.driver.enqueue("setStyle", node.id, node.style)
+  }
+}
+
+function activeSourceClassNames(state: SourceStyleState): string[] {
+  const classes = [state.class, state.className]
+    .filter((value): value is string => Boolean(value))
+    .flatMap((value) => value.split(/\s+/).filter(Boolean))
+  for (const [classNames, enabled] of Object.entries(state.classList ?? {})) {
+    if (enabled) classes.push(...classNames.split(/\s+/).filter(Boolean))
+  }
+  return classes
+}
+
+function cssUnitInterval(value: unknown): number | undefined {
+  if (value === undefined || value === null) return undefined
+  const text = String(value).trim()
+  const percentage = text.match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))%$/)
+  const parsed = percentage ? Number(percentage[1]) / 100 : Number(text)
+  if (!Number.isFinite(parsed)) return undefined
+  return Math.max(0, Math.min(1, parsed))
 }
 
 function installCanvas2D(node: CanvasHostNode): void {
@@ -54,7 +178,7 @@ function installCanvas2D(node: CanvasHostNode): void {
       let state = runtimeCanvases.get(node)
       if (!state) {
         const surface = requireHostElement(createNativeElement("svg"), "svg")
-        setProp(surface, "testId", "gpuix-canvas-2d-surface")
+        setNativeProp(surface, "testId", "gpuix-canvas-2d-surface")
         let nextState: RuntimeCanvasState | undefined
         const drawing = createCanvasSurface(
           () => canvasBackingSize(node),
@@ -65,7 +189,7 @@ function installCanvas2D(node: CanvasHostNode): void {
         nextState = { surface, drawing, queued: false }
         state = nextState
         runtimeCanvases.set(node, state)
-        insertNode(node, surface)
+        insertNativeNode(node, surface)
         scheduleCanvasRender(node, state)
       }
       return state.drawing.context
@@ -80,7 +204,7 @@ function scheduleCanvasRender(node: CanvasHostNode, state: RuntimeCanvasState): 
     state.queued = false
     if (!node.nativeAlive || !node.root || !state.surface.nativeAlive) return
     const bounds = node.getBoundingClientRect()
-    setProp(state.surface, "style", {
+    setNativeProp(state.surface, "style", {
       position: "absolute",
       top: 0,
       left: 0,
@@ -90,8 +214,8 @@ function scheduleCanvasRender(node: CanvasHostNode, state: RuntimeCanvasState): 
       flexShrink: 0,
     })
     const source = state.drawing.toSvg()
-    setProp(state.surface, "source", source)
-    setProp(state.surface, "src", `data:image/svg+xml,${encodeURIComponent(source)}`)
+    setNativeProp(state.surface, "source", source)
+    setNativeProp(state.surface, "src", `data:image/svg+xml,${encodeURIComponent(source)}`)
     node.root.driver.flush()
   })
 }
