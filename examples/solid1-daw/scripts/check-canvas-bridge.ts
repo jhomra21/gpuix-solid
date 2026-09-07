@@ -1,5 +1,9 @@
 import { createTestRoot, hasNativeTestRenderer } from "@jhomra21/gpuix-solid1"
-import { createElement, setProp } from "../src/compat/gpuix-solid-canvas.ts"
+import {
+  createElement,
+  registerCssVariableIntervalOverlay,
+  setProp,
+} from "../src/compat/gpuix-solid-canvas.ts"
 import { drawWaveformPeaks } from "../src/upstream/packages/waveforms/render-waveform.ts"
 
 type CompatCanvas = ReturnType<typeof createElement> & {
@@ -15,6 +19,32 @@ function requireCondition(condition: boolean, message: string): void {
 if (!hasNativeTestRenderer) {
   console.log("DAW Canvas2D compatibility bridge: native TestGpuixRenderer unavailable; skipped")
 } else {
+  registerCssVariableIntervalOverlay({
+    startProperty: "--compat-isolation-start",
+    endProperty: "--compat-isolation-end",
+    height: 4,
+    light: "#f0491c",
+    dark: "#ff643d",
+  })
+
+  const isolation = createTestRoot(180, 60)
+  isolation.render(() => {
+    const plain = createElement("div")
+    setProp(plain, "testId", "compat-unrelated-style")
+    setProp(plain, "style", { width: 120, height: 20, backgroundColor: "#123456" })
+    return plain
+  })
+  const plainStyle = isolation.renderer.styleTestId("compat-unrelated-style")
+  requireCondition(
+    plainStyle.width === 120 &&
+      plainStyle.height === 20 &&
+      plainStyle.backgroundColor === "#123456" &&
+      plainStyle.position === undefined &&
+      plainStyle.overflow === undefined,
+    `registered CSS-variable paint compatibility must leave unrelated source styles unchanged, got ${JSON.stringify(plainStyle)}`,
+  )
+  isolation.unmount()
+
   const app = createTestRoot(240, 100)
   app.render(() => {
     // SAFETY: the compatibility createElement facade returns a semantic canvas host instance for the literal "canvas" tag, and this detector immediately validates its Canvas2D contract before use.
@@ -52,5 +82,5 @@ if (!hasNativeTestRenderer) {
   requireCondition(source.includes('viewBox="0 0 100 40"'), `Canvas bridge must preserve backing dimensions, got ${source}`)
   requireCondition(!source.includes("data-native-waveform-placeholder"), "Canvas bridge must not use the old static waveform placeholder")
   app.unmount()
-  console.log("DAW Canvas2D compatibility bridge: exact waveform renderer produced native SVG commands")
+  console.log("DAW Canvas2D compatibility bridge: unrelated styles preserved and exact waveform renderer produced native SVG commands")
 }
