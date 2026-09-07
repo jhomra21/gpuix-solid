@@ -178,7 +178,7 @@ function resolveRegisteredCssVariablePaints<T>(value: T): ResolvedCssVariableSty
     })
   }
 
-  if (!hardSplit && cssVariableIntervalOverlays.size === 0) {
+  if (!hardSplit && intervalOverlays.length === 0) {
     return { style: value, intervalOverlays }
   }
 
