@@ -59,7 +59,7 @@
         "src/upstream/*"
       ],
       "@daw-browser/shared": [
-        "src/compat/daw-browser-shared.ts"
+        "src/compat/daw-browser-shared-ui.ts"
       ],
       "@daw-browser/timeline-core/types": [
         "src/upstream/packages/timeline-core/types.ts"
