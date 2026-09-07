@@ -64,6 +64,34 @@ if (hasNativeTestRenderer) {
   )
 
   app.renderer.captureScreenshot("/tmp/gpuix-solid1-daw-source-structured.png")
+
+  // The native screenshot surface is narrower than the fixture's intentional
+  // 1180px minimum width. Reveal the source mixer columns explicitly so visual
+  // review covers the controls that the interaction suite already exercises.
+  app.renderer.scrollTestId("daw-test-viewport", -320, 0)
+  const mixerControlBounds = app.renderer.boundsCustomProps({ "aria-label": "Deactivate track 1" })
+  const soloBounds = app.renderer.boundsCustomProps({ "aria-label": "Solo track 1" })
+  const armBounds = app.renderer.boundsCustomProps({ "aria-label": "Arm track 1 for recording" })
+  const volumeBounds = app.renderer.boundsCustomProps({ "aria-label": "Track 1 volume" })
+  const viewportWidth = app.renderer.boundsTestId("daw-test-viewport").width
+  requireCondition(
+    mixerControlBounds.x >= 0 && mixerControlBounds.x + mixerControlBounds.width <= viewportWidth,
+    `mixer visual acceptance must expose the source track button, got ${JSON.stringify(mixerControlBounds)}`,
+  )
+  requireCondition(
+    Math.abs(soloBounds.y - armBounds.y) <= 1 && Math.abs(soloBounds.height - armBounds.height) <= 1,
+    `source Solo and Record controls must stay row-aligned before visual capture: ${JSON.stringify({ soloBounds, armBounds })}`,
+  )
+  requireCondition(
+    mixerControlBounds.width >= soloBounds.width * 2.5 && mixerControlBounds.width <= soloBounds.width * 3.5,
+    `source 3fr/1fr mixer proportions must survive native layout before visual capture: ${JSON.stringify({ mixerControlBounds, soloBounds })}`,
+  )
+  requireCondition(
+    volumeBounds.width >= soloBounds.width * 2.5 && volumeBounds.width < 70,
+    `source mixer volume must remain in its compact 3fr column before visual capture: ${JSON.stringify({ volumeBounds, soloBounds })}`,
+  )
+  app.renderer.captureScreenshot("/tmp/gpuix-solid1-daw-mixer.png")
+
   app.unmount()
-  console.log(`solid1 DAW visual acceptance: exact Canvas2D waveform rendered ${waveformBars} retained peak bars`)
+  console.log(`solid1 DAW visual acceptance: exact Canvas2D waveform rendered ${waveformBars} retained peak bars; mixer visual captured`)
 }
