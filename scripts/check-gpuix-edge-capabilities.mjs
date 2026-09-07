@@ -46,9 +46,13 @@ function checkAccessibility(Renderer) {
     ["setCustomProp", 5, "role", "list"],
     ["setCustomProp", 5, "aria-label", "Messages"],
 
+    // Match React's host-config exactly: the outer <text> host stays contentless
+    // and receives the default Label role; its HostText child owns the string.
     ["createElement", 6, "text"],
     ["setStyle", 6, { width: 200, height: 24 }],
-    ["setText", 6, "Hello Ada!"],
+    ["createElement", 7, "text"],
+    ["setText", 7, "Hello Ada!"],
+    ["appendChild", 6, 7],
 
     ["appendChild", 1, 2],
     ["appendChild", 1, 3],
