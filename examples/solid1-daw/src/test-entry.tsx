@@ -197,5 +197,27 @@ if (hasNativeTestRenderer) {
   )
 
   automated.unmount()
+
+  // GPUIX's existing native SVG test covers only opaque rect/circle markup.
+  // Keep these four variants side-by-side so an EQ Canvas regression can tell
+  // whether raw alpha colors, SVG text, or the combined grammar is rejected.
+  const svgGrammar = createTestRoot(940, 180)
+  const svgFrame = (body: string) => `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="140" viewBox="0 0 220 140">${body}</svg>`
+  const opaqueSvg = svgFrame('<rect width="220" height="140" fill="#040405"/><circle cx="110" cy="70" r="28" fill="#00c3db"/>')
+  const alphaSvg = svgFrame('<rect width="220" height="140" fill="#040405"/><rect x="12" y="68" width="196" height="1" fill="#ffffff29"/><circle cx="110" cy="70" r="28" fill="#00c3db"/>')
+  const textSvg = svgFrame('<rect width="220" height="140" fill="#040405"/><circle cx="110" cy="70" r="28" fill="#00c3db"/><text x="110" y="74" fill="#040405" font-size="9" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-weight="700" text-anchor="middle" dominant-baseline="middle">EQ</text>')
+  const combinedSvg = svgFrame('<rect width="220" height="140" fill="#040405"/><polyline points="8,70 70,35 150,95 212,50" fill="none" stroke="#00a76c" stroke-width="2.5"/><line x1="8" y1="30" x2="212" y2="30" stroke="#ffffff29"/><circle cx="150" cy="95" r="8" transform="matrix(1 0 0 1 0 0)" fill="#e6ad00"/><text x="150" y="95.5" fill="#040405" font-size="9" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-weight="700" text-anchor="middle" dominant-baseline="middle">1</text>')
+  svgGrammar.render(() => (
+    <div style={{ width: 940, height: 180, display: "flex", flexDirection: "row", gap: 12, padding: 12, backgroundColor: "#09090b" }}>
+      <svg source={opaqueSvg} style={{ width: 220, height: 140 }} />
+      <svg source={alphaSvg} style={{ width: 220, height: 140 }} />
+      <svg source={textSvg} style={{ width: 220, height: 140 }} />
+      <svg source={combinedSvg} style={{ width: 220, height: 140 }} />
+    </div>
+  ))
+  svgGrammar.renderer.flush()
+  svgGrammar.renderer.captureScreenshot("/tmp/gpuix-solid1-daw-svg-grammar.png")
+  svgGrammar.unmount()
+
   console.log(`solid1 DAW visual acceptance: exact Canvas2D waveform rendered ${waveformBars} retained peak bars; reactive mixer hard-split and automated interval paints passed`)
 }
