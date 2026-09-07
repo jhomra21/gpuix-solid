@@ -1,6 +1,7 @@
 import {
   createElement as createNativeElement,
   getNativeStyleColorMode,
+  insert as insertNative,
   insertNode as insertNativeNode,
   setProp as setNativeProp,
 } from "@jhomra21/gpuix-solid1"
@@ -88,6 +89,23 @@ export function insertNode(
 ): void {
   insertNativeNode(parent, node, anchor)
   if (node.kind === "element") reapplyCompatStyleSubtree(node)
+}
+
+export function insert(...args: Parameters<typeof insertNative>): ReturnType<typeof insertNative> {
+  const result = insertNative(...args)
+  reapplyCompatStylesAfterInsert(args[0])
+  return result
+}
+
+function reapplyCompatStylesAfterInsert(parent: Parameters<typeof insertNative>[0]): void {
+  if (parent.kind === "element") {
+    reapplyCompatStyleSubtree(parent)
+    return
+  }
+  if (parent.kind !== "root") return
+  for (const child of parent.children) {
+    if (child.kind === "element") reapplyCompatStyleSubtree(child)
+  }
 }
 
 function reapplyCompatStyleSubtree(node: NativeHostElement): void {
