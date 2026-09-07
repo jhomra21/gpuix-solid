@@ -1,5 +1,6 @@
 import "./test"
 
+import { createSignal } from "solid-js"
 import {
   configureNativeStyleManifest,
   createTestRoot,
@@ -7,7 +8,9 @@ import {
   setNativeStyleColorMode,
 } from "@jhomra21/gpuix-solid1"
 import { DawSolid1Showcase } from "./app"
+import { mixerVolumeToSliderPosition } from "./compat/daw-browser-shared"
 import { nativeTailwindManifest } from "./native-tailwind.generated"
+import MixerVolumeSlider from "./upstream/components/timeline/MixerVolumeSlider"
 
 function requireCondition(condition: boolean, message: string): void {
   if (!condition) throw new Error(message)
@@ -122,5 +125,62 @@ if (hasNativeTestRenderer) {
   )
 
   app.unmount()
-  console.log(`solid1 DAW visual acceptance: exact Canvas2D waveform rendered ${waveformBars} retained peak bars; reactive mixer hard-split fill and mixer visual passed`)
+
+  // Exercise the exact source automated state separately instead of changing
+  // the showcase's deterministic fake project data merely to expose this CSS.
+  const [automationRange, setAutomationRange] = createSignal({ min: 0.35, max: 1.3 })
+  const automated = createTestRoot(320, 80)
+  automated.render(() => (
+    <div style={{ width: 280, height: 60, padding: 20, backgroundColor: "#111113" }}>
+      <MixerVolumeSlider
+        value={0.8}
+        disabled={false}
+        automated={true}
+        automationRange={automationRange()}
+        ariaLabel="Automated mixer volume"
+        title="Automated mixer volume"
+        onSelect={() => {}}
+        onPreview={() => {}}
+        onCommit={() => {}}
+        onCancel={() => {}}
+        onReset={() => {}}
+      />
+    </div>
+  ))
+  automated.root.flush()
+  automated.renderer.flush()
+
+  const automatedControl = { "aria-label": "Automated mixer volume" } as const
+  const automatedBounds = automated.renderer.boundsCustomProps(automatedControl)
+  const automatedOverlayBounds = automated.renderer.boundsTestId("gpuix-css-interval-overlay")
+  const automatedOverlayStyle = automated.renderer.styleTestId("gpuix-css-interval-overlay")
+  const firstRange = automationRange()
+  const expectedStart = mixerVolumeToSliderPosition(firstRange.min)
+  const expectedEnd = mixerVolumeToSliderPosition(firstRange.max)
+  requireCondition(
+    automatedOverlayStyle.backgroundColor === "#ff643d" && automatedOverlayStyle.pointerEvents === "none",
+    `source automated mixer interval must use the exact dark automation paint and remain pointer-inert, got ${JSON.stringify(automatedOverlayStyle)}`,
+  )
+  requireCondition(
+    Math.abs(automatedOverlayBounds.x - (automatedBounds.x + automatedBounds.width * expectedStart)) <= 1 &&
+      Math.abs(automatedOverlayBounds.width - automatedBounds.width * (expectedEnd - expectedStart)) <= 1 &&
+      Math.abs(automatedOverlayBounds.y - automatedBounds.y) <= 1 &&
+      Math.abs(automatedOverlayBounds.height - 4) <= 1,
+    `source mixer-volume-slider-automated 4px interval must match exact start/end geometry, got ${JSON.stringify({ overlay: automatedOverlayBounds, volume: automatedBounds, expectedStart, expectedEnd })}`,
+  )
+  automated.renderer.captureScreenshot("/tmp/gpuix-solid1-daw-mixer-automated.png")
+
+  const firstOverlayBounds = automatedOverlayBounds
+  setAutomationRange({ min: 0.6, max: 1.05 })
+  automated.root.flush()
+  automated.renderer.flush()
+  const updatedOverlayBounds = automated.renderer.boundsTestId("gpuix-css-interval-overlay")
+  requireCondition(
+    Math.abs(updatedOverlayBounds.x - firstOverlayBounds.x) > 1 &&
+      Math.abs(updatedOverlayBounds.width - firstOverlayBounds.width) > 1,
+    `source automation start/end variables must reactively update retained interval geometry: ${JSON.stringify({ before: firstOverlayBounds, after: updatedOverlayBounds })}`,
+  )
+
+  automated.unmount()
+  console.log(`solid1 DAW visual acceptance: exact Canvas2D waveform rendered ${waveformBars} retained peak bars; reactive mixer hard-split and automated interval paints passed`)
 }

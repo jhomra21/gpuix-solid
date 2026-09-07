@@ -48,15 +48,32 @@ export type CssVariableHardSplitCompat = {
   dark: HardSplitColors
 }
 
+export type CssVariableIntervalOverlayCompat = {
+  startProperty: `--${string}`
+  endProperty: `--${string}`
+  height: number
+  light: string
+  dark: string
+}
+
 type ResolvedHardSplit = {
   property: `--${string}`
   position: number
   colors: HardSplitColors
 }
 
+type ResolvedIntervalOverlay = {
+  key: string
+  start: number
+  end: number
+  height: number
+  color: string
+}
+
 type ResolvedCssVariableStyle<T> = {
   style: T
   hardSplit?: ResolvedHardSplit
+  intervalOverlays: ResolvedIntervalOverlay[]
 }
 
 type HardSplitSurfaceState = {
@@ -64,9 +81,15 @@ type HardSplitSurfaceState = {
   surface: NativeHostElement
 }
 
+type IntervalOverlaySurfaceState = {
+  surface: NativeHostElement
+}
+
 const runtimeCanvases = new WeakMap<CanvasHostNode, RuntimeCanvasState>()
 const cssVariableHardSplits = new Map<`--${string}`, CssVariableHardSplitCompat>()
+const cssVariableIntervalOverlays = new Map<string, CssVariableIntervalOverlayCompat>()
 const hardSplitSurfaces = new WeakMap<NativeHostElement, HardSplitSurfaceState>()
+const intervalOverlaySurfaces = new WeakMap<NativeHostElement, Map<string, IntervalOverlaySurfaceState>>()
 
 function requireHostElement(node: NativeHostNode, tagName: string): NativeHostElement {
   if (node.kind !== "element") {
@@ -77,6 +100,11 @@ function requireHostElement(node: NativeHostNode, tagName: string): NativeHostEl
 
 export function registerCssVariableHardSplit(config: CssVariableHardSplitCompat): void {
   cssVariableHardSplits.set(config.property, config)
+}
+
+export function registerCssVariableIntervalOverlay(config: CssVariableIntervalOverlayCompat): void {
+  const key = `${config.startProperty}:${config.endProperty}`
+  cssVariableIntervalOverlays.set(key, config)
 }
 
 export function createElement(tagName: string): NativeHostNode {
@@ -96,11 +124,14 @@ export function setProp<T>(
     return
   }
 
-  const next = resolveRegisteredCssVariableHardSplit(value)
+  const next = resolveRegisteredCssVariablePaints(value)
   const previousStyle = previous === undefined
     ? undefined
-    : resolveRegisteredCssVariableHardSplit(previous).style
-  if (node.kind === "element") syncHardSplitSurface(node, next.hardSplit)
+    : resolveRegisteredCssVariablePaints(previous).style
+  if (node.kind === "element") {
+    syncHardSplitSurface(node, next.hardSplit)
+    syncIntervalOverlaySurfaces(node, next.intervalOverlays)
+  }
   setNativeProp(node, name, next.style, previousStyle)
 }
 
@@ -112,8 +143,8 @@ export function insertNode(
   insertNativeNode(parent, node, anchor)
 }
 
-function resolveRegisteredCssVariableHardSplit<T>(value: T): ResolvedCssVariableStyle<T> {
-  if (!isStyleObject(value)) return { style: value }
+function resolveRegisteredCssVariablePaints<T>(value: T): ResolvedCssVariableStyle<T> {
+  if (!isStyleObject(value)) return { style: value, intervalOverlays: [] }
 
   // SAFETY: this compatibility boundary receives Solid's JSX style object before
   // the native normalizer. The copied source uses scalar CSS custom properties,
@@ -132,17 +163,40 @@ function resolveRegisteredCssVariableHardSplit<T>(value: T): ResolvedCssVariable
       colors: getNativeStyleColorMode() === "dark" ? config.dark : config.light,
     }
   }
-  if (!hardSplit) return { style: value }
+
+  const intervalOverlays: ResolvedIntervalOverlay[] = []
+  for (const [key, config] of cssVariableIntervalOverlays) {
+    const start = cssUnitInterval(sourceStyle[config.startProperty])
+    const end = cssUnitInterval(sourceStyle[config.endProperty])
+    if (start === undefined || end === undefined || end <= start) continue
+    intervalOverlays.push({
+      key,
+      start,
+      end,
+      height: config.height,
+      color: getNativeStyleColorMode() === "dark" ? config.dark : config.light,
+    })
+  }
+
+  if (!hardSplit && cssVariableIntervalOverlays.size === 0) {
+    return { style: value, intervalOverlays }
+  }
 
   const nativeStyle = {
     ...sourceStyle,
     position: sourceStyle.position ?? "relative",
     overflow: sourceStyle.overflow ?? "hidden",
-    backgroundColor: hardSplit.colors.to,
+    ...(hardSplit ? { backgroundColor: hardSplit.colors.to } : {}),
   }
-  delete nativeStyle.background
-  delete nativeStyle[hardSplit.property]
-  return { style: nativeStyle, hardSplit }
+  if (hardSplit) {
+    delete nativeStyle.background
+    delete nativeStyle[hardSplit.property]
+  }
+  for (const config of cssVariableIntervalOverlays.values()) {
+    delete nativeStyle[config.startProperty]
+    delete nativeStyle[config.endProperty]
+  }
+  return { style: nativeStyle, hardSplit, intervalOverlays }
 }
 
 function syncHardSplitSurface(node: NativeHostElement, hardSplit: ResolvedHardSplit | undefined): void {
@@ -172,6 +226,46 @@ function syncHardSplitSurface(node: NativeHostElement, hardSplit: ResolvedHardSp
     pointerEvents: "none",
     flexShrink: 0,
   })
+}
+
+function syncIntervalOverlaySurfaces(
+  node: NativeHostElement,
+  overlays: readonly ResolvedIntervalOverlay[],
+): void {
+  let states = intervalOverlaySurfaces.get(node)
+  if (!states) {
+    states = new Map()
+    intervalOverlaySurfaces.set(node, states)
+  }
+  const active = new Set<string>()
+
+  for (const overlay of overlays) {
+    active.add(overlay.key)
+    let state = states.get(overlay.key)
+    if (!state) {
+      const surface = requireHostElement(createNativeElement("div"), "div")
+      setNativeProp(surface, "testId", "gpuix-css-interval-overlay")
+      state = { surface }
+      states.set(overlay.key, state)
+      insertNativeNode(node, surface)
+    }
+    setNativeProp(state.surface, "style", {
+      position: "absolute",
+      top: 0,
+      left: `${overlay.start * 100}%`,
+      width: `${(overlay.end - overlay.start) * 100}%`,
+      height: overlay.height,
+      backgroundColor: overlay.color,
+      pointerEvents: "none",
+      flexShrink: 0,
+    })
+  }
+
+  for (const [key, state] of states) {
+    if (!active.has(key)) {
+      setNativeProp(state.surface, "style", { display: "none", pointerEvents: "none" })
+    }
+  }
 }
 
 function isStyleObject<T>(value: T): value is T & object {

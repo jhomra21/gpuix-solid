@@ -1,4 +1,7 @@
-import { registerCssVariableHardSplit } from "./compat/gpuix-solid-canvas"
+import {
+  registerCssVariableHardSplit,
+  registerCssVariableIntervalOverlay,
+} from "./compat/gpuix-solid-canvas"
 import { nativeTailwindManifest } from "./native-tailwind.generated"
 
 nativeTailwindManifest.classes["!cursor-pointer"] ??= {
@@ -29,4 +32,15 @@ registerCssVariableHardSplit({
     from: "#fac547",
     to: "#9f9fa9",
   },
+})
+
+// The automated source state adds a second gradient layer: a 4px automation
+// interval over the base hard split. Preserve those exact start/end variables
+// and paint the equivalent retained interval above the base fill on GPUIX 0.7.
+registerCssVariableIntervalOverlay({
+  startProperty: "--mixer-volume-automation-start",
+  endProperty: "--mixer-volume-automation-end",
+  height: 4,
+  light: "#f0491c",
+  dark: "#ff643d",
 })
