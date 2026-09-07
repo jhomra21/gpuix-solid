@@ -85,6 +85,7 @@ if (!hasNativeTestRenderer) {
 
   const eqApp = createTestRoot(260, 140)
   eqApp.render(() => {
+    // SAFETY: this uses the same literal semantic-canvas creation path validated above; the detector immediately requires a non-null 2D context before issuing EQ drawing commands.
     const canvas = createElement("canvas") as CompatCanvas
     setProp(canvas, "style", { width: 160, height: 80, position: "relative" })
     canvas.width = 160
