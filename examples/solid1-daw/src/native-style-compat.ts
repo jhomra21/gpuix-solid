@@ -20,7 +20,6 @@ nativeTailwindManifest.classes["[&_svg]:shrink-0"] ??= {
 // as a two-stop native linear gradient, so keep the copied component/CSS intact
 // and translate only this browser custom-property dependency at the renderer edge.
 registerCssVariableLinearGradient({
-  className: "mixer-volume-slider",
   property: "--mixer-volume-percent",
   angle: 90,
   colorSpace: "srgb",
