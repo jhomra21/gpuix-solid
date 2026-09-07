@@ -11,15 +11,40 @@ type CanvasPoint = readonly [number, number]
 type CanvasMatrix = readonly [number, number, number, number, number, number]
 type CanvasSize = { width: number; height: number }
 type CanvasPaint = CanvasRenderingContext2D["fillStyle"]
+type CanvasTextAlignValue = CanvasRenderingContext2D["textAlign"]
+type CanvasTextBaselineValue = CanvasRenderingContext2D["textBaseline"]
 type NativeHostNode = ReturnType<typeof createNativeElement>
 type NativeHostElement = Extract<NativeHostNode, { kind: "element" }>
 type CanvasHostNode = NativeHostElement & {
   width?: number
   height?: number
 }
+
+type CanvasPath =
+  | { kind: "polyline"; points: CanvasPoint[] }
+  | { kind: "circle"; x: number; y: number; radius: number; transform: CanvasMatrix }
+
+type ParsedCanvasFont = {
+  size: number
+  family: string
+  weight?: number
+}
+
 type CanvasCommand =
-  | { kind: "fill"; points: readonly CanvasPoint[]; color: string }
-  | { kind: "stroke"; points: readonly CanvasPoint[]; color: string; width: number }
+  | { kind: "fill-polygon"; points: readonly CanvasPoint[]; color: string }
+  | { kind: "stroke-polyline"; points: readonly CanvasPoint[]; color: string; width: number }
+  | { kind: "fill-circle"; x: number; y: number; radius: number; transform: CanvasMatrix; color: string }
+  | { kind: "stroke-circle"; x: number; y: number; radius: number; transform: CanvasMatrix; color: string; width: number }
+  | {
+      kind: "text"
+      x: number
+      y: number
+      value: string
+      color: string
+      font: ParsedCanvasFont
+      align: CanvasTextAlignValue
+      baseline: CanvasTextBaselineValue
+    }
 
 type CanvasSurface = {
   context: CanvasRenderingContext2D
@@ -353,16 +378,19 @@ function scheduleCanvasRender(node: CanvasHostNode, state: RuntimeCanvasState): 
 
 function createCanvasSurface(getSize: () => CanvasSize, onChange: () => void): CanvasSurface {
   let commands: CanvasCommand[] = []
-  let path: CanvasPoint[] = []
+  let path: CanvasPath | undefined
   let transform: CanvasMatrix = [1, 0, 0, 1, 0, 0]
   let fillStyle: CanvasPaint = "#000000"
   let strokeStyle: CanvasPaint = "#000000"
   let lineWidth = 1
   let imageSmoothingEnabled = true
+  let font = "10px sans-serif"
+  let textAlign: CanvasTextAlignValue = "start"
+  let textBaseline: CanvasTextBaselineValue = "alphabetic"
 
   // SAFETY: this compatibility context intentionally implements only the
   // Canvas2D operations exercised by the pinned DAW source. Unsupported APIs
-  // stay absent rather than being silently approximated.
+  // stay absent or fail closed rather than being silently approximated.
   const context = {
     get fillStyle() {
       return fillStyle
@@ -388,6 +416,25 @@ function createCanvasSurface(getSize: () => CanvasSize, onChange: () => void): C
     set imageSmoothingEnabled(value: boolean) {
       imageSmoothingEnabled = Boolean(value)
     },
+    get font() {
+      return font
+    },
+    set font(value: string) {
+      parseCanvasFont(value)
+      font = value
+    },
+    get textAlign() {
+      return textAlign
+    },
+    set textAlign(value: CanvasTextAlignValue) {
+      textAlign = value
+    },
+    get textBaseline() {
+      return textBaseline
+    },
+    set textBaseline(value: CanvasTextBaselineValue) {
+      textBaseline = value
+    },
     setTransform(a: number, b: number, c: number, d: number, e: number, f: number) {
       transform = [a, b, c, d, e, f]
     },
@@ -397,33 +444,96 @@ function createCanvasSurface(getSize: () => CanvasSize, onChange: () => void): C
         throw new Error("GPUIX Canvas2D compatibility currently supports only full-surface clearRect()")
       }
       commands = []
-      path = []
+      path = undefined
       onChange()
     },
     fillRect(x: number, y: number, width: number, height: number) {
       commands.push({
-        kind: "fill",
+        kind: "fill-polygon",
         points: rectanglePoints(x, y, width, height, transform),
-        color: String(fillStyle),
+        color: requireStringPaint(fillStyle, "fillRect"),
       })
       onChange()
     },
     beginPath() {
-      path = []
+      path = undefined
     },
     moveTo(x: number, y: number) {
-      path = [transformPoint(x, y, transform)]
+      path = { kind: "polyline", points: [transformPoint(x, y, transform)] }
     },
     lineTo(x: number, y: number) {
-      path.push(transformPoint(x, y, transform))
+      const point = transformPoint(x, y, transform)
+      if (!path) {
+        path = { kind: "polyline", points: [point] }
+        return
+      }
+      if (path.kind !== "polyline") {
+        throw new Error("GPUIX Canvas2D compatibility does not mix line segments with an arc in one path")
+      }
+      path.points.push(point)
+    },
+    arc(
+      x: number,
+      y: number,
+      radius: number,
+      startAngle: number,
+      endAngle: number,
+      _counterclockwise?: boolean,
+    ) {
+      if (!Number.isFinite(radius) || radius < 0) {
+        throw new Error("GPUIX Canvas2D compatibility requires a finite non-negative arc radius")
+      }
+      if (!isFullCircleArc(startAngle, endAngle)) {
+        throw new Error("GPUIX Canvas2D compatibility currently supports only full-circle arc() paths")
+      }
+      path = { kind: "circle", x, y, radius, transform: [...transform] as CanvasMatrix }
+    },
+    fill() {
+      if (!path) return
+      const color = requireStringPaint(fillStyle, "fill")
+      if (path.kind === "circle") {
+        commands.push({ kind: "fill-circle", ...path, color })
+      } else if (path.points.length >= 3) {
+        commands.push({ kind: "fill-polygon", points: [...path.points], color })
+      }
+      onChange()
     },
     stroke() {
-      if (path.length < 2) return
+      if (!path) return
+      const color = requireStringPaint(strokeStyle, "stroke")
+      if (path.kind === "circle") {
+        commands.push({
+          kind: "stroke-circle",
+          ...path,
+          color,
+          width: transformedLineWidth(lineWidth, transform),
+        })
+      } else if (path.points.length >= 2) {
+        commands.push({
+          kind: "stroke-polyline",
+          points: [...path.points],
+          color,
+          width: transformedLineWidth(lineWidth, transform),
+        })
+      } else {
+        return
+      }
+      onChange()
+    },
+    fillText(value: string, x: number, y: number, maxWidth?: number) {
+      if (maxWidth !== undefined) {
+        throw new Error("GPUIX Canvas2D compatibility does not support fillText() maxWidth")
+      }
+      const [tx, ty] = transformPoint(x, y, transform)
       commands.push({
-        kind: "stroke",
-        points: [...path],
-        color: String(strokeStyle),
-        width: transformedLineWidth(lineWidth, transform),
+        kind: "text",
+        x: tx,
+        y: ty,
+        value: String(value),
+        color: requireStringPaint(fillStyle, "fillText"),
+        font: parseCanvasFont(font),
+        align: textAlign,
+        baseline: textBaseline,
       })
       onChange()
     },
@@ -497,14 +607,86 @@ function transformedLineWidth(width: number, matrix: CanvasMatrix): number {
   return width * scale
 }
 
-function serializeCommand(command: CanvasCommand): string {
-  const points = command.points
-    .map(([x, y]) => `${formatNumber(x)},${formatNumber(y)}`)
-    .join(" ")
-  if (command.kind === "fill") {
-    return `<polygon points="${points}" fill="${escapeXmlAttribute(command.color)}"/>`
+function requireStringPaint(paint: CanvasPaint, operation: string): string {
+  if (typeof paint !== "string") {
+    throw new Error(`GPUIX Canvas2D compatibility currently supports string paint for ${operation}() only`)
   }
-  return `<polyline points="${points}" fill="none" stroke="${escapeXmlAttribute(command.color)}" stroke-width="${formatNumber(command.width)}"/>`
+  return paint
+}
+
+function isFullCircleArc(startAngle: number, endAngle: number): boolean {
+  if (!Number.isFinite(startAngle) || !Number.isFinite(endAngle)) return false
+  return Math.abs(endAngle - startAngle) >= Math.PI * 2 - 0.000001
+}
+
+function parseCanvasFont(value: string): ParsedCanvasFont {
+  const match = value.trim().match(/^(?:(normal|bold|[1-9]00)\s+)?(\d+(?:\.\d+)?)px\s+(.+)$/)
+  if (!match) {
+    throw new Error(`GPUIX Canvas2D compatibility cannot represent Canvas font ${JSON.stringify(value)}`)
+  }
+  const size = Number(match[2])
+  const family = match[3]?.trim()
+  if (!Number.isFinite(size) || size <= 0 || !family) {
+    throw new Error(`GPUIX Canvas2D compatibility cannot represent Canvas font ${JSON.stringify(value)}`)
+  }
+  const weightToken = match[1]
+  const weight = weightToken === "bold"
+    ? 700
+    : weightToken && weightToken !== "normal"
+      ? Number(weightToken)
+      : undefined
+  return { size, family, weight }
+}
+
+function svgTextAnchor(value: CanvasTextAlignValue): "start" | "middle" | "end" {
+  switch (value) {
+    case "center": return "middle"
+    case "right":
+    case "end": return "end"
+    case "left":
+    case "start": return "start"
+  }
+}
+
+function svgDominantBaseline(value: CanvasTextBaselineValue): string | undefined {
+  switch (value) {
+    case "alphabetic": return undefined
+    case "middle": return "middle"
+    case "top": return "text-before-edge"
+    case "bottom": return "text-after-edge"
+    case "hanging": return "hanging"
+    case "ideographic": return "ideographic"
+  }
+}
+
+function serializeCommand(command: CanvasCommand): string {
+  if (command.kind === "fill-polygon" || command.kind === "stroke-polyline") {
+    const points = command.points
+      .map(([x, y]) => `${formatNumber(x)},${formatNumber(y)}`)
+      .join(" ")
+    if (command.kind === "fill-polygon") {
+      return `<polygon points="${points}" fill="${escapeXmlAttribute(command.color)}"/>`
+    }
+    return `<polyline points="${points}" fill="none" stroke="${escapeXmlAttribute(command.color)}" stroke-width="${formatNumber(command.width)}"/>`
+  }
+
+  if (command.kind === "fill-circle" || command.kind === "stroke-circle") {
+    const transform = serializeSvgMatrix(command.transform)
+    if (command.kind === "fill-circle") {
+      return `<circle cx="${formatNumber(command.x)}" cy="${formatNumber(command.y)}" r="${formatNumber(command.radius)}" transform="${transform}" fill="${escapeXmlAttribute(command.color)}"/>`
+    }
+    return `<circle cx="${formatNumber(command.x)}" cy="${formatNumber(command.y)}" r="${formatNumber(command.radius)}" transform="${transform}" fill="none" stroke="${escapeXmlAttribute(command.color)}" stroke-width="${formatNumber(command.width)}"/>`
+  }
+
+  const anchor = svgTextAnchor(command.align)
+  const baseline = svgDominantBaseline(command.baseline)
+  const baselineAttribute = baseline ? ` dominant-baseline="${baseline}"` : ""
+  const weightAttribute = command.font.weight ? ` font-weight="${command.font.weight}"` : ""
+  return `<text x="${formatNumber(command.x)}" y="${formatNumber(command.y)}" fill="${escapeXmlAttribute(command.color)}" font-size="${formatNumber(command.font.size)}" font-family="${escapeXmlAttribute(command.font.family)}"${weightAttribute} text-anchor="${anchor}"${baselineAttribute}>${escapeXmlText(command.value)}</text>`
+}
+
+function serializeSvgMatrix(matrix: CanvasMatrix): string {
+  return `matrix(${matrix.map(formatNumber).join(" ")})`
 }
 
 function formatNumber(value: number): string {
@@ -516,6 +698,13 @@ function escapeXmlAttribute(value: string): string {
   return value
     .replaceAll("&", "&amp;")
     .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+}
+
+function escapeXmlText(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
 }
