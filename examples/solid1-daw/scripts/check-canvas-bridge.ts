@@ -3,7 +3,7 @@ import {
   createElement,
   registerCssVariableIntervalOverlay,
   setProp,
-} from "../src/compat/gpuix-solid-canvas.ts"
+} from "../src/compat/gpuix-solid-ui.ts"
 import { drawWaveformPeaks } from "../src/upstream/packages/waveforms/render-waveform.ts"
 
 type CompatCanvas = ReturnType<typeof createElement> & {
@@ -74,13 +74,17 @@ if (!hasNativeTestRenderer) {
   await Promise.resolve()
   app.root.flush()
   app.renderer.flush()
-  const source = app.renderer.customPropStringContainingAll("source", [
+  const source = app.renderer.customPropStringContainingAll("canvasSource", [
     'preserveAspectRatio="none"',
     "<polygon",
     "<polyline",
   ])
   requireCondition(source.includes('viewBox="0 0 100 40"'), `Canvas bridge must preserve backing dimensions, got ${source}`)
   requireCondition(!source.includes("data-native-waveform-placeholder"), "Canvas bridge must not use the old static waveform placeholder")
+  requireCondition(
+    Number(app.renderer.customPropByCustomProps({ canvasSource: source }, "canvasLayerCount")) >= 2,
+    "waveform Canvas should retain separate native paint layers when source colors differ",
+  )
   app.unmount()
 
   const eqApp = createTestRoot(260, 140)
@@ -128,7 +132,7 @@ if (!hasNativeTestRenderer) {
   await Promise.resolve()
   eqApp.root.flush()
   eqApp.renderer.flush()
-  const eqSource = eqApp.renderer.customPropStringContainingAll("source", [
+  const eqSource = eqApp.renderer.customPropStringContainingAll("canvasSource", [
     'viewBox="0 0 160 80"',
     "<circle",
     "<text",
@@ -136,9 +140,13 @@ if (!hasNativeTestRenderer) {
     'text-anchor="middle"',
     'dominant-baseline="middle"',
   ])
-  requireCondition(eqSource.includes(">+12 dB</text>"), `EQ Canvas label must remain in retained SVG output, got ${eqSource}`)
-  requireCondition(eqSource.includes(">5</text>"), `EQ Canvas band label must remain in retained SVG output, got ${eqSource}`)
+  requireCondition(eqSource.includes(">+12 dB</text>"), `EQ Canvas label must remain in canonical command output, got ${eqSource}`)
+  requireCondition(eqSource.includes(">5</text>"), `EQ Canvas band label must remain in canonical command output, got ${eqSource}`)
+  requireCondition(
+    Number(eqApp.renderer.customPropByCustomProps({ canvasSource: eqSource }, "canvasLayerCount")) >= 4,
+    "multicolor EQ Canvas should retain multiple ordered native paint layers",
+  )
   eqApp.unmount()
 
-  console.log("DAW Canvas2D compatibility bridge: unrelated styles preserved, exact waveform renderer produced native SVG commands, and pinned EQ text/full-circle primitives are retained")
+  console.log("DAW Canvas2D compatibility bridge: unrelated styles preserved, canonical Canvas commands retained, and multicolor output split into ordered native SVG layers")
 }
