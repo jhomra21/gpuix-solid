@@ -10,7 +10,8 @@ export * from "./gpuix-solid-canvas"
 
 type HostNode = Parameters<typeof base.setProp>[0]
 type HostElement = Extract<HostNode, { kind: "element" }>
-type SourceStyle = Record<string, unknown>
+type SourceStyleValue = string | number | null | undefined
+type SourceStyle = Record<string, SourceStyleValue>
 type SourceClasses = { class?: string; className?: string }
 
 const sourceStyles = new WeakMap<HostElement, SourceStyle>()
@@ -25,7 +26,8 @@ export function setProp<T>(node: HostNode, name: string, value: T, previous?: T)
   }
 
   if (name === "style") {
-    const style = readSourceStyle(value)
+    // SAFETY: the Solid universal renderer only routes JSX style records through the style property branch.
+    const style = value as SourceStyle | null | undefined
     if (!style) {
       sourceStyles.delete(node)
       clearGridDefinition(node)
@@ -34,15 +36,16 @@ export function setProp<T>(node: HostNode, name: string, value: T, previous?: T)
       return
     }
 
-    sourceStyles.set(node, style)
+    const sourceStyle = { ...style }
+    sourceStyles.set(node, sourceStyle)
     const definition = parseTwoRowGridDefinition(
-      optionalStyleText(style, "grid-template-columns"),
-      optionalStyleText(style, "grid-template-rows"),
+      optionalStyleText(sourceStyle, "grid-template-columns"),
+      optionalStyleText(sourceStyle, "grid-template-rows"),
     )
     if (definition) gridDefinitions.set(node, definition)
     else clearGridDefinition(node)
 
-    base.setProp(node, name, nativeSourceStyle(style, definition))
+    base.setProp(node, name, nativeSourceStyle(sourceStyle, definition))
     syncGrid(node)
     syncParentGrid(node)
     return
@@ -71,11 +74,6 @@ export function insertNode(
   if (parent.kind === "element") syncGrid(parent)
 }
 
-function readSourceStyle(value: unknown): SourceStyle | undefined {
-  if (value === null || Array.isArray(value) || Object(value) !== value) return undefined
-  return Object.fromEntries(Object.entries(value))
-}
-
 function optionalStyleText(style: SourceStyle, property: string): string | undefined {
   const value = style[property]
   return value === undefined || value === null ? undefined : String(value)
@@ -84,7 +82,7 @@ function optionalStyleText(style: SourceStyle, property: string): string | undef
 function nativeSourceStyle(style: SourceStyle, definition: TwoRowGridDefinition | undefined): SourceStyle {
   const next = Object.fromEntries(
     Object.entries(style).filter(([property]) => property !== "grid-template-rows"),
-  )
+  ) as SourceStyle
   if (definition && next.position === undefined) next.position = "relative"
   return next
 }
