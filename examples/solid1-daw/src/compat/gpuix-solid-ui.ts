@@ -12,6 +12,7 @@ type HostNode = Parameters<typeof base.setProp>[0]
 type HostElement = Extract<HostNode, { kind: "element" }>
 type SourceStyleValue = string | number | null | undefined
 type SourceStyle = Record<string, SourceStyleValue>
+type SourceClassValue = string | undefined
 type SourceClasses = { class?: string; className?: string }
 
 const GRID_OWNED_CLASS = "row-span-2"
@@ -54,11 +55,12 @@ export function setProp<T>(node: HostNode, name: string, value: T, previous?: T)
 
   if (name === "class" || name === "className") {
     const state = sourceClasses.get(node) ?? {}
-    const next = value == null ? undefined : String(value)
+    const next: SourceClassValue = value == null ? undefined : String(value)
+    const prior: SourceClassValue = previous == null ? undefined : String(previous)
     if (name === "class") state.class = next
     else state.className = next
     sourceClasses.set(node, state)
-    base.setProp(node, name, nativeClassValue(value), nativeClassValue(previous))
+    base.setProp(node, name, nativeClassValue(next), nativeClassValue(prior))
     syncParentGrid(node)
     return
   }
@@ -75,9 +77,9 @@ export function insertNode(
   if (parent.kind === "element") syncGrid(parent)
 }
 
-function nativeClassValue(value: unknown): string | null | undefined {
-  if (value === null || value === undefined) return value
-  return String(value)
+function nativeClassValue(value: SourceClassValue): SourceClassValue {
+  if (value === undefined) return undefined
+  return value
     .split(/\s+/)
     .filter((token) => token.length > 0 && token !== GRID_OWNED_CLASS)
     .join(" ")
