@@ -47,40 +47,29 @@ async function scrollIntoView(
   const target = app.getByTestId(targetTestId)
   const viewportNode = await viewport.element()
   const viewportBounds = await viewport.bounds()
-  const initialOffset = renderer.getScrollOffset(viewportNode.id) ?? [0, 0]
-  const viewportLeft = viewportBounds.x - initialOffset[0]
-  const viewportTop = viewportBounds.y - initialOffset[1]
+  const viewportOffset = renderer.getScrollOffset(viewportNode.id) ?? [0, 0]
+  const viewportLeft = viewportBounds.x - viewportOffset[0]
+  const viewportTop = viewportBounds.y - viewportOffset[1]
   const viewportBottom = viewportTop + viewportBounds.height
   const wheelPoint = {
     x: viewportLeft + viewportBounds.width / 2,
     y: viewportTop + viewportBounds.height / 2,
   }
-  let finalTargetBounds = await target.bounds()
 
   for (let attempt = 0; attempt < 30; attempt += 1) {
-    finalTargetBounds = await target.bounds()
+    const targetBounds = await target.bounds()
     if (
-      finalTargetBounds.y >= viewportTop &&
-      finalTargetBounds.y + finalTargetBounds.height <= viewportBottom
+      targetBounds.y >= viewportTop &&
+      targetBounds.y + targetBounds.height <= viewportBottom
     ) {
       return
     }
-    await app.mouse.wheel(
-      wheelPoint,
-      0,
-      finalTargetBounds.y >= viewportBottom ? -160 : 160,
-    )
+    await app.mouse.move(wheelPoint)
+    await app.mouse.wheel(wheelPoint, 0, targetBounds.y >= viewportBottom ? -160 : 160)
     await app.clock.fastForward(16)
   }
 
-  const wheelOffset = renderer.getScrollOffset(viewportNode.id)
-  renderer.scrollTo(viewportNode.id, 0, -10_000)
-  await app.clock.fastForward(16)
-  const directOffset = renderer.getScrollOffset(viewportNode.id)
-  const directTargetBounds = await target.bounds()
-  throw new Error(
-    `Could not scroll ${targetTestId} into ${viewportTestId}; viewport=${JSON.stringify(viewportBounds)} initialOffset=${JSON.stringify(initialOffset)} visibleTop=${viewportTop} visibleBottom=${viewportBottom} wheelPoint=${JSON.stringify(wheelPoint)} wheelOffset=${JSON.stringify(wheelOffset)} wheelTarget=${JSON.stringify(finalTargetBounds)} directOffset=${JSON.stringify(directOffset)} directTarget=${JSON.stringify(directTargetBounds)}`,
-  )
+  throw new Error(`Could not scroll ${targetTestId} into ${viewportTestId}`)
 }
 
 async function main(): Promise<void> {
