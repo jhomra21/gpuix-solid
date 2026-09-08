@@ -1,5 +1,5 @@
 import { For, Show, createMemo, createSignal, type Element as SolidElement } from "solid-js"
-import type { StyleDesc } from "gpuix-solid"
+import type { PublicInstance, StyleDesc } from "gpuix-solid"
 import codeImageLogo from "../../upstream/codeimage/apps/codeimage/public/assets/codeimage-logo-blue-svg-v1.svg?raw"
 
 type Modality = "full" | "mobile"
@@ -277,7 +277,7 @@ export function HStack(props: ChildrenProps & { spacing?: string | number; justi
   )
 }
 
-export function PortalHost(props: { ref?: ((value: unknown) => unknown) | undefined }) {
+export function PortalHost(props: { ref?: ((value: PublicInstance) => PublicInstance) | undefined }) {
   return <div ref={(value) => props.ref?.(value)} style={{ position: "absolute", width: 0, height: 0 }} />
 }
 
@@ -301,7 +301,7 @@ export function getFrameState() {
 }
 
 export function getExportCanvasStore() {
-  return { initCanvas(_ref?: unknown) {} }
+  return { initCanvas(_ref: () => PublicInstance | undefined) {} }
 }
 
 export function getEditorSyncAdapter() {
@@ -691,7 +691,7 @@ export function ManagedFrame() {
   )
 }
 
-export function PreviewFrame(props: { ref?: ((value: unknown) => unknown) | undefined }) {
+export function PreviewFrame(props: { ref?: ((value: PublicInstance) => PublicInstance) | undefined }) {
   return <div ref={(value) => props.ref?.(value)} style={{ position: "absolute", width: 0, height: 0 }} />
 }
 
