@@ -140,14 +140,17 @@ const examples = [
   {
     name: "Native Text",
     entry: "dist/native-text/native-text.js",
-    async test({ app, step, expectPresent }) {
-      await expectPresent(app.getByText("Why"), "markdown surface")
+    async test({ app, step, expectCount, expectPresent }) {
+      await expectPresent(app.getByType("markdown"), "markdown element")
       await step("open code tab", () => app.getByText("code").click())
-      await expectPresent(app.getByText("typescript"), "code block")
+      await expectCount(app.getByType("markdown"), 0, "closed markdown element")
+      await expectPresent(app.getByType("code"), "code element")
+      await expectPresent(app.getByText("typescript"), "code language")
       await step("open diff tab", () => app.getByText("diff").click())
-      await expectPresent(app.getByText("8080"), "diff update")
+      await expectCount(app.getByType("code"), 0, "closed code element")
+      await expectPresent(app.getByType("diff"), "diff element")
       await step("restore markdown tab", () => app.getByText("markdown").click())
-      await expectPresent(app.getByText("Why"), "restored markdown surface")
+      await expectPresent(app.getByType("markdown"), "restored markdown element")
     },
   },
   {
