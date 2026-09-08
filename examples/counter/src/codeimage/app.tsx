@@ -33,7 +33,7 @@ import {
   Toolbar,
   useModality,
   dispatchRandomTheme,
-} from "./compat2"
+} from "./compat"
 import { Suspense, onMount } from "./solid-compat"
 
 export function App() {

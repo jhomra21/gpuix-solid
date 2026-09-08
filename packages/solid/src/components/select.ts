@@ -358,6 +358,13 @@ export function SelectItem(props: SelectItemProps): SolidElement {
     highlighted: context.activeValue() === props.value,
     disabled: props.disabled ?? false,
   })
+  const content = renderDiv({
+    style: { width: "100%", minWidth: 0, pointerEvents: "none" },
+    get children() {
+      const child = props.children
+      return isRenderFunction<SelectItemState>(child) ? child(state()) : child
+    },
+  })
   const host = omit(
     omit(omit(omit(omit(props, "value"), "disabled"), "textValue"), "style"),
     "children",
@@ -376,10 +383,7 @@ export function SelectItem(props: SelectItemProps): SolidElement {
         if (!(props.disabled ?? false)) context.selectValue(props.value)
       })
     },
-    get children() {
-      const child = props.children
-      return isRenderFunction<SelectItemState>(child) ? child(state()) : child
-    },
+    children: content,
   })
   return renderDiv(merged)
 }
