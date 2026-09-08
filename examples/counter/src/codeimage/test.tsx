@@ -5,6 +5,7 @@ import {
   createTestRoot,
   hasNativeTestRenderer,
   type App,
+  type StyleDesc,
 } from "gpuix-solid"
 import { CodeImageNativeDemo } from "./app"
 
@@ -16,6 +17,12 @@ async function requireTestId(app: App, testId: string): Promise<void> {
     1,
     `expected ${testId} to exist exactly once`,
   )
+}
+
+function borderBoxWidth(boundsWidth: number, style: StyleDesc): number {
+  return boundsWidth
+    + (style.borderLeftWidth ?? style.borderWidth ?? 0)
+    + (style.borderRightWidth ?? style.borderWidth ?? 0)
 }
 
 async function scrollIntoView(
@@ -68,9 +75,13 @@ async function main(): Promise<void> {
     const toolbar = await app.getByTestId("codeimage-toolbar").bounds()
     const left = await app.getByTestId("editor-left-sidebar").bounds()
     const right = await app.getByTestId("theme-sidebar").bounds()
+    const leftStyle = testRoot.renderer.styleTestId("editor-left-sidebar")
+    const rightStyle = testRoot.renderer.styleTestId("theme-sidebar")
+    const leftOuterWidth = borderBoxWidth(left.width, leftStyle)
+    const rightOuterWidth = borderBoxWidth(right.width, rightStyle)
     assert.ok(Math.abs(toolbar.height - 52) <= 1, `expected source 52px toolbar, got ${toolbar.height}`)
-    assert.ok(Math.abs(left.width - 280) <= 1, `expected source 280px editor sidebar, got ${left.width}`)
-    assert.ok(Math.abs(right.width - 280) <= 1, `expected source 280px theme sidebar, got ${right.width}`)
+    assert.ok(Math.abs(leftOuterWidth - 280) <= 1, `expected source 280px editor sidebar border box, got ${leftOuterWidth}`)
+    assert.ok(Math.abs(rightOuterWidth - 280) <= 1, `expected source 280px theme sidebar border box, got ${rightOuterWidth}`)
 
     await requireTestId(app, "toolbar-settings")
     await requireTestId(app, "codeimage-logo")
