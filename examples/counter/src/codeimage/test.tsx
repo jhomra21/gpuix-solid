@@ -42,6 +42,7 @@ async function scrollIntoView(
   renderer: TestRenderer,
   viewportTestId: string,
   targetTestId: string,
+  bottomReserve = 0,
 ): Promise<void> {
   const viewport = app.getByTestId(viewportTestId)
   const target = app.getByTestId(targetTestId)
@@ -51,6 +52,7 @@ async function scrollIntoView(
   const viewportLeft = viewportBounds.x - viewportOffset[0]
   const viewportTop = viewportBounds.y - viewportOffset[1]
   const viewportBottom = viewportTop + viewportBounds.height
+  const targetViewportBottom = viewportBottom - bottomReserve
   const wheelPoint = {
     x: viewportLeft + viewportBounds.width - 4,
     y: viewportTop + viewportBounds.height / 2,
@@ -58,14 +60,15 @@ async function scrollIntoView(
 
   for (let attempt = 0; attempt < 30; attempt += 1) {
     const targetBounds = await target.bounds()
+    const targetBottom = targetBounds.y + targetBounds.height
     if (
       targetBounds.y >= viewportTop &&
-      targetBounds.y + targetBounds.height <= viewportBottom
+      targetBottom <= targetViewportBottom
     ) {
       return
     }
     await app.mouse.move(wheelPoint)
-    await app.mouse.wheel(wheelPoint, 0, targetBounds.y >= viewportBottom ? -160 : 160)
+    await app.mouse.wheel(wheelPoint, 0, targetBottom > targetViewportBottom ? -160 : 160)
     await app.clock.fastForward(16)
   }
 
@@ -177,11 +180,16 @@ async function main(): Promise<void> {
     await app.getByTestId("terminal-watermark-show").click()
     await requireTestId(app, "terminal-watermark")
 
-    await scrollIntoView(app, testRoot.renderer, "editor-left-sidebar", "editor-line-numbers-show")
+    await scrollIntoView(
+      app,
+      testRoot.renderer,
+      "editor-left-sidebar",
+      "editor-line-numbers-show",
+      48,
+    )
     await app.getByTestId("editor-line-numbers-show").click()
     await requireTestId(app, "line-number-1")
     await requireTestId(app, "editor-line-number-start")
-    await scrollIntoView(app, testRoot.renderer, "editor-left-sidebar", "editor-line-number-start")
     await app.getByTestId("editor-line-number-start").click()
     assert.equal(await app.getByTestId("line-number-1").textContent(), "2")
 
