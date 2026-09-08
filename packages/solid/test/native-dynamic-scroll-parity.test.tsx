@@ -1,7 +1,9 @@
+import { createSignal } from "solid-js"
 import { describe, expect, it } from "vitest"
 import { createTestApp } from "../src/automation.js"
 import {
   createElement,
+  insert,
   insertNode,
   setProp,
 } from "../src/host/universal.js"
@@ -10,7 +12,7 @@ import { createTestRoot, hasNativeTestRenderer } from "../src/testing.js"
 const nativeIt = hasNativeTestRenderer ? it : it.skip
 
 describe("native dynamic scroll parity", () => {
-  nativeIt("keeps wheel scrolling after a child is inserted while scrolled", async () => {
+  nativeIt("keeps wheel scrolling after a reconciled child is inserted while scrolled", async () => {
     const testRoot = createTestRoot(320, 220)
 
     testRoot.render(() => {
@@ -31,19 +33,15 @@ describe("native dynamic scroll parity", () => {
       setProp(toggle, "style", { height: 40 })
       insertNode(scroller, toggle)
 
-      const tail = createElement("div")
-      setProp(tail, "style", { height: 300 })
-      insertNode(scroller, tail)
-
       const inserted = createElement("div")
       setProp(inserted, "testId", "inserted")
       setProp(inserted, "style", { height: 80 })
-      let insertedOnce = false
-      setProp(toggle, "onClick", () => {
-        if (insertedOnce) return
-        insertedOnce = true
-        insertNode(scroller, inserted, tail)
-      })
+
+      const tail = createElement("div")
+      setProp(tail, "style", { height: 300 })
+      const [items, setItems] = createSignal([tail])
+      setProp(toggle, "onClick", () => setItems([inserted, tail]))
+      insert(scroller, items)
 
       return scroller
     })
