@@ -219,14 +219,14 @@ if (hasNativeTestRenderer) {
   const documentFrom = (subset: readonly string[]) => `${openingTag}${subset.join("")}</svg>`
   const noText = commands.filter((command) => !command.startsWith("<text"))
   const noCircles = commands.filter((command) => !command.startsWith("<circle"))
-  const shapeOnly = commands.filter((command) => !command.startsWith("<text") && !command.startsWith("<circle"))
+  const eqGraphPaintCommands = commands.filter((command) => !command.startsWith("<text") && !command.startsWith("<circle"))
   const firstHalf = commands.slice(0, Math.ceil(commands.length / 2))
   const firstQuarter = commands.slice(0, Math.ceil(commands.length / 4))
   const eqImageVariants = [
     eqCanvasSource,
     documentFrom(noText),
     documentFrom(noCircles),
-    documentFrom(shapeOnly),
+    documentFrom(eqGraphPaintCommands),
     documentFrom(firstHalf),
     documentFrom(firstQuarter),
   ]
