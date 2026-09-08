@@ -52,7 +52,7 @@ async function scrollIntoView(
   const viewportTop = viewportBounds.y - viewportOffset[1]
   const viewportBottom = viewportTop + viewportBounds.height
   const wheelPoint = {
-    x: viewportLeft + viewportBounds.width / 2,
+    x: viewportLeft + viewportBounds.width - 4,
     y: viewportTop + viewportBounds.height / 2,
   }
 
