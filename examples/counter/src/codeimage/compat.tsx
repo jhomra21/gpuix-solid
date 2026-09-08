@@ -1,32 +1,23 @@
 import { For, Show, createMemo, createSignal, type Element as SolidElement } from "solid-js"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-  type EventPayload,
-  type StyleDesc,
-} from "gpuix-solid"
+import type { PublicInstance, StyleDesc } from "gpuix-solid"
 
-type Tool = "frame" | "code" | "theme"
-type ThemeId = "tokyo" | "rose" | "nord"
-type ChromeMode = "macos" | "compact" | "none"
 type Modality = "full" | "mobile"
+type ThemeId = "fleetDark" | "vsCodeDarkTheme" | "dracula"
+type TerminalType = "macOs" | "macOsGrayTheme" | "macOsOutlineTheme" | "windows"
+type BorderType = "glass" | "none"
+type ShadowType = "bottom" | "none"
 
 interface Theme {
   id: ThemeId
-  name: string
-  canvas: string
-  canvasSoft: string
-  window: string
-  header: string
-  border: string
+  label: string
+  preview: NonNullable<StyleDesc["background"]>
+  terminal: string
   text: string
-  muted: string
-  accent: string
   keyword: string
   string: string
   number: string
+  comment: string
+  accent: string
 }
 
 interface ChildrenProps {
@@ -35,7 +26,7 @@ interface ChildrenProps {
 
 interface BoxProps extends ChildrenProps {
   class?: string | undefined
-  display?: "flex" | "none" | undefined
+  display?: "flex" | "inlineFlex" | "none" | undefined
   flexDirection?: "row" | "column" | undefined
   height?: number | string | undefined
   width?: number | string | undefined
@@ -43,126 +34,174 @@ interface BoxProps extends ChildrenProps {
   justifyContent?: "center" | "space-between" | "flex-end" | undefined
   paddingTop?: number | undefined
   paddingX?: number | undefined
+  padding?: number | undefined
+  marginLeft?: number | string | undefined
+  marginRight?: number | string | undefined
+  flexGrow?: number | undefined
 }
 
-const ui = {
-  app: "#101117",
-  toolbar: "#17191f",
-  rail: "#14161c",
-  canvas: "#1c1f27",
-  inspector: "#17191f",
-  panel: "#20232c",
-  panelRaised: "#282c36",
-  border: "#313642",
-  text: "#f4f5f7",
-  muted: "#9aa2b1",
-  faint: "#687182",
-  accent: "#7c5cff",
-  success: "#6fd49d",
-}
+const colors = {
+  background: "#1d1d1d",
+  panel: "#111111",
+  input: "#232323",
+  divider: "#252525",
+  button: "#333333",
+  buttonHover: "#3e3e3e",
+  buttonActive: "#505050",
+  text: "#ededed",
+  textAlt: "#cccccc",
+  description: "#999999",
+  primary: "#0099ff",
+  primaryHover: "#0088ff",
+  primaryActive: "#0077ff",
+  white: "#ffffff",
+  glass: "#505050",
+} as const
 
 const themes: readonly Theme[] = [
   {
-    id: "tokyo",
-    name: "Tokyo Night",
-    canvas: "#7aa2f7",
-    canvasSoft: "#bb9af7",
-    window: "#1a1b26",
-    header: "#24283b",
-    border: "#414868",
-    text: "#c0caf5",
-    muted: "#565f89",
-    accent: "#7dcfff",
-    keyword: "#bb9af7",
-    string: "#9ece6a",
-    number: "#ff9e64",
+    id: "fleetDark",
+    label: "Fleet Dark",
+    preview: {
+      type: "linear-gradient",
+      angle: 152,
+      stops: [
+        { color: "rgb(222, 156, 110)", position: 0 },
+        { color: "rgb(125, 36, 242)", position: 1 },
+      ],
+    },
+    terminal: "#181818",
+    text: "#d1d1d1",
+    keyword: "#82d2ce",
+    string: "#e394dc",
+    number: "#ebc88d",
+    comment: "#898989",
+    accent: "#87c3ff",
   },
   {
-    id: "rose",
-    name: "Rosé Pine",
-    canvas: "#eb6f92",
-    canvasSoft: "#c4a7e7",
-    window: "#191724",
-    header: "#26233a",
-    border: "#403d52",
-    text: "#e0def4",
-    muted: "#6e6a86",
-    accent: "#9ccfd8",
-    keyword: "#c4a7e7",
-    string: "#f6c177",
-    number: "#eb6f92",
+    id: "vsCodeDarkTheme",
+    label: "VSCode Dark",
+    preview: {
+      type: "linear-gradient",
+      angle: 135,
+      stops: [
+        { color: "#1cb1f2", position: 0 },
+        { color: "#0059ff", position: 1 },
+      ],
+    },
+    terminal: "#262335",
+    text: "hsl(204, 3%, 98%)",
+    keyword: "hsl(207, 65%, 59%)",
+    string: "hsl(17, 60%, 64%)",
+    number: "hsl(99, 28%, 73%)",
+    comment: "hsl(101, 33%, 47%)",
+    accent: "#0099ff",
   },
   {
-    id: "nord",
-    name: "Nord",
-    canvas: "#88c0d0",
-    canvasSoft: "#81a1c1",
-    window: "#2e3440",
-    header: "#3b4252",
-    border: "#4c566a",
-    text: "#eceff4",
-    muted: "#7f8ba0",
-    accent: "#8fbcbb",
-    keyword: "#b48ead",
-    string: "#a3be8c",
-    number: "#d08770",
+    id: "dracula",
+    label: "Dracula",
+    preview: {
+      type: "linear-gradient",
+      angle: 135,
+      stops: [
+        { color: "rgba(171,73,222,1)", position: 0 },
+        { color: "rgba(73,84,222,1)", position: 1 },
+      ],
+    },
+    terminal: "#282a36",
+    text: "#f8f8f2",
+    keyword: "#ff79c6",
+    string: "#f1fa8c",
+    number: "#bd93f9",
+    comment: "#6272a4",
+    accent: "#bd93f9",
   },
 ]
 
-const codeLines = [
-  "import { createSignal } from \"solid-js\"",
+const sourceCode = [
+  "function Counter() {",
+  "  const [count, setCount] = createSignal(0);",
+  "  ",
+  "  setInterval(",
+  "    () => setCount(count() + 1),",
+  "    1000",
+  "  );",
   "",
-  "export function NativeCounter() {",
-  "  const [count, setCount] = createSignal(0)",
-  "",
-  "  return (",
-  "    <div onClick={() => setCount(count() + 1)}>",
-  "      Count: {count()}",
-  "    </div>",
-  "  )",
+  "  return <div>The count is {count()}</div>",
   "}",
-  "// Solid 2 universal renderer → GPUIX",
 ] as const
 
-const [tool, setTool] = createSignal<Tool>("frame")
-const [themeId, setThemeId] = createSignal<ThemeId>("tokyo")
-const [chromeMode, setChromeMode] = createSignal<ChromeMode>("macos")
-const [padding, setPadding] = createSignal(48)
-const [radius, setRadius] = createSignal(16)
-const [fontSize, setFontSize] = createSignal(13)
-const [showLineNumbers, setShowLineNumbers] = createSignal(true)
-const [showEmphasis, setShowEmphasis] = createSignal(true)
-const [filename, setFilename] = createSignal("native-renderer.tsx")
+const [framePadding, setFramePadding] = createSignal(64)
+const [frameRadius, setFrameRadius] = createSignal(8)
+const [frameVisible, setFrameVisible] = createSignal(true)
+const [frameOpacity, setFrameOpacity] = createSignal(100)
+const [frameBackground, setFrameBackground] = createSignal<string | null>(null)
+const [aspectRatio, setAspectRatio] = createSignal<string | null>(null)
+
+const [terminalType, setTerminalType] = createSignal<TerminalType>("macOs")
+const [showHeader, setShowHeader] = createSignal(true)
+const [showReflection, setShowReflection] = createSignal(false)
+const [showWatermark, setShowWatermark] = createSignal(true)
+const [shadow, setShadow] = createSignal<ShadowType>("bottom")
+const [borderType, setBorderType] = createSignal<BorderType>("glass")
+const [alternativeTheme, setAlternativeTheme] = createSignal(false)
+
+const [themeId, setThemeId] = createSignal<ThemeId>("fleetDark")
+const [language, setLanguage] = createSignal("TypeScript")
+const [formatter, setFormatter] = createSignal("Prettier")
+const [showLineNumbers, setShowLineNumbers] = createSignal(false)
+const [lineNumberStart, setLineNumberStart] = createSignal(1)
+const [font, setFont] = createSignal("JetBrains Mono")
+const [fontWeight, setFontWeight] = createSignal(400)
+const [ligatures, setLigatures] = createSignal(true)
+
+const [presetOpen, setPresetOpen] = createSignal(false)
+const [menuOpen, setMenuOpen] = createSignal(false)
+const [themeSearch, setThemeSearch] = createSignal("")
 const [exportCount, setExportCount] = createSignal(0)
-const [readOnly] = createSignal(false)
+const [status, setStatus] = createSignal("")
 const [frameScale, setFrameScale] = createSignal(1)
+const [readOnly] = createSignal(false)
 
-const theme = createMemo(() => themes.find((candidate) => candidate.id === themeId()) ?? themes[0]!)
+const activeTheme = createMemo(
+  () => themes.find((candidate) => candidate.id === themeId()) ?? themes[0]!,
+)
 
-function cycleTheme() {
-  const current = themes.findIndex((candidate) => candidate.id === themeId())
-  setThemeId((themes[(current + 1) % themes.length] ?? themes[0]!).id)
-}
-
-function buttonStyle(active = false): StyleDesc {
-  return {
-    minHeight: 32,
-    paddingTop: 7,
-    paddingBottom: 7,
-    paddingLeft: 10,
-    paddingRight: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: active ? ui.accent : ui.border,
-    backgroundColor: active ? "#2d2750" : ui.panel,
-    cursor: "pointer",
-    hover: { backgroundColor: ui.panelRaised },
-    active: { opacity: 0.8 },
-  }
-}
+const filteredThemes = createMemo(() => {
+  const query = themeSearch().trim().toLowerCase()
+  return query.length === 0
+    ? themes
+    : themes.filter((candidate) => candidate.label.toLowerCase().includes(query))
+})
 
 function space(value: number): number {
   return value * 4
+}
+
+function buttonStyle(primary = false) {
+  return {
+    minHeight: 30,
+    paddingTop: 6,
+    paddingBottom: 6,
+    paddingLeft: 10,
+    paddingRight: 10,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: primary ? colors.primary : colors.divider,
+    backgroundColor: primary ? colors.primary : colors.button,
+    cursor: "pointer",
+    hover: { backgroundColor: primary ? colors.primaryHover : colors.buttonHover },
+    active: { backgroundColor: primary ? colors.primaryActive : colors.buttonActive },
+  } as const
+}
+
+function smallControlStyle(active = false) {
+  return {
+    ...buttonStyle(false),
+    minHeight: 28,
+    borderColor: active ? colors.primary : colors.divider,
+    backgroundColor: active ? "#003d66" : colors.input,
+  } as const
 }
 
 export const adaptiveFullScreenHeight = "codeimage-native-fullscreen"
@@ -172,16 +211,43 @@ export function Box(props: BoxProps) {
     <div
       testId={props.class === adaptiveFullScreenHeight ? "codeimage-shell" : undefined}
       style={{
-        display: props.display,
+        display:
+          props.display === "inlineFlex"
+            ? "flex"
+            : props.display,
         flexDirection: props.flexDirection,
-        width: props.width ?? (props.class === adaptiveFullScreenHeight ? "100%" : undefined),
-        height: props.height ?? (props.class === adaptiveFullScreenHeight ? "100%" : undefined),
+        width:
+          props.width ??
+          (props.class === adaptiveFullScreenHeight ? "100%" : undefined),
+        height:
+          props.height ??
+          (props.class === adaptiveFullScreenHeight ? "100%" : undefined),
         alignItems: props.alignItems,
-        justifyContent: props.justifyContent === "flex-end" ? "flexEnd" : props.justifyContent,
-        paddingTop: props.paddingTop === undefined ? undefined : space(props.paddingTop),
-        paddingLeft: props.paddingX === undefined ? undefined : space(props.paddingX),
-        paddingRight: props.paddingX === undefined ? undefined : space(props.paddingX),
-        backgroundColor: props.class === adaptiveFullScreenHeight ? ui.app : undefined,
+        justifyContent:
+          props.justifyContent === "flex-end"
+            ? "flexEnd"
+            : props.justifyContent,
+        padding:
+          props.padding === undefined ? undefined : space(props.padding),
+        paddingTop:
+          props.paddingTop === undefined ? undefined : space(props.paddingTop),
+        paddingLeft:
+          props.paddingX === undefined ? undefined : space(props.paddingX),
+        paddingRight:
+          props.paddingX === undefined ? undefined : space(props.paddingX),
+        marginLeft:
+          typeof props.marginLeft === "number"
+            ? space(props.marginLeft)
+            : props.marginLeft,
+        marginRight:
+          typeof props.marginRight === "number"
+            ? space(props.marginRight)
+            : props.marginRight,
+        flexGrow: props.flexGrow,
+        minWidth: 0,
+        minHeight: 0,
+        backgroundColor:
+          props.class === adaptiveFullScreenHeight ? colors.background : undefined,
       }}
     >
       {props.children}
@@ -189,20 +255,54 @@ export function Box(props: BoxProps) {
   )
 }
 
-export function HStack(props: ChildrenProps & { spacing?: string | undefined; justifyContent?: "flexEnd" | undefined }) {
+export function HStack(
+  props: ChildrenProps & {
+    spacing?: string | number | undefined
+    justifyContent?: "flexEnd" | undefined
+    alignItems?: "center" | undefined
+  },
+) {
   return (
-    <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: Number(props.spacing ?? 0) * 4, justifyContent: props.justifyContent }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "row",
+        alignItems: props.alignItems ?? "center",
+        gap: Number(props.spacing ?? 0) * 4,
+        justifyContent: props.justifyContent,
+      }}
+    >
       {props.children}
     </div>
   )
 }
 
-export function PortalHost(props: { ref?: ((value: unknown) => unknown) | undefined }) {
-  return <div ref={(value) => props.ref?.(value)} style={{ position: "absolute", width: 0, height: 0 }} />
+export function PortalHost(props: {
+  ref?: ((value: unknown) => unknown) | undefined
+}) {
+  return (
+    <div
+      ref={(value) => props.ref?.(value)}
+      style={{ position: "absolute", width: 0, height: 0 }}
+    />
+  )
 }
 
-export function Button(props: { size?: string | undefined; theme?: string | undefined; leftIcon?: SolidElement | undefined; onClick?: (() => void) | undefined }) {
-  return <div style={buttonStyle()} onClick={props.onClick}>{props.leftIcon}</div>
+export function Button(props: {
+  size?: string | undefined
+  theme?: string | undefined
+  leftIcon?: SolidElement | undefined
+  children?: SolidElement | undefined
+  onClick?: (() => void) | undefined
+}) {
+  return (
+    <div style={buttonStyle(false)} onClick={props.onClick}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        {props.leftIcon}
+        {props.children}
+      </div>
+    </div>
+  )
 }
 
 export function useModality(): Modality {
@@ -226,152 +326,799 @@ export function getExportCanvasStore() {
 export function getEditorSyncAdapter() {
   return {
     readOnly,
-    clone() {},
+    clone() {
+      setStatus("Cloned locally")
+    },
   }
 }
 
 export function getActiveEditorStore() {
   return {
-    format() {},
+    format() {
+      setStatus("Formatted locally")
+    },
   }
 }
 
 export function dispatchRandomTheme() {
-  cycleTheme()
+  const current = themes.findIndex((candidate) => candidate.id === themeId())
+  const next = themes[(current + 1) % themes.length] ?? themes[0]!
+  setThemeId(next.id)
+  setStatus(`Theme changed to ${next.label}`)
+}
+
+function ToolbarMenu() {
+  return (
+    <Show when={menuOpen()}>
+      <div
+        testId="toolbar-menu-content"
+        style={{
+          position: "absolute",
+          left: 16,
+          top: 46,
+          width: 180,
+          padding: 6,
+          display: "flex",
+          flexDirection: "column",
+          gap: 4,
+          borderRadius: 8,
+          borderWidth: 1,
+          borderColor: colors.divider,
+          backgroundColor: colors.input,
+          zIndex: 50,
+        }}
+      >
+        <div testId="toolbar-menu-settings" style={smallControlStyle()} onClick={() => setStatus("Settings opened locally")}>
+          <text style={{ color: colors.text, fontSize: 12 }}>Settings</text>
+        </div>
+        <div testId="toolbar-menu-changelog" style={smallControlStyle()} onClick={() => setStatus("Changelog opened locally")}>
+          <text style={{ color: colors.text, fontSize: 12 }}>Changelog</text>
+        </div>
+        <div testId="toolbar-menu-github" style={smallControlStyle()} onClick={() => setStatus("GitHub link selected")}>
+          <text style={{ color: colors.text, fontSize: 12 }}>GitHub ↗</text>
+        </div>
+        <div testId="toolbar-menu-logout" style={smallControlStyle()} onClick={() => setStatus("Logged out locally")}>
+          <text style={{ color: colors.text, fontSize: 12 }}>Logout</text>
+        </div>
+      </div>
+    </Show>
+  )
 }
 
 export function Toolbar(_props: { canvasRef?: unknown }) {
   return (
     <div
+      testId="codeimage-toolbar"
       style={{
-        height: 58,
+        position: "relative",
+        zIndex: 30,
+        height: 52,
+        width: "100%",
         display: "flex",
         alignItems: "center",
-        justifyContent: "space-between",
         paddingLeft: 16,
         paddingRight: 16,
-        borderWidth: 1,
-        borderColor: ui.border,
-        backgroundColor: ui.toolbar,
+        backgroundColor: colors.panel,
+        color: colors.white,
+        flexShrink: 0,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, backgroundColor: ui.accent }}>
-          <text style={{ color: "#ffffff", fontSize: 11, fontWeight: 800 }}>CI</text>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-          <text style={{ color: ui.text, fontSize: 13, fontWeight: 700 }}>CodeImage</text>
-          <text style={{ color: ui.faint, fontSize: 9 }}>source-first native compatibility</text>
-        </div>
+      <div
+        testId="toolbar-settings"
+        aria-label="Menu"
+        style={{
+          ...smallControlStyle(menuOpen()),
+          width: 30,
+          paddingLeft: 0,
+          paddingRight: 0,
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: 999,
+        }}
+        onClick={() => setMenuOpen((open) => !open)}
+      >
+        <text style={{ color: colors.text, fontSize: 14 }}>⋮</text>
       </div>
 
-      <input
-        testId="filename-input"
-        value={filename()}
-        onChange={(event: EventPayload) => setFilename(event.value ?? "")}
-        style={{ width: 220, minHeight: 34, paddingLeft: 12, paddingRight: 12, borderWidth: 1, borderColor: ui.border, borderRadius: 8, backgroundColor: ui.app, color: ui.text }}
-      />
+      <div
+        testId="codeimage-logo"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 9,
+          marginLeft: 20,
+        }}
+      >
+        <div
+          style={{
+            width: 26,
+            height: 26,
+            borderRadius: 9,
+            backgroundColor: "#0077ff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <text style={{ color: colors.white, fontSize: 13, fontWeight: 800 }}>C</text>
+        </div>
+        <text style={{ color: colors.white, fontSize: 15, fontWeight: 700 }}>CodeImage</text>
+      </div>
+
+      <div
+        testId="dashboard-link"
+        style={{ ...smallControlStyle(false), marginLeft: 16 }}
+        onClick={() => setStatus("Dashboard route selected locally")}
+      >
+        <text style={{ color: colors.text, fontSize: 10 }}>▦ Dashboard</text>
+      </div>
+
+      <div style={{ flexGrow: 1 }} />
 
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <div testId="random-theme" style={buttonStyle()} onClick={cycleTheme}>
-          <text style={{ color: ui.text, fontSize: 10 }}>Random theme</text>
-        </div>
+        <ShareButton showLabel={false} />
         <ExportButton />
+        <div
+          testId="user-badge"
+          style={{
+            minWidth: 34,
+            height: 30,
+            paddingLeft: 8,
+            paddingRight: 8,
+            borderRadius: 15,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: colors.button,
+          }}
+        >
+          <text style={{ color: colors.text, fontSize: 10, fontWeight: 700 }}>JM</text>
+        </div>
+      </div>
+      <ToolbarMenu />
+    </div>
+  )
+}
+
+function SidebarSection(props: ChildrenProps & { title: string; testId: string }) {
+  return (
+    <div
+      testId={props.testId}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        paddingBottom: 16,
+        borderWidth: 1,
+        borderColor: colors.divider,
+      }}
+    >
+      <div
+        style={{
+          height: 48,
+          display: "flex",
+          alignItems: "center",
+          paddingLeft: 15,
+          flexShrink: 0,
+        }}
+      >
+        <text style={{ color: colors.white, fontSize: 13, fontWeight: 600 }}>
+          {props.title}
+        </text>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {props.children}
       </div>
     </div>
   )
 }
 
-function RailButton(props: { tool: Tool; active: boolean; glyph: string; label: string }) {
+function FieldRow(props: ChildrenProps & { label: string }) {
   return (
-    <TooltipProvider delayDuration={0}>
-      <Tooltip>
-        <TooltipTrigger
-          testId={`tool-${props.tool}`}
-          onClick={() => setTool(props.tool)}
-          style={{ width: 42, height: 42, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 10, borderWidth: 1, borderColor: props.active ? ui.accent : ui.rail, backgroundColor: props.active ? "#2d2750" : ui.rail, cursor: "pointer", hover: { backgroundColor: ui.panelRaised } }}
-        >
-          <text style={{ color: props.active ? "#d8d0ff" : ui.muted, fontSize: 11, fontWeight: 700 }}>{props.glyph}</text>
-        </TooltipTrigger>
-        <TooltipContent style={{ padding: 8, borderWidth: 1, borderColor: ui.border, borderRadius: 7, backgroundColor: ui.panelRaised }}>
-          <text style={{ color: ui.text, fontSize: 11 }}>{props.label}</text>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "row",
+        width: "100%",
+        minHeight: 34,
+        alignItems: "center",
+        gap: 8,
+        paddingLeft: 15,
+        paddingRight: 8,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          width: 88,
+          flexShrink: 0,
+          minWidth: 0,
+        }}
+      >
+        <text style={{ color: colors.textAlt, fontSize: 11 }}>{props.label}</text>
+      </div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 5,
+          flexGrow: 1,
+          minWidth: 0,
+        }}
+      >
+        {props.children}
+      </div>
+    </div>
+  )
+}
+
+function ChoiceButton(props: {
+  testId: string
+  label: string
+  selected: boolean
+  onClick(): void
+}) {
+  return (
+    <div
+      testId={props.testId}
+      style={smallControlStyle(props.selected)}
+      onClick={props.onClick}
+    >
+      <text
+        style={{
+          color: props.selected ? colors.white : colors.textAlt,
+          fontSize: 10,
+        }}
+      >
+        {props.label}
+      </text>
+    </div>
+  )
+}
+
+function ValueButton(props: {
+  testId: string
+  value: string
+  onClick(): void
+}) {
+  return (
+    <div
+      testId={props.testId}
+      style={{
+        ...smallControlStyle(false),
+        flexGrow: 1,
+        justifyContent: "space-between",
+      }}
+      onClick={props.onClick}
+    >
+      <text style={{ color: colors.text, fontSize: 10 }}>{props.value}</text>
+      <text style={{ color: colors.description, fontSize: 9 }}>⌄</text>
+    </div>
+  )
+}
+
+function cycleNumber(
+  value: number,
+  values: readonly number[],
+  setValue: (value: number) => void,
+) {
+  const index = values.indexOf(value)
+  setValue(values[(index + 1) % values.length] ?? values[0]!)
+}
+
+function FrameForm() {
+  return (
+    <SidebarSection title="Frame" testId="section-frame">
+      <FieldRow label="Padding">
+        <ValueButton
+          testId="frame-padding"
+          value={String(framePadding())}
+          onClick={() => cycleNumber(framePadding(), [0, 16, 32, 64, 128], setFramePadding)}
+        />
+      </FieldRow>
+      <FieldRow label="Radius">
+        <div style={{ display: "flex", gap: 4 }}>
+          <For each={[0, 8, 16, 24] as const}>
+            {(value) => (
+              <ChoiceButton
+                testId={`frame-radius-${value}`}
+                label={String(value)}
+                selected={frameRadius() === value}
+                onClick={() => setFrameRadius(value)}
+              />
+            )}
+          </For>
+        </div>
+      </FieldRow>
+      <FieldRow label="Visible">
+        <ChoiceButton
+          testId="frame-visible-yes"
+          label="Yes"
+          selected={frameVisible()}
+          onClick={() => setFrameVisible(true)}
+        />
+        <ChoiceButton
+          testId="frame-visible-no"
+          label="No"
+          selected={!frameVisible()}
+          onClick={() => setFrameVisible(false)}
+        />
+      </FieldRow>
+      <Show when={frameVisible()}>
+        <FieldRow label="Opacity">
+          <ValueButton
+            testId="frame-opacity"
+            value={`${frameOpacity()}%`}
+            onClick={() => setFrameOpacity((value) => (value === 100 ? 75 : value === 75 ? 50 : 100))}
+          />
+        </FieldRow>
+        <FieldRow label="Background">
+          <ValueButton
+            testId="frame-background"
+            value={frameBackground() ?? "Theme"}
+            onClick={() => setFrameBackground((value) => (value === null ? "#194176" : null))}
+          />
+        </FieldRow>
+      </Show>
+      <FieldRow label="Aspect ratio">
+        <ValueButton
+          testId="frame-aspect-ratio"
+          value={aspectRatio() ?? "Auto"}
+          onClick={() => setAspectRatio((value) => (value === null ? "16/9" : value === "16/9" ? "1/1" : null))}
+        />
+      </FieldRow>
+    </SidebarSection>
+  )
+}
+
+function WindowForm() {
+  return (
+    <SidebarSection title="Terminal" testId="section-terminal">
+      <FieldRow label="Background type">
+        <ChoiceButton
+          testId="terminal-theme-default"
+          label="Default"
+          selected={!alternativeTheme()}
+          onClick={() => setAlternativeTheme(false)}
+        />
+        <ChoiceButton
+          testId="terminal-theme-alternative"
+          label="Alternative"
+          selected={alternativeTheme()}
+          onClick={() => setAlternativeTheme(true)}
+        />
+      </FieldRow>
+      <FieldRow label="Header">
+        <ChoiceButton
+          testId="terminal-header-yes"
+          label="Yes"
+          selected={showHeader()}
+          onClick={() => setShowHeader(true)}
+        />
+        <ChoiceButton
+          testId="terminal-header-no"
+          label="No"
+          selected={!showHeader()}
+          onClick={() => setShowHeader(false)}
+        />
+      </FieldRow>
+      <Show when={showHeader()}>
+        <FieldRow label="Window">
+          <ValueButton
+            testId="terminal-window"
+            value={
+              terminalType() === "macOs"
+                ? "macOS"
+                : terminalType() === "windows"
+                  ? "Windows"
+                  : terminalType() === "macOsGrayTheme"
+                    ? "macOS Gray"
+                    : "macOS Outline"
+            }
+            onClick={() => {
+              const order: readonly TerminalType[] = ["macOs", "macOsGrayTheme", "macOsOutlineTheme", "windows"]
+              const index = order.indexOf(terminalType())
+              setTerminalType(order[(index + 1) % order.length] ?? "macOs")
+            }}
+          />
+        </FieldRow>
+      </Show>
+      <FieldRow label="Reflection">
+        <ChoiceButton
+          testId="terminal-reflection-show"
+          label="Show"
+          selected={showReflection()}
+          onClick={() => setShowReflection(true)}
+        />
+        <ChoiceButton
+          testId="terminal-reflection-hide"
+          label="Hide"
+          selected={!showReflection()}
+          onClick={() => setShowReflection(false)}
+        />
+      </FieldRow>
+      <FieldRow label="Watermark">
+        <ChoiceButton
+          testId="terminal-watermark-show"
+          label="Show"
+          selected={showWatermark()}
+          onClick={() => setShowWatermark(true)}
+        />
+        <ChoiceButton
+          testId="terminal-watermark-hide"
+          label="Hide"
+          selected={!showWatermark()}
+          onClick={() => setShowWatermark(false)}
+        />
+      </FieldRow>
+      <FieldRow label="Shadow">
+        <ValueButton
+          testId="terminal-shadow"
+          value={shadow() === "bottom" ? "Bottom" : "None"}
+          onClick={() => setShadow((value) => (value === "bottom" ? "none" : "bottom"))}
+        />
+      </FieldRow>
+      <FieldRow label="Border">
+        <ValueButton
+          testId="terminal-border"
+          value={borderType() === "glass" ? "Glass" : "None"}
+          onClick={() => setBorderType((value) => (value === "glass" ? "none" : "glass"))}
+        />
+      </FieldRow>
+    </SidebarSection>
+  )
+}
+
+function EditorForm() {
+  return (
+    <SidebarSection title="Editor" testId="section-editor">
+      <FieldRow label="Language">
+        <ValueButton
+          testId="editor-language"
+          value={language()}
+          onClick={() => setLanguage((value) => (value === "TypeScript" ? "JavaScript" : "TypeScript"))}
+        />
+      </FieldRow>
+      <FieldRow label="Theme">
+        <ValueButton
+          testId="editor-theme"
+          value={activeTheme().label}
+          onClick={dispatchRandomTheme}
+        />
+      </FieldRow>
+      <FieldRow label="Formatter">
+        <ValueButton
+          testId="editor-formatter"
+          value={formatter()}
+          onClick={() => setFormatter((value) => (value === "Prettier" ? "Biome" : "Prettier"))}
+        />
+      </FieldRow>
+      <FieldRow label="Line numbers">
+        <ChoiceButton
+          testId="editor-line-numbers-show"
+          label="Show"
+          selected={showLineNumbers()}
+          onClick={() => setShowLineNumbers(true)}
+        />
+        <ChoiceButton
+          testId="editor-line-numbers-hide"
+          label="Hide"
+          selected={!showLineNumbers()}
+          onClick={() => setShowLineNumbers(false)}
+        />
+      </FieldRow>
+      <Show when={showLineNumbers()}>
+        <FieldRow label="Line number start">
+          <ValueButton
+            testId="editor-line-number-start"
+            value={String(lineNumberStart())}
+            onClick={() => setLineNumberStart((value) => (value >= 3 ? 1 : value + 1))}
+          />
+        </FieldRow>
+      </Show>
+    </SidebarSection>
+  )
+}
+
+function FontForm() {
+  return (
+    <SidebarSection title="Font" testId="section-font">
+      <FieldRow label="Font">
+        <ValueButton
+          testId="editor-font"
+          value={font()}
+          onClick={() => setFont((value) => (value === "JetBrains Mono" ? "Fira Code" : "JetBrains Mono"))}
+        />
+      </FieldRow>
+      <FieldRow label="Font weight">
+        <ValueButton
+          testId="editor-font-weight"
+          value={String(fontWeight())}
+          onClick={() => setFontWeight((value) => (value === 400 ? 500 : value === 500 ? 700 : 400))}
+        />
+      </FieldRow>
+      <FieldRow label="Ligatures">
+        <ChoiceButton
+          testId="editor-ligatures-yes"
+          label="Yes"
+          selected={ligatures()}
+          onClick={() => setLigatures(true)}
+        />
+        <ChoiceButton
+          testId="editor-ligatures-no"
+          label="No"
+          selected={!ligatures()}
+          onClick={() => setLigatures(false)}
+        />
+      </FieldRow>
+    </SidebarSection>
+  )
+}
+
+function PresetSwitcher() {
+  return (
+    <Show when={presetOpen()}>
+      <div
+        testId="preset-panel"
+        style={{
+          width: 280,
+          height: "100%",
+          flexShrink: 0,
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+          padding: 16,
+          borderWidth: 1,
+          borderColor: colors.divider,
+          backgroundColor: colors.panel,
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <text style={{ color: colors.white, fontSize: 13, fontWeight: 600 }}>Presets</text>
+          <div testId="preset-close" style={smallControlStyle()} onClick={() => setPresetOpen(false)}>
+            <text style={{ color: colors.text, fontSize: 10 }}>Close</text>
+          </div>
+        </div>
+        <For each={["Minimal", "Fleet", "macOS"]}>
+          {(name) => (
+            <div
+              testId={`preset-${name.toLowerCase()}`}
+              style={{
+                ...buttonStyle(false),
+                minHeight: 44,
+                display: "flex",
+                alignItems: "center",
+              }}
+              onClick={() => {
+                if (name === "Minimal") {
+                  setFramePadding(32)
+                  setFrameRadius(0)
+                  setShowHeader(false)
+                } else if (name === "Fleet") {
+                  setThemeId("fleetDark")
+                  setFramePadding(64)
+                  setFrameRadius(8)
+                  setShowHeader(true)
+                } else {
+                  setTerminalType("macOs")
+                  setShowHeader(true)
+                  setFrameRadius(16)
+                }
+                setPresetOpen(false)
+              }}
+            >
+              <text style={{ color: colors.text, fontSize: 11 }}>{name}</text>
+            </div>
+          )}
+        </For>
+      </div>
+    </Show>
   )
 }
 
 export function EditorLeftSidebar() {
   return (
-    <div style={{ width: 64, display: "flex", flexDirection: "column", alignItems: "center", gap: 10, paddingTop: 14, borderWidth: 1, borderColor: ui.border, backgroundColor: ui.rail }}>
-      <RailButton tool="frame" active={tool() === "frame"} glyph="FR" label="Frame" />
-      <RailButton tool="code" active={tool() === "code"} glyph="<>" label="Code" />
-      <RailButton tool="theme" active={tool() === "theme"} glyph="TH" label="Themes" />
-      <div style={{ flexGrow: 1 }} />
-      <div style={{ width: 34, height: 34, marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 999, backgroundColor: ui.panelRaised }}>
-        <text style={{ color: ui.muted, fontSize: 10, fontWeight: 700 }}>JP</text>
+    <>
+      <div
+        testId="editor-left-sidebar"
+        style={{
+          width: 280,
+          height: "100%",
+          flexShrink: 0,
+          display: "flex",
+          flexDirection: "column",
+          overflowY: "scroll",
+          overflowX: "hidden",
+          paddingRight: 8,
+          backgroundColor: colors.panel,
+          color: colors.white,
+        }}
+      >
+        <div style={{ paddingLeft: 15, paddingTop: 12, paddingBottom: 4 }}>
+          <div
+            testId="preset-toggle"
+            style={{
+              ...buttonStyle(false),
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            onClick={() => setPresetOpen((open) => !open)}
+          >
+            <text style={{ color: colors.text, fontSize: 11 }}>◐ Presets</text>
+          </div>
+        </div>
+        <FrameForm />
+        <WindowForm />
+        <EditorForm />
+        <FontForm />
       </div>
-    </div>
+      <PresetSwitcher />
+    </>
   )
 }
 
 export function Canvas(props: ChildrenProps) {
   return (
-    <div style={{ flexGrow: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", backgroundColor: ui.canvas }}>
-      <div style={{ height: 46, display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 18, paddingRight: 18, borderWidth: 1, borderColor: ui.border }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <text style={{ color: ui.muted, fontSize: 10 }}>CANVAS</text>
-          <div style={{ width: 4, height: 4, borderRadius: 999, backgroundColor: ui.faint }} />
-          <text testId="theme-label" style={{ color: ui.text, fontSize: 11, fontWeight: 600 }}>{theme().name}</text>
-        </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          <div style={buttonStyle()}><text style={{ color: ui.muted, fontSize: 9 }}>Fit</text></div>
-          <div style={buttonStyle(true)}><text style={{ color: "#d8d0ff", fontSize: 9 }}>{Math.round(frameScale() * 100)}%</text></div>
-        </div>
+    <div
+      style={{
+        display: "flex",
+        width: "100%",
+        flexGrow: 1,
+        overflow: "hidden",
+        backgroundColor: colors.background,
+        paddingLeft: 4,
+        paddingRight: 4,
+      }}
+    >
+      <div
+        testId="codeimage-canvas"
+        style={{
+          height: "100%",
+          flexGrow: 1,
+          position: "relative",
+          backgroundColor: colors.background,
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          borderRadius: 22,
+          borderWidth: 1,
+          borderColor: colors.divider,
+        }}
+      >
+        {props.children}
       </div>
-      {props.children}
     </div>
   )
 }
 
-export function SuspenseEditorItem(props: ChildrenProps & { fallback?: SolidElement | undefined }) {
+export function SuspenseEditorItem(
+  props: ChildrenProps & { fallback?: SolidElement | undefined },
+) {
   return <>{props.children}</>
 }
 
 export function KeyboardShortcuts() {
   return (
-    <div style={{ paddingTop: 4, paddingBottom: 4, paddingLeft: 7, paddingRight: 7, borderRadius: 6, borderWidth: 1, borderColor: ui.border, backgroundColor: ui.panel }}>
-      <text style={{ color: ui.muted, fontSize: 9 }}>⌘ shortcuts</text>
+    <div
+      style={{
+        paddingTop: 4,
+        paddingBottom: 4,
+        paddingLeft: 8,
+        paddingRight: 8,
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: colors.divider,
+        backgroundColor: colors.input,
+      }}
+    >
+      <text style={{ color: colors.textAlt, fontSize: 10 }}>⌘ K</text>
     </div>
   )
 }
 
-export function FrameHandler(props: ChildrenProps & { onScaleChange?: ((value: number) => void) | undefined }) {
+export function FrameHandler(
+  props: ChildrenProps & { onScaleChange?: ((value: number) => void) | undefined },
+) {
   return (
-    <div style={{ flexGrow: 1, minHeight: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 22 }}>
+    <div
+      style={{
+        flexGrow: 1,
+        minHeight: 0,
+        minWidth: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+        overflow: "hidden",
+      }}
+    >
       {props.children}
     </div>
   )
 }
 
-function CodeLine(props: { text: string; number: number; theme: Theme; fontSize: number; showLineNumbers: boolean }) {
-  const color = () => {
-    if (props.text.startsWith("//")) return props.theme.muted
-    if (props.text.includes("import") || props.text.includes("export") || props.text.includes("const") || props.text.includes("return")) return props.theme.keyword
-    if (props.text.includes("solid-js")) return props.theme.string
-    if (props.text.includes("0") || props.text.includes("1")) return props.theme.number
-    return props.theme.text
+function syntaxColor(line: string): string {
+  if (line.trim().startsWith("//")) return activeTheme().comment
+  if (
+    line.includes("function") ||
+    line.includes("const") ||
+    line.includes("return")
+  ) {
+    return activeTheme().keyword
   }
+  if (/\d/.test(line)) return activeTheme().number
+  if (line.includes('"') || line.includes("'")) return activeTheme().string
+  return activeTheme().text
+}
 
+function CodeLine(props: { line: string; index: number }) {
   return (
-    <div style={{ minHeight: props.fontSize + 8, display: "flex", alignItems: "center" }}>
-      <Show when={props.showLineNumbers}>
-        <div style={{ width: 34, alignItems: "flexEnd", paddingRight: 10 }}>
-          <text testId={`line-number-${props.number}`} style={{ color: props.theme.muted, fontSize: props.fontSize - 2 }}>{props.number}</text>
+    <div style={{ display: "flex", minHeight: 23, alignItems: "center" }}>
+      <Show when={showLineNumbers()}>
+        <div
+          style={{
+            width: 38,
+            flexShrink: 0,
+            display: "flex",
+            justifyContent: "flexEnd",
+            paddingRight: 10,
+          }}
+        >
+          <text
+            testId={`line-number-${props.index}`}
+            style={{ color: "#5d5d5d", fontSize: 11, fontWeight: 600 }}
+          >
+            {lineNumberStart() + props.index - 1}
+          </text>
         </div>
       </Show>
-      <text style={{ color: color(), fontSize: props.fontSize }}>{props.text}</text>
+      <text
+        style={{
+          color: syntaxColor(props.line),
+          fontFamily: font(),
+          fontSize: 13,
+          fontWeight: fontWeight(),
+        }}
+      >
+        {props.line}
+      </text>
     </div>
+  )
+}
+
+function MacHeader() {
+  return (
+    <Show when={showHeader()}>
+      <div
+        testId="terminal-header"
+        style={{
+          minHeight: 42,
+          display: "flex",
+          alignItems: "center",
+          paddingLeft: 14,
+          paddingRight: 14,
+          borderWidth: 1,
+          borderColor: borderType() === "glass" ? colors.glass : colors.divider,
+          backgroundColor:
+            terminalType() === "macOsGrayTheme" ? "#282828" : activeTheme().terminal,
+        }}
+      >
+        <Show when={terminalType() !== "windows"}>
+          <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
+            <div style={{ width: 11, height: 11, borderRadius: 6, backgroundColor: "#ff5f57" }} />
+            <div style={{ width: 11, height: 11, borderRadius: 6, backgroundColor: "#febc2e" }} />
+            <div style={{ width: 11, height: 11, borderRadius: 6, backgroundColor: "#28c840" }} />
+          </div>
+        </Show>
+        <Show when={terminalType() === "windows"}>
+          <text style={{ color: colors.textAlt, fontSize: 11 }}>Terminal</text>
+        </Show>
+        <div style={{ flexGrow: 1 }} />
+        <text style={{ color: colors.description, fontSize: 10 }}>index.tsx</text>
+      </div>
+    </Show>
   )
 }
 
@@ -379,194 +1126,453 @@ export function ManagedFrame() {
   return (
     <div
       testId="preview-frame"
-      style={{ position: "relative", width: 720, minHeight: 480, padding: padding(), borderRadius: 20, borderWidth: 1, borderColor: theme().canvasSoft, backgroundColor: theme().canvas }}
+      style={{
+        position: "relative",
+        width: 650,
+        maxWidth: "100%",
+        minHeight: 430,
+        padding: framePadding(),
+        borderRadius: frameRadius(),
+        opacity: frameVisible() ? frameOpacity() / 100 : 0,
+        background: frameBackground() === null ? activeTheme().preview : undefined,
+        backgroundColor: frameBackground() ?? undefined,
+        borderWidth: borderType() === "glass" ? 1 : 0,
+        borderColor: borderType() === "glass" ? colors.glass : colors.divider,
+        boxShadow:
+          shadow() === "bottom"
+            ? {
+                offsetX: 0,
+                offsetY: 18,
+                blurRadius: 34,
+                spreadRadius: 0,
+                color: "#00000066",
+              }
+            : undefined,
+      }}
     >
       <div
         testId="code-window"
-        style={{ width: "100%", minHeight: 390, display: "flex", flexDirection: "column", overflow: "hidden", borderRadius: radius(), borderWidth: showEmphasis() ? 2 : 1, borderColor: showEmphasis() ? theme().canvasSoft : theme().border, backgroundColor: theme().window }}
+        style={{
+          position: "relative",
+          width: "100%",
+          minHeight: 300,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          borderRadius: frameRadius(),
+          borderWidth: borderType() === "glass" ? 1 : 0,
+          borderColor: colors.glass,
+          backgroundColor: activeTheme().terminal,
+        }}
       >
-        <Show when={chromeMode() !== "none"}>
-          <div style={{ height: chromeMode() === "macos" ? 44 : 34, display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 14, paddingRight: 14, borderWidth: 1, borderColor: theme().border, backgroundColor: theme().header }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-              <Show when={chromeMode() === "macos"}>
-                <div style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: "#ff5f57" }} />
-                <div style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: "#febc2e" }} />
-                <div style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: "#28c840" }} />
-              </Show>
-            </div>
-            <text testId="preview-filename" style={{ color: theme().muted, fontSize: 10, fontWeight: 600 }}>{filename()}</text>
-            <text style={{ color: theme().muted, fontSize: 9 }}>TSX</text>
-          </div>
-        </Show>
-        <div style={{ flexGrow: 1, display: "flex", flexDirection: "column", padding: 16 }}>
-          <For each={codeLines}>
-            {(line, index) => <CodeLine text={line} number={index() + 1} theme={theme()} fontSize={fontSize()} showLineNumbers={showLineNumbers()} />}
+        <MacHeader />
+        <div
+          style={{
+            flexGrow: 1,
+            display: "flex",
+            flexDirection: "column",
+            paddingTop: 18,
+            paddingBottom: 18,
+            paddingLeft: 18,
+            paddingRight: 18,
+          }}
+        >
+          <For each={sourceCode}>
+            {(line, index) => <CodeLine line={line} index={index() + 1} />}
           </For>
         </div>
+        <Show when={showReflection()}>
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              right: 0,
+              width: 70,
+              height: "100%",
+              opacity: 0.12,
+              backgroundColor: colors.white,
+            }}
+          />
+        </Show>
+        <Show when={showWatermark()}>
+          <text
+            testId="terminal-watermark"
+            style={{
+              position: "absolute",
+              right: 24,
+              bottom: 18,
+              color: colors.description,
+              fontSize: 9,
+            }}
+          >
+            CodeImage
+          </text>
+        </Show>
+      </div>
+      <Show when={aspectRatio()}>
+        <text
+          testId="aspect-ratio-label"
+          style={{
+            position: "absolute",
+            left: 8,
+            bottom: 6,
+            color: colors.white,
+            fontSize: 9,
+          }}
+        >
+          {aspectRatio()}
+        </text>
+      </Show>
+    </div>
+  )
+}
+
+export function PreviewFrame(props: {
+  ref?: ((value: unknown) => unknown) | undefined
+}) {
+  return (
+    <div
+      ref={(value) => props.ref?.(value)}
+      style={{ position: "absolute", width: 0, height: 0 }}
+    />
+  )
+}
+
+export function FrameSkeleton() {
+  return (
+    <div
+      style={{
+        width: 520,
+        height: 320,
+        borderRadius: 18,
+        backgroundColor: colors.panel,
+      }}
+    />
+  )
+}
+
+export function FrameToolbar(_props: { frameRef?: unknown }) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        bottom: 20,
+        left: 0,
+        right: 0,
+        display: "flex",
+        justifyContent: "center",
+        zIndex: 40,
+        pointerEvents: "none",
+      }}
+    >
+      <div
+        testId="frame-toolbar"
+        style={{
+          display: "flex",
+          justifyContent: "flexEnd",
+          padding: 10,
+          minHeight: 50,
+          gap: 8,
+          borderRadius: 12,
+          backgroundColor: "#1d1d1d",
+          borderWidth: 1,
+          borderColor: colors.divider,
+          pointerEvents: "auto",
+        }}
+      >
+        <ExportSettingsButton />
+        <div
+          testId="copy-button"
+          style={buttonStyle(false)}
+          onClick={() => setStatus("Copied preview locally")}
+        >
+          <text style={{ color: colors.text, fontSize: 10 }}>Copy</text>
+        </div>
+        <div
+          testId="randomize-button"
+          style={buttonStyle(false)}
+          onClick={dispatchRandomTheme}
+        >
+          <text style={{ color: colors.text, fontSize: 10 }}>◐ Randomize</text>
+        </div>
+        <div
+          testId="format-button"
+          style={buttonStyle(false)}
+          onClick={() => getActiveEditorStore().format()}
+        >
+          <text style={{ color: colors.text, fontSize: 10 }}>✦ Format</text>
+        </div>
+        <ExportInNewTabButton />
       </div>
     </div>
   )
 }
 
-export function PreviewFrame(props: { ref?: ((value: unknown) => unknown) | undefined }) {
-  return <div ref={(value) => props.ref?.(value)} style={{ position: "absolute", width: 0, height: 0 }} />
-}
-
-export function FrameSkeleton() {
-  return <div style={{ width: 520, height: 320, borderRadius: 18, backgroundColor: ui.panel }} />
-}
-
-export function FrameToolbar(_props: { frameRef?: unknown }) {
-  return <></>
-}
-
-export function Footer() {
+function FooterLink(props: { testId: string; label: string }) {
   return (
-    <div style={{ height: 32, display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 14, paddingRight: 14, borderWidth: 1, borderColor: ui.border, backgroundColor: ui.toolbar }}>
-      <text style={{ color: ui.faint, fontSize: 9 }}>Solid 2 universal renderer · native GPUI retained tree</text>
-      <text testId="export-status" style={{ color: exportCount() > 0 ? ui.success : ui.faint, fontSize: 9 }}>
-        {exportCount() > 0 ? `Exported ${exportCount()} preview${exportCount() === 1 ? "" : "s"}` : "Ready"}
+    <div
+      testId={props.testId}
+      style={{ cursor: "pointer" }}
+      onClick={() => setStatus(`${props.label} selected`)}
+    >
+      <text
+        style={{
+          color: colors.description,
+          fontSize: 9,
+          hover: { textDecoration: "underline" },
+        }}
+      >
+        {props.label}
       </text>
     </div>
   )
 }
 
+export function Footer() {
+  return (
+    <>
+      <div
+        testId="codeimage-footer"
+        style={{
+          position: "absolute",
+          bottom: 0,
+          right: 0,
+          zIndex: 20,
+          display: "flex",
+          justifyContent: "flexEnd",
+          padding: 4,
+          gap: 20,
+        }}
+      >
+        <FooterLink testId="footer-better-comments" label="Better Comments for GitHub" />
+        <FooterLink testId="footer-github" label="GitHub" />
+        <FooterLink testId="footer-issues" label="Issue & Feedback" />
+        <FooterLink testId="footer-releases" label="Releases" />
+        <FooterLink testId="footer-whats-new" label="🎉 What's new" />
+      </div>
+      <text
+        testId="codeimage-status"
+        style={{
+          position: "absolute",
+          width: 0,
+          height: 0,
+          opacity: 0,
+          pointerEvents: "none",
+        }}
+      >
+        {status()}
+      </text>
+      <text
+        testId="export-count"
+        style={{
+          position: "absolute",
+          width: 0,
+          height: 0,
+          opacity: 0,
+          pointerEvents: "none",
+        }}
+      >
+        {exportCount()}
+      </text>
+    </>
+  )
+}
+
 export function Sidebar(props: ChildrenProps) {
   return (
-    <div style={{ width: 310, display: "flex", flexDirection: "column", gap: 16, padding: 16, borderWidth: 1, borderColor: ui.border, backgroundColor: ui.inspector }}>
+    <div
+      testId="theme-sidebar"
+      style={{
+        width: 280,
+        height: "100%",
+        flexShrink: 0,
+        overflowY: "scroll",
+        overflowX: "hidden",
+        paddingRight: 8,
+        borderWidth: 1,
+        borderColor: colors.divider,
+        backgroundColor: colors.panel,
+        color: colors.white,
+      }}
+    >
       {props.children}
     </div>
   )
 }
 
-function InspectorTitle(props: { title: string; detail: string }) {
+export function ThemeSwitcher(_props: {
+  orientation?: "vertical" | undefined
+}) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <text style={{ color: ui.text, fontSize: 15, fontWeight: 700 }}>{props.title}</text>
-      <text style={{ color: ui.muted, fontSize: 11 }}>{props.detail}</text>
-    </div>
-  )
-}
-
-function Stepper(props: { label: string; value: number; min: number; max: number; step: number; testId: string; onChange: (value: number) => void }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-      <text style={{ color: ui.muted, fontSize: 11 }}>{props.label}</text>
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <div testId={`${props.testId}-minus`} style={buttonStyle()} onClick={() => props.onChange(Math.max(props.min, props.value - props.step))}>
-          <text style={{ color: ui.text, fontSize: 12 }}>−</text>
-        </div>
-        <div style={{ minWidth: 54, paddingTop: 8, paddingBottom: 8, alignItems: "center", borderRadius: 8, borderWidth: 1, borderColor: ui.border, backgroundColor: ui.app }}>
-          <text testId={`${props.testId}-value`} style={{ color: ui.text, fontSize: 10, fontWeight: 600 }}>{props.value}px</text>
-        </div>
-        <div testId={`${props.testId}-plus`} style={buttonStyle()} onClick={() => props.onChange(Math.min(props.max, props.value + props.step))}>
-          <text style={{ color: ui.text, fontSize: 12 }}>+</text>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function ToggleRow(props: { label: string; detail: string; value: boolean; testId: string; onToggle: () => void }) {
-  return (
-    <div testId={props.testId} style={{ ...buttonStyle(props.value), display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }} onClick={props.onToggle}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <text style={{ color: ui.text, fontSize: 11, fontWeight: 600 }}>{props.label}</text>
-        <text style={{ color: ui.muted, fontSize: 9 }}>{props.detail}</text>
-      </div>
-      <text style={{ color: props.value ? "#c9bcff" : ui.faint, fontSize: 9 }}>{props.value ? "ON" : "OFF"}</text>
-    </div>
-  )
-}
-
-export function ThemeSwitcher(_props: { orientation?: "vertical" | undefined }) {
-  return (
-    <>
-      <Show when={tool() === "frame"}>
-        <InspectorTitle title="Frame" detail="Frame controls behind the upstream CodeImage component boundary." />
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <text style={{ color: ui.faint, fontSize: 9, fontWeight: 700 }}>WINDOW CHROME</text>
-          <div style={{ display: "flex", gap: 6 }}>
-            <For each={["macos", "compact", "none"] as const}>
-              {(mode) => (
-                <div testId={`chrome-${mode}`} style={buttonStyle(chromeMode() === mode)} onClick={() => setChromeMode(mode)}>
-                  <text style={{ color: chromeMode() === mode ? "#d8d0ff" : ui.muted, fontSize: 9 }}>{mode === "macos" ? "macOS" : mode === "compact" ? "Compact" : "None"}</text>
-                </div>
-              )}
-            </For>
+    <div
+      testId="theme-switcher"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 32,
+        padding: 16,
+        height: "100%",
+      }}
+    >
+      <input
+        testId="theme-search"
+        value={themeSearch()}
+        placeholder="Search themes"
+        onChange={(event) => setThemeSearch(event.value ?? "")}
+        style={{
+          width: "100%",
+          minHeight: 30,
+          paddingLeft: 10,
+          paddingRight: 10,
+          borderRadius: 7,
+          borderWidth: 1,
+          borderColor: colors.divider,
+          backgroundColor: colors.input,
+          color: colors.text,
+        }}
+      />
+      <For each={filteredThemes()}>
+        {(theme) => (
+          <div
+            testId={`theme-${theme.id}`}
+            style={{
+              width: "100%",
+              overflow: "hidden",
+              position: "relative",
+              borderRadius: 12,
+              borderWidth: themeId() === theme.id ? 2 : 1,
+              borderColor:
+                themeId() === theme.id ? colors.primary : colors.divider,
+              background: theme.preview,
+              cursor: "pointer",
+            }}
+            onClick={() => {
+              setThemeId(theme.id)
+              setStatus(`Theme changed to ${theme.label}`)
+            }}
+          >
+            <div
+              style={{
+                margin: 16,
+                padding: 8,
+                minHeight: 92,
+                borderRadius: 8,
+                backgroundColor: theme.terminal,
+                display: "flex",
+                flexDirection: "column",
+                gap: 5,
+              }}
+            >
+              <text style={{ color: theme.keyword, fontSize: 9 }}>
+                function Preview() {"{"}
+              </text>
+              <text style={{ color: theme.number, fontSize: 9 }}>
+                {"  "}const count = 0;
+              </text>
+              <text style={{ color: theme.string, fontSize: 9 }}>
+                {"  "}return &quot;CodeImage&quot;;
+              </text>
+              <text style={{ color: theme.keyword, fontSize: 9 }}>{"}"}</text>
+            </div>
+            <div
+              style={{
+                margin: 16,
+                marginTop: 0,
+                padding: 12,
+                justifyContent: "center",
+                alignItems: "center",
+                borderRadius: 8,
+                backgroundColor: "#00000066",
+                display: "flex",
+              }}
+            >
+              <text
+                testId={`theme-label-${theme.id}`}
+                style={{ color: colors.white, fontSize: 11 }}
+              >
+                {theme.label}
+              </text>
+            </div>
           </div>
-        </div>
-        <div style={{ height: 1, backgroundColor: ui.border }} />
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <text style={{ color: ui.faint, fontSize: 9, fontWeight: 700 }}>LAYOUT</text>
-          <Stepper label="Padding" value={padding()} min={24} max={72} step={8} testId="padding" onChange={setPadding} />
-          <Stepper label="Radius" value={radius()} min={0} max={28} step={4} testId="radius" onChange={setRadius} />
-          <ToggleRow label="Frame emphasis" detail="Native border weight" value={showEmphasis()} testId="toggle-shadow" onToggle={() => setShowEmphasis((value) => !value)} />
-        </div>
-      </Show>
-
-      <Show when={tool() === "code"}>
-        <InspectorTitle title="Code" detail="Code editor state adapted below the upstream component tree." />
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <text style={{ color: ui.faint, fontSize: 9, fontWeight: 700 }}>EDITOR</text>
-          <Stepper label="Font size" value={fontSize()} min={11} max={17} step={1} testId="font-size" onChange={setFontSize} />
-          <ToggleRow label="Line numbers" detail="Solid conditional subtree" value={showLineNumbers()} testId="toggle-line-numbers" onToggle={() => setShowLineNumbers((value) => !value)} />
-        </div>
-      </Show>
-
-      <Show when={tool() === "theme"}>
-        <InspectorTitle title="Themes" detail="Theme state remains deterministic at the compatibility boundary." />
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <For each={themes}>
-            {(candidate) => (
-              <div testId={`theme-${candidate.id}`} onClick={() => setThemeId(candidate.id)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 11, borderRadius: 9, borderWidth: 1, borderColor: themeId() === candidate.id ? ui.accent : ui.border, backgroundColor: themeId() === candidate.id ? "#2d2750" : ui.panel, cursor: "pointer", hover: { backgroundColor: ui.panelRaised } }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ width: 28, height: 28, borderRadius: 7, borderWidth: 1, borderColor: candidate.canvasSoft, backgroundColor: candidate.canvas }} />
-                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                    <text style={{ color: ui.text, fontSize: 10, fontWeight: 600 }}>{candidate.name}</text>
-                    <text style={{ color: ui.faint, fontSize: 9 }}>{candidate.id}</text>
-                  </div>
-                </div>
-                <Show when={themeId() === candidate.id}><text style={{ color: "#c9bcff", fontSize: 9 }}>SELECTED</text></Show>
-              </div>
-            )}
-          </For>
-        </div>
-      </Show>
-    </>
+        )}
+      </For>
+    </div>
   )
 }
 
 export function ExportButton(_props: { canvasRef?: unknown }) {
   return (
-    <div testId="export-button" style={{ ...buttonStyle(true), backgroundColor: ui.accent }} onClick={() => setExportCount((count) => count + 1)}>
-      <text style={{ color: "#ffffff", fontSize: 10, fontWeight: 700 }}>Export</text>
+    <div
+      testId="export-button"
+      style={buttonStyle(true)}
+      onClick={() => {
+        const next = exportCount() + 1
+        setExportCount(next)
+        setStatus(`Exported ${next} preview`)
+      }}
+    >
+      <text style={{ color: colors.white, fontSize: 10, fontWeight: 700 }}>
+        Export
+      </text>
     </div>
   )
 }
 
-export function ExportInNewTabButton(_props: { canvasRef?: unknown }) {
-  return <div style={buttonStyle()}><text style={{ color: ui.text, fontSize: 9 }}>Open</text></div>
+export function ExportInNewTabButton(_props: { canvasRef?: unknown; size?: string | undefined }) {
+  return (
+    <div
+      testId="open-preview-button"
+      style={buttonStyle(false)}
+      onClick={() => setStatus("Opened preview locally")}
+    >
+      <text style={{ color: colors.text, fontSize: 10 }}>Open</text>
+    </div>
+  )
 }
 
 export function ExportSettingsButton() {
-  return <div style={buttonStyle()}><text style={{ color: ui.text, fontSize: 9 }}>Settings</text></div>
+  return (
+    <div
+      testId="export-settings-button"
+      style={buttonStyle(false)}
+      onClick={() => setStatus("Export settings opened locally")}
+    >
+      <text style={{ color: colors.text, fontSize: 10 }}>Settings</text>
+    </div>
+  )
 }
 
 export function ShareButton(props: { showLabel?: boolean | undefined }) {
-  return <div style={buttonStyle()}><text style={{ color: ui.text, fontSize: 9 }}>{props.showLabel === false ? "↗" : "Share"}</text></div>
+  return (
+    <div
+      testId="share-button"
+      style={buttonStyle(false)}
+      onClick={() => setStatus("Share link prepared locally")}
+    >
+      <text style={{ color: colors.text, fontSize: 10 }}>
+        {props.showLabel === false ? "↗" : "Share"}
+      </text>
+    </div>
+  )
 }
 
 export function ColorSwatchIcon() {
-  return <text style={{ color: ui.text, fontSize: 10 }}>◐</text>
+  return <text style={{ color: colors.text, fontSize: 10 }}>◐</text>
 }
 
 export function SparklesIcon() {
-  return <text style={{ color: ui.text, fontSize: 10 }}>✦</text>
+  return <text style={{ color: colors.text, fontSize: 10 }}>✦</text>
 }
 
 export function EditorReadOnlyBanner(props: { onClone: () => void }) {
-  return <div style={{ padding: 8, backgroundColor: ui.panel }} onClick={props.onClone}><text style={{ color: ui.text, fontSize: 10 }}>Read only · Clone</text></div>
+  return (
+    <div
+      style={{ padding: 8, backgroundColor: colors.panel }}
+      onClick={props.onClone}
+    >
+      <text style={{ color: colors.text, fontSize: 10 }}>Read only · Clone</text>
+    </div>
+  )
 }
 
 export function BottomBar(_props: { portalHostRef?: unknown }) {

@@ -53,7 +53,17 @@ export function App() {
       class={adaptiveFullScreenHeight}
     >
       <Toolbar canvasRef={frameRef()} />
-      <div style={{ display: "flex", flexGrow: 1, minHeight: 0 }}>
+      <div
+        style={{
+          width: "100%",
+          position: "relative",
+          display: "flex",
+          flexGrow: 1,
+          height: "100%",
+          minHeight: 0,
+          minWidth: 0,
+        }}
+      >
         <Show when={modality === "full" && !readOnly()}>
           <EditorLeftSidebar />
         </Show>

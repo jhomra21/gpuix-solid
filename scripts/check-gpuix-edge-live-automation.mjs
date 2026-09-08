@@ -1,4 +1,3 @@
-import assert from "node:assert/strict"
 import { spawn } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import { connectStdio } from "../packages/solid/dist/automation/stdio.js"
@@ -49,7 +48,9 @@ async function runExample({ name, entry, test }) {
     try {
       return await Promise.race([
         Promise.resolve().then(operation),
-        exited.then((result) => { throw processError(name, result, stderrChunks) }),
+        exited.then((result) => {
+          throw processError(name, result, stderrChunks)
+        }),
         timedOut,
       ])
     } finally {
@@ -59,17 +60,19 @@ async function runExample({ name, entry, test }) {
 
   let app
   try {
-    app = await step("automation initialization", () => connectStdio({
-      write(chunk) {
-        child.stdin.write(chunk)
-      },
-      feed(listener) {
-        child.stdout.on("data", (buffer) => listener(buffer.toString("utf8")))
-      },
-      async close() {
-        if (!child.killed) child.kill()
-      },
-    }))
+    app = await step("automation initialization", () =>
+      connectStdio({
+        write(chunk) {
+          child.stdin.write(chunk)
+        },
+        feed(listener) {
+          child.stdout.on("data", (buffer) => listener(buffer.toString("utf8")))
+        },
+        async close() {
+          if (!child.killed) child.kill()
+        },
+      }),
+    )
 
     const expectText = async (locator, expected, label, options = {}) => {
       await step(label, async () => {
@@ -158,7 +161,9 @@ const examples = [
     entry: "dist/blurred-window/blurred-window.js",
     async test({ app, step, expectPresent }) {
       await step("fill username", () => app.getByTestId("username").fill("Edge User"))
-      await step("wait for animated submit", () => app.getByTestId("username-submit").waitFor({ timeoutMs: 5_000 }))
+      await step("wait for animated submit", () =>
+        app.getByTestId("username-submit").waitFor({ timeoutMs: 5_000 }),
+      )
       await step("submit username", () => app.getByTestId("username-submit").click())
       await expectPresent(app.getByText("Good morning, Edge User"), "welcome state")
     },
@@ -171,7 +176,9 @@ const examples = [
       await step("open inbox", () => app.getByTestId("view-inbox").click())
       await expectText(app.getByTestId("view-title"), "Inbox", "inbox view")
       await step("return to today", () => app.getByTestId("view-today").click())
-      await step("fill task composer", () => app.getByTestId("composer").fill("Live stdio task"))
+      await step("fill task composer", () =>
+        app.getByTestId("composer").fill("Live stdio task"),
+      )
       await step("add task", () => app.getByTestId("add").click())
       await expectPresent(app.getByText("Live stdio task"), "new task")
       await expectText(app.getByTestId("view-count"), "3", "updated task count")
@@ -210,7 +217,9 @@ const examples = [
       await step("clear mail search", () => app.getByTestId("search").fill(""))
       await step("open Promotions", () => app.getByTestId("channel-promotions").click())
       await expectPresent(app.getByTestId("thread-lighthouse"), "Promotions thread")
-      await step("open Atlas from sidebar", () => app.getByTestId("nav-thread-atlas-weekly").click())
+      await step("open Atlas from sidebar", () =>
+        app.getByTestId("nav-thread-atlas-weekly").click(),
+      )
       await expectPresent(app.getByTestId("thread-split"), "full reader split control")
       await step("split reader", () => app.getByTestId("thread-split").click())
       await expectPresent(app.getByTestId("thread-full"), "split reader full control")
@@ -221,13 +230,27 @@ const examples = [
     entry: "dist/diffusion/index.js",
     async test({ app, step, expectCount, expectPresent, expectText }) {
       await expectPresent(app.getByTestId("diffusion-editor"), "editor shell")
-      await expectText(app.getByTestId("diffusion-soundboard-left-volume-value"), "-3 dB", "initial volume")
-      await step("change left volume", () => app.getByTestId("diffusion-soundboard-left-volume").click())
-      await expectText(app.getByTestId("diffusion-soundboard-left-volume-value"), "-6 dB", "updated volume")
+      await expectText(
+        app.getByTestId("diffusion-soundboard-left-volume-value"),
+        "-3 dB",
+        "initial volume",
+      )
+      await step("change left volume", () =>
+        app.getByTestId("diffusion-soundboard-left-volume").click(),
+      )
+      await expectText(
+        app.getByTestId("diffusion-soundboard-left-volume-value"),
+        "-6 dB",
+        "updated volume",
+      )
       await step("open project menu", () => app.getByTestId("diffusion-project-menu").click())
       await expectPresent(app.getByTestId("diffusion-project-menu-content"), "project menu")
-      await step("open View submenu", () => app.getByTestId("diffusion-project-menu-content").getByText("View").click())
-      await step("zoom in", () => app.getByTestId("diffusion-project-menu-content").getByText("Zoom in").click())
+      await step("open View submenu", () =>
+        app.getByTestId("diffusion-project-menu-content").getByText("View").click(),
+      )
+      await step("zoom in", () =>
+        app.getByTestId("diffusion-project-menu-content").getByText("Zoom in").click(),
+      )
       await expectPresent(app.getByText("125%"), "zoom result")
       await step("toggle playback", () => app.getByTestId("diffusion-play").click())
       await expectText(app.getByTestId("diffusion-play"), "Ⅱ", "playing state")
@@ -240,14 +263,17 @@ const examples = [
   {
     name: "Chat",
     entry: "dist/chat/index.js",
-    async test({ app, step, expectPresent }) {
-      await expectPresent(app.getByText("DeepSeek V4 Flash"), "initial model")
-      await step("open model picker", () => app.getByTestId("model-picker").click())
+    async test({ app, step, expectPresent, expectText }) {
+      const modelPicker = app.getByTestId("model-picker")
+      await expectText(modelPicker, "DeepSeek V4 Flash", "initial model")
+      await step("open model picker", () => modelPicker.click())
       await expectPresent(app.getByText("Claude Opus 4.6"), "model option")
       await step("select model", () => app.getByText("Claude Opus 4.6").click())
-      await expectPresent(app.getByText("Claude Opus 4.6"), "selected model")
-      await step("fill composer", () => app.getByType("textarea").fill("live stdio hello"))
-      await step("submit composer", () => app.getByType("textarea").press("enter"))
+      await expectText(modelPicker, "Claude Opus 4.6", "selected model")
+      await step("fill composer", () =>
+        app.getByTestId("composer").fill("live stdio hello"),
+      )
+      await step("submit composer", () => app.getByTestId("send").click())
       await step("wheel transcript", () => app.getByType("virtual-list").wheel(0, -260))
     },
   },
@@ -255,34 +281,22 @@ const examples = [
     name: "Infinite Chat",
     entry: "dist/infinite-chat/index.js",
     async test({ app, step, expectPresent, expectText }) {
-      await expectText(app.getByTestId("infinite-route"), "/messages/latest", "initial route")
-      const transcript = app.getByType("virtual-list")
-      const transcriptBounds = await step("read transcript bounds", () => transcript.bounds())
-      const latestIndexes = Array.from({ length: 12 }, (_, offset) => 388 + offset)
-      let visibleLink
-      let target
-      for (const index of latestIndexes.reverse()) {
-        const targetIndex = (index * 7 + 13) % 400
-        const label = `Open message ${String(targetIndex).padStart(3, "0")}`
-        const locator = app.getByText(label)
-        if (await step(`find ${label}`, () => locator.count()) !== 1) continue
-        try {
-          const bounds = await step(`read ${label} bounds`, () => locator.bounds())
-          const transcriptBottom = transcriptBounds.y + transcriptBounds.height
-          const linkBottom = bounds.y + bounds.height
-          if (bounds.y >= transcriptBounds.y && linkBottom <= transcriptBottom) {
-            visibleLink = locator
-            target = `message-${String(targetIndex).padStart(3, "0")}`
-            break
-          }
-        } catch {
-          // Virtualized rows can exist in the automation tree without a painted hit surface.
-        }
-      }
-      assert.ok(visibleLink && target, "Infinite Chat should expose a painted MDX link on the latest page")
-      await step("click visible MDX link", () => visibleLink.click())
-      await expectText(app.getByTestId("infinite-route"), `/messages/${target}`, "MDX route navigation")
-      await expectPresent(app.getByTestId(`message-${target}`), "routed message")
+      await expectText(
+        app.getByTestId("infinite-route"),
+        "/messages/latest",
+        "initial route",
+      )
+      const latest = app.getByTestId("message-message-399")
+      await expectPresent(latest, "latest message")
+      const link = latest.getByTestId("mdx-link-root-2-0")
+      await expectPresent(link, "painted latest MDX link")
+      await step("click latest MDX link", () => link.click())
+      await expectText(
+        app.getByTestId("infinite-route"),
+        "/messages/message-006",
+        "MDX route navigation",
+      )
+      await expectPresent(app.getByTestId("message-message-006"), "routed message")
     },
   },
   {
@@ -295,7 +309,9 @@ const examples = [
       await step("close API result", () => app.getByTestId("close-api").click())
       await step("open Tasks route", () => app.getByTestId("nav-tasks").click())
       await expectText(app.getByTestId("page-title"), "Tasks", "Tasks route")
-      await step("fill task", () => app.getByTestId("task-input").fill("Live dashboard task"))
+      await step("fill task", () =>
+        app.getByTestId("task-input").fill("Live dashboard task"),
+      )
       await step("add task", () => app.getByTestId("task-add").click())
       await expectPresent(app.getByText("Live dashboard task"), "dashboard task")
     },
@@ -304,16 +320,24 @@ const examples = [
     name: "CodeImage",
     entry: "dist/codeimage/index.js",
     async test({ app, step, expectPresent, expectText }) {
-      await expectText(app.getByTestId("theme-label"), "Tokyo Night", "initial theme")
-      await step("hover theme tool", () => app.getByTestId("tool-theme").hover())
-      await step("open theme tool", () => app.getByTestId("tool-theme").click())
-      await expectPresent(app.getByTestId("theme-rose"), "theme option")
-      await step("select Rosé Pine", () => app.getByTestId("theme-rose").click())
-      await expectText(app.getByTestId("theme-label"), "Rosé Pine", "updated theme")
-      await step("fill filename", () => app.getByTestId("filename-input").fill("live-stdio.tsx"))
-      await expectText(app.getByTestId("preview-filename"), "live-stdio.tsx", "updated filename")
+      await expectPresent(app.getByTestId("editor-left-sidebar"), "property editor sidebar")
+      await expectPresent(app.getByTestId("theme-sidebar"), "theme sidebar")
+      await expectText(app.getByTestId("frame-padding"), "64", "source frame padding", {
+        includes: true,
+      })
+      await expectText(app.getByTestId("editor-theme"), "Fleet Dark", "source initial theme", {
+        includes: true,
+      })
+      await step("hide terminal header", () => app.getByTestId("terminal-header-no").click())
+      await expectPresent(app.getByTestId("terminal-header-yes"), "terminal header restore control")
+      await step("restore terminal header", () => app.getByTestId("terminal-header-yes").click())
+      await expectPresent(app.getByTestId("terminal-header"), "restored terminal header")
+      await step("select VSCode Dark", () => app.getByTestId("theme-vsCodeDarkTheme").click())
+      await expectText(app.getByTestId("editor-theme"), "VSCode Dark", "updated theme", {
+        includes: true,
+      })
       await step("export preview", () => app.getByTestId("export-button").click())
-      await expectText(app.getByTestId("export-status"), "Exported 1 preview", "export status", { includes: true })
+      await expectText(app.getByTestId("export-count"), "1", "local export count")
     },
   },
   {
@@ -324,8 +348,12 @@ const examples = [
       await expectText(app.getByTestId("invoice-count"), "10 total invoices.", "initial invoice count")
       await step("open invoices", () => app.getByTestId("dashboard-tab-invoices").click())
       await expectPresent(app.getByTestId("invoice-create-panel"), "invoice form")
-      await step("fill invoice title", () => app.getByTestId("create-title").fill("Live stdio invoice"))
-      await step("fill invoice body", () => app.getByTestId("create-body").fill("Created through source-main automation"))
+      await step("fill invoice title", () =>
+        app.getByTestId("create-title").fill("Live stdio invoice"),
+      )
+      await step("fill invoice body", () =>
+        app.getByTestId("create-body").fill("Created through source-main automation"),
+      )
       await step("create invoice", () => app.getByTestId("create-invoice-submit").click())
       await expectPresent(app.getByTestId("invoice-row-11"), "created invoice")
       await step("open users", () => app.getByTestId("dashboard-tab-users").click())
@@ -353,4 +381,6 @@ if (failures.length > 0) {
   )
 }
 
-console.log(`GPUIX source-edge live automation: all ${examples.length} Solid 2 examples passed end to end`)
+console.log(
+  `GPUIX source-edge live automation: all ${examples.length} Solid 2 examples passed end to end`,
+)
