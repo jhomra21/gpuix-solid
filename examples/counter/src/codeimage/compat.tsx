@@ -352,7 +352,6 @@ function ToolbarMenu() {
           borderWidth: 1,
           borderColor: colors.divider,
           backgroundColor: colors.input,
-          zIndex: 50,
         }}
       >
         <div testId="toolbar-menu-settings" style={smallControlStyle()} onClick={() => setStatus("Settings opened locally")}>
@@ -378,7 +377,6 @@ export function Toolbar(_props: { canvasRef?: unknown }) {
       testId="codeimage-toolbar"
       style={{
         position: "relative",
-        zIndex: 30,
         height: 52,
         width: "100%",
         display: "flex",
@@ -1248,7 +1246,6 @@ export function FrameToolbar(_props: { frameRef?: unknown }) {
         right: 0,
         display: "flex",
         justifyContent: "center",
-        zIndex: 40,
         pointerEvents: "none",
       }}
     >
@@ -1324,7 +1321,6 @@ export function Footer() {
           position: "absolute",
           bottom: 0,
           right: 0,
-          zIndex: 20,
           display: "flex",
           justifyContent: "flexEnd",
           padding: 4,
