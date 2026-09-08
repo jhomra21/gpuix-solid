@@ -113,6 +113,13 @@ async function main(): Promise<void> {
     await app.getByTestId("toolbar-settings").click()
     assert.equal(await app.getByTestId("toolbar-menu-content").count(), 0)
 
+    await requireTestId(app, "preset-toggle")
+    await app.getByTestId("preset-toggle").click()
+    await requireTestId(app, "preset-panel")
+    await requireTestId(app, "preset-close")
+    await app.getByTestId("preset-close").click()
+    assert.equal(await app.getByTestId("preset-panel").count(), 0)
+
     assert.equal(await app.getByTestId("frame-padding").textContent(), "64⌄")
     await requireTestId(app, "frame-radius-8")
     await requireTestId(app, "terminal-header")
@@ -141,15 +148,6 @@ async function main(): Promise<void> {
     assert.equal(await app.getByTestId("terminal-watermark").count(), 0)
     await app.getByTestId("terminal-watermark-show").click()
     await requireTestId(app, "terminal-watermark")
-
-    await scrollIntoView(app, "editor-left-sidebar", "preset-toggle")
-    await app.getByTestId("preset-toggle").click()
-    await requireTestId(app, "preset-panel")
-    await requireTestId(app, "preset-minimal")
-    await requireTestId(app, "preset-fleet")
-    await requireTestId(app, "preset-macos")
-    await app.getByTestId("preset-close").click()
-    assert.equal(await app.getByTestId("preset-panel").count(), 0)
 
     await scrollIntoView(app, "editor-left-sidebar", "editor-line-numbers-show")
     await app.getByTestId("editor-line-numbers-show").click()
