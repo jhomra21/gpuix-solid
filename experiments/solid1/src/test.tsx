@@ -3,7 +3,7 @@ import { existsSync, statSync, unlinkSync } from "node:fs"
 import {
   createTestRoot,
   hasNativeTestRenderer,
-} from "gpuix-solid1-experiment"
+} from "@jhomra21/gpuix-solid1"
 import { Solid1CompatibilityLab } from "./app"
 
 const screenshotPath = "/tmp/gpuix-solid1-compatibility.png"
@@ -19,7 +19,7 @@ testRoot.render(() => <Solid1CompatibilityLab />)
 
 try {
   const { renderer } = testRoot
-  assert.equal(renderer.textContent("runtime-version"), "solid-js 1.9.15 → shared GPUI host kernel")
+  assert.equal(renderer.textContent("runtime-version"), "solid-js 1.9.15 → maintained Solid 1 package")
   assert.equal(renderer.textContent("count-value"), "0")
 
   renderer.clickTestId("increment")
