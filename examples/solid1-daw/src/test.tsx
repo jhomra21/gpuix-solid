@@ -344,9 +344,19 @@ if (!hasNativeTestRenderer) {
   requireCondition(!browserSearchText.includes("EQ Eight"), "effects search should filter unrelated entries")
 
   app.renderer.scrollTestId("daw-test-viewport", 0, -260)
-  requireCondition((app.renderer.scrollOffsetTestId("daw-test-viewport")?.[1] ?? 0) < 0, "test viewport should scroll to lower controls")
   const thresholdSlider = { role: "slider", "aria-label": "Thresh" } as const
   const attackSlider = { role: "slider", "aria-label": "Attack" } as const
+  const lowerControlsViewport = app.renderer.boundsTestId("daw-test-viewport")
+  const thresholdBounds = app.renderer.boundsCustomProps(thresholdSlider)
+  requireCondition(
+    thresholdBounds.width > 0 &&
+      thresholdBounds.height > 0 &&
+      thresholdBounds.x >= lowerControlsViewport.x &&
+      right(thresholdBounds) <= right(lowerControlsViewport) &&
+      thresholdBounds.y >= lowerControlsViewport.y &&
+      bottom(thresholdBounds) <= bottom(lowerControlsViewport),
+    `exact Compressor threshold should be painted inside the viewport after the lower-controls scroll request, got ${JSON.stringify({ viewport: lowerControlsViewport, threshold: thresholdBounds, offset: app.renderer.scrollOffsetTestId("daw-test-viewport") })}`,
+  )
   requireCondition(
     app.renderer.customPropByCustomProps(thresholdSlider, "aria-valuetext") === "-18.0 dB",
     `exact Compressor threshold should start at fixture -18.0 dB, got ${JSON.stringify(app.renderer.customPropByCustomProps(thresholdSlider, "aria-valuetext"))}`,
