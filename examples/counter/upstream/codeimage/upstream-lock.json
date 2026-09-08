@@ -5,11 +5,15 @@
     "apps/codeimage/src/pages/Editor/App.tsx": "2b198b85ba6c35850b3290d5203a4c14704330ee",
     "apps/codeimage/src/pages/Editor/components/LeftSidebar.tsx": "375dd4b14f9652b9c45064e787100f9e2725e6db",
     "apps/codeimage/src/components/Toolbar/Toolbar.tsx": "29e0c0b0d18439af6b9c206007fb294347ac485a",
+    "apps/codeimage/src/components/Scaffold/Sidebar/Sidebar.css.ts": "95f8af1fc3c9671d8aae65b78751a062ded17d02",
+    "apps/codeimage/src/components/PropertyEditor/EditorSidebar.css.ts": "c7e8c85e567e18fba212a066036a97f671cdfd15",
+    "apps/codeimage/src/components/PropertyEditor/PanelDivider.tsx": "098ce2dd28c829f6ed962d47be0eb460f8d939aa",
     "apps/codeimage/src/components/ThemeSwitcher/ThemeBox.tsx": "718d04f64940f0d1f9f4fa2f8de6e313156d61b5",
     "apps/codeimage/src/components/ThemeSwitcher/ThemeSwitcher.tsx": "cb0ba49a46586c89dbe6752b35ee586372aa9659",
     "apps/codeimage/src/components/Presets/PresetSwitcher/PresetSwitcher.tsx": "83b17f276b4229388c0b9630fefa46854483fd38",
     "apps/codeimage/src/components/Presets/PresetPreview/PresetPreview.tsx": "4c7777ed59e3ffb7fb85cbe2338b11609a2af9bb",
     "apps/codeimage/src/i18n/presets.ts": "5d7d49f4bdd8883d72eb89faf1e31b6b84aa561f",
+    "apps/codeimage/public/assets/codeimage-logo-blue-svg-v1.svg": "21b20ca68e9302bcbd4a4cdafd69221730ec2a61",
     "LICENSE": "0eff678c5413fdeb51ad7110afa89f86adfdf0b7"
   }
 }
