@@ -1,6 +1,10 @@
-import { Show, createSignal } from "solid-js"
 import { describe, expect, it } from "vitest"
 import { createTestApp } from "../src/automation.js"
+import {
+  createElement,
+  insertNode,
+  setProp,
+} from "../src/host/universal.js"
 import { createTestRoot, hasNativeTestRenderer } from "../src/testing.js"
 
 const nativeIt = hasNativeTestRenderer ? it : it.skip
@@ -8,25 +12,39 @@ const nativeIt = hasNativeTestRenderer ? it : it.skip
 describe("native dynamic scroll parity", () => {
   nativeIt("keeps wheel scrolling after a child is inserted while scrolled", async () => {
     const testRoot = createTestRoot(320, 220)
-    const [expanded, setExpanded] = createSignal(false)
 
-    testRoot.render(() => (
-      <div
-        testId="scroller"
-        style={{ width: 220, height: 120, overflowY: "scroll" }}
-      >
-        <div style={{ height: 160 }} />
-        <div
-          testId="toggle"
-          style={{ height: 40 }}
-          onClick={() => setExpanded(true)}
-        />
-        <Show when={expanded()}>
-          <div testId="inserted" style={{ height: 80 }} />
-        </Show>
-        <div style={{ height: 300 }} />
-      </div>
-    ))
+    testRoot.render(() => {
+      const scroller = createElement("div")
+      setProp(scroller, "testId", "scroller")
+      setProp(scroller, "style", {
+        width: 220,
+        height: 120,
+        overflowY: "scroll",
+      })
+
+      const spacer = createElement("div")
+      setProp(spacer, "style", { height: 160 })
+      insertNode(scroller, spacer)
+
+      const toggle = createElement("div")
+      setProp(toggle, "testId", "toggle")
+      setProp(toggle, "style", { height: 40 })
+      insertNode(scroller, toggle)
+
+      const tail = createElement("div")
+      setProp(tail, "style", { height: 300 })
+      insertNode(scroller, tail)
+
+      const inserted = createElement("div")
+      setProp(inserted, "testId", "inserted")
+      setProp(inserted, "style", { height: 80 })
+      setProp(toggle, "onClick", () => {
+        if (inserted.parent) return
+        insertNode(scroller, inserted, tail)
+      })
+
+      return scroller
+    })
 
     const app = createTestApp(testRoot.renderer)
 
