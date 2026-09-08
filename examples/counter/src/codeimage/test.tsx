@@ -136,11 +136,13 @@ async function main(): Promise<void> {
     await app.getByTestId("terminal-header-yes").click()
     await requireTestId(app, "terminal-header")
 
+    await scrollIntoView(app, "editor-left-sidebar", "terminal-watermark-hide")
     await app.getByTestId("terminal-watermark-hide").click()
     assert.equal(await app.getByTestId("terminal-watermark").count(), 0)
     await app.getByTestId("terminal-watermark-show").click()
     await requireTestId(app, "terminal-watermark")
 
+    await scrollIntoView(app, "editor-left-sidebar", "preset-toggle")
     await app.getByTestId("preset-toggle").click()
     await requireTestId(app, "preset-panel")
     await requireTestId(app, "preset-minimal")
