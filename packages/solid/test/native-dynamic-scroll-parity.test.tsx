@@ -14,6 +14,7 @@ const nativeIt = hasNativeTestRenderer ? it : it.skip
 describe("native dynamic scroll parity", () => {
   nativeIt("extends wheel range when reconciled content grows at the old bottom", async () => {
     const testRoot = createTestRoot(320, 220)
+    let growContent: (() => void) | undefined
 
     testRoot.render(() => {
       const scroller = createElement("div")
@@ -28,11 +29,6 @@ describe("native dynamic scroll parity", () => {
       setProp(spacer, "style", { height: 160 })
       insertNode(scroller, spacer)
 
-      const toggle = createElement("div")
-      setProp(toggle, "testId", "toggle")
-      setProp(toggle, "style", { height: 40 })
-      insertNode(scroller, toggle)
-
       const inserted = createElement("div")
       setProp(inserted, "testId", "inserted")
       setProp(inserted, "style", { height: 80 })
@@ -40,7 +36,7 @@ describe("native dynamic scroll parity", () => {
       const tail = createElement("div")
       setProp(tail, "style", { height: 300 })
       const [items, setItems] = createSignal([tail])
-      setProp(toggle, "onClick", () => setItems([inserted, tail]))
+      growContent = () => setItems([inserted, tail])
       insert(scroller, items)
 
       return scroller
@@ -56,7 +52,9 @@ describe("native dynamic scroll parity", () => {
       const oldBottom = testRoot.renderer.getScrollOffset(scrollerElement.id)?.[1] ?? 0
       expect(oldBottom).toBeLessThan(0)
 
-      await app.getByTestId("toggle").click()
+      if (!growContent) throw new Error("dynamic scroll fixture did not initialize")
+      growContent()
+      testRoot.renderer.flush()
       expect(await app.getByTestId("inserted").count()).toBe(1)
 
       const bounds = await scroller.bounds()
