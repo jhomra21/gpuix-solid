@@ -12,7 +12,7 @@ import { createTestRoot, hasNativeTestRenderer } from "../src/testing.js"
 const nativeIt = hasNativeTestRenderer ? it : it.skip
 
 describe("native dynamic scroll parity", () => {
-  nativeIt("keeps wheel scrolling after a reconciled child is inserted while scrolled", async () => {
+  nativeIt("extends wheel range when reconciled content grows at the old bottom", async () => {
     const testRoot = createTestRoot(320, 220)
 
     testRoot.render(() => {
@@ -51,9 +51,10 @@ describe("native dynamic scroll parity", () => {
     try {
       const scroller = app.getByTestId("scroller")
       const scrollerElement = await scroller.element()
-      testRoot.renderer.scrollTo(scrollerElement.id, 0, -120)
+      testRoot.renderer.scrollTo(scrollerElement.id, 0, -10_000)
 
-      expect(testRoot.renderer.getScrollOffset(scrollerElement.id)?.[1]).toBe(-120)
+      const oldBottom = testRoot.renderer.getScrollOffset(scrollerElement.id)?.[1] ?? 0
+      expect(oldBottom).toBeLessThan(0)
 
       await app.getByTestId("toggle").click()
       expect(await app.getByTestId("inserted").count()).toBe(1)
@@ -64,12 +65,11 @@ describe("native dynamic scroll parity", () => {
         x: bounds.x - offset[0] + bounds.width - 4,
         y: bounds.y - offset[1] + bounds.height / 2,
       }
-      const before = testRoot.renderer.getScrollOffset(scrollerElement.id)?.[1] ?? 0
 
       await app.mouse.wheel(wheelPoint, 0, -80)
 
-      const after = testRoot.renderer.getScrollOffset(scrollerElement.id)?.[1] ?? 0
-      expect(after).toBeLessThan(before)
+      const grownBottom = testRoot.renderer.getScrollOffset(scrollerElement.id)?.[1] ?? 0
+      expect(grownBottom).toBeLessThan(oldBottom)
     } finally {
       await app.close()
       testRoot.unmount()
