@@ -64,7 +64,8 @@ if (!hasNativeTestRenderer) {
     </div>
   ))
 
-  const viewportWidth = app.renderer.boundsTestId("daw-test-viewport").width
+  const viewportBounds = app.renderer.boundsTestId("daw-test-viewport")
+  const viewportWidth = viewportBounds.width
   const rootText = () => app.renderer.textContent("daw-showcase")
 
   requireText(rootText(), "2.75s", "initial playhead")
@@ -346,16 +347,15 @@ if (!hasNativeTestRenderer) {
   app.renderer.scrollTestId("daw-test-viewport", 0, -260)
   const thresholdSlider = { role: "slider", "aria-label": "Thresh" } as const
   const attackSlider = { role: "slider", "aria-label": "Attack" } as const
-  const lowerControlsViewport = app.renderer.boundsTestId("daw-test-viewport")
   const thresholdBounds = app.renderer.boundsCustomProps(thresholdSlider)
   requireCondition(
     thresholdBounds.width > 0 &&
       thresholdBounds.height > 0 &&
-      thresholdBounds.x >= lowerControlsViewport.x &&
-      right(thresholdBounds) <= right(lowerControlsViewport) &&
-      thresholdBounds.y >= lowerControlsViewport.y &&
-      bottom(thresholdBounds) <= bottom(lowerControlsViewport),
-    `exact Compressor threshold should be painted inside the viewport after the lower-controls scroll request, got ${JSON.stringify({ viewport: lowerControlsViewport, threshold: thresholdBounds, offset: app.renderer.scrollOffsetTestId("daw-test-viewport") })}`,
+      thresholdBounds.x >= viewportBounds.x &&
+      right(thresholdBounds) <= right(viewportBounds) &&
+      thresholdBounds.y >= viewportBounds.y &&
+      bottom(thresholdBounds) <= bottom(viewportBounds),
+    `exact Compressor threshold should be painted inside the viewport after the lower-controls scroll request, got ${JSON.stringify({ viewport: viewportBounds, threshold: thresholdBounds, offset: app.renderer.scrollOffsetTestId("daw-test-viewport") })}`,
   )
   requireCondition(
     app.renderer.customPropByCustomProps(thresholdSlider, "aria-valuetext") === "-18.0 dB",
