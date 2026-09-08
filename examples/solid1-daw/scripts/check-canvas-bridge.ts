@@ -162,6 +162,10 @@ if (!hasNativeTestRenderer) {
   requireCondition(eqSource.includes('fill="#a1a1aa"'), `EQ image must retain source label paint, got ${eqSource}`)
   requireCondition(eqSource.includes('fill="#fac547"'), `EQ image must retain selected-node paint, got ${eqSource}`)
   requireCondition(eqSource.includes(">5</text>"), `EQ image must retain the node number, got ${eqSource}`)
+  requireCondition(
+    !eqSource.includes('transform="matrix(1 0 0 1 0 0)"'),
+    `identity Canvas transforms must not be serialized onto EQ circles, got ${eqSource}`,
+  )
   requireCondition(eqApp.renderer.hasTestId("gpuix-canvas-2d-surface"), "multicolor EQ Canvas should retain one native image paint surface")
   requireCondition(!eqApp.renderer.hasTestId("gpuix-canvas-2d-layer-1"), "multicolor EQ Canvas should not depend on tint-only SVG layers")
   eqApp.unmount()
