@@ -1,22 +1,23 @@
 # Upstream GPUIX parity
 
-GPUix Solid treats `remorses/gpuix` as the native capability baseline. This document separates parity with the published React package from work that exists only on upstream `main`.
+GPUix Solid treats `remorses/gpuix` as the native capability baseline. This document separates parity with the published 0.7 package from compatibility work that exists only on upstream `main`.
 
 ## Audit pins
 
 - Upstream repository: `remorses/gpuix`
 - Published React baseline: `@gpuix/react@0.7.0`
 - Published/native release commit: `a24b4a42eb516c7b940eb8d34ecebb077df623bd`
-- Source snapshot commit: `a24b4a42eb516c7b940eb8d34ecebb077df623bd`
+- Source-fidelity snapshot commit for copied GPUIX examples: `a24b4a42eb516c7b940eb8d34ecebb077df623bd`
 - Native package used by GPUix Solid: `@gpuix/native ^0.7.0`
+- Audited source-edge commit: `6b4be86952aa89cfe61bb573740aea33fef5c5c4`
 
-The published 0.7 release is the compatibility requirement. Source-fidelity snapshots are pinned to that immutable release commit. Work present only on newer upstream `main` remains outside the parity baseline until it is separately audited and supported by a matching native release.
+The published 0.7 release is the production compatibility requirement. Copied GPUIX example snapshots stay pinned to that immutable release commit. The separate source-edge lane builds the explicitly audited commit from `/.gpuix/edge.json`; passing that lane does not silently change the published dependency baseline.
 
 ## Source-fidelity contract
 
 For examples with available upstream source, parity means preserving the upstream application as the reference instead of rebuilding a similar-looking fixture.
 
-The repository keeps pinned source snapshots and verifies them with Git blob hashes. React-to-Solid translation, browser/runtime replacement, native controls, deterministic fixture data, and other required substitutions should live at framework or compatibility boundaries. They should not introduce new page hierarchies, copy, assets, or application behavior merely because the original dependency cannot run directly on GPUIX.
+The repository keeps pinned source snapshots and verifies them with Git blob hashes. React-to-Solid translation, browser/runtime replacement, native controls, deterministic fixture data, and other required substitutions should live at framework or compatibility boundaries. They should not introduce new page hierarchies, copy, assets, or application behavior merely because an original dependency cannot run directly on GPUIX.
 
 `bun run source:check` currently verifies pinned snapshots for:
 
@@ -25,15 +26,29 @@ The repository keeps pinned source snapshots and verifies them with Git blob has
 - `TanStack/router@b6984af74dd561b8ee7e2d7369898a536dda70c2`;
 - `jhomra21/cloudflare-workers-solid-tanstack-spa-betterauth-D1-KV@47139f07c018dc2ba505bbb5915750fdba19e961`;
 - `diffusionstudio/editor@585fb010dcca36919f096f4b1275d535acab0cb9`;
-- `jhomra21/daw-browser-convex@2eaad47813b15aa8511bab8dc04625510c977b12` — the DAW fixture protects **79 exact files**: the existing 75-file UI/layout/runtime closure plus 4 exact upstream waveform-package files.
+- `jhomra21/daw-browser-convex@2eaad47813b15aa8511bab8dc04625510c977b12` — the DAW fixture protects **81 exact files**: 75 UI/layout/runtime files, 4 exact waveform-package files, and exact `Eq.tsx` plus `eq-render-work.ts`.
 
-The DAW Tailwind manifest is generated from that copied source rather than from a parallel style rewrite. Compatibility for the fixed 1440×900 native target is handled below the copied components: parent-relative percentage positioning and half-translation are resolved from native geometry, the active desktop `sm:` dialog variants are compiled for the reference viewport, `sr-only` retains its visual-hiding contract, relative line-height is resolved against the final native font size, copied SVG paint classes are serialized into the native inline-SVG source, source `data-*` state selectors can contribute audited native variants, intrinsic range geometry stays native, and transparent source `color-mix(...)` values are normalized at the host boundary. The exact mixer range's CSS-variable hard split and automation interval are likewise materialized below copied source using only registered variables and GPUIX 0.7-supported retained geometry; this is deliberately not a generic browser CSS-gradient parser. GPUIX 0.7 gaps such as z-index, letter spacing, browser transitions/focus effects, CSS filters, touch-action policy, CSS auto margins, writing mode and layered/inset shadows stay individually audited instead of being silently ignored as a class of styles.
+The DAW Tailwind manifest is generated from copied source rather than a parallel style rewrite. Compatibility for the fixed 1440×900 native target is handled below copied components: parent-relative percentage positioning and half-translation are resolved from native geometry, active desktop `sm:` dialog variants are compiled for the reference viewport, `sr-only` retains its visual-hiding contract, relative line-height is resolved against final native font size, copied SVG paint classes are serialized into native inline-SVG source, source `data-*` state selectors can contribute audited native variants, intrinsic range geometry stays native, and transparent source color mixing is normalized at the host boundary. GPUIX 0.7 gaps such as z-index, letter spacing, browser transitions/focus effects, CSS filters, touch-action policy, CSS auto margins, writing mode and layered/inset shadows stay individually audited instead of being silently ignored as a class of styles.
 
-The exact pinned DAW Compressor now owns the visible device UI. Its `EffectShell`, Knobs, SVG graph, reset/toggle behavior and collapse semantics run from copied source; deterministic fixture state replaces the audio backend only. The exact TrackSidebar, TrackLane/ClipComponent, AutomationLane, ArrangementOverview, Sample Detail source hierarchy, bottom-panel shell/footer, `MixerVolumeSlider`, clip-color helper, waveform renderer, and audio-waveform layout are also mounted from pinned source rather than parallel native lookalikes. Browser accessibility metadata (`role` and `aria-*`) is retained through built-in native host nodes so native tests can exercise exact source controls without adding fixture-only IDs, and semantic `hidden` maps to native `display: none` so source collapse behavior affects layout as well as state.
+The exact pinned DAW Compressor and EQ now own their visible device UI. Exact `EffectShell`, Knobs, Compressor SVG graph, `Eq.tsx`, `eq-render-work.ts`, reset/toggle behavior, filter menus and device state run from copied source; deterministic fixture state replaces missing application/audio services only. Exact TrackSidebar, TrackLane/ClipComponent, AutomationLane, ArrangementOverview, Sample Detail source hierarchy, bottom-panel shell/footer, `MixerVolumeSlider`, clip-color helper, waveform renderer and audio-waveform layout are likewise mounted from pinned source rather than parallel native lookalikes.
 
-The pinned `MixerVolumeSlider` writes `--mixer-volume-percent`, `--mixer-volume-automation-start`, and `--mixer-volume-automation-end`; the exact stylesheet uses them for a warning/muted hard split and a 4 px automation strip. GPUIX 0.7's structured-gradient support does not evaluate those arbitrary CSS custom-property background strings, so the DAW universal-renderer facade registers only these source paint variables. It maps the split to an intact native base plus retained warning segment and maps a non-empty automation interval to a full-width retained layer with percentage-width spacer and automation segment. Unrelated styles pass through unchanged, empty intervals remove the overlay, and native tests assert exact source-derived geometry plus reactive updates. macOS acceptance separately verifies that the automation strip overlays rather than replaces the warning/muted base. This compatibility is DAW source hosting, not a claim of generic CSS custom-property or gradient support in `@gpuix/native@0.7.0`.
+Browser accessibility metadata (`role` and `aria-*`) is retained through built-in native host nodes so native tests can exercise exact source controls without adding fixture-only IDs. Semantic `hidden` maps to native `display: none` so source collapse behavior affects layout as well as state.
 
-GPUIX 0.7 does not implement browser Canvas 2D. For the pinned DAW waveform source, the Solid 1 universal-renderer boundary provides a deliberately narrow, instance-scoped compatibility facade instead of editing the copied components. The supported Canvas calls are retained and serialized into an internal SVG surface that GPUIX can paint; unsupported operations are not silently approximated. Exact upstream waveform drawing and layout code therefore still determines the visible geometry, while deterministic fixture peak bytes replace only the unavailable audio/backend data. This compatibility layer is not presented as native GPUIX Canvas support. Native acceptance additionally waits for the batched Canvas paint and requires substantial retained peak bars with real clip-sized bounds before capturing the macOS DAW screenshot.
+### DAW mixer compatibility
+
+The pinned `MixerVolumeSlider` writes `--mixer-volume-percent`, `--mixer-volume-automation-start`, and `--mixer-volume-automation-end`; the exact stylesheet uses them for a warning/muted hard split and a 4 px automation strip. GPUIX 0.7's structured-gradient support does not evaluate those arbitrary CSS custom-property background strings, so the DAW universal-renderer facade registers only these source paint variables.
+
+It maps the split to an intact native base plus retained warning segment and maps a non-empty automation interval to a full-width retained layer with percentage-width spacer and automation segment. Unrelated styles pass through unchanged, empty intervals remove the overlay, and native tests assert exact source-derived geometry plus reactive updates. macOS acceptance separately verifies that the automation strip overlays rather than replaces the warning/muted base. This compatibility is DAW source hosting, not a claim of generic CSS custom-property or gradient support in `@gpuix/native@0.7.0`.
+
+### DAW Canvas and exact EQ compatibility
+
+GPUIX 0.7 does not implement browser Canvas 2D. The Solid 1 DAW universal-renderer boundary therefore provides a deliberately narrow, instance-scoped compatibility facade instead of editing copied components.
+
+The active Canvas path records the static operations exercised by the pinned waveform and EQ source and serializes their ordered draw stream into **one multicolor SVG data image**. It supports the string paints, line geometry, full rectangles, full-circle nodes and text required by that static source path. Unsupported partial clears/arcs and unsupported transforms fail closed rather than being silently approximated. Exact upstream waveform and EQ drawing code still determines visible geometry and color; deterministic fixture peak bytes and a visual-only Biquad frequency-response implementation replace only unavailable data/browser services.
+
+`Eq.tsx` uses browser-shaped `ResizeObserver` and nested `requestAnimationFrame` scheduling supplied by the Solid 1 DOM environment. Its dedicated native acceptance waits three actual animation frames before inspecting the retained graph, matching the source lifecycle. The detector requires source dB/frequency labels and all numbered band nodes before the macOS EQ capture is accepted.
+
+The fixture passes `spectrumData={null}`. The source's live-spectrum-only gradient, quadratic-curve and alpha branch is therefore not executed or claimed. There is no live analyser, DSP or audio playback in this renderer fixture.
 
 ## Example parity
 
@@ -54,11 +69,11 @@ The desktop examples below use the same GPUIX native renderer and preserve the u
 | Timeline performance | `examples/timeline.perf.test.tsx` | `examples/counter/src/benchmarks/timeline.tsx` | workload parity |
 | Serialization | `examples/bench-serialization.ts` | `examples/counter/src/benchmarks/serialization.tsx` | Solid-side workload parity |
 
-The Dashboard, CodeImage, TanStack, Kobalte, Tailwind and DAW fixtures are additional Solid coverage. They do not replace an upstream example in this table. Dashboard, CodeImage, TanStack, and DAW also follow the source-first rule for their own upstream applications.
+Dashboard, CodeImage, TanStack, Kobalte, Tailwind and DAW are additional Solid coverage. They do not replace an upstream example in this table. Dashboard, CodeImage, TanStack and DAW also follow the source-first rule for their own upstream applications.
 
 ### Blurred Window boundary
 
-There is deliberately one Solid 2 runnable target: `example:blurred-window`. It is the custom animated username/welcome glass showcase. The exact upstream `examples/blurred-window.tsx` source remains hash-pinned as a reference for the native blur/window contract, but the repository does not advertise a second parity target or a `blurred-window-showcase` command.
+There is deliberately one Solid 2 runnable target: `example:blurred-window`. It is the custom animated username/welcome glass showcase. The exact upstream `examples/blurred-window.tsx` source remains hash-pinned as a reference for the native blur/window contract, but the repository does not advertise a second parity target.
 
 ### Timeline coverage
 
@@ -82,7 +97,7 @@ The Timeline port is a separate fixture from the DAW example. Its native tests c
 
 The Chat port restores the pinned upstream icons, conversation fixtures, model groups, reasoning metadata, project/workspace/branch data, transcript content, diff fixture, menu structure, grouped model picker and footer behavior. Its React-only `SafeMdxRenderer` dependency is replaced by a Solid MDAST adapter whose typography and block structure track the upstream renderer instead of defining a separate design.
 
-The native fixture uses GPUIX controls, a native `<virtual-list>`, composed safe-MDX content, selection, composer input and native animation. Its tests cover scrolling, selection, menu behavior, composer updates, sidebar motion and composed MDX layout.
+The native fixture uses GPUIX controls, a native `<virtual-list>`, composed safe-MDX content, selection, composer input and native animation. Tests cover scrolling, selection, menu behavior, composer updates, sidebar motion and composed MDX layout.
 
 Infinite Chat builds on the same composed MDX renderer. It keeps a bounded page cache, loads only when a real edge row reaches the viewport, performs separate insert and eviction commits, reads the native logical list anchor, restores that anchor after page changes and supports navigation through links in message content.
 
@@ -109,7 +124,7 @@ The parity branch targets the published React 0.7 host and testing surface requi
 
 `animate.div` is intentionally named for the Solid package rather than copying React's component name. The native animation behavior is the capability being matched.
 
-The automation layer also normalizes text fill into GPUI-native keystrokes, including shifted keystrokes for uppercase input. That behavior is covered by a real native controlled-input regression because application fixtures such as Dashboard rely on exact confirmation text rather than test-only state mutation.
+The automation layer also normalizes text fill into GPUI-native keystrokes, including shifted keystrokes for uppercase input. That behavior is covered by a real native controlled-input regression because application fixtures rely on exact confirmation text rather than test-only state mutation.
 
 ## Performance workloads
 
@@ -123,29 +138,38 @@ bun run bench:serialization
 
 The Chat benchmark uses the same 1,000-turn class of workload as upstream and measures mount, idle flush, wheel input, text highlighting and sidebar animation. The Timeline benchmark uses a 24-track, 900-second project and measures mount, culled and unculled pan, and pointer-captured clip dragging.
 
-The commands print the upstream React thresholds as reference values, not pass/fail limits for Solid. CI runners are not controlled benchmark hardware, so timings from different machines should not be presented as framework comparisons.
+The commands print upstream React thresholds as reference values, not pass/fail limits for Solid. CI runners are not controlled benchmark hardware, so timings from different machines should not be presented as framework comparisons.
 
 The serialization benchmark captures the actual mutation tuples emitted by Solid's `applyBatch` path. It measures JSON encoding, UTF-8 buffer conversion and style interning. Upstream's Rust decoder benchmark stays in `remorses/gpuix` because this repository consumes the native package rather than owning that Rust code.
 
 ## 0.7 release deltas adopted
 
-The published 0.7 baseline includes native two-stop gradients, data-URL images, application-owned Tab handling with root-level key routing, the public native test-renderer availability guard, Windows Per-Monitor V2 DPI awareness, final-window process termination on Windows/Linux, and the blurred/transparent macOS window options. GPUix Solid exposes or inherits each of those capabilities through `@gpuix/native ^0.7.0`, and the GPUIX source lock points at the same immutable 0.7.0 release commit.
+The published 0.7 baseline includes native two-stop gradients, data-URL images, application-owned Tab handling with root-level key routing, the public native test-renderer availability guard, Windows Per-Monitor V2 DPI awareness, final-window process termination on Windows/Linux, and blurred/transparent macOS window options. GPUix Solid exposes or inherits each of those capabilities through `@gpuix/native ^0.7.0`, and the copied GPUIX source lock points at the same immutable 0.7.0 release commit.
 
-The Solid host additionally carries source-driven compatibility proven by the application fixtures: browser-shaped bounds and identity, focus/selection/scroll behavior, pointer capture and global pointer continuation, semantic SVG/event handling, native range geometry, and source color normalization. These are Solid binding responsibilities rather than forks of the Rust renderer.
+The Solid host additionally carries source-driven compatibility proven by application fixtures: browser-shaped bounds and identity, focus/selection/scroll behavior, pointer capture and global pointer continuation, semantic SVG/event handling, native range geometry, DOM scheduling/observation compatibility and source color normalization. These are Solid binding responsibilities rather than forks of the Rust renderer.
 
 ## Post-0.7 upstream `main` audit
 
-As audited on 2026-09-05, upstream `main` is 10 commits ahead of the immutable 0.7.0 release commit. Those commits have not produced a newer published `@gpuix/native` version, so they are not silently treated as part of the 0.7 compatibility baseline.
+Re-audited on 2026-09-07, upstream `main` is **23 commits ahead** of the immutable 0.7.0 release commit at `6b4be86952aa89cfe61bb573740aea33fef5c5c4`. The comparison contains **13 changeset files**. Twelve cover renderer/native/React behavior; one documents the Hermes runtime. No newer published `@gpuix/native` release is treated as available merely because this source exists on `main`.
 
-Five pending changesets are relevant to renderer behavior:
+The twelve behavior changesets are:
 
-- embedded primary-button click delivery for retained/custom native elements — native + React patch; requires a future native package release;
-- live-automation mouse dispatch panic prevention — native patch; requires a future native package release;
-- macOS `tick()` starvation prevention — native patch; requires a future native package release;
-- keeping the frame pump and native window alive after JavaScript runtime errors — React binding patch; GPUix Solid carries the equivalent binding-side error containment and frame-loop resilience without vendoring native code;
-- preserving renderer event ownership and element IDs across `bun --hot` module remounts — React binding patch; this is not part of published 0.7 parity and requires a dedicated Solid renderer-lifetime/ID-ownership design rather than a local event workaround.
+- accessibility / ARIA properties and AccessKit plumbing;
+- text-decoration style support;
+- embedded primary-button click delivery;
+- hot-reload event and element-ownership continuity;
+- live-automation mouse panic prevention;
+- macOS `tick()` starvation prevention;
+- textarea Enter/newline behavior;
+- HTTP image sources;
+- input centering/clipping behavior;
+- keeping the app/window alive after runtime errors;
+- runtime-error overlay/reload behavior;
+- smaller input caret geometry.
 
-The three native changes stay upstream instead of being copied into this repository. The package dependency remains `@gpuix/native ^0.7.0`; when a compatible upstream patch is published, it should be audited and the repository lockfile/compatibility pin refreshed before claiming parity with that new release. Full `bun --hot` remount ownership is tracked as post-0.7 Solid binding work and is not a blocker for the 0.7-based beta.
+The thirteenth changeset is Hermes runtime documentation. Relative to the previously pinned edge commit `9e0db5187c058eecc612b8557a460b250dec6e99`, current `main` is only two commits ahead, and that two-commit diff is confined to Hermes/iOS documentation/demo files; it does not change `packages/native` or the React runtime.
+
+GPUix Solid does not vendor these post-0.7 Rust changes. Production dependencies remain `@gpuix/native ^0.7.0`. Where a binding-side equivalent is required for the Solid host—such as runtime-error containment, frame-loop resilience, event ownership or DOM behavior—it is implemented and regression-tested in the Solid packages. The source-edge lane then builds the audited upstream commit to detect incompatibility with pending native changes before a future package release is adopted.
 
 ## Solid-specific coverage
 
@@ -154,7 +178,7 @@ GPUix Solid also exercises capabilities that are not upstream React examples:
 - real `@kobalte/core` source compiled through the Solid universal renderer and native GPUIX host;
 - Tailwind v4 classes compiled to native style data;
 - Solid 1.9 and Solid 2 renderer packages over the same GPUIX native contract;
-- a source-first browser DAW slice with native adapters, narrow Canvas2D-to-native-SVG waveform compatibility, and registered exact-source mixer CSS-variable paint compatibility;
+- a source-first browser DAW slice with exact waveform and EQ source hosted through narrow Canvas/DOM/grid compatibility plus registered exact-source mixer CSS-variable paint compatibility;
 - a source-first six-route Dashboard port with native router/auth/network/modal compatibility;
 - a source-first CodeImage editor composition with native substitutions behind `compat.tsx`;
 - a source-pinned TanStack Router Solid 2 kitchen sink with route/query/browser substitutions below the application boundary.
