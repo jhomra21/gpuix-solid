@@ -55,7 +55,7 @@ async function scrollIntoView(
     ) {
       return
     }
-    await viewport.wheel(0, targetBounds.y >= viewportBottom ? 180 : -180)
+    await viewport.wheel(0, targetBounds.y >= viewportBottom ? -180 : 180)
   }
 
   throw new Error(`Could not scroll ${targetTestId} into ${viewportTestId}`)
