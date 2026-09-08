@@ -13,13 +13,13 @@ This fixture is source-first, not screenshot-first. Browser-facing source is cop
 
 Deterministic local data replaces Convex, collaboration, persistence, audio-engine and plugin backends. It must not replace visible source behavior. Controls included in the fixture remain interactive and keep their state at the fixture boundary.
 
-`bun run source:check` rejects drift from the pinned revision. The current closure contains **79 exact upstream files**: 75 UI/layout/runtime files plus 4 exact files from the upstream waveform package. The main source check compares normalized checkout content to the expected Git blobs, while the waveform check verifies the committed Git blobs directly and also validates the checkout after CRLF normalization so Windows line endings cannot create false source-drift failures.
+`bun run source:check` rejects drift from the pinned revision. The current closure contains **81 exact upstream files**: 75 UI/layout/runtime files, 4 exact waveform-package files, and the exact `Eq.tsx` plus `eq-render-work.ts`. The main source check compares normalized checkout content to expected Git blobs. The waveform and EQ checks independently verify their committed source against the pinned Git blobs so compatibility work cannot leak into those copied files.
 
 ## GPUIX version policy
 
-The repository targets the latest reviewed GPUIX release line, `@gpuix/native ^0.7.0`, rather than floating to an unreleased upstream commit. The root lock resolves `0.7.0` reproducibly. Moving to a later GPUIX minor requires an explicit dependency/lock update and the full Linux, macOS, Windows, package-smoke, Solid 1 and native-fidelity suite.
+The repository targets the latest reviewed GPUIX release line, `@gpuix/native ^0.7.0`, rather than floating production dependencies to an unreleased upstream commit. The root lock resolves `0.7.0` reproducibly. Moving to a later GPUIX release requires an explicit dependency/lock update and the full Linux, macOS, Windows, package-smoke, Solid 1 and native-fidelity suite.
 
-The Solid 1 and Solid 2 hosts both carry the GPUIX 0.7 contracts used by this fixture, including the published test-renderer availability guard, `WindowOptions` passthrough, raw window key handling, native lifecycle termination, and two-stop linear-gradient support.
+A separate source-edge lane builds the commit pinned in `/.gpuix/edge.json`. That lane is a compatibility probe, not the published dependency. The pin is intentionally advanced only after reading and auditing current upstream source.
 
 ## Source that now runs directly
 
@@ -36,12 +36,12 @@ The parity scripts are the authoritative file lists. Important visible source no
 - `AutomationLane`
 - `SampleDetailPanel`, `SampleClipPanel`, and `SampleDetailWaveform`
 - `Compressor`, its `EffectShell`, controls and SVG graph
-- `EqFilterTypeSelect`
+- `Eq`, `eq-render-work`, and `EqFilterTypeSelect`
 - the copied DAW UI primitives and timeline/layout helpers used by those components
 - the exact `clip-color.ts` helper, including its selected/ghost `color-mix(in srgb, …, transparent)` output
 - the exact upstream waveform `render-waveform.ts`, `extract-peaks.ts`, `resample-peak-pairs.ts`, and waveform types
 
-`src/native/ArrangementOverview.tsx` is now only a re-export of the exact copied overview. The old retained-div recreation is gone.
+`src/native/ArrangementOverview.tsx` is only a re-export of the exact copied overview. The old retained-div recreation is gone.
 
 The native Tailwind generator scans copied source directly and fails closed on unaccounted classes. It is rebuilt before DAW build, test and typecheck instead of maintaining a parallel handwritten class map.
 
@@ -60,9 +60,11 @@ Adapters own deterministic application state and missing services; they do not r
 | `src/native/TrackLane.tsx` | maps fixture clips/tracks and deterministic automation envelopes into exact `TrackLane` |
 | `src/native/TimelineBottomPanelShell.tsx` | retained positioning wrapper around the exact shell; preview/commit resize state is forwarded to the fixture |
 | `src/native/TimelinePanels.tsx` | switches exact Sample Detail against the effects chain and supplies deterministic audio/BPM services |
-| `src/native/EffectsPanel.tsx` | mounts exact Compressor and the remaining explicit EQ compatibility surface |
+| `src/native/EffectsPanel.tsx` | mounts exact Compressor and exact EQ with deterministic local device state |
 | `src/compat/useClipWaveformViewModel.ts` | delegates waveform geometry to exact upstream `getAudioWaveformLayout` and supplies deterministic peak bytes in place of the unavailable audio/backend service |
-| `src/compat/gpuix-solid-canvas.ts` | DAW universal-renderer facade for the narrow semantic Canvas2D surface plus explicitly registered CSS-variable paint patterns required by exact copied source |
+| `src/compat/eq-visual-audio.ts` | visual-only `OfflineAudioContext` / `BiquadFilterNode.getFrequencyResponse()` compatibility used by exact EQ graph drawing; it does not render or process audio |
+| `src/compat/gpuix-solid-ui.ts` + `src/compat/layered-canvas.ts` | DAW universal-renderer facade for the semantic Canvas2D surface used by exact waveform/EQ source; the historically named `layered-canvas.ts` currently emits one retained multicolor SVG image, not tint layers |
+| `src/compat/two-row-grid-layout.ts` | narrow two-row child placement compatibility for the exact EQ grid definition |
 
 Record arm is singular at the fixture application boundary: arming one track disarms the previous track rather than preserving independent legacy booleans as simultaneous armed state.
 
@@ -74,25 +76,27 @@ These are limitations of the current GPUIX/browser contract, not permission to i
 
 The pinned `MixerVolumeSlider` remains byte-for-byte source. It writes `--mixer-volume-percent`, `--mixer-volume-automation-start`, and `--mixer-volume-automation-end`; the pinned stylesheet uses those variables to produce a hard warning/muted split plus a 4 px automation strip over that base.
 
-GPUIX 0.7 supports structured two-stop gradients, but it does not evaluate arbitrary browser CSS background strings driven by CSS custom properties. The DAW universal-renderer boundary therefore registers only those exact mixer paint variables. It converts the source hard split into a muted native base plus a retained warning segment, and converts a non-empty automation interval into a full-width retained flex layer containing a percentage-width spacer followed by the automation segment. This keeps the source component, source CSS, slider mapping, colors, and automation start/end math unchanged while using geometry GPUIX 0.7 actually accepts: numeric absolute offsets and percentage widths.
+GPUIX 0.7 supports structured two-stop gradients, but it does not evaluate arbitrary browser CSS background strings driven by CSS custom properties. The DAW universal-renderer boundary therefore registers only those exact mixer paint variables. It converts the source hard split into a muted native base plus a retained warning segment, and converts a non-empty automation interval into a full-width retained flex layer containing a percentage-width spacer followed by the automation segment. This keeps the source component, source CSS, slider mapping, colors, and automation start/end math unchanged while using geometry GPUIX 0.7 actually accepts.
 
 This is not generic CSS-gradient or custom-property support. Styles with none of the registered mixer paint variables pass through unchanged, and an empty automation interval removes the overlay rather than leaving stale paint. Native regression coverage proves that isolation invariant, exact source-derived split/interval geometry, and reactive updates. The dedicated macOS automated-state screenshot additionally verifies that the 4 px automation color overlays the intact warning/muted base instead of replacing or displacing it.
 
 ### Canvas 2D
 
-GPUIX 0.7 does not expose a browser `CanvasRenderingContext2D`. The DAW fixture therefore provides a narrow compatibility surface at the Solid universal-renderer boundary rather than rewriting the copied DAW waveform components.
+GPUIX 0.7 does not expose a browser `CanvasRenderingContext2D`. The DAW fixture therefore provides a narrow compatibility surface at the Solid universal-renderer boundary rather than rewriting copied waveform or EQ source.
 
-Semantic `<canvas>` creation is intercepted only for the DAW universal module. `getContext("2d")` records the operations used by the pinned waveform source—`fillStyle`, `strokeStyle`, `lineWidth`, `imageSmoothingEnabled`, `setTransform`, full-surface `clearRect`, `fillRect`, `beginPath`, `moveTo`, `lineTo`, and `stroke`—and serializes them into an internal SVG surface that GPUIX can paint. Updates are batched to one microtask and flushed through the owning native root. Unsupported Canvas operations are not silently approximated; unsupported partial clears fail closed.
+Semantic `<canvas>` creation is intercepted only by the DAW universal module. The active facade records the static operations exercised by the pinned source: string fill/stroke paints, line width, image smoothing state, `setTransform`, full-surface `clearRect`, `fillRect`, `beginPath`, `moveTo`, `lineTo`, full-circle `arc`, `fill`, `stroke`, `fillText`, font, text alignment and text baseline. It serializes the ordered draw stream into one multicolor SVG data image and batches native updates through the owning root. Identity circle transforms are omitted; real transforms remain explicit. Unsupported partial clears, partial arcs and unsupported text transforms fail closed instead of being silently approximated.
 
-The exact copied `ClipComponent`, `SampleDetailWaveform`, waveform renderer and waveform layout code remain source-owned. The fixture fabricates only deterministic peak/audio metadata where the real audio service is absent. The drawing algorithm, layout, colors and Canvas calls remain upstream. This is a GPUix Solid compatibility bridge, **not** a claim that `@gpuix/native@0.7.0` has native Canvas support.
+The exact copied `ClipComponent`, `SampleDetailWaveform`, waveform renderer, waveform layout, `Eq.tsx`, and `eq-render-work.ts` remain source-owned. The fixture fabricates only deterministic peak/audio metadata and the visual-only filter-response service that the real application normally gets from unavailable backends/browser APIs. Drawing algorithms, graph sampling, colors and Canvas calls remain upstream. This is a GPUix Solid compatibility bridge, **not** a claim that `@gpuix/native@0.7.0` has native Canvas support.
 
-Native visual acceptance mounts the real DAW showcase through that same universal Canvas facade, waits for the batched paint, requires a substantial set of retained source-generated peak bars with clip-sized bounds inside the Drums lane, and only then captures the canonical macOS screenshot. Manual review remains required in addition to that detector.
+The EQ fixture passes `spectrumData={null}`. Consequently the source's live-spectrum-only `createLinearGradient`, `quadraticCurveTo` and `globalAlpha` branch is intentionally not executed in this UI-only fixture. Those wider Canvas capabilities are not claimed by this compatibility surface.
 
 ### EQ Eight
 
-The pinned EQ surface still depends on browser capabilities that do not map faithfully to GPUIX 0.7: broader Canvas 2D behavior, `ResizeObserver`-driven graph sizing, animation-frame drawing, Web Audio filter-response APIs, and child grid placement/span semantics used by the source layout.
+`Eq.tsx` and `eq-render-work.ts` are now exact pinned source, not a native recreation. The source's three-column/two-row device layout is hosted through the narrow two-row grid compatibility layer. Solid 1's DOM environment supplies browser-shaped `ResizeObserver` and `requestAnimationFrame`; the exact source uses those APIs to size and schedule its graph. `eq-visual-audio.ts` supplies only the deterministic Biquad frequency response required to draw the static curve.
 
-`src/native/EffectsPanel.tsx` therefore keeps the EQ device surface as the remaining visible compatibility leaf. Its state is deterministic and interactive, and its filter-type picker is the exact pinned `EqFilterTypeSelect`. This boundary should shrink or disappear when the required generic host capabilities exist; copied EQ source must not be edited to work around them.
+The source deliberately schedules its initial Canvas draw through nested animation frames. Native visual acceptance therefore waits three real animation frames—the same readiness gate used by the interaction test—before inspecting or capturing the graph. The acceptance detector requires the exact graph source to contain the source dB/frequency labels and numbered nodes, then captures a dedicated macOS EQ frame. Manual review of that frame verifies the graph background/grid, response curve, labels, all eight nodes, selected-band treatment, controls and two-row layout.
+
+There is still no live analyser/spectrum or audio processing in this fixture. `spectrumData=null` is the explicit boundary.
 
 ## Host compatibility proved by this port
 
@@ -103,10 +107,11 @@ Notable coverage includes:
 - production/test element bounds and browser-shaped `getBoundingClientRect()`
 - native focus, blur, selection, scroll offsets and pointer-capture bookkeeping
 - event target/currentTarget ownership and controlled input value synchronization
-- browser-compatible `Element` / `HTMLElement` identity where source checks it
+- browser-compatible `Element` / `HTMLElement` identity where source checks it, including semantic `HTMLCanvasElement` identity in the DAW facade
 - global pointer forwarding used by unchanged timeline/ruler source
 - minimal `document.body.classList` drag-state compatibility
-- inline grid parsing needed by copied source
+- browser-shaped `ResizeObserver` and animation-frame scheduling in the Solid 1 DOM environment
+- inline grid parsing and narrow two-row placement needed by copied EQ source
 - semantic hidden/data-attribute style handling
 - SVG event/paint compatibility used by copied components
 - native range elements with intrinsic control geometry rather than text-editor backing
@@ -114,7 +119,7 @@ Notable coverage includes:
 - exact source mixer hard-split and automated-range paint through registered CSS-variable compatibility that leaves unrelated styles untouched
 - source pointer transparency/ownership semantics so decorative descendants do not steal hits
 - local Solid 1 host rebuilds before standalone example bundling, preventing stale ignored `dist` output from masking source changes
-- semantic DAW canvas handling through an instance-scoped Canvas2D compatibility facade rather than a global host-node prototype patch
+- semantic DAW Canvas handling through an instance-scoped compatibility facade rather than a global host-node prototype patch
 
 These are host or compatibility-layer features. DAW code should not grow local visual replicas of them.
 
@@ -133,11 +138,11 @@ The automated native fixture exercises the included source slice across the norm
 - exact `ClipComponent` waveform rendering through the Canvas2D compatibility boundary, with retained peak-bar and native-bounds assertions
 - Effects / Clip bottom-panel switching, hide/show and resize state
 - exact Compressor control/reset/collapse semantics
-- EQ compatibility controls and exact source filter-type menu
+- exact EQ source graph, filter menu, Freq/Gain/Q controls, band enable/disable, channel mode and reset semantics
 - exact Sample Detail controls with deterministic BPM/stretch services
 - package build/smoke and release-tool regression checks
 
-The macOS CI path also uploads the native DAW screenshots used for visual review, including a dedicated automated mixer state. A green automated run does not waive a material visual mismatch found in manual side-by-side comparison.
+The macOS CI path uploads canonical native DAW screenshots for the source-structured app, exact EQ, mixer, and automated mixer state. A green automated run does not waive a material visual mismatch found in manual side-by-side comparison.
 
 ## Intentionally omitted systems
 
@@ -149,11 +154,12 @@ Some exact `TrackLane` callbacks for editing operations outside the focused fixt
 
 This example is not accepted merely because it bundles. Before this source-first work merges or backs a beta:
 
-1. all 79 pinned source files must match the pinned DAW revision;
-2. disposable promotion/probe workflows must be absent;
+1. all **81** pinned source files must match the pinned DAW revision;
+2. disposable promotion/probe workflows and temporary diagnostic screenshots must be absent;
 3. lint, typecheck, tests, builds, Solid 1 checks and release tests must pass;
 4. package smoke and the normal Ubuntu/macOS/Windows matrix must be green;
-5. the DAW Canvas waveform detector and exact mixer hard-split/automation detector must pass against the retained native tree;
-6. the macOS native window and dedicated automated mixer capture must remain recognizably faithful to the pinned source for the included slice.
+5. the DAW Canvas waveform detector, exact static EQ graph detector, and exact mixer hard-split/automation detector must pass against the retained native tree;
+6. the macOS source-structured, exact EQ, mixer and automated-mixer captures must remain recognizably faithful to the pinned source for the included slice;
+7. the pinned GPUIX source-edge lane must pass against the explicitly audited commit in `/.gpuix/edge.json`.
 
 Material layout, hierarchy, typography, control, state-treatment or interaction differences remain defects. Genuine GPUIX capability gaps are documented explicitly instead of being hidden behind approximate source rewrites.
