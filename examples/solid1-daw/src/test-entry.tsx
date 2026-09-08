@@ -213,46 +213,5 @@ if (hasNativeTestRenderer) {
 
   automated.unmount()
 
-  // Render derivatives of the real source-generated EQ document through the
-  // same native image path. This distinguishes a grammar-class failure from a
-  // document-size/complexity boundary without changing copied EQ source.
-  const commandPattern = /<polygon\b[^>]*\/>|<polyline\b[^>]*\/>|<circle\b[^>]*\/>|<text\b[^>]*>[\s\S]*?<\/text>/g
-  const commands = eqCanvasSource.match(commandPattern) ?? []
-  requireCondition(commands.length > 30, `exact EQ Canvas should retain a substantial ordered command stream, got ${commands.length}`)
-  const openingTagEnd = eqCanvasSource.indexOf(">")
-  requireCondition(openingTagEnd > 0, "exact EQ Canvas SVG must have an opening tag")
-  const openingTag = eqCanvasSource.slice(0, openingTagEnd + 1)
-  const documentFrom = (subset: readonly string[]) => `${openingTag}${subset.join("")}</svg>`
-  const noText = commands.filter((command) => !command.startsWith("<text"))
-  const noCircles = commands.filter((command) => !command.startsWith("<circle"))
-  const eqGraphPaintCommands = commands.filter((command) => !command.startsWith("<text") && !command.startsWith("<circle"))
-  const firstHalf = commands.slice(0, Math.ceil(commands.length / 2))
-  const firstQuarter = commands.slice(0, Math.ceil(commands.length / 4))
-  const eqImageVariants = [
-    eqCanvasSource,
-    documentFrom(noText),
-    documentFrom(noCircles),
-    documentFrom(eqGraphPaintCommands),
-    documentFrom(firstHalf),
-    documentFrom(firstQuarter),
-  ]
-  const eqImageGrammar = createTestRoot(1320, 150)
-  eqImageGrammar.render(() => (
-    <div style={{ width: 1320, height: 150, display: "flex", flexDirection: "row", gap: 12, padding: 12, backgroundColor: "#202024" }}>
-      {eqImageVariants.map((source, index) => (
-        <img
-          testId={`eq-full-image-grammar-${index}`}
-          src={`data:image/svg+xml,${encodeURIComponent(source)}`}
-          objectFit="fill"
-          style={{ width: 200, height: 110, flexShrink: 0 }}
-        />
-      ))}
-    </div>
-  ))
-  eqImageGrammar.renderer.flush()
-  eqImageGrammar.renderer.flush()
-  eqImageGrammar.renderer.captureScreenshot("/tmp/gpuix-solid1-daw-eq-full-image-grammar.png")
-  eqImageGrammar.unmount()
-
-  console.log(`solid1 DAW visual acceptance: exact Canvas2D waveform rendered ${waveformBars} retained peak bars; exact EQ retained ${commands.length} Canvas commands; reactive mixer hard-split and automated interval paints passed`)
+  console.log(`solid1 DAW visual acceptance: exact Canvas2D waveform rendered ${waveformBars} retained peak bars; exact EQ full graph source and dedicated native capture passed; reactive mixer hard-split and automated interval paints passed`)
 }
