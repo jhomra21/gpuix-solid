@@ -39,27 +39,45 @@ function borderBoxWidth(node: NativeTree, boundsWidth: number): number {
 
 async function scrollIntoView(
   app: App,
+  renderer: TestRenderer,
   viewportTestId: string,
   targetTestId: string,
 ): Promise<void> {
   const viewport = app.getByTestId(viewportTestId)
   const target = app.getByTestId(targetTestId)
+  const viewportNode = await viewport.element()
   const viewportBounds = await viewport.bounds()
   const viewportBottom = viewportBounds.y + viewportBounds.height
+  const initialOffset = renderer.getScrollOffset(viewportNode.id)
+  let finalTargetBounds = await target.bounds()
 
   for (let attempt = 0; attempt < 30; attempt += 1) {
-    const targetBounds = await target.bounds()
+    finalTargetBounds = await target.bounds()
     if (
-      targetBounds.y >= viewportBounds.y &&
-      targetBounds.y + targetBounds.height <= viewportBottom
+      finalTargetBounds.y >= viewportBounds.y &&
+      finalTargetBounds.y + finalTargetBounds.height <= viewportBottom
     ) {
       return
     }
-    await viewport.wheel(0, targetBounds.y >= viewportBottom ? -160 : 160)
+    await viewport.wheel(0, finalTargetBounds.y >= viewportBottom ? -160 : 160)
     await app.clock.fastForward(16)
   }
 
-  throw new Error(`Could not scroll ${targetTestId} into ${viewportTestId}`)
+  const wheelOffset = renderer.getScrollOffset(viewportNode.id)
+  renderer.scrollTo(viewportNode.id, 0, -10000)
+  await app.clock.fastForward(16)
+  const directOffset = renderer.getScrollOffset(viewportNode.id)
+  const directTargetBounds = await target.bounds()
+
+  throw new Error(
+    `Could not scroll ${targetTestId} into ${viewportTestId}; `
+    + `viewport=${JSON.stringify(viewportBounds)} `
+    + `initialOffset=${JSON.stringify(initialOffset)} `
+    + `wheelOffset=${JSON.stringify(wheelOffset)} `
+    + `wheelTarget=${JSON.stringify(finalTargetBounds)} `
+    + `directOffset=${JSON.stringify(directOffset)} `
+    + `directTarget=${JSON.stringify(directTargetBounds)}`,
+  )
 }
 
 async function main(): Promise<void> {
@@ -161,21 +179,21 @@ async function main(): Promise<void> {
     await app.getByTestId("terminal-header-yes").click()
     await requireTestId(app, "terminal-header")
 
-    await scrollIntoView(app, "editor-left-sidebar", "terminal-watermark-hide")
+    await scrollIntoView(app, testRoot.renderer, "editor-left-sidebar", "terminal-watermark-hide")
     await app.getByTestId("terminal-watermark-hide").click()
     assert.equal(await app.getByTestId("terminal-watermark").count(), 0)
     await app.getByTestId("terminal-watermark-show").click()
     await requireTestId(app, "terminal-watermark")
 
-    await scrollIntoView(app, "editor-left-sidebar", "editor-line-numbers-show")
+    await scrollIntoView(app, testRoot.renderer, "editor-left-sidebar", "editor-line-numbers-show")
     await app.getByTestId("editor-line-numbers-show").click()
     await requireTestId(app, "line-number-1")
     await requireTestId(app, "editor-line-number-start")
-    await scrollIntoView(app, "editor-left-sidebar", "editor-line-number-start")
+    await scrollIntoView(app, testRoot.renderer, "editor-left-sidebar", "editor-line-number-start")
     await app.getByTestId("editor-line-number-start").click()
     assert.equal(await app.getByTestId("line-number-1").textContent(), "2")
 
-    await scrollIntoView(app, "editor-left-sidebar", "editor-ligatures-no")
+    await scrollIntoView(app, testRoot.renderer, "editor-left-sidebar", "editor-ligatures-no")
     await app.getByTestId("editor-ligatures-no").click()
     await app.getByTestId("editor-font-weight").click()
     assert.equal(await app.getByTestId("editor-font-weight").textContent(), "500⌄")
