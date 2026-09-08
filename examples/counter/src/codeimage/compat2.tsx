@@ -725,7 +725,7 @@ export function Footer() {
         <FooterLink testId="footer-github" label="GitHub" />
         <FooterLink testId="footer-issues" label="Issue & Feedback" />
         <FooterLink testId="footer-releases" label="Releases" />
-        <FooterLink testId="footer-whats-new" label="🎉 What's new" />
+        <FooterLink testId="footer-whats-new" label="🎉 What's new</text>" />
       </div>
       <text testId="codeimage-status" style={{ position: "absolute", width: 0, height: 0, opacity: 0, pointerEvents: "none" }}>{status()}</text>
       <text testId="export-count" style={{ position: "absolute", width: 0, height: 0, opacity: 0, pointerEvents: "none" }}>{exportCount()}</text>
@@ -750,7 +750,7 @@ function ThemeCard(props: { theme: Theme }) {
       setStatus(`Theme changed to ${props.theme.label}`)
     }}>
       <Show when={selected()}><div testId={`theme-selected-${props.theme.id}`} style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, borderWidth: 2, borderColor: colors.primary, borderRadius: 12, pointerEvents: "none" }} /></Show>
-      <div style={{ margin: 14, minHeight: 118, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ margin: 14, minHeight: 118, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
         <div style={{ width: "100%", minHeight: 92, borderRadius: 8, backgroundColor: props.theme.terminal, padding: 10, display: "flex", flexDirection: "column", gap: 4, boxShadow: { offsetX: 0, offsetY: 10, blurRadius: 20, spreadRadius: 0, color: "#00000055" } }}>
           <text style={{ color: props.theme.comment, fontSize: 8 }}>// Just a code example</text>
           <text style={{ color: props.theme.keyword, fontSize: 8 }}>function Preview() {"{"}</text>
@@ -759,7 +759,7 @@ function ThemeCard(props: { theme: Theme }) {
           <text style={{ color: props.theme.keyword, fontSize: 8 }}>{"}"}</text>
         </div>
       </div>
-      <div style={{ padding: 12, justifyContent: "center", alignItems: "center", backgroundColor: "#00000066", display: "flex" }}>
+      <div style={{ padding: 12, justifyContent: "center", alignItems: "center", backgroundColor: "#00000066", display: "flex", pointerEvents: "none" }}>
         <text testId={`theme-label-${props.theme.id}`} style={{ color: colors.white, fontSize: 11, fontWeight: 600 }}>{props.theme.label}</text>
       </div>
     </div>
