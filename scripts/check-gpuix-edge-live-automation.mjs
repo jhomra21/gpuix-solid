@@ -71,46 +71,44 @@ async function runExample({ name, entry, test }) {
       },
     }))
 
-    const context = {
-      app,
-      step,
-      async expectText(locator, expected, label, options = {}) {
-        await step(label, async () => {
-          const deadline = Date.now() + 5_000
-          let actual = ""
-          for (;;) {
-            actual = (await locator.textContent()).trim()
-            const matches = options.includes ? actual.includes(expected) : actual === expected
-            if (matches) return
-            if (Date.now() >= deadline) {
-              throw new Error(
-                `${name}: ${label} expected ${options.includes ? "text containing" : "text"} ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
-              )
-            }
-            await delay(settleMs)
+    const expectText = async (locator, expected, label, options = {}) => {
+      await step(label, async () => {
+        const deadline = Date.now() + 5_000
+        let actual = ""
+        for (;;) {
+          actual = (await locator.textContent()).trim()
+          const matches = options.includes ? actual.includes(expected) : actual === expected
+          if (matches) return
+          if (Date.now() >= deadline) {
+            throw new Error(
+              `${name}: ${label} expected ${options.includes ? "text containing" : "text"} ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
+            )
           }
-        })
-      },
-      async expectCount(locator, expected, label) {
-        await step(label, async () => {
-          const deadline = Date.now() + 5_000
-          let actual = -1
-          for (;;) {
-            actual = await locator.count()
-            if (actual === expected) return
-            if (Date.now() >= deadline) {
-              throw new Error(`${name}: ${label} expected count ${expected}, got ${actual}`)
-            }
-            await delay(settleMs)
-          }
-        })
-      },
-      async expectPresent(locator, label) {
-        await this.expectCount(locator, 1, label)
-      },
+          await delay(settleMs)
+        }
+      })
     }
 
-    await test(context)
+    const expectCount = async (locator, expected, label) => {
+      await step(label, async () => {
+        const deadline = Date.now() + 5_000
+        let actual = -1
+        for (;;) {
+          actual = await locator.count()
+          if (actual === expected) return
+          if (Date.now() >= deadline) {
+            throw new Error(`${name}: ${label} expected count ${expected}, got ${actual}`)
+          }
+          await delay(settleMs)
+        }
+      })
+    }
+
+    const expectPresent = async (locator, label) => {
+      await expectCount(locator, 1, label)
+    }
+
+    await test({ app, step, expectText, expectCount, expectPresent })
     await step("final tree read", () => app.backend.getTree())
     console.log(`GPUIX source-edge live automation: ${name} passed`)
   } catch (error) {
