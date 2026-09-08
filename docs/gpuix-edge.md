@@ -1,11 +1,14 @@
 # GPUIX source-edge development
 
-GPUix Solid supports two native baselines at the same time:
+GPUix Solid supports three native validation modes at the same time:
 
-- **stable** uses the published `@gpuix/native` dependency declared by every package manifest and resolved by `bun.lock`;
-- **edge** builds an exact GPUIX source commit and temporarily links that local `packages/native` build into installed `@gpuix/native` locations.
+- **stable** uses the published `@gpuix/native` dependency declared by package manifests and resolved by `bun.lock`; it is the backward-compatibility baseline for a default install;
+- **pinned edge** builds the exact GPUIX source commit in `.gpuix/edge.json` and temporarily links that local `packages/native` build into installed `@gpuix/native` locations;
+- **latest main** resolves the configured upstream branch at run time, builds that source, links it, and runs the same edge checks without waiting for a native npm release.
 
-This keeps the ownership boundary the same as the intended future GPUIX monorepo layout: Solid code stays in the Solid packages, native Rust work stays in GPUIX, and the development environment can validate both before a native npm release exists.
+This keeps the ownership boundary the same as the intended future GPUIX monorepo layout: Solid code stays in the Solid packages, native Rust work stays in GPUIX, and development can consume and validate upstream source changes as soon as they land on `main`.
+
+A published native release is therefore not a blocker for source-edge development or acceptance. The published dependency remains useful as a compatibility baseline and still controls what a plain npm install resolves by default.
 
 ## Pin
 
@@ -22,7 +25,7 @@ Environment overrides:
 
 ## Commands
 
-From the repository root:
+From the repository root, the reproducible pinned edge is:
 
 ```bash
 bun install --frozen-lockfile
@@ -30,6 +33,15 @@ bun run gpuix:edge:prepare
 bun run gpuix:edge:status
 bun run gpuix:edge:check
 ```
+
+To resolve and test whatever is on the configured upstream branch right now:
+
+```bash
+bun install --frozen-lockfile
+bun run gpuix:edge:latest:check
+```
+
+`gpuix:edge:latest:check` resolves the current branch tip once, exports that exact SHA for the whole run, builds and links its native package, prints the resolved status, and runs the complete edge verification. `gpuix:edge:latest:prepare` performs only the resolve/build/link/status portion.
 
 `gpuix:edge:prepare` performs three explicit steps:
 
@@ -53,11 +65,13 @@ The edge links only mutate local `node_modules`. They do not change package mani
 
 ## CI model
 
-The ordinary CI and release jobs remain the authority for the published native dependency.
+Ordinary CI continues to guard compatibility with the declared published native dependency.
 
-The pinned edge job builds `.gpuix/edge.json` and runs Solid 2 plus the Solid 1 package against that exact native source. This answers whether the repository is ready for the next native release without making CI depend on a moving branch.
+The pinned edge job is the reproducible forward-compatibility gate. It builds `.gpuix/edge.json` and runs Solid 2, live stdio automation, and the Solid 1 package against that exact GPUIX source.
 
-A separate scheduled/manual latest-main workflow resolves the configured `main` branch at run time and runs the same edge checks with `GPUIX_EDGE_SHA` overridden. A failure there means upstream moved ahead of the committed compatibility pin; it does not rewrite the pin automatically.
+The separate scheduled/manual latest-main workflow runs the same `gpuix:edge:latest:check` command available locally. It resolves the configured `main` branch at run time, then source-builds and validates that exact tip. A failure there means upstream moved ahead of the committed compatibility pin; it does not rewrite the pin automatically.
+
+When a needed native fix exists on GPUIX `main` but is not published yet, validate it through pinned/latest source edge and continue development from that evidence. There is no need to carry a duplicate Rust workaround in this repository merely to wait for npm publication.
 
 ## Native changes
 
