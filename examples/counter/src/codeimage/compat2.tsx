@@ -725,7 +725,7 @@ export function Footer() {
         <FooterLink testId="footer-github" label="GitHub" />
         <FooterLink testId="footer-issues" label="Issue & Feedback" />
         <FooterLink testId="footer-releases" label="Releases" />
-        <FooterLink testId="footer-whats-new" label="🎉 What's new</text>" />
+        <FooterLink testId="footer-whats-new" label="🎉 What's new" />
       </div>
       <text testId="codeimage-status" style={{ position: "absolute", width: 0, height: 0, opacity: 0, pointerEvents: "none" }}>{status()}</text>
       <text testId="export-count" style={{ position: "absolute", width: 0, height: 0, opacity: 0, pointerEvents: "none" }}>{exportCount()}</text>
