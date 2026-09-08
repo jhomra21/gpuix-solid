@@ -38,8 +38,10 @@ describe("native dynamic scroll parity", () => {
       const inserted = createElement("div")
       setProp(inserted, "testId", "inserted")
       setProp(inserted, "style", { height: 80 })
+      let insertedOnce = false
       setProp(toggle, "onClick", () => {
-        if (inserted.parent) return
+        if (insertedOnce) return
+        insertedOnce = true
         insertNode(scroller, inserted, tail)
       })
 
