@@ -273,11 +273,13 @@ function serializeCommand(command: CanvasCommand): string {
   }
 
   if (command.kind === "fill-circle" || command.kind === "stroke-circle") {
-    const transform = `matrix(${command.transform.map(formatNumber).join(" ")})`
+    const transformAttribute = isIdentityTransform(command.transform)
+      ? ""
+      : ` transform="matrix(${command.transform.map(formatNumber).join(" ")})"`
     if (command.kind === "fill-circle") {
-      return `<circle cx="${formatNumber(command.x)}" cy="${formatNumber(command.y)}" r="${formatNumber(command.radius)}" transform="${transform}" fill="${escapeXmlAttribute(command.color)}"/>`
+      return `<circle cx="${formatNumber(command.x)}" cy="${formatNumber(command.y)}" r="${formatNumber(command.radius)}"${transformAttribute} fill="${escapeXmlAttribute(command.color)}"/>`
     }
-    return `<circle cx="${formatNumber(command.x)}" cy="${formatNumber(command.y)}" r="${formatNumber(command.radius)}" transform="${transform}" fill="none" stroke="${escapeXmlAttribute(command.color)}" stroke-width="${formatNumber(command.width)}"/>`
+    return `<circle cx="${formatNumber(command.x)}" cy="${formatNumber(command.y)}" r="${formatNumber(command.radius)}"${transformAttribute} fill="none" stroke="${escapeXmlAttribute(command.color)}" stroke-width="${formatNumber(command.width)}"/>`
   }
 
   const baseline = svgDominantBaseline(command.baseline)
