@@ -182,9 +182,10 @@ const examples = [
     entry: "dist/diff/index.js",
     async test({ app, step, expectPresent }) {
       await expectPresent(app.getByTestId("diff-shell"), "diff shell")
-      await expectPresent(app.getByText("createSignal"), "source diff text")
-      await step("hover diff content", () => app.getByText("createSignal").hover())
-      await step("wheel diff viewport", () => app.getByTestId("diff-shell").wheel(0, -180))
+      const viewport = app.getByTestId("diff-scroll")
+      await expectPresent(viewport, "diff viewport")
+      await step("hover diff viewport", () => viewport.hover())
+      await step("wheel diff viewport", () => viewport.wheel(0, -180))
     },
   },
   {
@@ -335,6 +336,21 @@ const examples = [
   },
 ]
 
-for (const example of examples) await runExample(example)
+const failures = []
+for (const example of examples) {
+  try {
+    await runExample(example)
+  } catch (error) {
+    failures.push({ name: example.name, error })
+    const message = error instanceof Error ? error.stack ?? error.message : String(error)
+    console.error(`GPUIX source-edge live automation: ${example.name} failed\n${message}`)
+  }
+}
+
+if (failures.length > 0) {
+  throw new Error(
+    `GPUIX source-edge live automation: ${failures.length}/${examples.length} examples failed (${failures.map(({ name }) => name).join(", ")})`,
+  )
+}
 
 console.log(`GPUIX source-edge live automation: all ${examples.length} Solid 2 examples passed end to end`)
