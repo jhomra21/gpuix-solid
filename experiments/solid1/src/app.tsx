@@ -1,5 +1,5 @@
 import { For, Show, createMemo, createSignal } from "solid-js"
-import type { EventPayload, StyleDesc } from "gpuix-solid1-experiment"
+import type { EventPayload, StyleDesc } from "@jhomra21/gpuix-solid1"
 
 interface LabItem {
   id: string
@@ -74,7 +74,7 @@ export function Solid1CompatibilityLab() {
     >
       <div style={{ gap: 4 }}>
         <text style={{ color: colors.text, fontSize: 24, fontWeight: 750 }}>Solid 1 Compatibility Lab</text>
-        <text testId="runtime-version" style={{ color: colors.green, fontSize: 12 }}>solid-js 1.9.15 → shared GPUI host kernel</text>
+        <text testId="runtime-version" style={{ color: colors.green, fontSize: 12 }}>solid-js 1.9.15 → maintained Solid 1 package</text>
       </div>
 
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
@@ -122,7 +122,7 @@ export function Solid1CompatibilityLab() {
         </div>
       </div>
 
-      <text style={{ color: colors.muted, fontSize: 11 }}>Same native nodes, mutation batching, event registry, and GPUI renderer used by the Solid 2 package.</text>
+      <text style={{ color: colors.muted, fontSize: 11 }}>Same maintained Solid 1 package, native nodes, mutation batching, event registry, and GPUI renderer used by the promoted compatibility path.</text>
     </div>
   )
 }
