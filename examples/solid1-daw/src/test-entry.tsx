@@ -37,10 +37,13 @@ if (hasNativeTestRenderer) {
     </div>
   ))
 
-  // The compatibility surface intentionally batches the source Canvas2D draw
-  // calls into one retained image update. Let Solid's initial effects and that
-  // queued paint commit settle before judging or capturing visual parity.
-  for (let turn = 0; turn < 3; turn++) await Promise.resolve()
+  // The exact EQ schedules its initial Canvas draw through requestAnimationFrame,
+  // then scheduleDraw() queues the actual draw on a following frame. Match the
+  // source-facing interaction test's readiness gate before visual acceptance.
+  for (let frame = 0; frame < 3; frame++) {
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+  }
+  await Promise.resolve()
   app.root.flush()
   app.renderer.flush()
 
