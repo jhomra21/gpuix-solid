@@ -56,6 +56,7 @@ describe("native dynamic scroll parity", () => {
 
       if (!growContent) throw new Error("dynamic scroll fixture did not initialize")
       growContent()
+      testRoot.root.flush()
       testRoot.renderer.flush()
       expect(await app.getByTestId("inserted").count()).toBe(1)
 
