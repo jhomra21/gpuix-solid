@@ -1,7 +1,6 @@
 import { createTestRoot, hasNativeTestRenderer } from "@jhomra21/gpuix-solid1"
 import {
   createElement,
-  insertNode,
   registerCssVariableIntervalOverlay,
   setProp,
 } from "../src/compat/gpuix-solid-ui.ts"
@@ -28,10 +27,6 @@ function canvasImageSvg(root: TestRoot, requiredFragments: readonly string[]): s
   ])
   requireCondition(src.startsWith(SVG_DATA_URL_PREFIX), `Canvas bridge must paint through an SVG image data URL, got ${src}`)
   return decodeURIComponent(src.slice(SVG_DATA_URL_PREFIX.length))
-}
-
-function svgDataUrl(source: string): string {
-  return `${SVG_DATA_URL_PREFIX}${encodeURIComponent(source)}`
 }
 
 if (!hasNativeTestRenderer) {
@@ -182,43 +177,6 @@ if (!hasNativeTestRenderer) {
   requireCondition(eqApp.renderer.hasTestId("gpuix-canvas-2d-surface"), "multicolor EQ Canvas should retain one native image paint surface")
   requireCondition(!eqApp.renderer.hasTestId("gpuix-canvas-2d-layer-1"), "multicolor EQ Canvas should not depend on tint-only SVG layers")
   eqApp.unmount()
-
-  // Diagnose the actual Canvas-generated SVG grammar through the same native
-  // <img> path. Each derivative removes exactly one grammar class so a blank
-  // full image can be attributed without editing copied EQ source.
-  const imageGrammar = createTestRoot(1100, 140)
-  imageGrammar.render(() => {
-    const row = createElement("div")
-    setProp(row, "style", {
-      display: "flex",
-      flexDirection: "row",
-      gap: 12,
-      padding: 12,
-      width: 1100,
-      height: 140,
-      backgroundColor: "#202024",
-    })
-    const variants = [
-      eqSource,
-      eqSource.replaceAll(' dominant-baseline="middle"', ""),
-      eqSource.replace(/<text\b[^>]*>[\s\S]*?<\/text>/g, ""),
-      eqSource.replace(/<circle\b[^>]*\/>/g, ""),
-      eqSource.replace(/<text\b[^>]*>[\s\S]*?<\/text>/g, "").replace(/<circle\b[^>]*\/>/g, ""),
-    ]
-    for (let index = 0; index < variants.length; index++) {
-      const image = createElement("img")
-      setProp(image, "testId", `eq-image-grammar-${index}`)
-      setProp(image, "src", svgDataUrl(variants[index] ?? eqSource))
-      setProp(image, "objectFit", "fill")
-      setProp(image, "style", { width: 200, height: 100, flexShrink: 0 })
-      insertNode(row, image)
-    }
-    return row
-  })
-  imageGrammar.renderer.flush()
-  imageGrammar.renderer.flush()
-  imageGrammar.renderer.captureScreenshot("/tmp/gpuix-solid1-daw-eq-image-grammar.png")
-  imageGrammar.unmount()
 
   console.log("DAW Canvas2D compatibility bridge: unrelated styles preserved and exact multicolor Canvas output retained in one native SVG image")
 }
