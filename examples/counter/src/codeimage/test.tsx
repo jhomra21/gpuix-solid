@@ -47,7 +47,7 @@ async function scrollIntoView(
   const viewportBounds = await viewport.bounds()
   const viewportBottom = viewportBounds.y + viewportBounds.height
 
-  for (let attempt = 0; attempt < 10; attempt += 1) {
+  for (let attempt = 0; attempt < 30; attempt += 1) {
     const targetBounds = await target.bounds()
     if (
       targetBounds.y >= viewportBounds.y &&
@@ -55,7 +55,8 @@ async function scrollIntoView(
     ) {
       return
     }
-    await viewport.wheel(0, targetBounds.y >= viewportBottom ? -180 : 180)
+    await viewport.wheel(0, targetBounds.y >= viewportBottom ? -160 : 160)
+    await app.clock.fastForward(16)
   }
 
   throw new Error(`Could not scroll ${targetTestId} into ${viewportTestId}`)
