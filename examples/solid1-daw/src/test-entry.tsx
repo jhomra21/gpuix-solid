@@ -95,12 +95,15 @@ if (hasNativeTestRenderer) {
   )
   const eqCanvasSource = app.renderer.customPropStringContainingAll("source", [
     'preserveAspectRatio="none"',
-    ">+0 dB</text>",
-    ">10k</text>",
-    ">1</text>",
-    ">8</text>",
+    'font-size="9"',
+    "+0 dB",
+    "10k",
     "<circle",
   ])
+  requireCondition(
+    eqCanvasSource.includes(">1</text>") && eqCanvasSource.includes(">8</text>"),
+    "exact EQ Canvas source should retain all numbered band-node labels",
+  )
   requireCondition(eqCanvasSource.length > 1000, `exact EQ Canvas source should contain the full retained graph command stream, got ${eqCanvasSource.length} bytes`)
   app.renderer.captureScreenshot("/tmp/gpuix-solid1-daw-eq.png")
   app.renderer.scrollTestId("effects-panel", 0, 0)
