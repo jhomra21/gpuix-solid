@@ -6,6 +6,7 @@
     "apps/codeimage/src/pages/Editor/components/LeftSidebar.tsx": "375dd4b14f9652b9c45064e787100f9e2725e6db",
     "apps/codeimage/src/components/Toolbar/Toolbar.tsx": "29e0c0b0d18439af6b9c206007fb294347ac485a",
     "apps/codeimage/src/components/Scaffold/Sidebar/Sidebar.css.ts": "95f8af1fc3c9671d8aae65b78751a062ded17d02",
+    "apps/codeimage/src/components/PropertyEditor/EditorForm.tsx": "fe16360becb7c3341f06a5fa6f6b3b782f425fbd",
     "apps/codeimage/src/components/PropertyEditor/EditorSidebar.css.ts": "c7e8c85e567e18fba212a066036a97f671cdfd15",
     "apps/codeimage/src/components/PropertyEditor/PanelDivider.tsx": "098ce2dd28c829f6ed962d47be0eb460f8d939aa",
     "apps/codeimage/src/components/ThemeSwitcher/ThemeBox.tsx": "718d04f64940f0d1f9f4fa2f8de6e313156d61b5",

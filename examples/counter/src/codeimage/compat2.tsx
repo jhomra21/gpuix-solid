@@ -409,7 +409,7 @@ export function Toolbar(_props: { canvasRef?: unknown }) {
 
 function SidebarSection(props: ChildrenProps & { title: string; testId: string }) {
   return (
-    <div testId={props.testId} style={{ display: "flex", flexDirection: "column", paddingBottom: 16, borderBottomWidth: 1, borderColor: colors.divider }}>
+    <div testId={props.testId} style={{ display: "flex", flexDirection: "column", flexShrink: 0, paddingBottom: 16, borderBottomWidth: 1, borderColor: colors.divider }}>
       <div style={{ height: 48, display: "flex", alignItems: "center", paddingLeft: 15, flexShrink: 0 }}>
         <text style={{ color: colors.white, fontSize: 13, fontWeight: 600 }}>{props.title}</text>
       </div>
@@ -608,7 +608,7 @@ export function EditorLeftSidebar() {
   return (
     <>
       <div testId="editor-left-sidebar" style={{ width: 280, height: "100%", flexShrink: 0, display: "flex", flexDirection: "column", overflowY: "scroll", overflowX: "hidden", paddingRight: 8, borderRightWidth: 1, borderColor: colors.divider, backgroundColor: colors.panel, color: colors.white }}>
-        <div style={{ paddingLeft: 15, paddingTop: 12, paddingBottom: 4 }}>
+        <div style={{ paddingLeft: 15, paddingTop: 12, paddingBottom: 4, flexShrink: 0 }}>
           <div testId="preset-toggle" style={{ ...buttonStyle(false), width: "100%", display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setPresetOpen((open) => !open)}>
             <text style={{ color: colors.text, fontSize: 11 }}>◐ Show your presets</text>
           </div>
