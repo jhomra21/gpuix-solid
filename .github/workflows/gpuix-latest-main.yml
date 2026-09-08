@@ -27,13 +27,5 @@ jobs:
       - name: Confirm native build toolchain
         run: rustc --version && cargo --version
       - run: bun install --frozen-lockfile
-      - name: Resolve latest upstream main
-        run: |
-          TIP="$(node scripts/gpuix-edge.mjs tip)"
-          echo "GPUIX_EDGE_SHA=$TIP" >> "$GITHUB_ENV"
-          echo "Testing remorses/gpuix@$TIP"
-      - name: Build and link latest upstream source
-        run: bun run gpuix:edge:prepare
-      - run: bun run gpuix:edge:status
-      - name: Verify Solid against latest upstream source
-        run: bun run gpuix:edge:check
+      - name: Verify Solid against latest upstream main
+        run: bun run gpuix:edge:latest:check
