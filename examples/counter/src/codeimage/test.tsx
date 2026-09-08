@@ -47,37 +47,28 @@ async function scrollIntoView(
   const target = app.getByTestId(targetTestId)
   const viewportNode = await viewport.element()
   const viewportBounds = await viewport.bounds()
-  const viewportBottom = viewportBounds.y + viewportBounds.height
-  const initialOffset = renderer.getScrollOffset(viewportNode.id)
-  let finalTargetBounds = await target.bounds()
+  const viewportOffset = renderer.getScrollOffset(viewportNode.id) ?? [0, 0]
+  const viewportLeft = viewportBounds.x - viewportOffset[0]
+  const viewportTop = viewportBounds.y - viewportOffset[1]
+  const viewportBottom = viewportTop + viewportBounds.height
+  const wheelPoint = {
+    x: viewportLeft + viewportBounds.width / 2,
+    y: viewportTop + viewportBounds.height / 2,
+  }
 
   for (let attempt = 0; attempt < 30; attempt += 1) {
-    finalTargetBounds = await target.bounds()
+    const targetBounds = await target.bounds()
     if (
-      finalTargetBounds.y >= viewportBounds.y &&
-      finalTargetBounds.y + finalTargetBounds.height <= viewportBottom
+      targetBounds.y >= viewportTop &&
+      targetBounds.y + targetBounds.height <= viewportBottom
     ) {
       return
     }
-    await viewport.wheel(0, finalTargetBounds.y >= viewportBottom ? -160 : 160)
+    await app.mouse.wheel(wheelPoint, 0, targetBounds.y >= viewportBottom ? -160 : 160)
     await app.clock.fastForward(16)
   }
 
-  const wheelOffset = renderer.getScrollOffset(viewportNode.id)
-  renderer.scrollTo(viewportNode.id, 0, -10000)
-  await app.clock.fastForward(16)
-  const directOffset = renderer.getScrollOffset(viewportNode.id)
-  const directTargetBounds = await target.bounds()
-
-  throw new Error(
-    `Could not scroll ${targetTestId} into ${viewportTestId}; `
-    + `viewport=${JSON.stringify(viewportBounds)} `
-    + `initialOffset=${JSON.stringify(initialOffset)} `
-    + `wheelOffset=${JSON.stringify(wheelOffset)} `
-    + `wheelTarget=${JSON.stringify(finalTargetBounds)} `
-    + `directOffset=${JSON.stringify(directOffset)} `
-    + `directTarget=${JSON.stringify(directTargetBounds)}`,
-  )
+  throw new Error(`Could not scroll ${targetTestId} into ${viewportTestId}`)
 }
 
 async function main(): Promise<void> {
