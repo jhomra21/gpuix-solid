@@ -5,11 +5,12 @@ import {
   createTestRoot,
   hasNativeTestRenderer,
   type App,
-  type StyleDesc,
+  type TestRenderer,
 } from "gpuix-solid"
 import { CodeImageNativeDemo } from "./app"
 
 const screenshotPath = "/tmp/gpuix-solid-codeimage-native.png"
+type NativeTree = NonNullable<ReturnType<TestRenderer["toJSON"]>>
 
 async function requireTestId(app: App, testId: string): Promise<void> {
   assert.equal(
@@ -19,7 +20,18 @@ async function requireTestId(app: App, testId: string): Promise<void> {
   )
 }
 
-function borderBoxWidth(boundsWidth: number, style: StyleDesc): number {
+function findTreeByTestId(node: NativeTree | null, testId: string): NativeTree | undefined {
+  if (!node) return undefined
+  if (node.testId === testId) return node
+  for (const child of node.children ?? []) {
+    const match = findTreeByTestId(child, testId)
+    if (match) return match
+  }
+  return undefined
+}
+
+function borderBoxWidth(node: NativeTree, boundsWidth: number): number {
+  const style = node.style ?? {}
   return boundsWidth
     + (style.borderLeftWidth ?? style.borderWidth ?? 0)
     + (style.borderRightWidth ?? style.borderWidth ?? 0)
@@ -75,10 +87,13 @@ async function main(): Promise<void> {
     const toolbar = await app.getByTestId("codeimage-toolbar").bounds()
     const left = await app.getByTestId("editor-left-sidebar").bounds()
     const right = await app.getByTestId("theme-sidebar").bounds()
-    const leftStyle = testRoot.renderer.styleTestId("editor-left-sidebar")
-    const rightStyle = testRoot.renderer.styleTestId("theme-sidebar")
-    const leftOuterWidth = borderBoxWidth(left.width, leftStyle)
-    const rightOuterWidth = borderBoxWidth(right.width, rightStyle)
+    const tree = testRoot.renderer.toJSON()
+    const leftNode = findTreeByTestId(tree, "editor-left-sidebar")
+    const rightNode = findTreeByTestId(tree, "theme-sidebar")
+    assert.ok(leftNode, "expected editor-left-sidebar in retained tree")
+    assert.ok(rightNode, "expected theme-sidebar in retained tree")
+    const leftOuterWidth = borderBoxWidth(leftNode, left.width)
+    const rightOuterWidth = borderBoxWidth(rightNode, right.width)
     assert.ok(Math.abs(toolbar.height - 52) <= 1, `expected source 52px toolbar, got ${toolbar.height}`)
     assert.ok(Math.abs(leftOuterWidth - 280) <= 1, `expected source 280px editor sidebar border box, got ${leftOuterWidth}`)
     assert.ok(Math.abs(rightOuterWidth - 280) <= 1, `expected source 280px theme sidebar border box, got ${rightOuterWidth}`)
