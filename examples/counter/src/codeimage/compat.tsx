@@ -1,5 +1,5 @@
 import { For, Show, createMemo, createSignal, type Element as SolidElement } from "solid-js"
-import type { PublicInstance, StyleDesc } from "gpuix-solid"
+import type { StyleDesc } from "gpuix-solid"
 
 type Modality = "full" | "mobile"
 type ThemeId = "fleetDark" | "vsCodeDarkTheme" | "dracula"
@@ -35,8 +35,6 @@ interface BoxProps extends ChildrenProps {
   paddingTop?: number | undefined
   paddingX?: number | undefined
   padding?: number | undefined
-  marginLeft?: number | string | undefined
-  marginRight?: number | string | undefined
   flexGrow?: number | undefined
 }
 
@@ -160,7 +158,6 @@ const [menuOpen, setMenuOpen] = createSignal(false)
 const [themeSearch, setThemeSearch] = createSignal("")
 const [exportCount, setExportCount] = createSignal(0)
 const [status, setStatus] = createSignal("")
-const [frameScale, setFrameScale] = createSignal(1)
 const [readOnly] = createSignal(false)
 
 const activeTheme = createMemo(
@@ -235,14 +232,6 @@ export function Box(props: BoxProps) {
           props.paddingX === undefined ? undefined : space(props.paddingX),
         paddingRight:
           props.paddingX === undefined ? undefined : space(props.paddingX),
-        marginLeft:
-          typeof props.marginLeft === "number"
-            ? space(props.marginLeft)
-            : props.marginLeft,
-        marginRight:
-          typeof props.marginRight === "number"
-            ? space(props.marginRight)
-            : props.marginRight,
         flexGrow: props.flexGrow,
         minWidth: 0,
         minHeight: 0,
@@ -311,9 +300,7 @@ export function useModality(): Modality {
 
 export function getFrameState() {
   return {
-    setScale(value: number) {
-      setFrameScale(value)
-    },
+    setScale(_value: number) {},
   }
 }
 
