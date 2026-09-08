@@ -48,9 +48,11 @@ describe("native dynamic scroll parity", () => {
       const scroller = app.getByTestId("scroller")
       const scrollerElement = await scroller.element()
       testRoot.renderer.scrollTo(scrollerElement.id, 0, -10_000)
+      testRoot.renderer.flush()
 
       const oldBottom = testRoot.renderer.getScrollOffset(scrollerElement.id)?.[1] ?? 0
       expect(oldBottom).toBeLessThan(0)
+      expect(oldBottom).toBeGreaterThan(-10_000)
 
       if (!growContent) throw new Error("dynamic scroll fixture did not initialize")
       growContent()
