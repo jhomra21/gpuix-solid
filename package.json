@@ -10,7 +10,7 @@
   "scripts": {
     "build": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' build",
     "typecheck": "bun run --filter 'gpuix-solid' typecheck && bun run --filter 'gpuix-solid-counter' typecheck",
-    "test": "bun run --filter 'gpuix-solid' test && bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' test:todo && bun run --filter 'gpuix-solid-counter' test:diff && bun run --filter 'gpuix-solid-counter' test:timeline && bun run --filter 'gpuix-solid-counter' test:mail && bun run --filter 'gpuix-solid-counter' test:diffusion && bun run --filter 'gpuix-solid-counter' test:chat && bun run --filter 'gpuix-solid-counter' test:infinite-chat && bun run --filter 'gpuix-solid-counter' test:dashboard && bun run --filter 'gpuix-solid-counter' test:codeimage && bun run --filter 'gpuix-solid-counter' test:tanstack-kitchen-sink",
+    "test": "bun run --filter 'gpuix-solid' test && bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' test:todo && bun run --filter 'gpuix-solid-counter' test:diff && bun run --filter 'gpuix-solid-counter' test:timeline && bun run --filter 'gpuix-solid-counter' test:mail && bun run --filter 'gpuix-solid-counter' test:diffusion && bun run --filter 'gpuix-solid-counter' test:chat && bun run --filter 'gpuix-solid-counter' test:infinite-chat && bun run --filter 'gpuix-solid-solid-counter' test:dashboard && bun run --filter 'gpuix-solid-counter' test:codeimage && bun run --filter 'gpuix-solid-counter' test:tanstack-kitchen-sink",
     "gpuix:check-version": "node scripts/check-gpuix-native-version.mjs",
     "gpuix:edge:sync": "node scripts/gpuix-edge.mjs sync",
     "gpuix:edge:build": "node scripts/gpuix-edge.mjs build",
@@ -18,6 +18,8 @@
     "gpuix:edge:prepare": "node scripts/gpuix-edge.mjs prepare",
     "gpuix:edge:status": "node scripts/gpuix-edge.mjs status",
     "gpuix:edge:tip": "node scripts/gpuix-edge.mjs tip",
+    "gpuix:edge:latest:prepare": "node scripts/gpuix-edge-latest.mjs prepare",
+    "gpuix:edge:latest:check": "node scripts/gpuix-edge-latest.mjs check",
     "gpuix:edge:native-capabilities": "node scripts/check-gpuix-edge-capabilities.mjs",
     "gpuix:edge:live-automation": "node scripts/check-gpuix-edge-live-automation.mjs",
     "gpuix:edge:solid1": "cd packages/solid1 && bun install --no-save && cd ../.. && node scripts/gpuix-edge.mjs link && cd packages/solid1 && bun run test && bun run typecheck",
