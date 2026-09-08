@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "classifications": [
+    "original",
+    "official-gpuix-solid-derived",
+    "third-party-derived",
+    "user-repo-derived"
+  ],
+  "examples": {
+    "example:counter": {
+      "classification": "official-gpuix-solid-derived",
+      "repository": "remorses/gpuix",
+      "revision": "6b4be86952aa89cfe61bb573740aea33fef5c5c4",
+      "contract": "examples/counter/upstream/gpuix/source-main-surface-lock.json"
+    },
+    "example:native-text": {
+      "classification": "official-gpuix-solid-derived",
+      "repository": "remorses/gpuix",
+      "revision": "6b4be86952aa89cfe61bb573740aea33fef5c5c4",
+      "contract": "examples/counter/upstream/gpuix/source-main-surface-lock.json"
+    },
+    "example:blurred-window": {
+      "classification": "original",
+      "note": "Intentional animated showcase; the official static blurred-window source is retained as a separately locked reference.",
+      "referenceContract": "examples/counter/upstream/gpuix/source-main-surface-lock.json"
+    },
+    "example:todo": {
+      "classification": "official-gpuix-solid-derived",
+      "repository": "remorses/gpuix",
+      "revision": "a24b4a42eb516c7b940eb8d34ecebb077df623bd",
+      "contract": "examples/counter/upstream/gpuix/upstream-lock.json"
+    },
+    "example:diff": {
+      "classification": "official-gpuix-solid-derived",
+      "repository": "remorses/gpuix",
+      "revision": "6b4be86952aa89cfe61bb573740aea33fef5c5c4",
+      "contract": "examples/counter/upstream/gpuix/source-main-surface-lock.json"
+    },
+    "example:timeline": {
+      "classification": "official-gpuix-solid-derived",
+      "repository": "remorses/gpuix",
+      "revision": "6b4be86952aa89cfe61bb573740aea33fef5c5c4",
+      "contract": "examples/counter/upstream/gpuix/source-main-surface-lock.json"
+    },
+    "example:mail": {
+      "classification": "official-gpuix-solid-derived",
+      "repository": "remorses/gpuix",
+      "revision": "6b4be86952aa89cfe61bb573740aea33fef5c5c4",
+      "contract": "examples/counter/upstream/gpuix/source-main-surface-lock.json"
+    },
+    "example:diffusion": {
+      "classification": "third-party-derived",
+      "repository": "diffusionstudio/editor",
+      "revision": "585fb010dcca36919f096f4b1275d535acab0cb9",
+      "contract": "examples/counter/src/diffusion/UPSTREAM.md"
+    },
+    "example:chat": {
+      "classification": "official-gpuix-solid-derived",
+      "repository": "remorses/gpuix",
+      "revision": "6b4be86952aa89cfe61bb573740aea33fef5c5c4",
+      "contract": "examples/counter/upstream/gpuix/source-main-surface-lock.json"
+    },
+    "example:infinite-chat": {
+      "classification": "official-gpuix-solid-derived",
+      "repository": "remorses/gpuix",
+      "revision": "6b4be86952aa89cfe61bb573740aea33fef5c5c4",
+      "contract": "examples/counter/upstream/gpuix/source-main-surface-lock.json"
+    },
+    "example:dashboard": {
+      "classification": "user-repo-derived",
+      "repository": "jhomra21/cloudflare-workers-solid-tanstack-spa-betterauth-D1-KV",
+      "revision": "47139f07c018dc2ba505bbb5915750fdba19e961",
+      "contract": "examples/counter/src/dashboard/UPSTREAM.md"
+    },
+    "example:codeimage": {
+      "classification": "third-party-derived",
+      "repository": "riccardoperra/codeimage",
+      "revision": "27b185f18d36f2baec3a8cc5a43e8794586096c3",
+      "contract": "examples/counter/src/codeimage/UPSTREAM.md"
+    },
+    "example:tanstack-kitchen-sink": {
+      "classification": "third-party-derived",
+      "repository": "TanStack/router",
+      "revision": "b6984af74dd561b8ee7e2d7369898a536dda70c2",
+      "contract": "examples/counter/src/tanstack-kitchen-sink/UPSTREAM.md"
+    },
+    "example:solid1": {
+      "classification": "original",
+      "note": "Legacy Solid 1 renderer smoke fixture owned by this repository."
+    },
+    "example:solid1-kobalte": {
+      "classification": "third-party-derived",
+      "repository": "kobaltedev/kobalte",
+      "revision": "3d3266348816b492b027538168988703dc1604c0",
+      "contract": "examples/solid1-kobalte/upstream-lock.json"
+    },
+    "example:solid1-blurred-window": {
+      "classification": "official-gpuix-solid-derived",
+      "repository": "remorses/gpuix",
+      "revision": "6b4be86952aa89cfe61bb573740aea33fef5c5c4",
+      "contract": "examples/solid1-blurred-window/UPSTREAM.md"
+    },
+    "example:solid1-tailwind": {
+      "classification": "original",
+      "note": "Repository-owned Tailwind/native style compatibility fixture generated from its local source classes."
+    },
+    "example:solid1-daw": {
+      "classification": "user-repo-derived",
+      "repository": "jhomra21/daw-browser-convex",
+      "revision": "2eaad47813b15aa8511bab8dc04625510c977b12",
+      "contract": "examples/solid1-daw/UPSTREAM.md"
+    }
+  }
+}
