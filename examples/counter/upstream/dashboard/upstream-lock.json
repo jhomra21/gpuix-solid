@@ -12,6 +12,10 @@
     "src/components/Breadcrumbs.tsx": "48c1b39917f1ac3d4991b01786f145b38978f58a",
     "src/components/nav-user.tsx": "735b7d3c449dd5835fd46b63dfc8e9d292d7d3a7",
     "src/components/NoteEditor.tsx": "4593705e513abe49efdc12e3c001c8da7cfe6a37",
-    "src/components/NoteCard.tsx": "e303716662a98d3415a2df2fe31b4657ff00cac0"
+    "src/components/NoteCard.tsx": "e303716662a98d3415a2df2fe31b4657ff00cac0",
+    "src/components/weather/AddLocationForm.tsx": "c402c3164729b999ee088c70561185e6307dad20",
+    "src/components/weather/GeolocationPrompt.tsx": "dc06545cb745107024a6600dd1506dbd65abc52f",
+    "src/components/weather/WeatherCard.tsx": "5207aea619d58f37233831d5cc6511ca3d52aee0",
+    "src/components/weather/WeatherErrorBoundary.tsx": "eea6e6335749f3c8d0df9b369e4d9fe84053321e"
   }
 }
