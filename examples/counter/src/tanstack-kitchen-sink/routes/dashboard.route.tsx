@@ -1,4 +1,4 @@
-import { For, Match, Show, Switch, createSignal } from "solid-js"
+import { For, Match, Show, Switch, createSignal, untrack } from "solid-js"
 import { Divider, palette, type DashboardTab } from "../native"
 import { DashboardIndexRoute } from "./dashboard.index"
 import { InvoicesRoute } from "./dashboard.invoices.route"
@@ -14,7 +14,8 @@ export function DashboardRoute(props: {
   initialTab?: DashboardTab
   initialInvoiceId?: number | null
 }) {
-  const [tab, setTab] = createSignal<DashboardTab>(props.initialTab ?? "summary")
+  const initialTab = untrack(() => props.initialTab ?? "summary")
+  const [tab, setTab] = createSignal<DashboardTab>(initialTab)
 
   return (
     <div testId="page-dashboard" style={{ flexGrow: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
