@@ -279,7 +279,12 @@ export function NotesRoute(): SolidElement {
           <Show when={editingId() !== null}>
             <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 8 }}>
               <text style={{ color: palette.text, fontSize: 12, fontWeight: 500 }}>Status:</text>
-              <Select value={status()} onValueChange={(value) => setStatus(value as Note["status"])}>
+              <Select
+                value={status()}
+                onValueChange={(value) => {
+                  if (value === "active" || value === "archived") setStatus(value)
+                }}
+              >
                 <SelectTrigger testId="note-status" style={inputStyle({ width: 160, minHeight: 36, display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between" })}>
                   <SelectValue placeholder="Status">
                     <text testId="note-status-value" style={{ color: palette.text, fontSize: 12 }}>{status() === "active" ? "Active" : "Archived"}</text>
