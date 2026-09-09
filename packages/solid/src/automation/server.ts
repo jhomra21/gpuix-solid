@@ -45,11 +45,24 @@ export interface LiveAutomationRenderer {
   clockResume(): number
 }
 
+export interface LiveAutomationBackendOptions {
+  tickAfterInput?: boolean
+}
+
 export class LiveAutomationBackend implements AutomationBackend {
   readonly #renderer: LiveAutomationRenderer
+  readonly #tickAfterInput: boolean
 
-  constructor(renderer: LiveAutomationRenderer) {
+  constructor(
+    renderer: LiveAutomationRenderer,
+    options: LiveAutomationBackendOptions = {},
+  ) {
     this.#renderer = renderer
+    this.#tickAfterInput = options.tickAfterInput ?? true
+  }
+
+  #flushInput(): void {
+    if (this.#tickAfterInput) this.#renderer.tick()
   }
 
   getTree() {
@@ -62,22 +75,22 @@ export class LiveAutomationBackend implements AutomationBackend {
 
   click(x: number, y: number, button?: number, modifiers?: string): void {
     this.#renderer.simulateClick(x, y, button, modifiers)
-    this.#renderer.tick()
+    this.#flushInput()
   }
 
   mouseMove(x: number, y: number, pressedButton?: number, modifiers?: string): void {
     this.#renderer.simulateMouseMove(x, y, pressedButton, modifiers)
-    this.#renderer.tick()
+    this.#flushInput()
   }
 
   mouseDown(x: number, y: number, button?: number, modifiers?: string): void {
     this.#renderer.simulateMouseDown(x, y, button, modifiers)
-    this.#renderer.tick()
+    this.#flushInput()
   }
 
   mouseUp(x: number, y: number, button?: number, modifiers?: string): void {
     this.#renderer.simulateMouseUp(x, y, button, modifiers)
-    this.#renderer.tick()
+    this.#flushInput()
   }
 
   scrollWheel(
@@ -88,13 +101,13 @@ export class LiveAutomationBackend implements AutomationBackend {
     modifiers?: string,
   ): void {
     this.#renderer.simulateScrollWheel(x, y, deltaX, deltaY, modifiers)
-    this.#renderer.tick()
+    this.#flushInput()
   }
 
   keystrokes(elementId: number, keys: string): void {
     this.#renderer.focusElement(elementId)
     this.#renderer.simulateKeystrokes(keys)
-    this.#renderer.tick()
+    this.#flushInput()
   }
 
   screenshot(path: string): void {
@@ -254,5 +267,9 @@ export function serveAutomationStdio(backend: AutomationBackend): void {
 }
 
 export function enableAutomation(renderer: LiveAutomationRenderer): void {
-  serveAutomationStdio(new LiveAutomationBackend(renderer))
+  // The production runtime already owns a continuous renderer frame loop.
+  // Explicit automation ticks would race that loop on GPUIX 0.7.0 and can
+  // re-enter a GpuixView update. Direct LiveAutomationBackend consumers keep
+  // tick-after-input by default for isolated/manual renderer use.
+  serveAutomationStdio(new LiveAutomationBackend(renderer, { tickAfterInput: false }))
 }
