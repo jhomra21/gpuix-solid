@@ -90,6 +90,11 @@ async function main(): Promise<void> {
     await app.getByTestId("user-row-3").click()
     await requireTestId(app, "user-detail")
     assert.equal(await app.getByText("Clementine Bauch").count() > 0, true)
+    const userDetailBounds = await app.getByTestId("user-detail").bounds()
+    assert.ok(
+      userDetailBounds.width >= 250,
+      `expected user detail to preserve block-level outlet width, got ${userDetailBounds.width}`,
+    )
 
     await app.clock.fastForward(300)
     await app.screenshot({ path: screenshotPath })
