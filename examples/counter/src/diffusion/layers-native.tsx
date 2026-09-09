@@ -174,11 +174,15 @@ function layerIcon(kind: DiffusionLayerState["kind"]): string {
 
 type ContextAction = "mute" | "solo" | "hide" | "front" | "back" | "remove"
 
-function LayerRow(props: { layer: DiffusionLayerState; timeline: SourceDiffusionTimelineState }): SolidElement {
+function LayerRow(props: {
+  layer: DiffusionLayerState
+  timeline: SourceDiffusionTimelineState
+  rowIndex: number
+  onContextMenu: (layerId: string, rowIndex: number) => void
+}): SolidElement {
   const [hovered, setHovered] = createSignal(false)
   const [editing, setEditing] = createSignal(false)
   const [editName, setEditName] = createSignal(props.layer.name)
-  const [contextOpen, setContextOpen] = createSignal(false)
   const selected = () => props.timeline.selectedLayerId() === props.layer.id
   const controlsVisible = () => hovered() || props.layer.muted || props.layer.soloed || props.layer.hidden
 
@@ -189,23 +193,13 @@ function LayerRow(props: { layer: DiffusionLayerState; timeline: SourceDiffusion
     setEditing(false)
   }
 
-  const action = (value: ContextAction): void => {
-    if (value === "mute") props.timeline.toggleLayerMuted(props.layer.id)
-    else if (value === "solo") props.timeline.toggleLayerSoloed(props.layer.id)
-    else if (value === "hide") props.timeline.toggleLayerHidden(props.layer.id)
-    else if (value === "front") props.timeline.reorderLayer(props.layer.id, "front")
-    else if (value === "back") props.timeline.reorderLayer(props.layer.id, "back")
-    else props.timeline.removeLayer(props.layer.id)
-    setContextOpen(false)
-  }
-
   return (
     <div
       testId={`diffusion-layer-row-${props.layer.id}`}
       onClick={() => props.timeline.selectLayer(props.layer.id)}
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}
-      onContextMenu={() => setContextOpen(true)}
+      onContextMenu={() => props.onContextMenu(props.layer.id, props.rowIndex)}
       style={{
         position: "relative",
         height: props.timeline.clipHeight(),
@@ -257,25 +251,54 @@ function LayerRow(props: { layer: DiffusionLayerState; timeline: SourceDiffusion
           <div testId={`diffusion-layer-hide-${props.layer.id}`} aria-label={props.layer.hidden ? "Show" : "Hide"} onClick={() => props.timeline.toggleLayerHidden(props.layer.id)} style={{ width: 24, height: 24, alignItems: "center", justifyContent: "center", borderRadius: 5, backgroundColor: props.layer.hidden ? "#FFFFFF12" : "#00000000", cursor: "pointer" }}><text style={{ color: "#FFFFFFA3", fontSize: 9, pointerEvents: "none" }}>{props.layer.hidden ? "◌" : "●"}</text></div>
         </div>
       </Show>
+    </div>
+  )
+}
 
-      <Show when={contextOpen()}>
-        <div testId={`diffusion-layer-context-${props.layer.id}`} style={{ position: "absolute", left: 88, top: 24, width: 160, padding: 6, gap: 2, borderWidth: 1, borderColor: "#3E3F41", borderRadius: 7, backgroundColor: "#121212" }}>
-          <For each={[
-            ["mute", props.layer.muted ? "Unmute" : "Mute"],
-            ["solo", props.layer.soloed ? "Unsolo" : "Solo"],
-            ["hide", props.layer.hidden ? "Unhide" : "Hide"],
-            ["front", "Bring to front"],
-            ["back", "Send to back"],
-            ["remove", "Remove"],
-          ] as const}>
-            {([value, label]) => (
-              <div testId={`diffusion-layer-context-${value}-${props.layer.id}`} onClick={() => action(value)} style={{ height: 28, display: "flex", alignItems: "center", paddingLeft: 8, paddingRight: 8, borderRadius: 5, cursor: "pointer", hover: { backgroundColor: "#FFFFFF17" } }}>
-                <text style={{ color: "#F2F2F2", fontSize: 10 }}>{label}</text>
-              </div>
-            )}
-          </For>
-        </div>
-      </Show>
+function LayerContextMenu(props: {
+  layer: DiffusionLayerState
+  timeline: SourceDiffusionTimelineState
+  rowIndex: number
+  onClose: () => void
+}): SolidElement {
+  const action = (value: ContextAction): void => {
+    if (value === "mute") props.timeline.toggleLayerMuted(props.layer.id)
+    else if (value === "solo") props.timeline.toggleLayerSoloed(props.layer.id)
+    else if (value === "hide") props.timeline.toggleLayerHidden(props.layer.id)
+    else if (value === "front") props.timeline.reorderLayer(props.layer.id, "front")
+    else if (value === "back") props.timeline.reorderLayer(props.layer.id, "back")
+    else props.timeline.removeLayer(props.layer.id)
+    props.onClose()
+  }
+
+  const menuTop = () => props.rowIndex >= 2
+    ? RULER_HEIGHT + 4
+    : RULER_HEIGHT + props.rowIndex * props.timeline.clipHeight() + 24
+
+  const row = (value: ContextAction, label: string, shortcut = ""): SolidElement => (
+    <div
+      testId={`diffusion-layer-context-${value}-${props.layer.id}`}
+      onClick={() => action(value)}
+      style={{ height: 28, display: "flex", flexDirection: "row", alignItems: "center", paddingLeft: 8, paddingRight: 8, borderRadius: 5, cursor: "pointer", hover: { backgroundColor: "#FFFFFF17" } }}
+    >
+      <text style={{ flexGrow: 1, color: "#F2F2F2", fontSize: 10 }}>{label}</text>
+      <Show when={shortcut}><text style={{ color: "#FFFFFF66", fontSize: 9 }}>{shortcut}</text></Show>
+    </div>
+  )
+
+  return (
+    <div
+      testId={`diffusion-layer-context-${props.layer.id}`}
+      style={{ position: "absolute", left: 88, top: menuTop(), width: 160, padding: 6, gap: 2, borderWidth: 1, borderColor: "#3E3F41", borderRadius: 7, backgroundColor: "#121212" }}
+    >
+      {row("mute", props.layer.muted ? "Unmute" : "Mute")}
+      {row("solo", props.layer.soloed ? "Unsolo" : "Solo")}
+      {row("hide", props.layer.hidden ? "Unhide" : "Hide")}
+      <div style={{ height: 1, marginTop: 2, marginBottom: 2, backgroundColor: "#FFFFFF0F" }} />
+      {row("front", "Bring to front", "]")}
+      {row("back", "Send to back", "[")}
+      <div style={{ height: 1, marginTop: 2, marginBottom: 2, backgroundColor: "#FFFFFF0F" }} />
+      {row("remove", "Remove")}
     </div>
   )
 }
@@ -331,7 +354,16 @@ function TimelineMenu(props: { timeline: SourceDiffusionTimelineState; onClose: 
 
 export function Layers(props: { state: DiffusionEditorState; timeline: SourceDiffusionTimelineState }): SolidElement {
   const [moreOpen, setMoreOpen] = createSignal(false)
+  const [contextLayerId, setContextLayerId] = createSignal<string | null>(null)
+  const [contextRowIndex, setContextRowIndex] = createSignal(0)
   const clock = createMemo(() => formatFrames(PLAYHEAD_FRAME, FPS, props.timeline.timeFormat()))
+  const contextLayer = createMemo(() => props.timeline.layers().find((layer) => layer.id === contextLayerId()))
+
+  const openContextMenu = (layerId: string, rowIndex: number): void => {
+    setMoreOpen(false)
+    setContextLayerId(layerId)
+    setContextRowIndex(rowIndex)
+  }
 
   return (
     <div testId="diffusion-layers" style={{ position: "relative", width: 264, height: "100%", flexShrink: 0, display: "flex", flexDirection: "column", backgroundColor: "#121212" }}>
@@ -340,15 +372,20 @@ export function Layers(props: { state: DiffusionEditorState; timeline: SourceDif
         <div testId="diffusion-loop" onClick={() => props.state.setLooping(!props.state.looping())} style={{ width: 28, height: 28, borderRadius: 6, alignItems: "center", justifyContent: "center", backgroundColor: props.state.looping() ? "#FFFFFF0F" : "#00000000", cursor: "pointer", hover: { backgroundColor: "#FFFFFF17" } }}><text style={{ color: "#FFFFFFA3", fontSize: 11 }}>↻</text></div>
         <Show when={!props.state.timelineMinimized()}>
           <div testId="diffusion-split" onClick={props.timeline.splitAtPlayhead} style={{ width: 28, height: 28, alignItems: "center", justifyContent: "center", cursor: "pointer", hover: { backgroundColor: "#FFFFFF17" } }}><text style={{ color: "#FFFFFFA3", fontSize: 11 }}>✂</text></div>
-          <div testId="diffusion-more" onClick={() => setMoreOpen(!moreOpen())} style={{ width: 28, height: 28, alignItems: "center", justifyContent: "center", cursor: "pointer", backgroundColor: moreOpen() ? "#FFFFFF0F" : "#00000000", hover: { backgroundColor: "#FFFFFF17" } }}><text style={{ color: "#FFFFFFA3", fontSize: 11 }}>•••</text></div>
+          <div testId="diffusion-more" onClick={() => { setContextLayerId(null); setMoreOpen(!moreOpen()) }} style={{ width: 28, height: 28, alignItems: "center", justifyContent: "center", cursor: "pointer", backgroundColor: moreOpen() ? "#FFFFFF0F" : "#00000000", hover: { backgroundColor: "#FFFFFF17" } }}><text style={{ color: "#FFFFFFA3", fontSize: 11 }}>•••</text></div>
         </Show>
         <div style={{ flexGrow: 1 }} />
         <text testId="diffusion-clock" style={{ color: "#FFFFFFA3", fontSize: 10 }}>{clock()}</text>
       </div>
       <Show when={!props.state.timelineMinimized()}>
-        <For each={props.timeline.layers()}>{(layer) => <LayerRow layer={layer} timeline={props.timeline} />}</For>
+        <For each={props.timeline.layers()}>
+          {(layer, index) => <LayerRow layer={layer} timeline={props.timeline} rowIndex={index()} onContextMenu={openContextMenu} />}
+        </For>
       </Show>
       <Show when={moreOpen() && !props.state.timelineMinimized()}><TimelineMenu timeline={props.timeline} onClose={() => setMoreOpen(false)} /></Show>
+      <Show when={contextLayer() && !props.state.timelineMinimized()}>
+        <LayerContextMenu layer={contextLayer()!} timeline={props.timeline} rowIndex={contextRowIndex()} onClose={() => setContextLayerId(null)} />
+      </Show>
     </div>
   )
 }
