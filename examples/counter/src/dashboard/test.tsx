@@ -140,7 +140,10 @@ async function main(): Promise<void> {
     await app.getByTestId("note-delete-1").click()
     assert.equal(await app.getByTestId("note-delete-dialog").count(), 1)
     assert.equal(await app.getByText("Delete Note?").count(), 1)
-    assert.match(await app.getByTestId("note-delete-message").textContent(), /Project notes/)
+    assert.equal(
+      await app.getByTestId("note-delete-message").textContent(),
+      'Are you sure you want to delete the note "Project notes"? This action cannot be undone.',
+    )
     await app.getByTestId("note-delete-cancel").click()
     assert.equal(await app.getByTestId("note-delete-dialog").count(), 0)
     await app.getByTestId("note-delete-1").click()
