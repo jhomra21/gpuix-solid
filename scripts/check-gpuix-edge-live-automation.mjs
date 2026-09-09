@@ -274,7 +274,10 @@ const examples = [
         app.getByTestId("composer").fill("live stdio hello"),
       )
       await step("submit composer", () => app.getByTestId("send").click())
-      await step("wheel transcript", () => app.getByType("virtual-list").wheel(0, -260))
+      const sentMessage = app.getByText("live stdio hello")
+      await expectPresent(sentMessage, "sent message")
+      await step("confirm sent message painted", () => sentMessage.bounds())
+      await step("wheel transcript", () => sentMessage.wheel(0, -260))
     },
   },
   {
@@ -303,7 +306,7 @@ const examples = [
     name: "Dashboard",
     entry: "dist/dashboard/index.js",
     async test({ app, step, expectPresent, expectText }) {
-      await expectText(app.getByTestId("page-title"), "Home", "initial route")
+      await expectText(app.getByTestId("page-title"), "Dashboard", "initial route")
       await step("open API result", () => app.getByTestId("test-api").click())
       await expectPresent(app.getByText("Hello from the API"), "API result")
       await step("close API result", () => app.getByTestId("close-api").click())
