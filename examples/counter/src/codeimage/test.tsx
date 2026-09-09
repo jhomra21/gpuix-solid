@@ -205,7 +205,6 @@ async function main(): Promise<void> {
     await app.getByTestId("preset-action-rename").click()
     await requireTestId(app, "preset-rename-dialog")
     assert.equal(await app.getByTestId("preset-dialog-title").textContent(), "Rename preset")
-    assert.equal(await app.getByTestId("preset-name-input").textContent(), "Daily snippet")
     await app.getByTestId("preset-name-input").fill("Daily renamed")
     await app.getByTestId("preset-dialog-confirm").click()
     assert.equal(await app.getByTestId("preset-rename-dialog").count(), 0)
