@@ -179,46 +179,6 @@ export function DashboardDemo(): SolidElement {
             </Show>
           </div>
         </div>
-
-        <Show when={userMenuOpen()}>
-          <div
-            testId="nav-user-menu"
-            style={{
-              position: "absolute",
-              left: sidebarOpen() ? 264 : 58,
-              bottom: 8,
-              width: 224,
-              display: "flex",
-              flexDirection: "column",
-              gap: 4,
-              padding: 6,
-              borderRadius: 8,
-              borderWidth: 1,
-              borderColor: palette.border,
-              backgroundColor: palette.background,
-              boxShadow: { offsetX: 0, offsetY: 8, blurRadius: 20, spreadRadius: 0, color: "#0f172a20" },
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: 6, pointerEvents: "none" }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: palette.muted, display: "flex", alignItems: "center", justifyContent: "center" }}><text style={{ color: palette.text, fontSize: 13, fontWeight: 600 }}>U</text></div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <text style={{ color: palette.text, fontSize: 12, fontWeight: 600 }}>User</text>
-                <text style={{ color: palette.secondary, fontSize: 10 }}>user@example.com</text>
-              </div>
-            </div>
-            <Divider />
-            <div testId="nav-user-home" onClick={() => navigate("home")} style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 32, paddingLeft: 8, paddingRight: 8, borderRadius: 6, cursor: "pointer", hover: { backgroundColor: palette.muted } }}>
-              <div style={{ pointerEvents: "none" }}><SourceIcon name="house" size={16} /></div><text style={{ color: palette.text, fontSize: 11, pointerEvents: "none" }}>Go to Home Page</text>
-            </div>
-            <div testId="nav-user-profile" onClick={() => navigate("account")} style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 32, paddingLeft: 8, paddingRight: 8, borderRadius: 6, cursor: "pointer", hover: { backgroundColor: palette.muted } }}>
-              <div style={{ pointerEvents: "none" }}><SourceIcon name="user" size={16} /></div><text style={{ color: palette.text, fontSize: 11, pointerEvents: "none" }}>Profile</text>
-            </div>
-            <Divider />
-            <div testId="nav-user-logout" onClick={logout} style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 32, paddingLeft: 8, paddingRight: 8, borderRadius: 6, cursor: "pointer", hover: { backgroundColor: palette.muted } }}>
-              <div style={{ pointerEvents: "none" }}><SourceIcon name="logout" size={16} /></div><text style={{ color: palette.text, fontSize: 11, pointerEvents: "none" }}>Log out</text>
-            </div>
-          </div>
-        </Show>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0, height: "100%", margin: 8, marginLeft: 0, backgroundColor: palette.background, borderRadius: 12, boxShadow: { offsetX: 0, offsetY: 4, blurRadius: 10, spreadRadius: 0, color: "#0f172a18" } }}>
@@ -254,6 +214,46 @@ export function DashboardDemo(): SolidElement {
           </Switch>
         </div>
       </div>
+
+      <Show when={userMenuOpen()}>
+        <div
+          testId="nav-user-menu"
+          style={{
+            position: "absolute",
+            left: sidebarOpen() ? 264 : 58,
+            bottom: 8,
+            width: 224,
+            display: "flex",
+            flexDirection: "column",
+            gap: 4,
+            padding: 6,
+            borderRadius: 8,
+            borderWidth: 1,
+            borderColor: palette.border,
+            backgroundColor: palette.background,
+            boxShadow: { offsetX: 0, offsetY: 8, blurRadius: 20, spreadRadius: 0, color: "#0f172a20" },
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: 6, pointerEvents: "none" }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: palette.muted, display: "flex", alignItems: "center", justifyContent: "center" }}><text style={{ color: palette.text, fontSize: 13, fontWeight: 600 }}>U</text></div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <text style={{ color: palette.text, fontSize: 12, fontWeight: 600 }}>User</text>
+              <text style={{ color: palette.secondary, fontSize: 10 }}>user@example.com</text>
+            </div>
+          </div>
+          <Divider />
+          <div testId="nav-user-home" onClick={() => navigate("home")} style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 32, paddingLeft: 8, paddingRight: 8, borderRadius: 6, cursor: "pointer", hover: { backgroundColor: palette.muted } }}>
+            <div style={{ pointerEvents: "none" }}><SourceIcon name="house" size={16} /></div><text style={{ color: palette.text, fontSize: 11, pointerEvents: "none" }}>Go to Home Page</text>
+          </div>
+          <div testId="nav-user-profile" onClick={() => navigate("account")} style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 32, paddingLeft: 8, paddingRight: 8, borderRadius: 6, cursor: "pointer", hover: { backgroundColor: palette.muted } }}>
+            <div style={{ pointerEvents: "none" }}><SourceIcon name="user" size={16} /></div><text style={{ color: palette.text, fontSize: 11, pointerEvents: "none" }}>Profile</text>
+          </div>
+          <Divider />
+          <div testId="nav-user-logout" onClick={logout} style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 32, paddingLeft: 8, paddingRight: 8, borderRadius: 6, cursor: "pointer", hover: { backgroundColor: palette.muted } }}>
+            <div style={{ pointerEvents: "none" }}><SourceIcon name="logout" size={16} /></div><text style={{ color: palette.text, fontSize: 11, pointerEvents: "none" }}>Log out</text>
+          </div>
+        </div>
+      </Show>
     </div>
   )
 }
