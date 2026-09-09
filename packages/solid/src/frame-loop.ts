@@ -10,12 +10,17 @@ export interface FrameLoop {
 export type FrameLoopError = Error | string
 
 const DEFAULT_FRAME_MS = 8
+let automationOwnsFramePump = false
+
+export function setAutomationFrameOwnership(owned: boolean): void {
+  automationOwnsFramePump = owned
+}
 
 export function startFrameLoop(
   renderer: TickRenderer,
   options: { frameMs?: number; onTerminated?: () => void; onError?: (error: FrameLoopError) => void } = {},
 ): FrameLoop {
-  if (!renderer.requiresTick()) return { stop() {} }
+  if (automationOwnsFramePump || !renderer.requiresTick()) return { stop() {} }
 
   const frameMs = options.frameMs ?? DEFAULT_FRAME_MS
   let timer: ReturnType<typeof setTimeout> | undefined
