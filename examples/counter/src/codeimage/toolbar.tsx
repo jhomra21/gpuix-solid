@@ -63,7 +63,6 @@ function ToolbarDialog(props: {
         borderColor: colors.divider,
         backgroundColor: colors.panel,
         boxShadow: { offsetX: 0, offsetY: 14, blurRadius: 30, spreadRadius: 0, color: "#00000088" },
-        zIndex: 200,
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -161,7 +160,6 @@ export function Toolbar(_props: { canvasRef?: unknown }) {
         backgroundColor: colors.panel,
         color: colors.white,
         flexShrink: 0,
-        zIndex: 100,
       }}
     >
       <div
@@ -229,7 +227,7 @@ export function Toolbar(_props: { canvasRef?: unknown }) {
       </div>
 
       <Show when={menuOpen()}>
-        <div testId="toolbar-menu-content" style={{ position: "absolute", left: 16, top: 46, width: 180, padding: 6, display: "flex", flexDirection: "column", gap: 4, borderRadius: 8, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.input, zIndex: 180 }}>
+        <div testId="toolbar-menu-content" style={{ position: "absolute", left: 16, top: 46, width: 180, padding: 6, display: "flex", flexDirection: "column", gap: 4, borderRadius: 8, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.input }}>
           <div testId="toolbar-menu-settings" style={controlStyle(false)} onClick={() => openDialog("settings")}>
             <text style={{ color: colors.text, fontSize: 12, pointerEvents: "none" }}>Settings</text>
           </div>
@@ -255,7 +253,7 @@ export function Toolbar(_props: { canvasRef?: unknown }) {
       </Show>
 
       <Show when={userMenuOpen() && signedIn()}>
-        <div testId="user-badge-menu" style={{ position: "absolute", right: 16, top: 46, width: 140, padding: 6, borderRadius: 8, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.input, zIndex: 180 }}>
+        <div testId="user-badge-menu" style={{ position: "absolute", right: 16, top: 46, width: 140, padding: 6, borderRadius: 8, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.input }}>
           <div testId="user-badge-logout" style={controlStyle(false)} onClick={logout}>
             <text style={{ color: colors.text, fontSize: 12, pointerEvents: "none" }}>Logout</text>
           </div>
