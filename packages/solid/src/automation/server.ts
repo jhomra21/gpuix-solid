@@ -47,11 +47,13 @@ export interface LiveAutomationRenderer {
 
 export interface LiveAutomationBackendOptions {
   tickAfterInput?: boolean
+  tickBeforeRead?: boolean
 }
 
 export class LiveAutomationBackend implements AutomationBackend {
   readonly #renderer: LiveAutomationRenderer
   readonly #tickAfterInput: boolean
+  readonly #tickBeforeRead: boolean
 
   constructor(
     renderer: LiveAutomationRenderer,
@@ -59,17 +61,24 @@ export class LiveAutomationBackend implements AutomationBackend {
   ) {
     this.#renderer = renderer
     this.#tickAfterInput = options.tickAfterInput ?? true
+    this.#tickBeforeRead = options.tickBeforeRead ?? false
   }
 
   #flushInput(): void {
     if (this.#tickAfterInput) this.#renderer.tick()
   }
 
+  #flushRead(): void {
+    if (this.#tickBeforeRead) this.#renderer.tick()
+  }
+
   getTree() {
+    this.#flushRead()
     return parseAutomationTree(this.#renderer.getAutomationTree())
   }
 
   getBounds(elementId: number) {
+    this.#flushRead()
     return parseBounds(this.#renderer.getElementBounds(elementId))
   }
 
@@ -111,6 +120,7 @@ export class LiveAutomationBackend implements AutomationBackend {
   }
 
   screenshot(path: string): void {
+    this.#flushRead()
     this.#renderer.captureScreenshot(path)
   }
 
@@ -266,10 +276,13 @@ export function serveAutomationStdio(backend: AutomationBackend): void {
   })
 }
 
-export function enableAutomation(renderer: LiveAutomationRenderer): void {
-  // The production runtime already owns a continuous renderer frame loop.
-  // Explicit automation ticks would race that loop on GPUIX 0.7.0 and can
-  // re-enter a GpuixView update. Direct LiveAutomationBackend consumers keep
-  // tick-after-input by default for isolated/manual renderer use.
-  serveAutomationStdio(new LiveAutomationBackend(renderer, { tickAfterInput: false }))
+export function enableAutomation(
+  renderer: LiveAutomationRenderer,
+  options: { driveFrames?: boolean } = {},
+): void {
+  const driveFrames = options.driveFrames ?? false
+  serveAutomationStdio(new LiveAutomationBackend(renderer, {
+    tickAfterInput: false,
+    tickBeforeRead: driveFrames,
+  }))
 }
