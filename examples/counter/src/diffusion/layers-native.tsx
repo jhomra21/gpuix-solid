@@ -184,7 +184,9 @@ function LayerRow(props: {
   const [editing, setEditing] = createSignal(false)
   const [editName, setEditName] = createSignal(props.layer.name)
   const selected = () => props.timeline.selectedLayerId() === props.layer.id
-  const controlsVisible = () => hovered() || props.layer.muted || props.layer.soloed || props.layer.hidden
+  const muteVisible = () => hovered() || props.layer.muted
+  const soloVisible = () => hovered() || props.layer.soloed
+  const hideVisible = () => hovered() || props.layer.hidden
 
   const commitRename = (): void => {
     const next = editName().trim()
@@ -244,11 +246,11 @@ function LayerRow(props: {
         />
       </Show>
 
-      <Show when={controlsVisible() && !editing()}>
+      <Show when={!editing()}>
         <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 2 }}>
-          <div testId={`diffusion-layer-mute-${props.layer.id}`} aria-label={props.layer.muted ? "Unmute" : "Mute"} onClick={() => props.timeline.toggleLayerMuted(props.layer.id)} style={{ width: 24, height: 24, alignItems: "center", justifyContent: "center", borderRadius: 5, backgroundColor: props.layer.muted ? "#FFFFFF12" : "#00000000", cursor: "pointer" }}><text style={{ color: "#FFFFFFA3", fontSize: 9, pointerEvents: "none" }}>M</text></div>
-          <div testId={`diffusion-layer-solo-${props.layer.id}`} aria-label={props.layer.soloed ? "Unsolo" : "Solo"} onClick={() => props.timeline.toggleLayerSoloed(props.layer.id)} style={{ width: 24, height: 24, alignItems: "center", justifyContent: "center", borderRadius: 5, backgroundColor: props.layer.soloed ? "#FFFFFF12" : "#00000000", cursor: "pointer" }}><text style={{ color: "#FFFFFFA3", fontSize: 9, pointerEvents: "none" }}>S</text></div>
-          <div testId={`diffusion-layer-hide-${props.layer.id}`} aria-label={props.layer.hidden ? "Show" : "Hide"} onClick={() => props.timeline.toggleLayerHidden(props.layer.id)} style={{ width: 24, height: 24, alignItems: "center", justifyContent: "center", borderRadius: 5, backgroundColor: props.layer.hidden ? "#FFFFFF12" : "#00000000", cursor: "pointer" }}><text style={{ color: "#FFFFFFA3", fontSize: 9, pointerEvents: "none" }}>{props.layer.hidden ? "◌" : "●"}</text></div>
+          <div testId={`diffusion-layer-mute-${props.layer.id}`} aria-label={props.layer.muted ? "Unmute" : "Mute"} onClick={() => props.timeline.toggleLayerMuted(props.layer.id)} style={{ width: 24, height: 24, alignItems: "center", justifyContent: "center", borderRadius: 5, backgroundColor: props.layer.muted ? "#FFFFFF12" : "#00000000", cursor: "pointer", opacity: muteVisible() ? 1 : 0, pointerEvents: muteVisible() ? "auto" : "none" }}><text style={{ color: "#FFFFFFA3", fontSize: 9, pointerEvents: "none" }}>M</text></div>
+          <div testId={`diffusion-layer-solo-${props.layer.id}`} aria-label={props.layer.soloed ? "Unsolo" : "Solo"} onClick={() => props.timeline.toggleLayerSoloed(props.layer.id)} style={{ width: 24, height: 24, alignItems: "center", justifyContent: "center", borderRadius: 5, backgroundColor: props.layer.soloed ? "#FFFFFF12" : "#00000000", cursor: "pointer", opacity: soloVisible() ? 1 : 0, pointerEvents: soloVisible() ? "auto" : "none" }}><text style={{ color: "#FFFFFFA3", fontSize: 9, pointerEvents: "none" }}>S</text></div>
+          <div testId={`diffusion-layer-hide-${props.layer.id}`} aria-label={props.layer.hidden ? "Show" : "Hide"} onClick={() => props.timeline.toggleLayerHidden(props.layer.id)} style={{ width: 24, height: 24, alignItems: "center", justifyContent: "center", borderRadius: 5, backgroundColor: props.layer.hidden ? "#FFFFFF12" : "#00000000", cursor: "pointer", opacity: hideVisible() ? 1 : 0, pointerEvents: hideVisible() ? "auto" : "none" }}><text style={{ color: "#FFFFFFA3", fontSize: 9, pointerEvents: "none" }}>{props.layer.hidden ? "◌" : "●"}</text></div>
         </div>
       </Show>
     </div>
