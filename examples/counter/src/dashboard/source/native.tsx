@@ -33,8 +33,14 @@ export const palette = {
   text: "#0f172a",
   secondary: "#64748b",
   primary: "#2563eb",
+  primaryTop: "#60a5fa",
+  primaryBottom: "#3b82f6",
+  primaryBorder: "#1d4ed8",
   destructive: "#dc2626",
   white: "#ffffff",
+  greenAccent: "#bbf7d0",
+  purpleAccent: "#e9d5ff",
+  blueAccent: "#bfdbfe",
 } as const
 
 export const initialTasks: Task[] = [
@@ -56,33 +62,63 @@ export const initialWeather: WeatherLocation[] = [
 export function inputStyle(extra: StyleDesc = {}): StyleDesc {
   return {
     minHeight: 36,
-    paddingLeft: 10,
-    paddingRight: 10,
-    backgroundColor: palette.background,
+    paddingLeft: 12,
+    paddingRight: 12,
+    backgroundColor: "#00000000",
     color: palette.text,
     borderWidth: 1,
     borderColor: palette.border,
     borderRadius: 6,
+    boxShadow: { offsetX: 0, offsetY: 1, blurRadius: 2, spreadRadius: 0, color: "#0f172a0d" },
     ...extra,
   }
 }
 
 export function buttonStyle(active = false): StyleDesc {
   return {
-    minHeight: 34,
-    paddingTop: 8,
-    paddingBottom: 8,
-    paddingLeft: 12,
-    paddingRight: 12,
+    minHeight: active ? 40 : 36,
+    paddingTop: active ? 8 : 6,
+    paddingBottom: active ? 8 : 6,
+    paddingLeft: active ? 16 : 12,
+    paddingRight: active ? 16 : 12,
     borderRadius: 6,
-    backgroundColor: active ? palette.primary : palette.muted,
+    borderWidth: 1,
+    borderColor: active ? palette.primaryBorder : palette.border,
+    background: active
+      ? {
+          type: "linear-gradient",
+          angle: 180,
+          stops: [
+            { color: palette.primaryTop, position: 0 },
+            { color: palette.primaryBottom, position: 1 },
+          ],
+        }
+      : undefined,
+    backgroundColor: active ? undefined : "#00000000",
+    boxShadow: active
+      ? { offsetX: 0, offsetY: 1, blurRadius: 2, spreadRadius: 0, color: "#00000033" }
+      : undefined,
     cursor: "pointer",
+    active: active ? { opacity: 0.92 } : { backgroundColor: palette.muted },
+    hover: active ? { opacity: 0.94 } : { backgroundColor: palette.muted },
   }
 }
 
 export function Card(props: { children: SolidElement; style?: StyleDesc }): SolidElement {
   return (
-    <div style={{ padding: 16, gap: 12, borderWidth: 1, borderColor: palette.border, borderRadius: 8, backgroundColor: palette.background, ...props.style }}>
+    <div
+      style={{
+        position: "relative",
+        padding: 16,
+        gap: 12,
+        borderWidth: 1,
+        borderColor: palette.border,
+        borderRadius: 8,
+        backgroundColor: palette.background,
+        boxShadow: { offsetX: 0, offsetY: 1, blurRadius: 2, spreadRadius: 0, color: "#0f172a0d" },
+        ...props.style,
+      }}
+    >
       {props.children}
     </div>
   )
@@ -103,6 +139,7 @@ export function DialogSurface(props: { children: SolidElement; testId?: string }
         borderColor: palette.border,
         borderRadius: 10,
         backgroundColor: palette.background,
+        boxShadow: { offsetX: 0, offsetY: 12, blurRadius: 30, spreadRadius: 0, color: "#0f172a28" },
       }}
     >
       {props.children}
@@ -113,7 +150,7 @@ export function DialogSurface(props: { children: SolidElement; testId?: string }
 export function Button(props: { children: SolidElement; testId?: string; active?: boolean; onClick?(): void }): SolidElement {
   return (
     <div testId={props.testId} style={buttonStyle(props.active)} onClick={props.onClick}>
-      <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 6 }}>
+      <div style={{ display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, pointerEvents: "none" }}>
         {props.children}
       </div>
     </div>
