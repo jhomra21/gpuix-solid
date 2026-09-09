@@ -176,6 +176,7 @@ async function main(): Promise<void> {
     assert.equal(await app.getByTestId("weather-updated-1").textContent(), "Just now")
     assert.match(await app.getByTestId("weather-refresh-count").textContent(), /1 refresh/)
 
+    await scrollIntoView(app, "dashboard-content", "weather-delete-3")
     await app.getByTestId("weather-delete-3").click()
     assert.equal(await app.getByTestId("weather-delete-confirmation-3").count(), 1)
     await app.getByTestId("weather-delete-cancel-3").click()
