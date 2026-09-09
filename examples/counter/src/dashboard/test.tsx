@@ -56,9 +56,26 @@ async function main(): Promise<void> {
   try {
     assert.equal(await app.getByTestId("dashboard-shell").count(), 1)
     assert.equal(await app.getByTestId("page-home").count(), 1)
-    assert.equal(await app.getByTestId("page-title").textContent(), "Home")
+    assert.equal(await app.getByTestId("page-title").textContent(), "Dashboard")
     assert.equal(await app.getByText("About This Demo").count(), 1)
     assert.equal(await app.getByText("SolidJS and Tanstack Router for reactive UI").count(), 1)
+
+    assert.equal(Math.round((await app.getByTestId("dashboard-sidebar").bounds()).width), 272)
+    await app.getByTestId("sidebar-toggle").click()
+    assert.equal(Math.round((await app.getByTestId("dashboard-sidebar").bounds()).width), 66)
+    await app.getByTestId("sidebar-toggle").click()
+    assert.equal(Math.round((await app.getByTestId("dashboard-sidebar").bounds()).width), 272)
+
+    await app.getByTestId("nav-user-trigger").click()
+    assert.equal(await app.getByTestId("nav-user-menu").count(), 1)
+    assert.equal(await app.getByText("Go to Home Page").count(), 1)
+    assert.equal(await app.getByText("Profile").count(), 1)
+    assert.equal(await app.getByText("Log out").count(), 1)
+    await app.getByTestId("nav-user-profile").click()
+    assert.equal(await app.getByTestId("page-title").textContent(), "Account")
+    assert.equal(await app.getByTestId("nav-user-menu").count(), 0)
+    await app.getByTestId("nav-home").click()
+    assert.equal(await app.getByTestId("page-title").textContent(), "Dashboard")
 
     await app.getByTestId("test-api").click()
     assert.equal(await app.getByText("Hello from the API").count(), 1)
