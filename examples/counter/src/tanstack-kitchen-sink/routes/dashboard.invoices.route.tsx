@@ -1,10 +1,11 @@
-import { For, Show, createMemo, createSignal } from "solid-js"
+import { For, Show, createMemo, createSignal, untrack } from "solid-js"
 import { Divider, initialInvoices, palette, type Invoice } from "../native"
 import { InvoiceRoute } from "./dashboard.invoices.$invoiceId"
 import { InvoicesIndexRoute } from "./dashboard.invoices.index"
 
 export function InvoicesRoute(props: { initialSelectedId?: number | null }) {
-  const initialSelected = initialInvoices.find((invoice) => invoice.id === props.initialSelectedId)
+  const initialSelectedId = untrack(() => props.initialSelectedId ?? null)
+  const initialSelected = initialInvoices.find((invoice) => invoice.id === initialSelectedId)
   const [invoices, setInvoices] = createSignal<Invoice[]>(initialInvoices)
   const [selectedId, setSelectedId] = createSignal<number | null>(initialSelected?.id ?? null)
   const [newTitle, setNewTitle] = createSignal("")
