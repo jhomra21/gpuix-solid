@@ -6,7 +6,6 @@ import { applyDebugFrameOverlay } from "./capabilities.js"
 import { startFrameLoop, type FrameLoop } from "./frame-loop.js"
 import { useDestroyUnlinksParentBatch } from "./host/mutations.js"
 import type { DebugFrameOverlayMode, NativeRenderer, WindowKeyEventHandlers } from "./host/types.js"
-import { createDeferredNativeEventHandler } from "./native-event-queue.js"
 import { createRoot, type Root } from "./root.js"
 import { createRuntimeErrorOverlay, type RuntimeErrorDetails } from "./runtime-error-overlay.js"
 
@@ -166,15 +165,20 @@ export function createRenderer(
 ): RendererBinding {
   let renderer: GpuixRenderer
   let automationEnabled = false
-  const handleNativeEvent = createDeferredNativeEventHandler(
-    (event) => {
-      const state = rendererBindingState(renderer)
+  renderer = new GpuixRenderer((error, event) => {
+    if (error) {
+      scheduleRuntimeError(error)
+      return
+    }
+    if (!event) return
+    const state = rendererBindingState(renderer)
+    try {
       const handled = state.root?.dispatch(event) ?? false
       if (handled) state.onEvent?.(event)
-    },
-    scheduleRuntimeError,
-  )
-  renderer = new GpuixRenderer(handleNativeEvent)
+    } catch (eventError) {
+      scheduleRuntimeError(eventError instanceof Error ? eventError : String(eventError))
+    }
+  })
   setRendererOnEvent(renderer, onEvent)
 
   const nativeInit = renderer.init.bind(renderer)
