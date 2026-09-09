@@ -8,15 +8,14 @@ import {
 } from "./compat"
 import { Canvas } from "./canvas-native"
 import { Inspector } from "./inspector-native"
+import { Layers, createSourceDiffusionTimelineState } from "./layers-native"
 import { SidebarLeft } from "./sidebar-left-native"
 import { Soundboard } from "./soundboard-native"
 import { SourceDiffusionProvider } from "./source-adapters/runtime"
 import {
   DEFAULT_TIMELINE_HEIGHT,
-  Layers,
   RULER_HEIGHT,
   Timeline,
-  createDiffusionTimelineState,
 } from "./timeline-native"
 
 export function EditorPage(): SolidElement {
@@ -29,7 +28,7 @@ export function EditorPage(): SolidElement {
   const [playing, setPlaying] = createSignal(false)
   const [looping, setLooping] = createSignal(false)
   const [promptOpen, setPromptOpen] = createSignal(false)
-  const timeline = createDiffusionTimelineState()
+  const timeline = createSourceDiffusionTimelineState()
 
   const state: DiffusionEditorState = {
     projectName,
