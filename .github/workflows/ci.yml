@@ -51,9 +51,6 @@ jobs:
       - run: bun run typecheck
       - run: bun run test
       - run: bun run build
-      - name: Verify all built Solid 2 examples live
-        if: matrix.os == 'macos-latest'
-        run: bun run examples:live
       - name: Verify Solid 1 package and DAW showcase
         run: bun run solid1:check
       - name: Upload Solid 2 source-first screenshots
@@ -148,5 +145,5 @@ jobs:
       - name: Build and link pinned GPUIX source
         run: bun run gpuix:edge:prepare
       - run: bun run gpuix:edge:status
-      - name: Verify Solid against pinned GPUIX source
+      - name: Verify Solid and live examples against pinned GPUIX source
         run: bun run gpuix:edge:check
