@@ -1,5 +1,12 @@
 import { For, Show, createMemo, createSignal, type Element as SolidElement } from "solid-js"
-import type { PublicInstance, StyleDesc } from "gpuix-solid"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  type PublicInstance,
+  type StyleDesc,
+} from "gpuix-solid"
 import codeImageLogo from "../../upstream/codeimage/apps/codeimage/public/assets/codeimage-logo-blue-svg-v1.svg?raw"
 
 type Modality = "full" | "mobile"
@@ -7,18 +14,24 @@ type ThemeId = "fleetDark" | "vsCodeDarkTheme" | "dracula"
 type TerminalType = "macOs" | "macOsGrayTheme" | "macOsOutlineTheme" | "windows"
 type BorderType = "glass" | "none"
 type ShadowType = "bottom" | "none"
+type PresetDialogKind = "add" | "rename" | "delete" | "update"
 
 type Preset = {
   id: string
   name: string
   updated: string
-  sync: boolean
+  canSync: boolean
   themeId: ThemeId
   padding: number
   radius: number
   showHeader: boolean
   terminalType: TerminalType
 }
+
+type PresetDialogState = {
+  kind: PresetDialogKind
+  presetId?: string | undefined
+} | null
 
 interface Theme {
   id: ThemeId
@@ -64,6 +77,8 @@ const colors = {
   primary: "#0099ff",
   primaryHover: "#0088ff",
   primaryActive: "#0077ff",
+  danger: "#b42318",
+  dangerHover: "#912018",
   white: "#ffffff",
   glass: "#505050",
 } as const
@@ -143,7 +158,7 @@ const initialPresets: readonly Preset[] = [
     id: "preset-0",
     name: "Daily snippet",
     updated: "Updated 2 days ago",
-    sync: false,
+    canSync: true,
     themeId: "fleetDark",
     padding: 64,
     radius: 8,
@@ -154,7 +169,7 @@ const initialPresets: readonly Preset[] = [
     id: "preset-1",
     name: "Presentation",
     updated: "Updated 5 days ago",
-    sync: true,
+    canSync: false,
     themeId: "dracula",
     padding: 32,
     radius: 16,
@@ -186,7 +201,10 @@ const [fontWeight, setFontWeight] = createSignal(400)
 const [ligatures, setLigatures] = createSignal(true)
 const [presetOpen, setPresetOpen] = createSignal(false)
 const [presetMenu, setPresetMenu] = createSignal<string | null>(null)
+const [presetDialog, setPresetDialog] = createSignal<PresetDialogState>(null)
+const [presetNameDraft, setPresetNameDraft] = createSignal("")
 const [presets, setPresets] = createSignal<readonly Preset[]>(initialPresets)
+const [sharedPresetLink, setSharedPresetLink] = createSignal("")
 const [menuOpen, setMenuOpen] = createSignal(false)
 const [themeSearch, setThemeSearch] = createSignal("")
 const [exportCount, setExportCount] = createSignal(0)
@@ -531,6 +549,16 @@ function FontForm() {
   )
 }
 
+function currentPresetState(): Pick<Preset, "themeId" | "padding" | "radius" | "showHeader" | "terminalType"> {
+  return {
+    themeId: themeId(),
+    padding: framePadding(),
+    radius: frameRadius(),
+    showHeader: showHeader(),
+    terminalType: terminalType(),
+  }
+}
+
 function applyPreset(preset: Preset) {
   setThemeId(preset.themeId)
   setFramePadding(preset.padding)
@@ -540,39 +568,242 @@ function applyPreset(preset: Preset) {
   setStatus(`Preset selected: ${preset.name}`)
 }
 
-function PresetPreviewCard(props: { preset: Preset; index: number }) {
+function openPresetDialog(kind: PresetDialogKind, preset?: Preset): void {
+  setPresetMenu(null)
+  setPresetNameDraft(kind === "rename" ? preset?.name ?? "" : "")
+  setPresetDialog({ kind, presetId: preset?.id })
+}
+
+function closePresetDialog(): void {
+  setPresetDialog(null)
+  setPresetNameDraft("")
+}
+
+function addPreset(): void {
+  const name = presetNameDraft().trim()
+  if (!name) return
+  const index = presets().length + 1
+  setPresets((items) => [
+    {
+      id: `preset-${Date.now()}-${index}`,
+      name,
+      updated: "Updated just now",
+      canSync: true,
+      ...currentPresetState(),
+    },
+    ...items,
+  ])
+  setStatus("Preset has been created")
+  closePresetDialog()
+}
+
+function renamePreset(preset: Preset): void {
+  const name = presetNameDraft().trim()
+  if (!name) return
+  setPresets((items) => items.map((item) =>
+    item.id === preset.id ? { ...item, name, updated: "Updated just now" } : item,
+  ))
+  setStatus("Preset has been updated")
+  closePresetDialog()
+}
+
+function deletePreset(preset: Preset): void {
+  setPresets((items) => items.filter((item) => item.id !== preset.id))
+  setStatus("Preset has been deleted")
+  closePresetDialog()
+}
+
+function updatePreset(preset: Preset): void {
+  const nextState = currentPresetState()
+  setPresets((items) => items.map((item) =>
+    item.id === preset.id
+      ? { ...item, ...nextState, updated: "Updated just now" }
+      : item,
+  ))
+  setStatus("Preset has been updated")
+  closePresetDialog()
+}
+
+function sharePreset(preset: Preset): void {
+  setPresetMenu(null)
+  setSharedPresetLink(`?share_preset=${preset.id}`)
+  setStatus("Preset has been copied to clipboard")
+}
+
+function syncPreset(preset: Preset): void {
+  setPresetMenu(null)
+  setPresets((items) => items.map((item) =>
+    item.id === preset.id
+      ? { ...item, canSync: false, updated: "Updated just now" }
+      : item,
+  ))
+  setStatus("Local preset has been synchronized")
+}
+
+function PresetPreviewVisual(props: {
+  preset: Pick<Preset, "themeId" | "padding" | "radius" | "showHeader" | "terminalType">
+  compact?: boolean | undefined
+}) {
   const theme = () => themes.find((candidate) => candidate.id === props.preset.themeId) ?? themes[0]!
   return (
-    <div testId={`preset-card-${props.index}`} style={{ display: "flex", flexDirection: "column", gap: 8, paddingBottom: 16 }} onClick={() => applyPreset(props.preset)}>
-      <div style={{ position: "relative", minHeight: 120, padding: 14, borderRadius: 12, background: theme().preview, overflow: "hidden", pointerEvents: "none" }}>
-        <div style={{ minHeight: 92, borderRadius: 8, backgroundColor: theme().terminal, padding: 12, display: "flex", flexDirection: "column", gap: 5 }}>
-          <text style={{ color: theme().keyword, fontSize: 9 }}>function Preview() {"{"}</text>
-          <text style={{ color: theme().number, fontSize: 9 }}>{"  "}const count = 0;</text>
-          <text style={{ color: theme().string, fontSize: 9 }}>{"  "}return &quot;CodeImage&quot;;</text>
-          <text style={{ color: theme().keyword, fontSize: 9 }}>{"}"}</text>
-        </div>
+    <div style={{ position: "relative", minHeight: props.compact ? 84 : 120, padding: props.compact ? 10 : 14, borderRadius: 12, background: theme().preview, overflow: "hidden", pointerEvents: "none" }}>
+      <div style={{ minHeight: props.compact ? 62 : 92, borderRadius: props.preset.radius, backgroundColor: theme().terminal, padding: props.compact ? 8 : 12, display: "flex", flexDirection: "column", gap: 5 }}>
+        <text style={{ color: theme().keyword, fontSize: props.compact ? 8 : 9 }}>function Preview() {"{"}</text>
+        <text style={{ color: theme().number, fontSize: props.compact ? 8 : 9 }}>{"  "}const count = 0;</text>
+        <text style={{ color: theme().string, fontSize: props.compact ? 8 : 9 }}>{"  "}return &quot;CodeImage&quot;;</text>
+        <text style={{ color: theme().keyword, fontSize: props.compact ? 8 : 9 }}>{"}"}</text>
+      </div>
+    </div>
+  )
+}
+
+function PresetDialogSurface() {
+  return (
+    <Show when={presetDialog()} keyed>
+      {(dialog) => {
+        const preset = () => dialog.presetId
+          ? presets().find((candidate) => candidate.id === dialog.presetId)
+          : undefined
+        const title = dialog.kind === "add"
+          ? "Add a new preset"
+          : dialog.kind === "rename"
+            ? "Rename preset"
+            : dialog.kind === "delete"
+              ? "Delete preset"
+              : "Update preset"
+        const message = dialog.kind === "add"
+          ? "Enter a name for your preset"
+          : dialog.kind === "rename"
+            ? "Enter a new name for the preset."
+            : dialog.kind === "delete"
+              ? "This action is not reversible."
+              : "Confirm to update the selected preset to the current editor state"
+        const confirm = (): void => {
+          const selected = preset()
+          if (dialog.kind === "add") addPreset()
+          else if (selected && dialog.kind === "rename") renamePreset(selected)
+          else if (selected && dialog.kind === "delete") deletePreset(selected)
+          else if (selected && dialog.kind === "update") updatePreset(selected)
+        }
+        return (
+          <Select
+            open={true}
+            onOpenChange={(open) => {
+              if (!open) closePresetDialog()
+            }}
+            style={{ position: "absolute", left: 296, top: 62, width: 1, height: 1 }}
+          >
+            <SelectTrigger testId="preset-dialog-anchor" style={{ width: 1, height: 1, opacity: 0, pointerEvents: "none" }} />
+            <SelectContent
+              testId={`preset-${dialog.kind}-dialog`}
+              side="right"
+              align="start"
+              sideOffset={12}
+              style={{
+                width: dialog.kind === "update" ? 520 : 360,
+                padding: 16,
+                display: "flex",
+                flexDirection: "column",
+                gap: 14,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: colors.divider,
+                backgroundColor: colors.panel,
+                boxShadow: { offsetX: 0, offsetY: 14, blurRadius: 30, spreadRadius: 0, color: "#00000088" },
+              }}
+            >
+              <text testId="preset-dialog-title" style={{ color: colors.white, fontSize: 15, fontWeight: 700 }}>{title}</text>
+              <text testId="preset-dialog-message" style={{ color: colors.textAlt, fontSize: 11 }}>{message}</text>
+              <Show when={dialog.kind === "add" || dialog.kind === "rename"}>
+                <input
+                  testId="preset-name-input"
+                  value={presetNameDraft()}
+                  placeholder="Preset name"
+                  onChange={(event) => setPresetNameDraft(event.value ?? "")}
+                  style={{ width: "100%", minHeight: 34, paddingLeft: 10, paddingRight: 10, borderRadius: 7, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.input, color: colors.text }}
+                />
+              </Show>
+              <Show when={dialog.kind === "update" && preset()} keyed>
+                {(selected) => (
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ flexGrow: 1, opacity: 0.5 }}>
+                      <PresetPreviewVisual preset={selected} compact />
+                      <div style={{ display: "flex", justifyContent: "center", paddingTop: 8 }}><text testId="preset-update-old" style={{ color: colors.text, fontSize: 10, fontWeight: 600 }}>Old</text></div>
+                    </div>
+                    <text style={{ color: colors.textAlt, fontSize: 18 }}>⇄</text>
+                    <div style={{ flexGrow: 1 }}>
+                      <PresetPreviewVisual preset={currentPresetState()} compact />
+                      <div style={{ display: "flex", justifyContent: "center", paddingTop: 8 }}><text testId="preset-update-new" style={{ color: colors.text, fontSize: 10, fontWeight: 600 }}>New</text></div>
+                    </div>
+                  </div>
+                )}
+              </Show>
+              <div style={{ display: "flex", justifyContent: "flexEnd", gap: 8 }}>
+                <div testId="preset-dialog-close" style={smallControlStyle()} onClick={closePresetDialog}>
+                  <text style={{ color: colors.text, fontSize: 10, pointerEvents: "none" }}>Close</text>
+                </div>
+                <div
+                  testId="preset-dialog-confirm"
+                  style={dialog.kind === "delete"
+                    ? { ...smallControlStyle(), borderColor: colors.danger, backgroundColor: colors.danger, hover: { backgroundColor: colors.dangerHover } }
+                    : buttonStyle(true)}
+                  onClick={confirm}
+                >
+                  <text style={{ color: colors.white, fontSize: 10, pointerEvents: "none" }}>Confirm</text>
+                </div>
+              </div>
+            </SelectContent>
+          </Select>
+        )
+      }}
+    </Show>
+  )
+}
+
+function PresetPreviewCard(props: { preset: Preset; index: number }) {
+  return (
+    <div testId={`preset-card-${props.index}`} style={{ display: "flex", flexDirection: "column", gap: 8, paddingBottom: 16 }}>
+      <div testId={`preset-card-${props.index}-select`} style={{ cursor: "pointer" }} onClick={() => applyPreset(props.preset)}>
+        <PresetPreviewVisual preset={props.preset} />
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4, pointerEvents: "none" }}>
-          <text style={{ color: colors.text, fontSize: 11, fontWeight: 600 }}>{props.preset.name}</text>
-          <text testId={`preset-card-${props.index}-updated`} style={{ color: colors.description, fontSize: 9 }}>{props.preset.updated}</text>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, cursor: "pointer" }} onClick={() => applyPreset(props.preset)}>
+          <text style={{ color: colors.text, fontSize: 11, fontWeight: 600, pointerEvents: "none" }}>{props.preset.name}</text>
+          <text testId={`preset-card-${props.index}-updated`} style={{ color: colors.description, fontSize: 9, pointerEvents: "none" }}>{props.preset.updated}</text>
         </div>
-        <div testId={`preset-card-${props.index}-menu`} style={{ ...smallControlStyle(presetMenu() === props.preset.id), width: 28, paddingLeft: 0, paddingRight: 0, justifyContent: "center" }} onClick={() => setPresetMenu((value) => value === props.preset.id ? null : props.preset.id)}>
-          <text style={{ color: colors.text, fontSize: 12 }}>•••</text>
-        </div>
+        <Select
+          open={presetMenu() === props.preset.id}
+          onOpenChange={(open) => setPresetMenu(open ? props.preset.id : null)}
+          style={{ flexShrink: 0 }}
+        >
+          <SelectTrigger testId={`preset-card-${props.index}-menu`} style={{ ...smallControlStyle(presetMenu() === props.preset.id), width: 28, paddingLeft: 0, paddingRight: 0, justifyContent: "center" }}>
+            <text style={{ color: colors.text, fontSize: 12, pointerEvents: "none" }}>•••</text>
+          </SelectTrigger>
+          <SelectContent
+            testId={`preset-card-${props.index}-menu-content`}
+            side="left"
+            align="start"
+            sideOffset={4}
+            style={{ width: 140, display: "flex", flexDirection: "column", gap: 4, padding: 6, borderRadius: 8, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.input }}
+          >
+            <SelectItem value="update" testId="preset-action-update" style={smallControlStyle()} onClick={() => openPresetDialog("update", props.preset)}>
+              <text style={{ color: colors.text, fontSize: 10, pointerEvents: "none" }}>Update</text>
+            </SelectItem>
+            <SelectItem value="rename" testId="preset-action-rename" style={smallControlStyle()} onClick={() => openPresetDialog("rename", props.preset)}>
+              <text style={{ color: colors.text, fontSize: 10, pointerEvents: "none" }}>Rename</text>
+            </SelectItem>
+            <SelectItem value="share" testId="preset-action-share" style={smallControlStyle()} onClick={() => sharePreset(props.preset)}>
+              <text style={{ color: colors.text, fontSize: 10, pointerEvents: "none" }}>Share</text>
+            </SelectItem>
+            <SelectItem value="delete" testId="preset-action-delete" style={smallControlStyle()} onClick={() => openPresetDialog("delete", props.preset)}>
+              <text style={{ color: colors.text, fontSize: 10, pointerEvents: "none" }}>Delete</text>
+            </SelectItem>
+          </SelectContent>
+        </Select>
       </div>
-      <Show when={presetMenu() === props.preset.id}>
-        <div testId={`preset-card-${props.index}-menu-content`} style={{ display: "flex", flexDirection: "column", gap: 4, padding: 6, borderRadius: 8, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.input }}>
-          <For each={["Update", "Rename", "Share", "Delete"] as const}>{(action) => (
-            <div testId={`preset-action-${action.toLowerCase()}`} style={smallControlStyle()} onClick={() => setStatus(`${action} preset selected`)}>
-              <text style={{ color: colors.text, fontSize: 10 }}>{action}</text>
-            </div>
-          )}</For>
-        </div>
-      </Show>
-      <Show when={props.preset.sync}>
-        <div testId={`preset-card-${props.index}-sync`} style={{ ...buttonStyle(false), width: "100%", justifyContent: "center" }} onClick={() => setStatus("Save in your account selected")}>
-          <text style={{ color: colors.text, fontSize: 10 }}>☁ Save in your account</text>
+      <Show when={props.preset.canSync}>
+        <div testId={`preset-card-${props.index}-sync`} style={{ ...buttonStyle(false), width: "100%", justifyContent: "center" }} onClick={() => syncPreset(props.preset)}>
+          <text style={{ color: colors.text, fontSize: 10, pointerEvents: "none" }}>☁ Save in your account</text>
         </div>
       </Show>
     </div>
@@ -587,11 +818,12 @@ function PresetSwitcher() {
           <div style={{ minHeight: 52, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <text testId="preset-title" style={{ color: colors.white, fontSize: 13, fontWeight: 600 }}>Your presets</text>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div testId="preset-add" style={buttonStyle(true)} onClick={() => {
-                const index = presets().length + 1
-                setPresets((items) => [...items, { ...initialPresets[0]!, id: `preset-${index}`, name: `Preset ${index}`, updated: "Updated just now" }])
-              }}><text style={{ color: colors.white, fontSize: 10 }}>Add preset</text></div>
-              <div testId="preset-close" aria-label="Close" style={{ ...smallControlStyle(), width: 28, paddingLeft: 0, paddingRight: 0, justifyContent: "center" }} onClick={() => setPresetOpen(false)}><text style={{ color: colors.text, fontSize: 12 }}>×</text></div>
+              <div testId="preset-add" style={buttonStyle(true)} onClick={() => openPresetDialog("add")}><text style={{ color: colors.white, fontSize: 10, pointerEvents: "none" }}>Add preset</text></div>
+              <div testId="preset-close" aria-label="Close" style={{ ...smallControlStyle(), width: 28, paddingLeft: 0, paddingRight: 0, justifyContent: "center" }} onClick={() => {
+                closePresetDialog()
+                setPresetMenu(null)
+                setPresetOpen(false)
+              }}><text style={{ color: colors.text, fontSize: 12, pointerEvents: "none" }}>×</text></div>
             </div>
           </div>
           <div style={{ borderBottomWidth: 1, borderColor: colors.divider, paddingTop: 16 }} />
@@ -599,6 +831,7 @@ function PresetSwitcher() {
             <For each={presets()}>{(preset, index) => <PresetPreviewCard preset={preset} index={index()} />}</For>
           </div>
         </div>
+        <PresetDialogSurface />
       </div>
     </Show>
   )
@@ -610,7 +843,7 @@ export function EditorLeftSidebar() {
       <div testId="editor-left-sidebar" style={{ width: 280, height: "100%", flexShrink: 0, display: "flex", flexDirection: "column", overflowY: "scroll", overflowX: "hidden", paddingRight: 8, borderRightWidth: 1, borderColor: colors.divider, backgroundColor: colors.panel, color: colors.white }}>
         <div style={{ paddingLeft: 15, paddingTop: 12, paddingBottom: 4, flexShrink: 0 }}>
           <div testId="preset-toggle" style={{ ...buttonStyle(false), width: "100%", display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setPresetOpen((open) => !open)}>
-            <text style={{ color: colors.text, fontSize: 11 }}>◐ Show your presets</text>
+            <text style={{ color: colors.text, fontSize: 11, pointerEvents: "none" }}>◐ Show your presets</text>
           </div>
         </div>
         <FrameForm />
@@ -729,6 +962,7 @@ export function Footer() {
       </div>
       <text testId="codeimage-status" style={{ position: "absolute", width: 0, height: 0, opacity: 0, pointerEvents: "none" }}>{status()}</text>
       <text testId="export-count" style={{ position: "absolute", width: 0, height: 0, opacity: 0, pointerEvents: "none" }}>{exportCount()}</text>
+      <text testId="preset-share-link" style={{ position: "absolute", width: 0, height: 0, opacity: 0, pointerEvents: "none" }}>{sharedPresetLink()}</text>
     </>
   )
 }
