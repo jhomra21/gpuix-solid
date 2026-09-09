@@ -2,7 +2,7 @@ import { palette, type User } from "../native"
 
 export function UserRoute(props: { user: User }) {
   return (
-    <div testId="user-detail" style={{ gap: 5 }}>
+    <div testId="user-detail" style={{ gap: 5, width: "100%" }}>
       <text style={{ color: palette.text, fontSize: 14, fontWeight: 800 }}>{props.user.name}</text>
       <text style={{ color: palette.text, fontSize: 11, fontFamily: "monospace" }}>{`{`}</text>
       <text style={{ color: palette.text, fontSize: 11, fontFamily: "monospace" }}>  "id": {props.user.id},</text>
