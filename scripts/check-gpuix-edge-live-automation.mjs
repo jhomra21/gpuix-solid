@@ -347,6 +347,9 @@ const examples = [
     name: "TanStack Kitchen Sink",
     entry: "dist/tanstack-kitchen-sink/index.js",
     async test({ app, step, expectPresent, expectText }) {
+      await expectPresent(app.getByTestId("page-home"), "home route")
+      await expectPresent(app.getByText("Welcome Home!"), "home content")
+      await step("open dashboard", () => app.getByTestId("root-nav-dashboard").click())
       await expectPresent(app.getByTestId("page-dashboard"), "dashboard route")
       await expectText(app.getByTestId("invoice-count"), "10 total invoices.", "initial invoice count")
       await step("open invoices", () => app.getByTestId("dashboard-tab-invoices").click())
