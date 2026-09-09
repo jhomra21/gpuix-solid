@@ -50,14 +50,31 @@ jobs:
       - run: bun run typecheck
       - run: bun run test
       - run: bun run build
+      - name: Verify all built Solid 2 examples live
+        if: matrix.os == 'macos-latest'
+        run: bun run examples:live
       - name: Verify Solid 1 package and DAW showcase
         run: bun run solid1:check
+      - name: Upload Solid 2 source-first screenshots
+        if: always() && matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: solid2-source-first-native-macos
+          path: /tmp/gpuix-solid-*.png
+          if-no-files-found: ignore
       - name: Upload native Kobalte screenshots
         if: always() && matrix.os == 'macos-latest'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: solid1-kobalte-native-macos
           path: /tmp/gpuix-solid1-kobalte-*.png
+          if-no-files-found: ignore
+      - name: Upload native blurred-window screenshot
+        if: always() && matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: solid1-blurred-window-native-macos
+          path: /tmp/gpuix-solid1-blurred-window.png
           if-no-files-found: ignore
       - name: Upload native DAW screenshots
         if: always() && matrix.os == 'macos-latest'
