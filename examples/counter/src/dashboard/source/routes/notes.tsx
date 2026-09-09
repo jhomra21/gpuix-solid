@@ -15,19 +15,19 @@ const fixtureMutationTime = "2025-06-03T12:00:00.000Z"
 type NoteIconName = "plus" | "file" | "archive" | "archive-restore" | "calendar" | "file-clock" | "gear" | "x"
 
 function NoteIcon(props: { name: NoteIconName; size?: number; color?: string }): SolidElement {
-  const size = props.size ?? 16
-  const color = props.color ?? palette.secondary
+  const size = () => props.size ?? 16
+  const color = () => props.color ?? palette.secondary
   return (
     <svg
-      width={size}
-      height={size}
+      width={size()}
+      height={size()}
       viewBox="0 0 24 24"
       fill="none"
-      stroke={color}
+      stroke={color()}
       stroke-width="2"
       stroke-linecap="round"
       stroke-linejoin="round"
-      style={{ width: size, height: size, flexShrink: 0, pointerEvents: "none" }}
+      style={{ width: size(), height: size(), flexShrink: 0, pointerEvents: "none" }}
     >
       <Switch>
         <Match when={props.name === "plus"}>
@@ -309,7 +309,7 @@ export function NotesRoute(): SolidElement {
           <DialogSurface testId="note-delete-dialog">
             <text style={{ color: palette.text, fontSize: 16, fontWeight: 600 }}>Delete Note?</text>
             <text testId="note-delete-message" style={{ color: palette.secondary, fontSize: 12, lineHeight: 18 }}>
-              Are you sure you want to delete the note &quot;{note.title}&quot;? This action cannot be undone.
+              Are you sure you want to delete the note "{note.title}"? This action cannot be undone.
             </text>
             <div style={{ display: "flex", flexDirection: "row", justifyContent: "flex-end", gap: 8, paddingTop: 8 }}>
               <Button testId="note-delete-cancel" onClick={() => setNoteToDelete(null)}><text style={{ color: palette.text, fontSize: 12 }}>Cancel</text></Button>
