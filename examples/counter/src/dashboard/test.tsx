@@ -150,12 +150,36 @@ async function main(): Promise<void> {
     await app.getByTestId("nav-weather").click()
     assert.equal(await app.getByText("Weather Dashboard").count(), 1)
     assert.equal(await app.getByText("Monitor weather conditions for your favorite locations").count(), 1)
-    await app.getByTestId("weather-dismiss-location").click()
+    assert.equal(await app.getByText("Add your current location?").count(), 1)
+    assert.equal(await app.getByText("We can automatically detect your location to show local weather conditions.").count(), 1)
+    assert.equal(await app.getByText("Add New Location").count(), 1)
+    assert.equal(await app.getByText("Enter a city name to add it to your weather dashboard. Examples: \"London\", \"New York, NY\", \"Tokyo, Japan\"").count(), 1)
+    assert.equal(await app.getByTestId("weather-temperature-1").textContent(), "33°C")
+    assert.equal(await app.getByTestId("weather-feels-1").textContent(), "35°C")
+    assert.equal(await app.getByTestId("weather-humidity-1").textContent(), "42%")
+    assert.equal(await app.getByTestId("weather-wind-1").textContent(), "4.1 m/s")
+    assert.equal(await app.getByTestId("weather-updated-1").textContent(), "2m ago")
+
+    await app.getByTestId("weather-use-location").click()
+    assert.equal(await app.getByTestId("weather-geolocation-prompt").count(), 0)
+    assert.equal(await app.getByTestId("weather-current-0").textContent(), "Current Location")
+
     await app.getByTestId("weather-city").fill("Seattle")
     await app.getByTestId("weather-add").click()
     assert.equal(await app.getByText("Seattle").count(), 1)
+    assert.equal(await app.getByTestId("weather-temperature-3").textContent(), "22°C")
+
     await app.getByTestId("weather-refresh-1").click()
+    assert.equal(await app.getByTestId("weather-updated-1").textContent(), "Just now")
     assert.match(await app.getByTestId("weather-refresh-count").textContent(), /1 refresh/)
+
+    await app.getByTestId("weather-delete-3").click()
+    assert.equal(await app.getByTestId("weather-delete-confirmation-3").count(), 1)
+    await app.getByTestId("weather-delete-cancel-3").click()
+    assert.equal(await app.getByTestId("weather-delete-confirmation-3").count(), 0)
+    await app.getByTestId("weather-delete-3").click()
+    await app.getByTestId("weather-delete-confirm-3").click()
+    assert.equal(await app.getByText("Seattle").count(), 0)
 
     await app.getByTestId("nav-account").click()
     assert.equal(await app.getByText("Account Settings").count(), 1)
@@ -181,7 +205,7 @@ async function main(): Promise<void> {
     assert.equal(existsSync(screenshotPath), true)
     assert.ok(statSync(screenshotPath).size > 0)
 
-    console.log("dashboard integration: source-first route, dialog, and CRUD surfaces passed")
+    console.log("dashboard integration: source-first route, dialog, CRUD, and weather surfaces passed")
   } finally {
     await app.clock.resume()
     await app.close()
