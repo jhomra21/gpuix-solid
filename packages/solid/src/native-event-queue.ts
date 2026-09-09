@@ -15,7 +15,10 @@ export function createDeferredNativeEventHandler(
   const schedule = (): void => {
     if (scheduled) return
     scheduled = true
-    queueMicrotask(() => {
+    // A native TSFN callback can run before the surrounding N-API call has
+    // fully unwound. A microtask is still allowed to run at that checkpoint,
+    // so use the next event-loop turn before Solid may synchronously flush.
+    setImmediate(() => {
       try {
         while (pending.length > 0) {
           const event = pending.shift()
