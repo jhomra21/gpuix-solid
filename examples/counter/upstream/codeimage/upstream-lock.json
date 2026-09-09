@@ -11,7 +11,7 @@
     "apps/codeimage/src/components/UserBadge/UserBadge.tsx": "84d6d0f3ad312d36bcf4b2f4b8488189aff32bbe",
     "apps/codeimage/src/components/Changelog/Changelog.tsx": "cf1223fb50c6be4f5fd7bfa5721c906ec3975258",
     "apps/codeimage/src/ui/GitHubLoginButton/GitHubLoginButton.tsx": "1bec4efe1ce208ecacaa4818e9e390ffa9d8daf7",
-    "apps/codeimage/src/components/Scaffold/Sidebar/Sidebar.css.ts": "95f8af1fc3c9671d8aae65b787100f9e2725e6db",
+    "apps/codeimage/src/components/Scaffold/Sidebar/Sidebar.css.ts": "95f8af1fc3c9671d8aae65b78751a062ded17d02",
     "apps/codeimage/src/components/PropertyEditor/EditorForm.tsx": "fe16360becb7c3341f06a5fa6f6b3b782f425fbd",
     "apps/codeimage/src/components/PropertyEditor/EditorStyleForm.tsx": "4f1e1c7d7dcb3e74ffcb32dfd49cde0f8a0fd31f",
     "apps/codeimage/src/components/PropertyEditor/EditorSidebar.css.ts": "c7e8c85e567e18fba212a066036a97f671cdfd15",
@@ -20,6 +20,9 @@
     "apps/codeimage/src/components/ThemeSwitcher/ThemeSwitcher.tsx": "cb0ba49a46586c89dbe6752b35ee586372aa9659",
     "apps/codeimage/src/components/Presets/PresetSwitcher/PresetSwitcher.tsx": "83b17f276b4229388c0b9630fefa46854483fd38",
     "apps/codeimage/src/components/Presets/PresetPreview/PresetPreview.tsx": "4c7777ed59e3ffb7fb85cbe2338b11609a2af9bb",
+    "apps/codeimage/src/components/Presets/PresetUpdateDialog.tsx": "a7f5b237101b9a53362c87e15b9afb6843874409",
+    "apps/codeimage/src/ui/ConfirmDialog/RenameContentDialog.tsx": "6e1ff45fa785116ba4b329b740eaf9b243ba052a",
+    "apps/codeimage/src/ui/ConfirmDialog/ConfirmDialog.tsx": "6e6dd3a3327865702ae7addd4fb6b343aaeb0f60",
     "apps/codeimage/src/i18n/presets.ts": "5d7d49f4bdd8883d72eb89faf1e31b6b84aa561f",
     "apps/codeimage/public/assets/codeimage-logo-blue-svg-v1.svg": "21b20ca68e9302bcbd4a4cdafd69221730ec2a61",
     "LICENSE": "0eff678c5413fdeb51ad7110afa89f86adfdf0b7"
