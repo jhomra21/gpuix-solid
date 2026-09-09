@@ -15,6 +15,7 @@ export function DashboardRoute(props: {
   initialInvoiceId?: number | null
 }) {
   const initialTab = untrack(() => props.initialTab ?? "summary")
+  const initialInvoiceId = untrack(() => props.initialInvoiceId ?? null)
   const [tab, setTab] = createSignal<DashboardTab>(initialTab)
 
   return (
@@ -39,7 +40,7 @@ export function DashboardRoute(props: {
       <div style={{ flexGrow: 1, minHeight: 0, display: "flex", flexDirection: "row" }}>
         <Switch>
           <Match when={tab() === "summary"}><DashboardIndexRoute /></Match>
-          <Match when={tab() === "invoices"}><InvoicesRoute initialSelectedId={props.initialInvoiceId ?? null} /></Match>
+          <Match when={tab() === "invoices"}><InvoicesRoute initialSelectedId={initialInvoiceId} /></Match>
           <Match when={tab() === "users"}><UsersRoute /></Match>
         </Switch>
       </div>
