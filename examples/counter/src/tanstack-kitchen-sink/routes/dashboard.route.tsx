@@ -10,8 +10,11 @@ const dashboardTabs: Array<readonly [DashboardTab, string]> = [
   ["users", "Users"],
 ]
 
-export function DashboardRoute() {
-  const [tab, setTab] = createSignal<DashboardTab>("summary")
+export function DashboardRoute(props: {
+  initialTab?: DashboardTab
+  initialInvoiceId?: number | null
+}) {
+  const [tab, setTab] = createSignal<DashboardTab>(props.initialTab ?? "summary")
 
   return (
     <div testId="page-dashboard" style={{ flexGrow: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
@@ -35,7 +38,7 @@ export function DashboardRoute() {
       <div style={{ flexGrow: 1, minHeight: 0, display: "flex", flexDirection: "row" }}>
         <Switch>
           <Match when={tab() === "summary"}><DashboardIndexRoute /></Match>
-          <Match when={tab() === "invoices"}><InvoicesRoute /></Match>
+          <Match when={tab() === "invoices"}><InvoicesRoute initialSelectedId={props.initialInvoiceId ?? null} /></Match>
           <Match when={tab() === "users"}><UsersRoute /></Match>
         </Switch>
       </div>
