@@ -16,6 +16,8 @@ export interface Note {
   title: string
   content: string
   status: "active" | "archived"
+  createdAt: string
+  updatedAt: string
 }
 
 export interface WeatherLocation {
@@ -50,8 +52,22 @@ export const initialTasks: Task[] = [
 ]
 
 export const initialNotes: Note[] = [
-  { id: 1, title: "Project notes", content: "Keep the dashboard source-first.", status: "active" },
-  { id: 2, title: "Release notes", content: "Validate the native application before merging.", status: "archived" },
+  {
+    id: 1,
+    title: "Project notes",
+    content: "Keep the dashboard source-first.",
+    status: "active",
+    createdAt: "2025-06-01T12:00:00.000Z",
+    updatedAt: "2025-06-02T12:00:00.000Z",
+  },
+  {
+    id: 2,
+    title: "Release notes",
+    content: "Validate the native application before merging.",
+    status: "archived",
+    createdAt: "2025-05-28T12:00:00.000Z",
+    updatedAt: "2025-06-01T12:00:00.000Z",
+  },
 ]
 
 export const initialWeather: WeatherLocation[] = [
