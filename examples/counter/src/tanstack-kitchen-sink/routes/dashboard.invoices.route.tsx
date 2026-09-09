@@ -3,14 +3,15 @@ import { Divider, initialInvoices, palette, type Invoice } from "../native"
 import { InvoiceRoute } from "./dashboard.invoices.$invoiceId"
 import { InvoicesIndexRoute } from "./dashboard.invoices.index"
 
-export function InvoicesRoute() {
+export function InvoicesRoute(props: { initialSelectedId?: number | null }) {
+  const initialSelected = initialInvoices.find((invoice) => invoice.id === props.initialSelectedId)
   const [invoices, setInvoices] = createSignal<Invoice[]>(initialInvoices)
-  const [selectedId, setSelectedId] = createSignal<number | null>(null)
+  const [selectedId, setSelectedId] = createSignal<number | null>(initialSelected?.id ?? null)
   const [newTitle, setNewTitle] = createSignal("")
   const [newBody, setNewBody] = createSignal("")
   const [created, setCreated] = createSignal(false)
-  const [editTitle, setEditTitle] = createSignal("")
-  const [editBody, setEditBody] = createSignal("")
+  const [editTitle, setEditTitle] = createSignal(initialSelected?.title ?? "")
+  const [editBody, setEditBody] = createSignal(initialSelected?.body ?? "")
   const [notesOpen, setNotesOpen] = createSignal(false)
   const [notes, setNotes] = createSignal("")
   const [saved, setSaved] = createSignal(false)
