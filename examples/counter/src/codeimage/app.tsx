@@ -30,11 +30,11 @@ import {
   SparklesIcon,
   SuspenseEditorItem,
   ThemeSwitcher,
-  Toolbar,
   useModality,
   dispatchRandomTheme,
 } from "./compat"
 import { Suspense, onMount } from "./solid-compat"
+import { Toolbar } from "./toolbar"
 
 export function App() {
   const [frameRef, setFrameRef] = createSignal<PublicInstance>()
@@ -47,99 +47,46 @@ export function App() {
   onMount(() => initCanvas(frameRef))
 
   return (
-    <Box
-      display="flex"
-      flexDirection="column"
-      class={adaptiveFullScreenHeight}
-    >
+    <Box display="flex" flexDirection="column" class={adaptiveFullScreenHeight}>
       <Toolbar canvasRef={frameRef()} />
-      <div
-        style={{
-          width: "100%",
-          position: "relative",
-          display: "flex",
-          flexGrow: 1,
-          height: "100%",
-          minHeight: 0,
-          minWidth: 0,
-        }}
-      >
+      <div style={{ width: "100%", position: "relative", display: "flex", flexGrow: 1, height: "100%", minHeight: 0, minWidth: 0 }}>
         <Show when={modality === "full" && !readOnly()}>
           <EditorLeftSidebar />
         </Show>
-
         <PortalHost ref={setPortalHostRef} />
-
         <Canvas>
-          <SuspenseEditorItem
-            fallback={
-              <Box
-                height="100%"
-                display="flex"
-                alignItems="center"
-                justifyContent="center"
-              >
-                <FrameSkeleton />
-              </Box>
-            }
-          >
+          <SuspenseEditorItem fallback={<Box height="100%" display="flex" alignItems="center" justifyContent="center"><FrameSkeleton /></Box>}>
             <Show when={readOnly()}>
               <EditorReadOnlyBanner onClone={clone} />
             </Show>
-
             <Show when={!readOnly() && modality === "full"}>
               <Box display="flex" paddingTop={3} paddingX={4}>
-                <HStack spacing="2">
-                  <KeyboardShortcuts />
-                </HStack>
+                <HStack spacing="2"><KeyboardShortcuts /></HStack>
               </Box>
             </Show>
-
             <Show when={modality === "mobile"}>
               <Box display="flex" justifyContent="flex-end" paddingX={3} paddingTop={2}>
                 <HStack spacing="2" justifyContent="flexEnd">
                   <ExportSettingsButton />
                   <ShareButton showLabel={false} />
-                  <Button
-                    size="xs"
-                    theme="secondary"
-                    leftIcon={<ColorSwatchIcon />}
-                    onClick={() => dispatchRandomTheme()}
-                  />
-                  <Button
-                    size="xs"
-                    theme="secondary"
-                    leftIcon={<SparklesIcon />}
-                    onClick={() => getActiveEditorStore().format()}
-                  />
+                  <Button size="xs" theme="secondary" leftIcon={<ColorSwatchIcon />} onClick={() => dispatchRandomTheme()} />
+                  <Button size="xs" theme="secondary" leftIcon={<SparklesIcon />} onClick={() => getActiveEditorStore().format()} />
                   <ExportInNewTabButton canvasRef={frameRef()} />
                   <ExportButton canvasRef={frameRef()} />
                 </HStack>
               </Box>
             </Show>
-
             <FrameHandler onScaleChange={frameStore.setScale}>
-              <Suspense fallback={<FrameSkeleton />}>
-                <ManagedFrame />
-              </Suspense>
+              <Suspense fallback={<FrameSkeleton />}><ManagedFrame /></Suspense>
             </FrameHandler>
-
             <PreviewFrame ref={setFrameRef} />
-
-            <Show when={modality === "full"}>
-              <FrameToolbar frameRef={frameRef()} />
-            </Show>
+            <Show when={modality === "full"}><FrameToolbar frameRef={frameRef()} /></Show>
             <Footer />
           </SuspenseEditorItem>
         </Canvas>
         <Show when={!readOnly()}>
-          <Show
-            when={modality === "full"}
-            fallback={<BottomBar portalHostRef={portalHostRef()} />}
-          >
-            <Sidebar>
-              <ThemeSwitcher orientation="vertical" />
-            </Sidebar>
+          <Show when={modality === "full"} fallback={<BottomBar portalHostRef={portalHostRef()} />}>
+            <Sidebar><ThemeSwitcher orientation="vertical" /></Sidebar>
           </Show>
         </Show>
       </div>
