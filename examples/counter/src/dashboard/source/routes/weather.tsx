@@ -224,7 +224,7 @@ export function WeatherRoute(): SolidElement {
           </div>
           <Button testId="weather-add" active={Boolean(city().trim())} onClick={addLocation}><text style={{ color: city().trim() ? palette.white : palette.text, fontSize: 12 }}>Add Location</text></Button>
         </div>
-        <text style={{ color: palette.secondary, fontSize: 11 }}>Enter a city name to add it to your weather dashboard. Examples: &quot;London&quot;, &quot;New York, NY&quot;, &quot;Tokyo, Japan&quot;</text>
+        <text style={{ color: palette.secondary, fontSize: 11 }}>Enter a city name to add it to your weather dashboard. Examples: "London", "New York, NY", "Tokyo, Japan"</text>
       </Card>
 
       <Show when={locations().length > 0} fallback={
