@@ -116,7 +116,7 @@ async function main(): Promise<void> {
     await app.getByTestId("diffusion-prompt-audio").click()
     assert.equal(await app.getByTestId("diffusion-prompt-audio").textContent(), "Audio Off")
     await app.getByTestId("diffusion-prompt-duration").click()
-    await app.getByTestId("diffusion-prompt-menu").wheel(0, 240)
+    await app.getByTestId("diffusion-prompt-menu").wheel(0, -240)
     await app.clock.fastForward(16)
     await app.getByTestId("diffusion-prompt-duration-10").click()
     assert.match(await app.getByTestId("diffusion-prompt-duration").textContent(), /10s/)
