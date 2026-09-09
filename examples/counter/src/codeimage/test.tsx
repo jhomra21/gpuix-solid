@@ -172,8 +172,9 @@ async function main(): Promise<void> {
     await requireTestId(app, "preset-card-0")
     await requireTestId(app, "preset-card-0-updated")
     assert.match(await app.getByTestId("preset-card-0-updated").textContent(), /^Updated /)
-    await requireTestId(app, "preset-card-1-sync")
-    assert.match(await app.getByTestId("preset-card-1-sync").textContent(), /Save in your account/)
+    await requireTestId(app, "preset-card-0-sync")
+    assert.match(await app.getByTestId("preset-card-0-sync").textContent(), /Save in your account/)
+    assert.equal(await app.getByTestId("preset-card-1-sync").count(), 0)
 
     await app.getByText("Presentation").click()
     assert.equal(await app.getByTestId("codeimage-status").textContent(), "Preset selected: Presentation")
@@ -189,12 +190,82 @@ async function main(): Promise<void> {
     await requireTestId(app, "preset-action-rename")
     await requireTestId(app, "preset-action-share")
     await requireTestId(app, "preset-action-delete")
-    assert.equal(await app.getByTestId("codeimage-status").textContent(), "Preset selected: Daily snippet")
+    assert.equal(
+      await app.getByTestId("codeimage-status").textContent(),
+      "Preset selected: Daily snippet",
+      "opening the nested preset menu must not apply the card again",
+    )
+
+    await app.getByTestId("preset-action-share").click()
+    assert.equal(await app.getByTestId("codeimage-status").textContent(), "Preset has been copied to clipboard")
+    assert.match(await app.getByTestId("preset-share-link").textContent(), /share_preset=preset-0/)
+    assert.equal(await app.getByTestId("preset-card-0-menu-content").count(), 0)
+
+    await app.getByTestId("preset-card-0-menu").click()
+    await app.getByTestId("preset-action-rename").click()
+    await requireTestId(app, "preset-rename-dialog")
+    assert.equal(await app.getByTestId("preset-dialog-title").textContent(), "Rename preset")
+    assert.equal(await app.getByTestId("preset-name-input").textContent(), "Daily snippet")
+    await app.getByTestId("preset-name-input").fill("Daily renamed")
+    await app.getByTestId("preset-dialog-confirm").click()
+    assert.equal(await app.getByTestId("preset-rename-dialog").count(), 0)
+    await requireTestId(app, "preset-card-0")
+    assert.equal(await app.getByText("Daily renamed").count(), 1)
+    assert.equal(await app.getByTestId("codeimage-status").textContent(), "Preset has been updated")
+
+    await app.getByTestId("frame-padding").click()
+    assert.equal(await app.getByTestId("frame-padding").textContent(), "128⌄")
+    await app.getByTestId("preset-card-0-menu").click()
+    await app.getByTestId("preset-action-update").click()
+    await requireTestId(app, "preset-update-dialog")
+    await requireTestId(app, "preset-update-old")
+    await requireTestId(app, "preset-update-new")
+    assert.match(
+      await app.getByTestId("preset-dialog-message").textContent(),
+      /current editor state/,
+    )
+    await app.getByTestId("preset-dialog-confirm").click()
+    assert.equal(await app.getByTestId("preset-update-dialog").count(), 0)
+    await app.getByText("Presentation").click()
+    assert.equal(await app.getByTestId("frame-padding").textContent(), "32⌄")
+    await app.getByText("Daily renamed").click()
+    assert.equal(
+      await app.getByTestId("frame-padding").textContent(),
+      "128⌄",
+      "updated preset must restore the captured current editor state",
+    )
+
+    await app.getByTestId("preset-card-0-sync").click()
+    assert.equal(await app.getByTestId("preset-card-0-sync").count(), 0)
+    assert.equal(await app.getByTestId("codeimage-status").textContent(), "Local preset has been synchronized")
+
+    await app.getByTestId("preset-add").click()
+    await requireTestId(app, "preset-add-dialog")
+    assert.equal(await app.getByTestId("preset-dialog-title").textContent(), "Add a new preset")
+    await app.getByTestId("preset-name-input").fill("New local preset")
+    await app.getByTestId("preset-dialog-confirm").click()
+    assert.equal(await app.getByTestId("preset-add-dialog").count(), 0)
+    assert.equal(await app.getByText("New local preset").count(), 1)
+    await requireTestId(app, "preset-card-0-sync")
+    assert.equal(await app.getByTestId("codeimage-status").textContent(), "Preset has been created")
+
+    await app.getByTestId("preset-card-0-menu").click()
+    await app.getByTestId("preset-action-delete").click()
+    await requireTestId(app, "preset-delete-dialog")
+    assert.equal(await app.getByTestId("preset-dialog-title").textContent(), "Delete preset")
+    assert.equal(await app.getByTestId("preset-dialog-message").textContent(), "This action is not reversible.")
+    await app.getByTestId("preset-dialog-confirm").click()
+    assert.equal(await app.getByText("New local preset").count(), 0)
+    assert.equal(await app.getByTestId("codeimage-status").textContent(), "Preset has been deleted")
+
     await requireTestId(app, "preset-close")
     await app.getByTestId("preset-close").click()
     assert.equal(await app.getByTestId("preset-panel").count(), 0)
 
-    assert.equal(await app.getByTestId("frame-padding").textContent(), "64⌄")
+    for (const expected of ["0⌄", "16⌄", "32⌄", "64⌄"] as const) {
+      await app.getByTestId("frame-padding").click()
+      assert.equal(await app.getByTestId("frame-padding").textContent(), expected)
+    }
     await requireTestId(app, "frame-radius-8")
     await requireTestId(app, "terminal-header")
     await requireTestId(app, "terminal-watermark")
@@ -267,7 +338,7 @@ async function main(): Promise<void> {
     await app.getByTestId("footer-github").click()
     assert.equal(await app.getByTestId("codeimage-status").textContent(), "GitHub selected")
 
-    console.log("codeimage integration: source-owned editor surfaces and toolbar interactions passed")
+    console.log("codeimage integration: source-owned editor, toolbar, and preset workflows passed")
   } finally {
     await app.clock.resume()
     await app.close()
