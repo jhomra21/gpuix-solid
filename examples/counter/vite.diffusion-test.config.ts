@@ -25,7 +25,7 @@ export default defineConfig({
     target: "node22",
     ssr: "src/diffusion/test.tsx",
     outDir: "dist/diffusion-test",
-    sourcemap: true,
+    sourcemap: "inline",
     rollupOptions: {
       external: ["@gpuix/native"],
     },
