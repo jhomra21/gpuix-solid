@@ -4,6 +4,22 @@ import { diffusionSourceAliases } from "./vite.diffusion-source"
 
 export default defineConfig({
   plugins: [
+    {
+      name: "diffusion-test-click-checkpoints",
+      enforce: "pre",
+      transform(code, id) {
+        if (!id.endsWith("/src/diffusion/test.tsx")) return null
+
+        const instrumented = code
+          .split("\n")
+          .flatMap((line, index) => line.includes("await app.") && line.includes(".click(")
+            ? [`    console.log(${JSON.stringify(`diffusion checkpoint click line ${index + 1}: ${line.trim()}`)})`, line]
+            : [line])
+          .join("\n")
+
+        return { code: instrumented, map: null }
+      },
+    },
     solid({
       solid: {
         generate: "universal",
@@ -25,7 +41,6 @@ export default defineConfig({
     target: "node22",
     ssr: "src/diffusion/test.tsx",
     outDir: "dist/diffusion-test",
-    sourcemap: "inline",
     rollupOptions: {
       external: ["@gpuix/native"],
     },
