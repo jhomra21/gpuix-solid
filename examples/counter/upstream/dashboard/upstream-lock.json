@@ -10,6 +10,8 @@
     "src/routes/dashboard/weather.tsx": "a4949efee1342681547cfdff33a508d570948071",
     "src/components/AppSidebar.tsx": "80949145980cba001c270bff621d52e33947e587",
     "src/components/Breadcrumbs.tsx": "48c1b39917f1ac3d4991b01786f145b38978f58a",
-    "src/components/nav-user.tsx": "735b7d3c449dd5835fd46b63dfc8e9d292d7d3a7"
+    "src/components/nav-user.tsx": "735b7d3c449dd5835fd46b63dfc8e9d292d7d3a7",
+    "src/components/NoteEditor.tsx": "4593705e513abe49efdc12e3c001c8da7cfe6a37",
+    "src/components/NoteCard.tsx": "e303716662a98d3415a2df2fe31b4657ff00cac0"
   }
 }
