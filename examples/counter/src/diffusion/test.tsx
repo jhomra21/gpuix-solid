@@ -136,9 +136,11 @@ async function main(): Promise<void> {
     assert.equal(await app.getByText("Unsolo").count(), 1)
     assert.equal(await app.getByText("Unhide").count(), 1)
     await app.getByTestId("diffusion-layer-context-front-video").click()
+    await app.clock.fastForward(16)
     assert.ok((await app.getByTestId("diffusion-layer-row-video").bounds()).y > (await app.getByTestId("diffusion-layer-row-captions").bounds()).y)
     await app.getByTestId("diffusion-layer-row-video").click({ button: 2 })
     await app.getByTestId("diffusion-layer-context-back-video").click()
+    await app.clock.fastForward(16)
     assert.ok((await app.getByTestId("diffusion-layer-row-video").bounds()).y < (await app.getByTestId("diffusion-layer-row-title").bounds()).y)
 
     await app.getByTestId("diffusion-layer-row-voiceover").hover()
