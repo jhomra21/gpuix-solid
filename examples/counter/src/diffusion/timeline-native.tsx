@@ -110,6 +110,8 @@ export interface DiffusionTimelineState {
   setClipHeight: (height: number) => void
   timeFormat: () => TimeFormat
   setTimeFormat: (format: TimeFormat) => void
+  scrollTop: () => number
+  setScrollTop: (top: number) => void
   extraLayers: () => number
   addLayer: () => void
 }
@@ -126,6 +128,7 @@ export function createDiffusionTimelineState(): DiffusionTimelineState {
   const [selectedClipId, setSelectedClipId] = createSignal<string | null>("video")
   const [clipHeight, setClipHeight] = createSignal(DEFAULT_CLIP_HEIGHT)
   const [timeFormat, setTimeFormat] = createSignal<TimeFormat>("standard")
+  const [scrollTop, setScrollTop] = createSignal(0)
   const [extraLayers, setExtraLayers] = createSignal(0)
   let splitSequence = 0
 
@@ -154,6 +157,8 @@ export function createDiffusionTimelineState(): DiffusionTimelineState {
     setClipHeight,
     timeFormat,
     setTimeFormat,
+    scrollTop,
+    setScrollTop: (top) => setScrollTop(Math.max(0, top)),
     extraLayers,
     addLayer: () => setExtraLayers((count) => count + 1),
   }
@@ -190,7 +195,7 @@ function NativeClip(props: {
       style={{
         position: "absolute",
         left: left(),
-        top: props.clip.row * height(),
+        top: props.clip.row * height() - props.timeline.scrollTop(),
         width: width(),
         height: height(),
         borderRadius: 4,

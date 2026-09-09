@@ -233,7 +233,20 @@ async function main(): Promise<void> {
     await app.getByTestId("diffusion-add-layer").click()
     assert.equal(await app.getByTestId("diffusion-layer-row-layer-1").count(), 1)
     assert.equal(await app.getByTestId("diffusion-more-menu").count(), 0)
+
+    const preScrollLayer = await app.getByTestId("diffusion-layer-row-video").bounds()
+    const preScrollClip = await app.getByTestId("diffusion-clip-video").bounds()
+    await app.getByTestId("diffusion-layers-viewport").wheel(0, -160)
+    await app.clock.fastForward(16)
+    const postScrollLayer = await app.getByTestId("diffusion-layer-row-video").bounds()
+    const postScrollClip = await app.getByTestId("diffusion-clip-video").bounds()
+    const layerScrollDelta = postScrollLayer.y - preScrollLayer.y
+    const clipScrollDelta = postScrollClip.y - preScrollClip.y
+    assert.ok(layerScrollDelta < -20, "layer viewport wheel must move the source layer stack")
+    assert.ok(Math.abs(layerScrollDelta - clipScrollDelta) <= 2, "layer and clip panes must share vertical timeline scroll")
+
     await app.getByTestId("diffusion-layer-row-layer-1").click({ button: 2 })
+    assert.equal(await app.getByTestId("diffusion-layer-context-layer-1").count(), 1)
     await app.getByTestId("diffusion-layer-context-remove-layer-1").click()
     assert.equal(await app.getByTestId("diffusion-layer-row-layer-1").count(), 0)
 

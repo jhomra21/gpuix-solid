@@ -3,7 +3,9 @@ import type { EventPayload } from "gpuix-solid"
 import type { DiffusionEditorState } from "./compat"
 import {
   DEFAULT_CLIP_HEIGHT,
+  DEFAULT_TIMELINE_HEIGHT,
   PLAYHEAD_FRAME,
+  RULER_HEIGHT,
   type DiffusionTimelineClip,
   type DiffusionTimelineState,
 } from "./timeline-native"
@@ -14,7 +16,6 @@ import {
 } from "../../upstream/diffusion-editor/apps/web/src/components/timeline/time-format"
 
 const FPS = 30
-const RULER_HEIGHT = 36
 
 export interface DiffusionLayerState {
   id: string
@@ -67,6 +68,7 @@ export function createSourceDiffusionTimelineState(): SourceDiffusionTimelineSta
   const [selectedLayerId, setSelectedLayerId] = createSignal<string | null>("video")
   const [clipHeight, setClipHeight] = createSignal(DEFAULT_CLIP_HEIGHT)
   const [timeFormat, setTimeFormat] = createSignal<TimeFormat>("standard")
+  const [scrollTop, setScrollTop] = createSignal(0)
   let splitSequence = 0
   let layerSequence = 0
 
@@ -135,6 +137,9 @@ export function createSourceDiffusionTimelineState(): SourceDiffusionTimelineSta
     setLayers((current) => {
       const next = current.filter((layer) => layer.id !== id)
       setClips((clipsCurrent) => remapClipRows(clipsCurrent.filter((clip) => clip.id !== id), next))
+      const viewportHeight = DEFAULT_TIMELINE_HEIGHT - RULER_HEIGHT
+      const maxScrollTop = Math.max(0, next.length * clipHeight() - viewportHeight)
+      setScrollTop((currentTop) => Math.min(currentTop, maxScrollTop))
       return next
     })
     if (selectedLayerId() === id) setSelectedLayerId(null)
@@ -150,6 +155,8 @@ export function createSourceDiffusionTimelineState(): SourceDiffusionTimelineSta
     setClipHeight,
     timeFormat,
     setTimeFormat,
+    scrollTop,
+    setScrollTop: (top) => setScrollTop(Math.max(0, top)),
     extraLayers: () => layers().filter((layer) => layer.kind === "sequence").length,
     addLayer,
     layers,
@@ -360,6 +367,10 @@ export function Layers(props: { state: DiffusionEditorState; timeline: SourceDif
   const [contextRowIndex, setContextRowIndex] = createSignal(0)
   const clock = createMemo(() => formatFrames(PLAYHEAD_FRAME, FPS, props.timeline.timeFormat()))
   const contextLayer = createMemo(() => props.timeline.layers().find((layer) => layer.id === contextLayerId()))
+  const contentHeight = () => Math.max(
+    DEFAULT_TIMELINE_HEIGHT - RULER_HEIGHT,
+    props.timeline.layers().length * props.timeline.clipHeight(),
+  )
 
   const openContextMenu = (layerId: string, rowIndex: number): void => {
     setMoreOpen(false)
@@ -380,9 +391,17 @@ export function Layers(props: { state: DiffusionEditorState; timeline: SourceDif
         <text testId="diffusion-clock" style={{ color: "#FFFFFFA3", fontSize: 10 }}>{clock()}</text>
       </div>
       <Show when={!props.state.timelineMinimized()}>
-        <For each={props.timeline.layers()}>
-          {(layer, index) => <LayerRow layer={layer} timeline={props.timeline} rowIndex={index()} onContextMenu={openContextMenu} />}
-        </For>
+        <div
+          testId="diffusion-layers-viewport"
+          onScroll={(event: EventPayload) => props.timeline.setScrollTop(event.currentTarget?.scrollTop ?? 0)}
+          style={{ position: "relative", flexGrow: 1, minHeight: 0, overflowY: "scroll" }}
+        >
+          <div style={{ height: contentHeight(), flexShrink: 0, display: "flex", flexDirection: "column" }}>
+            <For each={props.timeline.layers()}>
+              {(layer, index) => <LayerRow layer={layer} timeline={props.timeline} rowIndex={index()} onContextMenu={openContextMenu} />}
+            </For>
+          </div>
+        </div>
       </Show>
       <Show when={moreOpen() && !props.state.timelineMinimized()}><TimelineMenu timeline={props.timeline} onClose={() => setMoreOpen(false)} /></Show>
       <Show when={contextLayer() && !props.state.timelineMinimized()}>
