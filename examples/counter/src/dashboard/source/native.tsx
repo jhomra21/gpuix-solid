@@ -140,25 +140,39 @@ export function Card(props: { children: SolidElement; style?: StyleDesc }): Soli
   )
 }
 
-export function DialogSurface(props: { children: SolidElement; testId?: string }): SolidElement {
+export function DialogSurface(props: { children: SolidElement; testId?: string; width?: number }): SolidElement {
   return (
     <div
       testId={props.testId}
       style={{
         position: "absolute",
-        top: 24,
-        left: 24,
-        width: 560,
-        padding: 18,
-        gap: 12,
-        borderWidth: 1,
-        borderColor: palette.border,
-        borderRadius: 10,
-        backgroundColor: palette.background,
-        boxShadow: { offsetX: 0, offsetY: 12, blurRadius: 30, spreadRadius: 0, color: "#0f172a28" },
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+        backgroundColor: "#00000066",
       }}
     >
-      {props.children}
+      <div
+        style={{
+          width: props.width ?? 512,
+          maxHeight: 640,
+          overflowY: "scroll",
+          padding: 18,
+          gap: 12,
+          borderWidth: 1,
+          borderColor: palette.border,
+          borderRadius: 10,
+          backgroundColor: palette.background,
+          boxShadow: { offsetX: 0, offsetY: 12, blurRadius: 30, spreadRadius: 0, color: "#0f172a28" },
+        }}
+      >
+        {props.children}
+      </div>
     </div>
   )
 }
