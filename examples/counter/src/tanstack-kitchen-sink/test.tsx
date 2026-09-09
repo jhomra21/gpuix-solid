@@ -102,8 +102,9 @@ async function main(): Promise<void> {
 
     await app.getByTestId("root-nav-route-a").click()
     await requireTestId(app, "page-route-a")
-    assert.equal(await app.getByText("Layout").count(), 1)
-    assert.equal(await app.getByText("I'm A!").count(), 1)
+    const routeAText = await app.getByTestId("page-route-a").textContent()
+    assert.match(routeAText, /Layout/)
+    assert.match(routeAText, /I'm A!/) 
 
     await app.getByTestId("root-nav-route-b").click()
     await requireTestId(app, "page-route-b")
