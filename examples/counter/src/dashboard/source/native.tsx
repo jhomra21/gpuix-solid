@@ -23,8 +23,14 @@ export interface Note {
 export interface WeatherLocation {
   id: number
   city: string
-  condition: string
+  isCurrentLocation: boolean
   temperature: number
+  feelsLike: number
+  humidity: number
+  windSpeed: number
+  condition: string
+  description: string
+  lastUpdated: string
 }
 
 export const palette = {
@@ -71,8 +77,30 @@ export const initialNotes: Note[] = [
 ]
 
 export const initialWeather: WeatherLocation[] = [
-  { id: 1, city: "Austin", condition: "Clear", temperature: 91 },
-  { id: 2, city: "Chicago", condition: "Partly cloudy", temperature: 78 },
+  {
+    id: 1,
+    city: "Austin, TX",
+    isCurrentLocation: false,
+    temperature: 33,
+    feelsLike: 35,
+    humidity: 42,
+    windSpeed: 4.1,
+    condition: "Clear",
+    description: "clear sky",
+    lastUpdated: "2025-06-03T11:58:00.000Z",
+  },
+  {
+    id: 2,
+    city: "Chicago, IL",
+    isCurrentLocation: false,
+    temperature: 26,
+    feelsLike: 27,
+    humidity: 58,
+    windSpeed: 5.3,
+    condition: "Clouds",
+    description: "partly cloudy",
+    lastUpdated: "2025-06-03T11:55:00.000Z",
+  },
 ]
 
 export function inputStyle(extra: StyleDesc = {}): StyleDesc {
