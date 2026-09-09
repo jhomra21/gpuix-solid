@@ -9,7 +9,7 @@ This is the repository head that existed when the original GPUIX Solid dashboard
 
 ## Dashboard source owners
 
-The route files own page structure and behavior. The shell is additionally owned by the source `AppSidebar`, `Breadcrumbs`, and `NavUser` components rather than by an invented native navigation hierarchy. Notes also depends on the source `NoteEditor` and `NoteCard` components because those components own its modal editing flow, deletion confirmation boundary, card metadata, archived treatment, and action layout.
+The route files own page structure and behavior. The shell is additionally owned by the source `AppSidebar`, `Breadcrumbs`, and `NavUser` components rather than by an invented native navigation hierarchy. Notes also depends on the source `NoteEditor` and `NoteCard` components because those components own its modal editing flow, deletion confirmation boundary, card metadata, archived treatment, and action layout. Weather depends on `AddLocationForm`, `GeolocationPrompt`, `WeatherCard`, and `WeatherErrorBoundary`; those files own almost all of its visible form, prompt, card, refresh/delete, metric, empty, and error surfaces.
 
 | Source path | Git blob |
 | --- | --- |
@@ -24,11 +24,17 @@ The route files own page structure and behavior. The shell is additionally owned
 | `src/components/nav-user.tsx` | `735b7d3c449dd5835fd46b63dfc8e9d292d7d3a7` |
 | `src/components/NoteEditor.tsx` | `4593705e513abe49efdc12e3c001c8da7cfe6a37` |
 | `src/components/NoteCard.tsx` | `e303716662a98d3415a2df2fe31b4657ff00cac0` |
+| `src/components/weather/AddLocationForm.tsx` | `c402c3164729b999ee088c70561185e6307dad20` |
+| `src/components/weather/GeolocationPrompt.tsx` | `dc06545cb745107024a6600dd1506dbd65abc52f` |
+| `src/components/weather/WeatherCard.tsx` | `5207aea619d58f37233831d5cc6511ca3d52aee0` |
+| `src/components/weather/WeatherErrorBoundary.tsx` | `eea6e6335749f3c8d0df9b369e4d9fe84053321e` |
 
 The native shell therefore keeps the source navigation set and ordering, inset/collapsible sidebar shape, source icon geometry used by those navigation entries, source breadcrumb rules, and the user trigger/menu contents. Browser router state, auth state, responsive/mobile services, Kobalte/shadcn primitives, Tailwind evaluation, and network calls remain compatibility concerns.
 
 The Home route also preserves the source two-column desktop card arrangement and its green, purple, and blue left-edge accents instead of flattening the cards into a generic native style.
 
 The Notes route preserves the source dialog-owned create/edit flow, edit-only status selector, source card metadata and archived state, and separate delete-confirmation dialog. D1 persistence, mutation latency, and toast transport can be deterministic native compatibility concerns, but they must not be used to replace the visible route/component structure.
+
+The Weather route preserves the source geolocation prompt copy/actions, Add New Location form/helper text, weather-card current-location state, temperature/description and four weather metrics, refresh action, two-step deletion, and empty-state structure. Convex/OpenWeather transport, image delivery, geolocation APIs, mutation latency, and real-time refresh are deterministic compatibility boundaries; the user-facing card/prompt/form states are not.
 
 The port must not add application UI that is absent from these source owners merely to preserve the previous dogfood fixture. Unsupported browser/runtime concerns should be represented by native compatibility adapters or deterministic fixture data, not by redesigning the pages.
