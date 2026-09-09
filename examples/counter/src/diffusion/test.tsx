@@ -120,8 +120,32 @@ async function main(): Promise<void> {
     assert.equal(await app.getByTestId("diffusion-play").textContent(), "Ⅱ")
 
     assert.equal(await app.getByTestId("diffusion-clock").textContent(), "00:05:40")
-    const normalLayerBounds = await app.getByTestId("diffusion-layer-row-0").bounds()
+    const normalLayerBounds = await app.getByTestId("diffusion-layer-row-title").bounds()
     const normalVideoBounds = await app.getByTestId("diffusion-clip-video").bounds()
+
+    await app.getByTestId("diffusion-layer-row-video").hover()
+    assert.equal(await app.getByTestId("diffusion-layer-mute-video").count(), 1)
+    assert.equal(await app.getByTestId("diffusion-layer-solo-video").count(), 1)
+    assert.equal(await app.getByTestId("diffusion-layer-hide-video").count(), 1)
+    await app.getByTestId("diffusion-layer-mute-video").click()
+    await app.getByTestId("diffusion-layer-solo-video").click()
+    await app.getByTestId("diffusion-layer-hide-video").click()
+    await app.getByTestId("diffusion-layer-row-video").click({ button: 2 })
+    assert.equal(await app.getByTestId("diffusion-layer-context-video").count(), 1)
+    assert.equal(await app.getByText("Unmute").count(), 1)
+    assert.equal(await app.getByText("Unsolo").count(), 1)
+    assert.equal(await app.getByText("Unhide").count(), 1)
+    await app.getByTestId("diffusion-layer-context-front-video").click()
+    assert.ok((await app.getByTestId("diffusion-layer-row-video").bounds()).y > (await app.getByTestId("diffusion-layer-row-captions").bounds()).y)
+    await app.getByTestId("diffusion-layer-row-video").click({ button: 2 })
+    await app.getByTestId("diffusion-layer-context-back-video").click()
+    assert.ok((await app.getByTestId("diffusion-layer-row-video").bounds()).y < (await app.getByTestId("diffusion-layer-row-title").bounds()).y)
+
+    await app.getByTestId("diffusion-layer-row-voiceover").hover()
+    await app.getByTestId("diffusion-layer-solo-voiceover").click()
+    await app.getByTestId("diffusion-layer-row-video").click({ button: 2 })
+    assert.equal(await app.getByText("Solo").count(), 1, "soloing another layer must clear the previous solo")
+    await app.getByTestId("diffusion-layer-context-video").getByText("Solo").click()
 
     await app.getByTestId("diffusion-clip-video").click()
     assert.equal(await app.getByTestId("diffusion-clip-video-split-1").count(), 0)
@@ -140,7 +164,7 @@ async function main(): Promise<void> {
     assert.equal(await app.getByTestId("diffusion-layer-height-64").count(), 1)
     await app.getByTestId("diffusion-layer-height-64").click()
     assert.equal(await app.getByTestId("diffusion-more-menu").count(), 0)
-    const relaxedLayerBounds = await app.getByTestId("diffusion-layer-row-0").bounds()
+    const relaxedLayerBounds = await app.getByTestId("diffusion-layer-row-title").bounds()
     const relaxedVideoBounds = await app.getByTestId("diffusion-clip-video").bounds()
     const layerHeightDelta = relaxedLayerBounds.height - normalLayerBounds.height
     const clipHeightDelta = relaxedVideoBounds.height - normalVideoBounds.height
@@ -161,11 +185,14 @@ async function main(): Promise<void> {
     await app.getByTestId("diffusion-time-format-frames").click()
     assert.equal(await app.getByTestId("diffusion-clock").textContent(), "162f")
 
-    assert.equal(await app.getByTestId("diffusion-layer-row-4").count(), 0)
+    assert.equal(await app.getByTestId("diffusion-layer-row-layer-1").count(), 0)
     await app.getByTestId("diffusion-more").click()
     await app.getByTestId("diffusion-add-layer").click()
-    assert.equal(await app.getByTestId("diffusion-layer-row-4").count(), 1)
+    assert.equal(await app.getByTestId("diffusion-layer-row-layer-1").count(), 1)
     assert.equal(await app.getByTestId("diffusion-more-menu").count(), 0)
+    await app.getByTestId("diffusion-layer-row-layer-1").click({ button: 2 })
+    await app.getByTestId("diffusion-layer-context-remove-layer-1").click()
+    assert.equal(await app.getByTestId("diffusion-layer-row-layer-1").count(), 0)
 
     await app.getByTestId("diffusion-toggle-timeline").click()
     assert.equal(await app.getByTestId("diffusion-soundboard").count(), 0)
@@ -179,7 +206,7 @@ async function main(): Promise<void> {
     await app.getByTestId("diffusion-show-ui").click()
     assert.equal(await app.getByTestId("diffusion-sidebar-left").count(), 1)
 
-    console.log("diffusion integration: source-shaped editor passed")
+    console.log("diffusion integration: source-shaped editor and layer interactions passed")
   } finally {
     await app.close()
     root.unmount()
