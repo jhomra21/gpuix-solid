@@ -1,4 +1,10 @@
 import { For, Show, createSignal } from "solid-js"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "gpuix-solid"
 import codeImageLogo from "../../upstream/codeimage/apps/codeimage/public/assets/codeimage-logo-blue-svg-v1.svg?raw"
 import { ExportButton, ShareButton } from "./compat"
 
@@ -46,11 +52,7 @@ function ToolbarDialog(props: {
 }) {
   return (
     <div
-      testId={`toolbar-${props.kind}-dialog`}
       style={{
-        position: "absolute",
-        top: 58,
-        left: 190,
         width: props.kind === "settings" ? 520 : 560,
         maxHeight: 620,
         overflowY: "scroll",
@@ -70,7 +72,7 @@ function ToolbarDialog(props: {
           {props.kind === "settings" ? "Settings" : "🎉 What's new"}
         </text>
         <div testId={`toolbar-${props.kind}-close`} style={{ ...controlStyle(false), width: 30, paddingLeft: 0, paddingRight: 0, justifyContent: "center" }} onClick={props.onClose}>
-          <text style={{ color: colors.text, fontSize: 13 }}>×</text>
+          <text style={{ color: colors.text, fontSize: 13, pointerEvents: "none" }}>×</text>
         </div>
       </div>
 
@@ -81,7 +83,7 @@ function ToolbarDialog(props: {
             <For each={["dark", "light", "system"] as const}>
               {(mode) => (
                 <div testId={`toolbar-theme-${mode}`} style={controlStyle(props.themeMode === mode)} onClick={() => props.onThemeMode(mode)}>
-                  <text style={{ color: colors.text, fontSize: 11 }}>
+                  <text style={{ color: colors.text, fontSize: 11, pointerEvents: "none" }}>
                     {mode === "dark" ? "Dark mode" : mode === "light" ? "Light mode" : "System"}
                   </text>
                 </div>
@@ -95,7 +97,7 @@ function ToolbarDialog(props: {
             <For each={["English", "Italiano"] as const}>
               {(locale) => (
                 <div testId={`toolbar-locale-${locale.toLowerCase()}`} style={controlStyle(props.locale === locale)} onClick={() => props.onLocale(locale)}>
-                  <text style={{ color: colors.text, fontSize: 11 }}>{locale}</text>
+                  <text style={{ color: colors.text, fontSize: 11, pointerEvents: "none" }}>{locale}</text>
                 </div>
               )}
             </For>
@@ -162,18 +164,59 @@ export function Toolbar(_props: { canvasRef?: unknown }) {
         flexShrink: 0,
       }}
     >
-      <div
-        testId="toolbar-settings"
-        aria-label="Menu"
-        style={{ ...controlStyle(menuOpen()), width: 30, paddingLeft: 0, paddingRight: 0, alignItems: "center", justifyContent: "center", borderRadius: 999 }}
-        onClick={() => {
-          setDialog(null)
-          setUserMenuOpen(false)
-          setMenuOpen((open) => !open)
-        }}
-      >
-        <text style={{ color: colors.text, fontSize: 14, pointerEvents: "none" }}>⋮</text>
-      </div>
+      <Select open={menuOpen()} onOpenChange={setMenuOpen} style={{ flexShrink: 0 }}>
+        <SelectTrigger
+          testId="toolbar-settings"
+          aria-label="Menu"
+          style={{ ...controlStyle(menuOpen()), width: 30, paddingLeft: 0, paddingRight: 0, alignItems: "center", justifyContent: "center", borderRadius: 999 }}
+          onClick={() => {
+            setDialog(null)
+            setUserMenuOpen(false)
+          }}
+        >
+          <text style={{ color: colors.text, fontSize: 14, pointerEvents: "none" }}>⋮</text>
+        </SelectTrigger>
+        <SelectContent
+          testId="toolbar-menu-content"
+          side="bottom"
+          align="start"
+          sideOffset={4}
+          style={{
+            width: 180,
+            padding: 6,
+            display: "flex",
+            flexDirection: "column",
+            gap: 4,
+            borderRadius: 8,
+            borderWidth: 1,
+            borderColor: colors.divider,
+            backgroundColor: colors.input,
+          }}
+        >
+          <SelectItem value="settings" testId="toolbar-menu-settings" style={controlStyle(false)} onClick={() => openDialog("settings")}>
+            <text style={{ color: colors.text, fontSize: 12, pointerEvents: "none" }}>Settings</text>
+          </SelectItem>
+          <SelectItem value="changelog" testId="toolbar-menu-changelog" style={controlStyle(false)} onClick={() => openDialog("changelog")}>
+            <text style={{ color: colors.text, fontSize: 12, pointerEvents: "none" }}>Changelog</text>
+          </SelectItem>
+          <SelectItem
+            value="github"
+            testId="toolbar-menu-github"
+            style={controlStyle(false)}
+            onClick={() => {
+              setMenuOpen(false)
+              setNavigationStatus("GitHub external link selected")
+            }}
+          >
+            <text style={{ color: colors.text, fontSize: 12, pointerEvents: "none" }}>GitHub ↗</text>
+          </SelectItem>
+          <Show when={signedIn()}>
+            <SelectItem value="logout" testId="toolbar-menu-logout" style={controlStyle(false)} onClick={logout}>
+              <text style={{ color: colors.text, fontSize: 12, pointerEvents: "none" }}>Logout</text>
+            </SelectItem>
+          </Show>
+        </SelectContent>
+      </Select>
 
       <div testId="codeimage-logo" style={{ display: "flex", alignItems: "center", marginLeft: 20, width: 134, height: 26, pointerEvents: "none" }}>
         <svg source={codeImageLogo} style={{ width: 134, height: 26, flexShrink: 0 }} />
@@ -212,64 +255,59 @@ export function Toolbar(_props: { canvasRef?: unknown }) {
             </div>
           }
         >
-          <div
-            testId="user-badge"
-            style={{ minWidth: 34, height: 30, paddingLeft: 8, paddingRight: 8, borderRadius: 15, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: colors.button, cursor: "pointer" }}
-            onClick={() => {
-              setMenuOpen(false)
-              setDialog(null)
-              setUserMenuOpen((open) => !open)
-            }}
-          >
-            <text style={{ color: colors.text, fontSize: 10, fontWeight: 700, pointerEvents: "none" }}>JM</text>
-          </div>
+          <Select open={userMenuOpen()} onOpenChange={setUserMenuOpen} style={{ flexShrink: 0 }}>
+            <SelectTrigger
+              testId="user-badge"
+              style={{ minWidth: 34, height: 30, paddingLeft: 8, paddingRight: 8, borderRadius: 15, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: colors.button, cursor: "pointer" }}
+              onClick={() => {
+                setMenuOpen(false)
+                setDialog(null)
+              }}
+            >
+              <text style={{ color: colors.text, fontSize: 10, fontWeight: 700, pointerEvents: "none" }}>JM</text>
+            </SelectTrigger>
+            <SelectContent
+              testId="user-badge-menu"
+              side="bottom"
+              align="end"
+              sideOffset={4}
+              style={{ width: 140, padding: 6, borderRadius: 8, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.input }}
+            >
+              <SelectItem value="logout" testId="user-badge-logout" style={controlStyle(false)} onClick={logout}>
+                <text style={{ color: colors.text, fontSize: 12, pointerEvents: "none" }}>Logout</text>
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </Show>
       </div>
 
-      <Show when={menuOpen()}>
-        <div testId="toolbar-menu-content" style={{ position: "absolute", left: 16, top: 46, width: 180, padding: 6, display: "flex", flexDirection: "column", gap: 4, borderRadius: 8, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.input }}>
-          <div testId="toolbar-menu-settings" style={controlStyle(false)} onClick={() => openDialog("settings")}>
-            <text style={{ color: colors.text, fontSize: 12, pointerEvents: "none" }}>Settings</text>
-          </div>
-          <div testId="toolbar-menu-changelog" style={controlStyle(false)} onClick={() => openDialog("changelog")}>
-            <text style={{ color: colors.text, fontSize: 12, pointerEvents: "none" }}>Changelog</text>
-          </div>
-          <div
-            testId="toolbar-menu-github"
-            style={controlStyle(false)}
-            onClick={() => {
-              setMenuOpen(false)
-              setNavigationStatus("GitHub external link selected")
-            }}
-          >
-            <text style={{ color: colors.text, fontSize: 12, pointerEvents: "none" }}>GitHub ↗</text>
-          </div>
-          <Show when={signedIn()}>
-            <div testId="toolbar-menu-logout" style={controlStyle(false)} onClick={logout}>
-              <text style={{ color: colors.text, fontSize: 12, pointerEvents: "none" }}>Logout</text>
-            </div>
-          </Show>
-        </div>
-      </Show>
-
-      <Show when={userMenuOpen() && signedIn()}>
-        <div testId="user-badge-menu" style={{ position: "absolute", right: 16, top: 46, width: 140, padding: 6, borderRadius: 8, borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.input }}>
-          <div testId="user-badge-logout" style={controlStyle(false)} onClick={logout}>
-            <text style={{ color: colors.text, fontSize: 12, pointerEvents: "none" }}>Logout</text>
-          </div>
-        </div>
-      </Show>
-
       <Show when={dialog()} keyed>
         {(kind) => (
-          <ToolbarDialog
-            kind={kind}
-            themeMode={themeMode()}
-            locale={locale()}
-            onThemeMode={(mode) => setThemeMode(mode)}
-            onLocale={(nextLocale) => setLocale(nextLocale)}
-            onClose={() => setDialog(null)}
-          />
+          <Select
+            open={true}
+            onOpenChange={(open) => {
+              if (!open) setDialog(null)
+            }}
+            style={{ position: "absolute", left: 190, top: 46, width: 1, height: 1 }}
+          >
+            <SelectTrigger style={{ width: 1, height: 1, opacity: 0, pointerEvents: "none" }} />
+            <SelectContent
+              testId={`toolbar-${kind}-dialog`}
+              side="bottom"
+              align="start"
+              sideOffset={6}
+              style={{ backgroundColor: colors.panel, borderRadius: 12 }}
+            >
+              <ToolbarDialog
+                kind={kind}
+                themeMode={themeMode()}
+                locale={locale()}
+                onThemeMode={setThemeMode}
+                onLocale={setLocale}
+                onClose={() => setDialog(null)}
+              />
+            </SelectContent>
+          </Select>
         )}
       </Show>
 
