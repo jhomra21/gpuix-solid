@@ -544,7 +544,7 @@ function PresetPreviewCard(props: { preset: Preset; index: number }) {
   const theme = () => themes.find((candidate) => candidate.id === props.preset.themeId) ?? themes[0]!
   return (
     <div testId={`preset-card-${props.index}`} style={{ display: "flex", flexDirection: "column", gap: 8, paddingBottom: 16 }} onClick={() => applyPreset(props.preset)}>
-      <div style={{ position: "relative", minHeight: 120, padding: 14, borderRadius: 12, background: theme().preview, overflow: "hidden" }}>
+      <div style={{ position: "relative", minHeight: 120, padding: 14, borderRadius: 12, background: theme().preview, overflow: "hidden", pointerEvents: "none" }}>
         <div style={{ minHeight: 92, borderRadius: 8, backgroundColor: theme().terminal, padding: 12, display: "flex", flexDirection: "column", gap: 5 }}>
           <text style={{ color: theme().keyword, fontSize: 9 }}>function Preview() {"{"}</text>
           <text style={{ color: theme().number, fontSize: 9 }}>{"  "}const count = 0;</text>
@@ -553,7 +553,7 @@ function PresetPreviewCard(props: { preset: Preset; index: number }) {
         </div>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, pointerEvents: "none" }}>
           <text style={{ color: colors.text, fontSize: 11, fontWeight: 600 }}>{props.preset.name}</text>
           <text testId={`preset-card-${props.index}-updated`} style={{ color: colors.description, fontSize: 9 }}>{props.preset.updated}</text>
         </div>
