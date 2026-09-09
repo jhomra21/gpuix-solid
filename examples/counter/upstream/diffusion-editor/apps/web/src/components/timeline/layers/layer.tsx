@@ -60,5 +60,5 @@ export function Layer(props: LayerProps) {
         )}
       </Index>
     </>
-  );
+  )
 }
