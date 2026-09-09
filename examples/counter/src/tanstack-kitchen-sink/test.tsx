@@ -28,6 +28,17 @@ async function main(): Promise<void> {
 
   try {
     await requireTestId(app, "tanstack-kitchen-sink")
+    await requireTestId(app, "page-home")
+    assert.equal(await app.getByText("Welcome Home!").count(), 1)
+
+    await app.getByTestId("home-new-invoice").click()
+    await requireTestId(app, "page-dashboard")
+    await requireTestId(app, "invoice-detail-panel")
+    assert.equal(await app.getByTestId("edit-title").count(), 1)
+
+    await app.getByTestId("root-nav-home").click()
+    await requireTestId(app, "page-home")
+    await app.getByTestId("root-nav-dashboard").click()
     await requireTestId(app, "page-dashboard")
     assert.equal(await app.getByTestId("invoice-count").textContent(), "10 total invoices.")
 
@@ -85,15 +96,37 @@ async function main(): Promise<void> {
     assert.equal(existsSync(screenshotPath), true)
     assert.ok(statSync(screenshotPath).size > 0)
 
-    await app.getByTestId("root-nav-home").click()
-    await requireTestId(app, "page-home")
+    await app.getByTestId("root-nav-expensive").click()
+    await requireTestId(app, "page-expensive")
+    assert.match(await app.getByTestId("page-expensive").textContent(), /I am an "expensive" component/)
+
+    await app.getByTestId("root-nav-route-a").click()
+    await requireTestId(app, "page-route-a")
+    assert.equal(await app.getByText("Layout").count(), 1)
+    assert.equal(await app.getByText("I'm A!").count(), 1)
+
+    await app.getByTestId("root-nav-route-b").click()
+    await requireTestId(app, "page-route-b")
+    assert.equal(await app.getByText("I'm B!").count(), 1)
+
+    await app.getByTestId("root-nav-profile").click()
+    await requireTestId(app, "page-login")
+    assert.equal(await app.getByText("You must log in!").count(), 1)
+    await app.getByTestId("login-email").fill("demo-user")
+    await app.getByTestId("login-submit").click()
+    await requireTestId(app, "page-profile")
+    assert.equal(await app.getByTestId("profile-username").textContent(), "demo-user")
+
     await app.getByTestId("root-nav-login").click()
     await requireTestId(app, "page-login")
-    await app.getByTestId("login-email").fill("demo@example.com")
-    await app.getByTestId("login-submit").click()
-    assert.equal(await app.getByText("Logged in").count(), 1)
+    assert.equal(await app.getByTestId("login-username").textContent(), "demo-user")
+    await app.getByTestId("login-logout").click()
+    assert.equal(await app.getByText("You must log in!").count(), 1)
 
-    console.log("tanstack kitchen sink integration: passed")
+    await app.getByTestId("root-nav-home").click()
+    await requireTestId(app, "page-home")
+
+    console.log("tanstack kitchen sink integration: source routes and interactions passed")
   } finally {
     await app.clock.resume()
     await app.close()
