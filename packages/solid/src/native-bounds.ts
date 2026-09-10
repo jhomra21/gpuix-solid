@@ -44,5 +44,7 @@ export function withLegacyElementBounds<Renderer extends ElementBoundsRenderer>(
       return normalizeNativeElementBounds(getElementBounds(elementId))
     },
   })
+  // SAFETY: the method was replaced above with the exact legacy return contract;
+  // every other property remains on the same renderer object unchanged.
   return renderer as LegacyElementBoundsRenderer<Renderer>
 }
