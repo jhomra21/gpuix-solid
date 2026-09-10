@@ -37,9 +37,92 @@ export interface BatchRendererApi {
   getElementBounds?(elementId: number): number[] | null
 }
 
+const POINTER_CAPTURE_NATIVE_EVENTS = ["mouseDown", "mouseMove", "mouseUp"] as const
+
+type PointerCaptureNativeEvent = typeof POINTER_CAPTURE_NATIVE_EVENTS[number]
+type WireMutation = readonly unknown[]
+
+/**
+ * Browser code can start a drag on an element and attach pointermove/pointerup
+ * listeners to window or document from inside pointerdown. GPUIX has to know at
+ * press time that the pressed native node participates in mouse movement in
+ * order to arm its window-level capture. Preserve that browser contract below
+ * Solid by keeping native move/up listeners armed whenever a node requests
+ * mouseDown; EventRegistry still decides whether anything local/global handles
+ * the emitted events.
+ */
+function createPointerCaptureBatchBridge(renderer: BatchRendererApi) {
+  const requestedByElement = new Map<number, Set<string>>()
+
+  const effectiveListeners = (requested: ReadonlySet<string>): Set<string> => {
+    const effective = new Set(requested)
+    if (requested.has("mouseDown")) {
+      effective.add("mouseMove")
+      effective.add("mouseUp")
+    }
+    return effective
+  }
+
+  const bridgeBatch = (json: string): number[] => {
+    const parsed = JSON.parse(json) as unknown
+    if (!Array.isArray(parsed)) return renderer.applyBatch(json)
+
+    const bridged: WireMutation[] = []
+    for (const value of parsed) {
+      if (!Array.isArray(value)) {
+        bridged.push([value])
+        continue
+      }
+      const mutation = value as WireMutation
+      const [name, rawId, rawEventType, rawHasHandler] = mutation
+
+      if (name === "destroyElement" && typeof rawId === "number") {
+        requestedByElement.delete(rawId)
+        bridged.push(mutation)
+        continue
+      }
+
+      if (
+        name !== "setEventListener" ||
+        typeof rawId !== "number" ||
+        typeof rawEventType !== "string" ||
+        typeof rawHasHandler !== "boolean"
+      ) {
+        bridged.push(mutation)
+        continue
+      }
+
+      const previousRequested = requestedByElement.get(rawId) ?? new Set<string>()
+      const previousEffective = effectiveListeners(previousRequested)
+      const nextRequested = new Set(previousRequested)
+      if (rawHasHandler) nextRequested.add(rawEventType)
+      else nextRequested.delete(rawEventType)
+      if (nextRequested.size === 0) requestedByElement.delete(rawId)
+      else requestedByElement.set(rawId, nextRequested)
+      const nextEffective = effectiveListeners(nextRequested)
+
+      if (!POINTER_CAPTURE_NATIVE_EVENTS.includes(rawEventType as PointerCaptureNativeEvent)) {
+        bridged.push(mutation)
+        continue
+      }
+
+      for (const eventType of POINTER_CAPTURE_NATIVE_EVENTS) {
+        const before = previousEffective.has(eventType)
+        const after = nextEffective.has(eventType)
+        if (before !== after) bridged.push(["setEventListener", rawId, eventType, after])
+      }
+    }
+
+    return renderer.applyBatch(JSON.stringify(bridged))
+  }
+
+  return bridgeBatch
+}
+
 export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRenderer {
+  const applyBatch = createPointerCaptureBatchBridge(renderer)
   const applyOne = (mutation: readonly unknown[]): number[] =>
-    renderer.applyBatch(JSON.stringify([mutation]))
+    applyBatch(JSON.stringify([mutation]))
 
   const adapted: BoundsCapableRenderer = {
     createElement(id, elementType) {
@@ -75,9 +158,7 @@ export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRen
     commitMutations() {
       // Single-operation compatibility calls above already commit through applyBatch.
     },
-    applyBatch(json) {
-      return renderer.applyBatch(json)
-    },
+    applyBatch,
   }
 
   if (renderer.focusElement) adapted.focusElement = renderer.focusElement.bind(renderer)
