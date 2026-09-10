@@ -6,7 +6,7 @@ import {
   type DiffusionEditorState,
   type DiffusionTool,
 } from "./compat"
-import { Canvas } from "./canvas-native"
+import { InteractiveCanvas } from "./interactive-canvas"
 import { Inspector } from "./inspector-native"
 import { Layers, createSourceDiffusionTimelineState } from "./layers-native"
 import { SidebarLeft } from "./sidebar-left-native"
@@ -68,7 +68,7 @@ export function EditorPage(): SolidElement {
             <SidebarLeft state={state} />
             <Divider vertical />
           </Show>
-          <Canvas state={state} promptOpen={promptOpen} setPromptOpen={setPromptOpen} />
+          <InteractiveCanvas state={state} promptOpen={promptOpen} setPromptOpen={setPromptOpen} />
           <Show when={uiVisible()}>
             <Divider vertical />
             <Inspector state={state} />
