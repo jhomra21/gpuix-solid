@@ -632,6 +632,7 @@ function MenuRow(props: { label: string; description?: string | undefined; icon?
 interface ChipSelectProps {
   value: string
   onChange(value: string): void
+  items: readonly { value: string; label: string }[]
   icon: IconName
   label: string
   caret?: boolean | undefined
@@ -646,7 +647,7 @@ function ChipSelect(props: ChipSelectProps): SolidElement {
     display: "flex", flexDirection: "row", alignItems: "center", gap: 6, height: 26, paddingLeft: 7, paddingRight: 7, borderRadius: 6, cursor: "pointer", backgroundColor: state.open ? C.overlay : "#00000000", hover: { backgroundColor: C.overlay },
   })
   return (
-    <Select value={props.value} onValueChange={props.onChange} style={{ flexShrink: 0 }}>
+    <Select items={props.items} value={props.value} onValueChange={props.onChange} style={{ flexShrink: 0 }}>
       <div style={{ position: "relative", display: "flex" }}>
         {props.testId === undefined ? (
           <SelectTrigger style={triggerStyle}>
@@ -679,13 +680,20 @@ function ModelPicker(props: { value: string; onChange(value: string): void }): S
     return out
   })
   return (
-    <ChipSelect value={props.value} onChange={props.onChange} icon={selected().icon} label={selected().label} testId="model-picker">
+    <ChipSelect
+      value={props.value}
+      onChange={props.onChange}
+      items={MODELS.map((model) => ({ value: model.id, label: model.label }))}
+      icon={selected().icon}
+      label={selected().label}
+      testId="model-picker"
+    >
       <For each={groups()}>
         {(group, index) => (
           <div style={{ display: "flex", flexDirection: "column" }}>
             <Show when={index() > 0}><div style={{ height: 1, backgroundColor: C.border, marginTop: 4, marginBottom: 4 }} /></Show>
             <SelectLabel style={{ height: 22, paddingLeft: 8, paddingRight: 8, display: "flex", alignItems: "center" }}><text style={{ fontSize: 11.5, fontWeight: 500, color: C.ghost }}>{group.name}</text></SelectLabel>
-            <For each={group.items}>{(model) => <SelectItem value={model.id} textValue={model.label}>{(state) => <MenuRow label={model.label} icon={model.icon} selected={state.selected} highlighted={state.highlighted} />}</SelectItem>}</For>
+            <For each={group.items}>{(model) => <SelectItem value={model.id}>{(state) => <MenuRow label={model.label} icon={model.icon} selected={state.selected} highlighted={state.highlighted} />}</SelectItem>}</For>
           </div>
         )}
       </For>
@@ -696,9 +704,16 @@ function ModelPicker(props: { value: string; onChange(value: string): void }): S
 function ReasoningPicker(props: { value: string; onChange(value: string): void }): SolidElement {
   const selected = () => REASONING.find((option) => option.id === props.value) ?? REASONING[0]
   return (
-    <ChipSelect value={props.value} onChange={props.onChange} icon={props.value === "low" ? "zap" : "sparkle"} label={selected().label} caret={false}>
+    <ChipSelect
+      value={props.value}
+      onChange={props.onChange}
+      items={REASONING.map((option) => ({ value: option.id, label: option.label }))}
+      icon={props.value === "low" ? "zap" : "sparkle"}
+      label={selected().label}
+      caret={false}
+    >
       <SelectLabel style={{ height: 22, paddingLeft: 8, display: "flex", alignItems: "center" }}><text style={{ fontSize: 11.5, fontWeight: 500, color: C.ghost }}>Reasoning</text></SelectLabel>
-      <For each={REASONING}>{(option) => <SelectItem value={option.id} textValue={option.label}>{(state) => <MenuRow label={option.label} hint={option.hint} selected={state.selected} highlighted={state.highlighted} />}</SelectItem>}</For>
+      <For each={REASONING}>{(option) => <SelectItem value={option.id}>{(state) => <MenuRow label={option.label} hint={option.hint} selected={state.selected} highlighted={state.highlighted} />}</SelectItem>}</For>
     </ChipSelect>
   )
 }
@@ -706,30 +721,66 @@ function ReasoningPicker(props: { value: string; onChange(value: string): void }
 function AccessPicker(props: { value: string; onChange(value: string): void }): SolidElement {
   const selected = () => ACCESS.find((option) => option.id === props.value) ?? ACCESS[3]
   return (
-    <ChipSelect value={props.value} onChange={props.onChange} icon={selected().icon} label={selected().label} caret={false} menuWidth={288}>
-      <For each={ACCESS}>{(option) => <SelectItem value={option.id} textValue={option.label}>{(state) => <MenuRow label={option.label} description={option.description} icon={option.icon} selected={state.selected} highlighted={state.highlighted} />}</SelectItem>}</For>
+    <ChipSelect
+      value={props.value}
+      onChange={props.onChange}
+      items={ACCESS.map((option) => ({ value: option.id, label: option.label }))}
+      icon={selected().icon}
+      label={selected().label}
+      caret={false}
+      menuWidth={288}
+    >
+      <For each={ACCESS}>{(option) => <SelectItem value={option.id}>{(state) => <MenuRow label={option.label} description={option.description} icon={option.icon} selected={state.selected} highlighted={state.highlighted} />}</SelectItem>}</For>
     </ChipSelect>
   )
 }
 
 function ProjectPicker(props: { value: string; onChange(value: string): void }): SolidElement {
   const selected = () => PROJECTS.find((option) => option.id === props.value) ?? PROJECTS[0]
-  return <ChipSelect value={props.value} onChange={props.onChange} icon="folder" label={selected().label} caret={false}><For each={PROJECTS}>{(option) => <SelectItem value={option.id} textValue={option.label}>{(state) => <MenuRow label={option.label} icon="folder" selected={state.selected} highlighted={state.highlighted} />}</SelectItem>}</For></ChipSelect>
+  return (
+    <ChipSelect
+      value={props.value}
+      onChange={props.onChange}
+      items={PROJECTS.map((option) => ({ value: option.id, label: option.label }))}
+      icon="folder"
+      label={selected().label}
+      caret={false}
+    >
+      <For each={PROJECTS}>{(option) => <SelectItem value={option.id}>{(state) => <MenuRow label={option.label} icon="folder" selected={state.selected} highlighted={state.highlighted} />}</SelectItem>}</For>
+    </ChipSelect>
+  )
 }
 
 function WorkspacePicker(props: { value: string; onChange(value: string): void }): SolidElement {
   const selected = () => WORKSPACES.find((option) => option.id === props.value) ?? WORKSPACES[0]
   return (
-    <ChipSelect value={props.value} onChange={props.onChange} icon={selected().icon} label={selected().label} caret={false}>
+    <ChipSelect
+      value={props.value}
+      onChange={props.onChange}
+      items={WORKSPACES.map((option) => ({ value: option.id, label: option.label }))}
+      icon={selected().icon}
+      label={selected().label}
+      caret={false}
+    >
       <SelectLabel style={{ height: 22, paddingLeft: 8, display: "flex", alignItems: "center" }}><text style={{ fontSize: 11.5, fontWeight: 500, color: C.ghost }}>Work in</text></SelectLabel>
-      <For each={WORKSPACES}>{(option) => <SelectItem value={option.id} textValue={option.label}>{(state) => <MenuRow label={option.label} icon={option.icon} selected={state.selected} highlighted={state.highlighted} />}</SelectItem>}</For>
+      <For each={WORKSPACES}>{(option) => <SelectItem value={option.id}>{(state) => <MenuRow label={option.label} icon={option.icon} selected={state.selected} highlighted={state.highlighted} />}</SelectItem>}</For>
     </ChipSelect>
   )
 }
 
 function BranchPicker(props: { value: string; onChange(value: string): void }): SolidElement {
   const selected = () => BRANCHES.find((option) => option.id === props.value) ?? BRANCHES[0]
-  return <ChipSelect value={props.value} onChange={props.onChange} icon="gitBranch" label={selected().label}><For each={BRANCHES}>{(option) => <SelectItem value={option.id} textValue={option.label}>{(state) => <MenuRow label={option.label} icon="gitBranch" selected={state.selected} highlighted={state.highlighted} />}</SelectItem>}</For></ChipSelect>
+  return (
+    <ChipSelect
+      value={props.value}
+      onChange={props.onChange}
+      items={BRANCHES.map((option) => ({ value: option.id, label: option.label }))}
+      icon="gitBranch"
+      label={selected().label}
+    >
+      <For each={BRANCHES}>{(option) => <SelectItem value={option.id}>{(state) => <MenuRow label={option.label} icon="gitBranch" selected={state.selected} highlighted={state.highlighted} />}</SelectItem>}</For>
+    </ChipSelect>
+  )
 }
 
 function ModeToggle(props: { value: "build" | "plan"; onChange(value: "build" | "plan"): void }): SolidElement {
