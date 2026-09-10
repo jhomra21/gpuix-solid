@@ -3,7 +3,6 @@ import {
   Show,
   createComponent,
   createContext,
-  createEffect,
   createMemo,
   createRenderEffect,
   createSignal,
@@ -126,7 +125,8 @@ export function Select(props: SelectProps): SolidElement {
   }: SelectItemRegistration): void => {
     const existingIndex = items.findIndex((item) => item.value === itemValue)
     if (!mounted) {
-      if (existingIndex >= 0) items.splice(existingIndex, 1)
+      if (existingIndex < 0) return
+      items.splice(existingIndex, 1)
       setItemsVersion((version) => version + 1)
       return
     }
@@ -164,14 +164,16 @@ export function Select(props: SelectProps): SolidElement {
     setOpen(false)
   }
 
-  createEffect(() => {
-    if (!open()) return
-    itemsVersion()
-    const selected = items.find(
-      (item) => item.value === value() && !item.disabled,
-    )
-    setActiveValue(selected?.value ?? null)
-  })
+  createRenderEffect(
+    () => ({ open: open(), value: value(), itemsVersion: itemsVersion() }),
+    ({ open: isOpen, value: selectedValue }) => {
+      if (!isOpen) return
+      const selected = items.find(
+        (item) => item.value === selectedValue && !item.disabled,
+      )
+      setActiveValue(selected?.value ?? null)
+    },
+  )
 
   const context: SelectContextValue = {
     open,
