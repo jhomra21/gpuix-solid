@@ -103,8 +103,8 @@ export function Select(props: SelectProps): SolidElement {
     props.defaultOpen ?? false,
     () => props.onOpenChange,
   )
-  const [activeValue, setActiveValue] = createSignal<string | null>(null)
-  const [itemsVersion, setItemsVersion] = createSignal(0)
+  const [activeValue, setActiveValue] = createSignal<string | null>(null, { ownedWrite: true })
+  const [itemsVersion, setItemsVersion] = createSignal(0, { ownedWrite: true })
   const items: SelectItemRecord[] = []
   const triggerPressedWhileOpen: MutableBox<boolean> = { value: false }
   const dismissedByOutsidePress: MutableBox<boolean> = { value: false }
@@ -172,7 +172,6 @@ export function Select(props: SelectProps): SolidElement {
       )
       setActiveValue(selected?.value ?? null)
     },
-    { ownedWrite: true },
   )
 
   const context: SelectContextValue = {
@@ -378,7 +377,6 @@ export function SelectItem(props: SelectItemProps): SolidElement {
       context.registerItem({ value, itemDisabled, mounted: true })
       return () => context.registerItem({ value, itemDisabled, mounted: false })
     },
-    { ownedWrite: true },
   )
 
   const state = (): SelectItemState => ({
