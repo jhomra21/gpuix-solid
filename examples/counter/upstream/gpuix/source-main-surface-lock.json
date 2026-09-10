@@ -1,6 +1,6 @@
 {
   "repository": "remorses/gpuix",
-  "commit": "6b4be86952aa89cfe61bb573740aea33fef5c5c4",
+  "commit": "18e695ed0ee8121a7793413ca795e08eda2a13df",
   "surfaces": {
     "blurred-window": {
       "source": "examples/blurred-window.tsx",
@@ -30,7 +30,7 @@
     },
     "chat": {
       "source": "examples/chat.tsx",
-      "sha": "bfd3df309df77fd0e28aa8dcbc864e021e82b8fc",
+      "sha": "80166d6061b87025959e9eef0d361c852927767e",
       "target": "examples/counter/src/chat/shell.tsx",
       "mode": "source-port"
     },
