@@ -370,12 +370,13 @@ export interface SelectItemProps extends Omit<HostProps, "children" | "style"> {
 
 export function SelectItem(props: SelectItemProps): SolidElement {
   const context = useSelectContext("SelectItem")
-  createRenderEffect(() => {
-    const value = props.value
-    const itemDisabled = props.disabled ?? false
-    context.registerItem({ value, itemDisabled, mounted: true })
-    onCleanup(() => context.registerItem({ value, itemDisabled, mounted: false }))
-  }, undefined)
+  createRenderEffect(
+    () => ({ value: props.value, itemDisabled: props.disabled ?? false }),
+    ({ value, itemDisabled }) => {
+      context.registerItem({ value, itemDisabled, mounted: true })
+      onCleanup(() => context.registerItem({ value, itemDisabled, mounted: false }))
+    },
+  )
 
   const state = (): SelectItemState => ({
     selected: context.value() === props.value,
