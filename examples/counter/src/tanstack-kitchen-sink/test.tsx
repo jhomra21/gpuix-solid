@@ -89,11 +89,17 @@ async function main(): Promise<void> {
     assert.equal(await app.getByTestId("user-row-1").count(), 0)
     await app.getByTestId("user-row-3").click()
     await requireTestId(app, "user-detail")
+    await requireTestId(app, "user-detail-email-line")
     assert.equal(await app.getByText("Clementine Bauch").count() > 0, true)
     const userDetailBounds = await app.getByTestId("user-detail").bounds()
+    const emailLineBounds = await app.getByTestId("user-detail-email-line").bounds()
     assert.ok(
       userDetailBounds.width >= 250,
       `expected user detail to preserve block-level outlet width, got ${userDetailBounds.width}`,
+    )
+    assert.ok(
+      emailLineBounds.width >= userDetailBounds.width - 2,
+      `expected emulated pre line to fill its block width; detail=${userDetailBounds.width}; email=${emailLineBounds.width}`,
     )
 
     await app.clock.fastForward(300)
@@ -109,7 +115,7 @@ async function main(): Promise<void> {
     await requireTestId(app, "page-route-a")
     const routeAText = await app.getByTestId("page-route-a").textContent()
     assert.match(routeAText, /Layout/)
-    assert.match(routeAText, /I'm A!/) 
+    assert.match(routeAText, /I'm A!/)
 
     await app.getByTestId("root-nav-route-b").click()
     await requireTestId(app, "page-route-b")
