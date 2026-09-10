@@ -5,6 +5,7 @@ import {
   createContext,
   createEffect,
   createMemo,
+  createRenderEffect,
   createSignal,
   merge,
   omit,
@@ -37,9 +38,14 @@ export interface SelectItemData {
 }
 
 interface SelectItemRecord {
-  token: symbol
-  value: Accessor<string>
-  disabled: Accessor<boolean>
+  value: string
+  disabled: boolean
+}
+
+interface SelectItemRegistration {
+  value: string
+  itemDisabled: boolean
+  mounted: boolean
 }
 
 interface MutableBox<Value> {
@@ -60,8 +66,7 @@ interface SelectContextValue {
   setActiveValue(value: string | null): void
   moveActive(delta: number): void
   selectValue(value: string): void
-  registerItem(item: SelectItemRecord): void
-  unregisterItem(token: symbol): void
+  registerItem(registration: SelectItemRegistration): void
 }
 
 const SelectContext = createContext<SelectContextValue>()
@@ -114,18 +119,26 @@ export function Select(props: SelectProps): SolidElement {
     return next
   })
 
-  const registerItem = (item: SelectItemRecord): void => {
-    const index = items.findIndex((candidate) => candidate.token === item.token)
-    if (index < 0) items.push(item)
-    else items[index] = item
-    setItemsVersion((version) => version + 1)
-  }
-  const unregisterItem = (token: symbol): void => {
-    const index = items.findIndex((item) => item.token === token)
-    if (index >= 0) {
-      items.splice(index, 1)
+  const registerItem = ({
+    value: itemValue,
+    itemDisabled,
+    mounted,
+  }: SelectItemRegistration): void => {
+    const existingIndex = items.findIndex((item) => item.value === itemValue)
+    if (!mounted) {
+      if (existingIndex >= 0) items.splice(existingIndex, 1)
       setItemsVersion((version) => version + 1)
+      return
     }
+
+    const record: SelectItemRecord = { value: itemValue, disabled: itemDisabled }
+    if (existingIndex >= 0) {
+      items[existingIndex] = record
+      return
+    }
+
+    items.push(record)
+    setItemsVersion((version) => version + 1)
   }
   const setOpen = (nextOpen: boolean): void => {
     setOpenState(nextOpen)
@@ -136,17 +149,17 @@ export function Select(props: SelectProps): SolidElement {
   }
   const moveActive = (delta: number): void => {
     if (props.disabled ?? false) return
-    const enabled = items.filter((item) => !item.disabled())
+    const enabled = items.filter((item) => !item.disabled)
     if (enabled.length === 0) return
-    const currentIndex = enabled.findIndex((item) => item.value() === activeValue())
+    const currentIndex = enabled.findIndex((item) => item.value === activeValue())
     const start = currentIndex < 0 ? (delta > 0 ? -1 : 0) : currentIndex
     const nextIndex = (start + delta + enabled.length) % enabled.length
-    setActiveValue(enabled[nextIndex]?.value() ?? null)
+    setActiveValue(enabled[nextIndex]?.value ?? null)
   }
   const selectValue = (nextValue: string): void => {
     if (props.disabled ?? false) return
-    const item = items.find((candidate) => candidate.value() === nextValue)
-    if (!item || item.disabled()) return
+    const item = items.find((candidate) => candidate.value === nextValue)
+    if (!item || item.disabled) return
     setValue(nextValue)
     setOpen(false)
   }
@@ -155,9 +168,9 @@ export function Select(props: SelectProps): SolidElement {
     if (!open()) return
     itemsVersion()
     const selected = items.find(
-      (item) => item.value() === value() && !item.disabled(),
+      (item) => item.value === value() && !item.disabled,
     )
-    setActiveValue(selected?.value() ?? null)
+    setActiveValue(selected?.value ?? null)
   })
 
   const context: SelectContextValue = {
@@ -175,7 +188,6 @@ export function Select(props: SelectProps): SolidElement {
     moveActive,
     selectValue,
     registerItem,
-    unregisterItem,
   }
   const host = omit(props, "items")
 
@@ -358,13 +370,12 @@ export interface SelectItemProps extends Omit<HostProps, "children" | "style"> {
 
 export function SelectItem(props: SelectItemProps): SolidElement {
   const context = useSelectContext("SelectItem")
-  const token = Symbol("select-item")
-  context.registerItem({
-    token,
-    value: () => props.value,
-    disabled: () => props.disabled ?? false,
+  createRenderEffect(() => {
+    const value = props.value
+    const itemDisabled = props.disabled ?? false
+    context.registerItem({ value, itemDisabled, mounted: true })
+    onCleanup(() => context.registerItem({ value, itemDisabled, mounted: false }))
   })
-  onCleanup(() => context.unregisterItem(token))
 
   const state = (): SelectItemState => ({
     selected: context.value() === props.value,
