@@ -80,7 +80,7 @@ async function main(): Promise<void> {
     assert.equal(await app.getByTestId("diffusion-tool-option-move").count(), 1)
     assert.equal(await app.getByTestId("diffusion-tool-option-hand").count(), 1)
     await app.getByTestId("diffusion-tool-option-hand").click()
-    assert.equal(await app.getByTestId("diffusion-tool-hand").count(), 1)
+    await app.getByTestId("diffusion-tool-hand").waitFor()
     assert.equal(await app.getByTestId("diffusion-tool-selection-menu").count(), 0)
     await app.getByTestId("diffusion-tool-frame").click()
     assert.equal(await app.getByTestId("diffusion-scene-preset-video-1080x1920").count(), 1)
