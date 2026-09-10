@@ -10,6 +10,7 @@ import type {
   StyleDesc,
   WindowKeyEventHandlers,
 } from "./host/types.js"
+import { normalizeNativeElementBounds } from "./native-bounds.js"
 import { createRoot, type Root } from "./root.js"
 
 type NativeTestRendererConstructor = new (
@@ -408,7 +409,7 @@ export class TestRenderer implements NativeRenderer {
   }
 
   getElementBounds(elementId: number): number[] | null {
-    return this.#native.getElementBounds(elementId)
+    return normalizeNativeElementBounds(this.#native.getElementBounds(elementId))
   }
 
   clockPause(): number {
