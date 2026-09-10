@@ -7,7 +7,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 const repoRoot = join(here, "..", "..", "..")
 const upstreamRoot = join(here, "..", "upstream")
 const sourceNames = ["gpuix", "codeimage", "tanstack-router", "dashboard", "diffusion-editor"]
-const sourceMainCommit = "6b4be86952aa89cfe61bb573740aea33fef5c5c4"
+const sourceMainCommit = "18e695ed0ee8121a7793413ca795e08eda2a13df"
 const sourceMainSurfaces = {
   "blurred-window": {
     source: "examples/blurred-window.tsx",
@@ -36,7 +36,7 @@ const sourceMainSurfaces = {
   },
   chat: {
     source: "examples/chat.tsx",
-    sha: "bfd3df309df77fd0e28aa8dcbc864e021e82b8fc",
+    sha: "80166d6061b87025959e9eef0d361c852927767e",
     target: "examples/counter/src/chat/shell.tsx",
     mode: "source-port",
   },
