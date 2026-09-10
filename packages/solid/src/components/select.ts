@@ -8,7 +8,6 @@ import {
   createSignal,
   merge,
   omit,
-  onCleanup,
   useContext,
   type Accessor,
   type Element as SolidElement,
@@ -173,6 +172,7 @@ export function Select(props: SelectProps): SolidElement {
       )
       setActiveValue(selected?.value ?? null)
     },
+    { ownedWrite: true },
   )
 
   const context: SelectContextValue = {
@@ -376,8 +376,9 @@ export function SelectItem(props: SelectItemProps): SolidElement {
     () => ({ value: props.value, itemDisabled: props.disabled ?? false }),
     ({ value, itemDisabled }) => {
       context.registerItem({ value, itemDisabled, mounted: true })
-      onCleanup(() => context.registerItem({ value, itemDisabled, mounted: false }))
+      return () => context.registerItem({ value, itemDisabled, mounted: false })
     },
+    { ownedWrite: true },
   )
 
   const state = (): SelectItemState => ({
