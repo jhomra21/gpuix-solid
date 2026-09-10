@@ -26,6 +26,17 @@ function overlaps(
     first.y + first.height > second.y
 }
 
+function sameBounds(
+  first: { x: number; y: number; width: number; height: number },
+  second: { x: number; y: number; width: number; height: number },
+  tolerance = 1,
+): boolean {
+  return Math.abs(first.x - second.x) <= tolerance &&
+    Math.abs(first.y - second.y) <= tolerance &&
+    Math.abs(first.width - second.width) <= tolerance &&
+    Math.abs(first.height - second.height) <= tolerance
+}
+
 if (hasNativeTestRenderer) {
   configureNativeStyleManifest(nativeTailwindManifest)
   setNativeStyleColorMode("dark")
@@ -146,13 +157,50 @@ if (hasNativeTestRenderer) {
   )
   app.renderer.captureScreenshot("/tmp/gpuix-solid1-daw-mixer.png")
 
+  // Exercise the exact controls the manual pass reported as visually corrupting.
+  // Their source state labels must update while the retained grid geometry stays
+  // pixel-stable across mute, solo, record-arm, and volume mutations.
+  app.renderer.clickCustomProps({ "aria-label": "Deactivate track 1" })
+  const activatedBounds = app.renderer.boundsCustomProps({ "aria-label": "Activate track 1" })
+  requireCondition(
+    sameBounds(mixerControlBounds, activatedBounds),
+    `track activation must not corrupt the source number/mute cell geometry: ${JSON.stringify({ before: mixerControlBounds, after: activatedBounds })}`,
+  )
+
+  app.renderer.clickCustomProps({ "aria-label": "Solo track 1" })
+  const unsoloBounds = app.renderer.boundsCustomProps({ "aria-label": "Unsolo track 1" })
+  requireCondition(
+    sameBounds(soloBounds, unsoloBounds),
+    `solo state must not corrupt its source mixer cell geometry: ${JSON.stringify({ before: soloBounds, after: unsoloBounds })}`,
+  )
+
+  app.renderer.clickCustomProps({ "aria-label": "Arm track 1 for recording" })
+  const disarmBounds = app.renderer.boundsCustomProps({ "aria-label": "Disarm track 1 for recording" })
+  requireCondition(
+    sameBounds(armBounds, disarmBounds),
+    `record-arm state must not corrupt its source mixer cell geometry: ${JSON.stringify({ before: armBounds, after: disarmBounds })}`,
+  )
+
   const fillWidthBeforeDrag = initialFillBounds.width
   app.renderer.dragCustomProps(volumeControl, 20, 0)
   const draggedFillBounds = app.renderer.boundsTestId("gpuix-css-hard-split-fill")
+  const interactedVolumeBounds = app.renderer.boundsCustomProps(volumeControl)
   requireCondition(
     Math.abs(draggedFillBounds.width - fillWidthBeforeDrag) > 1,
     `source --mixer-volume-percent must update retained native fill geometry during volume drag: ${JSON.stringify({ before: initialFillBounds, after: draggedFillBounds })}`,
   )
+  requireCondition(
+    sameBounds(volumeBounds, interactedVolumeBounds),
+    `volume drag must not corrupt the source mixer slider geometry: ${JSON.stringify({ before: volumeBounds, after: interactedVolumeBounds })}`,
+  )
+  requireCondition(
+    Math.abs(unsoloBounds.y - disarmBounds.y) <= 1 &&
+      Math.abs(unsoloBounds.height - disarmBounds.height) <= 1 &&
+      !overlaps(activatedBounds, unsoloBounds) &&
+      !overlaps(unsoloBounds, disarmBounds),
+    `interacted source mixer controls must remain aligned and non-overlapping: ${JSON.stringify({ activatedBounds, unsoloBounds, disarmBounds })}`,
+  )
+  app.renderer.captureScreenshot("/tmp/gpuix-solid1-daw-mixer-interacted.png")
 
   app.unmount()
 
@@ -213,5 +261,5 @@ if (hasNativeTestRenderer) {
 
   automated.unmount()
 
-  console.log(`solid1 DAW visual acceptance: exact Canvas2D waveform rendered ${waveformBars} retained peak bars; exact EQ full graph source and dedicated native capture passed; reactive mixer hard-split and automated interval paints passed`)
+  console.log(`solid1 DAW visual acceptance: exact Canvas2D waveform rendered ${waveformBars} retained peak bars; exact EQ full graph source and dedicated native capture passed; reactive mixer controls, hard-split, and automated interval paints passed`)
 }
