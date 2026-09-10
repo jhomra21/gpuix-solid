@@ -4,6 +4,7 @@ import type { JSX } from "solid-js"
 import { adaptBatchRenderer } from "./batch-renderer-adapter.js"
 import { useDestroyUnlinksParentBatch, type MutationValue } from "./host/mutations.js"
 import type { StyleDesc, WindowKeyEventHandlers } from "./host/types.js"
+import { withLegacyElementBounds, type LegacyElementBoundsRenderer } from "./native-bounds.js"
 import { createRoot, type Root } from "./root.js"
 
 type NativeTestRendererConstructor = new (
@@ -150,12 +151,12 @@ const NativeTestRenderer = loadNativeTestRenderer()
 export const hasNativeTestRenderer = NativeTestRenderer !== undefined
 
 export class TestRenderer {
-  readonly #native: NativeTestRendererApi
+  readonly #native: LegacyElementBoundsRenderer<NativeTestRendererApi>
   #root: Root | undefined
 
   constructor(width?: number, height?: number) {
     if (!NativeTestRenderer) throw new Error("Native TestGpuixRenderer is unavailable")
-    this.#native = new NativeTestRenderer(width, height)
+    this.#native = withLegacyElementBounds(new NativeTestRenderer(width, height))
   }
 
   bindRoot(root: Root): void {
