@@ -65,7 +65,7 @@ export function UsersRoute() {
         </For>
       </div>
       <div style={{ width: 1, backgroundColor: palette.border, flexShrink: 0 }} />
-      <div style={{ flexGrow: 1, minWidth: 0, padding: 8, overflowY: "scroll" }}>
+      <div style={{ flexGrow: 1, minWidth: 0, overflowY: "scroll" }}>
         <Show when={selected()} fallback={<UsersIndexRoute />}>
           {(user) => <UserRoute user={user()} />}
         </Show>
