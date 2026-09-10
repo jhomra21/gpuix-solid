@@ -1,21 +1,16 @@
 import { describe, expect, it } from "vitest"
 import { adaptBatchRenderer, type BatchRendererApi } from "../src/batch-renderer-adapter.js"
 
-type WireMutation = readonly unknown[]
-
 function recorder() {
-  const batches: WireMutation[][] = []
+  const batches: unknown[] = []
   const renderer: BatchRendererApi = {
     applyBatch(json) {
-      batches.push(JSON.parse(json) as WireMutation[])
+      const parsed: unknown = JSON.parse(json)
+      batches.push(parsed)
       return []
     },
   }
   return { adapted: adaptBatchRenderer(renderer), batches }
-}
-
-function flattened(batches: WireMutation[][]): WireMutation[] {
-  return batches.flat()
 }
 
 describe("batch renderer browser drag capture bridge", () => {
@@ -26,11 +21,11 @@ describe("batch renderer browser drag capture bridge", () => {
       ["setEventListener", 7, "mouseDown", true],
     ]))
 
-    expect(flattened(batches)).toEqual([
+    expect(batches).toEqual([[
       ["setEventListener", 7, "mouseDown", true],
       ["setEventListener", 7, "mouseMove", true],
       ["setEventListener", 7, "mouseUp", true],
-    ])
+    ]])
   })
 
   it("preserves an explicitly requested move handler when mouseDown is removed", () => {
@@ -46,10 +41,10 @@ describe("batch renderer browser drag capture bridge", () => {
       ["setEventListener", 9, "mouseDown", false],
     ]))
 
-    expect(flattened(batches)).toEqual([
+    expect(batches).toEqual([[
       ["setEventListener", 9, "mouseDown", false],
       ["setEventListener", 9, "mouseUp", false],
-    ])
+    ]])
   })
 
   it("clears listener bookkeeping when the native element is destroyed", () => {
@@ -61,9 +56,12 @@ describe("batch renderer browser drag capture bridge", () => {
       ["setEventListener", 11, "mouseMove", true],
     ]))
 
-    expect(flattened(batches).slice(-2)).toEqual([
+    expect(batches).toEqual([[
+      ["setEventListener", 11, "mouseDown", true],
+      ["setEventListener", 11, "mouseMove", true],
+      ["setEventListener", 11, "mouseUp", true],
       ["destroyElement", 11],
       ["setEventListener", 11, "mouseMove", true],
-    ])
+    ]])
   })
 })
