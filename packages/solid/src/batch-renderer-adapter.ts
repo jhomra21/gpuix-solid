@@ -38,9 +38,7 @@ export interface BatchRendererApi {
 }
 
 const POINTER_CAPTURE_NATIVE_EVENTS = ["mouseDown", "mouseMove", "mouseUp"] as const
-
-type PointerCaptureNativeEvent = typeof POINTER_CAPTURE_NATIVE_EVENTS[number]
-type WireMutation = readonly unknown[]
+const POINTER_CAPTURE_NATIVE_EVENT_SET = new Set<string>(POINTER_CAPTURE_NATIVE_EVENTS)
 
 /**
  * Browser code can start a drag on an element and attach pointermove/pointerup
@@ -64,52 +62,50 @@ function createPointerCaptureBatchBridge(renderer: BatchRendererApi) {
   }
 
   const bridgeBatch = (json: string): number[] => {
-    const parsed = JSON.parse(json) as unknown
+    const parsed: unknown = JSON.parse(json)
     if (!Array.isArray(parsed)) return renderer.applyBatch(json)
 
-    const bridged: WireMutation[] = []
+    const bridged: unknown[][] = []
     for (const value of parsed) {
       if (!Array.isArray(value)) {
         bridged.push([value])
         continue
       }
-      const mutation = value as WireMutation
-      const [name, rawId, rawEventType, rawHasHandler] = mutation
 
-      if (name === "destroyElement" && typeof rawId === "number") {
-        requestedByElement.delete(rawId)
-        bridged.push(mutation)
+      const [name, rawId, rawEventType, rawHasHandler] = value
+      const id = primitiveNumber(rawId)
+
+      if (name === "destroyElement" && id !== undefined) {
+        requestedByElement.delete(id)
+        bridged.push(value)
         continue
       }
 
-      if (
-        name !== "setEventListener" ||
-        typeof rawId !== "number" ||
-        typeof rawEventType !== "string" ||
-        typeof rawHasHandler !== "boolean"
-      ) {
-        bridged.push(mutation)
+      const eventType = primitiveString(rawEventType)
+      const hasHandler = primitiveBoolean(rawHasHandler)
+      if (name !== "setEventListener" || id === undefined || eventType === undefined || hasHandler === undefined) {
+        bridged.push(value)
         continue
       }
 
-      const previousRequested = requestedByElement.get(rawId) ?? new Set<string>()
+      const previousRequested = requestedByElement.get(id) ?? new Set<string>()
       const previousEffective = effectiveListeners(previousRequested)
       const nextRequested = new Set(previousRequested)
-      if (rawHasHandler) nextRequested.add(rawEventType)
-      else nextRequested.delete(rawEventType)
-      if (nextRequested.size === 0) requestedByElement.delete(rawId)
-      else requestedByElement.set(rawId, nextRequested)
+      if (hasHandler) nextRequested.add(eventType)
+      else nextRequested.delete(eventType)
+      if (nextRequested.size === 0) requestedByElement.delete(id)
+      else requestedByElement.set(id, nextRequested)
       const nextEffective = effectiveListeners(nextRequested)
 
-      if (!POINTER_CAPTURE_NATIVE_EVENTS.includes(rawEventType as PointerCaptureNativeEvent)) {
-        bridged.push(mutation)
+      if (!POINTER_CAPTURE_NATIVE_EVENT_SET.has(eventType)) {
+        bridged.push(value)
         continue
       }
 
-      for (const eventType of POINTER_CAPTURE_NATIVE_EVENTS) {
-        const before = previousEffective.has(eventType)
-        const after = nextEffective.has(eventType)
-        if (before !== after) bridged.push(["setEventListener", rawId, eventType, after])
+      for (const nativeEventType of POINTER_CAPTURE_NATIVE_EVENTS) {
+        const before = previousEffective.has(nativeEventType)
+        const after = nextEffective.has(nativeEventType)
+        if (before !== after) bridged.push(["setEventListener", id, nativeEventType, after])
       }
     }
 
@@ -117,6 +113,23 @@ function createPointerCaptureBatchBridge(renderer: BatchRendererApi) {
   }
 
   return bridgeBatch
+}
+
+function primitiveNumber(value: unknown): number | undefined {
+  if (Object.prototype.toString.call(value) !== "[object Number]") return undefined
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+function primitiveString(value: unknown): string | undefined {
+  if (Object.prototype.toString.call(value) !== "[object String]") return undefined
+  return String(value)
+}
+
+function primitiveBoolean(value: unknown): boolean | undefined {
+  if (value === true) return true
+  if (value === false) return false
+  return undefined
 }
 
 export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRenderer {
