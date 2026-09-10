@@ -67,7 +67,10 @@ function createPointerCaptureBatchBridge(renderer: BatchRendererApi) {
       }
 
       const [name, rawId, rawEventType, rawHasHandler] = value
-      const id = primitiveNumber(rawId)
+      const numericId = Number(rawId)
+      const id = Object.prototype.toString.call(rawId) === "[object Number]" && Number.isFinite(numericId)
+        ? numericId
+        : undefined
 
       if (name === "destroyElement" && id !== undefined) {
         requestedByElement.delete(id)
@@ -75,8 +78,10 @@ function createPointerCaptureBatchBridge(renderer: BatchRendererApi) {
         continue
       }
 
-      const eventType = primitiveString(rawEventType)
-      const hasHandler = primitiveBoolean(rawHasHandler)
+      const eventType = Object.prototype.toString.call(rawEventType) === "[object String]"
+        ? String(rawEventType)
+        : undefined
+      const hasHandler = rawHasHandler === true ? true : rawHasHandler === false ? false : undefined
       if (name !== "setEventListener" || id === undefined || eventType === undefined || hasHandler === undefined) {
         bridged.push(value)
         continue
@@ -107,23 +112,6 @@ function createPointerCaptureBatchBridge(renderer: BatchRendererApi) {
   }
 
   return bridgeBatch
-}
-
-function primitiveNumber(value: unknown): number | undefined {
-  if (Object.prototype.toString.call(value) !== "[object Number]") return undefined
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : undefined
-}
-
-function primitiveString(value: unknown): string | undefined {
-  if (Object.prototype.toString.call(value) !== "[object String]") return undefined
-  return String(value)
-}
-
-function primitiveBoolean(value: unknown): boolean | undefined {
-  if (value === true) return true
-  if (value === false) return false
-  return undefined
 }
 
 export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRenderer {
