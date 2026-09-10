@@ -8,6 +8,7 @@ import {
   createSignal,
   merge,
   omit,
+  onCleanup,
   useContext,
   type Accessor,
   type Element as SolidElement,
@@ -375,7 +376,7 @@ export function SelectItem(props: SelectItemProps): SolidElement {
     () => ({ value: props.value, itemDisabled: props.disabled ?? false }),
     ({ value, itemDisabled }) => {
       context.registerItem({ value, itemDisabled, mounted: true })
-      return () => context.registerItem({ value, itemDisabled, mounted: false })
+      onCleanup(() => context.registerItem({ value, itemDisabled, mounted: false }))
     },
   )
 
