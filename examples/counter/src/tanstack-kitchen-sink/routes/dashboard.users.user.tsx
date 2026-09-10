@@ -3,15 +3,16 @@ import { palette, type User } from "../native"
 
 const jsonLineStyle = {
   color: palette.text,
-  fontSize: 11,
+  fontSize: 14,
+  lineHeight: 20,
   fontFamily: "monospace",
   width: "100%",
 } as const
 
 export function UserRoute(props: { user: User }) {
   return (
-    <div testId="user-detail" style={{ gap: 5, width: "100%" }}>
-      <text style={{ color: palette.text, fontSize: 14, fontWeight: 800 }}>{props.user.name}</text>
+    <div testId="user-detail" style={{ width: "100%" }}>
+      <text style={{ color: palette.text, fontSize: 16, fontWeight: 700, padding: 8 }}>{props.user.name}</text>
       <For each={JSON.stringify(props.user, null, 2).split("\n")}>
         {(line, index) => (
           <text
