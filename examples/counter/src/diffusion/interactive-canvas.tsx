@@ -1,5 +1,5 @@
 import { For, Show, createSignal, type Element as SolidElement } from "solid-js"
-import { C, type DiffusionEditorState } from "./compat"
+import type { DiffusionEditorState } from "./compat"
 import { Canvas } from "./canvas-native"
 
 type SceneItemKind = "frame" | "rect" | "text"
@@ -132,7 +132,9 @@ export function InteractiveCanvas(props: {
       return
     }
 
-    event.currentTarget instanceof HTMLElement && event.currentTarget.setPointerCapture(event.pointerId)
+    if (event.currentTarget instanceof HTMLElement) {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    }
     event.preventDefault()
   }
 
