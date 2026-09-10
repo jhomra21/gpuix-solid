@@ -375,7 +375,7 @@ export function SelectItem(props: SelectItemProps): SolidElement {
     const itemDisabled = props.disabled ?? false
     context.registerItem({ value, itemDisabled, mounted: true })
     onCleanup(() => context.registerItem({ value, itemDisabled, mounted: false }))
-  })
+  }, undefined)
 
   const state = (): SelectItemState => ({
     selected: context.value() === props.value,
