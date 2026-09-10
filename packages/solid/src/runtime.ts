@@ -6,6 +6,7 @@ import { applyDebugFrameOverlay } from "./capabilities.js"
 import { startFrameLoop, type FrameLoop } from "./frame-loop.js"
 import { useDestroyUnlinksParentBatch } from "./host/mutations.js"
 import type { DebugFrameOverlayMode, NativeRenderer, WindowKeyEventHandlers } from "./host/types.js"
+import { withLegacyElementBounds, type LegacyElementBoundsRenderer } from "./native-bounds.js"
 import { createRoot, type Root } from "./root.js"
 import { createRuntimeErrorOverlay, type RuntimeErrorDetails } from "./runtime-error-overlay.js"
 
@@ -179,19 +180,21 @@ export function createRenderer(
       scheduleRuntimeError(eventError instanceof Error ? eventError : String(eventError))
     }
   })
+  const compatibilityRenderer = withLegacyElementBounds(renderer)
   setRendererOnEvent(renderer, onEvent)
 
   const nativeInit = renderer.init.bind(renderer)
   renderer.init = (options) => {
     nativeInit(options)
     if (!process.stdin.isTTY && !automationEnabled) {
-      enableAutomation(renderer)
+      enableAutomation(compatibilityRenderer)
       automationEnabled = true
     }
   }
 
   return {
     renderer,
+    compatibilityRenderer,
     bindRoot(root) {
       rendererBindingState(renderer).root = root
     },
@@ -209,6 +212,7 @@ export interface RenderOptions extends WindowOptions, WindowKeyEventHandlers {
 
 export interface RendererBinding {
   renderer: GpuixRenderer
+  compatibilityRenderer: LegacyElementBoundsRenderer<GpuixRenderer>
   bindRoot(root: Root): void
   setOnEvent(onEvent?: (event: EventPayload) => void): void
 }
@@ -294,7 +298,7 @@ export function render(code: () => SolidElement, options: RenderOptions = {}): R
   installRuntimeErrorHandlers()
   const native = createRenderer(onEvent)
   native.renderer.init(windowOptions)
-  const host = adaptBatchRenderer(native.renderer)
+  const host = adaptBatchRenderer(native.compatibilityRenderer)
   useDestroyUnlinksParentBatch(host)
   applyDebugFrameOverlay(host, debugFrameOverlay)
   const root = createRoot(host, windowKeyEventHandlers(onKeyDown, onKeyUp))
