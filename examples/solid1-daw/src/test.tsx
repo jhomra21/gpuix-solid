@@ -45,6 +45,16 @@ function requireAncestorBounds(
   return match
 }
 
+function requireStableBounds(before: NativeBounds, after: NativeBounds, label: string): void {
+  requireCondition(
+    Math.abs(after.x - before.x) <= 1 &&
+      Math.abs(after.y - before.y) <= 1 &&
+      Math.abs(after.width - before.width) <= 1 &&
+      Math.abs(after.height - before.height) <= 1,
+    `${label} geometry changed after interaction: ${JSON.stringify({ before, after })}`,
+  )
+}
+
 const transportFrameStyle = resolveNativeClassStyle("grid grid-cols-[1fr_auto_1fr]", undefined)
 requireCondition(
   transportFrameStyle?.display === "flex" && transportFrameStyle.flexDirection === "row",
@@ -242,6 +252,17 @@ if (!hasNativeTestRenderer) {
   app.renderer.dragCustomProps(volume, 20, 0)
   const volumeAfter = app.renderer.customPropByCustomProps(volume, "aria-valuetext")
   requireCondition(volumeAfter !== volumeBefore, `exact source mixer volume should respond to pointer drag, before ${JSON.stringify(volumeBefore)}, after ${JSON.stringify(volumeAfter)}`)
+
+  requireStableBounds(visibleMixerControl, app.renderer.boundsCustomProps(muteOn), "exact source mute")
+  requireStableBounds(soloBounds, app.renderer.boundsCustomProps(soloOff), "exact source Solo")
+  requireStableBounds(armBounds, app.renderer.boundsCustomProps(armOff), "exact source Record Arm")
+  requireStableBounds(volumeBounds, app.renderer.boundsCustomProps(volume), "exact source mixer volume")
+  const mixerInteractedScreenshotPath = "/tmp/gpuix-solid1-daw-mixer-interacted.png"
+  app.renderer.captureScreenshot(mixerInteractedScreenshotPath)
+  requireCondition(
+    existsSync(mixerInteractedScreenshotPath) && statSync(mixerInteractedScreenshotPath).size > 0,
+    "interacted DAW mixer screenshot should exist and be non-empty",
+  )
 
   app.renderer.clickCustomProps({ title: "Collapse track" })
   const collapsedLaneHeight = app.renderer.boundsTestId("lane-drums").height
@@ -482,6 +503,18 @@ if (!hasNativeTestRenderer) {
     selectedDrumsClipStyle.backgroundColor === "rgba(0, 167, 108, 0.3)" && selectedDrumsClipStyle.boxShadow !== undefined,
     `first exact audio-clip tap should preserve the source 30% selected color mix and selection ring, got ${JSON.stringify(selectedDrumsClipStyle)}`,
   )
+  const drumsClipBeforeDrag = app.renderer.boundsCustomProps(drumsAudioClip)
+  app.renderer.dragCustomProps(drumsAudioClip, 40, 0)
+  const drumsClipAfterDrag = app.renderer.boundsCustomProps(drumsAudioClip)
+  requireCondition(
+    drumsClipAfterDrag.x > drumsClipBeforeDrag.x + 10,
+    `exact source clip drag should move Drum Loop 01 horizontally: ${JSON.stringify({ before: drumsClipBeforeDrag, after: drumsClipAfterDrag })}`,
+  )
+  requireCondition(
+    Math.abs(drumsClipAfterDrag.y - drumsClipBeforeDrag.y) <= 1,
+    `exact source clip drag should keep Drum Loop 01 in the Drums lane: ${JSON.stringify({ before: drumsClipBeforeDrag, after: drumsClipAfterDrag })}`,
+  )
+  requireCondition(app.renderer.hasTestId("effects-panel") && !app.renderer.hasTestId("clip-panel"), "dragging a selected exact source clip must not open Sample Detail")
   app.renderer.clickCenterCustomProps(drumsAudioClip)
   app.renderer.scrollTestId("daw-test-viewport", 0, -260)
   requireCondition(!app.renderer.hasTestId("effects-panel"), "second exact audio-clip tap should replace Effects with Sample Detail")
@@ -555,7 +588,7 @@ if (!hasNativeTestRenderer) {
   app.renderer.scrollTestId("daw-test-viewport", 0, 0)
   app.renderer.clickTestId("Stop")
   requireText(rootText(), "0.00s", "stop resets playhead")
-  console.log("solid1 DAW native interactions: source menus, mixer controls, clip open, effects, and panel behavior passed")
+  console.log("solid1 DAW native interactions: source menus, mixer controls, clip drag/open, effects, and panel behavior passed")
 
   app.unmount()
 
