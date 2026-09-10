@@ -91,7 +91,13 @@ async function main(): Promise<void> {
     await requireTestId(app, "user-detail")
     await requireTestId(app, "user-detail-email-line")
     assert.equal(await app.getByText("Clementine Bauch").count() > 0, true)
-    const userDetailBounds = await app.getByTestId("user-detail").bounds()
+    const userDetail = app.getByTestId("user-detail")
+    const userDetailText = await userDetail.textContent()
+    assert.match(userDetailText, /"address"/)
+    assert.match(userDetailText, /"geo"/)
+    assert.match(userDetailText, /"company"/)
+    assert.match(userDetailText, /"catchPhrase"/)
+    const userDetailBounds = await userDetail.bounds()
     const emailLineBounds = await app.getByTestId("user-detail-email-line").bounds()
     assert.ok(
       userDetailBounds.width >= 250,
