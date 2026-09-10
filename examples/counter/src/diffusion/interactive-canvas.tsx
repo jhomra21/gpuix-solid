@@ -1,4 +1,5 @@
 import { For, Show, createSignal, type Element as SolidElement } from "solid-js"
+import type { EventPayload } from "gpuix-solid"
 import type { DiffusionEditorState } from "./compat"
 import { Canvas } from "./canvas-native"
 
@@ -20,11 +21,14 @@ type Gesture =
   | { kind: "move"; itemId: string; start: Point; itemStart: Point }
   | { kind: "pan"; start: Point; panStart: Point }
 
-function localPoint(event: PointerEvent): Point | undefined {
+function localPoint(event: EventPayload): Point | undefined {
   const target = event.currentTarget
-  if (!(target instanceof HTMLElement)) return undefined
+  if (!target) return undefined
   const bounds = target.getBoundingClientRect()
-  return { x: event.clientX - bounds.left, y: event.clientY - bounds.top }
+  return {
+    x: (event.clientX ?? 0) - bounds.left,
+    y: (event.clientY ?? 0) - bounds.top,
+  }
 }
 
 function hitItem(items: readonly SceneItem[], point: Point, pan: Point): SceneItem | undefined {
@@ -102,8 +106,8 @@ export function InteractiveCanvas(props: {
     setItems((current) => current.map((item) => item.id === id ? update(item) : item))
   }
 
-  const begin = (event: PointerEvent): void => {
-    if (event.button !== 0 || props.promptOpen()) return
+  const begin = (event: EventPayload): void => {
+    if ((event.button ?? 0) !== 0 || props.promptOpen()) return
     const point = localPoint(event)
     if (!point) return
     const tool = props.state.selectedTool()
@@ -132,13 +136,12 @@ export function InteractiveCanvas(props: {
       return
     }
 
-    if (event.currentTarget instanceof HTMLElement) {
-      event.currentTarget.setPointerCapture(event.pointerId)
-    }
-    event.preventDefault()
+    const pointerId = event.pointerId ?? 1
+    event.currentTarget?.setPointerCapture(pointerId)
+    event.preventDefault?.()
   }
 
-  const move = (event: PointerEvent): void => {
+  const move = (event: EventPayload): void => {
     const active = gesture()
     if (!active) return
     const point = localPoint(event)
@@ -170,7 +173,7 @@ export function InteractiveCanvas(props: {
     }))
   }
 
-  const end = (event: PointerEvent): void => {
+  const end = (event: EventPayload): void => {
     const active = gesture()
     if (!active) return
     if (active.kind === "create") {
@@ -179,8 +182,9 @@ export function InteractiveCanvas(props: {
         : { ...item, width: Math.max(96, item.width), height: Math.max(64, item.height) })
     }
     setGesture(null)
-    if (event.currentTarget instanceof HTMLElement && event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
+    const pointerId = event.pointerId ?? 1
+    if (event.currentTarget?.hasPointerCapture(pointerId)) {
+      event.currentTarget.releasePointerCapture(pointerId)
     }
   }
 
