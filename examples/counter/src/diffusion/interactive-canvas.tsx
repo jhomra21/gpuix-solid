@@ -189,8 +189,7 @@ export function InteractiveCanvas(props: {
   }
 
   return (
-    <div style={{ position: "relative", flexGrow: 1, minWidth: 0, minHeight: 0, height: "100%", overflow: "hidden" }}>
-      <Canvas state={props.state} promptOpen={props.promptOpen} setPromptOpen={props.setPromptOpen} />
+    <Canvas state={props.state} promptOpen={props.promptOpen} setPromptOpen={props.setPromptOpen}>
       <div
         testId="diffusion-canvas-interaction-surface"
         onPointerDown={begin}
@@ -214,6 +213,6 @@ export function InteractiveCanvas(props: {
           {(item) => <SceneItemView item={item} selected={selectedId() === item.id} pan={pan()} />}
         </For>
       </div>
-    </div>
+    </Canvas>
   )
 }
