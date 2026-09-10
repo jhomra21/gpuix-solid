@@ -6,6 +6,7 @@ import { startFrameLoop, type FrameLoop } from "./frame-loop.js"
 import { useDestroyUnlinksParentBatch } from "./host/mutations.js"
 import type { HostNode } from "./host/nodes.js"
 import type { DebugFrameOverlayMode, NativeRenderer, WindowKeyEventHandlers } from "./host/types.js"
+import { withLegacyElementBounds } from "./native-bounds.js"
 import { createRoot, type Root } from "./root.js"
 import { createRuntimeErrorOverlay, type RuntimeErrorDetails } from "./runtime-error-overlay.js"
 
@@ -252,8 +253,9 @@ export function render(code: () => Solid1RenderValue, options: RenderOptions = {
 
   installRuntimeErrorHandlers()
   const nativeRenderer = createNativeRenderer(onEvent)
+  const compatibilityRenderer = withLegacyElementBounds(nativeRenderer)
   nativeRenderer.init(windowOptions)
-  const host = adaptBatchRenderer(nativeRenderer)
+  const host = adaptBatchRenderer(compatibilityRenderer)
   useDestroyUnlinksParentBatch(host)
   applyDebugFrameOverlay(host, debugFrameOverlay)
   const root = createRoot(host, windowKeyEventHandlers(onKeyDown, onKeyUp))
