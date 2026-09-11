@@ -288,9 +288,9 @@ type LastClick = {
   at: number
 }
 
-type ActivationPair = {
+type ActivationBurst = {
   elementId: number
-  sourceElementId: number
+  sourceElementIds: Set<number>
   button: number
   clickCount: number
   x: number
@@ -325,8 +325,7 @@ export class EventRegistry {
   readonly #activePointers = new Set<number>()
   readonly #pointerCapture = new Map<number, number>()
   readonly #lastPointerEvent = new Map<number, NativeEventPayload>()
-  readonly #syntheticPrimaryClicks = new Map<number, ActivationPair>()
-  readonly #nativePrimaryClicks = new Map<number, ActivationPair>()
+  readonly #primaryClickBursts = new Map<number, ActivationBurst>()
   #nativeClickBubble: NativeClickBubble | undefined
   #activeRangeId: number | undefined
   #lastClick: LastClick | undefined
@@ -354,8 +353,7 @@ export class EventRegistry {
     this.#targets.delete(id)
     this.#parents.delete(id)
     this.#nativePointerDown.delete(id)
-    this.#syntheticPrimaryClicks.delete(id)
-    this.#nativePrimaryClicks.delete(id)
+    this.#primaryClickBursts.delete(id)
     if (this.#activeRangeId === id) this.#activeRangeId = undefined
   }
 
@@ -378,8 +376,7 @@ export class EventRegistry {
       this.#targets.delete(id)
       this.#parents.delete(id)
       this.#nativePointerDown.delete(id)
-      this.#syntheticPrimaryClicks.delete(id)
-      this.#nativePrimaryClicks.delete(id)
+      this.#primaryClickBursts.delete(id)
     }
   }
 
@@ -392,8 +389,7 @@ export class EventRegistry {
     this.#activePointers.clear()
     this.#pointerCapture.clear()
     this.#lastPointerEvent.clear()
-    this.#syntheticPrimaryClicks.clear()
-    this.#nativePrimaryClicks.clear()
+    this.#primaryClickBursts.clear()
     this.#nativeClickBubble = undefined
     this.#activeRangeId = undefined
     this.#lastClick = undefined
@@ -464,13 +460,7 @@ export class EventRegistry {
         const clickOwner = (event.button ?? 0) === 0 ? this.#primaryClickOwner(sourceElementId) : undefined
         if (clickOwner !== undefined) {
           const clickEvent = { ...event, elementId: clickOwner, eventType: "click", button: 0 } satisfies NativeEventPayload
-          if (
-            !this.#consumePrimaryClickPair(this.#nativePrimaryClicks, clickEvent, sourceElementId)
-            && !this.#consumePrimaryClickPair(this.#syntheticPrimaryClicks, clickEvent, sourceElementId, true)
-          ) {
-            this.#dispatchPrimaryClick(clickEvent)
-            this.#recordPrimaryClickPair(this.#syntheticPrimaryClicks, clickEvent, sourceElementId)
-          }
+          if (this.#shouldDispatchPrimaryClick(clickEvent, sourceElementId)) this.#dispatchPrimaryClick(clickEvent)
         }
         if (event.button === 2) this.#dispatchDom(event.elementId, "contextMenu", event)
         this.#activePointers.delete(POINTER_ID)
@@ -484,9 +474,7 @@ export class EventRegistry {
         const clickEvent = clickOwner === undefined || clickOwner === sourceElementId
           ? event
           : { ...event, elementId: clickOwner }
-        if (this.#consumePrimaryClickPair(this.#syntheticPrimaryClicks, clickEvent, sourceElementId)) return
-        this.#dispatchPrimaryClick(clickEvent)
-        this.#recordPrimaryClickPair(this.#nativePrimaryClicks, clickEvent, sourceElementId)
+        if (this.#shouldDispatchPrimaryClick(clickEvent, sourceElementId)) this.#dispatchPrimaryClick(clickEvent)
         return
       }
       case "mouseEnter": {
@@ -598,42 +586,40 @@ export class EventRegistry {
     this.#maybeDispatchDoubleClick(event)
   }
 
-  #recordPrimaryClickPair(
-    map: Map<number, ActivationPair>,
-    event: NativeEventPayload,
-    sourceElementId: number,
-  ): void {
-    const pair: ActivationPair = {
-      elementId: event.elementId,
-      sourceElementId,
-      button: event.button ?? 0,
-      clickCount: event.clickCount ?? 1,
-      x: event.x ?? 0,
-      y: event.y ?? 0,
-    }
-    map.set(event.elementId, pair)
-    // GPUI can report one physical activation through more than one retained
-    // subscription synchronously. Clear an unmatched half at the next microtask
-    // so a later real click at the same coordinates is never coalesced.
-    queueMicrotask(() => {
-      if (map.get(event.elementId) === pair) map.delete(event.elementId)
-    })
-  }
+  #shouldDispatchPrimaryClick(event: NativeEventPayload, sourceElementId: number): boolean {
+    const button = event.button ?? 0
+    const clickCount = event.clickCount ?? 1
+    const x = event.x ?? 0
+    const y = event.y ?? 0
+    const previous = this.#primaryClickBursts.get(event.elementId)
+    const samePhysicalActivation = previous !== undefined
+      && previous.button === button
+      && previous.clickCount === clickCount
+      && Math.hypot(previous.x - x, previous.y - y) <= DOUBLE_CLICK_DISTANCE_PX
 
-  #consumePrimaryClickPair(
-    map: Map<number, ActivationPair>,
-    event: NativeEventPayload,
-    sourceElementId: number,
-    requireDifferentSource = false,
-  ): boolean {
-    const pair = map.get(event.elementId)
-    if (!pair) return false
-    const matches = (!requireDifferentSource || pair.sourceElementId !== sourceElementId)
-      && pair.button === (event.button ?? 0)
-      && pair.clickCount === (event.clickCount ?? 1)
-      && Math.hypot(pair.x - (event.x ?? 0), pair.y - (event.y ?? 0)) <= DOUBLE_CLICK_DISTANCE_PX
-    if (matches) map.delete(event.elementId)
-    return matches
+    if (samePhysicalActivation && !previous.sourceElementIds.has(sourceElementId)) {
+      previous.sourceElementIds.add(sourceElementId)
+      return false
+    }
+
+    const next: ActivationBurst = {
+      elementId: event.elementId,
+      sourceElementIds: new Set([sourceElementId]),
+      button,
+      clickCount,
+      x,
+      y,
+    }
+    this.#primaryClickBursts.set(event.elementId, next)
+    // GPUI can report one physical activation through every retained subscription
+    // on the hit path. Keep all different native sources in the same synchronous
+    // burst, but seeing a source twice starts the next real click. The burst expires
+    // at the next microtask, so separate browser-style activations never depend on a
+    // timing debounce.
+    queueMicrotask(() => {
+      if (this.#primaryClickBursts.get(event.elementId) === next) this.#primaryClickBursts.delete(event.elementId)
+    })
+    return true
   }
 
   #dispatchDom(

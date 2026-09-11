@@ -115,6 +115,79 @@ describe("mixed retained/custom activation dedupe", () => {
     expect(clicks).toBe(2)
   })
 
+  it("coalesces every retained source in a deep activation path", () => {
+    const events = new EventRegistry()
+    const renderer = new FakeRenderer()
+    const driver = new MutationDriver(renderer, events)
+    const parentId = 101
+    const wrapperId = 102
+    const leafId = 103
+    let clicks = 0
+
+    for (const id of [parentId, wrapperId, leafId]) events.activate(id)
+    events.set(parentId, "click", () => {
+      clicks += 1
+    })
+
+    driver.enqueue("createElement", parentId, "div")
+    driver.enqueue("createElement", wrapperId, "div")
+    driver.enqueue("createElement", leafId, "div")
+    driver.enqueue("setEventListener", parentId, "click", true)
+    driver.enqueue("appendChild", parentId, wrapperId)
+    driver.enqueue("appendChild", wrapperId, leafId)
+    driver.flush()
+
+    for (const id of [parentId, wrapperId, leafId]) {
+      expect(listenerMutations(renderer, id, "mouseUp")).toContainEqual([
+        "setEventListener",
+        id,
+        "mouseUp",
+        true,
+      ])
+    }
+
+    events.dispatch(primaryMouseUp(leafId))
+    events.dispatch(primaryMouseUp(wrapperId))
+    events.dispatch(primaryMouseUp(parentId))
+    expect(clicks).toBe(1)
+
+    events.dispatch(primaryMouseUp(leafId))
+    events.dispatch(primaryMouseUp(wrapperId))
+    events.dispatch(primaryMouseUp(parentId))
+    expect(clicks).toBe(2)
+  })
+
+  it("coalesces a mixed custom and retained relay chain", () => {
+    const events = new EventRegistry()
+    const renderer = new FakeRenderer()
+    const driver = new MutationDriver(renderer, events)
+    const parentId = 111
+    const wrapperId = 112
+    const svgId = 113
+    let clicks = 0
+
+    for (const id of [parentId, wrapperId, svgId]) events.activate(id)
+    events.set(parentId, "click", () => {
+      clicks += 1
+    })
+
+    driver.enqueue("createElement", parentId, "div")
+    driver.enqueue("createElement", wrapperId, "div")
+    driver.enqueue("createElement", svgId, "svg")
+    driver.enqueue("setEventListener", parentId, "click", true)
+    driver.enqueue("appendChild", parentId, wrapperId)
+    driver.enqueue("appendChild", wrapperId, svgId)
+    driver.flush()
+
+    expect(listenerMutations(renderer, wrapperId, "mouseUp")).toHaveLength(1)
+    expect(listenerMutations(renderer, svgId, "click")).toHaveLength(1)
+
+    events.dispatch(primaryClick(svgId))
+    events.dispatch(primaryMouseUp(wrapperId))
+    events.dispatch(primaryMouseUp(parentId))
+    expect(clicks).toBe(1)
+  })
+
   it("does not swallow repeated clicks at the same coordinates", async () => {
     const events = new EventRegistry()
     const parentId = 71
