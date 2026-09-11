@@ -171,7 +171,11 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, DropdownMenuTri
           else if (event.key === "escape") context.setOpen(false)
         }}
         style={mergeStyle({ ...triggerBaseStyle, ...disabledState(props.disabled) }, props.style)}
-      >{props.children}</div>
+      >
+        <div style={{ display: "flex", flexDirection: "row", alignItems: "center", pointerEvents: "none" }}>
+          {props.children}
+        </div>
+      </div>
     </div>
   )
 }
