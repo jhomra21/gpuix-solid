@@ -31,7 +31,7 @@ async function main(): Promise<void> {
     const started = Date.now()
     for (;;) {
       const node = await locator.element()
-      if (node.style.backgroundColor === C.secondary) return
+      if (node.style?.backgroundColor === C.secondary) return
       if (Date.now() - started >= 5000) {
         throw new Error(`${testId} never became the visibly active tool after 5s`)
       }
