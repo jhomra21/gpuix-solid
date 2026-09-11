@@ -54,8 +54,8 @@ function traceDawRelease(event: EventPayload, rootId: number | undefined, presse
   if (event.eventType !== "mouseDown" && event.eventType !== "mouseUp") return
   const x = event.x ?? Number.NaN
   const y = event.y ?? Number.NaN
-  if (Math.abs(x - 460) > 2 || Math.abs(y - 156.5) > 2) return
-  console.log(`[pointer-relay-trace] ${event.eventType}:raw=${event.elementId}:root=${rootId ?? "none"}:pressed=${pressedElementId ?? "none"}:${detail}`)
+  if (x < 430 || x > 530 || Math.abs(y - 156.5) > 3) return
+  console.log(`[pointer-relay-trace] ${event.eventType}:raw=${event.elementId}:root=${rootId ?? "none"}:pressed=${pressedElementId ?? "none"}:${detail}:${x},${y}`)
 }
 
 /**
