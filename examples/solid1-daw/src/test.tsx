@@ -503,6 +503,9 @@ if (!hasNativeTestRenderer) {
     selectedDrumsClipStyle.backgroundColor === "rgba(0, 167, 108, 0.3)" && selectedDrumsClipStyle.boxShadow !== undefined,
     `first exact audio-clip tap should preserve the source 30% selected color mix and selection ring, got ${JSON.stringify(selectedDrumsClipStyle)}`,
   )
+  // Exact ClipComponent retains its first pointerdown for a 700 ms double-tap window.
+  // Keep the selection tap and following drag as distinct source gestures.
+  await new Promise<void>((resolve) => setTimeout(resolve, 725))
   const drumsClipBeforeDrag = app.renderer.boundsCustomProps(drumsAudioClip)
   app.renderer.dragCustomProps(drumsAudioClip, 40, 0)
   const drumsClipAfterDrag = app.renderer.boundsCustomProps(drumsAudioClip)

@@ -2,8 +2,8 @@ import type { EventPayload } from "@gpuix/native"
 import { flush as flushSolid, type Element as SolidElement } from "solid-js"
 import { GpuixContext, type GpuixContextValue } from "./context.js"
 import { EventRegistry } from "./host/events.js"
+import { MutationDriver } from "./host/mutations.js"
 import { HostRootNode, removeHostNode, type HostNode } from "./host/nodes.js"
-import { BrowserPointerMutationDriver } from "./host/pointer-lifecycle.js"
 import type { NativeRenderer, WindowKeyEventHandlers } from "./host/types.js"
 import { createComponent, universalRender } from "./host/universal.js"
 
@@ -37,7 +37,7 @@ export interface Root {
 
 export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandlers: WindowKeyEventHandlers = {}): Root {
   const events = new EventRegistry()
-  const driver = new BrowserPointerMutationDriver(renderer, events)
+  const driver = new MutationDriver(renderer, events)
   const container = new HostRootNode(renderer, events, driver)
   let windowKeyEventHandlers = initialWindowKeyEventHandlers
   let windowKeyEventId = nextWindowKeyEventId(renderer)
