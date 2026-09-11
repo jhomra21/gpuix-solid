@@ -56,7 +56,7 @@ class RelayRenderer implements NativeRenderer {
   assert.equal(clicks, 1, "primary mouse-up should deliver one browser click")
 
   events.dispatch({ ...mouseUp, eventType: "click" })
-  assert.equal(clicks, 1, "newer native click delivery must not duplicate the mouse-up click")
+  assert.equal(clicks, 1, "unexpected native click delivery must not duplicate the mouse-up click")
 
   events.dispatch({ ...mouseUp, eventType: "mouseUp", button: 2 })
   assert.equal(clicks, 1, "non-primary mouse-up must not synthesize a click")
@@ -100,7 +100,7 @@ class RelayRenderer implements NativeRenderer {
   assert.equal(parentClicks, 1, "nested primary activation should resolve to the nearest click owner")
 
   events.dispatch({ ...mouseUp, eventType: "click" })
-  assert.equal(parentClicks, 1, "nested native click delivery must deduplicate against the synthesized owner click")
+  assert.equal(parentClicks, 1, "unexpected nested native click delivery must deduplicate against the synthesized owner click")
 
   events.setParent(childId, null)
   events.dispatch(primaryMouseUp(childId))
@@ -139,24 +139,29 @@ class RelayRenderer implements NativeRenderer {
   driver.enqueue("appendChild", parentId, childId)
   driver.flush()
 
+  const childMouseUpMutations = renderer.direct.filter(
+    (mutation) => mutation[0] === "setEventListener" && mutation[1] === childId && mutation[2] === "mouseUp",
+  )
+  assert.deepEqual(
+    childMouseUpMutations.at(-1),
+    ["setEventListener", childId, "mouseUp", true],
+    "nested retained content should be armed with the same primary mouse-up activation relay",
+  )
+
   const childClickMutations = renderer.direct.filter(
     (mutation) => mutation[0] === "setEventListener" && mutation[1] === childId && mutation[2] === "click",
   )
-  assert.deepEqual(
-    childClickMutations.at(-1),
-    ["setEventListener", childId, "click", true],
-    "nested retained content should be armed as a native click relay",
-  )
+  assert.equal(childClickMutations.length, 0, "DOM click compatibility must not create a second native click source")
 
   driver.enqueue("removeChild", parentId, childId)
   driver.flush()
-  const detachedChildClickMutations = renderer.direct.filter(
-    (mutation) => mutation[0] === "setEventListener" && mutation[1] === childId && mutation[2] === "click",
+  const detachedChildMouseUpMutations = renderer.direct.filter(
+    (mutation) => mutation[0] === "setEventListener" && mutation[1] === childId && mutation[2] === "mouseUp",
   )
   assert.deepEqual(
-    detachedChildClickMutations.at(-1),
-    ["setEventListener", childId, "click", false],
-    "detaching nested retained content should remove its native click relay",
+    detachedChildMouseUpMutations.at(-1),
+    ["setEventListener", childId, "mouseUp", false],
+    "detaching nested retained content should remove its native mouse-up relay",
   )
 }
 
@@ -203,6 +208,21 @@ class RelayRenderer implements NativeRenderer {
   events.dispatch(primaryClick(parentId))
   assert.equal(childClicks, 1, "the deepest interactive child should keep the native click")
   assert.equal(parentClicks, 0, "the ancestor GPUI bubble callback must not activate after the child")
+}
+
+{
+  const events = new EventRegistry()
+  const elementId = 51
+  let doubleClicks = 0
+
+  events.activate(elementId)
+  events.set(elementId, "dblClick", () => {
+    doubleClicks += 1
+  })
+
+  events.dispatch(primaryMouseUp(elementId))
+  events.dispatch(primaryMouseUp(elementId))
+  assert.equal(doubleClicks, 1, "double-click-only controls should remain activatable through primary mouse-up")
 }
 
 console.log("solid1 embedded primary click compatibility: passed")

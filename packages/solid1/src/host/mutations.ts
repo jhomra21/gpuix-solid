@@ -93,7 +93,6 @@ export class MutationDriver {
   readonly #parents = new Map<number, number>()
   readonly #children = new Map<number, Set<number>>()
   readonly #directClickListeners = new Map<number, boolean>()
-  readonly #appliedClickListeners = new Map<number, boolean>()
   readonly #directMouseUpListeners = new Map<number, boolean>()
   readonly #appliedMouseUpListeners = new Map<number, boolean>()
   #queue: Mutation[] = []
@@ -121,9 +120,13 @@ export class MutationDriver {
       const id = numberArg(args, 0)
       const hasHandler = booleanArg(args, 2)
       if (eventType === "click") {
+        // GPUIX 0.7 semantic click delivery is unreliable in embedded macOS windows,
+        // while primary mouse-up is reliable on both 0.7 and current GPUIX. Treat the
+        // DOM click subscription as activation intent and realize it through mouse-up.
+        // This also avoids double activation on current runtimes where native click is
+        // itself implemented from mouse-up.
         this.#directClickListeners.set(id, hasHandler)
         this.#syncClickSubtree(id)
-        this.#syncMouseUpListener(id)
         this.#schedule()
         return
       }
@@ -232,7 +235,7 @@ export class MutationDriver {
     this.#events.setParent(childId, parentId)
   }
 
-  #hasNativeClickAncestor(id: number): boolean {
+  #hasClickAncestor(id: number): boolean {
     let parentId = this.#parents.get(id)
     while (parentId !== undefined) {
       if (this.#directClickListeners.get(parentId) === true) return true
@@ -245,21 +248,15 @@ export class MutationDriver {
     const stack = [rootId]
     while (stack.length > 0) {
       const id = stack.pop()!
-      const next = this.#directClickListeners.get(id) === true || this.#hasNativeClickAncestor(id)
-      const previous = this.#appliedClickListeners.get(id) ?? false
-      if (previous !== next) {
-        this.#appliedClickListeners.set(id, next)
-        this.#queue.push(["setEventListener", id, "click", next])
-      }
+      this.#syncMouseUpListener(id)
       for (const childId of this.#children.get(id) ?? []) stack.push(childId)
     }
   }
 
   #syncMouseUpListener(id: number): void {
-    // GPUIX 0.7 semantic click delivery is unreliable in embedded macOS windows.
-    // Keep the semantic click subscription for keyboard/current-runtime behavior,
-    // but also arm primary mouse-up so EventRegistry can synthesize browser click.
-    const next = this.#directMouseUpListeners.get(id) === true || this.#directClickListeners.get(id) === true
+    const next = this.#directMouseUpListeners.get(id) === true
+      || this.#directClickListeners.get(id) === true
+      || this.#hasClickAncestor(id)
     const previous = this.#appliedMouseUpListeners.get(id) ?? false
     if (previous === next) return
     this.#appliedMouseUpListeners.set(id, next)
@@ -280,7 +277,6 @@ export class MutationDriver {
       this.#parents.delete(id)
       this.#children.delete(id)
       this.#directClickListeners.delete(id)
-      this.#appliedClickListeners.delete(id)
       this.#directMouseUpListeners.delete(id)
       this.#appliedMouseUpListeners.delete(id)
     }

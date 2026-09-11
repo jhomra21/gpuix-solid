@@ -122,15 +122,14 @@ describe("host tree", () => {
     expect(child.id).toBe(2)
     expect(text.id).toBe(3)
     expect(events.has(child.id, "click")).toBe(true)
-    expect(renderer.batches.at(-1)).toContainEqual(["setEventListener", text.id, "click", true])
+    expect(renderer.batches.at(-1)).toContainEqual(["setEventListener", text.id, "mouseUp", true])
     expect(renderer.batches.at(-1)).toEqual([
       ["createElement", 2, "div"],
-      ["setEventListener", 2, "click", true],
       ["setEventListener", 2, "mouseUp", true],
       ["createElement", 3, "text"],
       ["setText", 3, "after"],
       ["appendChild", 2, 3],
-      ["setEventListener", 3, "click", true],
+      ["setEventListener", 3, "mouseUp", true],
       ["appendChild", 1, 2],
     ])
   })
@@ -144,7 +143,6 @@ describe("host tree", () => {
     setHostProperty(node, "onClick", () => {}, undefined)
     driver.flush()
     expect(renderer.batches.at(-1)).toEqual([
-      ["setEventListener", 1, "click", true],
       ["setEventListener", 1, "mouseUp", true],
       ["setStyle", 1, { pointerEvents: "auto" }],
     ])
@@ -152,7 +150,6 @@ describe("host tree", () => {
     setHostProperty(node, "onClick", undefined, () => {})
     driver.flush()
     expect(renderer.batches.at(-1)).toEqual([
-      ["setEventListener", 1, "click", false],
       ["setEventListener", 1, "mouseUp", false],
       ["setStyle", 1, {}],
     ])
@@ -167,7 +164,6 @@ describe("host tree", () => {
 
     expect(renderer.batches[0]).toEqual([
       ["createElement", 1, "div"],
-      ["setEventListener", 1, "click", true],
       ["setEventListener", 1, "mouseUp", true],
       ["setRoot", 1],
     ])

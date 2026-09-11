@@ -449,7 +449,7 @@ export class EventRegistry {
         this.#dispatchDom(capturedId ?? event.elementId, "pointerUp", event)
         this.#dispatchDom(event.elementId, "mouseUp", event)
         const clickOwner = (event.button ?? 0) === 0 ? this.#primaryClickOwner(event.elementId) : undefined
-        if (clickOwner !== undefined && (clickOwner !== event.elementId || this.#handlers.get(clickOwner)?.has("click"))) {
+        if (clickOwner !== undefined) {
           const clickEvent = { ...event, elementId: clickOwner, eventType: "click", button: 0 } satisfies NativeEventPayload
           this.#dispatchPrimaryClick(clickEvent)
           this.#syntheticPrimaryClicks.set(clickOwner, {
@@ -506,7 +506,8 @@ export class EventRegistry {
     if (this.#isCheckboxTarget(elementId)) return elementId
     let current: number | null | undefined = elementId
     while (current !== undefined && current !== null && this.#live.has(current)) {
-      if (this.#handlers.get(current)?.has("click")) return current
+      const handlers = this.#handlers.get(current)
+      if (handlers?.has("click") || handlers?.has("dblClick")) return current
       current = this.#parents.get(current)
     }
     return undefined

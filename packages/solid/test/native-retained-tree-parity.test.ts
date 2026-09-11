@@ -165,7 +165,7 @@ describe("native retained-tree parity", () => {
             },
             "events": [
               "change",
-              "click",
+              "mouseUp",
             ],
             "style": {
               "height": 40,
@@ -176,7 +176,7 @@ describe("native retained-tree parity", () => {
           },
         ],
         "events": [
-          "click",
+          "mouseUp",
         ],
         "style": {
           "height": 120,
