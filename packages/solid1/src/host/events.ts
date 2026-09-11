@@ -66,7 +66,6 @@ const POINTER_ID = 0
 const PERSISTENT_DEVICE_ID = 0
 const DOUBLE_CLICK_MS = 500
 const DOUBLE_CLICK_DISTANCE_PX = 4
-const SYNTHETIC_CLICK_DEDUPE_MS = 100
 
 installNativeDomGlobals()
 
@@ -289,6 +288,14 @@ type LastClick = {
   at: number
 }
 
+type ActivationPair = {
+  elementId: number
+  button: number
+  clickCount: number
+  x: number
+  y: number
+}
+
 type NativeClickBubble = {
   ancestors: ReadonlySet<number>
   button: number
@@ -317,7 +324,8 @@ export class EventRegistry {
   readonly #activePointers = new Set<number>()
   readonly #pointerCapture = new Map<number, number>()
   readonly #lastPointerEvent = new Map<number, NativeEventPayload>()
-  readonly #syntheticPrimaryClicks = new Map<number, LastClick>()
+  readonly #syntheticPrimaryClicks = new Map<number, ActivationPair>()
+  readonly #nativePrimaryClicks = new Map<number, ActivationPair>()
   #nativeClickBubble: NativeClickBubble | undefined
   #activeRangeId: number | undefined
   #lastClick: LastClick | undefined
@@ -346,6 +354,7 @@ export class EventRegistry {
     this.#parents.delete(id)
     this.#nativePointerDown.delete(id)
     this.#syntheticPrimaryClicks.delete(id)
+    this.#nativePrimaryClicks.delete(id)
     if (this.#activeRangeId === id) this.#activeRangeId = undefined
   }
 
@@ -369,6 +378,7 @@ export class EventRegistry {
       this.#parents.delete(id)
       this.#nativePointerDown.delete(id)
       this.#syntheticPrimaryClicks.delete(id)
+      this.#nativePrimaryClicks.delete(id)
     }
   }
 
@@ -382,6 +392,7 @@ export class EventRegistry {
     this.#pointerCapture.clear()
     this.#lastPointerEvent.clear()
     this.#syntheticPrimaryClicks.clear()
+    this.#nativePrimaryClicks.clear()
     this.#nativeClickBubble = undefined
     this.#activeRangeId = undefined
     this.#lastClick = undefined
@@ -451,14 +462,10 @@ export class EventRegistry {
         const clickOwner = (event.button ?? 0) === 0 ? this.#primaryClickOwner(event.elementId) : undefined
         if (clickOwner !== undefined) {
           const clickEvent = { ...event, elementId: clickOwner, eventType: "click", button: 0 } satisfies NativeEventPayload
-          this.#dispatchPrimaryClick(clickEvent)
-          this.#syntheticPrimaryClicks.set(clickOwner, {
-            elementId: clickOwner,
-            button: 0,
-            x: event.x ?? 0,
-            y: event.y ?? 0,
-            at: Date.now(),
-          })
+          if (!this.#consumePrimaryClickPair(this.#nativePrimaryClicks, clickEvent)) {
+            this.#dispatchPrimaryClick(clickEvent)
+            this.#recordPrimaryClickPair(this.#syntheticPrimaryClicks, clickEvent)
+          }
         }
         if (event.button === 2) this.#dispatchDom(event.elementId, "contextMenu", event)
         this.#activePointers.delete(POINTER_ID)
@@ -471,8 +478,9 @@ export class EventRegistry {
         const clickEvent = clickOwner === undefined || clickOwner === event.elementId
           ? event
           : { ...event, elementId: clickOwner }
-        if (this.#matchesSyntheticPrimaryClick(clickEvent)) return
+        if (this.#consumePrimaryClickPair(this.#syntheticPrimaryClicks, clickEvent)) return
         this.#dispatchPrimaryClick(clickEvent)
+        this.#recordPrimaryClickPair(this.#nativePrimaryClicks, clickEvent)
         return
       }
       case "mouseEnter": {
@@ -584,14 +592,30 @@ export class EventRegistry {
     this.#maybeDispatchDoubleClick(event)
   }
 
-  #matchesSyntheticPrimaryClick(event: NativeEventPayload): boolean {
-    const synthetic = this.#syntheticPrimaryClicks.get(event.elementId)
-    if (!synthetic) return false
-    const age = Date.now() - synthetic.at
-    const matches = age <= SYNTHETIC_CLICK_DEDUPE_MS
-      && synthetic.button === (event.button ?? 0)
-      && Math.hypot(synthetic.x - (event.x ?? 0), synthetic.y - (event.y ?? 0)) <= DOUBLE_CLICK_DISTANCE_PX
-    if (matches || age > SYNTHETIC_CLICK_DEDUPE_MS) this.#syntheticPrimaryClicks.delete(event.elementId)
+  #recordPrimaryClickPair(map: Map<number, ActivationPair>, event: NativeEventPayload): void {
+    const pair: ActivationPair = {
+      elementId: event.elementId,
+      button: event.button ?? 0,
+      clickCount: event.clickCount ?? 1,
+      x: event.x ?? 0,
+      y: event.y ?? 0,
+    }
+    map.set(event.elementId, pair)
+    // The paired callback for one physical GPUI event is drained synchronously.
+    // Clear an unmatched half at the next microtask so a later real click at the
+    // same coordinates is never mistaken for the previous activation.
+    queueMicrotask(() => {
+      if (map.get(event.elementId) === pair) map.delete(event.elementId)
+    })
+  }
+
+  #consumePrimaryClickPair(map: Map<number, ActivationPair>, event: NativeEventPayload): boolean {
+    const pair = map.get(event.elementId)
+    if (!pair) return false
+    const matches = pair.button === (event.button ?? 0)
+      && pair.clickCount === (event.clickCount ?? 1)
+      && Math.hypot(pair.x - (event.x ?? 0), pair.y - (event.y ?? 0)) <= DOUBLE_CLICK_DISTANCE_PX
+    if (matches) map.delete(event.elementId)
     return matches
   }
 
