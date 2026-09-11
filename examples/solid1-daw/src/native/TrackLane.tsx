@@ -28,18 +28,49 @@ interface GridLine {
   major: boolean
 }
 
+type TracedPointerDown = {
+  clipId: string
+  selected: boolean
+  x: number
+  y: number
+  at: number
+}
+
 const automationSelections: AutomationParameterSelection[] = [{ parameterId: "volume" }]
 
 export const nativeClipPointerTrace: string[] = []
+let tracedPointerDown: TracedPointerDown | undefined
 
 export function resetNativeClipPointerTrace(): void {
   nativeClipPointerTrace.length = 0
+  tracedPointerDown = undefined
 }
 
 function traceClipPointer(phase: "down" | "up" | "open", selectedClipId: string, clipId: string, event?: PointerEvent): void {
   if (clipId !== "drums-a") return
+  const now = performance.now()
   const position = event ? `:${event.clientX},${event.clientY}` : ""
-  nativeClipPointerTrace.push(`${phase}:selected=${selectedClipId === clipId}${position}`)
+  nativeClipPointerTrace.push(`${phase}:selected=${selectedClipId === clipId}${position}:${now}`)
+
+  if (phase === "down" && event) {
+    tracedPointerDown = {
+      clipId,
+      selected: selectedClipId === clipId,
+      x: event.clientX,
+      y: event.clientY,
+      at: now,
+    }
+    return
+  }
+  if (phase !== "up" || !event || !tracedPointerDown || tracedPointerDown.clipId !== clipId) return
+
+  const start = tracedPointerDown
+  tracedPointerDown = undefined
+  const stationary = Math.abs(event.clientX - start.x) <= 8 && Math.abs(event.clientY - start.y) <= 8
+  const elapsed = now - start.at
+  if (start.selected && stationary && elapsed > 700) {
+    throw new Error(`selected Drum Loop 01 native tap took ${elapsed.toFixed(1)} ms between pointerdown and pointerup`)
+  }
 }
 
 function sourceClip(clip: NativeTrack["clips"][number]): RuntimeClip {
