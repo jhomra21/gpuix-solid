@@ -1,4 +1,4 @@
-import { For, Show, createSignal, type Element as SolidElement } from "solid-js"
+import { Index, Show, createSignal, type Element as SolidElement } from "solid-js"
 import type { EventPayload } from "gpuix-solid"
 import type { DiffusionEditorState } from "./compat"
 import { Canvas } from "./canvas-native"
@@ -209,9 +209,9 @@ export function InteractiveCanvas(props: {
           backgroundColor: "#00000000",
         }}
       >
-        <For each={items()}>
-          {(item) => <SceneItemView item={item} selected={selectedId() === item.id} pan={pan()} />}
-        </For>
+        <Index each={items()}>
+          {(item) => <SceneItemView item={item()} selected={selectedId() === item().id} pan={pan()} />}
+        </Index>
       </div>
     </Canvas>
   )
