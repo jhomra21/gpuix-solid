@@ -1,12 +1,17 @@
+import type { EventPayload } from "@gpuix/native"
 import { describe, expect, it } from "vitest"
 import { EventRegistry } from "../src/host/events.js"
-import { BrowserPointerMutationDriver } from "../src/host/pointer-lifecycle.js"
+import { BrowserPointerMutationDriver, BrowserPointerReleaseRelay } from "../src/host/pointer-lifecycle.js"
 import { FakeRenderer } from "./fake-renderer.js"
 
 function listenerMutations(renderer: FakeRenderer) {
   return renderer.batches
     .flat()
     .filter((mutation) => mutation[0] === "setEventListener")
+}
+
+function pointerEvent(eventType: "mouseDown" | "mouseUp", elementId: number, x = 40, y = 20): EventPayload {
+  return { eventType, elementId, x, y, button: 0 } as EventPayload
 }
 
 describe("browser pointer lifecycle compatibility", () => {
@@ -97,5 +102,33 @@ describe("browser pointer lifecycle compatibility", () => {
     expect(listenerMutations(renderer)).toContainEqual(["setEventListener", 4, "mouseDown", false])
     expect(listenerMutations(renderer)).toContainEqual(["setEventListener", 4, "mouseMove", false])
     expect(listenerMutations(renderer)).not.toContainEqual(["setEventListener", 4, "mouseUp", false])
+  })
+
+  it("routes a root-only stationary release back to its live pressed target", () => {
+    const relay = new BrowserPointerReleaseRelay()
+    const rootId = 1
+    const childId = 2
+
+    expect(relay.route(pointerEvent("mouseDown", childId), rootId, () => true)?.elementId).toBe(childId)
+    expect(relay.route(pointerEvent("mouseUp", rootId), rootId, () => true)?.elementId).toBe(childId)
+  })
+
+  it("does not recover a root release outside the pressed target", () => {
+    const relay = new BrowserPointerReleaseRelay()
+    const rootId = 1
+    const childId = 2
+
+    relay.route(pointerEvent("mouseDown", childId), rootId, () => true)
+    expect(relay.route(pointerEvent("mouseUp", rootId, 200, 200), rootId, () => false)?.elementId).toBe(rootId)
+  })
+
+  it("suppresses a late native child release after root fallback already delivered it", () => {
+    const relay = new BrowserPointerReleaseRelay()
+    const rootId = 1
+    const childId = 2
+
+    relay.route(pointerEvent("mouseDown", childId), rootId, () => true)
+    expect(relay.route(pointerEvent("mouseUp", rootId), rootId, () => true)?.elementId).toBe(childId)
+    expect(relay.route(pointerEvent("mouseUp", childId), rootId, () => true)).toBeUndefined()
   })
 })
