@@ -74,8 +74,9 @@ export function withLegacyElementBounds<Renderer extends ElementBoundsRenderer>(
             (event.eventType === "mouseDown" || event.eventType === "mouseUp")
             && x !== undefined
             && y !== undefined
-            && Math.abs(x - 460) <= 2
-            && Math.abs(y - 156.5) <= 2
+            && x >= 430
+            && x <= 530
+            && Math.abs(y - 156.5) <= 3
           ) {
             console.log(`[native-drain-trace] ${event.eventType}:raw=${event.elementId ?? "none"}:${x},${y}`)
           }
