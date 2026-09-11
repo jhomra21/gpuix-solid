@@ -21,7 +21,7 @@ describe("native window pointer drag parity", () => {
       dragOwner = owner
       setProp(owner, "style", { width: 200, height: 60 })
       setProp(owner, "onPointerDown", (event: EventPayload) => {
-        const startX = event.clientX ?? 0
+        const startX = event.x ?? 0
         const move = (next: PointerEvent) => {
           deltas.push(next.clientX - startX)
         }
