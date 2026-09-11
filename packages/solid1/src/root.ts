@@ -10,7 +10,7 @@ import { syncBrowserViewportSize } from "./browser-viewport-compat.js"
 import { GpuixContext, type ViewportSize } from "./context.js"
 import { EventRegistry } from "./host/events.js"
 import { HostRootNode, removeHostNode, type HostNode } from "./host/nodes.js"
-import { BrowserPointerMutationDriver } from "./host/pointer-lifecycle.js"
+import { BrowserPointerMutationDriver, BrowserPointerReleaseRelay } from "./host/pointer-lifecycle.js"
 import type { DimensionValue, NativeRenderer, WindowKeyEventHandlers } from "./host/types.js"
 import { registerNativePortalRoot, unregisterNativePortalRoot } from "./native-portal.js"
 import { universalRender } from "./universal.js"
@@ -85,10 +85,24 @@ function elementBounds(renderer: NativeRenderer, elementId: number): number[] | 
   return boundsRenderer.getElementBounds?.(elementId)
 }
 
+function eventPointInsideElement(renderer: NativeRenderer, elementId: number, event: EventPayload): boolean {
+  const bounds = elementBounds(renderer, elementId)
+  const x = event.x
+  const y = event.y
+  if (!bounds || bounds.length < 4 || x === undefined || y === undefined) return false
+  const left = bounds[0]
+  const top = bounds[1]
+  const width = bounds[2]
+  const height = bounds[3]
+  if (left === undefined || top === undefined || width === undefined || height === undefined) return false
+  return x >= left && x <= left + width && y >= top && y <= top + height
+}
+
 export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandlers: WindowKeyEventHandlers = {}): Root {
   installBrowserElementIdentity()
   const events = new EventRegistry()
   const driver = new BrowserPointerMutationDriver(renderer, events)
+  const releaseRelay = new BrowserPointerReleaseRelay()
   const container = new HostRootNode(renderer, events, driver)
   let windowKeyEventHandlers = initialWindowKeyEventHandlers
   let windowKeyEventId = nextWindowKeyEventId(renderer)
@@ -173,6 +187,7 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
         if (mounted) removeHostNode(container, mounted)
         flushNative()
         events.clear()
+        releaseRelay.clear()
       }
 
       dispose = universalRender(
@@ -211,8 +226,18 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
           return true
         }
         if (!hasLiveElement(container, event.elementId)) return false
-        if (isSyntheticRootRelayDuplicate(event)) return true
-        const browserEvent = browserCompatibleNativeEvent(event)
+        const mounted = container.children[0]
+        const rootId = mounted && mounted.kind === "element" ? mounted.id : undefined
+        const routedEvent = releaseRelay.route(
+          event,
+          rootId,
+          (elementId, release) => hasLiveElement(container, elementId)
+            && eventPointInsideElement(renderer, elementId, release),
+        )
+        if (!routedEvent) return true
+        if (!hasLiveElement(container, routedEvent.elementId)) return false
+        if (isSyntheticRootRelayDuplicate(routedEvent)) return true
+        const browserEvent = browserCompatibleNativeEvent(routedEvent)
         events.dispatch(browserEvent)
         dispatchBrowserKeyboardEvent(browserEvent)
         handled = true
@@ -229,6 +254,7 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
       unregisterNativePortalRoot(renderer)
       flushNative()
       events.clear()
+      releaseRelay.clear()
       if (windowKeyEventIds.get(renderer) === windowKeyEventId) {
         renderer.setWindowKeyEvents?.(false, false, windowKeyEventId)
       }
