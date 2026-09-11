@@ -413,7 +413,7 @@ export class TestRenderer {
   }
 
   dragCustomProps(query: TestCustomPropQuery, deltaX: number, deltaY: number): void {
-    const start = insetPoint(this.boundsCustomProps(query))
+    const start = centerPoint(this.boundsCustomProps(query))
     const endX = start.x + deltaX
     const endY = start.y + deltaY
     this.#native.simulateMouseMove(start.x, start.y)
