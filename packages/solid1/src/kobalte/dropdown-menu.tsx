@@ -159,6 +159,7 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, DropdownMenuTri
         testId={props.testId}
         title={props.title}
         tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)}
+        onMouseUp={(event: EventPayload) => { props.onMouseUp?.(event) }}
         onClick={(event: EventPayload) => {
           props.onClick?.(event)
           if (!props.disabled) context.setOpen(!context.open())
@@ -171,11 +172,7 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, DropdownMenuTri
           else if (event.key === "escape") context.setOpen(false)
         }}
         style={mergeStyle({ ...triggerBaseStyle, ...disabledState(props.disabled) }, props.style)}
-      >
-        <div style={{ display: "flex", flexDirection: "row", alignItems: "center", pointerEvents: "none" }}>
-          {props.children}
-        </div>
-      </div>
+      >{props.children}</div>
     </div>
   )
 }
@@ -255,6 +252,7 @@ export function Item<T = "div">(props: PolymorphicProps<T, DropdownMenuItemProps
       onBlur={(event: EventPayload) => { props.onBlur?.(event); setFocused(false) }}
       onMouseEnter={(event: EventPayload) => { props.onMouseEnter?.(event); if (!props.disabled) setHovered(true) }}
       onMouseLeave={(event: EventPayload) => { props.onMouseLeave?.(event); setHovered(false) }}
+      onMouseUp={(event: EventPayload) => { props.onMouseUp?.(event) }}
       onClick={(event: EventPayload) => {
         if (props.disabled) return
         props.onClick?.(event)
@@ -346,6 +344,7 @@ export function SubTrigger<T = "div">(props: PolymorphicProps<T, DropdownMenuSub
         context.setOpen(true)
       }}
       onMouseLeave={(event: EventPayload) => { props.onMouseLeave?.(event); setHovered(false) }}
+      onMouseUp={(event: EventPayload) => { props.onMouseUp?.(event) }}
       onClick={(event: EventPayload) => { if (props.disabled) return; props.onClick?.(event); context.setOpen(!context.open()) }}
       onKeyDown={(event: EventPayload) => {
         if (props.disabled) return
@@ -353,10 +352,10 @@ export function SubTrigger<T = "div">(props: PolymorphicProps<T, DropdownMenuSub
         if (isActivationKey(event.key) || event.key === "right") {
           context.setOpen(true)
           focusAfterMount(() => menu.items.focusNext(focusKey))
-        } else if (event.key === "down") menu.items.focusNext(focusKey)
-        else if (event.key === "up") menu.items.focusPrevious(focusKey)
-        else if (event.key === "home") menu.items.focusFirst()
-        else if (event.key === "end") menu.items.focusLast()
+        } else if (event.key === "down") context.items.focusNext(focusKey)
+        else if (event.key === "up") context.items.focusPrevious(focusKey)
+        else if (event.key === "home") context.items.focusFirst()
+        else if (event.key === "end") context.items.focusLast()
         else if (event.key === "left") context.setOpen(false)
         else if (event.key === "escape") {
           menu.setOpen(false)
