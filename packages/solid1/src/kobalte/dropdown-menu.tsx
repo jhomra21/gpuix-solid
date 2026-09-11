@@ -159,11 +159,6 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, DropdownMenuTri
         testId={props.testId}
         title={props.title}
         tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)}
-        onMouseUp={(event: EventPayload) => { props.onMouseUp?.(event) }}
-        onClick={(event: EventPayload) => {
-          props.onClick?.(event)
-          if (!props.disabled) context.setOpen(!context.open())
-        }}
         onKeyDown={(event: EventPayload) => {
           props.onKeyDown?.(event)
           if (props.disabled) return
@@ -171,8 +166,30 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, DropdownMenuTri
           else if (isActivationKey(event.key) || event.key === "down") openAndFocus("first")
           else if (event.key === "escape") context.setOpen(false)
         }}
-        style={mergeStyle({ ...triggerBaseStyle, ...disabledState(props.disabled) }, props.style)}
-      >{props.children}</div>
+        style={mergeStyle({ ...triggerBaseStyle, ...disabledState(props.disabled), position: "relative" }, props.style)}
+      >
+        {props.children}
+        <div
+          onMouseDown={(event: EventPayload) => {
+            props.onMouseDown?.(event)
+            if (!props.disabled) context.focusTrigger()
+          }}
+          onMouseUp={(event: EventPayload) => { props.onMouseUp?.(event) }}
+          onClick={(event: EventPayload) => {
+            props.onClick?.(event)
+            if (!props.disabled) context.setOpen(!context.open())
+          }}
+          style={{
+            position: "absolute",
+            top: 0,
+            right: 0,
+            bottom: 0,
+            left: 0,
+            backgroundColor: "transparent",
+            pointerEvents: props.disabled ? "none" : "auto",
+          }}
+        />
+      </div>
     </div>
   )
 }
