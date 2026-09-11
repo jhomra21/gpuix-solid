@@ -290,7 +290,7 @@ type LastClick = {
 
 type ActivationBurst = {
   elementId: number
-  sourceElementIds: Set<number>
+  sourceKeys: Set<string>
   button: number
   clickCount: number
   x: number
@@ -460,7 +460,7 @@ export class EventRegistry {
         const clickOwner = (event.button ?? 0) === 0 ? this.#primaryClickOwner(sourceElementId) : undefined
         if (clickOwner !== undefined) {
           const clickEvent = { ...event, elementId: clickOwner, eventType: "click", button: 0 } satisfies NativeEventPayload
-          if (this.#shouldDispatchPrimaryClick(clickEvent, sourceElementId)) this.#dispatchPrimaryClick(clickEvent)
+          if (this.#shouldDispatchPrimaryClick(clickEvent, `mouseUp:${sourceElementId}`)) this.#dispatchPrimaryClick(clickEvent)
         }
         if (event.button === 2) this.#dispatchDom(event.elementId, "contextMenu", event)
         this.#activePointers.delete(POINTER_ID)
@@ -474,7 +474,7 @@ export class EventRegistry {
         const clickEvent = clickOwner === undefined || clickOwner === sourceElementId
           ? event
           : { ...event, elementId: clickOwner }
-        if (this.#shouldDispatchPrimaryClick(clickEvent, sourceElementId)) this.#dispatchPrimaryClick(clickEvent)
+        if (this.#shouldDispatchPrimaryClick(clickEvent, `click:${sourceElementId}`)) this.#dispatchPrimaryClick(clickEvent)
         return
       }
       case "mouseEnter": {
@@ -586,7 +586,7 @@ export class EventRegistry {
     this.#maybeDispatchDoubleClick(event)
   }
 
-  #shouldDispatchPrimaryClick(event: NativeEventPayload, sourceElementId: number): boolean {
+  #shouldDispatchPrimaryClick(event: NativeEventPayload, sourceKey: string): boolean {
     const button = event.button ?? 0
     const clickCount = event.clickCount ?? 1
     const x = event.x ?? 0
@@ -597,14 +597,14 @@ export class EventRegistry {
       && previous.clickCount === clickCount
       && Math.hypot(previous.x - x, previous.y - y) <= DOUBLE_CLICK_DISTANCE_PX
 
-    if (samePhysicalActivation && !previous.sourceElementIds.has(sourceElementId)) {
-      previous.sourceElementIds.add(sourceElementId)
+    if (samePhysicalActivation && !previous.sourceKeys.has(sourceKey)) {
+      previous.sourceKeys.add(sourceKey)
       return false
     }
 
     const next: ActivationBurst = {
       elementId: event.elementId,
-      sourceElementIds: new Set([sourceElementId]),
+      sourceKeys: new Set([sourceKey]),
       button,
       clickCount,
       x,
@@ -612,10 +612,10 @@ export class EventRegistry {
     }
     this.#primaryClickBursts.set(event.elementId, next)
     // GPUI can report one physical activation through every retained subscription
-    // on the hit path. Keep all different native sources in the same synchronous
-    // burst, but seeing a source twice starts the next real click. The burst expires
-    // at the next microtask, so separate browser-style activations never depend on a
-    // timing debounce.
+    // on the hit path and, on some surfaces, both mouse-up and semantic-click
+    // channels. Keep those distinct sources in one synchronous burst, but seeing
+    // the same channel+element source twice starts the next real click. The burst
+    // expires at the next microtask, so separate activations never use a debounce.
     queueMicrotask(() => {
       if (this.#primaryClickBursts.get(event.elementId) === next) this.#primaryClickBursts.delete(event.elementId)
     })
