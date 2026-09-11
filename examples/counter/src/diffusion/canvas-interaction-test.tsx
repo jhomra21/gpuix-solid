@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { createTestApp, createTestRoot, hasNativeTestRenderer, type ElementBounds } from "gpuix-solid"
 import { EditorPage } from "./app"
+import { C } from "./compat"
 
 async function main(): Promise<void> {
   if (!hasNativeTestRenderer) {
@@ -25,6 +26,18 @@ async function main(): Promise<void> {
       }
     }
   }
+  const waitForActiveTool = async (testId: string): Promise<void> => {
+    const locator = app.getByTestId(testId)
+    const started = Date.now()
+    for (;;) {
+      const node = await locator.element()
+      if (node.style.backgroundColor === C.secondary) return
+      if (Date.now() - started >= 5000) {
+        throw new Error(`${testId} never became the visibly active tool after 5s`)
+      }
+      await new Promise<void>((resolve) => setTimeout(resolve, 16))
+    }
+  }
 
   try {
     const surface = await app.getByTestId("diffusion-canvas-interaction-surface").bounds()
@@ -32,6 +45,7 @@ async function main(): Promise<void> {
     const end = { x: start.x + 150, y: start.y + 90 }
 
     await app.getByTestId("diffusion-tool-rect").click()
+    await waitForActiveTool("diffusion-tool-rect")
     await app.mouse.drag(start, end, { steps: 4 })
     await app.getByTestId("diffusion-scene-rect-1").waitFor()
     const created = await boundsWhenPainted("diffusion-scene-rect-1")
@@ -54,10 +68,12 @@ async function main(): Promise<void> {
     assert.ok(panned.y >= moved.y + 20, `Hand tool should pan scene vertically: ${moved.y} -> ${panned.y}`)
 
     await app.getByTestId("diffusion-tool-text").click()
+    await waitForActiveTool("diffusion-tool-text")
     await app.mouse.click({ x: surface.x + 360, y: surface.y + 330 })
     await app.getByTestId("diffusion-scene-text-2").waitFor()
 
     await app.getByTestId("diffusion-tool-frame").click()
+    await waitForActiveTool("diffusion-tool-frame")
     const frameStart = { x: surface.x + 520, y: surface.y + 100 }
     await app.mouse.drag(frameStart, { x: frameStart.x + 120, y: frameStart.y + 160 }, { steps: 4 })
     const frame = await boundsWhenPainted("diffusion-scene-frame-3")
