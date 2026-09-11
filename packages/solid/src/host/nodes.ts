@@ -240,7 +240,7 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     return this.root?.events.hasPointerCapture(this.id, pointerId) ?? false
   }
 
-    compareDocumentPosition(other: HostElementNode): number {
+  compareDocumentPosition(other: HostElementNode): number {
     return compareHostDocumentPosition(this, other)
   }
 
@@ -383,6 +383,8 @@ export class HostTextNode {
   }
 }
 
+const appliedTextPointerEvents = new WeakMap<HostTextNode, StyleDesc["pointerEvents"] | undefined>()
+
 export type HostNode = HostElementNode | HostTextNode
 export type HostParent = HostRootNode | HostElementNode
 type HostTreeNode = HostRootNode | HostNode
@@ -403,7 +405,7 @@ export function replaceHostText(node: HostTextNode, value: string): void {
   node.text = text
   if (!node.root || !node.nativeAlive) return
   node.root.driver.enqueue("setText", node.id, text)
-  if (layoutChanged) node.root.driver.enqueue("setStyle", node.id, nativeTextLayoutStyle(text))
+  if (layoutChanged) node.root.driver.enqueue("setStyle", node.id, nativeTextStyle(node))
 }
 
 export function setHostProperty<T>(
@@ -587,6 +589,24 @@ function nativeTextLayoutStyle(text: string): StyleDesc {
     : {}
 }
 
+function inheritedTextPointerEvents(node: HostTextNode): StyleDesc["pointerEvents"] | undefined {
+  let parent = node.parent
+  while (parent?.kind === "element") {
+    if (parent.style.pointerEvents !== undefined) return parent.style.pointerEvents
+    parent = parent.parent
+  }
+  return undefined
+}
+
+function nativeTextStyle(
+  node: HostTextNode,
+  pointerEvents = inheritedTextPointerEvents(node),
+): StyleDesc {
+  const layout = nativeTextLayoutStyle(node.text)
+  if (pointerEvents === undefined) return layout
+  return { ...layout, pointerEvents }
+}
+
 function dataAttributeProperty(name: string): string {
   return name.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase())
 }
@@ -703,7 +723,15 @@ function nativeStyleFor(
 }
 
 function refreshInheritedPointerEvents(node: HostNode): void {
-  if (node.kind === "text") return
+  if (node.kind === "text") {
+    const nextPointerEvents = inheritedTextPointerEvents(node)
+    const previousPointerEvents = appliedTextPointerEvents.get(node)
+    if (node.root && node.nativeAlive && previousPointerEvents !== nextPointerEvents) {
+      node.root.driver.enqueue("setStyle", node.id, nativeTextStyle(node, nextPointerEvents))
+      appliedTextPointerEvents.set(node, nextPointerEvents)
+    }
+    return
+  }
   const nextPointerEvents = effectivePointerEvents(node)
   const previousPointerEvents = appliedPointerEvents.get(node)
   if (node.root && node.nativeAlive && previousPointerEvents !== nextPointerEvents) {
@@ -760,7 +788,12 @@ function adopt(root: HostRootNode, node: HostNode): void {
 
   if (node.kind === "text") {
     root.driver.enqueue("setText", node.id, node.text)
-    if (node.text.length === 0) root.driver.enqueue("setStyle", node.id, nativeTextLayoutStyle(node.text))
+    const pointerEvents = inheritedTextPointerEvents(node)
+    const nativeStyle = nativeTextStyle(node, pointerEvents)
+    if (Object.keys(nativeStyle).length > 0) {
+      root.driver.enqueue("setStyle", node.id, nativeStyle)
+    }
+    appliedTextPointerEvents.set(node, pointerEvents)
   } else {
     root.events.setTarget(node.id, node)
     const nativeEventTypes = new Set<string>()
