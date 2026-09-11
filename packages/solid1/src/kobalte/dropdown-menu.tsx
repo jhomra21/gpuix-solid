@@ -149,6 +149,10 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, DropdownMenuTri
     context.setOpen(true)
     focusAfterMount(edge === "first" ? context.items.focusFirst : context.items.focusLast)
   }
+  const handlePointerClick = (event: EventPayload) => {
+    props.onClick?.(event)
+    if (!props.disabled) context.setOpen(!context.open())
+  }
   return (
     <div style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
       <div
@@ -160,10 +164,7 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, DropdownMenuTri
         title={props.title}
         tabIndex={props.disabled ? undefined : (props.tabIndex ?? 0)}
         onMouseUp={(event: EventPayload) => { props.onMouseUp?.(event) }}
-        onClick={(event: EventPayload) => {
-          props.onClick?.(event)
-          if (!props.disabled) context.setOpen(!context.open())
-        }}
+        onClick={handlePointerClick}
         onKeyDown={(event: EventPayload) => {
           props.onKeyDown?.(event)
           if (props.disabled) return
@@ -173,8 +174,19 @@ export function Trigger<T = "button">(props: PolymorphicProps<T, DropdownMenuTri
         }}
         style={mergeStyle({ ...triggerBaseStyle, ...disabledState(props.disabled) }, props.style)}
       >
-        <div style={{ display: "flex", flexDirection: "row", alignItems: "center", pointerEvents: "none" }}>
-          {props.children}
+        <div
+          onMouseUp={(event: EventPayload) => { props.onMouseUp?.(event) }}
+          onClick={handlePointerClick}
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "center",
+            pointerEvents: props.disabled ? "none" : "auto",
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "row", alignItems: "center", pointerEvents: "none" }}>
+            {props.children}
+          </div>
         </div>
       </div>
     </div>
