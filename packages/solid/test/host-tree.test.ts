@@ -122,12 +122,14 @@ describe("host tree", () => {
     expect(child.id).toBe(2)
     expect(text.id).toBe(3)
     expect(events.has(child.id, "click")).toBe(true)
+    expect(renderer.batches.at(-1)).toContainEqual(["setEventListener", text.id, "click", true])
     expect(renderer.batches.at(-1)).toEqual([
       ["createElement", 2, "div"],
       ["setEventListener", 2, "click", true],
       ["createElement", 3, "text"],
       ["setText", 3, "after"],
       ["appendChild", 2, 3],
+      ["setEventListener", 3, "click", true],
       ["appendChild", 1, 2],
     ])
   })
