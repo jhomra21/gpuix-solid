@@ -58,6 +58,7 @@ describe("React host prop forwarding parity", () => {
     expect(renderer.batches[0]).toEqual([
       ["createElement", 1, "div"],
       ["setEventListener", 1, "click", true],
+      ["setEventListener", 1, "mouseUp", true],
       ["setRoot", 1],
     ])
   })
@@ -106,6 +107,7 @@ describe("React host prop forwarding parity", () => {
       ["setStyle", 1, { pointerEvents: "auto" }],
       ["setEventListener", 1, "change", true],
       ["setEventListener", 1, "click", true],
+      ["setEventListener", 1, "mouseUp", true],
       ["setCustomProp", 1, "type", "checkbox"],
       ["setRoot", 1],
     ])
@@ -115,6 +117,7 @@ describe("React host prop forwarding parity", () => {
     expect(renderer.batches.at(-1)).toEqual([
       ["setEventListener", 1, "change", false],
       ["setEventListener", 1, "click", false],
+      ["setEventListener", 1, "mouseUp", false],
       ["setStyle", 1, {}],
     ])
   })
