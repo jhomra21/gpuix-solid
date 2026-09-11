@@ -109,6 +109,13 @@ export class MutationDriver {
 
   enqueue(name: string, ...args: MutationValue[]): void {
     if (this.#disposed) throw new Error("GPUix Solid mutation driver is disposed")
+    if (name === "appendChild" || name === "insertBefore") {
+      this.#events.setParent(numberArg(args, 1), numberArg(args, 0))
+    } else if (name === "removeChild") {
+      this.#events.setParent(numberArg(args, 1), null)
+    } else if (name === "setRoot") {
+      this.#events.setParent(numberArg(args, 0), null)
+    }
     if (name === "setStyle" && isObjectValue(args[1]) && !Array.isArray(args[1])) {
       // SAFETY: setStyle is only enqueued with the renderer-owned StyleDesc object; this boundary widens numeric fields solely to accept CSS unit strings before native serialization.
       const style = args[1] as StyleMutationInput

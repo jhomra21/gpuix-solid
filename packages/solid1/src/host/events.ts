@@ -304,6 +304,7 @@ export class EventRegistry {
   readonly #handlers = new Map<number, Map<string, HostEventHandler>>()
   readonly #live = new Set<number>()
   readonly #targets = new Map<number, DomCompatTarget>()
+  readonly #parents = new Map<number, number | null>()
   readonly #nativePointerDown = new Set<number>()
   readonly #activePointers = new Set<number>()
   readonly #pointerCapture = new Map<number, number>()
@@ -320,6 +321,10 @@ export class EventRegistry {
     this.#targets.set(id, target)
   }
 
+  setParent(id: number, parentId: number | null): void {
+    this.#parents.set(id, parentId)
+  }
+
   deactivate(id: number): void {
     for (const [pointerId, ownerId] of this.#pointerCapture) {
       if (ownerId !== id) continue
@@ -329,6 +334,7 @@ export class EventRegistry {
     this.#live.delete(id)
     this.#handlers.delete(id)
     this.#targets.delete(id)
+    this.#parents.delete(id)
     this.#nativePointerDown.delete(id)
     this.#syntheticPrimaryClicks.delete(id)
     if (this.#activeRangeId === id) this.#activeRangeId = undefined
@@ -351,6 +357,7 @@ export class EventRegistry {
     if (!this.#live.has(id)) {
       this.#handlers.delete(id)
       this.#targets.delete(id)
+      this.#parents.delete(id)
       this.#nativePointerDown.delete(id)
       this.#syntheticPrimaryClicks.delete(id)
     }
@@ -360,6 +367,7 @@ export class EventRegistry {
     this.#handlers.clear()
     this.#live.clear()
     this.#targets.clear()
+    this.#parents.clear()
     this.#nativePointerDown.clear()
     this.#activePointers.clear()
     this.#pointerCapture.clear()
@@ -430,11 +438,12 @@ export class EventRegistry {
         const capturedId = this.#pointerCapture.get(POINTER_ID)
         this.#dispatchDom(capturedId ?? event.elementId, "pointerUp", event)
         this.#dispatchDom(event.elementId, "mouseUp", event)
-        if ((event.button ?? 0) === 0 && this.#handlers.get(event.elementId)?.has("click")) {
-          const clickEvent = { ...event, eventType: "click", button: 0 } satisfies NativeEventPayload
+        const clickOwner = (event.button ?? 0) === 0 ? this.#primaryClickOwner(event.elementId) : undefined
+        if (clickOwner !== undefined && (clickOwner !== event.elementId || this.#handlers.get(clickOwner)?.has("click"))) {
+          const clickEvent = { ...event, elementId: clickOwner, eventType: "click", button: 0 } satisfies NativeEventPayload
           this.#dispatchPrimaryClick(clickEvent)
-          this.#syntheticPrimaryClicks.set(event.elementId, {
-            elementId: event.elementId,
+          this.#syntheticPrimaryClicks.set(clickOwner, {
+            elementId: clickOwner,
             button: 0,
             x: event.x ?? 0,
             y: event.y ?? 0,
@@ -447,8 +456,12 @@ export class EventRegistry {
         return
       }
       case "click": {
-        if (this.#matchesSyntheticPrimaryClick(event)) return
-        this.#dispatchPrimaryClick(event)
+        const clickOwner = this.#primaryClickOwner(event.elementId)
+        const clickEvent = clickOwner === undefined || clickOwner === event.elementId
+          ? event
+          : { ...event, elementId: clickOwner }
+        if (this.#matchesSyntheticPrimaryClick(clickEvent)) return
+        this.#dispatchPrimaryClick(clickEvent)
         return
       }
       case "mouseEnter": {
@@ -472,6 +485,20 @@ export class EventRegistry {
 
   #isRangeTarget(elementId: number): boolean {
     return this.#targets.get(elementId)?.getAttribute("type")?.toLowerCase() === "range"
+  }
+
+  #isCheckboxTarget(elementId: number): boolean {
+    return this.#targets.get(elementId)?.getAttribute("type")?.toLowerCase() === "checkbox"
+  }
+
+  #primaryClickOwner(elementId: number): number | undefined {
+    if (this.#isCheckboxTarget(elementId)) return elementId
+    let current: number | null | undefined = elementId
+    while (current !== undefined && current !== null && this.#live.has(current)) {
+      if (this.#handlers.get(current)?.has("click")) return current
+      current = this.#parents.get(current)
+    }
+    return undefined
   }
 
   #updateRangeValue(elementId: number, event: NativeEventPayload): boolean {
