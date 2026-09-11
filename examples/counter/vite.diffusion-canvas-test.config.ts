@@ -1,6 +1,6 @@
 import solid from "@solidjs/vite-plugin"
 import { defineConfig } from "vite"
-import { diffusionSourceAliases } from "./vite.diffusion-source"
+import { diffusionSourceAliases } from "./vite.diffusion-source.ts"
 
 export default defineConfig({
   plugins: [
