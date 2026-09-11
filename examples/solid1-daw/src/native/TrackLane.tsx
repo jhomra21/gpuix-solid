@@ -50,7 +50,9 @@ function traceClipPointer(phase: "down" | "up" | "open", selectedClipId: string,
   if (clipId !== "drums-a") return
   const now = performance.now()
   const position = event ? `:${event.clientX},${event.clientY}` : ""
-  nativeClipPointerTrace.push(`${phase}:selected=${selectedClipId === clipId}${position}:${now}`)
+  const trace = `${phase}:selected=${selectedClipId === clipId}${position}:${now}`
+  nativeClipPointerTrace.push(trace)
+  console.log(`[daw-clip-trace] ${trace}`)
 
   if (phase === "down" && event) {
     tracedPointerDown = {
