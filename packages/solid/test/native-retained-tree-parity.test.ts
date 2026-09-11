@@ -165,6 +165,7 @@ describe("native retained-tree parity", () => {
             },
             "events": [
               "change",
+              "click",
             ],
             "style": {
               "height": 40,
