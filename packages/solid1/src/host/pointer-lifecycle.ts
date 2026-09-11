@@ -50,6 +50,14 @@ function sameReleaseBurst(left: PointerReleaseBurst, right: PointerReleaseBurst)
   return left.x === right.x && left.y === right.y && left.button === right.button
 }
 
+function traceDawRelease(event: EventPayload, rootId: number | undefined, pressedElementId: number | undefined, detail: string): void {
+  if (event.eventType !== "mouseDown" && event.eventType !== "mouseUp") return
+  const x = event.x ?? Number.NaN
+  const y = event.y ?? Number.NaN
+  if (Math.abs(x - 460) > 2 || Math.abs(y - 156.5) > 2) return
+  console.log(`[pointer-relay-trace] ${event.eventType}:raw=${event.elementId}:root=${rootId ?? "none"}:pressed=${pressedElementId ?? "none"}:${detail}`)
+}
+
 /**
  * The mounted root carries synthetic mouse-up subscription as a browser-window
  * relay. Native pointer capture can outlive a retained node replacement on some
@@ -73,16 +81,15 @@ export class BrowserPointerReleaseRelay {
     canRouteRootRelease: (elementId: number, event: EventPayload) => boolean,
     isDescendantOf: (elementId: number, ancestorId: number) => boolean = () => false,
   ): EventPayload | undefined {
+    traceDawRelease(event, rootId, this.#pressedElementId, "enter")
     if (event.eventType === "mouseDown") {
       if (event.elementId !== rootId) {
         const pressedElementId = this.#pressedElementId
-        if (
-          pressedElementId === undefined
+        const keepNew = pressedElementId === undefined
           || pressedElementId === event.elementId
           || isDescendantOf(event.elementId, pressedElementId)
-        ) {
-          this.#pressedElementId = event.elementId
-        }
+        if (keepNew) this.#pressedElementId = event.elementId
+        traceDawRelease(event, rootId, this.#pressedElementId, `down:keepNew=${keepNew}`)
       }
       return event
     }
@@ -94,21 +101,21 @@ export class BrowserPointerReleaseRelay {
       const fallback = this.#rootFallback
       if (fallback && fallback.elementId === event.elementId && sameReleaseBurst(fallback.burst, burst)) {
         this.#rootFallback = undefined
+        traceDawRelease(event, rootId, this.#pressedElementId, "up:suppress-late-fallback")
         return undefined
       }
       if (event.elementId === this.#pressedElementId) this.#pressedElementId = undefined
+      traceDawRelease(event, rootId, this.#pressedElementId, "up:direct-nonroot")
       return event
     }
 
     const pressedElementId = this.#pressedElementId
     this.#pressedElementId = undefined
-    if (
-      pressedElementId === undefined
-      || pressedElementId === rootId
-      || !canRouteRootRelease(pressedElementId, event)
-    ) {
-      return event
-    }
+    const canRoute = pressedElementId !== undefined
+      && pressedElementId !== rootId
+      && canRouteRootRelease(pressedElementId, event)
+    traceDawRelease(event, rootId, pressedElementId, `up:root:canRoute=${canRoute}`)
+    if (!canRoute || pressedElementId === undefined) return event
 
     const fallback = { elementId: pressedElementId, burst }
     this.#rootFallback = fallback
