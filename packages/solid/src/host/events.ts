@@ -290,6 +290,7 @@ type LastClick = {
 
 type ActivationPair = {
   elementId: number
+  sourceElementId: number
   button: number
   clickCount: number
   x: number
@@ -459,12 +460,16 @@ export class EventRegistry {
         const capturedId = this.#pointerCapture.get(POINTER_ID)
         this.#dispatchDom(capturedId ?? event.elementId, "pointerUp", event)
         this.#dispatchDom(event.elementId, "mouseUp", event)
-        const clickOwner = (event.button ?? 0) === 0 ? this.#primaryClickOwner(event.elementId) : undefined
+        const sourceElementId = event.elementId
+        const clickOwner = (event.button ?? 0) === 0 ? this.#primaryClickOwner(sourceElementId) : undefined
         if (clickOwner !== undefined) {
           const clickEvent = { ...event, elementId: clickOwner, eventType: "click", button: 0 } satisfies NativeEventPayload
-          if (!this.#consumePrimaryClickPair(this.#nativePrimaryClicks, clickEvent)) {
+          if (
+            !this.#consumePrimaryClickPair(this.#nativePrimaryClicks, clickEvent, sourceElementId)
+            && !this.#consumePrimaryClickPair(this.#syntheticPrimaryClicks, clickEvent, sourceElementId, true)
+          ) {
             this.#dispatchPrimaryClick(clickEvent)
-            this.#recordPrimaryClickPair(this.#syntheticPrimaryClicks, clickEvent)
+            this.#recordPrimaryClickPair(this.#syntheticPrimaryClicks, clickEvent, sourceElementId)
           }
         }
         if (event.button === 2) this.#dispatchDom(event.elementId, "contextMenu", event)
@@ -474,13 +479,14 @@ export class EventRegistry {
       }
       case "click": {
         if (this.#isBubbledNativeClick(event)) return
-        const clickOwner = this.#primaryClickOwner(event.elementId)
-        const clickEvent = clickOwner === undefined || clickOwner === event.elementId
+        const sourceElementId = event.elementId
+        const clickOwner = this.#primaryClickOwner(sourceElementId)
+        const clickEvent = clickOwner === undefined || clickOwner === sourceElementId
           ? event
           : { ...event, elementId: clickOwner }
-        if (this.#consumePrimaryClickPair(this.#syntheticPrimaryClicks, clickEvent)) return
+        if (this.#consumePrimaryClickPair(this.#syntheticPrimaryClicks, clickEvent, sourceElementId)) return
         this.#dispatchPrimaryClick(clickEvent)
-        this.#recordPrimaryClickPair(this.#nativePrimaryClicks, clickEvent)
+        this.#recordPrimaryClickPair(this.#nativePrimaryClicks, clickEvent, sourceElementId)
         return
       }
       case "mouseEnter": {
@@ -592,27 +598,38 @@ export class EventRegistry {
     this.#maybeDispatchDoubleClick(event)
   }
 
-  #recordPrimaryClickPair(map: Map<number, ActivationPair>, event: NativeEventPayload): void {
+  #recordPrimaryClickPair(
+    map: Map<number, ActivationPair>,
+    event: NativeEventPayload,
+    sourceElementId: number,
+  ): void {
     const pair: ActivationPair = {
       elementId: event.elementId,
+      sourceElementId,
       button: event.button ?? 0,
       clickCount: event.clickCount ?? 1,
       x: event.x ?? 0,
       y: event.y ?? 0,
     }
     map.set(event.elementId, pair)
-    // The paired callback for one physical GPUI event is drained synchronously.
-    // Clear an unmatched half at the next microtask so a later real click at the
-    // same coordinates is never mistaken for the previous activation.
+    // GPUI can report one physical activation through more than one retained
+    // subscription synchronously. Clear an unmatched half at the next microtask
+    // so a later real click at the same coordinates is never coalesced.
     queueMicrotask(() => {
       if (map.get(event.elementId) === pair) map.delete(event.elementId)
     })
   }
 
-  #consumePrimaryClickPair(map: Map<number, ActivationPair>, event: NativeEventPayload): boolean {
+  #consumePrimaryClickPair(
+    map: Map<number, ActivationPair>,
+    event: NativeEventPayload,
+    sourceElementId: number,
+    requireDifferentSource = false,
+  ): boolean {
     const pair = map.get(event.elementId)
     if (!pair) return false
-    const matches = pair.button === (event.button ?? 0)
+    const matches = (!requireDifferentSource || pair.sourceElementId !== sourceElementId)
+      && pair.button === (event.button ?? 0)
       && pair.clickCount === (event.clickCount ?? 1)
       && Math.hypot(pair.x - (event.x ?? 0), pair.y - (event.y ?? 0)) <= DOUBLE_CLICK_DISTANCE_PX
     if (matches) map.delete(event.elementId)

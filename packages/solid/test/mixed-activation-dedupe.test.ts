@@ -77,7 +77,45 @@ describe("mixed retained/custom activation dedupe", () => {
     expect(clicks).toBe(2)
   })
 
-  it("does not swallow a later real click at the same coordinates", async () => {
+  it("coalesces retained descendant and owner mouse-up relays from one physical click", async () => {
+    const events = new EventRegistry()
+    const renderer = new FakeRenderer()
+    const driver = new MutationDriver(renderer, events)
+    const parentId = 81
+    const textId = 82
+    let clicks = 0
+
+    events.activate(parentId)
+    events.activate(textId)
+    events.set(parentId, "click", () => {
+      clicks += 1
+    })
+
+    driver.enqueue("createElement", parentId, "div")
+    driver.enqueue("createElement", textId, "text")
+    driver.enqueue("setEventListener", parentId, "click", true)
+    driver.enqueue("appendChild", parentId, textId)
+    driver.flush()
+
+    expect(listenerMutations(renderer, textId, "mouseUp")).toContainEqual([
+      "setEventListener",
+      textId,
+      "mouseUp",
+      true,
+    ])
+
+    events.dispatch(primaryMouseUp(textId))
+    events.dispatch(primaryMouseUp(parentId))
+    expect(clicks).toBe(1)
+
+    await Promise.resolve()
+
+    events.dispatch(primaryMouseUp(parentId))
+    events.dispatch(primaryMouseUp(textId))
+    expect(clicks).toBe(2)
+  })
+
+  it("does not swallow repeated clicks at the same coordinates", async () => {
     const events = new EventRegistry()
     const parentId = 71
     const svgId = 72
@@ -98,6 +136,22 @@ describe("mixed retained/custom activation dedupe", () => {
 
     events.dispatch(primaryClick(svgId))
     events.dispatch(primaryMouseUp(parentId))
+    expect(clicks).toBe(2)
+  })
+
+  it("preserves consecutive direct activations on the same retained target", () => {
+    const events = new EventRegistry()
+    const elementId = 91
+    let clicks = 0
+
+    events.activate(elementId)
+    events.set(elementId, "click", () => {
+      clicks += 1
+    })
+
+    events.dispatch(primaryMouseUp(elementId))
+    events.dispatch(primaryMouseUp(elementId))
+
     expect(clicks).toBe(2)
   })
 })
