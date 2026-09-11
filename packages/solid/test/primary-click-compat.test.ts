@@ -53,6 +53,26 @@ describe("embedded primary click compatibility", () => {
     expect(clicks).toBe(1)
   })
 
+  it("replays a missed owner pointer-down before a relayed primary click", () => {
+    const events = new EventRegistry()
+    const parentId = 8
+    const childId = 9
+    const order: string[] = []
+
+    events.activate(parentId)
+    events.activate(childId)
+    events.setParent(childId, parentId)
+    events.set(parentId, "pointerDown", () => {
+      order.push("pointerDown")
+    })
+    events.set(parentId, "click", () => {
+      order.push("click")
+    })
+
+    events.dispatch(primaryClick(childId))
+    expect(order).toEqual(["pointerDown", "click"])
+  })
+
   it("arms nested retained content as a native activation relay and detaches it cleanly", () => {
     const events = new EventRegistry()
     const renderer = new FakeRenderer()

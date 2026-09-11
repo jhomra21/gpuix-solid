@@ -565,7 +565,7 @@ export class EventRegistry {
 
   #dispatchPrimaryClick(event: NativeEventPayload): void {
     if (!this.#nativePointerDown.has(event.elementId)) {
-      this.#dispatchDom(event.elementId, "pointerDown", event, true)
+      this.#dispatchDom(event.elementId, "pointerDown", event)
     }
     const target = this.#targets.get(event.elementId)
     const checkbox = target?.getAttribute("type")?.toLowerCase() === "checkbox" ? target : undefined

@@ -64,6 +64,26 @@ class RelayRenderer implements NativeRenderer {
 
 {
   const events = new EventRegistry()
+  const parentId = 8
+  const childId = 9
+  const order: string[] = []
+
+  events.activate(parentId)
+  events.activate(childId)
+  events.setParent(childId, parentId)
+  events.set(parentId, "pointerDown", () => {
+    order.push("pointerDown")
+  })
+  events.set(parentId, "click", () => {
+    order.push("click")
+  })
+
+  events.dispatch(primaryClick(childId))
+  assert.deepEqual(order, ["pointerDown", "click"], "relayed primary click should replay the owner's missed pointer-down first")
+}
+
+{
+  const events = new EventRegistry()
   const parentId = 11
   const childId = 12
   let parentClicks = 0
