@@ -356,10 +356,10 @@ export function SubTrigger<T = "div">(props: PolymorphicProps<T, DropdownMenuSub
         if (isActivationKey(event.key) || event.key === "right") {
           context.setOpen(true)
           focusAfterMount(() => menu.items.focusNext(focusKey))
-        } else if (event.key === "down") context.items.focusNext(focusKey)
-        else if (event.key === "up") context.items.focusPrevious(focusKey)
-        else if (event.key === "home") context.items.focusFirst()
-        else if (event.key === "end") context.items.focusLast()
+        } else if (event.key === "down") menu.items.focusNext(focusKey)
+        else if (event.key === "up") menu.items.focusPrevious(focusKey)
+        else if (event.key === "home") menu.items.focusFirst()
+        else if (event.key === "end") menu.items.focusLast()
         else if (event.key === "left") context.setOpen(false)
         else if (event.key === "escape") {
           menu.setOpen(false)

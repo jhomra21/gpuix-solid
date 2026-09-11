@@ -34,16 +34,20 @@ function requireCondition(condition: boolean, message: string): void {
   if (!condition) throw new Error(message)
 }
 
-function hasTextPointerStyle(
-  styles: readonly StyleMutation[],
-  textId: number,
-  pointerEvents: "auto" | "none" | "cleared",
-): boolean {
-  return styles.some(({ id, styleJson }) => {
-    if (id !== textId) return false
-    if (pointerEvents === "cleared") return !styleJson.includes('"pointerEvents"')
-    return styleJson.includes(`"pointerEvents":"${pointerEvents}"`)
-  })
+function textStyleMutations(styles: readonly StyleMutation[], textId: number): readonly StyleMutation[] {
+  return styles.filter(({ id }) => id === textId)
+}
+
+function hasPointerValue(styles: readonly StyleMutation[], textId: number, value: "auto" | "none"): boolean {
+  return textStyleMutations(styles, textId).some(({ styleJson }) => styleJson.includes(`"pointerEvents":"${value}"`))
+}
+
+function hasPointerProperty(styles: readonly StyleMutation[], textId: number): boolean {
+  return textStyleMutations(styles, textId).some(({ styleJson }) => styleJson.includes('"pointerEvents"'))
+}
+
+function hasImplicitStyleReset(styles: readonly StyleMutation[], textId: number): boolean {
+  return textStyleMutations(styles, textId).some(({ styleJson }) => !styleJson.includes('"pointerEvents"'))
 }
 
 const renderer = new RecordingRenderer()
@@ -51,35 +55,66 @@ const events = new EventRegistry()
 const driver = new MutationDriver(renderer, events)
 const root = new HostRootNode(renderer, events, driver)
 
-const trigger = createHostElement("div", "button")
-const decorativeLabel = createHostElement("div", "span")
-const text = createHostText("Git Settings")
-setHostProperty(trigger, "role", "button")
-setHostProperty(decorativeLabel, "style", { pointerEvents: "none" })
-insertHostNode(decorativeLabel, text)
-insertHostNode(trigger, decorativeLabel)
-insertHostNode(root, trigger)
+const surface = createHostElement("div")
+const outerNone = createHostElement("div")
+const innerOverride = createHostElement("div")
+const inheritedText = createHostText("Git Settings")
+const ordinaryAuto = createHostElement("div")
+const ordinaryText = createHostText("Format")
+
+setHostProperty(outerNone, "style", { pointerEvents: "none" })
+setHostProperty(ordinaryAuto, "style", { pointerEvents: "auto" })
+insertHostNode(innerOverride, inheritedText)
+insertHostNode(outerNone, innerOverride)
+insertHostNode(ordinaryAuto, ordinaryText)
+insertHostNode(surface, outerNone)
+insertHostNode(surface, ordinaryAuto)
+insertHostNode(root, surface)
 driver.flush()
 
 requireCondition(
-  hasTextPointerStyle(renderer.styles, text.id, "none"),
+  hasPointerValue(renderer.styles, inheritedText.id, "none"),
   "raw retained text must inherit pointer-events:none from a decorative ancestor",
+)
+requireCondition(
+  !hasPointerProperty(renderer.styles, ordinaryText.id),
+  "ordinary pointer-events:auto ancestry must stay implicit for raw retained text",
 )
 
 let checkpoint = renderer.styles.length
-setHostProperty(decorativeLabel, "style", { pointerEvents: "auto" })
+setHostProperty(innerOverride, "style", { pointerEvents: "auto" })
 driver.flush()
+let changes = renderer.styles.slice(checkpoint)
 requireCondition(
-  hasTextPointerStyle(renderer.styles.slice(checkpoint), text.id, "auto"),
-  "raw retained text must honor a descendant pointer-events:auto re-enable",
+  hasImplicitStyleReset(changes, inheritedText.id),
+  "a nearer pointer-events:auto must clear inherited none on raw retained text",
+)
+requireCondition(
+  !hasPointerValue(changes, inheritedText.id, "auto"),
+  "a nearer pointer-events:auto must not materialize an independent native text hit target",
 )
 
 checkpoint = renderer.styles.length
-setHostProperty(decorativeLabel, "style", {})
+setHostProperty(innerOverride, "style", { pointerEvents: "none" })
 driver.flush()
+changes = renderer.styles.slice(checkpoint)
 requireCondition(
-  hasTextPointerStyle(renderer.styles.slice(checkpoint), text.id, "cleared"),
-  "raw retained text must clear a previously materialized pointer-events value",
+  hasPointerValue(changes, inheritedText.id, "none"),
+  "raw retained text must restore pointer-events:none when the nearer ancestor becomes decorative again",
+)
+
+checkpoint = renderer.styles.length
+setHostProperty(innerOverride, "style", {})
+setHostProperty(outerNone, "style", {})
+driver.flush()
+changes = renderer.styles.slice(checkpoint)
+requireCondition(
+  hasImplicitStyleReset(changes, inheritedText.id),
+  "raw retained text must clear materialized pointer-events:none when decorative ancestry is removed",
+)
+requireCondition(
+  !hasPointerValue(changes, inheritedText.id, "auto"),
+  "clearing decorative ancestry must not materialize pointer-events:auto on raw retained text",
 )
 
 driver.dispose()

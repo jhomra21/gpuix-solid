@@ -592,7 +592,9 @@ function nativeTextLayoutStyle(text: string): StyleDesc {
 function inheritedTextPointerEvents(node: HostTextNode): StyleDesc["pointerEvents"] | undefined {
   let parent = node.parent
   while (parent?.kind === "element") {
-    if (parent.style.pointerEvents !== undefined) return parent.style.pointerEvents
+    const pointerEvents = parent.style.pointerEvents
+    if (pointerEvents === "none") return "none"
+    if (pointerEvents === "auto") return undefined
     parent = parent.parent
   }
   return undefined
