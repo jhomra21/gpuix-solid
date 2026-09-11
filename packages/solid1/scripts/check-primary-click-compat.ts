@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import type { EventPayload as NativeEventPayload } from "@gpuix/native"
 import { EventRegistry } from "../src/host/events.js"
-import { MutationDriver } from "../src/host/mutations.js"
+import { MutationDriver, type MutationValue } from "../src/host/mutations.js"
 import type { NativeRenderer } from "../src/host/types.js"
 
 function primaryMouseUp(elementId: number) {
@@ -12,6 +12,22 @@ function primaryMouseUp(elementId: number) {
     y: 16,
     button: 0,
   } satisfies NativeEventPayload
+}
+
+class RelayRenderer implements NativeRenderer {
+  readonly direct: MutationValue[][] = []
+
+  createElement(id: number, type: string): void { this.direct.push(["createElement", id, type]) }
+  destroyElement(id: number): number[] { this.direct.push(["destroyElement", id]); return [id] }
+  appendChild(parent: number, child: number): void { this.direct.push(["appendChild", parent, child]) }
+  removeChild(parent: number, child: number): void { this.direct.push(["removeChild", parent, child]) }
+  insertBefore(parent: number, child: number, before: number): void { this.direct.push(["insertBefore", parent, child, before]) }
+  setStyle(id: number, style: string): void { this.direct.push(["setStyle", id, style]) }
+  setText(id: number, content: string): void { this.direct.push(["setText", id, content]) }
+  setEventListener(id: number, type: string, enabled: boolean): void { this.direct.push(["setEventListener", id, type, enabled]) }
+  setRoot(id: number): void { this.direct.push(["setRoot", id]) }
+  setCustomProp(id: number, key: string, value: string): void { this.direct.push(["setCustomProp", id, key, value]) }
+  commitMutations(): void { this.direct.push(["commitMutations"]) }
 }
 
 {
@@ -62,13 +78,7 @@ function primaryMouseUp(elementId: number) {
 
 {
   const events = new EventRegistry()
-  const batches: Array<Array<Array<string | number | boolean | object | null>>> = []
-  const renderer = {
-    applyBatch(json: string) {
-      batches.push(JSON.parse(json) as Array<Array<string | number | boolean | object | null>>)
-      return []
-    },
-  } as unknown as NativeRenderer
+  const renderer = new RelayRenderer()
   const driver = new MutationDriver(renderer, events)
   const parentId = 15
   const childId = 16
@@ -80,7 +90,7 @@ function primaryMouseUp(elementId: number) {
   driver.enqueue("appendChild", parentId, childId)
   driver.flush()
 
-  const childClickMutations = batches.flat().filter(
+  const childClickMutations = renderer.direct.filter(
     (mutation) => mutation[0] === "setEventListener" && mutation[1] === childId && mutation[2] === "click",
   )
   assert.deepEqual(
@@ -91,7 +101,7 @@ function primaryMouseUp(elementId: number) {
 
   driver.enqueue("removeChild", parentId, childId)
   driver.flush()
-  const detachedChildClickMutations = batches.flat().filter(
+  const detachedChildClickMutations = renderer.direct.filter(
     (mutation) => mutation[0] === "setEventListener" && mutation[1] === childId && mutation[2] === "click",
   )
   assert.deepEqual(
