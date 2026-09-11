@@ -18,7 +18,9 @@ async function main(): Promise<void> {
       try {
         return await locator.bounds()
       } catch (error) {
-        if (Date.now() - started >= 5000) throw error
+        if (Date.now() - started >= 5000) {
+          throw new Error(`${testId} never exposed painted bounds after 5s`, { cause: error })
+        }
         await new Promise<void>((resolve) => setTimeout(resolve, 16))
       }
     }
