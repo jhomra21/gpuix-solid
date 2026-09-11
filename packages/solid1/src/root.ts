@@ -16,6 +16,13 @@ import { registerNativePortalRoot, unregisterNativePortalRoot } from "./native-p
 import { universalRender } from "./universal.js"
 
 const windowKeyEventIds = new WeakMap<NativeRenderer, number>()
+type PointerRelayEventType = "mouseMove" | "mouseUp"
+type PointerRelayBurst = {
+  eventType: PointerRelayEventType
+  x: number
+  y: number
+  button: number
+}
 
 function nextWindowKeyEventId(renderer: NativeRenderer): number {
   const id = (windowKeyEventIds.get(renderer) ?? 0) + 1
@@ -32,6 +39,18 @@ function hasLiveElement(container: HostRootNode, elementId: number): boolean {
     pending.push(...node.children)
   }
   return false
+}
+
+function pointerRelayEventType(eventType: string): PointerRelayEventType | undefined {
+  if (eventType === "mouseMove" || eventType === "mouseUp") return eventType
+  return undefined
+}
+
+function samePointerRelayBurst(left: PointerRelayBurst, right: PointerRelayBurst): boolean {
+  return left.eventType === right.eventType
+    && left.x === right.x
+    && left.y === right.y
+    && left.button === right.button
 }
 
 export type Solid1RenderValue = JSX.Element | HostNode
@@ -74,6 +93,7 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
   let windowKeyEventHandlers = initialWindowKeyEventHandlers
   let windowKeyEventId = nextWindowKeyEventId(renderer)
   let dispose: (() => void) | undefined
+  let pointerRelayBurst: PointerRelayBurst | undefined
 
   const syncWindowKeyEvents = (): void => {
     renderer.setWindowKeyEvents?.(
@@ -106,6 +126,39 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
   }
   registerNativePortalRoot(renderer, container, getViewportSize)
   getViewportSize()
+
+  const isSyntheticRootRelayDuplicate = (event: EventPayload): boolean => {
+    const relayType = pointerRelayEventType(event.eventType)
+    if (!relayType) return false
+    const mounted = container.children[0]
+    if (!mounted || mounted.kind !== "element") return false
+
+    if (event.elementId !== mounted.id) {
+      const next = {
+        eventType: relayType,
+        x: event.x ?? 0,
+        y: event.y ?? 0,
+        button: event.button ?? 0,
+      } satisfies PointerRelayBurst
+      pointerRelayBurst = next
+      queueMicrotask(() => {
+        if (pointerRelayBurst === next) pointerRelayBurst = undefined
+      })
+      return false
+    }
+
+    const previous = pointerRelayBurst
+    if (!previous) return false
+    const current = {
+      eventType: relayType,
+      x: event.x ?? 0,
+      y: event.y ?? 0,
+      button: event.button ?? 0,
+    } satisfies PointerRelayBurst
+    if (!samePointerRelayBurst(previous, current)) return false
+    const pointerType = relayType === "mouseMove" ? "pointerMove" : "pointerUp"
+    return !events.has(mounted.id, pointerType) && !events.has(mounted.id, relayType)
+  }
 
   return {
     render(code) {
@@ -158,6 +211,7 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
           return true
         }
         if (!hasLiveElement(container, event.elementId)) return false
+        if (isSyntheticRootRelayDuplicate(event)) return true
         const browserEvent = browserCompatibleNativeEvent(event)
         events.dispatch(browserEvent)
         dispatchBrowserKeyboardEvent(browserEvent)

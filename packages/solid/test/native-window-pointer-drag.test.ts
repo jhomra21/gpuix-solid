@@ -55,7 +55,7 @@ describe("native window pointer drag parity", () => {
     testRoot.unmount()
   })
 
-  nativeIt("delivers window release after the pressed node remounts during drag", () => {
+  nativeIt("delivers window lifecycle once after the pressed node remounts during drag", () => {
     const testRoot = createTestRoot(400, 120)
     const [generation, setGeneration] = createSignal(0)
     let dragOwner: HostElementNode | undefined
@@ -101,11 +101,12 @@ describe("native window pointer drag parity", () => {
     testRoot.renderer.nativeSimulateMouseDown(startX, startY, 0)
     testRoot.renderer.nativeSimulateMouseMove(startX + 40, startY, 0)
     expect(generation()).toBe(1)
-    testRoot.renderer.nativeSimulateMouseUp(startX + 40, startY, 0)
+    testRoot.renderer.nativeSimulateMouseMove(startX + 60, startY, 0)
+    testRoot.renderer.nativeSimulateMouseUp(startX + 60, startY, 0)
 
     if (moveListener) window.removeEventListener("pointermove", moveListener, true)
     if (upListener) window.removeEventListener("pointerup", upListener, true)
-    expect(deltas).toEqual([40])
+    expect(deltas).toEqual([40, 60])
     expect(releases).toBe(1)
     testRoot.unmount()
   })
