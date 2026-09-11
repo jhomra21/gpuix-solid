@@ -142,6 +142,11 @@ if (!hasNativeTestRenderer) {
 
   const lightDropdownBounds = r.boundsTextWithinTestId("upstream-dropdown", "Git Settings")
   r.clickTextWithinTestId("upstream-dropdown", "Git Settings")
+  await waitForCondition(
+    "DropdownMenu popup content",
+    () => r.textContentRoot().includes("Commit"),
+    flushNative,
+  )
   requireText(r.textContentRoot(), "Commit", "light DropdownMenu")
   await waitForCondition(
     "DropdownMenu popup placement",
