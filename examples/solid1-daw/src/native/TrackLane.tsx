@@ -30,6 +30,18 @@ interface GridLine {
 
 const automationSelections: AutomationParameterSelection[] = [{ parameterId: "volume" }]
 
+export const nativeClipPointerTrace: string[] = []
+
+export function resetNativeClipPointerTrace(): void {
+  nativeClipPointerTrace.length = 0
+}
+
+function traceClipPointer(phase: "down" | "up" | "open", selectedClipId: string, clipId: string, event?: PointerEvent): void {
+  if (clipId !== "drums-a") return
+  const position = event ? `:${event.clientX},${event.clientY}` : ""
+  nativeClipPointerTrace.push(`${phase}:selected=${selectedClipId === clipId}${position}`)
+}
+
 function sourceClip(clip: NativeTrack["clips"][number]): RuntimeClip {
   const runtimeClip: RuntimeClip = {
     ...clip,
@@ -143,10 +155,18 @@ const TrackLane = (props: TrackLaneProps): JSX.Element => {
         groupClipOverview={[]}
         selectedClipIds={selectedClipIds()}
         rangeSelection={null}
-        onClipPointerDown={(trackId, clipId, event) => props.onClipMouseDown(trackId, clipId, event)}
-        onClipPointerUp={() => {}}
+        onClipPointerDown={(trackId, clipId, event) => {
+          traceClipPointer("down", props.selectedClipId, clipId, event)
+          props.onClipMouseDown(trackId, clipId, event)
+        }}
+        onClipPointerUp={(_trackId, clipId, event) => {
+          traceClipPointer("up", props.selectedClipId, clipId, event)
+        }}
         onClipResizeStart={() => {}}
-        onClipDblClick={props.onOpenClip}
+        onClipDblClick={(trackId, clipId) => {
+          traceClipPointer("open", props.selectedClipId, clipId)
+          props.onOpenClip(trackId, clipId)
+        }}
         clipContextMenu={{
           selectClip: props.onSelectClip,
           duplicateSelectedClips: () => {},
