@@ -25,6 +25,26 @@ describe("browser pointer lifecycle compatibility", () => {
     ])
   })
 
+  it("keeps native move/up armed on the mounted root", () => {
+    const renderer = new FakeRenderer()
+    const driver = new BrowserPointerMutationDriver(renderer, new EventRegistry())
+
+    driver.enqueue("createElement", 10, "div")
+    driver.enqueue("setRoot", 10)
+    driver.flush()
+
+    expect(listenerMutations(renderer)).toEqual([
+      ["setEventListener", 10, "mouseMove", true],
+      ["setEventListener", 10, "mouseUp", true],
+    ])
+
+    renderer.batches.length = 0
+    driver.enqueue("setEventListener", 10, "mouseMove", false)
+    driver.enqueue("setEventListener", 10, "mouseUp", false)
+    driver.flush()
+    expect(listenerMutations(renderer)).toEqual([])
+  })
+
   it("removes only synthetic move/up lifecycle when mouse-down is removed", () => {
     const renderer = new FakeRenderer()
     const driver = new BrowserPointerMutationDriver(renderer, new EventRegistry())
