@@ -3,10 +3,14 @@ import { MutationDriver, type MutationValue } from "./mutations.js"
 import type { NativeRenderer } from "./types.js"
 
 type PointerLifecycleEvent = "mouseDown" | "mouseMove" | "mouseUp"
-type PointerLifecycleState = Record<PointerLifecycleEvent, boolean>
+interface PointerLifecycleState {
+  mouseDown: boolean
+  mouseMove: boolean
+  mouseUp: boolean
+}
 
-function emptyPointerLifecycleState(): PointerLifecycleState {
-  return { mouseDown: false, mouseMove: false, mouseUp: false }
+function emptyPointerLifecycleState() {
+  return { mouseDown: false, mouseMove: false, mouseUp: false } satisfies PointerLifecycleState
 }
 
 function isNumberValue<T>(value: T): value is T & number {
@@ -70,11 +74,11 @@ export class BrowserPointerMutationDriver extends MutationDriver {
 
   #syncPointerLifecycle(id: number): void {
     const authored = this.#authored.get(id) ?? emptyPointerLifecycleState()
-    const desired: PointerLifecycleState = {
+    const desired = {
       mouseDown: authored.mouseDown,
       mouseMove: authored.mouseMove || authored.mouseDown,
       mouseUp: authored.mouseUp || authored.mouseDown,
-    }
+    } satisfies PointerLifecycleState
     const applied = this.#applied.get(id) ?? emptyPointerLifecycleState()
 
     for (const eventType of ["mouseDown", "mouseMove", "mouseUp"] as const) {
