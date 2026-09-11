@@ -18,6 +18,48 @@ describe("MutationDriver", () => {
     expect(renderer.batches[0]).toHaveLength(3)
   })
 
+  it("keeps native mouse-up armed as the embedded click fallback without stealing explicit mouse-up", () => {
+    const renderer = new FakeRenderer()
+    const driver = new MutationDriver(renderer, new EventRegistry())
+
+    driver.enqueue("setEventListener", 1, "click", true)
+    driver.flush()
+    expect(renderer.batches[0]).toEqual([
+      ["setEventListener", 1, "click", true],
+      ["setEventListener", 1, "mouseUp", true],
+    ])
+
+    driver.enqueue("setEventListener", 1, "mouseUp", true)
+    driver.flush()
+    expect(renderer.batches).toHaveLength(1)
+
+    driver.enqueue("setEventListener", 1, "click", false)
+    driver.flush()
+    expect(renderer.batches.at(-1)).toEqual([
+      ["setEventListener", 1, "click", false],
+    ])
+
+    driver.enqueue("setEventListener", 1, "mouseUp", false)
+    driver.flush()
+    expect(renderer.batches.at(-1)).toEqual([
+      ["setEventListener", 1, "mouseUp", false],
+    ])
+
+    driver.enqueue("setEventListener", 2, "click", true)
+    driver.flush()
+    expect(renderer.batches.at(-1)).toEqual([
+      ["setEventListener", 2, "click", true],
+      ["setEventListener", 2, "mouseUp", true],
+    ])
+
+    driver.enqueue("setEventListener", 2, "click", false)
+    driver.flush()
+    expect(renderer.batches.at(-1)).toEqual([
+      ["setEventListener", 2, "click", false],
+      ["setEventListener", 2, "mouseUp", false],
+    ])
+  })
+
   it("resolves em dimensions against the element font size", () => {
     const renderer = new FakeRenderer()
     const driver = new MutationDriver(renderer, new EventRegistry())

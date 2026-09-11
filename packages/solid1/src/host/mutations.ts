@@ -94,6 +94,8 @@ export class MutationDriver {
   readonly #children = new Map<number, Set<number>>()
   readonly #directClickListeners = new Map<number, boolean>()
   readonly #appliedClickListeners = new Map<number, boolean>()
+  readonly #directMouseUpListeners = new Map<number, boolean>()
+  readonly #appliedMouseUpListeners = new Map<number, boolean>()
   #queue: Mutation[] = []
   #scheduled = false
   #disposed = false
@@ -114,12 +116,23 @@ export class MutationDriver {
   enqueue(name: string, ...args: MutationValue[]): void {
     if (this.#disposed) throw new Error("GPUix Solid mutation driver is disposed")
 
-    if (name === "setEventListener" && stringArg(args, 1) === "click") {
+    if (name === "setEventListener") {
+      const eventType = stringArg(args, 1)
       const id = numberArg(args, 0)
-      this.#directClickListeners.set(id, booleanArg(args, 2))
-      this.#syncClickSubtree(id)
-      this.#schedule()
-      return
+      const hasHandler = booleanArg(args, 2)
+      if (eventType === "click") {
+        this.#directClickListeners.set(id, hasHandler)
+        this.#syncClickSubtree(id)
+        this.#syncMouseUpListener(id)
+        this.#schedule()
+        return
+      }
+      if (eventType === "mouseUp") {
+        this.#directMouseUpListeners.set(id, hasHandler)
+        this.#syncMouseUpListener(id)
+        this.#schedule()
+        return
+      }
     }
 
     let clickSubtree: number | undefined
@@ -242,6 +255,17 @@ export class MutationDriver {
     }
   }
 
+  #syncMouseUpListener(id: number): void {
+    // GPUIX 0.7 semantic click delivery is unreliable in embedded macOS windows.
+    // Keep the semantic click subscription for keyboard/current-runtime behavior,
+    // but also arm primary mouse-up so EventRegistry can synthesize browser click.
+    const next = this.#directMouseUpListeners.get(id) === true || this.#directClickListeners.get(id) === true
+    const previous = this.#appliedMouseUpListeners.get(id) ?? false
+    if (previous === next) return
+    this.#appliedMouseUpListeners.set(id, next)
+    this.#queue.push(["setEventListener", id, "mouseUp", next])
+  }
+
   #forgetSubtree(rootId: number): void {
     const stack = [rootId]
     while (stack.length > 0) {
@@ -257,6 +281,8 @@ export class MutationDriver {
       this.#children.delete(id)
       this.#directClickListeners.delete(id)
       this.#appliedClickListeners.delete(id)
+      this.#directMouseUpListeners.delete(id)
+      this.#appliedMouseUpListeners.delete(id)
     }
   }
 
