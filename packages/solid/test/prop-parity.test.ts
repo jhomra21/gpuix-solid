@@ -92,7 +92,7 @@ describe("React host prop forwarding parity", () => {
     expect(renderer.batches.at(-1)).toEqual([["setCustomProp", 1, "testId", null]])
   })
 
-  it("subscribes checkbox change handlers through the primary mouse-up activation channel", () => {
+  it("subscribes checkbox change handlers through the custom adapter click channel", () => {
     const { renderer, driver, root } = fixture()
     const node = createHostElement("input", "input")
 
@@ -105,7 +105,7 @@ describe("React host prop forwarding parity", () => {
       ["createElement", 1, "input"],
       ["setStyle", 1, { pointerEvents: "auto" }],
       ["setEventListener", 1, "change", true],
-      ["setEventListener", 1, "mouseUp", true],
+      ["setEventListener", 1, "click", true],
       ["setCustomProp", 1, "type", "checkbox"],
       ["setRoot", 1],
     ])
@@ -114,7 +114,7 @@ describe("React host prop forwarding parity", () => {
     driver.flush()
     expect(renderer.batches.at(-1)).toEqual([
       ["setEventListener", 1, "change", false],
-      ["setEventListener", 1, "mouseUp", false],
+      ["setEventListener", 1, "click", false],
       ["setStyle", 1, {}],
     ])
   })

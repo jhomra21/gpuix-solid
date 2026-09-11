@@ -151,7 +151,7 @@ class RelayRenderer implements NativeRenderer {
   const childClickMutations = renderer.direct.filter(
     (mutation) => mutation[0] === "setEventListener" && mutation[1] === childId && mutation[2] === "click",
   )
-  assert.equal(childClickMutations.length, 0, "DOM click compatibility must not create a second native click source")
+  assert.equal(childClickMutations.length, 0, "retained DOM click compatibility must not create a second native click source")
 
   driver.enqueue("removeChild", parentId, childId)
   driver.flush()
@@ -163,6 +163,30 @@ class RelayRenderer implements NativeRenderer {
     ["setEventListener", childId, "mouseUp", false],
     "detaching nested retained content should remove its native mouse-up relay",
   )
+}
+
+{
+  const events = new EventRegistry()
+  const renderer = new RelayRenderer()
+  const driver = new MutationDriver(renderer, events)
+  const inputId = 18
+
+  driver.enqueue("createElement", inputId, "input")
+  driver.enqueue("setEventListener", inputId, "click", true)
+  driver.flush()
+
+  const inputClickMutations = renderer.direct.filter(
+    (mutation) => mutation[0] === "setEventListener" && mutation[1] === inputId && mutation[2] === "click",
+  )
+  const inputMouseUpMutations = renderer.direct.filter(
+    (mutation) => mutation[0] === "setEventListener" && mutation[1] === inputId && mutation[2] === "mouseUp",
+  )
+  assert.deepEqual(
+    inputClickMutations.at(-1),
+    ["setEventListener", inputId, "click", true],
+    "GPUIX custom adapters should keep their semantic click channel",
+  )
+  assert.equal(inputMouseUpMutations.length, 0, "a custom adapter should not be subscribed to unsupported mouse-up for click intent")
 }
 
 {
