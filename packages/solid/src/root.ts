@@ -36,6 +36,30 @@ function hasLiveElement(container: HostRootNode, elementId: number): boolean {
   return false
 }
 
+function isHostDescendant(container: HostRootNode, elementId: number, ancestorId: number): boolean {
+  const pending: HostNode[] = [...container.children]
+  let ancestor: HostNode | undefined
+  while (pending.length > 0) {
+    const node = pending.pop()
+    if (!node) continue
+    if (node.kind === "element" && node.id === ancestorId) {
+      ancestor = node
+      break
+    }
+    pending.push(...node.children)
+  }
+  if (!ancestor) return false
+
+  const descendants: HostNode[] = [...ancestor.children]
+  while (descendants.length > 0) {
+    const node = descendants.pop()
+    if (!node) continue
+    if (node.kind === "element" && node.id === elementId) return true
+    descendants.push(...node.children)
+  }
+  return false
+}
+
 function eventPointInsideElement(renderer: NativeRenderer, elementId: number, event: EventPayload): boolean {
   // SAFETY: GPUIX production/test renderers may expose this optional synchronous bounds capability; callers already tolerate it being absent.
   const bounds = (renderer as BoundsRenderer).getElementBounds?.(elementId)
@@ -200,6 +224,7 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
             rootId,
             (elementId, release) => hasLiveElement(container, elementId)
               && eventPointInsideElement(renderer, elementId, release),
+            (elementId, ancestorId) => isHostDescendant(container, elementId, ancestorId),
           )
           if (!routedEvent) {
             handled = true

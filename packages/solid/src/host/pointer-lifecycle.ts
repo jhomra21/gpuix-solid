@@ -57,11 +57,11 @@ function sameReleaseBurst(left: PointerReleaseBurst, right: PointerReleaseBurst)
  * relay even though its pressed target is still mounted under the pointer.
  *
  * Native hit paths can report more than one subscribed non-root node for one
- * physical press. Keep refining the pressed owner as those reports arrive so
- * the local/deepest listener remains the release fallback. A mouse-up reported
- * for a different non-root subscription must not consume that fallback. A
- * direct release on the remembered owner wins; if only the root gets the
- * release, route it back to the still-live target inside its painted bounds.
+ * physical press, and their callback order is platform-dependent. Refine the
+ * pressed owner only when the host tree proves the new report is a descendant
+ * of the current owner, so the structurally deepest listener remains the local
+ * release fallback regardless of native callback order. A mouse-up reported
+ * for a different non-root subscription must not consume that fallback.
  */
 export class BrowserPointerReleaseRelay {
   #pressedElementId: number | undefined
@@ -71,9 +71,19 @@ export class BrowserPointerReleaseRelay {
     event: EventPayload,
     rootId: number | undefined,
     canRouteRootRelease: (elementId: number, event: EventPayload) => boolean,
+    isDescendantOf: (elementId: number, ancestorId: number) => boolean = () => false,
   ): EventPayload | undefined {
     if (event.eventType === "mouseDown") {
-      if (event.elementId !== rootId) this.#pressedElementId = event.elementId
+      if (event.elementId !== rootId) {
+        const pressedElementId = this.#pressedElementId
+        if (
+          pressedElementId === undefined
+          || pressedElementId === event.elementId
+          || isDescendantOf(event.elementId, pressedElementId)
+        ) {
+          this.#pressedElementId = event.elementId
+        }
+      }
       return event
     }
 
