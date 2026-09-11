@@ -41,12 +41,16 @@ describe("root lifecycle", () => {
         ["createElement", 1, "div"],
         ["setCustomProp", 1, "testId", "first"],
         ["setRoot", 1],
+        ["setEventListener", 1, "mouseMove", true],
+        ["setEventListener", 1, "mouseUp", true],
       ],
       [["destroyElement", 1]],
       [
         ["createElement", 2, "div"],
         ["setCustomProp", 2, "testId", "second"],
         ["setRoot", 2],
+        ["setEventListener", 2, "mouseMove", true],
+        ["setEventListener", 2, "mouseUp", true],
       ],
     ])
   })
