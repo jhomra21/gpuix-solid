@@ -14,6 +14,12 @@ function primaryMouseUp(elementId: number) {
   } satisfies NativeEventPayload
 }
 
+function clickListenerMutations(renderer: FakeRenderer, id: number) {
+  return renderer.batches
+    .flat()
+    .filter((mutation) => mutation[0] === "setEventListener" && mutation[1] === id && mutation[2] === "click")
+}
+
 describe("embedded primary click compatibility", () => {
   it("delivers primary mouse-up once and deduplicates a following native click", () => {
     const events = new EventRegistry()
@@ -36,9 +42,10 @@ describe("embedded primary click compatibility", () => {
     expect(clicks).toBe(1)
   })
 
-  it("resolves nested primary activation to the nearest live click owner", () => {
+  it("arms nested retained content as a native activation relay and detaches it cleanly", () => {
     const events = new EventRegistry()
-    const driver = new MutationDriver(new FakeRenderer(), events)
+    const renderer = new FakeRenderer()
+    const driver = new MutationDriver(renderer, events)
     const parentId = 11
     const childId = 12
     let parentClicks = 0
@@ -48,7 +55,11 @@ describe("embedded primary click compatibility", () => {
     events.set(parentId, "click", () => {
       parentClicks += 1
     })
+    driver.enqueue("setEventListener", parentId, "click", true)
     driver.enqueue("appendChild", parentId, childId)
+    driver.flush()
+
+    expect(clickListenerMutations(renderer, childId)).toContainEqual(["setEventListener", childId, "click", true])
 
     const mouseUp = primaryMouseUp(childId)
     events.dispatch(mouseUp)
@@ -58,13 +69,39 @@ describe("embedded primary click compatibility", () => {
     expect(parentClicks).toBe(1)
 
     driver.enqueue("removeChild", parentId, childId)
+    driver.flush()
+    expect(clickListenerMutations(renderer, childId).at(-1)).toEqual(["setEventListener", childId, "click", false])
+
     events.dispatch(primaryMouseUp(childId))
     expect(parentClicks).toBe(1)
   })
 
+  it("removes descendant relay listeners when the ancestor native click surface is disabled", () => {
+    const events = new EventRegistry()
+    const renderer = new FakeRenderer()
+    const driver = new MutationDriver(renderer, events)
+    const parentId = 15
+    const childId = 16
+
+    events.activate(parentId)
+    events.activate(childId)
+    events.set(parentId, "click", () => undefined)
+    driver.enqueue("setEventListener", parentId, "click", true)
+    driver.enqueue("appendChild", parentId, childId)
+    driver.flush()
+
+    events.delete(parentId, "click")
+    driver.enqueue("setEventListener", parentId, "click", false)
+    driver.flush()
+
+    expect(clickListenerMutations(renderer, parentId).at(-1)).toEqual(["setEventListener", parentId, "click", false])
+    expect(clickListenerMutations(renderer, childId).at(-1)).toEqual(["setEventListener", childId, "click", false])
+  })
+
   it("keeps exact-target click ownership when the nested child is interactive", () => {
     const events = new EventRegistry()
-    const driver = new MutationDriver(new FakeRenderer(), events)
+    const renderer = new FakeRenderer()
+    const driver = new MutationDriver(renderer, events)
     const parentId = 21
     const childId = 22
     let parentClicks = 0
@@ -78,7 +115,10 @@ describe("embedded primary click compatibility", () => {
     events.set(childId, "click", () => {
       childClicks += 1
     })
+    driver.enqueue("setEventListener", parentId, "click", true)
+    driver.enqueue("setEventListener", childId, "click", true)
     driver.enqueue("appendChild", parentId, childId)
+    driver.flush()
 
     events.dispatch(primaryMouseUp(childId))
     expect(childClicks).toBe(1)

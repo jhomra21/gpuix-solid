@@ -1,6 +1,8 @@
 import assert from "node:assert/strict"
 import type { EventPayload as NativeEventPayload } from "@gpuix/native"
 import { EventRegistry } from "../src/host/events.js"
+import { MutationDriver } from "../src/host/mutations.js"
+import type { NativeRenderer } from "../src/host/types.js"
 
 function primaryMouseUp(elementId: number) {
   return {
@@ -56,6 +58,47 @@ function primaryMouseUp(elementId: number) {
   events.setParent(childId, null)
   events.dispatch(primaryMouseUp(childId))
   assert.equal(parentClicks, 1, "detached nested content must not keep activating its former parent")
+}
+
+{
+  const events = new EventRegistry()
+  const batches: Array<Array<Array<string | number | boolean | object | null>>> = []
+  const renderer = {
+    applyBatch(json: string) {
+      batches.push(JSON.parse(json) as Array<Array<string | number | boolean | object | null>>)
+      return []
+    },
+  } as unknown as NativeRenderer
+  const driver = new MutationDriver(renderer, events)
+  const parentId = 15
+  const childId = 16
+
+  events.activate(parentId)
+  events.activate(childId)
+  events.set(parentId, "click", () => undefined)
+  driver.enqueue("setEventListener", parentId, "click", true)
+  driver.enqueue("appendChild", parentId, childId)
+  driver.flush()
+
+  const childClickMutations = batches.flat().filter(
+    (mutation) => mutation[0] === "setEventListener" && mutation[1] === childId && mutation[2] === "click",
+  )
+  assert.deepEqual(
+    childClickMutations.at(-1),
+    ["setEventListener", childId, "click", true],
+    "nested retained content should be armed as a native click relay",
+  )
+
+  driver.enqueue("removeChild", parentId, childId)
+  driver.flush()
+  const detachedChildClickMutations = batches.flat().filter(
+    (mutation) => mutation[0] === "setEventListener" && mutation[1] === childId && mutation[2] === "click",
+  )
+  assert.deepEqual(
+    detachedChildClickMutations.at(-1),
+    ["setEventListener", childId, "click", false],
+    "detaching nested retained content should remove its native click relay",
+  )
 }
 
 {

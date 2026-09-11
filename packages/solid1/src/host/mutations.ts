@@ -90,6 +90,10 @@ export function useDestroyUnlinksParentBatch(renderer: NativeRenderer): void {
 export class MutationDriver {
   readonly #renderer: NativeRenderer
   readonly #events: EventRegistry
+  readonly #parents = new Map<number, number>()
+  readonly #children = new Map<number, Set<number>>()
+  readonly #directClickListeners = new Map<number, boolean>()
+  readonly #appliedClickListeners = new Map<number, boolean>()
   #queue: Mutation[] = []
   #scheduled = false
   #disposed = false
@@ -109,19 +113,40 @@ export class MutationDriver {
 
   enqueue(name: string, ...args: MutationValue[]): void {
     if (this.#disposed) throw new Error("GPUix Solid mutation driver is disposed")
-    if (name === "appendChild" || name === "insertBefore") {
-      this.#events.setParent(numberArg(args, 1), numberArg(args, 0))
-    } else if (name === "removeChild") {
-      this.#events.setParent(numberArg(args, 1), null)
-    } else if (name === "setRoot") {
-      this.#events.setParent(numberArg(args, 0), null)
+
+    if (name === "setEventListener" && stringArg(args, 1) === "click") {
+      const id = numberArg(args, 0)
+      this.#directClickListeners.set(id, booleanArg(args, 2))
+      this.#syncClickSubtree(id)
+      this.#schedule()
+      return
     }
+
+    let clickSubtree: number | undefined
+    if (name === "appendChild" || name === "insertBefore") {
+      const parentId = numberArg(args, 0)
+      const childId = numberArg(args, 1)
+      this.#setParent(childId, parentId)
+      clickSubtree = childId
+    } else if (name === "removeChild") {
+      const childId = numberArg(args, 1)
+      this.#setParent(childId, null)
+      clickSubtree = childId
+    } else if (name === "setRoot") {
+      const rootId = numberArg(args, 0)
+      this.#setParent(rootId, null)
+      clickSubtree = rootId
+    }
+
     if (name === "setStyle" && isObjectValue(args[1]) && !Array.isArray(args[1])) {
       // SAFETY: setStyle is only enqueued with the renderer-owned StyleDesc object; this boundary widens numeric fields solely to accept CSS unit strings before native serialization.
       const style = args[1] as StyleMutationInput
       args[1] = normalizeStyleMutation(style)
     }
+
     this.#queue.push([name, ...args])
+    if (clickSubtree !== undefined) this.#syncClickSubtree(clickSubtree)
+    if (name === "destroyElement") this.#forgetSubtree(numberArg(args, 0))
     this.#schedule()
   }
 
@@ -173,6 +198,66 @@ export class MutationDriver {
   dispose(): void {
     this.flush()
     this.#disposed = true
+  }
+
+  #setParent(childId: number, parentId: number | null): void {
+    const previousParent = this.#parents.get(childId)
+    if (previousParent !== undefined) {
+      const siblings = this.#children.get(previousParent)
+      siblings?.delete(childId)
+      if (siblings?.size === 0) this.#children.delete(previousParent)
+    }
+
+    if (parentId === null) {
+      this.#parents.delete(childId)
+    } else {
+      this.#parents.set(childId, parentId)
+      const children = this.#children.get(parentId) ?? new Set<number>()
+      children.add(childId)
+      this.#children.set(parentId, children)
+    }
+    this.#events.setParent(childId, parentId)
+  }
+
+  #hasNativeClickAncestor(id: number): boolean {
+    let parentId = this.#parents.get(id)
+    while (parentId !== undefined) {
+      if (this.#directClickListeners.get(parentId) === true) return true
+      parentId = this.#parents.get(parentId)
+    }
+    return false
+  }
+
+  #syncClickSubtree(rootId: number): void {
+    const stack = [rootId]
+    while (stack.length > 0) {
+      const id = stack.pop()!
+      const next = this.#directClickListeners.get(id) === true || this.#hasNativeClickAncestor(id)
+      const previous = this.#appliedClickListeners.get(id) ?? false
+      if (previous !== next) {
+        this.#appliedClickListeners.set(id, next)
+        this.#queue.push(["setEventListener", id, "click", next])
+      }
+      for (const childId of this.#children.get(id) ?? []) stack.push(childId)
+    }
+  }
+
+  #forgetSubtree(rootId: number): void {
+    const stack = [rootId]
+    while (stack.length > 0) {
+      const id = stack.pop()!
+      for (const childId of this.#children.get(id) ?? []) stack.push(childId)
+      const parentId = this.#parents.get(id)
+      if (parentId !== undefined) {
+        const siblings = this.#children.get(parentId)
+        siblings?.delete(id)
+        if (siblings?.size === 0) this.#children.delete(parentId)
+      }
+      this.#parents.delete(id)
+      this.#children.delete(id)
+      this.#directClickListeners.delete(id)
+      this.#appliedClickListeners.delete(id)
+    }
   }
 
   #schedule(): void {
