@@ -66,6 +66,7 @@ const POINTER_ID = 0
 const PERSISTENT_DEVICE_ID = 0
 const DOUBLE_CLICK_MS = 500
 const DOUBLE_CLICK_DISTANCE_PX = 4
+const SYNTHETIC_CLICK_DEDUPE_MS = 100
 
 installNativeDomGlobals()
 
@@ -307,6 +308,7 @@ export class EventRegistry {
   readonly #activePointers = new Set<number>()
   readonly #pointerCapture = new Map<number, number>()
   readonly #lastPointerEvent = new Map<number, NativeEventPayload>()
+  readonly #syntheticPrimaryClicks = new Map<number, LastClick>()
   #activeRangeId: number | undefined
   #lastClick: LastClick | undefined
 
@@ -328,6 +330,7 @@ export class EventRegistry {
     this.#handlers.delete(id)
     this.#targets.delete(id)
     this.#nativePointerDown.delete(id)
+    this.#syntheticPrimaryClicks.delete(id)
     if (this.#activeRangeId === id) this.#activeRangeId = undefined
   }
 
@@ -349,6 +352,7 @@ export class EventRegistry {
       this.#handlers.delete(id)
       this.#targets.delete(id)
       this.#nativePointerDown.delete(id)
+      this.#syntheticPrimaryClicks.delete(id)
     }
   }
 
@@ -360,6 +364,7 @@ export class EventRegistry {
     this.#activePointers.clear()
     this.#pointerCapture.clear()
     this.#lastPointerEvent.clear()
+    this.#syntheticPrimaryClicks.clear()
     this.#activeRangeId = undefined
     this.#lastClick = undefined
   }
@@ -425,29 +430,25 @@ export class EventRegistry {
         const capturedId = this.#pointerCapture.get(POINTER_ID)
         this.#dispatchDom(capturedId ?? event.elementId, "pointerUp", event)
         this.#dispatchDom(event.elementId, "mouseUp", event)
+        if ((event.button ?? 0) === 0 && this.#handlers.get(event.elementId)?.has("click")) {
+          const clickEvent = { ...event, eventType: "click", button: 0 } satisfies NativeEventPayload
+          this.#dispatchPrimaryClick(clickEvent)
+          this.#syntheticPrimaryClicks.set(event.elementId, {
+            elementId: event.elementId,
+            button: 0,
+            x: event.x ?? 0,
+            y: event.y ?? 0,
+            at: Date.now(),
+          })
+        }
         if (event.button === 2) this.#dispatchDom(event.elementId, "contextMenu", event)
         this.#activePointers.delete(POINTER_ID)
         if (capturedId !== undefined) this.#releasePointerCapture(capturedId, POINTER_ID)
         return
       }
       case "click": {
-        if (!this.#nativePointerDown.has(event.elementId)) {
-          this.#dispatchDom(event.elementId, "pointerDown", event, true)
-        }
-        const target = this.#targets.get(event.elementId)
-        const checkbox = target?.getAttribute("type")?.toLowerCase() === "checkbox" ? target : undefined
-        const previousChecked = checkbox?.checked
-        if (checkbox) checkbox.checked = !checkbox.checked
-        const clickEvent = this.#dispatchDom(event.elementId, "click", event)
-        if (checkbox && previousChecked !== undefined) {
-          if (clickEvent?.defaultPrevented) {
-            checkbox.checked = previousChecked
-          } else {
-            this.#dispatchDom(event.elementId, "input", event)
-            this.#dispatchDom(event.elementId, "change", event)
-          }
-        }
-        this.#maybeDispatchDoubleClick(event)
+        if (this.#matchesSyntheticPrimaryClick(event)) return
+        this.#dispatchPrimaryClick(event)
         return
       }
       case "mouseEnter": {
@@ -491,6 +492,37 @@ export class EventRegistry {
     if (target.value === next) return false
     target.value = next
     return true
+  }
+
+  #dispatchPrimaryClick(event: NativeEventPayload): void {
+    if (!this.#nativePointerDown.has(event.elementId)) {
+      this.#dispatchDom(event.elementId, "pointerDown", event, true)
+    }
+    const target = this.#targets.get(event.elementId)
+    const checkbox = target?.getAttribute("type")?.toLowerCase() === "checkbox" ? target : undefined
+    const previousChecked = checkbox?.checked
+    if (checkbox) checkbox.checked = !checkbox.checked
+    const clickEvent = this.#dispatchDom(event.elementId, "click", event)
+    if (checkbox && previousChecked !== undefined) {
+      if (clickEvent?.defaultPrevented) {
+        checkbox.checked = previousChecked
+      } else {
+        this.#dispatchDom(event.elementId, "input", event)
+        this.#dispatchDom(event.elementId, "change", event)
+      }
+    }
+    this.#maybeDispatchDoubleClick(event)
+  }
+
+  #matchesSyntheticPrimaryClick(event: NativeEventPayload): boolean {
+    const synthetic = this.#syntheticPrimaryClicks.get(event.elementId)
+    if (!synthetic) return false
+    const age = Date.now() - synthetic.at
+    const matches = age <= SYNTHETIC_CLICK_DEDUPE_MS
+      && synthetic.button === (event.button ?? 0)
+      && Math.hypot(synthetic.x - (event.x ?? 0), synthetic.y - (event.y ?? 0)) <= DOUBLE_CLICK_DISTANCE_PX
+    if (matches || age > SYNTHETIC_CLICK_DEDUPE_MS) this.#syntheticPrimaryClicks.delete(event.elementId)
+    return matches
   }
 
   #dispatchDom(
