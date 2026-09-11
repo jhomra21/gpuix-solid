@@ -1,3 +1,4 @@
+import type { EventPayload } from "@gpuix/native"
 import type { EventRegistry } from "./events.js"
 import { MutationDriver, type MutationValue } from "./mutations.js"
 import type { NativeRenderer } from "./types.js"
@@ -7,6 +8,12 @@ interface PointerLifecycleState {
   mouseDown: boolean
   mouseMove: boolean
   mouseUp: boolean
+}
+
+type PointerReleaseBurst = {
+  x: number
+  y: number
+  button: number
 }
 
 function emptyPointerLifecycleState() {
@@ -33,6 +40,79 @@ function booleanArg(args: MutationValue[], index: number): boolean {
 function pointerLifecycleEvent(value: MutationValue | undefined): PointerLifecycleEvent | undefined {
   if (value === "mouseDown" || value === "mouseMove" || value === "mouseUp") return value
   return undefined
+}
+
+function releaseBurst(event: EventPayload): PointerReleaseBurst {
+  return { x: event.x ?? 0, y: event.y ?? 0, button: event.button ?? 0 }
+}
+
+function sameReleaseBurst(left: PointerReleaseBurst, right: PointerReleaseBurst): boolean {
+  return left.x === right.x && left.y === right.y && left.button === right.button
+}
+
+/**
+ * The mounted root carries synthetic mouse-up subscription as a browser-window
+ * relay. Native pointer capture can outlive a retained node replacement on some
+ * platforms, so a later stationary click can surface only through that root
+ * relay even though its pressed target is still mounted under the pointer.
+ *
+ * Remember the first non-root mouse-down owner. If its physical release reaches
+ * only the root, route that release back to the still-live target when the
+ * pointer is actually inside its painted bounds. A normal non-root release wins
+ * and clears the fallback. If root happens to arrive first, suppress the later
+ * matching native child report so one physical release is delivered once.
+ */
+export class BrowserPointerReleaseRelay {
+  #pressedElementId: number | undefined
+  #rootFallback: { elementId: number; burst: PointerReleaseBurst } | undefined
+
+  route(
+    event: EventPayload,
+    rootId: number | undefined,
+    canRouteRootRelease: (elementId: number, event: EventPayload) => boolean,
+  ): EventPayload | undefined {
+    if (event.eventType === "mouseDown") {
+      if (event.elementId !== rootId && this.#pressedElementId === undefined) {
+        this.#pressedElementId = event.elementId
+      }
+      return event
+    }
+
+    if (event.eventType !== "mouseUp") return event
+    const burst = releaseBurst(event)
+
+    if (event.elementId !== rootId) {
+      const fallback = this.#rootFallback
+      this.#pressedElementId = undefined
+      if (fallback && fallback.elementId === event.elementId && sameReleaseBurst(fallback.burst, burst)) {
+        this.#rootFallback = undefined
+        return undefined
+      }
+      return event
+    }
+
+    const pressedElementId = this.#pressedElementId
+    this.#pressedElementId = undefined
+    if (
+      pressedElementId === undefined
+      || pressedElementId === rootId
+      || !canRouteRootRelease(pressedElementId, event)
+    ) {
+      return event
+    }
+
+    const fallback = { elementId: pressedElementId, burst }
+    this.#rootFallback = fallback
+    queueMicrotask(() => {
+      if (this.#rootFallback === fallback) this.#rootFallback = undefined
+    })
+    return { ...event, elementId: pressedElementId }
+  }
+
+  clear(): void {
+    this.#pressedElementId = undefined
+    this.#rootFallback = undefined
+  }
 }
 
 /**
