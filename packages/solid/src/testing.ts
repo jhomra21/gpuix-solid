@@ -196,13 +196,14 @@ export class TestRenderer implements NativeRenderer {
   nativeSimulateClick(
     x: number,
     y: number,
-    button?: number,
+    button = 0,
     modifiers?: string,
   ): void {
-    this.#native.flush()
-    this.#native.simulateClick(x, y, button, modifiers)
-    this.dispatchNativeEvents()
-    this.#native.flush()
+    // GPUIX simulateClick queues mouse-down and mouse-up before Solid can process
+    // either event. Drive the phases separately so down-side mutations/remounts
+    // are committed before native hit testing resolves the physical release.
+    this.nativeSimulateMouseDown(x, y, button, modifiers)
+    this.nativeSimulateMouseUp(x, y, button, modifiers)
   }
 
   nativeSimulateScrollWheel(

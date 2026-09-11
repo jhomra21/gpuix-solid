@@ -183,35 +183,23 @@ export class TestRenderer {
   }
 
   clickTestId(testId: string): void {
-    const point = insetPoint(this.boundsTestId(testId))
-    this.#native.simulateClick(point.x, point.y)
-    this.dispatchNativeEvents()
-    this.#native.flush()
+    this.clickPoint(insetPoint(this.boundsTestId(testId)))
   }
 
   clickCenterTestId(testId: string): void {
-    const point = centerPoint(this.boundsTestId(testId))
-    this.#native.simulateClick(point.x, point.y)
-    this.dispatchNativeEvents()
-    this.#native.flush()
+    this.clickPoint(centerPoint(this.boundsTestId(testId)))
   }
 
   clickText(text: string): void {
     const node = this.requireText(text)
-    const point = insetPoint(this.boundsNode(node, `root text ${JSON.stringify(text)}`))
-    this.#native.simulateClick(point.x, point.y)
-    this.dispatchNativeEvents()
-    this.#native.flush()
+    this.clickPoint(insetPoint(this.boundsNode(node, `root text ${JSON.stringify(text)}`)))
   }
 
   clickTextWithinTestId(testId: string, text: string): void {
     const parent = this.requireTestId(testId)
     const node = findElementByExactText(parent, text)
     if (!node) throw new Error(`Expected visible text ${JSON.stringify(text)} inside ${testId}`)
-    const point = insetPoint(this.boundsNode(node, `${testId} text ${JSON.stringify(text)}`))
-    this.#native.simulateClick(point.x, point.y)
-    this.dispatchNativeEvents()
-    this.#native.flush()
+    this.clickPoint(insetPoint(this.boundsNode(node, `${testId} text ${JSON.stringify(text)}`)))
   }
 
   boundsText(text: string): TestBounds {
@@ -431,17 +419,11 @@ export class TestRenderer {
   }
 
   clickCenterCustomProps(query: TestCustomPropQuery): void {
-    const point = centerPoint(this.boundsCustomProps(query))
-    this.#native.simulateClick(point.x, point.y)
-    this.dispatchNativeEvents()
-    this.#native.flush()
+    this.clickPoint(centerPoint(this.boundsCustomProps(query)))
   }
 
   clickCustomProps(query: TestCustomPropQuery): void {
-    const point = insetPoint(this.boundsNode(this.requireCustomProps(query), `custom props ${JSON.stringify(query)}`))
-    this.#native.simulateClick(point.x, point.y)
-    this.dispatchNativeEvents()
-    this.#native.flush()
+    this.clickPoint(insetPoint(this.boundsNode(this.requireCustomProps(query), `custom props ${JSON.stringify(query)}`)))
   }
 
   pressKeyCustomProps(query: TestCustomPropQuery, key: string): void {
@@ -481,6 +463,18 @@ export class TestRenderer {
   captureScreenshot(path: string): void {
     this.#native.flush()
     this.#native.captureScreenshot(path)
+  }
+
+  private clickPoint(point: { x: number; y: number }): void {
+    // GPUIX simulateClick queues mouse-down and mouse-up before Solid can process
+    // either event. Drive the phases separately so down-side mutations/remounts
+    // are committed before native hit testing resolves the physical release.
+    this.#native.simulateMouseDown(point.x, point.y, 0)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+    this.#native.simulateMouseUp(point.x, point.y, 0)
+    this.dispatchNativeEvents()
+    this.#native.flush()
   }
 
   private typeNode(node: NativeTreeNode, text: string): void {
