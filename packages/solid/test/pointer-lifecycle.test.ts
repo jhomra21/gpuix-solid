@@ -11,6 +11,7 @@ function listenerMutations(renderer: FakeRenderer) {
 }
 
 function pointerEvent(eventType: "mouseDown" | "mouseUp", elementId: number, x = 40, y = 20): EventPayload {
+  // SAFETY: these relay unit tests exercise only the mouse event fields consumed by BrowserPointerReleaseRelay.
   return { eventType, elementId, x, y, button: 0 } as EventPayload
 }
 
