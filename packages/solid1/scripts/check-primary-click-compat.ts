@@ -14,6 +14,17 @@ function primaryMouseUp(elementId: number) {
   } satisfies NativeEventPayload
 }
 
+function primaryClick(elementId: number) {
+  return {
+    elementId,
+    eventType: "click",
+    x: 24,
+    y: 16,
+    button: 0,
+    clickCount: 1,
+  } satisfies NativeEventPayload
+}
+
 class RelayRenderer implements NativeRenderer {
   readonly direct: MutationValue[][] = []
 
@@ -78,6 +89,24 @@ class RelayRenderer implements NativeRenderer {
 
 {
   const events = new EventRegistry()
+  const parentId = 31
+  const childId = 32
+  let parentClicks = 0
+
+  events.activate(parentId)
+  events.activate(childId)
+  events.set(parentId, "click", () => {
+    parentClicks += 1
+  })
+  events.setParent(childId, parentId)
+
+  events.dispatch(primaryClick(childId))
+  events.dispatch(primaryClick(parentId))
+  assert.equal(parentClicks, 1, "GPUI bubble callbacks from a relay child and its click owner must activate once")
+}
+
+{
+  const events = new EventRegistry()
   const renderer = new RelayRenderer()
   const driver = new MutationDriver(renderer, events)
   const parentId = 15
@@ -131,6 +160,29 @@ class RelayRenderer implements NativeRenderer {
   events.dispatch(primaryMouseUp(childId))
   assert.equal(childClicks, 1, "an interactive nested target should keep its own click")
   assert.equal(parentClicks, 0, "nearest click-owner fallback must not replace an exact interactive target")
+}
+
+{
+  const events = new EventRegistry()
+  const parentId = 41
+  const childId = 42
+  let parentClicks = 0
+  let childClicks = 0
+
+  events.activate(parentId)
+  events.activate(childId)
+  events.setParent(childId, parentId)
+  events.set(parentId, "click", () => {
+    parentClicks += 1
+  })
+  events.set(childId, "click", () => {
+    childClicks += 1
+  })
+
+  events.dispatch(primaryClick(childId))
+  events.dispatch(primaryClick(parentId))
+  assert.equal(childClicks, 1, "the deepest interactive child should keep the native click")
+  assert.equal(parentClicks, 0, "the ancestor GPUI bubble callback must not activate after the child")
 }
 
 console.log("solid1 embedded primary click compatibility: passed")

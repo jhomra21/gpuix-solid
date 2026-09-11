@@ -14,6 +14,17 @@ function primaryMouseUp(elementId: number) {
   } satisfies NativeEventPayload
 }
 
+function primaryClick(elementId: number) {
+  return {
+    elementId,
+    eventType: "click",
+    x: 24,
+    y: 16,
+    button: 0,
+    clickCount: 1,
+  } satisfies NativeEventPayload
+}
+
 function clickListenerMutations(renderer: FakeRenderer, id: number) {
   return renderer.batches
     .flat()
@@ -76,6 +87,28 @@ describe("embedded primary click compatibility", () => {
     expect(parentClicks).toBe(1)
   })
 
+  it("coalesces GPUI bubble callbacks from a relay child and its click owner", async () => {
+    const events = new EventRegistry()
+    const parentId = 31
+    const childId = 32
+    let parentClicks = 0
+
+    events.activate(parentId)
+    events.activate(childId)
+    events.set(parentId, "click", () => {
+      parentClicks += 1
+    })
+    events.setParent(childId, parentId)
+
+    events.dispatch(primaryClick(childId))
+    events.dispatch(primaryClick(parentId))
+    expect(parentClicks).toBe(1)
+
+    await Promise.resolve()
+    events.dispatch(primaryClick(parentId))
+    expect(parentClicks).toBe(2)
+  })
+
   it("removes descendant relay listeners when the ancestor native click surface is disabled", () => {
     const events = new EventRegistry()
     const renderer = new FakeRenderer()
@@ -121,6 +154,30 @@ describe("embedded primary click compatibility", () => {
     driver.flush()
 
     events.dispatch(primaryMouseUp(childId))
+    expect(childClicks).toBe(1)
+    expect(parentClicks).toBe(0)
+  })
+
+  it("coalesces the ancestor callback when the nested child owns the click", () => {
+    const events = new EventRegistry()
+    const parentId = 41
+    const childId = 42
+    let parentClicks = 0
+    let childClicks = 0
+
+    events.activate(parentId)
+    events.activate(childId)
+    events.setParent(childId, parentId)
+    events.set(parentId, "click", () => {
+      parentClicks += 1
+    })
+    events.set(childId, "click", () => {
+      childClicks += 1
+    })
+
+    events.dispatch(primaryClick(childId))
+    events.dispatch(primaryClick(parentId))
+
     expect(childClicks).toBe(1)
     expect(parentClicks).toBe(0)
   })

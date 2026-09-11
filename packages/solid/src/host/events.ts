@@ -289,6 +289,14 @@ type LastClick = {
   at: number
 }
 
+type NativeClickBubble = {
+  ancestors: ReadonlySet<number>
+  button: number
+  clickCount: number
+  x: number
+  y: number
+}
+
 function finiteRangeNumber(value: string | null | undefined, fallback: number): number {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : fallback
@@ -310,6 +318,7 @@ export class EventRegistry {
   readonly #pointerCapture = new Map<number, number>()
   readonly #lastPointerEvent = new Map<number, NativeEventPayload>()
   readonly #syntheticPrimaryClicks = new Map<number, LastClick>()
+  #nativeClickBubble: NativeClickBubble | undefined
   #activeRangeId: number | undefined
   #lastClick: LastClick | undefined
 
@@ -373,6 +382,7 @@ export class EventRegistry {
     this.#pointerCapture.clear()
     this.#lastPointerEvent.clear()
     this.#syntheticPrimaryClicks.clear()
+    this.#nativeClickBubble = undefined
     this.#activeRangeId = undefined
     this.#lastClick = undefined
   }
@@ -456,6 +466,7 @@ export class EventRegistry {
         return
       }
       case "click": {
+        if (this.#isBubbledNativeClick(event)) return
         const clickOwner = this.#primaryClickOwner(event.elementId)
         const clickEvent = clickOwner === undefined || clickOwner === event.elementId
           ? event
@@ -499,6 +510,37 @@ export class EventRegistry {
       current = this.#parents.get(current)
     }
     return undefined
+  }
+
+  #isBubbledNativeClick(event: NativeEventPayload): boolean {
+    const button = event.button ?? 0
+    const clickCount = event.clickCount ?? 1
+    const x = event.x ?? 0
+    const y = event.y ?? 0
+    const previous = this.#nativeClickBubble
+    if (
+      previous
+      && previous.ancestors.has(event.elementId)
+      && previous.button === button
+      && previous.clickCount === clickCount
+      && previous.x === x
+      && previous.y === y
+    ) {
+      return true
+    }
+
+    const ancestors = new Set<number>()
+    let current = this.#parents.get(event.elementId)
+    while (current !== undefined && current !== null) {
+      ancestors.add(current)
+      current = this.#parents.get(current)
+    }
+    const next: NativeClickBubble = { ancestors, button, clickCount, x, y }
+    this.#nativeClickBubble = next
+    queueMicrotask(() => {
+      if (this.#nativeClickBubble === next) this.#nativeClickBubble = undefined
+    })
+    return false
   }
 
   #updateRangeValue(elementId: number, event: NativeEventPayload): boolean {
