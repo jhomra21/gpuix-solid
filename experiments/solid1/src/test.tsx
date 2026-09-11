@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { existsSync, statSync, unlinkSync } from "node:fs"
-import { For, createSignal } from "solid-js"
+import { For, Show, createSignal } from "solid-js"
 import {
   createTestRoot,
   hasNativeTestRenderer,
@@ -13,33 +13,57 @@ function PointerReleaseRecoveryFixture() {
   const [generation, setGeneration] = createSignal(0)
   const [dragging, setDragging] = createSignal(false)
   const [remounted, setRemounted] = createSignal(false)
-  const [releases, setReleases] = createSignal(0)
+  const [localReleases, setLocalReleases] = createSignal(0)
+  const [globalReleases, setGlobalReleases] = createSignal(0)
+
+  const beginDrag = () => {
+    setDragging(true)
+    setRemounted(false)
+
+    const handleMove = () => {
+      if (remounted()) return
+      setRemounted(true)
+      setGeneration((value) => value + 1)
+    }
+    const handleUp = () => {
+      window.removeEventListener("pointermove", handleMove)
+      window.removeEventListener("pointerup", handleUp)
+      setDragging(false)
+      setGlobalReleases((value) => value + 1)
+    }
+
+    window.addEventListener("pointermove", handleMove)
+    window.addEventListener("pointerup", handleUp)
+  }
 
   return (
-    <div style={{ width: 320, height: 120, padding: 12 }}>
+    <div style={{ width: 320, height: 120, padding: 12, position: "relative" }}>
       <For each={[generation()]}>
         {(currentGeneration) => (
           <div
             testId="pointer-release-target"
-            onPointerDown={() => setDragging(true)}
-            onPointerMove={() => {
-              if (!dragging() || remounted()) return
-              setRemounted(true)
-              setGeneration((value) => value + 1)
+            onPointerDown={beginDrag}
+            onPointerUp={() => setLocalReleases((value) => value + 1)}
+            style={{
+              width: 240,
+              height: 64,
+              marginLeft: currentGeneration * 40,
+              backgroundColor: "#202533",
             }}
-            onPointerUp={() => {
-              setDragging(false)
-              setReleases((value) => value + 1)
-            }}
-            onPointerCancel={() => setDragging(false)}
-            style={{ width: 240, height: 64, backgroundColor: "#202533" }}
           >
             <text>{`Pointer target ${currentGeneration}`}</text>
           </div>
         )}
       </For>
+      <Show when={dragging()}>
+        <div
+          testId="pointer-drag-overlay"
+          style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}
+        />
+      </Show>
       <text testId="pointer-generation">{generation()}</text>
-      <text testId="pointer-release-count">{releases()}</text>
+      <text testId="pointer-local-release-count">{localReleases()}</text>
+      <text testId="pointer-global-release-count">{globalReleases()}</text>
     </div>
   )
 }
@@ -90,13 +114,23 @@ pointerRoot.render(() => <PointerReleaseRecoveryFixture />)
 try {
   const { renderer } = pointerRoot
   renderer.dragTestId("pointer-release-target", 40, 0)
-  assert.equal(renderer.textContent("pointer-generation"), "1", "drag should replace the pressed retained target")
-  const releasesAfterRemountDrag = Number(renderer.textContent("pointer-release-count"))
+  assert.equal(renderer.textContent("pointer-generation"), "1", "window pointer-move should replace the pressed retained target")
+  assert.equal(
+    renderer.textContent("pointer-global-release-count"),
+    "1",
+    "window pointer-up should survive replacement of the pressed retained target",
+  )
+  assert.equal(
+    renderer.hasTestId("pointer-drag-overlay"),
+    false,
+    "window pointer-up should clear drag UI after the pressed retained target remounts",
+  )
 
+  const localReleasesAfterDrag = Number(renderer.textContent("pointer-local-release-count"))
   renderer.clickCenterTestId("pointer-release-target")
   assert.equal(
-    Number(renderer.textContent("pointer-release-count")),
-    releasesAfterRemountDrag + 1,
+    Number(renderer.textContent("pointer-local-release-count")),
+    localReleasesAfterDrag + 1,
     "stationary click after a drag/remount should deliver exactly one local pointer-up",
   )
 

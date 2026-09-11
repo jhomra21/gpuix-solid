@@ -16,7 +16,6 @@ adapted.applyBatch?.(JSON.stringify([
 ]))
 assert.deepEqual(batches, [[
   ["setEventListener", 7, "mouseDown", true],
-  ["setEventListener", 7, "mouseMove", true],
   ["setEventListener", 7, "mouseUp", true],
 ]])
 
@@ -26,6 +25,7 @@ adapted.applyBatch?.(JSON.stringify([
   ["setEventListener", 7, "mouseDown", false],
 ]))
 assert.deepEqual(batches, [[
+  ["setEventListener", 7, "mouseMove", true],
   ["setEventListener", 7, "mouseDown", false],
   ["setEventListener", 7, "mouseUp", false],
 ]])
@@ -38,4 +38,4 @@ assert.deepEqual(batches, [[
   ["setEventListener", 7, "mouseMove", false],
 ]])
 
-console.log("solid1 browser drag native capture compatibility: passed")
+console.log("solid1 browser drag native relay compatibility: passed")

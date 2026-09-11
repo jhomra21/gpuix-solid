@@ -125,15 +125,17 @@ export class BrowserPointerReleaseRelay {
 }
 
 /**
- * GPUIX captures a pointer when the same retained node subscribes to both
- * mouseDown and mouseMove. Browser code commonly starts a gesture locally and
- * then listens on window for pointermove/pointerup, so a mouse-down owner needs
- * native move/up channels even when it has no authored local handlers for them.
+ * Browser code commonly starts a gesture locally and then listens for
+ * pointermove/pointerup on window. GPUIX, unlike the browser, implicitly
+ * captures a pointer whenever one retained node subscribes to both mouseDown
+ * and mouseMove. Do not manufacture that combination on an ephemeral pressed
+ * child: a reactive remount can destroy the captured native node before the
+ * physical release, causing GPUI to emit no release at all.
  *
- * A drag can also replace its pressed retained node during pointermove. Keep
- * move/up subscribed on the mounted app root as a stable browser-window relay
- * so the release can still reach global listeners after that replacement.
- * EventRegistry remains authoritative for authored local handlers.
+ * Keep authored child listeners intact, synthesize only mouseUp for a
+ * mouseDown owner, and keep move/up subscribed on the mounted app root as the
+ * stable browser-window relay. EventRegistry remains authoritative for which
+ * authored local/global handlers actually run.
  */
 export class BrowserPointerMutationDriver extends MutationDriver {
   readonly #authored = new Map<number, PointerLifecycleState>()
@@ -179,7 +181,7 @@ export class BrowserPointerMutationDriver extends MutationDriver {
     const isRootRelay = id === this.#rootId
     const desired = {
       mouseDown: authored.mouseDown,
-      mouseMove: authored.mouseMove || authored.mouseDown || isRootRelay,
+      mouseMove: authored.mouseMove || isRootRelay,
       mouseUp: authored.mouseUp || authored.mouseDown || isRootRelay,
     } satisfies PointerLifecycleState
     const applied = this.#applied.get(id) ?? emptyPointerLifecycleState()

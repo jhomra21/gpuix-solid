@@ -22,17 +22,6 @@ type ElementBoundsRenderer = {
   getElementBounds(elementId: number): NativeElementBoundsValue
 }
 
-type NativePointerTraceEvent = {
-  eventType?: string
-  elementId?: number
-  x?: number
-  y?: number
-}
-
-type EventDrainRenderer = {
-  drainEvents?: () => NativePointerTraceEvent[]
-}
-
 export type LegacyElementBoundsRenderer<Renderer extends ElementBoundsRenderer> =
   Omit<Renderer, "getElementBounds"> & {
     getElementBounds(elementId: number): number[] | null
@@ -55,37 +44,6 @@ export function withLegacyElementBounds<Renderer extends ElementBoundsRenderer>(
       return normalizeNativeElementBounds(getElementBounds(elementId))
     },
   })
-
-  // TEMPORARY DIAGNOSTIC: prove whether GPUIX emits the DAW clip release before
-  // Solid's live-element guard and pointer relay see the raw native event.
-  // SAFETY: this optional structural view is used only to wrap an existing
-  // method in place; renderers without drainEvents are left unchanged.
-  const eventRenderer = renderer as Renderer & EventDrainRenderer
-  if (eventRenderer.drainEvents) {
-    const drainEvents = eventRenderer.drainEvents.bind(renderer)
-    Object.defineProperty(renderer, "drainEvents", {
-      configurable: true,
-      value() {
-        const events = drainEvents()
-        for (const event of events) {
-          const x = event.x
-          const y = event.y
-          if (
-            (event.eventType === "mouseDown" || event.eventType === "mouseUp")
-            && x !== undefined
-            && y !== undefined
-            && x >= 430
-            && x <= 530
-            && Math.abs(y - 156.5) <= 3
-          ) {
-            console.log(`[native-drain-trace] ${event.eventType}:raw=${event.elementId ?? "none"}:${x},${y}`)
-          }
-        }
-        return events
-      },
-    })
-  }
-
   // SAFETY: the method was replaced above with the exact legacy return contract;
   // every other property remains on the same renderer object unchanged.
   return renderer as LegacyElementBoundsRenderer<Renderer>

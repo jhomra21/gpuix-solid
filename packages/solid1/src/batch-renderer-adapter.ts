@@ -35,23 +35,22 @@ const POINTER_CAPTURE_NATIVE_EVENTS = ["mouseDown", "mouseMove", "mouseUp"] as c
 const POINTER_CAPTURE_NATIVE_EVENT_SET = new Set<string>(POINTER_CAPTURE_NATIVE_EVENTS)
 
 /**
- * Browser code can start a drag on an element and attach pointermove/pointerup
- * listeners to window or document from inside pointerdown. GPUIX has to know at
- * press time that the pressed native node participates in mouse movement in
- * order to arm its window-level capture. Preserve that browser contract below
- * Solid by keeping native move/up listeners armed whenever a node requests
- * mouseDown; EventRegistry still decides whether anything local/global handles
- * the emitted events.
+ * Browser code can start a gesture on an element and listen for pointermove /
+ * pointerup on window. GPUIX implicitly captures a retained node when that
+ * same node subscribes to both mouseDown and mouseMove. Manufacturing move on
+ * every mouseDown owner therefore breaks browser semantics if reactive work
+ * replaces the pressed node before release: the destroyed native capture owner
+ * cannot emit the window release.
+ *
+ * Keep only mouseUp armed for local release compatibility. The Solid host's
+ * stable mounted-root relay owns browser-style window move/up delivery.
  */
 function createPointerCaptureBatchBridge(renderer: BatchRendererApi) {
   const requestedByElement = new Map<number, Set<string>>()
 
   const effectiveListeners = (requested: ReadonlySet<string>): Set<string> => {
     const effective = new Set(requested)
-    if (requested.has("mouseDown")) {
-      effective.add("mouseMove")
-      effective.add("mouseUp")
-    }
+    if (requested.has("mouseDown")) effective.add("mouseUp")
     return effective
   }
 

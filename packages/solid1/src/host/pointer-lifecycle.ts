@@ -50,14 +50,6 @@ function sameReleaseBurst(left: PointerReleaseBurst, right: PointerReleaseBurst)
   return left.x === right.x && left.y === right.y && left.button === right.button
 }
 
-function traceDawRelease(event: EventPayload, rootId: number | undefined, pressedElementId: number | undefined, detail: string): void {
-  if (event.eventType !== "mouseDown" && event.eventType !== "mouseUp") return
-  const x = event.x ?? Number.NaN
-  const y = event.y ?? Number.NaN
-  if (x < 430 || x > 530 || Math.abs(y - 156.5) > 3) return
-  console.log(`[pointer-relay-trace] ${event.eventType}:raw=${event.elementId}:root=${rootId ?? "none"}:pressed=${pressedElementId ?? "none"}:${detail}:${x},${y}`)
-}
-
 /**
  * The mounted root carries synthetic mouse-up subscription as a browser-window
  * relay. Native pointer capture can outlive a retained node replacement on some
@@ -81,15 +73,16 @@ export class BrowserPointerReleaseRelay {
     canRouteRootRelease: (elementId: number, event: EventPayload) => boolean,
     isDescendantOf: (elementId: number, ancestorId: number) => boolean = () => false,
   ): EventPayload | undefined {
-    traceDawRelease(event, rootId, this.#pressedElementId, "enter")
     if (event.eventType === "mouseDown") {
       if (event.elementId !== rootId) {
         const pressedElementId = this.#pressedElementId
-        const keepNew = pressedElementId === undefined
+        if (
+          pressedElementId === undefined
           || pressedElementId === event.elementId
           || isDescendantOf(event.elementId, pressedElementId)
-        if (keepNew) this.#pressedElementId = event.elementId
-        traceDawRelease(event, rootId, this.#pressedElementId, `down:keepNew=${keepNew}`)
+        ) {
+          this.#pressedElementId = event.elementId
+        }
       }
       return event
     }
@@ -101,21 +94,21 @@ export class BrowserPointerReleaseRelay {
       const fallback = this.#rootFallback
       if (fallback && fallback.elementId === event.elementId && sameReleaseBurst(fallback.burst, burst)) {
         this.#rootFallback = undefined
-        traceDawRelease(event, rootId, this.#pressedElementId, "up:suppress-late-fallback")
         return undefined
       }
       if (event.elementId === this.#pressedElementId) this.#pressedElementId = undefined
-      traceDawRelease(event, rootId, this.#pressedElementId, "up:direct-nonroot")
       return event
     }
 
     const pressedElementId = this.#pressedElementId
     this.#pressedElementId = undefined
-    const canRoute = pressedElementId !== undefined
-      && pressedElementId !== rootId
-      && canRouteRootRelease(pressedElementId, event)
-    traceDawRelease(event, rootId, pressedElementId, `up:root:canRoute=${canRoute}`)
-    if (!canRoute || pressedElementId === undefined) return event
+    if (
+      pressedElementId === undefined
+      || pressedElementId === rootId
+      || !canRouteRootRelease(pressedElementId, event)
+    ) {
+      return event
+    }
 
     const fallback = { elementId: pressedElementId, burst }
     this.#rootFallback = fallback
@@ -132,15 +125,17 @@ export class BrowserPointerReleaseRelay {
 }
 
 /**
- * GPUIX captures a pointer when the same retained node subscribes to both
- * mouseDown and mouseMove. Browser code commonly starts a gesture locally and
- * then listens on window for pointermove/pointerup, so a mouse-down owner needs
- * native move/up channels even when it has no authored local handlers for them.
+ * Browser code commonly starts a gesture locally and then listens for
+ * pointermove/pointerup on window. GPUIX, unlike the browser, implicitly
+ * captures a pointer whenever one retained node subscribes to both mouseDown
+ * and mouseMove. Do not manufacture that combination on an ephemeral pressed
+ * child: a reactive remount can destroy the captured native node before the
+ * physical release, causing GPUI to emit no release at all.
  *
- * A drag can also replace its pressed retained node during pointermove. Keep
- * move/up subscribed on the mounted app root as a stable browser-window relay
- * so the release can still reach global listeners after that replacement.
- * EventRegistry remains authoritative for authored local handlers.
+ * Keep authored child listeners intact, synthesize only mouseUp for a
+ * mouseDown owner, and keep move/up subscribed on the mounted app root as the
+ * stable browser-window relay. EventRegistry remains authoritative for which
+ * authored local/global handlers actually run.
  */
 export class BrowserPointerMutationDriver extends MutationDriver {
   readonly #authored = new Map<number, PointerLifecycleState>()
@@ -186,7 +181,7 @@ export class BrowserPointerMutationDriver extends MutationDriver {
     const isRootRelay = id === this.#rootId
     const desired = {
       mouseDown: authored.mouseDown,
-      mouseMove: authored.mouseMove || authored.mouseDown || isRootRelay,
+      mouseMove: authored.mouseMove || isRootRelay,
       mouseUp: authored.mouseUp || authored.mouseDown || isRootRelay,
     } satisfies PointerLifecycleState
     const applied = this.#applied.get(id) ?? emptyPointerLifecycleState()

@@ -18,7 +18,7 @@ function pointerEvent(eventType: "mouseDown" | "mouseUp", elementId: number, x =
 const nestedDescendant = (elementId: number, ancestorId: number): boolean => elementId === 3 && ancestorId === 2
 
 describe("browser pointer lifecycle compatibility", () => {
-  it("arms native capture lifecycle on the same mouse-down owner", () => {
+  it("does not manufacture native move capture on a mouse-down owner", () => {
     const renderer = new FakeRenderer()
     const driver = new BrowserPointerMutationDriver(renderer, new EventRegistry())
 
@@ -28,7 +28,6 @@ describe("browser pointer lifecycle compatibility", () => {
 
     expect(listenerMutations(renderer)).toEqual([
       ["setEventListener", 1, "mouseDown", true],
-      ["setEventListener", 1, "mouseMove", true],
       ["setEventListener", 1, "mouseUp", true],
     ])
   })
@@ -53,7 +52,7 @@ describe("browser pointer lifecycle compatibility", () => {
     expect(listenerMutations(renderer)).toEqual([])
   })
 
-  it("removes only synthetic move/up lifecycle when mouse-down is removed", () => {
+  it("removes only synthetic mouse-up lifecycle when mouse-down is removed", () => {
     const renderer = new FakeRenderer()
     const driver = new BrowserPointerMutationDriver(renderer, new EventRegistry())
 
@@ -66,7 +65,6 @@ describe("browser pointer lifecycle compatibility", () => {
 
     expect(listenerMutations(renderer)).toEqual([
       ["setEventListener", 2, "mouseDown", false],
-      ["setEventListener", 2, "mouseMove", false],
       ["setEventListener", 2, "mouseUp", false],
     ])
   })
@@ -103,7 +101,7 @@ describe("browser pointer lifecycle compatibility", () => {
     driver.flush()
 
     expect(listenerMutations(renderer)).toContainEqual(["setEventListener", 4, "mouseDown", false])
-    expect(listenerMutations(renderer)).toContainEqual(["setEventListener", 4, "mouseMove", false])
+    expect(listenerMutations(renderer)).not.toContainEqual(["setEventListener", 4, "mouseMove", false])
     expect(listenerMutations(renderer)).not.toContainEqual(["setEventListener", 4, "mouseUp", false])
   })
 
