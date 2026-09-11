@@ -3,7 +3,7 @@ import { flush as flushSolid, type Element as SolidElement } from "solid-js"
 import { GpuixContext, type GpuixContextValue } from "./context.js"
 import { EventRegistry } from "./host/events.js"
 import { HostRootNode, removeHostNode, type HostNode } from "./host/nodes.js"
-import { BrowserPointerMutationDriver } from "./host/pointer-lifecycle.js"
+import { BrowserPointerMutationDriver, BrowserPointerReleaseRelay } from "./host/pointer-lifecycle.js"
 import type { NativeRenderer, WindowKeyEventHandlers } from "./host/types.js"
 import { createComponent, universalRender } from "./host/universal.js"
 
@@ -14,6 +14,9 @@ type PointerRelayBurst = {
   x: number
   y: number
   button: number
+}
+type BoundsRenderer = NativeRenderer & {
+  getElementBounds?(elementId: number): number[] | null
 }
 
 function nextWindowKeyEventId(renderer: NativeRenderer): number {
@@ -31,6 +34,19 @@ function hasLiveElement(container: HostRootNode, elementId: number): boolean {
     pending.push(...node.children)
   }
   return false
+}
+
+function eventPointInsideElement(renderer: NativeRenderer, elementId: number, event: EventPayload): boolean {
+  const bounds = (renderer as BoundsRenderer).getElementBounds?.(elementId)
+  const x = event.x
+  const y = event.y
+  if (!bounds || bounds.length < 4 || x === undefined || y === undefined) return false
+  const left = bounds[0]
+  const top = bounds[1]
+  const width = bounds[2]
+  const height = bounds[3]
+  if (left === undefined || top === undefined || width === undefined || height === undefined) return false
+  return x >= left && x <= left + width && y >= top && y <= top + height
 }
 
 function pointerRelayEventType(eventType: string): PointerRelayEventType | undefined {
@@ -57,6 +73,7 @@ export interface Root {
 export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandlers: WindowKeyEventHandlers = {}): Root {
   const events = new EventRegistry()
   const driver = new BrowserPointerMutationDriver(renderer, events)
+  const releaseRelay = new BrowserPointerReleaseRelay()
   const container = new HostRootNode(renderer, events, driver)
   let windowKeyEventHandlers = initialWindowKeyEventHandlers
   let windowKeyEventId = nextWindowKeyEventId(renderer)
@@ -132,12 +149,13 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
         if (mounted) removeHostNode(container, mounted)
         flush()
         events.clear()
+        releaseRelay.clear()
       }
 
       type UniversalNode = HostRootNode | HostNode
       type ContextProps = { value: GpuixContextValue; readonly children: SolidElement }
       const Context = (props: ContextProps): UniversalNode => {
-        // SAFETY: the Solid context provider returns the active renderer's host child.
+        // SAFETY: The Solid context provider returns the active renderer's host child.
         return GpuixContext(props) as UniversalNode
       }
 
@@ -174,11 +192,24 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
             return
           }
           if (!hasLiveElement(container, event.elementId)) return
-          if (isSyntheticRootRelayDuplicate(event)) {
+          const mounted = container.children[0]
+          const rootId = mounted && mounted.kind === "element" ? mounted.id : undefined
+          const routedEvent = releaseRelay.route(
+            event,
+            rootId,
+            (elementId, release) => hasLiveElement(container, elementId)
+              && eventPointInsideElement(renderer, elementId, release),
+          )
+          if (!routedEvent) {
             handled = true
             return
           }
-          events.dispatch(event)
+          if (!hasLiveElement(container, routedEvent.elementId)) return
+          if (isSyntheticRootRelayDuplicate(routedEvent)) {
+            handled = true
+            return
+          }
+          events.dispatch(routedEvent)
           handled = true
         })
       } finally {
@@ -193,6 +224,7 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
       if (mounted) removeHostNode(container, mounted)
       flush()
       events.clear()
+      releaseRelay.clear()
       if (windowKeyEventIds.get(renderer) === windowKeyEventId) {
         renderer.setWindowKeyEvents?.(false, false, windowKeyEventId)
       }
