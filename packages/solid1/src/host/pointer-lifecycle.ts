@@ -2,8 +2,14 @@ import type { EventRegistry } from "./events.js"
 import { MutationDriver, type MutationValue } from "./mutations.js"
 import type { NativeRenderer } from "./types.js"
 
-function numericId(value: MutationValue | undefined): number | undefined {
-  return typeof value === "number" ? value : undefined
+function isNumberValue<T>(value: T): value is T & number {
+  return typeof value === "number"
+}
+
+function numberArg(args: MutationValue[], index: number): number {
+  const value = args[index]
+  if (!isNumberValue(value)) throw new TypeError(`Expected numeric mutation arg ${index}`)
+  return value
 }
 
 /**
@@ -21,16 +27,15 @@ export class BrowserPointerMutationDriver extends MutationDriver {
 
   override enqueue(name: string, ...args: MutationValue[]): void {
     if (name === "setRoot") {
-      const id = numericId(args[0])
+      const id = numberArg(args, 0)
       super.enqueue(name, ...args)
-      if (id === undefined) return
       this.#rootId = id
       super.enqueue("setEventListener", id, "mouseMove", true)
       super.enqueue("setEventListener", id, "mouseUp", true)
       return
     }
 
-    if (name === "setEventListener" && numericId(args[0]) === this.#rootId) {
+    if (name === "setEventListener" && numberArg(args, 0) === this.#rootId) {
       const eventType = args[1]
       if (eventType === "mouseMove" || eventType === "mouseUp") {
         // The root relay stays native even when the root has no authored local
@@ -40,7 +45,7 @@ export class BrowserPointerMutationDriver extends MutationDriver {
       }
     }
 
-    if (name === "destroyElement" && numericId(args[0]) === this.#rootId) {
+    if (name === "destroyElement" && numberArg(args, 0) === this.#rootId) {
       this.#rootId = undefined
     }
     super.enqueue(name, ...args)
