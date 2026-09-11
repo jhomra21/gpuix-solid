@@ -164,6 +164,11 @@ if (!hasNativeTestRenderer) {
   requireCondition(!r.textContentRoot().includes("Commit"), "DropdownMenu portal should pass outside clicks through to the app")
 
   r.clickTextWithinTestId("upstream-dialog", "Open")
+  await waitForCondition(
+    "Dialog portal content",
+    () => r.textContentRoot().includes("About Kobalte"),
+    flushNative,
+  )
   requireText(r.textContentRoot(), "About Kobalte", "light Dialog open")
   r.captureScreenshot("/tmp/gpuix-solid1-kobalte-light-dialog.png")
   await settleEffects(() => r.flush())
