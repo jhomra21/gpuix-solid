@@ -56,11 +56,12 @@ function sameReleaseBurst(left: PointerReleaseBurst, right: PointerReleaseBurst)
  * platforms, so a later stationary click can surface only through that root
  * relay even though its pressed target is still mounted under the pointer.
  *
- * Remember the first non-root mouse-down owner. If its physical release reaches
- * only the root, route that release back to the still-live target when the
- * pointer is actually inside its painted bounds. A normal non-root release wins
- * and clears the fallback. If root happens to arrive first, suppress the later
- * matching native child report so one physical release is delivered once.
+ * Native hit paths can report more than one subscribed non-root node for one
+ * physical press. Keep refining the pressed owner as those reports arrive so
+ * the local/deepest listener remains the release fallback. A mouse-up reported
+ * for a different non-root subscription must not consume that fallback. A
+ * direct release on the remembered owner wins; if only the root gets the
+ * release, route it back to the still-live target inside its painted bounds.
  */
 export class BrowserPointerReleaseRelay {
   #pressedElementId: number | undefined
@@ -72,9 +73,7 @@ export class BrowserPointerReleaseRelay {
     canRouteRootRelease: (elementId: number, event: EventPayload) => boolean,
   ): EventPayload | undefined {
     if (event.eventType === "mouseDown") {
-      if (event.elementId !== rootId && this.#pressedElementId === undefined) {
-        this.#pressedElementId = event.elementId
-      }
+      if (event.elementId !== rootId) this.#pressedElementId = event.elementId
       return event
     }
 
@@ -83,11 +82,11 @@ export class BrowserPointerReleaseRelay {
 
     if (event.elementId !== rootId) {
       const fallback = this.#rootFallback
-      this.#pressedElementId = undefined
       if (fallback && fallback.elementId === event.elementId && sameReleaseBurst(fallback.burst, burst)) {
         this.#rootFallback = undefined
         return undefined
       }
+      if (event.elementId === this.#pressedElementId) this.#pressedElementId = undefined
       return event
     }
 
