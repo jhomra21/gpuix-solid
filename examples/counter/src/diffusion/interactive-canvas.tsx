@@ -1,4 +1,4 @@
-import { Index, Show, createSignal, type Element as SolidElement } from "solid-js"
+import { For, Show, createSignal, type Accessor, type Element as SolidElement } from "solid-js"
 import type { EventPayload } from "gpuix-solid"
 import type { DiffusionEditorState } from "./compat"
 import { Canvas } from "./canvas-native"
@@ -42,15 +42,19 @@ function hitItem(items: readonly SceneItem[], point: Point, pan: Point): SceneIt
   return undefined
 }
 
-function SceneItemView(props: { item: SceneItem; selected: boolean; pan: Point }): SolidElement {
-  const x = () => props.item.x + props.pan.x
-  const y = () => props.item.y + props.pan.y
+function SceneItemView(props: { item: SceneItem; selected: boolean; pan: Point; revision: Accessor<number> }): SolidElement {
+  const current = (): SceneItem => {
+    props.revision()
+    return props.item
+  }
+  const x = () => current().x + props.pan.x
+  const y = () => current().y + props.pan.y
   const common = () => ({
     position: "absolute" as const,
     left: x(),
     top: y(),
-    width: props.item.width,
-    height: props.item.height,
+    width: current().width,
+    height: current().height,
     pointerEvents: "none" as const,
   })
 
@@ -100,10 +104,14 @@ export function InteractiveCanvas(props: {
   const [selectedId, setSelectedId] = createSignal<string | null>(null)
   const [pan, setPan] = createSignal<Point>({ x: 0, y: 0 })
   const [gesture, setGesture] = createSignal<Gesture | null>(null)
+  const [sceneRevision, setSceneRevision] = createSignal(0)
   let nextItemId = 1
 
   const updateItem = (id: string, update: (item: SceneItem) => SceneItem): void => {
-    setItems((current) => current.map((item) => item.id === id ? update(item) : item))
+    const item = items().find((candidate) => candidate.id === id)
+    if (!item) return
+    Object.assign(item, update(item))
+    setSceneRevision((revision) => revision + 1)
   }
 
   const begin = (event: EventPayload): void => {
@@ -209,9 +217,9 @@ export function InteractiveCanvas(props: {
           backgroundColor: "#00000000",
         }}
       >
-        <Index each={items()}>
-          {(item) => <SceneItemView item={item()} selected={selectedId() === item().id} pan={pan()} />}
-        </Index>
+        <For each={items()}>
+          {(item) => <SceneItemView item={item} selected={selectedId() === item.id} pan={pan()} revision={sceneRevision} />}
+        </For>
       </div>
     </Canvas>
   )
