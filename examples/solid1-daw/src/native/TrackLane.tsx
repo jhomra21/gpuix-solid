@@ -80,6 +80,11 @@ const TrackLane = (props: TrackLaneProps): JSX.Element => {
   )
   const [previewAutomation, setPreviewAutomation] = createSignal<AutomationEnvelope>()
   const automationEnvelope = () => previewAutomation() ?? committedAutomation()
+  // The exact source lane keys ClipComponent instances by clip object identity.
+  // Translate a native track once per actual track change instead of fabricating
+  // fresh source clip objects each time the component prop getter is read.
+  const sourceTrackValue = createMemo(() => sourceTrack(props.track))
+  const selectedClipIds = createMemo(() => new Set(props.selectedClipId ? [props.selectedClipId] : []))
 
   const gridLines = createMemo<GridLine[]>(() => {
     if (!props.gridEnabled) return []
@@ -128,7 +133,7 @@ const TrackLane = (props: TrackLaneProps): JSX.Element => {
         </For>
       </div>
       <UpstreamTrackLane
-        track={sourceTrack(props.track)}
+        track={sourceTrackValue()}
         layout={{
           topPx: 0,
           heightPx: totalHeight(),
@@ -136,7 +141,7 @@ const TrackLane = (props: TrackLaneProps): JSX.Element => {
           automationHeightPx: automationHeight(),
         }}
         groupClipOverview={[]}
-        selectedClipIds={new Set(props.selectedClipId ? [props.selectedClipId] : [])}
+        selectedClipIds={selectedClipIds()}
         rangeSelection={null}
         onClipPointerDown={(trackId, clipId, event) => props.onClipMouseDown(trackId, clipId, event)}
         onClipPointerUp={() => {}}
