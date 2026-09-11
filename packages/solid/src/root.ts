@@ -37,6 +37,7 @@ function hasLiveElement(container: HostRootNode, elementId: number): boolean {
 }
 
 function eventPointInsideElement(renderer: NativeRenderer, elementId: number, event: EventPayload): boolean {
+  // SAFETY: GPUIX production/test renderers may expose this optional synchronous bounds capability; callers already tolerate it being absent.
   const bounds = (renderer as BoundsRenderer).getElementBounds?.(elementId)
   const x = event.x
   const y = event.y
