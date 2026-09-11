@@ -1,7 +1,37 @@
 import assert from "node:assert/strict"
+import { createSignal } from "solid-js"
 import { createTestApp, createTestRoot, hasNativeTestRenderer, type ElementBounds } from "gpuix-solid"
-import { EditorPage } from "./app"
-import { C } from "./compat"
+import { type DiffusionEditorState, type DiffusionTool } from "./compat"
+import { InteractiveCanvas } from "./interactive-canvas"
+
+function createTestEditorState(): DiffusionEditorState {
+  const [projectName, setProjectName] = createSignal("Diffusion Studio")
+  const [uiVisible, setUiVisible] = createSignal(true)
+  const [timelineMinimized, setTimelineMinimized] = createSignal(false)
+  const [selectedTool, setSelectedTool] = createSignal<DiffusionTool>("move")
+  const [selectedAsset, setSelectedAsset] = createSignal<string | null>(null)
+  const [zoom, setZoom] = createSignal(1)
+  const [playing, setPlaying] = createSignal(false)
+  const [looping, setLooping] = createSignal(false)
+  return {
+    projectName,
+    setProjectName,
+    uiVisible,
+    setUiVisible,
+    timelineMinimized,
+    setTimelineMinimized,
+    selectedTool,
+    setSelectedTool,
+    selectedAsset,
+    setSelectedAsset,
+    zoom,
+    setZoom,
+    playing,
+    setPlaying,
+    looping,
+    setLooping,
+  }
+}
 
 async function main(): Promise<void> {
   if (!hasNativeTestRenderer) {
@@ -9,8 +39,14 @@ async function main(): Promise<void> {
     return
   }
 
+  const state = createTestEditorState()
+  const [promptOpen, setPromptOpen] = createSignal(false)
   const root = createTestRoot(1280, 800)
-  root.render(() => <EditorPage />)
+  root.render(() => (
+    <div style={{ width: "100%", height: "100%" }}>
+      <InteractiveCanvas state={state} promptOpen={promptOpen} setPromptOpen={setPromptOpen} />
+    </div>
+  ))
   const app = createTestApp(root.renderer)
   const boundsWhenPainted = async (testId: string): Promise<ElementBounds> => {
     const locator = app.getByTestId(testId)
@@ -26,17 +62,9 @@ async function main(): Promise<void> {
       }
     }
   }
-  const waitForActiveTool = async (testId: string): Promise<void> => {
-    const locator = app.getByTestId(testId)
-    const started = Date.now()
-    for (;;) {
-      const node = await locator.element()
-      if (node.style?.backgroundColor === C.secondary) return
-      if (Date.now() - started >= 5000) {
-        throw new Error(`${testId} never became the visibly active tool after 5s`)
-      }
-      await new Promise<void>((resolve) => setTimeout(resolve, 16))
-    }
+  const chooseTool = async (testId: string, tool: DiffusionTool): Promise<void> => {
+    await app.getByTestId(testId).click()
+    assert.equal(state.selectedTool(), tool, `${testId} should select ${tool}`)
   }
 
   try {
@@ -44,8 +72,7 @@ async function main(): Promise<void> {
     const start = { x: surface.x + 180, y: surface.y + 120 }
     const end = { x: start.x + 150, y: start.y + 90 }
 
-    await app.getByTestId("diffusion-tool-rect").click()
-    await waitForActiveTool("diffusion-tool-rect")
+    await chooseTool("diffusion-tool-rect", "rect")
     await app.mouse.drag(start, end, { steps: 4 })
     await app.getByTestId("diffusion-scene-rect-1").waitFor()
     const created = await boundsWhenPainted("diffusion-scene-rect-1")
@@ -53,27 +80,25 @@ async function main(): Promise<void> {
     assert.ok(created.height >= 85, `rectangle height should follow pointer drag, got ${created.height}`)
 
     await app.getByTestId("diffusion-tool-select-menu").click()
-    await app.getByTestId("diffusion-tool-option-move").click()
+    await chooseTool("diffusion-tool-option-move", "move")
     await app.getByTestId("diffusion-scene-rect-1").dragBy(70, 35, { steps: 4 })
     const moved = await boundsWhenPainted("diffusion-scene-rect-1")
     assert.ok(moved.x >= created.x + 65, `Move tool should translate rectangle horizontally: ${created.x} -> ${moved.x}`)
     assert.ok(moved.y >= created.y + 30, `Move tool should translate rectangle vertically: ${created.y} -> ${moved.y}`)
 
     await app.getByTestId("diffusion-tool-select-menu").click()
-    await app.getByTestId("diffusion-tool-option-hand").click()
+    await chooseTool("diffusion-tool-option-hand", "hand")
     const panStart = { x: surface.x + 440, y: surface.y + 180 }
     await app.mouse.drag(panStart, { x: panStart.x + 55, y: panStart.y + 25 }, { steps: 4 })
     const panned = await boundsWhenPainted("diffusion-scene-rect-1")
     assert.ok(panned.x >= moved.x + 50, `Hand tool should pan scene horizontally: ${moved.x} -> ${panned.x}`)
     assert.ok(panned.y >= moved.y + 20, `Hand tool should pan scene vertically: ${moved.y} -> ${panned.y}`)
 
-    await app.getByTestId("diffusion-tool-text").click()
-    await waitForActiveTool("diffusion-tool-text")
+    await chooseTool("diffusion-tool-text", "text")
     await app.mouse.click({ x: surface.x + 360, y: surface.y + 330 })
     await app.getByTestId("diffusion-scene-text-2").waitFor()
 
-    await app.getByTestId("diffusion-tool-frame").click()
-    await waitForActiveTool("diffusion-tool-frame")
+    await chooseTool("diffusion-tool-frame", "frame")
     const frameStart = { x: surface.x + 520, y: surface.y + 100 }
     await app.mouse.drag(frameStart, { x: frameStart.x + 120, y: frameStart.y + 160 }, { steps: 4 })
     const frame = await boundsWhenPainted("diffusion-scene-frame-3")
