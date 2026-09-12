@@ -78,6 +78,7 @@ if (hasNativeTestRenderer) {
   )
 
   const volumeControl = { "aria-label": "Track 1 volume" } as const
+  const initialVolumeText = app.renderer.customPropByCustomProps(volumeControl, "aria-valuetext")
   const initialVolumeStyle = app.renderer.styleCustomProps(volumeControl)
   const initialFillStyle = app.renderer.styleTestId("gpuix-css-hard-split-fill")
   requireCondition(
@@ -200,6 +201,21 @@ if (hasNativeTestRenderer) {
   app.renderer.captureScreenshot("/tmp/gpuix-solid1-daw-mixer-interacted.png")
 
   app.unmount()
+
+  const remounted = createTestRoot(1440, 900)
+  remounted.render(() => (
+    <div testId="daw-remount-viewport" style={{ width: "100%", height: "100%", overflow: "scroll" }}>
+      <DawSolid1Showcase />
+    </div>
+  ))
+  remounted.root.flush()
+  remounted.renderer.flush()
+  const remountedVolumeText = remounted.renderer.customPropByCustomProps(volumeControl, "aria-valuetext")
+  requireCondition(
+    remountedVolumeText === initialVolumeText,
+    `fresh DAW mount must not inherit keyed workspace mutations: expected ${JSON.stringify(initialVolumeText)}, got ${JSON.stringify(remountedVolumeText)}`,
+  )
+  remounted.unmount()
 
   // Exercise the exact source automated state separately instead of changing
   // the showcase's deterministic fake project data merely to expose this CSS.
