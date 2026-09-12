@@ -145,5 +145,6 @@ jobs:
       - name: Build and link pinned GPUIX source
         run: bun run gpuix:edge:prepare
       - run: bun run gpuix:edge:status
+      - run: bun run gpuix:edge:verify
       - name: Verify Solid and live examples against pinned GPUIX source
         run: bun run gpuix:edge:check
