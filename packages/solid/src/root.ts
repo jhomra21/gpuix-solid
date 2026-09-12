@@ -15,9 +15,25 @@ type PointerRelayBurst = {
   y: number
   button: number
 }
+type PointerDownBurst = {
+  elementId: number
+  x: number
+  y: number
+  button: number
+}
 type BoundsRenderer = NativeRenderer & {
   getElementBounds?(elementId: number): number[] | null
 }
+
+const POINTER_TARGET_EVENTS = [
+  "pointerDown",
+  "mouseDown",
+  "pointerUp",
+  "mouseUp",
+  "click",
+  "dblClick",
+  "contextMenu",
+] as const
 
 function nextWindowKeyEventId(renderer: NativeRenderer): number {
   const id = (windowKeyEventIds.get(renderer) ?? 0) + 1
@@ -74,6 +90,26 @@ function eventPointInsideElement(renderer: NativeRenderer, elementId: number, ev
   return x >= left && x <= left + width && y >= top && y <= top + height
 }
 
+function pointerTargetAtPoint(
+  container: HostRootNode,
+  renderer: NativeRenderer,
+  events: EventRegistry,
+  event: EventPayload,
+): number | undefined {
+  const visit = (nodes: readonly HostNode[]): number | undefined => {
+    for (let index = nodes.length - 1; index >= 0; index -= 1) {
+      const node = nodes[index]
+      if (!node || node.kind !== "element" || !node.nativeAlive) continue
+      const descendant = visit(node.children)
+      if (descendant !== undefined) return descendant
+      if (!eventPointInsideElement(renderer, node.id, event)) continue
+      if (POINTER_TARGET_EVENTS.some((eventType) => events.has(node.id, eventType))) return node.id
+    }
+    return undefined
+  }
+  return visit(container.children)
+}
+
 function pointerRelayEventType(eventType: string): PointerRelayEventType | undefined {
   if (eventType === "mouseMove" || eventType === "mouseUp") return eventType
   return undefined
@@ -81,6 +117,13 @@ function pointerRelayEventType(eventType: string): PointerRelayEventType | undef
 
 function samePointerRelayBurst(left: PointerRelayBurst, right: PointerRelayBurst): boolean {
   return left.eventType === right.eventType
+    && left.x === right.x
+    && left.y === right.y
+    && left.button === right.button
+}
+
+function samePointerDownBurst(left: PointerDownBurst, right: PointerDownBurst): boolean {
+  return left.elementId === right.elementId
     && left.x === right.x
     && left.y === right.y
     && left.button === right.button
@@ -104,6 +147,7 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
   let windowKeyEventId = nextWindowKeyEventId(renderer)
   let dispose: (() => void) | undefined
   let pointerRelayBurst: PointerRelayBurst | undefined
+  let pointerDownBurst: PointerDownBurst | undefined
 
   const syncWindowKeyEvents = (): void => {
     renderer.setWindowKeyEvents?.(
@@ -127,6 +171,23 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
     }
   }
   const contextValue: GpuixContextValue = { renderer, flushSync }
+
+  const isDuplicatePointerDown = (event: EventPayload): boolean => {
+    if (event.eventType !== "mouseDown") return false
+    const current = {
+      elementId: event.elementId,
+      x: event.x ?? 0,
+      y: event.y ?? 0,
+      button: event.button ?? 0,
+    } satisfies PointerDownBurst
+    const previous = pointerDownBurst
+    if (previous && samePointerDownBurst(previous, current)) return true
+    pointerDownBurst = current
+    queueMicrotask(() => {
+      if (pointerDownBurst === current) pointerDownBurst = undefined
+    })
+    return false
+  }
 
   const isSyntheticRootRelayDuplicate = (event: EventPayload): boolean => {
     const relayType = pointerRelayEventType(event.eventType)
@@ -175,6 +236,7 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
         flush()
         events.clear()
         releaseRelay.clear()
+        pointerDownBurst = undefined
       }
 
       type UniversalNode = HostRootNode | HostNode
@@ -219,7 +281,17 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
           if (!hasLiveElement(container, event.elementId)) return
           const mounted = container.children[0]
           const rootId = mounted && mounted.kind === "element" ? mounted.id : undefined
-          const routedEvent = releaseRelay.route(
+          if (
+            event.eventType === "mouseDown"
+            && event.elementId === rootId
+            && releaseRelay.pressedElementId !== undefined
+            && releaseRelay.pressedElementId !== rootId
+          ) {
+            handled = true
+            return
+          }
+
+          let routedEvent = releaseRelay.route(
             event,
             rootId,
             (elementId, release) => hasLiveElement(container, elementId)
@@ -230,7 +302,28 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
             handled = true
             return
           }
+
+          if (event.elementId === rootId && (event.eventType === "mouseDown" || event.eventType === "mouseUp")) {
+            const targetId = pointerTargetAtPoint(container, renderer, events, event)
+            if (targetId !== undefined && targetId !== rootId && routedEvent.elementId === rootId) {
+              routedEvent = { ...event, elementId: targetId }
+              if (event.eventType === "mouseDown") {
+                routedEvent = releaseRelay.route(
+                  routedEvent,
+                  rootId,
+                  (elementId, release) => hasLiveElement(container, elementId)
+                    && eventPointInsideElement(renderer, elementId, release),
+                  (elementId, ancestorId) => isHostDescendant(container, elementId, ancestorId),
+                ) ?? routedEvent
+              }
+            }
+          }
+
           if (!hasLiveElement(container, routedEvent.elementId)) return
+          if (isDuplicatePointerDown(routedEvent)) {
+            handled = true
+            return
+          }
           if (isSyntheticRootRelayDuplicate(routedEvent)) {
             handled = true
             return
@@ -251,6 +344,7 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
       flush()
       events.clear()
       releaseRelay.clear()
+      pointerDownBurst = undefined
       if (windowKeyEventIds.get(renderer) === windowKeyEventId) {
         renderer.setWindowKeyEvents?.(false, false, windowKeyEventId)
       }

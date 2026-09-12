@@ -67,6 +67,10 @@ export class BrowserPointerReleaseRelay {
   #pressedElementId: number | undefined
   #rootFallback: { elementId: number; burst: PointerReleaseBurst } | undefined
 
+  get pressedElementId(): number | undefined {
+    return this.#pressedElementId
+  }
+
   route(
     event: EventPayload,
     rootId: number | undefined,

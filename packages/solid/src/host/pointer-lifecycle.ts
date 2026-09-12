@@ -50,11 +50,6 @@ function sameReleaseBurst(left: PointerReleaseBurst, right: PointerReleaseBurst)
   return left.x === right.x && left.y === right.y && left.button === right.button
 }
 
-function traceRemountClick(event: EventPayload, rootId: number | undefined, pressedElementId: number | undefined, detail: string): void {
-  if ((event.eventType !== "mouseDown" && event.eventType !== "mouseUp") || event.x !== 40 || event.y !== 20) return
-  console.log(`[root-capture-trace] ${event.eventType}:raw=${event.elementId}:root=${rootId ?? "none"}:pressed=${pressedElementId ?? "none"}:${detail}`)
-}
-
 /**
  * The mounted root carries a synthetic native pointer lifecycle as a stable
  * browser-window relay. Native pointer capture can outlive a retained node
@@ -72,13 +67,16 @@ export class BrowserPointerReleaseRelay {
   #pressedElementId: number | undefined
   #rootFallback: { elementId: number; burst: PointerReleaseBurst } | undefined
 
+  get pressedElementId(): number | undefined {
+    return this.#pressedElementId
+  }
+
   route(
     event: EventPayload,
     rootId: number | undefined,
     canRouteRootRelease: (elementId: number, event: EventPayload) => boolean,
     isDescendantOf: (elementId: number, ancestorId: number) => boolean = () => false,
   ): EventPayload | undefined {
-    traceRemountClick(event, rootId, this.#pressedElementId, "enter")
     if (event.eventType === "mouseDown") {
       if (event.elementId !== rootId) {
         const pressedElementId = this.#pressedElementId
@@ -90,7 +88,6 @@ export class BrowserPointerReleaseRelay {
           this.#pressedElementId = event.elementId
         }
       }
-      traceRemountClick(event, rootId, this.#pressedElementId, "down-exit")
       return event
     }
 
@@ -101,21 +98,21 @@ export class BrowserPointerReleaseRelay {
       const fallback = this.#rootFallback
       if (fallback && fallback.elementId === event.elementId && sameReleaseBurst(fallback.burst, burst)) {
         this.#rootFallback = undefined
-        traceRemountClick(event, rootId, this.#pressedElementId, "up-late-duplicate")
         return undefined
       }
       if (event.elementId === this.#pressedElementId) this.#pressedElementId = undefined
-      traceRemountClick(event, rootId, this.#pressedElementId, "up-direct")
       return event
     }
 
     const pressedElementId = this.#pressedElementId
     this.#pressedElementId = undefined
-    const canRoute = pressedElementId !== undefined
-      && pressedElementId !== rootId
-      && canRouteRootRelease(pressedElementId, event)
-    traceRemountClick(event, rootId, pressedElementId, `up-root:canRoute=${canRoute}`)
-    if (!canRoute || pressedElementId === undefined || pressedElementId === rootId) return event
+    if (
+      pressedElementId === undefined
+      || pressedElementId === rootId
+      || !canRouteRootRelease(pressedElementId, event)
+    ) {
+      return event
+    }
 
     const fallback = { elementId: pressedElementId, burst }
     this.#rootFallback = fallback
