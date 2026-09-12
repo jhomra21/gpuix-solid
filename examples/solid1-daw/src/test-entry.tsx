@@ -63,7 +63,7 @@ if (hasNativeTestRenderer) {
     'fill="#00a76c"',
     "<path",
   ])
-  const waveformPathData = [...waveformSource.matchAll(/<path d="([^"]+)" fill="#00a76c"\/>/g)]
+  const waveformPathData = [...waveformSource.matchAll(/<path d="([^"]+)"/g)]
     .map((match) => match[1] ?? "")
     .join("")
   const waveformPeakSegments = waveformPathData.match(/M/g)?.length ?? 0
