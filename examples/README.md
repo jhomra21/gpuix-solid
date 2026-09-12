@@ -13,7 +13,7 @@ Where upstream source exists, the repository keeps a pinned copy and treats sour
 
 ## GPUIX parity examples
 
-The published GPUIX 0.7 desktop examples have Solid 2 parity coverage for Counter, Native Text, Todo, Diff, Timeline, Chat, and Infinite Chat. Timeline remains in the automated/performance suite, but the public video-editor example is the real Diffusion Studio editor described below.
+The published GPUIX 0.7 desktop examples have Solid 2 parity coverage for Counter, Native Text, Todo, Diff, Timeline, Chat, and Infinite Chat. The Mail fixture additionally tracks the audited GPUIX source-main snapshot used by this branch. Timeline remains in the automated/performance suite, but the public video-editor example is the real Diffusion Studio editor described below.
 
 ### Counter
 
@@ -59,6 +59,22 @@ Covers unified and split source diffs, multi-hunk layouts, word-level changes, s
 - `shiki` tokenizes and highlights source code.
 
 The rendered output is still ordinary Solid/GPUIX host content.
+
+### Timeline
+
+```bash
+bun run example:timeline
+```
+
+Covers the pinned GPUIX timeline workload with two-axis pan, clip move/trim, snapping, scrubbing, zoom, marquee selection, culling, frozen panes, and pointer capture. It remains both an interaction fixture and the basis of the repository's timeline performance workload.
+
+### Mail
+
+```bash
+bun run example:mail
+```
+
+Tracks the pinned GPUIX source-main Mail surface rather than the older published 0.7 example set. It exercises the three-pane mail layout, source-owned icons and visual structure, selection/filtering controls, compose/navigation surfaces, native window behavior, and source-first compatibility against the same audited GPUIX snapshot used by the other source-main-derived examples.
 
 ### Chat
 
@@ -191,6 +207,7 @@ The serialization workload captures mutation tuples emitted by Solid's real `app
 - Todo
 - Diff
 - Timeline (internal GPUIX parity workload)
+- Mail
 - Diffusion Studio editor
 - Chat
 - Infinite Chat
@@ -198,7 +215,7 @@ The serialization workload captures mutation tuples emitted by Solid's real `app
 - CodeImage
 - TanStack kitchen sink
 
-The Timeline suite drives real mouse move/down/up sequences, including pointer-captured drags. The Diffusion suite guards the actual editor component ownership plus representative asset, playback, timeline, and UI interactions. Chat and Infinite Chat exercise selection, scrolling, MDX composition, composer behavior, edge loading, and navigation. Todo exercises input and virtual-list anchoring. Dashboard additionally exercises real native controlled inputs, modal interaction, scroll-to-target geometry, and uppercase confirmation input.
+The Timeline suite drives real mouse move/down/up sequences, including pointer-captured drags. The Mail suite exercises its source-main application surface through the native host. The Diffusion suite guards the actual editor component ownership plus representative asset, playback, timeline, and UI interactions. Chat and Infinite Chat exercise selection, scrolling, MDX composition, composer behavior, edge loading, and navigation. Todo exercises input and virtual-list anchoring. Dashboard additionally exercises real native controlled inputs, modal interaction, scroll-to-target geometry, and uppercase confirmation input.
 
 `bun run source:check` verifies the pinned GPUIX, Dashboard, CodeImage, TanStack, and Diffusion Studio source snapshots against their recorded Git blob hashes.
 
