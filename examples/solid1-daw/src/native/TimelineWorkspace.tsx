@@ -94,11 +94,10 @@ const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
   let scrollingTrackElement: HTMLDivElement | undefined
 
   // Parent fixture updates use immutable project snapshots, while Solid's <For>
-  // keys rows by item identity. Reconcile by track id at this compatibility
-  // boundary so a collapse or mixer change updates one stable row instead of
-  // disposing/remounting the lane and its waveform canvases.
+  // keys rows by item identity. Reconcile a locally owned copy by track id so a
+  // collapse or mixer change updates one stable row without mutating caller state.
   const [trackState, setTrackState] = createStore<{ tracks: NativeTrack[] }>({
-    tracks: props.tracks,
+    tracks: structuredClone(props.tracks),
   })
   createEffect(() => {
     setTrackState("tracks", reconcile(props.tracks, { key: "id" }))
