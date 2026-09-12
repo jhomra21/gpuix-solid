@@ -11,17 +11,24 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 30
     steps:
-      - name: Check out candidate
+      - name: Check out probe source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-          path: candidate
+          path: probe
           persist-credentials: false
 
-      - name: Check out certified production baseline
+      - name: Check out certified production
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: 759ee496fd8f1dcf92e8e7ac338da2b782ebd70b
+          path: production
+          persist-credentials: false
+
+      - name: Check out pre-fix baseline
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ff45cc2a3dbcb6b3400990d3e51d876594805a42
           path: baseline
           persist-credentials: false
 
@@ -29,21 +36,21 @@ jobs:
         with:
           bun-version: 1.3.14
 
-      - name: Prepare candidate
-        working-directory: candidate
+      - name: Prepare certified production
+        working-directory: production
         run: |
+          cp ../probe/examples/solid1-daw/src/perf-retained-probe.tsx examples/solid1-daw/src/test-entry.tsx
           bun install --frozen-lockfile
-          echo "=== prepare candidate $(git rev-parse HEAD) ==="
+          echo "=== prepare production $(git rev-parse HEAD) ==="
           bun run solid1:package
-          cp examples/solid1-daw/src/perf-retained-probe.tsx examples/solid1-daw/src/test-entry.tsx
           cd examples/solid1-daw
           bun install --no-save
           bun run build:test
 
-      - name: Prepare certified production with identical probe
+      - name: Prepare pre-fix baseline with identical probe
         working-directory: baseline
         run: |
-          cp ../candidate/examples/solid1-daw/src/perf-retained-probe.tsx examples/solid1-daw/src/test-entry.tsx
+          cp ../probe/examples/solid1-daw/src/perf-retained-probe.tsx examples/solid1-daw/src/test-entry.tsx
           bun install --frozen-lockfile
           echo "=== prepare baseline $(git rev-parse HEAD) ==="
           bun run solid1:package
@@ -51,12 +58,10 @@ jobs:
           bun install --no-save
           bun run build:test
 
-      # Counterbalance execution order so one side does not win merely because
-      # the runner, native libraries, or filesystem caches are warmer later.
-      - name: Measure candidate A1
-        working-directory: candidate/examples/solid1-daw
+      - name: Measure production A1
+        working-directory: production/examples/solid1-daw
         run: |
-          echo "=== candidate A1 ==="
+          echo "=== production A1 ==="
           bun dist/test/test.js
 
       - name: Measure baseline B1
@@ -71,8 +76,8 @@ jobs:
           echo "=== baseline B2 ==="
           bun dist/test/test.js
 
-      - name: Measure candidate A2
-        working-directory: candidate/examples/solid1-daw
+      - name: Measure production A2
+        working-directory: production/examples/solid1-daw
         run: |
-          echo "=== candidate A2 ==="
+          echo "=== production A2 ==="
           bun dist/test/test.js
