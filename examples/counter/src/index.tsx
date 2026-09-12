@@ -107,9 +107,23 @@ function App() {
   )
 }
 
-render(() => <App />, {
+const app = render(() => <App />, {
   title: "GPUIX Counter",
   width: 800,
   height: 600,
   focus: process.env.GPUIX_BACKGROUND !== "1",
+  debugFrameOverlay: process.env.GPUIX_FOREGROUND_FRAME_PROBE === "1" ? "minimal" : undefined,
 })
+
+if (process.env.GPUIX_FOREGROUND_FRAME_PROBE === "1") {
+  const baseline = app.renderer.getDebugFrameOverlayStats?.()
+  if (!baseline) throw new Error("Foreground frame probe requires debug frame overlay stats")
+
+  setTimeout(() => {
+    const final = app.renderer.getDebugFrameOverlayStats?.()
+    if (!final) throw new Error("Foreground frame probe lost debug frame overlay stats")
+    const frameDelta = final.frames - baseline.frames
+    console.log(`[foreground-frame-probe] ${JSON.stringify({ baseline, final, frameDelta })}`)
+    process.exit(frameDelta > 0 ? 0 : 42)
+  }, 1000)
+}
