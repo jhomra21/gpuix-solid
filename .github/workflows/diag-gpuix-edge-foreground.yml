@@ -31,10 +31,45 @@ jobs:
               raise SystemExit('expected macOS automation frame ownership line not found')
           p.write_text(s.replace(old, 'const driveFrames = options.driveFrames ?? false', 1))
           PY
-      - name: Build and link exact pinned GPUIX edge
-        run: bun run gpuix:edge:prepare
+      - name: Fetch exact pinned GPUIX edge source
+        run: bun run gpuix:edge:sync
+      - name: Patch macOS invalidation to avoid leasing GpuixView
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          candidates = list(Path('.cache/gpuix').glob('remorses--gpuix-*/packages/native/src/renderer.rs'))
+          if len(candidates) != 1:
+              raise SystemExit(f'expected one edge renderer.rs, got {candidates}')
+          p = candidates[0]
+          s = p.read_text()
+          old = '''#[cfg(target_os = "macos")]
+fn invalidate_window() -> Result<()> {
+    update_window(|_view, window, cx| {
+        cx.notify();
+        window.refresh();
+    })
+}
+'''
+          new = '''#[cfg(target_os = "macos")]
+fn invalidate_window() -> Result<()> {
+    // Retained-tree mutations may be committed from a JS event callback that
+    // originated inside GpuixView. Invalidating must not lease that view again.
+    update_window_without_view(|window, _cx| {
+        window.refresh();
+    })
+}
+'''
+          if old not in s:
+              raise SystemExit('expected typed macOS invalidate_window implementation not found')
+          p.write_text(s.replace(old, new, 1))
+          print(p)
+          PY
+      - name: Build and link patched exact edge source
+        run: |
+          bun run gpuix:edge:build
+          bun run gpuix:edge:link
       - run: bun run gpuix:edge:status
-      - name: Build live applications against edge
+      - name: Build live applications against patched edge
         run: bun run build
       - name: Make existing live suite use focused foreground windows
         run: |
@@ -49,5 +84,5 @@ jobs:
           PY
           git diff --check
           git diff -- packages/solid/src/automation/server.ts scripts/check-gpuix-edge-live-automation.mjs
-      - name: Run exact live suite with normal frame pump and window focus
+      - name: Run exact live suite with normal frame pump and safe invalidation
         run: bun run examples:live
