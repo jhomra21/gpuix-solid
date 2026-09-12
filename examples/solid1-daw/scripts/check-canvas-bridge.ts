@@ -117,6 +117,7 @@ if (!hasNativeTestRenderer) {
   app.unmount()
 
   const eqApp = createTestRoot(260, 140)
+  let eqContext: CanvasRenderingContext2D | undefined
   eqApp.render(() => {
     // SAFETY: this uses the same literal semantic-canvas creation path validated above; the detector immediately requires a non-null 2D context before issuing EQ drawing commands.
     const canvas = createElement("canvas") as CompatCanvas
@@ -125,6 +126,7 @@ if (!hasNativeTestRenderer) {
     canvas.height = 80
     const context = canvas.getContext("2d")
     if (!context) throw new Error("Semantic DAW canvas must expose the compatibility 2D context")
+    eqContext = context
 
     context.fillStyle = "#09090b"
     context.fillRect(0, 0, 160, 80)
@@ -186,9 +188,28 @@ if (!hasNativeTestRenderer) {
     !eqSource.includes('transform="matrix(1 0 0 1 0 0)"'),
     `identity Canvas transforms must not be serialized onto EQ circles, got ${eqSource}`,
   )
+
+  const repaint = eqContext
+  if (!repaint) throw new Error("EQ Canvas context should remain available for repaint acceptance")
+  repaint.fillStyle = "oklch(0.11 0.003 286)"
+  repaint.fillRect(0, 0, 160, 80)
+  repaint.fillStyle = "#ffffff"
+  repaint.font = "9px ui-monospace, SFMono-Regular, Menlo, monospace"
+  repaint.textAlign = "left"
+  repaint.textBaseline = "alphabetic"
+  repaint.fillText("fresh frame", 12, 18)
+  await Promise.resolve()
+  eqApp.root.flush()
+  eqApp.renderer.flush()
+  const repaintedSource = canvasSvg(eqApp, [">fresh frame</text>"])
+  requireCondition(
+    !repaintedSource.includes("+12 dB") && !repaintedSource.includes(">5</text>"),
+    `opaque full-surface EQ repaint must discard fully occluded retained commands, got ${repaintedSource}`,
+  )
+
   requireCondition(eqApp.renderer.hasTestId("gpuix-canvas-2d-surface"), "multicolor EQ Canvas should retain one native SVG paint surface")
   requireCondition(!eqApp.renderer.hasTestId("gpuix-canvas-2d-layer-1"), "multicolor EQ Canvas should not depend on tint-only SVG layers")
   eqApp.unmount()
 
-  console.log("DAW Canvas2D compatibility bridge: raw SVG batching, compact waveform paths, and exact multicolor output passed")
+  console.log("DAW Canvas2D compatibility bridge: raw SVG batching, bounded repaint commands, compact waveform paths, and exact multicolor output passed")
 }
