@@ -46,34 +46,32 @@ export type SourceTrackSidebarProps = {
 }
 
 function sameBooleanRecord(
-  previous: Record<string, boolean> | undefined,
+  previous: Record<string, boolean>,
   next: Record<string, boolean>,
 ): boolean {
-  if (!previous) return false
   const keys = Object.keys(next)
   if (keys.length !== Object.keys(previous).length) return false
   return keys.every((key) => previous[key] === next[key])
 }
 
 function sameStringArrayRecord(
-  previous: Record<string, string[]> | undefined,
+  previous: Record<string, string[]>,
   next: Record<string, string[]>,
 ): boolean {
-  if (!previous) return false
   const keys = Object.keys(next)
   if (keys.length !== Object.keys(previous).length) return false
   return keys.every((key) => {
     const left = previous[key]
     const right = next[key]
-    return left?.length === right.length && right.every((value, index) => left[index] === value)
+    if (!left || left.length !== right.length) return false
+    return right.every((value, index) => left[index] === value)
   })
 }
 
 function sameSelectionRecord(
-  previous: Record<string, AutomationParameterSelection> | undefined,
+  previous: Record<string, AutomationParameterSelection>,
   next: Record<string, AutomationParameterSelection>,
 ): boolean {
-  if (!previous) return false
   const keys = Object.keys(next)
   if (keys.length !== Object.keys(previous).length) return false
   return keys.every((key) => {
@@ -100,7 +98,7 @@ export default function SourceTrackSidebar(props: SourceTrackSidebarProps): JSX.
   const trackById = createMemo(() => new Map(tracks().map((track) => [track.id, track])))
   const visibleByTrackId = createMemo<Record<string, boolean>>(
     () => Object.fromEntries(props.tracks.map((track) => [track.id, track.automationVisible])),
-    undefined,
+    {},
     { equals: sameBooleanRecord },
   )
   const visibleTargetKeysByTrackId = createMemo<Record<string, string[]>>(
@@ -110,7 +108,7 @@ export default function SourceTrackSidebar(props: SourceTrackSidebarProps): JSX.
         ? [automationTargetKey({ kind: "track", trackId: track.id }, "volume")]
         : [],
     ])),
-    undefined,
+    {},
     { equals: sameStringArrayRecord },
   )
   const tree = createMemo(() => buildTrackTree(tracks()))
@@ -136,7 +134,7 @@ export default function SourceTrackSidebar(props: SourceTrackSidebarProps): JSX.
         selections()[track.id] ?? { parameterId: "volume" },
       ])),
     }),
-    undefined,
+    {},
     { equals: sameSelectionRecord },
   )
   const effectInstancesByOwnerKey = createMemo(() => Object.fromEntries([
