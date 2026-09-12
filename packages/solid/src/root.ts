@@ -129,12 +129,6 @@ function samePointerDownBurst(left: PointerDownBurst, right: PointerDownBurst): 
     && left.button === right.button
 }
 
-function traceTodoDelete(event: EventPayload): boolean {
-  return (event.eventType === "mouseDown" || event.eventType === "mouseUp" || event.eventType === "click")
-    && event.x === 856
-    && event.y === 162
-}
-
 export interface Root {
   render(code: () => SolidElement): void
   flush(): void
@@ -287,23 +281,12 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
           if (!hasLiveElement(container, event.elementId)) return
           const mounted = container.children[0]
           const rootId = mounted && mounted.kind === "element" ? mounted.id : undefined
-          if (traceTodoDelete(event)) {
-            console.log("[todo-delete-pointer]", JSON.stringify({
-              phase: "raw",
-              eventType: event.eventType,
-              elementId: event.elementId,
-              rootId,
-              pressed: releaseRelay.pressedElementId ?? null,
-              pointTarget: pointerTargetAtPoint(container, renderer, events, event) ?? null,
-            }))
-          }
           if (
             event.eventType === "mouseDown"
             && event.elementId === rootId
             && releaseRelay.pressedElementId !== undefined
             && releaseRelay.pressedElementId !== rootId
           ) {
-            if (traceTodoDelete(event)) console.log("[todo-delete-pointer] suppress-root-down")
             handled = true
             return
           }
@@ -316,7 +299,6 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
             (elementId, ancestorId) => isHostDescendant(container, elementId, ancestorId),
           )
           if (!routedEvent) {
-            if (traceTodoDelete(event)) console.log("[todo-delete-pointer] relay-suppressed")
             handled = true
             return
           }
@@ -337,14 +319,6 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
             }
           }
 
-          if (traceTodoDelete(event)) {
-            console.log("[todo-delete-pointer]", JSON.stringify({
-              phase: "routed",
-              eventType: routedEvent.eventType,
-              elementId: routedEvent.elementId,
-              pressed: releaseRelay.pressedElementId ?? null,
-            }))
-          }
           if (!hasLiveElement(container, routedEvent.elementId)) return
           if (isDuplicatePointerDown(routedEvent)) {
             handled = true

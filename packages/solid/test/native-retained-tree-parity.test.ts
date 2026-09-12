@@ -118,7 +118,6 @@ describe("native retained-tree parity", () => {
           },
         ],
         "events": [
-          "mouseDown",
           "mouseMove",
           "mouseUp",
         ],
@@ -181,7 +180,6 @@ describe("native retained-tree parity", () => {
           },
         ],
         "events": [
-          "mouseDown",
           "mouseMove",
           "mouseUp",
         ],

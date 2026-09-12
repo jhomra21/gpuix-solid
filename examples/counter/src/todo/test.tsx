@@ -26,27 +26,8 @@ async function main(): Promise<void> {
     assert.equal(await app.getByTestId("row-t8").count(), 1)
 
     await app.getByTestId("row-t5").hover()
-    const deleteT5 = app.getByTestId("delete-t5")
-    assert.equal(await deleteT5.count(), 1)
-    const deleteElement = await deleteT5.element()
-    const deleteBounds = await deleteT5.bounds()
-    const rawDeleteBounds = testRoot.renderer.getElementBounds(deleteElement.id)
-    console.log("[todo-delete-bounds]", JSON.stringify({
-      id: deleteElement.id,
-      type: deleteElement.type,
-      automationBounds: deleteElement.bounds ?? null,
-      locatorBounds: deleteBounds,
-      rawBounds: rawDeleteBounds,
-      events: deleteElement.events ?? [],
-    }))
-    await app.mouse.down(deleteT5)
-    console.log("[todo-delete-after-down]", JSON.stringify({
-      rawBounds: testRoot.renderer.getElementBounds(deleteElement.id),
-      count: await deleteT5.count(),
-      mouseUp: testRoot.renderer.hasEventListener(deleteElement.id, "mouseUp"),
-      mouseDown: testRoot.renderer.hasEventListener(deleteElement.id, "mouseDown"),
-    }))
-    await app.mouse.up(deleteT5)
+    assert.equal(await app.getByTestId("delete-t5").count(), 1)
+    await app.getByTestId("delete-t5").click()
     assert.equal(await app.getByTestId("row-t5").count(), 0)
     assert.equal(await app.getByTestId("view-count").textContent(), "5")
 

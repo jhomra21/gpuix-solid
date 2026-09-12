@@ -32,7 +32,7 @@ describe("browser pointer lifecycle compatibility", () => {
     ])
   })
 
-  it("keeps native capture lifecycle armed on the mounted root", () => {
+  it("keeps window move/up relay armed without capturing click-only trees", () => {
     const renderer = new FakeRenderer()
     const driver = new BrowserPointerMutationDriver(renderer, new EventRegistry())
 
@@ -41,16 +41,57 @@ describe("browser pointer lifecycle compatibility", () => {
     driver.flush()
 
     expect(listenerMutations(renderer)).toEqual([
-      ["setEventListener", 10, "mouseDown", true],
       ["setEventListener", 10, "mouseMove", true],
       ["setEventListener", 10, "mouseUp", true],
     ])
+  })
+
+  it("arms root capture only while a connected authored pointer-down gesture exists", () => {
+    const renderer = new FakeRenderer()
+    const driver = new BrowserPointerMutationDriver(renderer, new EventRegistry())
+
+    driver.enqueue("createElement", 10, "div")
+    driver.enqueue("setRoot", 10)
+    driver.flush()
+    renderer.batches.length = 0
+
+    driver.enqueue("createElement", 11, "div")
+    driver.enqueue("setEventListener", 11, "mouseDown", true)
+    driver.enqueue("appendChild", 10, 11)
+    driver.flush()
+
+    expect(listenerMutations(renderer)).toEqual([
+      ["setEventListener", 11, "mouseDown", true],
+      ["setEventListener", 11, "mouseUp", true],
+      ["setEventListener", 10, "mouseDown", true],
+    ])
 
     renderer.batches.length = 0
-    driver.enqueue("setEventListener", 10, "mouseMove", false)
-    driver.enqueue("setEventListener", 10, "mouseUp", false)
+    driver.enqueue("removeChild", 10, 11)
     driver.flush()
-    expect(listenerMutations(renderer)).toEqual([])
+    expect(listenerMutations(renderer)).toEqual([
+      ["setEventListener", 10, "mouseDown", false],
+    ])
+  })
+
+  it("does not arm root capture for a detached authored pointer-down owner", () => {
+    const renderer = new FakeRenderer()
+    const driver = new BrowserPointerMutationDriver(renderer, new EventRegistry())
+
+    driver.enqueue("createElement", 10, "div")
+    driver.enqueue("setRoot", 10)
+    driver.flush()
+    renderer.batches.length = 0
+
+    driver.enqueue("createElement", 11, "div")
+    driver.enqueue("setEventListener", 11, "mouseDown", true)
+    driver.flush()
+
+    expect(listenerMutations(renderer)).toEqual([
+      ["setEventListener", 11, "mouseDown", true],
+      ["setEventListener", 11, "mouseUp", true],
+    ])
+    expect(listenerMutations(renderer)).not.toContainEqual(["setEventListener", 10, "mouseDown", true])
   })
 
   it("probes retained click targets on mouse-down without manufacturing move capture", () => {
@@ -126,7 +167,7 @@ describe("browser pointer lifecycle compatibility", () => {
     ])
   })
 
-  it("does not remove click activation mouse-up when a drag owner is released", () => {
+  it("does not remove click activation lifecycle when a drag owner is released", () => {
     const renderer = new FakeRenderer()
     const driver = new BrowserPointerMutationDriver(renderer, new EventRegistry())
 
