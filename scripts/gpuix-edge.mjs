@@ -43,11 +43,14 @@ switch (command) {
   case "status":
     await printStatus()
     break
+  case "verify":
+    await verifyLinkedRuntime()
+    break
   case "tip":
     printTip()
     break
   default:
-    throw new Error(`Unknown gpuix-edge command ${JSON.stringify(command)}. Use sync, build, link, prepare, status, or tip.`)
+    throw new Error(`Unknown gpuix-edge command ${JSON.stringify(command)}. Use sync, build, link, prepare, status, verify, or tip.`)
 }
 
 async function syncSource() {
@@ -136,6 +139,50 @@ async function printStatus() {
     nativeBuilt: built,
     linkedInstalls: linked,
   }, null, 2))
+}
+
+async function verifyLinkedRuntime() {
+  await requireNativeBuild()
+
+  const expectedTarget = await realpath(nativePackage)
+  const installRoots = []
+  for (const root of new Set([repoRoot, ...(await nativeConsumerRoots(repoRoot))])) {
+    if (await exists(join(root, "node_modules"))) installRoots.push(root)
+  }
+  if (installRoots.length === 0) {
+    throw new Error("No installed node_modules trees were found. Run bun install and bun run gpuix:edge:prepare first.")
+  }
+
+  const linked = []
+  const failures = []
+  for (const root of installRoots) {
+    const destination = join(root, "node_modules", "@gpuix", "native")
+    const display = relative(repoRoot, destination) || destination
+    if (!(await exists(destination))) {
+      failures.push(`${display}: @gpuix/native is missing`)
+      continue
+    }
+    try {
+      const target = await realpath(destination)
+      if (target !== expectedTarget) {
+        failures.push(`${display}: resolves to ${target}, expected ${expectedTarget}`)
+        continue
+      }
+      linked.push(display)
+    } catch (error) {
+      failures.push(`${display}: could not resolve (${error instanceof Error ? error.message : String(error)})`)
+    }
+  }
+
+  if (failures.length > 0) {
+    throw new Error([
+      `GPUIX edge verification failed for ${repository}@${sha}:`,
+      ...failures.map((failure) => `- ${failure}`),
+      "Run bun run gpuix:edge:prepare to rebuild and relink the exact pinned runtime.",
+    ].join("\n"))
+  }
+
+  console.log(`GPUIX edge verify: ${repository}@${sha} linked into ${linked.length} installed consumer${linked.length === 1 ? "" : "s"}`)
 }
 
 function printTip() {
