@@ -211,6 +211,10 @@ export class BrowserPointerReleaseRelay {
  * connected non-press elements also receive move/up relay listeners without
  * mouseDown so the gesture can continue across the frame change. All temporary
  * relay listeners are removed on the physical release.
+ *
+ * Keep the mounted root move/up-only unless it has an authored mouseDown of its
+ * own. Pre-arming a synthetic root mouseDown makes GPUI capture unrelated clicks
+ * merely because another branch of the tree contains a gesture owner.
  */
 export class BrowserPointerMutationDriver extends MutationDriver {
   readonly #authored = new Map<number, PointerLifecycleState>()
@@ -219,7 +223,6 @@ export class BrowserPointerMutationDriver extends MutationDriver {
   readonly #children = new Map<number, Set<number>>()
   readonly #elementTypes = new Map<number, string>()
   readonly #directClickListeners = new Map<number, boolean>()
-  readonly #authoredMouseDownOwners = new Set<number>()
   readonly #activeRelayIds = new Set<number>()
   #rootId: number | undefined
   #authoredPointerRelayActive = false
@@ -231,7 +234,7 @@ export class BrowserPointerMutationDriver extends MutationDriver {
 
   beginAuthoredPointerRelay(elementId: number): void {
     if (this.#authoredPointerRelayActive) return
-    if (!this.#authoredMouseDownOwners.has(elementId)) return
+    if (this.#authored.get(elementId)?.mouseDown !== true) return
     if (!this.#isConnectedDescendantOfRoot(elementId)) return
     this.#authoredPointerRelayActive = true
     this.#activePressedRelayId = elementId
@@ -267,7 +270,6 @@ export class BrowserPointerMutationDriver extends MutationDriver {
       super.enqueue(name, ...args)
       this.#setParent(childId, parentId)
       this.#syncPointerSubtree(childId)
-      this.#syncRootCapture()
       return
     }
 
@@ -276,7 +278,6 @@ export class BrowserPointerMutationDriver extends MutationDriver {
       super.enqueue(name, ...args)
       this.#setParent(childId, null)
       this.#syncPointerSubtree(childId)
-      this.#syncRootCapture()
       return
     }
 
@@ -288,12 +289,7 @@ export class BrowserPointerMutationDriver extends MutationDriver {
         const state = this.#authored.get(id) ?? emptyPointerLifecycleState()
         state[eventType] = enabled
         this.#authored.set(id, state)
-        if (eventType === "mouseDown") {
-          if (enabled) this.#authoredMouseDownOwners.add(id)
-          else this.#authoredMouseDownOwners.delete(id)
-        }
         this.#syncPointerLifecycle(id)
-        if (eventType === "mouseDown") this.#syncRootCapture()
         return
       }
 
@@ -310,7 +306,6 @@ export class BrowserPointerMutationDriver extends MutationDriver {
       const id = numberArg(args, 0)
       super.enqueue(name, ...args)
       this.#forgetSubtree(id)
-      this.#syncRootCapture()
       return
     }
 
@@ -363,23 +358,11 @@ export class BrowserPointerMutationDriver extends MutationDriver {
     return false
   }
 
-  #needsRootCapture(): boolean {
-    for (const id of this.#authoredMouseDownOwners) {
-      if (this.#isConnectedDescendantOfRoot(id)) return true
-    }
-    return false
-  }
-
   #needsActiveRelay(id: number, authored: PointerLifecycleState, isRootRelay: boolean): boolean {
     if (!this.#authoredPointerRelayActive || isRootRelay || !this.#isConnectedDescendantOfRoot(id)) return false
     if (id === this.#activePressedRelayId) return authored.mouseDown
     if (authored.mouseDown || this.#needsClickPressProbe(id, authored)) return false
     return true
-  }
-
-  #syncRootCapture(): void {
-    const rootId = this.#rootId
-    if (rootId !== undefined) this.#syncPointerLifecycle(rootId)
   }
 
   #syncPointerSubtree(rootId: number): void {
@@ -398,8 +381,7 @@ export class BrowserPointerMutationDriver extends MutationDriver {
     if (activeRelay) this.#activeRelayIds.add(id)
     else this.#activeRelayIds.delete(id)
     const desired = {
-      mouseDown: authored.mouseDown
-        || (isRootRelay ? this.#needsRootCapture() : this.#needsClickPressProbe(id, authored)),
+      mouseDown: authored.mouseDown || (!isRootRelay && this.#needsClickPressProbe(id, authored)),
       mouseMove: authored.mouseMove || isRootRelay || activeRelay,
       mouseUp: authored.mouseUp || authored.mouseDown || isRootRelay || activeRelay,
     } satisfies PointerLifecycleState
@@ -428,7 +410,6 @@ export class BrowserPointerMutationDriver extends MutationDriver {
       this.#children.delete(id)
       this.#elementTypes.delete(id)
       this.#directClickListeners.delete(id)
-      this.#authoredMouseDownOwners.delete(id)
       this.#activeRelayIds.delete(id)
       this.#authored.delete(id)
       this.#applied.delete(id)
