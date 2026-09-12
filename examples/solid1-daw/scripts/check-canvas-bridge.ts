@@ -15,24 +15,36 @@ type CompatCanvas = ReturnType<typeof createElement> & {
 
 type TestRoot = ReturnType<typeof createTestRoot>
 
+const svgDataUrlPrefix = "data:image/svg+xml,"
+
 function requireCondition(condition: boolean, message: string): void {
   if (!condition) throw new Error(message)
 }
 
 function canvasSvg(root: TestRoot, requiredFragments: readonly string[]): string {
-  const source = root.renderer.customPropStringContainingAll("source", ["<svg", ...requiredFragments])
-  requireCondition(source.startsWith("<svg"), `Canvas bridge must paint through raw SVG source, got ${source}`)
+  const src = root.renderer.customPropStringContainingAll("src", [svgDataUrlPrefix, ...requiredFragments])
+  requireCondition(src.startsWith(svgDataUrlPrefix), `Canvas bridge must paint one SVG image frame, got ${src}`)
+  const source = src.slice(svgDataUrlPrefix.length)
+  requireCondition(source.startsWith("<svg"), `Canvas image frame must contain raw SVG bytes, got ${source}`)
   return source
 }
 
 const canvasBridgeSource = readFileSync(new URL("../src/compat/layered-canvas.ts", import.meta.url), "utf8")
 requireCondition(
-  canvasBridgeSource.includes('base.createElement("svg")'),
-  "Canvas bridge must use the native raw-SVG surface rather than an image decoder",
+  canvasBridgeSource.includes('base.createElement("img")'),
+  "Canvas bridge must retain one native image surface across frames",
 )
 requireCondition(
-  !canvasBridgeSource.includes("data:image/svg+xml"),
-  "Canvas bridge must not percent-encode every draw into an SVG data URL",
+  canvasBridgeSource.includes('base.setProp(surface, "src", `data:image/svg+xml,${source}`)'),
+  "Canvas bridge must publish one raw SVG data URL mutation per changed frame",
+)
+requireCondition(
+  !canvasBridgeSource.includes("encodeURIComponent"),
+  "Canvas bridge must not percent-encode every SVG frame",
+)
+requireCondition(
+  !canvasBridgeSource.includes('base.setProp(surface, "source"'),
+  "Canvas bridge must not duplicate each frame into an unused source property",
 )
 requireCondition(
   !canvasBridgeSource.includes("driver.flush()"),
@@ -112,8 +124,8 @@ if (!hasNativeTestRenderer) {
     !waveformSource.includes("<polygon") && !waveformSource.includes("<polyline"),
     `waveform Canvas SVG should compact repeated bars/segments into shared paths, got ${waveformSource}`,
   )
-  requireCondition(app.renderer.hasTestId("gpuix-canvas-2d-surface"), "waveform Canvas should retain one native SVG paint surface")
-  requireCondition(!app.renderer.hasTestId("gpuix-canvas-2d-layer-1"), "waveform Canvas should not split multicolor paint across tint-only SVG layers")
+  requireCondition(app.renderer.hasTestId("gpuix-canvas-2d-surface"), "waveform Canvas should retain one native image paint surface")
+  requireCondition(!app.renderer.hasTestId("gpuix-canvas-2d-layer-1"), "waveform Canvas should not split multicolor paint across tint-only layers")
   app.unmount()
 
   const eqApp = createTestRoot(260, 140)
@@ -191,25 +203,32 @@ if (!hasNativeTestRenderer) {
 
   const repaint = eqContext
   if (!repaint) throw new Error("EQ Canvas context should remain available for repaint acceptance")
-  repaint.fillStyle = "oklch(0.11 0.003 286)"
-  repaint.fillRect(0, 0, 160, 80)
-  repaint.fillStyle = "#ffffff"
-  repaint.font = "9px ui-monospace, SFMono-Regular, Menlo, monospace"
-  repaint.textAlign = "left"
-  repaint.textBaseline = "alphabetic"
-  repaint.fillText("fresh frame", 12, 18)
-  await Promise.resolve()
-  eqApp.root.flush()
-  eqApp.renderer.flush()
-  const repaintedSource = canvasSvg(eqApp, [">fresh frame</text>"])
+  const initialFrameLength = eqSource.length
+  for (let frame = 0; frame < 20; frame += 1) {
+    repaint.fillStyle = "oklch(0.11 0.003 286)"
+    repaint.fillRect(0, 0, 160, 80)
+    repaint.fillStyle = "#ffffff"
+    repaint.font = "9px ui-monospace, SFMono-Regular, Menlo, monospace"
+    repaint.textAlign = "left"
+    repaint.textBaseline = "alphabetic"
+    repaint.fillText(`fresh frame ${frame}`, 12, 18)
+    await Promise.resolve()
+    eqApp.root.flush()
+    eqApp.renderer.flush()
+  }
+  const repaintedSource = canvasSvg(eqApp, [">fresh frame 19</text>"])
   requireCondition(
-    !repaintedSource.includes("+12 dB") && !repaintedSource.includes(">5</text>"),
+    !repaintedSource.includes("+12 dB") && !repaintedSource.includes(">5</text>") && !repaintedSource.includes("fresh frame 18"),
     `opaque full-surface EQ repaint must discard fully occluded retained commands, got ${repaintedSource}`,
   )
+  requireCondition(
+    repaintedSource.length <= initialFrameLength,
+    `repeated opaque EQ repaints must keep the serialized frame bounded, got ${initialFrameLength} -> ${repaintedSource.length} bytes`,
+  )
 
-  requireCondition(eqApp.renderer.hasTestId("gpuix-canvas-2d-surface"), "multicolor EQ Canvas should retain one native SVG paint surface")
-  requireCondition(!eqApp.renderer.hasTestId("gpuix-canvas-2d-layer-1"), "multicolor EQ Canvas should not depend on tint-only SVG layers")
+  requireCondition(eqApp.renderer.hasTestId("gpuix-canvas-2d-surface"), "multicolor EQ Canvas should retain one native image paint surface")
+  requireCondition(!eqApp.renderer.hasTestId("gpuix-canvas-2d-layer-1"), "multicolor EQ Canvas should not depend on tint-only layers")
   eqApp.unmount()
 
-  console.log("DAW Canvas2D compatibility bridge: raw SVG batching, bounded repaint commands, compact waveform paths, and exact multicolor output passed")
+  console.log("DAW Canvas2D compatibility bridge: image-backed batching, bounded repaint commands, compact waveform paths, and exact multicolor output passed")
 }
