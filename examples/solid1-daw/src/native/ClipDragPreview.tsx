@@ -1,7 +1,6 @@
-import { createMemo, type JSX } from "solid-js"
-import UpstreamClipComponent from "../upstream/components/timeline/ClipComponent"
+import type { JSX } from "solid-js"
 import type { NativeClip } from "./model"
-import { toSourceClip } from "./source-model"
+import { dawTheme } from "./theme"
 
 export interface ClipDragPreviewProps {
   clip: NativeClip
@@ -14,10 +13,13 @@ export interface ClipDragPreviewProps {
 }
 
 export default function ClipDragPreview(props: ClipDragPreviewProps): JSX.Element {
-  // Keep the exact source clip stable while the wrapper owns transient position.
-  // ClipComponent's waveform effect can then stay asleep throughout pointermove.
-  const clip = createMemo(() => ({ ...toSourceClip(props.clip), startSec: 0 }))
+  const color = () => props.clip.color
+    ?? (props.clip.kind === "midi" ? dawTheme.clipMidi : dawTheme.clipAudio)
 
+  // This is native gesture feedback, not a second application clip. Mounting the
+  // exact source ClipComponent here duplicates waveform/canvas, fade, menu, and
+  // resize machinery on the pointer-move hot path. The canonical source lane is
+  // still exact and is hidden while this shallow preview owns transient motion.
   return (
     <div
       testId="clip-drag-preview"
@@ -26,33 +28,28 @@ export default function ClipDragPreview(props: ClipDragPreviewProps): JSX.Elemen
         left: props.startSec * props.pixelsPerSecond,
         top: props.top,
         width: Math.max(6, props.clip.duration * props.pixelsPerSecond),
-        height: props.height,
+        height: Math.max(1, props.height - 1),
         overflow: "hidden",
+        borderWidth: 1,
+        borderColor: dawTheme.blueSoft,
+        backgroundColor: color(),
+        opacity: 0.72,
         pointerEvents: "none",
       }}
     >
-      <UpstreamClipComponent
-        clip={clip()}
-        trackId={props.trackId}
-        isSelected={true}
-        onPointerDown={() => {}}
-        onPointerUp={() => {}}
-        onResizeStart={() => {}}
-        contextMenu={{
-          selectClip: () => {},
-          duplicateSelectedClips: () => {},
-          deleteSelectedClips: () => {},
+      <text
+        style={{
+          paddingLeft: 6,
+          paddingTop: 4,
+          fontSize: 12,
+          color: dawTheme.foreground,
+          whiteSpace: "nowrap",
+          textOverflow: "ellipsis",
+          userSelect: "none",
         }}
-        onRetryMedia={() => {}}
-        onReplaceMedia={() => {}}
-        onRemoveMissingMedia={() => {}}
-        bpm={props.bpm}
-        pixelsPerSecond={props.pixelsPerSecond}
-        viewportRedrawVersion={0}
-        rangeOverlap={null}
-        canEditFades={() => false}
-        onCommitFades={() => {}}
-      />
+      >
+        {props.clip.name}
+      </text>
     </div>
   )
 }
