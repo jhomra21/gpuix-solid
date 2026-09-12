@@ -30,9 +30,10 @@ export function toSourceTrack(track: NativeTrack, hiddenClipId?: string): Track 
 // last translated Track[] when mixer/sidebar-only fields change so collapsing,
 // muting, soloing, or changing volume cannot wake the overview SVG.
 export function sameArrangementOverviewTracks(
-  previous: readonly Track[],
+  previous: readonly Track[] | undefined,
   next: readonly Track[],
 ): boolean {
+  if (!previous) return false
   if (previous === next) return true
   if (previous.length !== next.length) return false
 
