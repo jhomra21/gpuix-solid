@@ -11,8 +11,9 @@
     "build:test:edge": "bun run source:check && bun run generate:styles && vite build --config vite.test.config.ts",
     "typecheck": "bun run host:build && bun run source:check && bun run generate:styles && tsc --noEmit",
     "typecheck:edge": "bun run source:check && bun run generate:styles && tsc --noEmit",
-    "test:native": "bun run build:test && bun scripts/run-test.mjs",
-    "test:native:edge": "bun run build:test:edge && bun scripts/run-test.mjs",
+    "test:drag": "bun scripts/check-clip-drag.ts",
+    "test:native": "bun run test:drag && bun run build:test && bun scripts/run-test.mjs",
+    "test:native:edge": "bun run test:drag && bun run build:test:edge && bun scripts/run-test.mjs",
     "start": "bun dist/app/index.js",
     "run": "bun run build && bun run start"
   },
