@@ -9,7 +9,7 @@ import type { ClipDragPreview as DragPreview } from "./clip-drag"
 import TrackLane from "./TrackLane"
 import SourceTrackSidebar, { type SourceTrackSidebarProps } from "./SourceTrackSidebar"
 import type { NativeTrack } from "./model"
-import { toSourceTrack } from "./source-model"
+import { sameArrangementOverviewTracks, toSourceTrack } from "./source-model"
 import { dawTheme, layout } from "./theme"
 
 export interface TimelineWorkspaceProps {
@@ -91,7 +91,11 @@ function TimelineGrid(props: {
 const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
   let scrollingTrackElement: HTMLDivElement | undefined
   const durationSec = () => timelineDurationSec(props.tracks)
-  const sourceTracks = createMemo(() => props.tracks.map((track) => toSourceTrack(track)))
+  const overviewTracks = createMemo(
+    () => props.tracks.map((track) => toSourceTrack(track)),
+    undefined,
+    { equals: sameArrangementOverviewTracks },
+  )
   const scrollingTracks = createMemo(() => props.tracks.filter((track) => track.kind !== "return"))
   const returnTracks = createMemo(() => props.tracks.filter((track) => track.kind === "return"))
   const returnAreaHeight = () => returnTracks().reduce((height, track) => height + trackRowHeight(track), 0)
@@ -151,7 +155,7 @@ const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
             <ArrangementOverview
               durationSec={durationSec()}
               width={timelineViewportWidth()}
-              tracks={sourceTracks()}
+              tracks={overviewTracks()}
               visibleRange={visibleRange()}
               onPreviewVisibleRange={() => {}}
               onCommitVisibleRange={() => {}}
