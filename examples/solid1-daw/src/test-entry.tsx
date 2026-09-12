@@ -61,12 +61,15 @@ if (hasNativeTestRenderer) {
   const waveformSource = app.renderer.customPropStringContainingAll("source", [
     'preserveAspectRatio="none"',
     'fill="#00a76c"',
-    "<polygon",
+    "<path",
   ])
-  const waveformBars = waveformSource.match(/<polygon\b/g)?.length ?? 0
+  const waveformPathData = [...waveformSource.matchAll(/<path d="([^"]+)" fill="#00a76c"\/>/g)]
+    .map((match) => match[1] ?? "")
+    .join("")
+  const waveformPeakSegments = waveformPathData.match(/M/g)?.length ?? 0
   requireCondition(
-    waveformBars >= 24,
-    `exact ClipComponent Canvas2D waveform must retain substantial source-generated peak bars, got ${waveformBars}`,
+    waveformPeakSegments >= 24,
+    `exact ClipComponent Canvas2D waveform must retain substantial source-generated peak geometry, got ${waveformPeakSegments} compact path segments`,
   )
 
   const surfaceBounds = app.renderer.boundsTestId("gpuix-canvas-2d-surface")
@@ -261,5 +264,5 @@ if (hasNativeTestRenderer) {
 
   automated.unmount()
 
-  console.log(`solid1 DAW visual acceptance: exact Canvas2D waveform rendered ${waveformBars} retained peak bars; exact EQ full graph source and dedicated native capture passed; reactive mixer controls, hard-split, and automated interval paints passed`)
+  console.log(`solid1 DAW visual acceptance: exact Canvas2D waveform rendered ${waveformPeakSegments} compact peak segments; exact EQ full graph source and dedicated native capture passed; reactive mixer controls, hard-split, and automated interval paints passed`)
 }
