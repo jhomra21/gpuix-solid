@@ -32,7 +32,7 @@ describe("browser pointer lifecycle compatibility", () => {
     ])
   })
 
-  it("keeps native move/up armed on the mounted root", () => {
+  it("keeps native capture lifecycle armed on the mounted root", () => {
     const renderer = new FakeRenderer()
     const driver = new BrowserPointerMutationDriver(renderer, new EventRegistry())
 
@@ -41,6 +41,7 @@ describe("browser pointer lifecycle compatibility", () => {
     driver.flush()
 
     expect(listenerMutations(renderer)).toEqual([
+      ["setEventListener", 10, "mouseDown", true],
       ["setEventListener", 10, "mouseMove", true],
       ["setEventListener", 10, "mouseUp", true],
     ])

@@ -51,10 +51,10 @@ function sameReleaseBurst(left: PointerReleaseBurst, right: PointerReleaseBurst)
 }
 
 /**
- * The mounted root carries synthetic mouse-up subscription as a browser-window
- * relay. Native pointer capture can outlive a retained node replacement on some
- * platforms, so a later stationary click can surface only through that root
- * relay even though its pressed target is still mounted under the pointer.
+ * The mounted root carries a synthetic native pointer lifecycle as a stable
+ * browser-window relay. Native pointer capture can outlive a retained node
+ * replacement, so local releases may need to be recovered through that root
+ * relay even though the original pressed target was replaced.
  *
  * Native hit paths can report more than one subscribed non-root node for one
  * physical press, and their callback order is platform-dependent. Refine the
@@ -133,9 +133,9 @@ export class BrowserPointerReleaseRelay {
  * physical release, causing GPUI to emit no release at all.
  *
  * Keep authored child listeners intact, synthesize only mouseUp for a
- * mouseDown owner, and keep move/up subscribed on the mounted app root as the
- * stable browser-window relay. EventRegistry remains authoritative for which
- * authored local/global handlers actually run.
+ * mouseDown owner, and arm down/move/up on the mounted app root. That stable
+ * root owns GPUI's native capture while EventRegistry remains authoritative for
+ * which authored local/global handlers actually run.
  */
 export class BrowserPointerMutationDriver extends MutationDriver {
   readonly #authored = new Map<number, PointerLifecycleState>()
@@ -180,7 +180,7 @@ export class BrowserPointerMutationDriver extends MutationDriver {
     const authored = this.#authored.get(id) ?? emptyPointerLifecycleState()
     const isRootRelay = id === this.#rootId
     const desired = {
-      mouseDown: authored.mouseDown,
+      mouseDown: authored.mouseDown || isRootRelay,
       mouseMove: authored.mouseMove || isRootRelay,
       mouseUp: authored.mouseUp || authored.mouseDown || isRootRelay,
     } satisfies PointerLifecycleState
