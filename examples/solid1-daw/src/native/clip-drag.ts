@@ -100,6 +100,12 @@ export function commitClipDrag(
   const currentClip = sourceTrack?.clips.find((clip) => clip.id === preview.clip.id)
   if (!sourceTrack || !currentClip) return tracks
 
+  // The target came from pointer-down state. Revalidate it against the live
+  // project before removing the source so concurrent track deletion or a kind
+  // change can never turn a drag commit into clip loss.
+  const targetTrack = tracks.find((track) => track.id === preview.targetTrackId)
+  if (!targetTrack || !compatible(currentClip, targetTrack)) return tracks
+
   const sameTrack = preview.sourceTrackId === preview.targetTrackId
   const samePosition = currentClip.startSec === preview.startSec
   if (sameTrack && samePosition) return tracks

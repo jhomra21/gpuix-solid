@@ -53,6 +53,28 @@ for (const track of concurrentTracks) {
   )
 }
 
+const crossTrackPreview = previewClipDrag(session, 140, 100 + layout.laneHeight)
+assert.equal(crossTrackPreview.targetTrackId, "bass")
+
+const withoutTarget = concurrentTracks.filter((track) => track.id !== crossTrackPreview.targetTrackId)
+assert.equal(
+  commitClipDrag(withoutTarget, crossTrackPreview),
+  withoutTarget,
+  "a removed target track must cancel the commit without removing the source clip",
+)
+assert.ok(
+  withoutTarget.find((track) => track.id === drums.id)?.clips.some((clip) => clip.id === originalClip.id),
+)
+
+const incompatibleTarget = concurrentTracks.map((track) => track.id === crossTrackPreview.targetTrackId
+  ? { ...track, kind: "midi" as const }
+  : track)
+assert.equal(
+  commitClipDrag(incompatibleTarget, crossTrackPreview),
+  incompatibleTarget,
+  "a target that became incompatible must cancel the commit",
+)
+
 const noOpPreview = previewClipDrag(session, session.startX, session.startY)
 assert.equal(
   commitClipDrag(tracks, noOpPreview),
