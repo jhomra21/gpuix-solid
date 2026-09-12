@@ -10,6 +10,37 @@ function listenerMutations(renderer: FakeRenderer) {
 }
 
 describe("active browser window pointer relay", () => {
+  it("arms already-connected neutral surfaces when an authored press begins", () => {
+    const renderer = new FakeRenderer()
+    const driver = new BrowserPointerMutationDriver(renderer, new EventRegistry())
+
+    driver.enqueue("createElement", 1, "div")
+    driver.enqueue("setRoot", 1)
+    driver.enqueue("createElement", 2, "div")
+    driver.enqueue("setEventListener", 2, "mouseDown", true)
+    driver.enqueue("appendChild", 1, 2)
+    driver.enqueue("createElement", 3, "div")
+    driver.enqueue("appendChild", 1, 3)
+    driver.flush()
+    renderer.batches.length = 0
+
+    driver.beginAuthoredPointerRelay(2)
+    driver.flush()
+
+    expect(listenerMutations(renderer)).toContainEqual(["setEventListener", 3, "mouseMove", true])
+    expect(listenerMutations(renderer)).toContainEqual(["setEventListener", 3, "mouseUp", true])
+    expect(listenerMutations(renderer)).not.toContainEqual(["setEventListener", 3, "mouseDown", true])
+    expect(listenerMutations(renderer)).not.toContainEqual(["setEventListener", 2, "mouseMove", true])
+
+    renderer.batches.length = 0
+    driver.endAuthoredPointerRelay()
+    driver.flush()
+    expect(listenerMutations(renderer)).toEqual([
+      ["setEventListener", 3, "mouseMove", false],
+      ["setEventListener", 3, "mouseUp", false],
+    ])
+  })
+
   it("relays move/up through surfaces mounted during an authored press without giving them mouse-down capture", () => {
     const renderer = new FakeRenderer()
     const driver = new BrowserPointerMutationDriver(renderer, new EventRegistry())
@@ -30,17 +61,9 @@ describe("active browser window pointer relay", () => {
     expect(listenerMutations(renderer)).toContainEqual(["setEventListener", 3, "mouseMove", true])
     expect(listenerMutations(renderer)).toContainEqual(["setEventListener", 3, "mouseUp", true])
     expect(listenerMutations(renderer)).not.toContainEqual(["setEventListener", 3, "mouseDown", true])
-
-    renderer.batches.length = 0
-    driver.endAuthoredPointerRelay()
-    driver.flush()
-    expect(listenerMutations(renderer)).toEqual([
-      ["setEventListener", 3, "mouseMove", false],
-      ["setEventListener", 3, "mouseUp", false],
-    ])
   })
 
-  it("does not add move capture to a click press probe mounted during the authored press", () => {
+  it("does not add move capture to an existing click press probe during the authored press", () => {
     const renderer = new FakeRenderer()
     const driver = new BrowserPointerMutationDriver(renderer, new EventRegistry())
 
@@ -49,17 +72,16 @@ describe("active browser window pointer relay", () => {
     driver.enqueue("createElement", 2, "div")
     driver.enqueue("setEventListener", 2, "mouseDown", true)
     driver.enqueue("appendChild", 1, 2)
-    driver.flush()
-    renderer.batches.length = 0
-
-    driver.beginAuthoredPointerRelay(2)
     driver.enqueue("createElement", 3, "div")
     driver.enqueue("setEventListener", 3, "click", true)
     driver.enqueue("appendChild", 1, 3)
     driver.flush()
+    renderer.batches.length = 0
 
-    expect(listenerMutations(renderer)).toContainEqual(["setEventListener", 3, "mouseDown", true])
-    expect(listenerMutations(renderer)).toContainEqual(["setEventListener", 3, "mouseUp", true])
+    driver.beginAuthoredPointerRelay(2)
+    driver.flush()
+
     expect(listenerMutations(renderer)).not.toContainEqual(["setEventListener", 3, "mouseMove", true])
+    expect(listenerMutations(renderer)).not.toContainEqual(["setEventListener", 3, "mouseDown", true])
   })
 })
