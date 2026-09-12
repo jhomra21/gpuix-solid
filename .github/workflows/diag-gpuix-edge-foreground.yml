@@ -42,23 +42,8 @@ jobs:
               raise SystemExit(f'expected one edge renderer.rs, got {candidates}')
           p = candidates[0]
           s = p.read_text()
-          old = '''#[cfg(target_os = "macos")]
-fn invalidate_window() -> Result<()> {
-    update_window(|_view, window, cx| {
-        cx.notify();
-        window.refresh();
-    })
-}
-'''
-          new = '''#[cfg(target_os = "macos")]
-fn invalidate_window() -> Result<()> {
-    // Retained-tree mutations may be committed from a JS event callback that
-    // originated inside GpuixView. Invalidating must not lease that view again.
-    update_window_without_view(|window, _cx| {
-        window.refresh();
-    })
-}
-'''
+          old = '#[cfg(target_os = "macos")]\nfn invalidate_window() -> Result<()> {\n    update_window(|_view, window, cx| {\n        cx.notify();\n        window.refresh();\n    })\n}\n'
+          new = '#[cfg(target_os = "macos")]\nfn invalidate_window() -> Result<()> {\n    // Retained-tree mutations may be committed from a JS event callback that\n    // originated inside GpuixView. Invalidating must not lease that view again.\n    update_window_without_view(|window, _cx| {\n        window.refresh();\n    })\n}\n'
           if old not in s:
               raise SystemExit('expected typed macOS invalidate_window implementation not found')
           p.write_text(s.replace(old, new, 1))
