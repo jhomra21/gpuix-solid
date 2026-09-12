@@ -1,5 +1,21 @@
 import assert from "node:assert/strict"
+import { readFileSync } from "node:fs"
+import { fileURLToPath } from "node:url"
 import { adaptBatchRenderer, type BatchRendererApi } from "../src/batch-renderer-adapter.js"
+
+const solid1PointerLifecycle = readFileSync(
+  fileURLToPath(new URL("../src/host/pointer-lifecycle.ts", import.meta.url)),
+  "utf8",
+)
+const solid2PointerLifecycle = readFileSync(
+  fileURLToPath(new URL("../../solid/src/host/pointer-lifecycle.ts", import.meta.url)),
+  "utf8",
+)
+assert.equal(
+  solid1PointerLifecycle,
+  solid2PointerLifecycle,
+  "Solid 1 and Solid 2 pointer lifecycle implementations must remain byte-identical",
+)
 
 const batches: unknown[] = []
 const renderer: BatchRendererApi = {
