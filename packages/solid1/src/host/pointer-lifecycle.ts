@@ -75,12 +75,17 @@ function sameReleaseBurst(left: PointerReleaseBurst, right: PointerReleaseBurst)
  * replacement, so local releases may need to be recovered through that root
  * relay even though the original pressed target was replaced.
  *
- * Native hit paths can report more than one subscribed non-root node for one
- * physical press, and their callback order is platform-dependent. Refine the
- * pressed owner only when the host tree proves the new report is a descendant
- * of the current owner, so the structurally deepest listener remains the local
- * release fallback regardless of native callback order. A mouse-up reported
- * for a different non-root subscription must not consume that fallback.
+ * A synchronous source mutation can also paint a new sibling relay surface
+ * between press and release. On some GPUI backends that new surface receives
+ * the physical mouse-up instead of the root. If the original pressed target is
+ * still live beneath the release point, recover that sibling release to the
+ * pressed target; if the target was actually remounted/destroyed, leave the
+ * release on the new surface so browser-global pointer-up still fires.
+ *
+ * Native hit paths can report more than one subscribed ancestor/descendant for
+ * one physical press. Those related callbacks are not treated as sibling relay
+ * surfaces, so the structurally deepest pressed listener remains the fallback
+ * regardless of native callback order.
  */
 export class BrowserPointerReleaseRelay {
   #pressedElementId: number | undefined
@@ -121,14 +126,25 @@ export class BrowserPointerReleaseRelay {
         this.#rootFallback = undefined
         return undefined
       }
-      if (event.elementId === this.#pressedElementId) {
+
+      const pressedElementId = this.#pressedElementId
+      if (event.elementId === pressedElementId) {
         this.#pressedElementId = undefined
-        const completed = { elementId: event.elementId, burst }
-        this.#completedRelease = completed
-        queueMicrotask(() => {
-          if (this.#completedRelease === completed) this.#completedRelease = undefined
-        })
+        this.#rememberCompletedRelease(event.elementId, burst)
+        return event
       }
+
+      if (
+        pressedElementId !== undefined
+        && !isDescendantOf(event.elementId, pressedElementId)
+        && !isDescendantOf(pressedElementId, event.elementId)
+      ) {
+        this.#pressedElementId = undefined
+        if (!canRouteRootRelease(pressedElementId, event)) return event
+        this.#rememberRecoveredRelease(pressedElementId, burst)
+        return { ...event, elementId: pressedElementId }
+      }
+
       return event
     }
 
@@ -147,11 +163,7 @@ export class BrowserPointerReleaseRelay {
       return event
     }
 
-    const fallback = { elementId: pressedElementId, burst }
-    this.#rootFallback = fallback
-    queueMicrotask(() => {
-      if (this.#rootFallback === fallback) this.#rootFallback = undefined
-    })
+    this.#rememberFallbackRelease(pressedElementId, burst)
     return { ...event, elementId: pressedElementId }
   }
 
@@ -159,6 +171,27 @@ export class BrowserPointerReleaseRelay {
     this.#pressedElementId = undefined
     this.#rootFallback = undefined
     this.#completedRelease = undefined
+  }
+
+  #rememberFallbackRelease(elementId: number, burst: PointerReleaseBurst): void {
+    const fallback = { elementId, burst }
+    this.#rootFallback = fallback
+    queueMicrotask(() => {
+      if (this.#rootFallback === fallback) this.#rootFallback = undefined
+    })
+  }
+
+  #rememberCompletedRelease(elementId: number, burst: PointerReleaseBurst): void {
+    const completed = { elementId, burst }
+    this.#completedRelease = completed
+    queueMicrotask(() => {
+      if (this.#completedRelease === completed) this.#completedRelease = undefined
+    })
+  }
+
+  #rememberRecoveredRelease(elementId: number, burst: PointerReleaseBurst): void {
+    this.#rememberFallbackRelease(elementId, burst)
+    this.#rememberCompletedRelease(elementId, burst)
   }
 }
 
@@ -206,7 +239,7 @@ export class BrowserPointerMutationDriver extends MutationDriver {
   endAuthoredPointerRelay(): void {
     if (!this.#authoredPointerRelayActive && this.#activeRelayIds.size === 0) return
     this.#authoredPointerRelayActive = false
-    for (const id of [...this.#activeRelayIds]) this.#syncPointerLifecycle(id)
+    for (const id of this.#activeRelayIds) this.#syncPointerLifecycle(id)
   }
 
   override enqueue(name: string, ...args: MutationValue[]): void {
