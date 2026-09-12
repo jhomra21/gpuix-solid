@@ -218,7 +218,7 @@ describe("browser pointer lifecycle compatibility", () => {
     expect(relay.route(pointerEvent("mouseUp", rootId), rootId, () => true, nestedDescendant)?.elementId).toBe(childId)
   })
 
-  it("does not replay a nested release after the local pressed owner received it directly", () => {
+  it("suppresses the matching root release after the local pressed owner completed it", () => {
     const relay = new BrowserPointerReleaseRelay()
     const rootId = 1
     const ancestorId = 2
@@ -227,7 +227,7 @@ describe("browser pointer lifecycle compatibility", () => {
     relay.route(pointerEvent("mouseDown", ancestorId), rootId, () => true, nestedDescendant)
     relay.route(pointerEvent("mouseDown", childId), rootId, () => true, nestedDescendant)
     expect(relay.route(pointerEvent("mouseUp", childId), rootId, () => true, nestedDescendant)?.elementId).toBe(childId)
-    expect(relay.route(pointerEvent("mouseUp", rootId), rootId, () => true, nestedDescendant)?.elementId).toBe(rootId)
+    expect(relay.route(pointerEvent("mouseUp", rootId), rootId, () => true, nestedDescendant)).toBeUndefined()
   })
 
   it("does not recover a root release outside the pressed target", () => {

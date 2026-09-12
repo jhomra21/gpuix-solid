@@ -85,6 +85,7 @@ function sameReleaseBurst(left: PointerReleaseBurst, right: PointerReleaseBurst)
 export class BrowserPointerReleaseRelay {
   #pressedElementId: number | undefined
   #rootFallback: { elementId: number; burst: PointerReleaseBurst } | undefined
+  #completedRelease: { elementId: number; burst: PointerReleaseBurst } | undefined
 
   get pressedElementId(): number | undefined {
     return this.#pressedElementId
@@ -97,6 +98,7 @@ export class BrowserPointerReleaseRelay {
     isDescendantOf: (elementId: number, ancestorId: number) => boolean = () => false,
   ): EventPayload | undefined {
     if (event.eventType === "mouseDown") {
+      this.#completedRelease = undefined
       if (event.elementId !== rootId) {
         const pressedElementId = this.#pressedElementId
         if (
@@ -119,17 +121,29 @@ export class BrowserPointerReleaseRelay {
         this.#rootFallback = undefined
         return undefined
       }
-      if (event.elementId === this.#pressedElementId) this.#pressedElementId = undefined
+      if (event.elementId === this.#pressedElementId) {
+        this.#pressedElementId = undefined
+        const completed = { elementId: event.elementId, burst }
+        this.#completedRelease = completed
+        queueMicrotask(() => {
+          if (this.#completedRelease === completed) this.#completedRelease = undefined
+        })
+      }
       return event
     }
 
     const pressedElementId = this.#pressedElementId
+    if (pressedElementId === undefined) {
+      const completed = this.#completedRelease
+      if (completed && sameReleaseBurst(completed.burst, burst)) {
+        this.#completedRelease = undefined
+        return undefined
+      }
+      return event
+    }
+
     this.#pressedElementId = undefined
-    if (
-      pressedElementId === undefined
-      || pressedElementId === rootId
-      || !canRouteRootRelease(pressedElementId, event)
-    ) {
+    if (pressedElementId === rootId || !canRouteRootRelease(pressedElementId, event)) {
       return event
     }
 
@@ -144,6 +158,7 @@ export class BrowserPointerReleaseRelay {
   clear(): void {
     this.#pressedElementId = undefined
     this.#rootFallback = undefined
+    this.#completedRelease = undefined
   }
 }
 
