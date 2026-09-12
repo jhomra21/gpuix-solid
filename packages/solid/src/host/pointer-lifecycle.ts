@@ -16,6 +16,17 @@ type PointerReleaseBurst = {
   button: number
 }
 
+const SEMANTIC_NATIVE_CLICK_TYPES = new Set([
+  "input",
+  "textarea",
+  "anchored",
+  "img",
+  "svg",
+  "code",
+  "diff",
+  "markdown",
+])
+
 function emptyPointerLifecycleState() {
   return { mouseDown: false, mouseMove: false, mouseUp: false } satisfies PointerLifecycleState
 }
@@ -35,6 +46,12 @@ function booleanArg(args: MutationValue[], index: number): boolean {
   if (value === true) return true
   if (value === false) return false
   throw new TypeError(`Expected boolean mutation arg ${index}`)
+}
+
+function stringArg(args: MutationValue[], index: number): string {
+  const value = args[index]
+  if (typeof value !== "string") throw new TypeError(`Expected string mutation arg ${index}`)
+  return value
 }
 
 function pointerLifecycleEvent(value: MutationValue | undefined): PointerLifecycleEvent | undefined {
@@ -129,7 +146,7 @@ export class BrowserPointerReleaseRelay {
 }
 
 /**
- * Browser code commonly starts a gesture locally and then listens for
+ * Browser code commonly starts a gesture on an element and listens for
  * pointermove/pointerup on window. GPUIX, unlike the browser, implicitly
  * captures a pointer whenever one retained node subscribes to both mouseDown
  * and mouseMove. Do not manufacture that combination on an ephemeral pressed
@@ -140,10 +157,21 @@ export class BrowserPointerReleaseRelay {
  * mouseDown owner, and arm down/move/up on the mounted app root. That stable
  * root owns GPUI's native capture while EventRegistry remains authoritative for
  * which authored local/global handlers actually run.
+ *
+ * Retained DOM click activation is native mouse-up based. A click-only control
+ * therefore also gets a non-capturing mouse-down probe so the host learns the
+ * real pressed child before root capture takes over. The probe is inherited by
+ * retained descendants of a click owner, matching MutationDriver's activation
+ * relay, but it is withheld from a node with authored mouseMove so we never
+ * manufacture GPUI's down+move capture pair on an ephemeral child.
  */
 export class BrowserPointerMutationDriver extends MutationDriver {
   readonly #authored = new Map<number, PointerLifecycleState>()
   readonly #applied = new Map<number, PointerLifecycleState>()
+  readonly #parents = new Map<number, number>()
+  readonly #children = new Map<number, Set<number>>()
+  readonly #elementTypes = new Map<number, string>()
+  readonly #directClickListeners = new Map<number, boolean>()
   #rootId: number | undefined
 
   constructor(renderer: NativeRenderer, events: EventRegistry) {
@@ -151,11 +179,35 @@ export class BrowserPointerMutationDriver extends MutationDriver {
   }
 
   override enqueue(name: string, ...args: MutationValue[]): void {
+    if (name === "createElement") {
+      this.#elementTypes.set(numberArg(args, 0), stringArg(args, 1))
+      super.enqueue(name, ...args)
+      return
+    }
+
     if (name === "setRoot") {
       const id = numberArg(args, 0)
       super.enqueue(name, ...args)
+      this.#setParent(id, null)
       this.#rootId = id
       this.#syncPointerLifecycle(id)
+      return
+    }
+
+    if (name === "appendChild" || name === "insertBefore") {
+      const parentId = numberArg(args, 0)
+      const childId = numberArg(args, 1)
+      super.enqueue(name, ...args)
+      this.#setParent(childId, parentId)
+      this.#syncPointerSubtree(childId)
+      return
+    }
+
+    if (name === "removeChild") {
+      const childId = numberArg(args, 1)
+      super.enqueue(name, ...args)
+      this.#setParent(childId, null)
+      this.#syncPointerSubtree(childId)
       return
     }
 
@@ -169,22 +221,75 @@ export class BrowserPointerMutationDriver extends MutationDriver {
         this.#syncPointerLifecycle(id)
         return
       }
+
+      if (args[1] === "click") {
+        const id = numberArg(args, 0)
+        this.#directClickListeners.set(id, booleanArg(args, 2))
+        super.enqueue(name, ...args)
+        this.#syncPointerSubtree(id)
+        return
+      }
     }
 
     if (name === "destroyElement") {
       const id = numberArg(args, 0)
-      this.#authored.delete(id)
-      this.#applied.delete(id)
-      if (this.#rootId === id) this.#rootId = undefined
+      super.enqueue(name, ...args)
+      this.#forgetSubtree(id)
+      return
     }
+
     super.enqueue(name, ...args)
+  }
+
+  #setParent(childId: number, parentId: number | null): void {
+    const previousParent = this.#parents.get(childId)
+    if (previousParent !== undefined) {
+      const siblings = this.#children.get(previousParent)
+      siblings?.delete(childId)
+      if (siblings?.size === 0) this.#children.delete(previousParent)
+    }
+
+    if (parentId === null) {
+      this.#parents.delete(childId)
+      return
+    }
+
+    this.#parents.set(childId, parentId)
+    const children = this.#children.get(parentId) ?? new Set<number>()
+    children.add(childId)
+    this.#children.set(parentId, children)
+  }
+
+  #hasClickAncestor(id: number): boolean {
+    let parentId = this.#parents.get(id)
+    while (parentId !== undefined) {
+      if (this.#directClickListeners.get(parentId) === true) return true
+      parentId = this.#parents.get(parentId)
+    }
+    return false
+  }
+
+  #needsClickPressProbe(id: number, authored: PointerLifecycleState): boolean {
+    if (authored.mouseMove) return false
+    const type = this.#elementTypes.get(id)
+    if (type !== undefined && SEMANTIC_NATIVE_CLICK_TYPES.has(type)) return false
+    return this.#directClickListeners.get(id) === true || this.#hasClickAncestor(id)
+  }
+
+  #syncPointerSubtree(rootId: number): void {
+    const stack = [rootId]
+    while (stack.length > 0) {
+      const id = stack.pop()!
+      this.#syncPointerLifecycle(id)
+      for (const childId of this.#children.get(id) ?? []) stack.push(childId)
+    }
   }
 
   #syncPointerLifecycle(id: number): void {
     const authored = this.#authored.get(id) ?? emptyPointerLifecycleState()
     const isRootRelay = id === this.#rootId
     const desired = {
-      mouseDown: authored.mouseDown || isRootRelay,
+      mouseDown: authored.mouseDown || isRootRelay || this.#needsClickPressProbe(id, authored),
       mouseMove: authored.mouseMove || isRootRelay,
       mouseUp: authored.mouseUp || authored.mouseDown || isRootRelay,
     } satisfies PointerLifecycleState
@@ -196,5 +301,26 @@ export class BrowserPointerMutationDriver extends MutationDriver {
       applied[eventType] = desired[eventType]
     }
     this.#applied.set(id, applied)
+  }
+
+  #forgetSubtree(rootId: number): void {
+    const stack = [rootId]
+    while (stack.length > 0) {
+      const id = stack.pop()!
+      for (const childId of this.#children.get(id) ?? []) stack.push(childId)
+      const parentId = this.#parents.get(id)
+      if (parentId !== undefined) {
+        const siblings = this.#children.get(parentId)
+        siblings?.delete(id)
+        if (siblings?.size === 0) this.#children.delete(parentId)
+      }
+      this.#parents.delete(id)
+      this.#children.delete(id)
+      this.#elementTypes.delete(id)
+      this.#directClickListeners.delete(id)
+      this.#authored.delete(id)
+      this.#applied.delete(id)
+      if (this.#rootId === id) this.#rootId = undefined
+    }
   }
 }

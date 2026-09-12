@@ -28,9 +28,6 @@ async function main(): Promise<void> {
     await app.getByTestId("row-t5").hover()
     assert.equal(await app.getByTestId("delete-t5").count(), 1)
     await app.getByTestId("delete-t5").click()
-    console.log(
-      `[todo-delete-diagnostic] row=${await app.getByTestId("row-t5").count()} delete=${await app.getByTestId("delete-t5").count()} view=${await app.getByTestId("view-count").textContent()}`,
-    )
     assert.equal(await app.getByTestId("row-t5").count(), 0)
     assert.equal(await app.getByTestId("view-count").textContent(), "5")
 
