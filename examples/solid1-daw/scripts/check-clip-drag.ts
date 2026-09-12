@@ -30,12 +30,21 @@ assert.equal(
   "previewing a drag must leave the source clip untouched",
 )
 
-const committed = commitClipDrag(tracks, preview)
+const concurrentTracks = tracks.map((track) => track.id === drums.id
+  ? {
+      ...track,
+      clips: track.clips.map((clip) => clip.id === originalClip.id
+        ? { ...clip, gain: 0.75 }
+        : clip),
+    }
+  : track)
+const committed = commitClipDrag(concurrentTracks, preview)
 const committedDrums = committed.find((track) => track.id === drums.id)!
 const committedClip = committedDrums.clips.find((clip) => clip.id === originalClip.id)!
 assert.equal(committedClip.startSec, preview.startSec)
-assert.notEqual(committedDrums, drums, "the changed track should receive a new object")
-for (const track of tracks) {
+assert.equal(committedClip.gain, 0.75, "commit must preserve fields changed after pointer-down")
+assert.notEqual(committedDrums, concurrentTracks.find((track) => track.id === drums.id))
+for (const track of concurrentTracks) {
   if (track.id === drums.id) continue
   assert.equal(
     committed.find((candidate) => candidate.id === track.id),

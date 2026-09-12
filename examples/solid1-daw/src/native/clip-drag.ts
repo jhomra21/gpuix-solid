@@ -96,11 +96,15 @@ export function commitClipDrag(
   tracks: NativeTrack[],
   preview: ClipDragPreview,
 ): NativeTrack[] {
-  const movedClip = { ...preview.clip, startSec: preview.startSec }
+  const sourceTrack = tracks.find((track) => track.id === preview.sourceTrackId)
+  const currentClip = sourceTrack?.clips.find((clip) => clip.id === preview.clip.id)
+  if (!sourceTrack || !currentClip) return tracks
+
   const sameTrack = preview.sourceTrackId === preview.targetTrackId
-  const samePosition = movedClip.startSec === preview.clip.startSec
+  const samePosition = currentClip.startSec === preview.startSec
   if (sameTrack && samePosition) return tracks
 
+  const movedClip = { ...currentClip, startSec: preview.startSec }
   return tracks.map((track) => {
     if (sameTrack) {
       if (track.id !== preview.sourceTrackId) return track
