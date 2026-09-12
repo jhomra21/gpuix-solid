@@ -22,6 +22,20 @@ jobs:
       - name: Confirm native build toolchain
         run: rustc --version && cargo --version
       - run: bun install --frozen-lockfile
+      - name: Keep normal macOS frame pump under CI
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('packages/solid/src/runtime.ts')
+          source = path.read_text()
+          old = 'enableAutomation(compatibilityRenderer)'
+          new = 'enableAutomation(compatibilityRenderer, { driveFrames: false })'
+          if source.count(old) != 1:
+              raise SystemExit(f'expected exactly one automation enable call, found {source.count(old)}')
+          path.write_text(source.replace(old, new))
+          PY
+          git diff --check -- packages/solid/src/runtime.ts
+          git diff -- packages/solid/src/runtime.ts
       - name: Build and verify exact current edge
         run: |
           bun run gpuix:edge:prepare
