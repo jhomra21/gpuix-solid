@@ -81,4 +81,51 @@ describe("root release retargeting", () => {
 
     root.unmount()
   })
+
+  it("drops a duplicate root release before it can retarget onto a remounted pointer-up owner", () => {
+    const renderer = new BoundsRenderer()
+    const root = createRoot(renderer)
+    const [generation, setGeneration] = createSignal(0)
+    let shell: HostElementNode | undefined
+    let owner: HostElementNode | undefined
+    let pointerUps = 0
+
+    root.render(() => {
+      const nextShell = element()
+      shell = nextShell
+      setProp(nextShell, "style", { width: 100, height: 40 })
+      insert(nextShell, () => {
+        void generation()
+        const node = element()
+        owner = node
+        setProp(node, "style", { width: 20, height: 20 })
+        setProp(node, "onPointerDown", () => {
+          setGeneration((value) => value + 1)
+        })
+        setProp(node, "onPointerUp", () => {
+          pointerUps += 1
+        })
+        return node
+      })
+      return nextShell
+    })
+
+    if (!shell || !owner) throw new Error("Expected initial pointer owner")
+    const firstOwner = owner
+    renderer.bounds.set(shell.id, [0, 0, 100, 40])
+    renderer.bounds.set(firstOwner.id, [0, 0, 20, 20])
+
+    expect(root.dispatch(pointerEvent("mouseDown", firstOwner.id))).toBe(true)
+    if (!owner || owner.id === firstOwner.id) throw new Error("Expected pointer-down remount")
+    const replacementOwner = owner
+    renderer.bounds.delete(firstOwner.id)
+    renderer.bounds.set(replacementOwner.id, [0, 0, 20, 20])
+
+    expect(root.dispatch(pointerEvent("mouseUp", replacementOwner.id))).toBe(true)
+    expect(pointerUps).toBe(1)
+    expect(root.dispatch(pointerEvent("mouseUp", shell.id))).toBe(true)
+    expect(pointerUps).toBe(1)
+
+    root.unmount()
+  })
 })

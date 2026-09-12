@@ -303,6 +303,10 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
             handled = true
             return
           }
+          if (isSyntheticRootRelayDuplicate(routedEvent)) {
+            handled = true
+            return
+          }
 
           if (event.elementId === rootId && (event.eventType === "mouseDown" || event.eventType === "mouseUp")) {
             const targetId = pointerTargetAtPoint(container, renderer, events, event)
@@ -322,10 +326,6 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
 
           if (!hasLiveElement(container, routedEvent.elementId)) return
           if (isDuplicatePointerDown(routedEvent)) {
-            handled = true
-            return
-          }
-          if (isSyntheticRootRelayDuplicate(routedEvent)) {
             handled = true
             return
           }
