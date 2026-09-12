@@ -20,6 +20,20 @@ jobs:
         with:
           bun-version: 1.3.14
       - run: bun install --frozen-lockfile
+      - name: Keep normal macOS frame pump under CI
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('packages/solid/src/runtime.ts')
+          source = path.read_text()
+          old = 'enableAutomation(compatibilityRenderer)'
+          new = 'enableAutomation(compatibilityRenderer, { driveFrames: false })'
+          if source.count(old) != 1:
+              raise SystemExit(f'expected exactly one automation enable call, found {source.count(old)}')
+          path.write_text(source.replace(old, new))
+          PY
+          git diff --check -- packages/solid/src/runtime.ts
+          git diff -- packages/solid/src/runtime.ts
       - name: Build and verify exact current edge
         run: |
           bun run gpuix:edge:prepare
@@ -41,7 +55,6 @@ jobs:
       - name: Let ready main-queue work enter one runloop cycle
         shell: bash
         run: |
-          platform=".cache/gpuix/remorses--gpuix-e47bd1ca302e/zed/crates/gpui_macos/src/platform.rs"
           python3 - <<'PY'
           from pathlib import Path
           path = Path('.cache/gpuix/remorses--gpuix-e47bd1ca302e/zed/crates/gpui_macos/src/platform.rs')
