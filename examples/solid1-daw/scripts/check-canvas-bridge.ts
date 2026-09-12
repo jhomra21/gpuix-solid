@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs"
 import { createTestRoot, hasNativeTestRenderer } from "@jhomra21/gpuix-solid1"
 import {
   createElement,
@@ -14,20 +15,29 @@ type CompatCanvas = ReturnType<typeof createElement> & {
 
 type TestRoot = ReturnType<typeof createTestRoot>
 
-const SVG_DATA_URL_PREFIX = "data:image/svg+xml,"
-
 function requireCondition(condition: boolean, message: string): void {
   if (!condition) throw new Error(message)
 }
 
-function canvasImageSvg(root: TestRoot, requiredFragments: readonly string[]): string {
-  const src = root.renderer.customPropStringContainingAll("src", [
-    SVG_DATA_URL_PREFIX,
-    ...requiredFragments.map((fragment) => encodeURIComponent(fragment)),
-  ])
-  requireCondition(src.startsWith(SVG_DATA_URL_PREFIX), `Canvas bridge must paint through an SVG image data URL, got ${src}`)
-  return decodeURIComponent(src.slice(SVG_DATA_URL_PREFIX.length))
+function canvasSvg(root: TestRoot, requiredFragments: readonly string[]): string {
+  const source = root.renderer.customPropStringContainingAll("source", ["<svg", ...requiredFragments])
+  requireCondition(source.startsWith("<svg"), `Canvas bridge must paint through raw SVG source, got ${source}`)
+  return source
 }
+
+const canvasBridgeSource = readFileSync(new URL("../src/compat/layered-canvas.ts", import.meta.url), "utf8")
+requireCondition(
+  canvasBridgeSource.includes('base.createElement("svg")'),
+  "Canvas bridge must use the native raw-SVG surface rather than an image decoder",
+)
+requireCondition(
+  !canvasBridgeSource.includes("data:image/svg+xml"),
+  "Canvas bridge must not percent-encode every draw into an SVG data URL",
+)
+requireCondition(
+  !canvasBridgeSource.includes("driver.flush()"),
+  "Canvas bridge must let MutationDriver batch/auto-flush instead of synchronously flushing each draw",
+)
 
 if (!hasNativeTestRenderer) {
   console.log("DAW Canvas2D compatibility bridge: native TestGpuixRenderer unavailable; skipped")
@@ -87,19 +97,22 @@ if (!hasNativeTestRenderer) {
   await Promise.resolve()
   app.root.flush()
   app.renderer.flush()
-  const waveformSource = canvasImageSvg(app, [
+  const waveformSource = canvasSvg(app, [
     'viewBox="0 0 100 40"',
     'preserveAspectRatio="none"',
-    "<polygon",
-    "<polyline",
+    "<path",
   ])
   requireCondition(!waveformSource.includes("data-native-waveform-placeholder"), "Canvas bridge must not use the old static waveform placeholder")
   requireCondition(
     waveformSource.includes('fill="rgba(255,255,255,0.55)"') &&
       waveformSource.includes('stroke="rgba(255,255,255,0.35)"'),
-    `waveform Canvas image must retain both source paints, got ${waveformSource}`,
+    `waveform Canvas SVG must retain both source paints, got ${waveformSource}`,
   )
-  requireCondition(app.renderer.hasTestId("gpuix-canvas-2d-surface"), "waveform Canvas should retain one native image paint surface")
+  requireCondition(
+    !waveformSource.includes("<polygon") && !waveformSource.includes("<polyline"),
+    `waveform Canvas SVG should compact repeated bars/segments into shared paths, got ${waveformSource}`,
+  )
+  requireCondition(app.renderer.hasTestId("gpuix-canvas-2d-surface"), "waveform Canvas should retain one native SVG paint surface")
   requireCondition(!app.renderer.hasTestId("gpuix-canvas-2d-layer-1"), "waveform Canvas should not split multicolor paint across tint-only SVG layers")
   app.unmount()
 
@@ -154,10 +167,9 @@ if (!hasNativeTestRenderer) {
   await Promise.resolve()
   eqApp.root.flush()
   eqApp.renderer.flush()
-  const eqSource = canvasImageSvg(eqApp, [
+  const eqSource = canvasSvg(eqApp, [
     'viewBox="0 0 160 80"',
-    "<polygon",
-    "<polyline",
+    "<path",
     ">+12 dB</text>",
     "<circle",
     'font-weight="700"',
@@ -165,18 +177,18 @@ if (!hasNativeTestRenderer) {
     'dominant-baseline="middle"',
     ">5</text>",
   ])
-  requireCondition(eqSource.includes('fill="#09090b"'), `EQ image must retain source background paint, got ${eqSource}`)
-  requireCondition(eqSource.includes('stroke="#ffffff29"'), `EQ image must retain source grid paint, got ${eqSource}`)
-  requireCondition(eqSource.includes('fill="#a1a1aa"'), `EQ image must retain source label paint, got ${eqSource}`)
-  requireCondition(eqSource.includes('fill="#fac547"'), `EQ image must retain selected-node paint, got ${eqSource}`)
-  requireCondition(eqSource.includes(">5</text>"), `EQ image must retain the node number, got ${eqSource}`)
+  requireCondition(eqSource.includes('fill="#09090b"'), `EQ SVG must retain source background paint, got ${eqSource}`)
+  requireCondition(eqSource.includes('stroke="#ffffff29"'), `EQ SVG must retain source grid paint, got ${eqSource}`)
+  requireCondition(eqSource.includes('fill="#a1a1aa"'), `EQ SVG must retain source label paint, got ${eqSource}`)
+  requireCondition(eqSource.includes('fill="#fac547"'), `EQ SVG must retain selected-node paint, got ${eqSource}`)
+  requireCondition(eqSource.includes(">5</text>"), `EQ SVG must retain the node number, got ${eqSource}`)
   requireCondition(
     !eqSource.includes('transform="matrix(1 0 0 1 0 0)"'),
     `identity Canvas transforms must not be serialized onto EQ circles, got ${eqSource}`,
   )
-  requireCondition(eqApp.renderer.hasTestId("gpuix-canvas-2d-surface"), "multicolor EQ Canvas should retain one native image paint surface")
+  requireCondition(eqApp.renderer.hasTestId("gpuix-canvas-2d-surface"), "multicolor EQ Canvas should retain one native SVG paint surface")
   requireCondition(!eqApp.renderer.hasTestId("gpuix-canvas-2d-layer-1"), "multicolor EQ Canvas should not depend on tint-only SVG layers")
   eqApp.unmount()
 
-  console.log("DAW Canvas2D compatibility bridge: unrelated styles preserved and exact multicolor Canvas output retained in one native SVG image")
+  console.log("DAW Canvas2D compatibility bridge: raw SVG batching, compact waveform paths, and exact multicolor output passed")
 }
