@@ -39,7 +39,14 @@ async function main(): Promise<void> {
       rawBounds: rawDeleteBounds,
       events: deleteElement.events ?? [],
     }))
-    await deleteT5.click()
+    await app.mouse.down(deleteT5)
+    console.log("[todo-delete-after-down]", JSON.stringify({
+      rawBounds: testRoot.renderer.getElementBounds(deleteElement.id),
+      count: await deleteT5.count(),
+      mouseUp: testRoot.renderer.hasEventListener(deleteElement.id, "mouseUp"),
+      mouseDown: testRoot.renderer.hasEventListener(deleteElement.id, "mouseDown"),
+    }))
+    await app.mouse.up(deleteT5)
     assert.equal(await app.getByTestId("row-t5").count(), 0)
     assert.equal(await app.getByTestId("view-count").textContent(), "5")
 
