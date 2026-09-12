@@ -10,6 +10,7 @@ import { nativeTailwindManifest } from "./native-tailwind.generated"
 
 const WARMUP = 2
 const SAMPLES = 12
+const svgDataUrlPrefix = "data:image/svg+xml,"
 
 const collapseTrack = { title: "Collapse track" } as const
 const expandTrack = { title: "Expand track" } as const
@@ -148,14 +149,21 @@ async function benchmarkScroll(): Promise<Samples> {
   }
 }
 
-function eqSourceLength(app: TestRoot): number {
-  return app.renderer.customPropStringContainingAll("source", [
+function eqFrameSource(app: TestRoot): string {
+  const fragments = [
     'preserveAspectRatio="none"',
     'font-size="9"',
     "+0 dB",
     "10k",
     "<circle",
-  ]).length
+  ] as const
+  try {
+    return app.renderer.customPropStringContainingAll("source", fragments)
+  } catch {
+    const src = app.renderer.customPropStringContainingAll("src", [svgDataUrlPrefix, ...fragments])
+    requireCondition(src.startsWith(svgDataUrlPrefix), `expected SVG image frame, got ${src}`)
+    return src.slice(svgDataUrlPrefix.length)
+  }
 }
 
 async function benchmarkEq(): Promise<{ samples: Samples; initialSourceBytes: number; finalSourceBytes: number }> {
@@ -166,7 +174,7 @@ async function benchmarkEq(): Promise<{ samples: Samples; initialSourceBytes: nu
     flush(app)
     requireCondition(app.renderer.hasCustomProps(eqGain), "exact source EQ Gain slider must be mounted")
 
-    const initialSourceBytes = eqSourceLength(app)
+    const initialSourceBytes = eqFrameSource(app).length
     const samples = emptySamples()
     for (let index = 0; index < WARMUP + SAMPLES; index += 1) {
       const lookupUp = sample(() => { app.renderer.customPropByCustomProps(eqGain, "aria-valuetext") })
@@ -181,7 +189,7 @@ async function benchmarkEq(): Promise<{ samples: Samples; initialSourceBytes: nu
       })
       pushSample(samples, up + down, lookupUp + lookupDown, index)
     }
-    const finalSourceBytes = eqSourceLength(app)
+    const finalSourceBytes = eqFrameSource(app).length
     return { samples, initialSourceBytes, finalSourceBytes }
   } finally {
     app.unmount()
