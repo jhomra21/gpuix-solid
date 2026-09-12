@@ -46,7 +46,7 @@ describe("browser pointer lifecycle compatibility", () => {
     ])
   })
 
-  it("arms root capture only while a connected authored pointer-down gesture exists", () => {
+  it("keeps root capture off while a connected authored gesture uses post-down move relay", () => {
     const renderer = new FakeRenderer()
     const driver = new BrowserPointerMutationDriver(renderer, new EventRegistry())
 
@@ -63,14 +63,21 @@ describe("browser pointer lifecycle compatibility", () => {
     expect(listenerMutations(renderer)).toEqual([
       ["setEventListener", 11, "mouseDown", true],
       ["setEventListener", 11, "mouseUp", true],
-      ["setEventListener", 10, "mouseDown", true],
+    ])
+    expect(listenerMutations(renderer)).not.toContainEqual(["setEventListener", 10, "mouseDown", true])
+
+    renderer.batches.length = 0
+    driver.beginAuthoredPointerRelay(11)
+    driver.flush()
+    expect(listenerMutations(renderer)).toEqual([
+      ["setEventListener", 11, "mouseMove", true],
     ])
 
     renderer.batches.length = 0
-    driver.enqueue("removeChild", 10, 11)
+    driver.endAuthoredPointerRelay()
     driver.flush()
     expect(listenerMutations(renderer)).toEqual([
-      ["setEventListener", 10, "mouseDown", false],
+      ["setEventListener", 11, "mouseMove", false],
     ])
   })
 
