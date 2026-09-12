@@ -5,6 +5,8 @@ import { timelineDurationSec } from "../compat/timeline-utils"
 import { selectTimelineGridIntervals } from "../compat/timeline-view"
 import { TimelineLeftBrowser, type TimelineLeftBrowserProps } from "./TimelineLeftBrowser"
 import ArrangementOverview from "./ArrangementOverview"
+import ClipDragPreview from "./ClipDragPreview"
+import type { ClipDragPreview as DragPreview } from "./clip-drag"
 import TrackLane from "./TrackLane"
 import SourceTrackSidebar, { type SourceTrackSidebarProps } from "./SourceTrackSidebar"
 import type { NativeTrack } from "./model"
@@ -30,7 +32,7 @@ export interface TimelineWorkspaceProps {
   onSelectClip: (trackId: string, clipId: string) => void
   onOpenClip: (trackId: string, clipId: string) => void
   onClipMouseDown: (trackId: string, clipId: string, event: PointerEvent) => void
-  dragging: boolean
+  dragPreview?: DragPreview
 }
 
 interface GridLine {
@@ -125,6 +127,18 @@ const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
     startSec: 0,
     endSec: Math.min(durationSec(), timelineViewportWidth() / props.pixelsPerSecond),
   })
+  const dragPreviewPlacement = createMemo(() => {
+    const preview = props.dragPreview
+    if (!preview) return undefined
+
+    let top = 0
+    for (const track of scrollingTracks()) {
+      const height = trackRowHeight(track)
+      if (track.id === preview.targetTrackId) return { top, height }
+      top += height
+    }
+    return undefined
+  })
 
   const renderTrackLane = (track: NativeTrack) => (
     <TrackLane
@@ -192,6 +206,16 @@ const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
             }}
           >
             <For each={scrollingTracks()}>{renderTrackLane}</For>
+            <Show when={dragPreviewPlacement()}>
+              {(placement) => (
+                <ClipDragPreview
+                  preview={props.dragPreview!}
+                  top={placement().top}
+                  height={placement().height}
+                  pixelsPerSecond={props.pixelsPerSecond}
+                />
+              )}
+            </Show>
           </div>
 
           <div
@@ -255,21 +279,6 @@ const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
           {...props.sidebar}
         />
       </div>
-
-      <Show when={props.dragging}>
-        <div
-          testId="timeline-drag-layer"
-          style={{
-            position: "absolute",
-            top: layout.headerHeight,
-            right: layout.sidebarWidth,
-            bottom: scrollingBottom(),
-            left: props.browser.open ? layout.browserWidth : 0,
-            backgroundColor: "#00000001",
-            cursor: "grabbing",
-          }}
-        />
-      </Show>
     </div>
   )
 }

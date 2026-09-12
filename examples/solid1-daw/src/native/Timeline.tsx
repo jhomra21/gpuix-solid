@@ -15,37 +15,16 @@ import { DEFAULT_PIXELS_PER_SECOND } from "../compat/timeline-view"
 import TimelineChrome from "./TimelineChrome"
 import TimelinePanels from "./TimelinePanels"
 import TimelineWorkspace from "./TimelineWorkspace"
+import {
+  commitClipDrag,
+  previewClipDrag,
+  startClipDrag,
+  type ClipDragPreview,
+  type ClipDragSession,
+} from "./clip-drag"
 import { initialTracks, type BottomTab, type BrowserTab, type NativeClip, type NativeTrack } from "./model"
 import { nativeOutputTargetName, renumberNativeTracks, sourceTracks } from "./sourceTrackAdapter"
 import { dawTheme, layout } from "./theme"
-
-interface DragState {
-  clipId: string
-  sourceTrackId: string
-  startTrackIndex: number
-  startX: number
-  startY: number
-  startSec: number
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value))
-}
-
-function quantizeSecToGrid(sec: number, bpm: number, denominator: number): number {
-  const step = (60 / Math.max(1, bpm)) * (4 / Math.max(1, denominator))
-  return Math.max(0, Math.round(sec / step) * step)
-}
-
-function compatible(clip: NativeClip, track: NativeTrack): boolean {
-  if (track.kind === "return" || track.kind === "group") return false
-  if (clip.kind === "midi") return track.kind === "midi"
-  return track.kind === "audio"
-}
-
-function draggableTracks(tracks: NativeTrack[]): NativeTrack[] {
-  return tracks.filter((track) => track.kind !== "return" && track.kind !== "group")
-}
 
 function findClip(tracks: NativeTrack[], clipId: string): { track: NativeTrack; clip: NativeClip } | undefined {
   for (const track of tracks) {
@@ -83,7 +62,7 @@ export default function Timeline(): JSX.Element {
   const [bottomPanelOpen, setBottomPanelOpen] = createSignal(true)
   const [bottomTab, setBottomTab] = createSignal<BottomTab>("effects")
   const [bottomPanelHeight, setBottomPanelHeight] = createSignal<number>(layout.bottomPanelHeight)
-  const [drag, setDrag] = createSignal<DragState>()
+  const [dragPreview, setDragPreview] = createSignal<ClipDragPreview>()
   const [masterVolume, setMasterVolume] = createSignal(1)
 
   const [compressorEnabled, setCompressorEnabled] = createSignal(true)
@@ -99,7 +78,7 @@ export default function Timeline(): JSX.Element {
   const audioEngine = createDeterministicAudioEngine()
   const bpmDetection = createBpmDetectionService()
 
-  let pendingDrag: DragState | undefined
+  let dragSession: ClipDragSession | undefined
   let dragListenersArmed = false
 
   const selectedClip = createMemo(() => findClip(tracks(), selectedClipId())?.clip)
@@ -285,31 +264,8 @@ export default function Timeline(): JSX.Element {
   }
 
   const moveClipDrag = (x: number, y: number): void => {
-    const currentDrag = drag() ?? pendingDrag
-    if (!currentDrag) return
-    if (drag() === undefined) setDrag(currentDrag)
-
-    const currentTracks = tracks()
-    const movableTracks = draggableTracks(currentTracks)
-    const found = findClip(currentTracks, currentDrag.clipId)
-    if (!found || movableTracks.length === 0) return
-
-    const laneDelta = Math.round((y - currentDrag.startY) / layout.laneHeight)
-    const candidateIndex = Math.round(clamp(currentDrag.startTrackIndex + laneDelta, 0, movableTracks.length - 1))
-    const candidate = movableTracks[candidateIndex]
-    const source = currentTracks.find((track) => track.id === currentDrag.sourceTrackId)
-    if (!source) return
-    const target = candidate && compatible(found.clip, candidate) ? candidate : source
-    const rawStart = Math.max(0, currentDrag.startSec + (x - currentDrag.startX) / DEFAULT_PIXELS_PER_SECOND)
-    const startSec = gridEnabled() ? quantizeSecToGrid(rawStart, bpm(), gridDenominator()) : rawStart
-    const movedClip = { ...found.clip, startSec }
-
-    setTracks((current) => current.map((track) => {
-      const without = track.clips.filter((clip) => clip.id !== movedClip.id)
-      if (track.id === target.id) return { ...track, clips: [...without, movedClip] }
-      return without.length === track.clips.length ? track : { ...track, clips: without }
-    }))
-    setSelectedTrackId(target.id)
+    if (!dragSession) return
+    setDragPreview(previewClipDrag(dragSession, x, y))
   }
 
   const disarmDragListeners = (): void => {
@@ -320,9 +276,14 @@ export default function Timeline(): JSX.Element {
     dragListenersArmed = false
   }
 
-  const endClipDrag = (): void => {
-    pendingDrag = undefined
-    setDrag(undefined)
+  const endClipDrag = (commit: boolean): void => {
+    const preview = dragPreview()
+    if (commit && preview) {
+      setTracks((current) => commitClipDrag(current, preview))
+      setSelectedTrackId(preview.targetTrackId)
+    }
+    dragSession = undefined
+    setDragPreview(undefined)
     disarmDragListeners()
   }
 
@@ -331,11 +292,11 @@ export default function Timeline(): JSX.Element {
   }
 
   function handleWindowPointerUp(): void {
-    endClipDrag()
+    endClipDrag(true)
   }
 
   function handleWindowPointerCancel(): void {
-    endClipDrag()
+    endClipDrag(false)
   }
 
   const armDragListeners = (): void => {
@@ -348,29 +309,29 @@ export default function Timeline(): JSX.Element {
 
   const beginClipDrag = (trackId: string, clipId: string, event: PointerEvent): void => {
     if (event.button !== 0) return
-    const currentTracks = tracks()
-    const movableTracks = draggableTracks(currentTracks)
-    const sourceTrackIndex = movableTracks.findIndex((track) => track.id === trackId)
-    const sourceTrack = movableTracks[sourceTrackIndex]
-    const clip = sourceTrack?.clips.find((entry) => entry.id === clipId)
-    if (!clip || sourceTrackIndex < 0) return
+    const session = startClipDrag({
+      tracks: tracks(),
+      trackId,
+      clipId,
+      x: event.clientX,
+      y: event.clientY,
+      pixelsPerSecond: DEFAULT_PIXELS_PER_SECOND,
+      laneHeight: layout.laneHeight,
+      gridEnabled: gridEnabled(),
+      bpm: bpm(),
+      gridDenominator: gridDenominator(),
+    })
+    if (!session) return
 
     disarmDragListeners()
-    setDrag(undefined)
-    pendingDrag = {
-      clipId,
-      sourceTrackId: trackId,
-      startTrackIndex: sourceTrackIndex,
-      startX: event.clientX,
-      startY: event.clientY,
-      startSec: clip.startSec,
-    }
+    dragSession = session
+    setDragPreview(undefined)
     selectClip(trackId, clipId)
     armDragListeners()
   }
 
   onCleanup(() => {
-    pendingDrag = undefined
+    dragSession = undefined
     disarmDragListeners()
   })
 
@@ -475,7 +436,7 @@ export default function Timeline(): JSX.Element {
         onSelectClip={selectClip}
         onOpenClip={openClip}
         onClipMouseDown={beginClipDrag}
-        dragging={drag() !== undefined}
+        dragPreview={dragPreview()}
       />
 
       <TimelinePanels
