@@ -118,6 +118,13 @@ const app = render(() => <App />, {
 if (process.env.GPUIX_FOREGROUND_FRAME_PROBE === "1") {
   const baseline = app.renderer.getDebugFrameOverlayStats?.()
   if (!baseline) throw new Error("Foreground frame probe requires debug frame overlay stats")
+  if (!app.renderer.setDebugFrameOverlay) {
+    throw new Error("Foreground frame probe requires setDebugFrameOverlay")
+  }
+
+  setTimeout(() => {
+    app.renderer.setDebugFrameOverlay?.("full")
+  }, 100)
 
   setTimeout(() => {
     const final = app.renderer.getDebugFrameOverlayStats?.()
