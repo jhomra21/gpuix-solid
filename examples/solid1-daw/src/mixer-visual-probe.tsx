@@ -58,24 +58,28 @@ function snapshot(app: TestRoot, label: string): void {
   })}`)
 }
 
+async function mountDaw(): Promise<TestRoot> {
+  const app = createTestRoot(1440, 900)
+  app.render(() => (
+    <div testId="daw-test-viewport" style={{ width: "100%", height: "100%", overflow: "scroll" }}>
+      <DawSolid1Showcase />
+    </div>
+  ))
+  for (let frame = 0; frame < 3; frame++) {
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+  }
+  await Promise.resolve()
+  app.root.flush()
+  app.renderer.flush()
+  app.renderer.scrollTestId("daw-test-viewport", -320, 0)
+  return app
+}
+
 if (!hasNativeTestRenderer) throw new Error("mixer visual probe requires native GPUIX test support")
 configureNativeStyleManifest(nativeTailwindManifest)
 setNativeStyleColorMode("dark")
 
-const app = createTestRoot(1440, 900)
-app.render(() => (
-  <div testId="daw-test-viewport" style={{ width: "100%", height: "100%", overflow: "scroll" }}>
-    <DawSolid1Showcase />
-  </div>
-))
-for (let frame = 0; frame < 3; frame++) {
-  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
-}
-await Promise.resolve()
-app.root.flush()
-app.renderer.flush()
-app.renderer.scrollTestId("daw-test-viewport", -320, 0)
-
+const app = await mountDaw()
 snapshot(app, "initial")
 app.renderer.clickCustomProps({ "aria-label": "Deactivate track 1" })
 snapshot(app, "deactivated")
@@ -85,11 +89,8 @@ app.renderer.clickCustomProps({ "aria-label": "Arm track 1 for recording" })
 snapshot(app, "armed")
 app.renderer.dragCustomProps(volume, 20, 0)
 snapshot(app, "dragged-after-state-changes")
-
-app.renderer.clickCustomProps({ "aria-label": "Activate track 1" })
-app.renderer.clickCustomProps({ "aria-label": "Unsolo track 1" })
-app.renderer.clickCustomProps({ "aria-label": "Disarm track 1 for recording" })
-app.renderer.dragCustomProps(volume, -12, 0)
-snapshot(app, "dragged-after-restoring-states")
-
 app.unmount()
+
+const second = await mountDaw()
+snapshot(second, "second-mount-initial")
+second.unmount()
