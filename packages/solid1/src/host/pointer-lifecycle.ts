@@ -50,8 +50,10 @@ function booleanArg(args: MutationValue[], index: number): boolean {
 
 function stringArg(args: MutationValue[], index: number): string {
   const value = args[index]
-  if (typeof value !== "string") throw new TypeError(`Expected string mutation arg ${index}`)
-  return value
+  if (Object.prototype.toString.call(value) !== "[object String]") {
+    throw new TypeError(`Expected string mutation arg ${index}`)
+  }
+  return String(value)
 }
 
 function pointerLifecycleEvent(value: MutationValue | undefined): PointerLifecycleEvent | undefined {
