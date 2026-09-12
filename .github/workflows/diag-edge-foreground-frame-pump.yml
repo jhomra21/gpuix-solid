@@ -55,17 +55,17 @@ jobs:
           set -e
           echo "status=$status" >> "$GITHUB_OUTPUT"
           echo "Current pump exit: $status"
-      - name: Restore only the pre-starvation-fix macOS pump
+      - name: Reverse only the macOS nonblocking-pump commit
         shell: bash
         run: |
           edge_checkout=".cache/gpuix/remorses--gpuix-e47bd1ca302e"
           zed_checkout="$edge_checkout/zed"
-          old_zed_sha="8b94defe56992b3ca4ffd4853ace741d8168111a"
+          pump_commit="df3c9b72600b9fd9e5eeb2794286642a7df86fdd"
           test "$(git -C "$edge_checkout" rev-parse HEAD)" = "e47bd1ca302ecab13e63363338fd44f6012ab2c8"
-          git -C "$zed_checkout" fetch --depth=1 origin "$old_zed_sha"
-          git -C "$zed_checkout" show "$old_zed_sha:crates/gpui_macos/src/platform.rs" > "$zed_checkout/crates/gpui_macos/src/platform.rs"
+          git -C "$zed_checkout" show "$pump_commit" -- crates/gpui_macos/src/platform.rs \
+            | git -C "$zed_checkout" apply --reverse --3way -
           git -C "$zed_checkout" diff --check -- crates/gpui_macos/src/platform.rs
-          git -C "$zed_checkout" diff --stat -- crates/gpui_macos/src/platform.rs
+          git -C "$zed_checkout" diff -- crates/gpui_macos/src/platform.rs
       - name: Rebuild and verify edge with wake-through pump only
         run: |
           bun run gpuix:edge:build
