@@ -18,10 +18,10 @@ jobs:
           path: candidate
           persist-credentials: false
 
-      - name: Check out certified local-test baseline
+      - name: Check out certified production baseline
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ff45cc2a3dbcb6b3400990d3e51d876594805a42
+          ref: 759ee496fd8f1dcf92e8e7ac338da2b782ebd70b
           path: baseline
           persist-credentials: false
 
@@ -33,7 +33,7 @@ jobs:
         working-directory: candidate
         run: |
           bun install --frozen-lockfile
-          echo "=== candidate runtime 1a5b9e6cfa72471b188465b3b95613bf603e1217 ==="
+          echo "=== experimental runtime $(git rev-parse HEAD) ==="
           bun run solid1:package
           cp examples/solid1-daw/src/perf-retained-probe.tsx examples/solid1-daw/src/test-entry.tsx
           cd examples/solid1-daw
@@ -41,12 +41,12 @@ jobs:
           bun run build:test
           bun dist/test/test.js
 
-      - name: Measure ff45 baseline with identical probe
+      - name: Measure certified production with identical probe
         working-directory: baseline
         run: |
           cp ../candidate/examples/solid1-daw/src/perf-retained-probe.tsx examples/solid1-daw/src/test-entry.tsx
           bun install --frozen-lockfile
-          echo "=== baseline runtime $(git rev-parse HEAD) ==="
+          echo "=== certified production $(git rev-parse HEAD) ==="
           bun run solid1:package
           cd examples/solid1-daw
           bun install --no-save
