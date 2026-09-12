@@ -101,7 +101,7 @@ describe("browser pointer lifecycle compatibility", () => {
     expect(listenerMutations(renderer)).not.toContainEqual(["setEventListener", 10, "mouseDown", true])
   })
 
-  it("probes retained click targets on mouse-down without manufacturing move capture", () => {
+  it("keeps click-only retained targets off native mouse-down while preserving activation relay", () => {
     const renderer = new FakeRenderer()
     const driver = new BrowserPointerMutationDriver(renderer, new EventRegistry())
 
@@ -109,20 +109,12 @@ describe("browser pointer lifecycle compatibility", () => {
     driver.enqueue("setEventListener", 20, "click", true)
     driver.flush()
 
-    expect(listenerMutations(renderer)).toContainEqual(["setEventListener", 20, "mouseDown", true])
+    expect(listenerMutations(renderer)).not.toContainEqual(["setEventListener", 20, "mouseDown", true])
     expect(listenerMutations(renderer)).toContainEqual(["setEventListener", 20, "mouseUp", true])
     expect(listenerMutations(renderer)).not.toContainEqual(["setEventListener", 20, "mouseMove", true])
-
-    renderer.batches.length = 0
-    driver.enqueue("setEventListener", 20, "mouseMove", true)
-    driver.flush()
-
-    expect(listenerMutations(renderer)).toContainEqual(["setEventListener", 20, "mouseDown", false])
-    expect(listenerMutations(renderer)).toContainEqual(["setEventListener", 20, "mouseMove", true])
-    expect(listenerMutations(renderer)).not.toContainEqual(["setEventListener", 20, "mouseUp", false])
   })
 
-  it("probes retained descendants of a click owner without giving them move capture", () => {
+  it("keeps retained click descendants off native mouse-down while preserving mouse-up activation relay", () => {
     const renderer = new FakeRenderer()
     const driver = new BrowserPointerMutationDriver(renderer, new EventRegistry())
 
@@ -132,8 +124,9 @@ describe("browser pointer lifecycle compatibility", () => {
     driver.enqueue("appendChild", 21, 22)
     driver.flush()
 
-    expect(listenerMutations(renderer)).toContainEqual(["setEventListener", 21, "mouseDown", true])
-    expect(listenerMutations(renderer)).toContainEqual(["setEventListener", 22, "mouseDown", true])
+    expect(listenerMutations(renderer)).not.toContainEqual(["setEventListener", 21, "mouseDown", true])
+    expect(listenerMutations(renderer)).not.toContainEqual(["setEventListener", 22, "mouseDown", true])
+    expect(listenerMutations(renderer)).toContainEqual(["setEventListener", 21, "mouseUp", true])
     expect(listenerMutations(renderer)).toContainEqual(["setEventListener", 22, "mouseUp", true])
     expect(listenerMutations(renderer)).not.toContainEqual(["setEventListener", 21, "mouseMove", true])
     expect(listenerMutations(renderer)).not.toContainEqual(["setEventListener", 22, "mouseMove", true])
@@ -174,7 +167,7 @@ describe("browser pointer lifecycle compatibility", () => {
     ])
   })
 
-  it("does not remove click activation lifecycle when a drag owner is released", () => {
+  it("removes authored mouse-down while preserving click activation mouse-up", () => {
     const renderer = new FakeRenderer()
     const driver = new BrowserPointerMutationDriver(renderer, new EventRegistry())
 
@@ -187,7 +180,7 @@ describe("browser pointer lifecycle compatibility", () => {
     driver.enqueue("setEventListener", 4, "mouseDown", false)
     driver.flush()
 
-    expect(listenerMutations(renderer)).not.toContainEqual(["setEventListener", 4, "mouseDown", false])
+    expect(listenerMutations(renderer)).toContainEqual(["setEventListener", 4, "mouseDown", false])
     expect(listenerMutations(renderer)).not.toContainEqual(["setEventListener", 4, "mouseMove", false])
     expect(listenerMutations(renderer)).not.toContainEqual(["setEventListener", 4, "mouseUp", false])
   })
