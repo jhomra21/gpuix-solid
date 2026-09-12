@@ -1,4 +1,6 @@
-import { createMemo, For, Show, type JSX } from "solid-js"
+import { createEffect, createMemo, For, Show, type JSX } from "solid-js"
+import { createStore, reconcile } from "solid-js/store"
+import type { Track } from "../compat/timeline-core-types"
 import UpstreamTimelineRuler from "../upstream/components/timeline/TimelineRuler"
 import { timelineDurationSec } from "../compat/timeline-utils"
 import { selectTimelineGridIntervals } from "../compat/timeline-view"
@@ -90,14 +92,27 @@ function TimelineGrid(props: {
 
 const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
   let scrollingTrackElement: HTMLDivElement | undefined
-  const durationSec = () => timelineDurationSec(props.tracks)
-  const overviewTracks = createMemo(
-    () => props.tracks.map((track) => toSourceTrack(track)),
-    undefined,
+
+  // Parent fixture updates use immutable project snapshots, while Solid's <For>
+  // keys rows by item identity. Reconcile by track id at this compatibility
+  // boundary so a collapse or mixer change updates one stable row instead of
+  // disposing/remounting the lane and its waveform canvases.
+  const [trackState, setTrackState] = createStore<{ tracks: NativeTrack[] }>({
+    tracks: props.tracks,
+  })
+  createEffect(() => {
+    setTrackState("tracks", reconcile(props.tracks, { key: "id" }))
+  })
+  const tracks = () => trackState.tracks
+
+  const durationSec = () => timelineDurationSec(tracks())
+  const overviewTracks = createMemo<Track[]>(
+    () => tracks().map((track) => toSourceTrack(track)),
+    [],
     { equals: sameArrangementOverviewTracks },
   )
-  const scrollingTracks = createMemo(() => props.tracks.filter((track) => track.kind !== "return"))
-  const returnTracks = createMemo(() => props.tracks.filter((track) => track.kind === "return"))
+  const scrollingTracks = createMemo(() => tracks().filter((track) => track.kind !== "return"))
+  const returnTracks = createMemo(() => tracks().filter((track) => track.kind === "return"))
   const returnAreaHeight = () => returnTracks().reduce((height, track) => height + trackRowHeight(track), 0)
   const stickyFooterHeight = () => returnAreaHeight() + layout.laneHeight
   const scrollingBottom = () => props.bottomPanelOffsetPx + stickyFooterHeight()
@@ -269,7 +284,7 @@ const TimelineWorkspace = (props: TimelineWorkspaceProps): JSX.Element => {
         </div>
 
         <SourceTrackSidebar
-          tracks={props.tracks}
+          tracks={tracks()}
           selectedTrackId={props.selectedTrackId}
           bottomPanelOffsetPx={props.bottomPanelOffsetPx}
           scrollElement={() => scrollingTrackElement}
