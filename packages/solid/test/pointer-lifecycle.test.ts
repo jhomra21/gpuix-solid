@@ -237,6 +237,17 @@ describe("browser pointer lifecycle compatibility", () => {
     expect(relay.route(pointerEvent("mouseUp", rootId), rootId, () => true, nestedDescendant)).toBeUndefined()
   })
 
+  it("suppresses the root copy after a remounted pressed target releases through a sibling relay", () => {
+    const relay = new BrowserPointerReleaseRelay()
+    const rootId = 1
+    const pressedId = 2
+    const relayId = 3
+
+    relay.route(pointerEvent("mouseDown", pressedId), rootId, () => true)
+    expect(relay.route(pointerEvent("mouseUp", relayId), rootId, () => false)?.elementId).toBe(relayId)
+    expect(relay.route(pointerEvent("mouseUp", rootId), rootId, () => false)).toBeUndefined()
+  })
+
   it("does not recover a root release outside the pressed target", () => {
     const relay = new BrowserPointerReleaseRelay()
     const rootId = 1

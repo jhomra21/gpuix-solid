@@ -140,7 +140,10 @@ export class BrowserPointerReleaseRelay {
         && !isDescendantOf(pressedElementId, event.elementId)
       ) {
         this.#pressedElementId = undefined
-        if (!canRouteRootRelease(pressedElementId, event)) return event
+        if (!canRouteRootRelease(pressedElementId, event)) {
+          this.#rememberCompletedRelease(event.elementId, burst)
+          return event
+        }
         this.#rememberRecoveredRelease(pressedElementId, burst)
         return { ...event, elementId: pressedElementId }
       }
