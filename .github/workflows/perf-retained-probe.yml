@@ -29,26 +29,50 @@ jobs:
         with:
           bun-version: 1.3.14
 
-      - name: Measure candidate
+      - name: Prepare candidate
         working-directory: candidate
         run: |
           bun install --frozen-lockfile
-          echo "=== experimental runtime $(git rev-parse HEAD) ==="
+          echo "=== prepare candidate $(git rev-parse HEAD) ==="
           bun run solid1:package
           cp examples/solid1-daw/src/perf-retained-probe.tsx examples/solid1-daw/src/test-entry.tsx
           cd examples/solid1-daw
           bun install --no-save
           bun run build:test
-          bun dist/test/test.js
 
-      - name: Measure certified production with identical probe
+      - name: Prepare certified production with identical probe
         working-directory: baseline
         run: |
           cp ../candidate/examples/solid1-daw/src/perf-retained-probe.tsx examples/solid1-daw/src/test-entry.tsx
           bun install --frozen-lockfile
-          echo "=== certified production $(git rev-parse HEAD) ==="
+          echo "=== prepare baseline $(git rev-parse HEAD) ==="
           bun run solid1:package
           cd examples/solid1-daw
           bun install --no-save
           bun run build:test
+
+      # Counterbalance execution order so one side does not win merely because
+      # the runner, native libraries, or filesystem caches are warmer later.
+      - name: Measure candidate A1
+        working-directory: candidate/examples/solid1-daw
+        run: |
+          echo "=== candidate A1 ==="
+          bun dist/test/test.js
+
+      - name: Measure baseline B1
+        working-directory: baseline/examples/solid1-daw
+        run: |
+          echo "=== baseline B1 ==="
+          bun dist/test/test.js
+
+      - name: Measure baseline B2
+        working-directory: baseline/examples/solid1-daw
+        run: |
+          echo "=== baseline B2 ==="
+          bun dist/test/test.js
+
+      - name: Measure candidate A2
+        working-directory: candidate/examples/solid1-daw
+        run: |
+          echo "=== candidate A2 ==="
           bun dist/test/test.js
