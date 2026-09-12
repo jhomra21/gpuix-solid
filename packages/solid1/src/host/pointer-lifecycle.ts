@@ -199,20 +199,18 @@ export class BrowserPointerReleaseRelay {
  * Browser code commonly starts a gesture on an element and listens for
  * pointermove/pointerup on window. GPUIX, unlike the browser, implicitly
  * captures a pointer whenever one retained node subscribes to both mouseDown
- * and mouseMove. Do not manufacture that combination on an ephemeral pressed
- * child: a reactive remount can destroy the captured native node before the
- * physical release, causing GPUI to emit no release at all.
+ * and mouseMove at the time the physical press is delivered. Do not manufacture
+ * that combination before an ephemeral child is pressed: a reactive remount can
+ * destroy the captured native node before release.
  *
- * The mounted root always relays native move/up as browser window events, but
- * it subscribes to mouseDown (and therefore becomes GPUI's stable capture
- * owner) only while the connected host tree contains an authored pointer-down
- * gesture. If that gesture synchronously changes the retained frame, GPUI's
- * frame-scoped capture can still disappear before the next physical move. While
- * such an authored press is active, connected non-press element surfaces
- * receive move/up relay listeners without mouseDown. The surface under the
- * pointer can then carry the browser window event without becoming a capture
- * owner itself, even when it existed before the press. Click/hover-only trees
- * never activate this relay.
+ * Once an authored mouse-down has already been delivered, however, the pressed
+ * surface may safely gain a temporary native mouseMove subscription for the
+ * current gesture. That cannot retroactively capture the completed mouse-down,
+ * and it gives browser-style window.pointermove a carrier when the pointer is
+ * still over the pressed surface. If that move mounts a new drag surface, newly
+ * connected non-press elements also receive move/up relay listeners without
+ * mouseDown so the gesture can continue across the frame change. All temporary
+ * relay listeners are removed on the physical release.
  */
 export class BrowserPointerMutationDriver extends MutationDriver {
   readonly #authored = new Map<number, PointerLifecycleState>()
@@ -225,6 +223,7 @@ export class BrowserPointerMutationDriver extends MutationDriver {
   readonly #activeRelayIds = new Set<number>()
   #rootId: number | undefined
   #authoredPointerRelayActive = false
+  #activePressedRelayId: number | undefined
 
   constructor(renderer: NativeRenderer, events: EventRegistry) {
     super(renderer, events)
@@ -235,13 +234,14 @@ export class BrowserPointerMutationDriver extends MutationDriver {
     if (!this.#authoredMouseDownOwners.has(elementId)) return
     if (!this.#isConnectedDescendantOfRoot(elementId)) return
     this.#authoredPointerRelayActive = true
-    const rootId = this.#rootId
-    if (rootId !== undefined) this.#syncPointerSubtree(rootId)
+    this.#activePressedRelayId = elementId
+    this.#syncPointerLifecycle(elementId)
   }
 
   endAuthoredPointerRelay(): void {
     if (!this.#authoredPointerRelayActive && this.#activeRelayIds.size === 0) return
     this.#authoredPointerRelayActive = false
+    this.#activePressedRelayId = undefined
     for (const id of this.#activeRelayIds) this.#syncPointerLifecycle(id)
   }
 
@@ -371,8 +371,8 @@ export class BrowserPointerMutationDriver extends MutationDriver {
   }
 
   #needsActiveRelay(id: number, authored: PointerLifecycleState, isRootRelay: boolean): boolean {
-    if (!this.#authoredPointerRelayActive || isRootRelay || !this.#elementTypes.has(id)) return false
-    if (!this.#isConnectedDescendantOfRoot(id)) return false
+    if (!this.#authoredPointerRelayActive || isRootRelay || !this.#isConnectedDescendantOfRoot(id)) return false
+    if (id === this.#activePressedRelayId) return authored.mouseDown
     if (authored.mouseDown || this.#needsClickPressProbe(id, authored)) return false
     return true
   }
@@ -432,6 +432,7 @@ export class BrowserPointerMutationDriver extends MutationDriver {
       this.#activeRelayIds.delete(id)
       this.#authored.delete(id)
       this.#applied.delete(id)
+      if (this.#activePressedRelayId === id) this.#activePressedRelayId = undefined
       if (this.#rootId === id) this.#rootId = undefined
     }
   }
