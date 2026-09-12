@@ -44,6 +44,7 @@ type CanvasDrawing = {
 type RuntimeState = {
   drawing: CanvasDrawing
   surface?: HostElement
+  lastSource?: string
   queued: boolean
 }
 
@@ -80,37 +81,36 @@ function scheduleRender(node: CanvasHost, state: RuntimeState): void {
     state.queued = false
     if (!node.nativeAlive || !node.root) return
 
-    const bounds = node.getBoundingClientRect()
-    const width = Math.max(1, bounds.width)
-    const height = Math.max(1, bounds.height)
     const source = state.drawing.toSvg()
+    if (source === state.lastSource) return
 
     let surface = state.surface
     if (!surface) {
-      const created = base.createElement("img")
-      if (created.kind !== "element") throw new Error("Canvas2D image bridge expected an image host element")
+      const created = base.createElement("svg")
+      if (created.kind !== "element") throw new Error("Canvas2D bridge expected an SVG host element")
       surface = created
       state.surface = surface
+      base.setProp(surface, "testId", "gpuix-canvas-2d-surface")
+      base.setProp(surface, "style", {
+        position: "absolute",
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
+        pointerEvents: "none",
+        flexShrink: 0,
+      })
       base.insertNode(node, surface)
     }
 
-    base.setProp(surface, "testId", "gpuix-canvas-2d-surface")
-    base.setProp(surface, "style", {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      width,
-      height,
-      pointerEvents: "none",
-      flexShrink: 0,
-    })
-    base.setProp(surface, "objectFit", "fill")
-    // Keep the exact generated SVG visible to automation as a change detector;
-    // native <img> ignores this extra prop and paints only the data URL below.
-    base.setProp(surface, "source", source)
-    base.setProp(surface, "src", `data:image/svg+xml,${encodeURIComponent(source)}`)
-
-    node.root.driver.flush()
+    // GPUIX accepts raw SVG markup through `source` on both the published
+    // runtime and current source edge. Avoid routing every Canvas frame through
+    // a percent-encoded image data URL: that path decodes/rebuilds an image and
+    // can visibly blank the graph between frames. MutationDriver already batches
+    // and auto-flushes this update, so forcing a synchronous flush here would
+    // only break batching.
+    base.setProp(surface, "source", source, state.lastSource)
+    state.lastSource = source
   })
 }
 
@@ -153,7 +153,7 @@ function createCanvasDrawing(getSize: () => CanvasSize, onChange: () => void): C
     clearRect(x: number, y: number, width: number, height: number) {
       const points = rectanglePoints(x, y, width, height, transform)
       if (!coversSurface(points, getSize())) {
-        throw new Error("Canvas2D image bridge currently supports only full-surface clearRect()")
+        throw new Error("Canvas2D SVG bridge currently supports only full-surface clearRect()")
       }
       commands = []
       path = undefined
@@ -178,7 +178,7 @@ function createCanvasDrawing(getSize: () => CanvasSize, onChange: () => void): C
         return
       }
       if (path.kind !== "polyline") {
-        throw new Error("Canvas2D image bridge does not mix line segments with an arc in one path")
+        throw new Error("Canvas2D SVG bridge does not mix line segments with an arc in one path")
       }
       path.points.push(point)
     },
@@ -191,10 +191,10 @@ function createCanvasDrawing(getSize: () => CanvasSize, onChange: () => void): C
       _counterclockwise?: boolean,
     ) {
       if (!Number.isFinite(radius) || radius < 0) {
-        throw new Error("Canvas2D image bridge requires a finite non-negative arc radius")
+        throw new Error("Canvas2D SVG bridge requires a finite non-negative arc radius")
       }
       if (!isFullCircleArc(startAngle, endAngle)) {
-        throw new Error("Canvas2D image bridge currently supports only full-circle arc() paths")
+        throw new Error("Canvas2D SVG bridge currently supports only full-circle arc() paths")
       }
       path = { kind: "circle", x, y, radius, transform: cloneMatrix(transform) }
     },
@@ -224,9 +224,9 @@ function createCanvasDrawing(getSize: () => CanvasSize, onChange: () => void): C
       onChange()
     },
     fillText(value: string, x: number, y: number, maxWidth?: number) {
-      if (maxWidth !== undefined) throw new Error("Canvas2D image bridge does not support fillText() maxWidth")
+      if (maxWidth !== undefined) throw new Error("Canvas2D SVG bridge does not support fillText() maxWidth")
       if (!isIdentityTransform(transform)) {
-        throw new Error("Canvas2D image bridge supports fillText() only with the identity transform")
+        throw new Error("Canvas2D SVG bridge supports fillText() only with the identity transform")
       }
       const [tx, ty] = transformPoint(x, y, transform)
       commands.push({
@@ -252,26 +252,88 @@ function createCanvasDrawing(getSize: () => CanvasSize, onChange: () => void): C
 }
 
 function canvasBackingSize(node: CanvasHost): CanvasSize {
+  const width = finitePositive(Number(node.width))
+  const height = finitePositive(Number(node.height))
+  if (width !== undefined && height !== undefined) return { width, height }
+
   const bounds = node.getBoundingClientRect()
   return normalizedSize({
-    width: finitePositive(Number(node.width)) ?? bounds.width,
-    height: finitePositive(Number(node.height)) ?? bounds.height,
+    width: width ?? bounds.width,
+    height: height ?? bounds.height,
   })
 }
 
 function svgForCommands(commands: readonly CanvasCommand[], size: CanvasSize): string {
   const normalized = normalizedSize(size)
-  const body = commands.map(serializeCommand).join("")
+  const body = serializeCommands(commands)
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${formatNumber(normalized.width)} ${formatNumber(normalized.height)}" preserveAspectRatio="none">${body}</svg>`
 }
 
-function serializeCommand(command: CanvasCommand): string {
-  if (command.kind === "fill-polygon" || command.kind === "stroke-polyline") {
-    const points = command.points.map(([x, y]) => `${formatNumber(x)},${formatNumber(y)}`).join(" ")
-    if (command.kind === "fill-polygon") return `<polygon points="${points}" fill="${escapeXmlAttribute(command.color)}"/>`
-    return `<polyline points="${points}" fill="none" stroke="${escapeXmlAttribute(command.color)}" stroke-width="${formatNumber(command.width)}"/>`
+function serializeCommands(commands: readonly CanvasCommand[]): string {
+  let output = ""
+  let index = 0
+
+  while (index < commands.length) {
+    const command = commands[index]
+    if (command.kind === "fill-polygon") {
+      const run: Array<Extract<CanvasCommand, { kind: "fill-polygon" }>> = [command]
+      index += 1
+      while (index < commands.length) {
+        const next = commands[index]
+        if (next.kind !== "fill-polygon" || next.color !== command.color) break
+        run.push(next)
+        index += 1
+      }
+      output += serializeFillPolygonRun(run)
+      continue
+    }
+
+    if (command.kind === "stroke-polyline") {
+      const run: Array<Extract<CanvasCommand, { kind: "stroke-polyline" }>> = [command]
+      index += 1
+      while (index < commands.length) {
+        const next = commands[index]
+        if (next.kind !== "stroke-polyline" || next.color !== command.color || next.width !== command.width) break
+        run.push(next)
+        index += 1
+      }
+      output += serializeStrokePolylineRun(run)
+      continue
+    }
+
+    output += serializeCommand(command)
+    index += 1
   }
 
+  return output
+}
+
+function serializeFillPolygonRun(
+  commands: readonly Extract<CanvasCommand, { kind: "fill-polygon" }>[],
+): string {
+  const paths = commands.map((command) => closedPath(command.points)).join("")
+  return `<path d="${paths}" fill="${escapeXmlAttribute(commands[0].color)}"/>`
+}
+
+function serializeStrokePolylineRun(
+  commands: readonly Extract<CanvasCommand, { kind: "stroke-polyline" }>[],
+): string {
+  const paths = commands.map((command) => openPath(command.points)).join("")
+  const first = commands[0]
+  return `<path d="${paths}" fill="none" stroke="${escapeXmlAttribute(first.color)}" stroke-width="${formatNumber(first.width)}"/>`
+}
+
+function openPath(points: readonly CanvasPoint[]): string {
+  if (points.length === 0) return ""
+  const [first, ...rest] = points
+  return `M${formatNumber(first[0])} ${formatNumber(first[1])}${rest.map(([x, y]) => `L${formatNumber(x)} ${formatNumber(y)}`).join("")}`
+}
+
+function closedPath(points: readonly CanvasPoint[]): string {
+  return `${openPath(points)}Z`
+}
+
+function serializeCommand(command: Exclude<CanvasCommand, { kind: "fill-polygon" } | { kind: "stroke-polyline" }>): string {
   if (command.kind === "fill-circle" || command.kind === "stroke-circle") {
     const transformAttribute = isIdentityTransform(command.transform)
       ? ""
@@ -343,17 +405,17 @@ function isFullCircleArc(startAngle: number, endAngle: number): boolean {
 
 function parseStringPaint(paint: CanvasPaint, property: string): string {
   const serialized = String(paint)
-  if (paint !== serialized) throw new Error(`Canvas2D image bridge currently supports string ${property} values only`)
+  if (paint !== serialized) throw new Error(`Canvas2D SVG bridge currently supports string ${property} values only`)
   return serialized
 }
 
 function parseCanvasFont(value: string): ParsedCanvasFont {
   const match = value.trim().match(/^(?:(normal|bold|[1-9]00)\s+)?(\d+(?:\.\d+)?)px\s+(.+)$/)
-  if (!match) throw new Error(`Canvas2D image bridge cannot represent Canvas font ${JSON.stringify(value)}`)
+  if (!match) throw new Error(`Canvas2D SVG bridge cannot represent Canvas font ${JSON.stringify(value)}`)
   const size = Number(match[2])
   const family = match[3]?.trim()
   if (!Number.isFinite(size) || size <= 0 || !family) {
-    throw new Error(`Canvas2D image bridge cannot represent Canvas font ${JSON.stringify(value)}`)
+    throw new Error(`Canvas2D SVG bridge cannot represent Canvas font ${JSON.stringify(value)}`)
   }
   const weightToken = match[1]
   const weight = weightToken === "bold"
