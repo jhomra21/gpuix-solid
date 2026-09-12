@@ -208,10 +208,11 @@ export class BrowserPointerReleaseRelay {
  * owner) only while the connected host tree contains an authored pointer-down
  * gesture. If that gesture synchronously changes the retained frame, GPUI's
  * frame-scoped capture can still disappear before the next physical move. While
- * such an authored press is active, newly connected non-press surfaces therefore
+ * such an authored press is active, connected non-press element surfaces
  * receive move/up relay listeners without mouseDown. The surface under the
  * pointer can then carry the browser window event without becoming a capture
- * owner itself. Click/hover-only trees never activate this relay.
+ * owner itself, even when it existed before the press. Click/hover-only trees
+ * never activate this relay.
  */
 export class BrowserPointerMutationDriver extends MutationDriver {
   readonly #authored = new Map<number, PointerLifecycleState>()
@@ -234,6 +235,8 @@ export class BrowserPointerMutationDriver extends MutationDriver {
     if (!this.#authoredMouseDownOwners.has(elementId)) return
     if (!this.#isConnectedDescendantOfRoot(elementId)) return
     this.#authoredPointerRelayActive = true
+    const rootId = this.#rootId
+    if (rootId !== undefined) this.#syncPointerSubtree(rootId)
   }
 
   endAuthoredPointerRelay(): void {
@@ -368,7 +371,8 @@ export class BrowserPointerMutationDriver extends MutationDriver {
   }
 
   #needsActiveRelay(id: number, authored: PointerLifecycleState, isRootRelay: boolean): boolean {
-    if (!this.#authoredPointerRelayActive || isRootRelay || !this.#isConnectedDescendantOfRoot(id)) return false
+    if (!this.#authoredPointerRelayActive || isRootRelay || !this.#elementTypes.has(id)) return false
+    if (!this.#isConnectedDescendantOfRoot(id)) return false
     if (authored.mouseDown || this.#needsClickPressProbe(id, authored)) return false
     return true
   }
