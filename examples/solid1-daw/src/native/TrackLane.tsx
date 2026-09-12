@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, For, type JSX } from "solid-js"
+import { createEffect, createMemo, createSignal, type JSX } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
 import {
   automationTargetKey,
@@ -7,7 +7,6 @@ import {
 } from "../compat/daw-browser-shared"
 import type { Track } from "../compat/timeline-core-types"
 import UpstreamTrackLane from "../upstream/components/timeline/TrackLane"
-import { selectTimelineGridIntervals } from "../compat/timeline-view"
 import type { NativeTrack } from "./model"
 import { toSourceTrack } from "./source-model"
 import { dawTheme, layout } from "./theme"
@@ -24,11 +23,6 @@ export interface TrackLaneProps {
   onSelectClip: (trackId: string, clipId: string) => void
   onOpenClip: (trackId: string, clipId: string) => void
   onClipMouseDown: (trackId: string, clipId: string, event: PointerEvent) => void
-}
-
-interface GridLine {
-  left: number
-  major: boolean
 }
 
 const automationSelections: AutomationParameterSelection[] = [{ parameterId: "volume" }]
@@ -75,25 +69,6 @@ const TrackLane = (props: TrackLaneProps): JSX.Element => {
 
   const selectedClipIds = createMemo(() => new Set(props.selectedClipId ? [props.selectedClipId] : []))
 
-  const gridLines = createMemo<GridLine[]>(() => {
-    if (!props.gridEnabled) return []
-    const intervals = selectTimelineGridIntervals(
-      props.pixelsPerSecond,
-      props.bpm,
-      props.gridDenominator,
-      true,
-    )
-    const minorSec = intervals.minorSec
-    const majorSec = intervals.majorSec
-    if (!(Number.isFinite(minorSec) && minorSec > 0 && Number.isFinite(majorSec) && majorSec > 0)) return []
-    const majorEvery = Math.max(1, Math.round(majorSec / minorSec))
-    const count = Math.ceil(props.durationSec / minorSec)
-    return Array.from({ length: count + 1 }, (_, index) => ({
-      left: index * minorSec * props.pixelsPerSecond,
-      major: index % majorEvery === 0,
-    }))
-  })
-
   return (
     <div
       testId={`lane-${props.track.id}`}
@@ -105,22 +80,6 @@ const TrackLane = (props: TrackLaneProps): JSX.Element => {
         backgroundColor: dawTheme.timelineBackground,
       }}
     >
-      <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, pointerEvents: "none" }}>
-        <For each={gridLines()}>
-          {(line) => (
-            <div
-              style={{
-                position: "absolute",
-                left: line.left,
-                top: 0,
-                width: line.major ? 2 : 1,
-                height: totalHeight(),
-                backgroundColor: line.major ? dawTheme.timelineGridMajor : dawTheme.timelineGridMinor,
-              }}
-            />
-          )}
-        </For>
-      </div>
       <UpstreamTrackLane
         track={sourceTrackState.track}
         layout={{
