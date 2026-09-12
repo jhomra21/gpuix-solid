@@ -1,0 +1,88 @@
+name: Diagnostic edge foreground runloop timeout
+
+on:
+  push:
+    branches:
+      - diag/edge-foreground-runloop-timeout-20260912
+
+permissions:
+  contents: read
+
+jobs:
+  foreground-runloop-timeout:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - name: Build and verify exact current edge
+        run: |
+          bun run gpuix:edge:prepare
+          bun run gpuix:edge:verify
+      - name: Build Counter probe
+        run: |
+          bun run --filter 'gpuix-solid' build
+          bun run --filter 'gpuix-solid-counter' build:counter
+      - name: Measure zero-timeout pump
+        id: zero
+        working-directory: examples/counter
+        shell: bash
+        run: |
+          set +e
+          GPUIX_FOREGROUND_FRAME_PROBE=1 bun dist/counter/index.js 2>&1 | tee /tmp/zero-timeout.log
+          status=${PIPESTATUS[0]}
+          set -e
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+      - name: Let ready main-queue work enter one runloop cycle
+        shell: bash
+        run: |
+          platform=".cache/gpuix/remorses--gpuix-e47bd1ca302e/zed/crates/gpui_macos/src/platform.rs"
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.cache/gpuix/remorses--gpuix-e47bd1ca302e/zed/crates/gpui_macos/src/platform.rs')
+          source = path.read_text()
+          old = 'CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.0, 1);'
+          new = 'CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.000_001, 1);'
+          if source.count(old) != 1:
+              raise SystemExit(f'expected exactly one zero-timeout embedded pump call, found {source.count(old)}')
+          path.write_text(source.replace(old, new))
+          PY
+          git -C .cache/gpuix/remorses--gpuix-e47bd1ca302e/zed diff --check -- crates/gpui_macos/src/platform.rs
+          git -C .cache/gpuix/remorses--gpuix-e47bd1ca302e/zed diff -- crates/gpui_macos/src/platform.rs
+      - name: Rebuild and verify 1us pump
+        run: |
+          bun run gpuix:edge:build
+          bun run gpuix:edge:link
+          bun run gpuix:edge:verify
+      - name: Measure 1us-timeout pump
+        id: one_us
+        working-directory: examples/counter
+        shell: bash
+        run: |
+          set +e
+          GPUIX_FOREGROUND_FRAME_PROBE=1 bun dist/counter/index.js 2>&1 | tee /tmp/one-us-timeout.log
+          status=${PIPESTATUS[0]}
+          set -e
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+      - name: Classify A/B
+        shell: bash
+        env:
+          ZERO_STATUS: ${{ steps.zero.outputs.status }}
+          ONE_US_STATUS: ${{ steps.one_us.outputs.status }}
+        run: |
+          echo "zero=$ZERO_STATUS one_us=$ONE_US_STATUS"
+          echo "--- zero timeout ---"
+          grep '\[foreground-frame-probe\]' /tmp/zero-timeout.log || true
+          echo "--- one microsecond timeout ---"
+          grep '\[foreground-frame-probe\]' /tmp/one-us-timeout.log || true
+          if [[ "$ZERO_STATUS" == "42" && "$ONE_US_STATUS" == "0" ]]; then
+            echo "Confirmed: a nonzero CoreFoundation cycle restores foreground frames without reverting to blocking NSApplication::run()."
+            exit 0
+          fi
+          echo "1us timeout did not produce the expected starvation/restoration split."
+          exit 1
