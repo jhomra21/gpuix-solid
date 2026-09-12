@@ -1,9 +1,11 @@
-import { createMemo, createSignal, For, type JSX } from "solid-js"
+import { createEffect, createMemo, createSignal, For, type JSX } from "solid-js"
+import { createStore, reconcile } from "solid-js/store"
 import {
   automationTargetKey,
   type AutomationEnvelope,
   type AutomationParameterSelection,
 } from "../compat/daw-browser-shared"
+import type { Track } from "../compat/timeline-core-types"
 import UpstreamTrackLane from "../upstream/components/timeline/TrackLane"
 import { selectTimelineGridIntervals } from "../compat/timeline-view"
 import type { NativeTrack } from "./model"
@@ -59,10 +61,18 @@ const TrackLane = (props: TrackLaneProps): JSX.Element => {
   )
   const [previewAutomation, setPreviewAutomation] = createSignal<AutomationEnvelope>()
   const automationEnvelope = () => previewAutomation() ?? committedAutomation()
-  // The exact source lane keys ClipComponent instances by clip object identity.
-  // Translate only when the track or transient hidden clip changes, never while
-  // the drag preview is merely moving across the timeline.
-  const sourceTrackValue = createMemo(() => toSourceTrack(props.track, props.hiddenClipId))
+
+  // Keep the copied source track and its clip objects keyed by id across mixer,
+  // collapse, and other metadata updates. The upstream lane keys ClipComponent
+  // instances by clip identity; replacing those objects for a collapse would
+  // otherwise remount waveform canvases even though clip content did not change.
+  const [sourceTrackState, setSourceTrackState] = createStore<{ track: Track }>({
+    track: toSourceTrack(props.track, props.hiddenClipId),
+  })
+  createEffect(() => {
+    setSourceTrackState("track", reconcile(toSourceTrack(props.track, props.hiddenClipId), { key: "id" }))
+  })
+
   const selectedClipIds = createMemo(() => new Set(props.selectedClipId ? [props.selectedClipId] : []))
 
   const gridLines = createMemo<GridLine[]>(() => {
@@ -112,7 +122,7 @@ const TrackLane = (props: TrackLaneProps): JSX.Element => {
         </For>
       </div>
       <UpstreamTrackLane
-        track={sourceTrackValue()}
+        track={sourceTrackState.track}
         layout={{
           topPx: 0,
           heightPx: totalHeight(),
