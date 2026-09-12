@@ -266,6 +266,7 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
         // from the replaced tree therefore cannot enter the replacement root.
         windowKeyEventId = nextWindowKeyEventId(renderer)
         syncWindowKeyEvents()
+        driver.endAuthoredPointerRelay()
         dispose()
         dispose = undefined
         const mounted = container.children[0]
@@ -351,16 +352,21 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
         if (!hasLiveElement(container, routedEvent.elementId)) return false
         if (isDuplicatePointerDown(routedEvent)) return true
         if (isSyntheticRootRelayDuplicate(routedEvent)) return true
+        if (routedEvent.eventType === "mouseDown") {
+          driver.beginAuthoredPointerRelay(routedEvent.elementId)
+        }
         const browserEvent = browserCompatibleNativeEvent(routedEvent)
         events.dispatch(browserEvent)
         dispatchBrowserKeyboardEvent(browserEvent)
         handled = true
       } finally {
+        if (event.eventType === "mouseUp") driver.endAuthoredPointerRelay()
         flushNative()
       }
       return handled
     },
     unmount() {
+      driver.endAuthoredPointerRelay()
       dispose?.()
       dispose = undefined
       const mounted = container.children[0]

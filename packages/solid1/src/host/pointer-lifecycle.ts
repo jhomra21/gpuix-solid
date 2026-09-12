@@ -173,11 +173,12 @@ export class BrowserPointerReleaseRelay {
  * The mounted root always relays native move/up as browser window events, but
  * it subscribes to mouseDown (and therefore becomes GPUI's stable capture
  * owner) only while the connected host tree contains an authored pointer-down
- * gesture. Click/hover-only trees must not be captured: root capture changes
- * GPUI hover ownership and can synthesize a mouse-leave that browser source
- * code never requested. Authored child listeners remain intact, and click-only
- * retained controls may use a non-capturing mouse-down probe so the host can
- * learn their real pressed target without manufacturing child capture.
+ * gesture. If that gesture synchronously changes the retained frame, GPUI's
+ * frame-scoped capture can still disappear before the next physical move. While
+ * such an authored press is active, newly connected non-press surfaces therefore
+ * receive move/up relay listeners without mouseDown. The surface under the
+ * pointer can then carry the browser window event without becoming a capture
+ * owner itself. Click/hover-only trees never activate this relay.
  */
 export class BrowserPointerMutationDriver extends MutationDriver {
   readonly #authored = new Map<number, PointerLifecycleState>()
@@ -187,10 +188,25 @@ export class BrowserPointerMutationDriver extends MutationDriver {
   readonly #elementTypes = new Map<number, string>()
   readonly #directClickListeners = new Map<number, boolean>()
   readonly #authoredMouseDownOwners = new Set<number>()
+  readonly #activeRelayIds = new Set<number>()
   #rootId: number | undefined
+  #authoredPointerRelayActive = false
 
   constructor(renderer: NativeRenderer, events: EventRegistry) {
     super(renderer, events)
+  }
+
+  beginAuthoredPointerRelay(elementId: number): void {
+    if (this.#authoredPointerRelayActive) return
+    if (!this.#authoredMouseDownOwners.has(elementId)) return
+    if (!this.#isConnectedDescendantOfRoot(elementId)) return
+    this.#authoredPointerRelayActive = true
+  }
+
+  endAuthoredPointerRelay(): void {
+    if (!this.#authoredPointerRelayActive && this.#activeRelayIds.size === 0) return
+    this.#authoredPointerRelayActive = false
+    for (const id of [...this.#activeRelayIds]) this.#syncPointerLifecycle(id)
   }
 
   override enqueue(name: string, ...args: MutationValue[]): void {
@@ -318,6 +334,12 @@ export class BrowserPointerMutationDriver extends MutationDriver {
     return false
   }
 
+  #needsActiveRelay(id: number, authored: PointerLifecycleState, isRootRelay: boolean): boolean {
+    if (!this.#authoredPointerRelayActive || isRootRelay || !this.#isConnectedDescendantOfRoot(id)) return false
+    if (authored.mouseDown || this.#needsClickPressProbe(id, authored)) return false
+    return true
+  }
+
   #syncRootCapture(): void {
     const rootId = this.#rootId
     if (rootId !== undefined) this.#syncPointerLifecycle(rootId)
@@ -335,11 +357,14 @@ export class BrowserPointerMutationDriver extends MutationDriver {
   #syncPointerLifecycle(id: number): void {
     const authored = this.#authored.get(id) ?? emptyPointerLifecycleState()
     const isRootRelay = id === this.#rootId
+    const activeRelay = this.#needsActiveRelay(id, authored, isRootRelay)
+    if (activeRelay) this.#activeRelayIds.add(id)
+    else this.#activeRelayIds.delete(id)
     const desired = {
       mouseDown: authored.mouseDown
         || (isRootRelay ? this.#needsRootCapture() : this.#needsClickPressProbe(id, authored)),
-      mouseMove: authored.mouseMove || isRootRelay,
-      mouseUp: authored.mouseUp || authored.mouseDown || isRootRelay,
+      mouseMove: authored.mouseMove || isRootRelay || activeRelay,
+      mouseUp: authored.mouseUp || authored.mouseDown || isRootRelay || activeRelay,
     } satisfies PointerLifecycleState
     const applied = this.#applied.get(id) ?? emptyPointerLifecycleState()
 
@@ -367,6 +392,7 @@ export class BrowserPointerMutationDriver extends MutationDriver {
       this.#elementTypes.delete(id)
       this.#directClickListeners.delete(id)
       this.#authoredMouseDownOwners.delete(id)
+      this.#activeRelayIds.delete(id)
       this.#authored.delete(id)
       this.#applied.delete(id)
       if (this.#rootId === id) this.#rootId = undefined
