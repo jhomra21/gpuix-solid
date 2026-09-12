@@ -86,8 +86,8 @@ function scheduleRender(node: CanvasHost, state: RuntimeState): void {
 
     let surface = state.surface
     if (!surface) {
-      const created = base.createElement("svg")
-      if (created.kind !== "element") throw new Error("Canvas2D bridge expected an SVG host element")
+      const created = base.createElement("img")
+      if (created.kind !== "element") throw new Error("Canvas2D bridge expected an image host element")
       surface = created
       state.surface = surface
       base.setProp(surface, "testId", "gpuix-canvas-2d-surface")
@@ -100,16 +100,16 @@ function scheduleRender(node: CanvasHost, state: RuntimeState): void {
         pointerEvents: "none",
         flexShrink: 0,
       })
+      base.setProp(surface, "objectFit", "fill")
       base.insertNode(node, surface)
     }
 
-    // GPUIX accepts raw SVG markup through `source` on both the published
-    // runtime and current source edge. Avoid routing every Canvas frame through
-    // a percent-encoded image data URL: that path decodes/rebuilds an image and
-    // can visibly blank the graph between frames. MutationDriver already batches
-    // and auto-flushes this update, so forcing a synchronous flush here would
-    // only break batching.
+    // Disposable performance probe: retain the bounded immediate-mode command
+    // model, but rasterize the resulting SVG through GPUIX's image path. Keep
+    // raw source visible to automation and deliberately avoid the old forced
+    // driver flush so this isolates surface representation from batching.
     base.setProp(surface, "source", source, state.lastSource)
+    base.setProp(surface, "src", `data:image/svg+xml,${encodeURIComponent(source)}`)
     state.lastSource = source
   })
 }
