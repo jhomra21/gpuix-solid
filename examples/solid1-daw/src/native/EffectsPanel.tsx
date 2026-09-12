@@ -39,6 +39,14 @@ const EQ_LOW_BAND_INDEX = 1
 const EQ_MID_BAND_INDEX = 4
 const EQ_HIGH_BAND_INDEX = 7
 
+function updateBand(
+  bands: readonly EqBandParams[],
+  bandId: string,
+  updates: Partial<EqBandParams>,
+): EqBandParams[] {
+  return bands.map((band) => band.id === bandId ? { ...band, ...updates } : band)
+}
+
 const EffectsPanel = (props: EffectsPanelProps): JSX.Element => {
   const [compressorAutoRelease, setCompressorAutoRelease] = createSignal(COMPRESSOR_DEFAULTS.autoRelease)
   const [compressorKnee, setCompressorKnee] = createSignal(COMPRESSOR_DEFAULTS.kneeDb)
@@ -61,7 +69,9 @@ const EffectsPanel = (props: EffectsPanelProps): JSX.Element => {
           ? props.eqHighGain
           : band.gainDb,
   })))
+  const [eqPreviewBands, setEqPreviewBands] = createSignal<EqBandParams[]>()
   const [eqChannelMode, setEqChannelMode] = createSignal<EqChannelMode>(initialEq.channelMode)
+  const displayedEqBands = () => eqPreviewBands() ?? eqBands()
 
   const compressorParams = (): CompressorParams => ({
     enabled: props.compressorEnabled,
@@ -113,32 +123,60 @@ const EffectsPanel = (props: EffectsPanelProps): JSX.Element => {
     setCompressorEnvelope(COMPRESSOR_DEFAULTS.envelopeCurve)
   }
 
-  const syncFixtureEqGain = (index: number, gainDb: number): void => {
-    if (index === EQ_LOW_BAND_INDEX) props.onEqLowGain(gainDb)
-    else if (index === EQ_MID_BAND_INDEX) props.onEqMidGain(gainDb)
-    else if (index === EQ_HIGH_BAND_INDEX) props.onEqHighGain(gainDb)
+  const syncFixtureEqGains = (bands: readonly EqBandParams[]): void => {
+    const low = bands[EQ_LOW_BAND_INDEX]?.gainDb
+    const mid = bands[EQ_MID_BAND_INDEX]?.gainDb
+    const high = bands[EQ_HIGH_BAND_INDEX]?.gainDb
+    if (low !== undefined && low !== props.eqLowGain) props.onEqLowGain(low)
+    if (mid !== undefined && mid !== props.eqMidGain) props.onEqMidGain(mid)
+    if (high !== undefined && high !== props.eqHighGain) props.onEqHighGain(high)
   }
 
   const updateEqBand = (bandId: string, updates: Partial<EqBandParams>): void => {
-    setEqBands((current) => current.map((band, index) => {
-      if (band.id !== bandId) return band
-      if (updates.gainDb !== undefined) syncFixtureEqGain(index, updates.gainDb)
-      return { ...band, ...updates }
-    }))
+    setEqPreviewBands(undefined)
+    setEqBands((current) => {
+      const next = updateBand(current, bandId, updates)
+      syncFixtureEqGains(next)
+      return next
+    })
+  }
+
+  // The copied EQ already distinguishes transient interaction from committed
+  // model writes. Keep drag/knob frames local to the effect so a graph gesture
+  // does not invalidate the entire DAW fixture on every pointer move.
+  const beginEqInteraction = (): void => {
+    setEqPreviewBands((current) => current ?? eqBands())
+  }
+
+  const previewEqBand = (bandId: string, updates: Partial<EqBandParams>): void => {
+    setEqPreviewBands((current) => updateBand(current ?? eqBands(), bandId, updates))
+  }
+
+  const commitEqInteraction = (): void => {
+    const preview = eqPreviewBands()
+    if (!preview) return
+    setEqBands(preview)
+    syncFixtureEqGains(preview)
+    setEqPreviewBands(undefined)
+  }
+
+  const cancelEqInteraction = (): void => {
+    setEqPreviewBands(undefined)
   }
 
   const toggleEqBand = (bandId: string): void => {
+    setEqPreviewBands(undefined)
     setEqBands((current) => current.map((band) => band.id === bandId ? { ...band, enabled: !band.enabled } : band))
   }
 
   const resetEq = (): void => {
     const defaults = createDefaultEqParams()
     if (!props.eqEnabled && defaults.enabled) props.onToggleEq()
-    setEqBands(defaults.bands.map((band) => ({ ...band })))
+    const bands = defaults.bands.map((band) => ({ ...band }))
+    setEqPreviewBands(undefined)
+    setEqBands(bands)
     setEqChannelMode(defaults.channelMode)
-    props.onEqLowGain(defaults.bands[EQ_LOW_BAND_INDEX]?.gainDb ?? 0)
-    props.onEqMidGain(defaults.bands[EQ_MID_BAND_INDEX]?.gainDb ?? 0)
-    props.onEqHighGain(defaults.bands[EQ_HIGH_BAND_INDEX]?.gainDb ?? 0)
+    syncFixtureEqGains(bands)
   }
 
   return (
@@ -170,10 +208,14 @@ const EffectsPanel = (props: EffectsPanelProps): JSX.Element => {
         >
           <div testId="eq-device" style={{ height: "100%", display: "flex", flexShrink: 0 }}>
             <Eq
-              bands={eqBands()}
+              bands={displayedEqBands()}
               enabled={props.eqEnabled}
               channelMode={eqChannelMode()}
               onBandChange={updateEqBand}
+              onPreviewBandChange={previewEqBand}
+              onBeginInteraction={beginEqInteraction}
+              onCommitInteraction={commitEqInteraction}
+              onCancelInteraction={cancelEqInteraction}
               onChannelModeChange={setEqChannelMode}
               onBandToggle={toggleEqBand}
               onToggleEnabled={(enabled) => {
