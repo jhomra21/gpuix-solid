@@ -104,12 +104,11 @@ function scheduleRender(node: CanvasHost, state: RuntimeState): void {
       base.insertNode(node, surface)
     }
 
-    // Disposable performance probe: retain the bounded immediate-mode command
-    // model, but rasterize the resulting SVG through GPUIX's image path. Keep
-    // raw source visible to automation and deliberately avoid the old forced
-    // driver flush so this isolates surface representation from batching.
-    base.setProp(surface, "source", source, state.lastSource)
-    base.setProp(surface, "src", `data:image/svg+xml,${encodeURIComponent(source)}`)
+    // GPUIX keeps image element state across paints, which is substantially
+    // cheaper to scroll than rebuilding a retained raw-SVG element. Its data
+    // URL decoder accepts the serialized SVG bytes directly, so one mutation
+    // is enough; MutationDriver batches the frame with surrounding updates.
+    base.setProp(surface, "src", `data:image/svg+xml,${source}`)
     state.lastSource = source
   })
 }
