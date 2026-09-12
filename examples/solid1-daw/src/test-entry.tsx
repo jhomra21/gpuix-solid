@@ -12,8 +12,18 @@ import { mixerVolumeToSliderPosition } from "./compat/daw-browser-shared"
 import { nativeTailwindManifest } from "./native-tailwind.generated"
 import MixerVolumeSlider from "./upstream/components/timeline/MixerVolumeSlider"
 
+const svgDataUrlPrefix = "data:image/svg+xml,"
+
 function requireCondition(condition: boolean, message: string): void {
   if (!condition) throw new Error(message)
+}
+
+function canvasSvg(root: ReturnType<typeof createTestRoot>, requiredFragments: readonly string[]): string {
+  const src = root.renderer.customPropStringContainingAll("src", [svgDataUrlPrefix, ...requiredFragments])
+  requireCondition(src.startsWith(svgDataUrlPrefix), `Canvas2D surface must paint one SVG image frame, got ${src}`)
+  const source = src.slice(svgDataUrlPrefix.length)
+  requireCondition(source.startsWith("<svg"), `Canvas2D image frame must contain raw SVG bytes, got ${source}`)
+  return source
 }
 
 function overlaps(
@@ -61,7 +71,7 @@ if (hasNativeTestRenderer) {
   // Low-level Canvas compaction is covered by check-canvas-bridge.ts. Here the
   // app-level contract is that the exact source waveform paint survives that
   // compaction and occupies the real audio clip inside its timeline lane.
-  app.renderer.customPropStringContainingAll("source", [
+  canvasSvg(app, [
     'preserveAspectRatio="none"',
     'fill="#00a76c"',
     "<path",
@@ -104,7 +114,7 @@ if (hasNativeTestRenderer) {
     eqBandBounds.x >= 0 && eqBandBounds.x + eqBandBounds.width <= viewportWidth,
     `EQ visual acceptance must expose the exact source band controls, got ${JSON.stringify(eqBandBounds)}`,
   )
-  const eqCanvasSource = app.renderer.customPropStringContainingAll("source", [
+  const eqCanvasSource = canvasSvg(app, [
     'preserveAspectRatio="none"',
     'font-size="9"',
     "+0 dB",
@@ -113,9 +123,9 @@ if (hasNativeTestRenderer) {
   ])
   requireCondition(
     eqCanvasSource.includes(">1</text>") && eqCanvasSource.includes(">8</text>"),
-    "exact EQ Canvas source should retain all numbered band-node labels",
+    "exact EQ Canvas frame should retain all numbered band-node labels",
   )
-  requireCondition(eqCanvasSource.length > 1000, `exact EQ Canvas source should contain the full retained graph command stream, got ${eqCanvasSource.length} bytes`)
+  requireCondition(eqCanvasSource.length > 1000, `exact EQ Canvas frame should contain the full graph command stream, got ${eqCanvasSource.length} bytes`)
   app.renderer.captureScreenshot("/tmp/gpuix-solid1-daw-eq.png")
   app.renderer.scrollTestId("effects-panel", 0, 0)
 
@@ -258,5 +268,5 @@ if (hasNativeTestRenderer) {
 
   automated.unmount()
 
-  console.log("solid1 DAW visual acceptance: exact compact Canvas2D waveform paint and clip geometry passed; exact EQ full graph source and dedicated native capture passed; reactive mixer controls, hard-split, and automated interval paints passed")
+  console.log("solid1 DAW visual acceptance: exact compact Canvas2D waveform image paint and clip geometry passed; exact EQ full graph image frame and dedicated native capture passed; reactive mixer controls, hard-split, and automated interval paints passed")
 }
