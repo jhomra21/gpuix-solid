@@ -160,9 +160,18 @@ function createCanvasDrawing(getSize: () => CanvasSize, onChange: () => void): C
       onChange()
     },
     fillRect(x: number, y: number, width: number, height: number) {
+      const points = rectanglePoints(x, y, width, height, transform)
+      // Canvas is immediate-mode: an opaque full-surface fill completely hides
+      // every earlier command. The EQ repaints this way instead of clearRect().
+      // Treat that fill as an occlusion boundary so retained SVG commands cannot
+      // grow without bound during a long interaction.
+      if (isIdentityTransform(transform) && isOpaquePaint(fillStyle) && coversSurface(points, getSize())) {
+        commands = []
+        path = undefined
+      }
       commands.push({
         kind: "fill-polygon",
-        points: rectanglePoints(x, y, width, height, transform),
+        points,
         color: fillStyle,
       })
       onChange()
@@ -401,6 +410,30 @@ function isIdentityTransform(matrix: CanvasMatrix): boolean {
 
 function isFullCircleArc(startAngle: number, endAngle: number): boolean {
   return Number.isFinite(startAngle) && Number.isFinite(endAngle) && Math.abs(endAngle - startAngle) >= Math.PI * 2 - 0.000001
+}
+
+function isOpaquePaint(value: string): boolean {
+  const paint = value.trim().toLowerCase()
+  if (!paint || paint === "transparent") return false
+
+  const hex = paint.match(/^#([0-9a-f]+)$/i)?.[1]
+  if (hex) {
+    if (hex.length === 3 || hex.length === 6) return true
+    if (hex.length === 4) return hex[3] === "f"
+    if (hex.length === 8) return hex.slice(6) === "ff"
+    return false
+  }
+
+  const legacyRgba = paint.match(/^rgba\([^)]*,\s*([0-9.]+)\s*\)$/)
+  if (legacyRgba) return Number(legacyRgba[1]) >= 1
+
+  const slashAlpha = paint.match(/\/\s*([0-9.]+)(%)?\s*\)$/)
+  if (slashAlpha) {
+    const alpha = Number(slashAlpha[1])
+    return slashAlpha[2] ? alpha >= 100 : alpha >= 1
+  }
+
+  return /^(?:rgb|hsl|hwb|lab|lch|oklab|oklch|color)\(/.test(paint)
 }
 
 function parseStringPaint(paint: CanvasPaint, property: string): string {
