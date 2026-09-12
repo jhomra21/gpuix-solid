@@ -1,24 +1,34 @@
 import { performance } from "node:perf_hooks"
+import { TestGpuixRenderer } from "@gpuix/native"
 import {
   configureNativeStyleManifest,
-  createTestRoot,
   hasNativeTestRenderer,
   setNativeStyleColorMode,
 } from "@jhomra21/gpuix-solid1"
+import { adaptBatchRenderer } from "../../../packages/solid1/src/batch-renderer-adapter"
+import { useDestroyUnlinksParentBatch } from "../../../packages/solid1/src/host/mutations"
+import { createRoot } from "../../../packages/solid1/src/root"
 import { DawSolid1Showcase } from "./app"
 import { nativeTailwindManifest } from "./native-tailwind.generated"
 
 const WARMUP = 2
 const SAMPLES = 12
 
-const collapseTrack = { title: "Collapse track" } as const
-const expandTrack = { title: "Expand track" } as const
-const eqGain = { role: "slider", "aria-label": "Gain" } as const
+type NativeTreeNode = {
+  id: number
+  testId?: string
+  customProps?: Record<string, string | number | boolean | null>
+  children?: NativeTreeNode[]
+}
+
+type BenchmarkRoot = {
+  root: ReturnType<typeof createRoot>
+  native: TestGpuixRenderer
+  unmount(): void
+}
 
 configureNativeStyleManifest(nativeTailwindManifest)
 setNativeStyleColorMode("dark")
-
-type TestRoot = ReturnType<typeof createTestRoot>
 
 function requireCondition(condition: boolean, message: string): void {
   if (!condition) throw new Error(message)
@@ -44,26 +54,118 @@ function describe(values: readonly number[]): string {
   ].join(" ")
 }
 
-function flush(app: TestRoot): void {
-  app.root.flush()
-  app.renderer.flush()
+function tree(app: BenchmarkRoot): NativeTreeNode {
+  app.native.flush()
+  const parsed = JSON.parse(app.native.getTreeJson()) as NativeTreeNode | null
+  if (!parsed) throw new Error("Expected a retained native tree")
+  return parsed
 }
 
-async function settle(app: TestRoot): Promise<void> {
-  for (let frame = 0; frame < 3; frame += 1) {
+function findNode(node: NativeTreeNode, predicate: (candidate: NativeTreeNode) => boolean): NativeTreeNode | undefined {
+  if (predicate(node)) return node
+  for (const child of node.children ?? []) {
+    const found = findNode(child, predicate)
+    if (found) return found
+  }
+  return undefined
+}
+
+function findTestId(app: BenchmarkRoot, testId: string): NativeTreeNode {
+  const node = findNode(tree(app), (candidate) => candidate.testId === testId)
+  if (!node) throw new Error(`Expected ${testId} in retained native tree`)
+  return node
+}
+
+function findCustomProps(app: BenchmarkRoot, query: Readonly<Record<string, string>>): NativeTreeNode {
+  const node = findNode(tree(app), (candidate) => Object.entries(query).every(([key, value]) => candidate.customProps?.[key] === value))
+  if (!node) throw new Error(`Expected custom props ${JSON.stringify(query)} in retained native tree`)
+  return node
+}
+
+function findSource(app: BenchmarkRoot, fragments: readonly string[]): string {
+  const node = findNode(tree(app), (candidate) => {
+    const source = candidate.customProps?.source
+    return typeof source === "string" && fragments.every((fragment) => source.includes(fragment))
+  })
+  const source = node?.customProps?.source
+  if (typeof source !== "string") throw new Error(`Expected source containing ${JSON.stringify(fragments)}`)
+  return source
+}
+
+function flush(app: BenchmarkRoot): void {
+  app.root.flush()
+  app.native.flush()
+}
+
+function dispatchNativeEvents(app: BenchmarkRoot): void {
+  for (;;) {
+    const events = app.native.drainEvents()
+    if (events.length === 0) return
+    for (const event of events) app.root.dispatch(event)
+  }
+}
+
+function clickPoint(app: BenchmarkRoot, x: number, y: number): void {
+  app.native.simulateMouseDown(x, y, 0)
+  dispatchNativeEvents(app)
+  app.native.flush()
+  app.native.simulateMouseUp(x, y, 0)
+  dispatchNativeEvents(app)
+  app.native.flush()
+}
+
+function scrollElement(app: BenchmarkRoot, elementId: number, x: number, y: number): void {
+  app.native.flush()
+  app.native.scrollTo(elementId, x, y)
+  app.native.flush()
+}
+
+function pressKey(app: BenchmarkRoot, elementId: number, key: string): void {
+  app.native.focusElement(elementId)
+  app.native.simulateKeystrokes(key)
+  dispatchNativeEvents(app)
+  app.native.flush()
+}
+
+function center(app: BenchmarkRoot, elementId: number): { x: number; y: number } {
+  app.native.flush()
+  const bounds = app.native.getElementBounds(elementId)
+  if (!bounds || bounds.length < 4) throw new Error(`Expected painted bounds for element ${elementId}`)
+  const [x, y, width, height] = bounds
+  if (x === undefined || y === undefined || width === undefined || height === undefined) {
+    throw new Error(`Expected complete painted bounds for element ${elementId}`)
+  }
+  return { x: x + width / 2, y: y + height / 2 }
+}
+
+async function settle(app: BenchmarkRoot, frames = 3): Promise<void> {
+  for (let frame = 0; frame < frames; frame += 1) {
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
   }
   await Promise.resolve()
   flush(app)
 }
 
-async function mountApp(): Promise<TestRoot> {
-  const app = createTestRoot(1440, 900)
-  app.render(() => (
+async function mountApp(): Promise<BenchmarkRoot> {
+  const native = new TestGpuixRenderer(1440, 900)
+  const hostRenderer = adaptBatchRenderer(native)
+  useDestroyUnlinksParentBatch(hostRenderer)
+  const root = createRoot(hostRenderer)
+  root.render(() => (
     <div testId="daw-perf-viewport" style={{ width: "100%", height: "100%", overflow: "scroll" }}>
       <DawSolid1Showcase />
     </div>
   ))
+  native.flush()
+
+  const app: BenchmarkRoot = {
+    root,
+    native,
+    unmount() {
+      root.unmount()
+      native.flush()
+    },
+  }
   await settle(app)
   return app
 }
@@ -74,24 +176,32 @@ function sample(operation: () => void): number {
   return performance.now() - started
 }
 
+async function sampleAsync(operation: () => Promise<void>): Promise<number> {
+  const started = performance.now()
+  await operation()
+  return performance.now() - started
+}
+
 async function benchmarkCollapse(): Promise<number[]> {
   const app = await mountApp()
   try {
-    app.renderer.scrollTestId("daw-perf-viewport", -320, 0)
-    flush(app)
+    const viewportId = findTestId(app, "daw-perf-viewport").id
+    scrollElement(app, viewportId, -320, 0)
+    const collapseButton = findCustomProps(app, { title: "Collapse track" })
+    const point = center(app, collapseButton.id)
 
     const values: number[] = []
     for (let index = 0; index < WARMUP + SAMPLES; index += 1) {
       const elapsed = sample(() => {
-        app.renderer.clickCustomProps(collapseTrack)
-        flush(app)
-        requireCondition(app.renderer.hasCustomProps(expandTrack), "collapse must expose the source Expand track control")
-        app.renderer.clickCustomProps(expandTrack)
-        flush(app)
-        requireCondition(app.renderer.hasCustomProps(collapseTrack), "expand must restore the source Collapse track control")
+        clickPoint(app, point.x, point.y)
+        clickPoint(app, point.x, point.y)
       })
       if (index >= WARMUP) values.push(elapsed)
     }
+    requireCondition(
+      findCustomProps(app, { title: "Collapse track" }).id > 0,
+      "collapse/expand roundtrip must restore the source Collapse track control",
+    )
     return values
   } finally {
     app.unmount()
@@ -101,20 +211,17 @@ async function benchmarkCollapse(): Promise<number[]> {
 async function benchmarkScroll(): Promise<number[]> {
   const app = await mountApp()
   try {
-    app.renderer.scrollTestId("timeline-scrolling-tracks", 0, -120)
-    flush(app)
-    const movedOffset = app.renderer.scrollOffsetTestId("timeline-scrolling-tracks")?.[1] ?? 0
+    const scrollerId = findTestId(app, "timeline-scrolling-tracks").id
+    scrollElement(app, scrollerId, 0, -120)
+    const movedOffset = app.native.getScrollOffset(scrollerId)?.[1] ?? 0
     requireCondition(movedOffset < 0, `timeline source scroller must move vertically, got ${movedOffset}`)
-    app.renderer.scrollTestId("timeline-scrolling-tracks", 0, 0)
-    flush(app)
+    scrollElement(app, scrollerId, 0, 0)
 
     const values: number[] = []
     for (let index = 0; index < WARMUP + SAMPLES; index += 1) {
       const elapsed = sample(() => {
-        app.renderer.scrollTestId("timeline-scrolling-tracks", 0, -120)
-        flush(app)
-        app.renderer.scrollTestId("timeline-scrolling-tracks", 0, 0)
-        flush(app)
+        scrollElement(app, scrollerId, 0, -120)
+        scrollElement(app, scrollerId, 0, 0)
       })
       if (index >= WARMUP) values.push(elapsed)
     }
@@ -124,8 +231,8 @@ async function benchmarkScroll(): Promise<number[]> {
   }
 }
 
-function eqSourceLength(app: TestRoot): number {
-  return app.renderer.customPropStringContainingAll("source", [
+function eqSourceLength(app: BenchmarkRoot): number {
+  return findSource(app, [
     'preserveAspectRatio="none"',
     'font-size="9"',
     "+0 dB",
@@ -134,22 +241,27 @@ function eqSourceLength(app: TestRoot): number {
   ]).length
 }
 
+async function drawEqFrame(app: BenchmarkRoot): Promise<void> {
+  await settle(app, 2)
+}
+
 async function benchmarkEq(): Promise<{ values: number[]; initialSourceBytes: number; finalSourceBytes: number }> {
   const app = await mountApp()
   try {
-    app.renderer.scrollTestId("daw-perf-viewport", -320, -260)
-    app.renderer.scrollTestId("effects-panel", -540, 0)
-    flush(app)
-    requireCondition(app.renderer.hasCustomProps(eqGain), "exact source EQ Gain slider must be mounted")
+    const viewportId = findTestId(app, "daw-perf-viewport").id
+    const effectsId = findTestId(app, "effects-panel").id
+    scrollElement(app, viewportId, -320, -260)
+    scrollElement(app, effectsId, -540, 0)
+    const gainId = findCustomProps(app, { role: "slider", "aria-label": "Gain" }).id
 
     const initialSourceBytes = eqSourceLength(app)
     const values: number[] = []
     for (let index = 0; index < WARMUP + SAMPLES; index += 1) {
-      const elapsed = sample(() => {
-        app.renderer.pressKeyCustomProps(eqGain, "PageUp")
-        flush(app)
-        app.renderer.pressKeyCustomProps(eqGain, "PageDown")
-        flush(app)
+      const elapsed = await sampleAsync(async () => {
+        pressKey(app, gainId, "PageUp")
+        await drawEqFrame(app)
+        pressKey(app, gainId, "PageDown")
+        await drawEqFrame(app)
       })
       if (index >= WARMUP) values.push(elapsed)
     }
