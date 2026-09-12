@@ -5,14 +5,15 @@ import {
   type AutomationParameterSelection,
 } from "../compat/daw-browser-shared"
 import UpstreamTrackLane from "../upstream/components/timeline/TrackLane"
-import type { RuntimeClip, Track } from "../compat/timeline-core-types"
 import { selectTimelineGridIntervals } from "../compat/timeline-view"
 import type { NativeTrack } from "./model"
+import { toSourceTrack } from "./source-model"
 import { dawTheme, layout } from "./theme"
 
 export interface TrackLaneProps {
   track: NativeTrack
   selectedClipId: string
+  hiddenClipId?: string
   pixelsPerSecond: number
   bpm: number
   gridEnabled: boolean
@@ -29,28 +30,6 @@ interface GridLine {
 }
 
 const automationSelections: AutomationParameterSelection[] = [{ parameterId: "volume" }]
-
-function sourceClip(clip: NativeTrack["clips"][number]): RuntimeClip {
-  const runtimeClip: RuntimeClip = {
-    ...clip,
-    color: clip.color ?? (clip.kind === "midi" ? dawTheme.clipMidi : dawTheme.clipAudio),
-  }
-  if (clip.kind === "midi") runtimeClip.midi = { notes: [] }
-  return runtimeClip
-}
-
-function sourceTrack(track: NativeTrack): Track {
-  return {
-    id: track.id,
-    name: track.name,
-    volume: track.volume,
-    kind: track.kind === "midi" ? "instrument" : track.kind === "audio" ? "audio" : undefined,
-    channelRole: track.kind === "return" ? "return" : track.kind === "group" ? "group" : "track",
-    collapsed: track.collapsed,
-    color: track.color,
-    clips: track.clips.map(sourceClip),
-  }
-}
 
 function fixtureAutomationEnvelope(track: NativeTrack, durationSec: number): AutomationEnvelope {
   const target = { kind: "track" as const, trackId: track.id }
@@ -81,9 +60,9 @@ const TrackLane = (props: TrackLaneProps): JSX.Element => {
   const [previewAutomation, setPreviewAutomation] = createSignal<AutomationEnvelope>()
   const automationEnvelope = () => previewAutomation() ?? committedAutomation()
   // The exact source lane keys ClipComponent instances by clip object identity.
-  // Translate a native track once per actual track change instead of fabricating
-  // fresh source clip objects each time the component prop getter is read.
-  const sourceTrackValue = createMemo(() => sourceTrack(props.track))
+  // Translate only when the track or transient hidden clip changes, never while
+  // the drag preview is merely moving across the timeline.
+  const sourceTrackValue = createMemo(() => toSourceTrack(props.track, props.hiddenClipId))
   const selectedClipIds = createMemo(() => new Set(props.selectedClipId ? [props.selectedClipId] : []))
 
   const gridLines = createMemo<GridLine[]>(() => {
