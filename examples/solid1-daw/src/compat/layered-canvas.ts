@@ -46,6 +46,17 @@ type CanvasPresentation =
   | { kind: "svg"; tint: string }
   | { kind: "img" }
 
+type CanvasSurfaceStyle = {
+  position: "absolute"
+  top: number
+  left: number
+  width: number
+  height: number
+  pointerEvents: "none"
+  flexShrink: number
+  color?: string
+}
+
 type RuntimeState = {
   drawing: CanvasDrawing
   surface?: HostElement
@@ -114,7 +125,7 @@ function scheduleRender(node: CanvasHost, state: RuntimeState): void {
     }
 
     const bounds = node.getBoundingClientRect()
-    const surfaceStyle: Record<string, string | number> = {
+    const surfaceStyle: CanvasSurfaceStyle = {
       position: "absolute",
       top: 0,
       left: 0,
