@@ -18,13 +18,19 @@ export function setAutomationFrameOwnership(owned: boolean): void {
 
 export function startFrameLoop(
   renderer: TickRenderer,
-  options: { frameMs?: number; onTerminated?: () => void; onError?: (error: FrameLoopError) => void } = {},
+  options: {
+    frameMs?: number
+    onFirstTick?: () => void
+    onTerminated?: () => void
+    onError?: (error: FrameLoopError) => void
+  } = {},
 ): FrameLoop {
   if (automationOwnsFramePump || !renderer.requiresTick()) return { stop() {} }
 
   const frameMs = options.frameMs ?? DEFAULT_FRAME_MS
   let timer: ReturnType<typeof setTimeout> | undefined
   let stopped = false
+  let firstTickPending = true
 
   const stop = (): void => {
     stopped = true
@@ -38,6 +44,10 @@ export function startFrameLoop(
     let running = true
     try {
       running = renderer.tick()
+      if (running && firstTickPending) {
+        firstTickPending = false
+        options.onFirstTick?.()
+      }
     } catch (error) {
       const failure = error instanceof Error ? error : String(error)
       if (options.onError) options.onError(failure)
