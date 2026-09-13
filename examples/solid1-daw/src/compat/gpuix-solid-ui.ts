@@ -15,8 +15,15 @@ type SourceStyleValue = string | number | null | undefined
 type SourceStyle = Record<string, SourceStyleValue>
 type SourceClassValue = string | undefined
 type SourceClasses = { class?: string; className?: string }
+type SvgPaintVariable = "--device-graph-background" | "--device-graph-grid" | "--device-graph-accent"
 
 const GRID_OWNED_CLASS = "row-span-2"
+const SVG_PAINT_PROPERTIES = new Set(["fill", "stroke", "stopColor"])
+const SVG_PAINT_VARIABLES: Record<SvgPaintVariable, { light: string; dark: string }> = {
+  "--device-graph-background": { light: "#fafafb", dark: "#040405" },
+  "--device-graph-grid": { light: "#3a3a3d29", dark: "#ffffff29" },
+  "--device-graph-accent": { light: "#00c3db", dark: "#00c3db" },
+}
 const sourceStyles = new WeakMap<HostElement, SourceStyle>()
 const sourceClasses = new WeakMap<HostElement, SourceClasses>()
 const gridDefinitions = new WeakMap<HostElement, TwoRowGridDefinition>()
@@ -72,7 +79,9 @@ export function setProp<T>(node: HostNode, name: string, value: T, previous?: T)
     return
   }
 
-  base.setProp(node, name, value, previous)
+  const nextPaint = nativeSvgPaint(name, value)
+  const previousPaint = nativeSvgPaint(name, previous)
+  base.setProp(node, name, nextPaint, previousPaint)
 }
 
 export function insertNode(
@@ -82,6 +91,15 @@ export function insertNode(
 ): void {
   base.insertNode(parent, node, anchor)
   if (parent.kind === "element") syncGrid(parent)
+}
+
+function nativeSvgPaint<T>(name: string, value: T): T | string {
+  if (!SVG_PAINT_PROPERTIES.has(name) || typeof value !== "string") return value
+  const variable = value.trim().match(/^var\((--[a-z0-9-]+)\)$/i)?.[1] as SvgPaintVariable | undefined
+  if (!variable) return value
+  const paints = SVG_PAINT_VARIABLES[variable]
+  if (!paints) return value
+  return paints[base.getNativeStyleColorMode()]
 }
 
 function nativeClassValue(value: SourceClassValue): SourceClassValue {
