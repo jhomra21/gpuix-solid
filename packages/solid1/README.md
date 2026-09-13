@@ -21,7 +21,7 @@ Solid 1 updates synchronously, so this adapter flushes GPUI mutations after Soli
 - native event delivery
 - controlled `input` and `textarea`
 - retained-tree insertion, removal, and reordering
-- `TestGpuixRenderer` integration when the native platform binding exposes it
+- `TestGpuixRenderer` integration when `hasTestGpuixRenderer()` reports GPU-backed test support
 
 Context-backed GPUix primitives and the Solid 2 convenience-component layer are intentionally not advertised yet. They will be added only with a Solid-1-native ownership/context implementation.
 

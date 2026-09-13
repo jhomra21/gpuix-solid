@@ -117,6 +117,10 @@ describe("native retained-tree parity", () => {
             "type": "div",
           },
         ],
+        "events": [
+          "mouseMove",
+          "mouseUp",
+        ],
         "style": {
           "backgroundColor": "#1e1e2e",
           "borderRadius": 8,
@@ -165,16 +169,19 @@ describe("native retained-tree parity", () => {
             },
             "events": [
               "change",
+              "click",
             ],
             "style": {
               "height": 40,
+              "pointerEvents": "auto",
               "width": 240,
             },
             "type": "input",
           },
         ],
         "events": [
-          "click",
+          "mouseMove",
+          "mouseUp",
         ],
         "style": {
           "height": 120,

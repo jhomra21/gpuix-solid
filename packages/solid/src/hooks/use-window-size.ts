@@ -35,7 +35,7 @@ function readWindowSize(renderer: NativeRenderer | null): WindowSize {
  *
  * The first read can happen before a platform window has a usable size, and a
  * one-shot fallback would leave coordinate-driven UIs permanently stale after
- * resize. Polling mirrors the published GPUIX 0.6 React contract.
+ * resize. Polling mirrors the published GPUIX 0.7 React contract.
  */
 export function useWindowSize(options: WindowSizeOptions = {}): WindowSize {
   const renderer = useGpuix()?.renderer ?? null

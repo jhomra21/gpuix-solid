@@ -12,7 +12,10 @@ type BoundsCapableRenderer = NativeRenderer & {
 export interface BatchRendererApi {
   applyBatch(json: string): number[]
   focusElement?(elementId: number): void
+  focusNext?(): void
+  focusPrevious?(): void
   blur?(): void
+  setWindowKeyEvents?(keyDown: boolean, keyUp: boolean, eventId: number): void
   scrollTo?(elementId: number, x: number, y: number): void
   scrollToItem?(elementId: number, index: number): void
   getScrollOffset?(elementId: number): number[] | null
@@ -28,9 +31,92 @@ export interface BatchRendererApi {
   getElementBounds?(elementId: number): number[] | null
 }
 
+const POINTER_CAPTURE_NATIVE_EVENTS = ["mouseDown", "mouseMove", "mouseUp"] as const
+const POINTER_CAPTURE_NATIVE_EVENT_SET = new Set<string>(POINTER_CAPTURE_NATIVE_EVENTS)
+
+/**
+ * Browser code can start a gesture on an element and listen for pointermove /
+ * pointerup on window. GPUIX implicitly captures a retained node when that
+ * same node subscribes to both mouseDown and mouseMove. Manufacturing move on
+ * every mouseDown owner therefore breaks browser semantics if reactive work
+ * replaces the pressed node before release: the destroyed native capture owner
+ * cannot emit the window release.
+ *
+ * Keep only mouseUp armed for local release compatibility. The Solid host's
+ * stable mounted-root relay owns browser-style window move/up delivery.
+ */
+function createPointerCaptureBatchBridge(renderer: BatchRendererApi) {
+  const requestedByElement = new Map<number, Set<string>>()
+
+  const effectiveListeners = (requested: ReadonlySet<string>): Set<string> => {
+    const effective = new Set(requested)
+    if (requested.has("mouseDown")) effective.add("mouseUp")
+    return effective
+  }
+
+  const bridgeBatch = (json: string): number[] => {
+    const parsed: unknown = JSON.parse(json)
+    if (!Array.isArray(parsed)) return renderer.applyBatch(json)
+
+    const bridged: unknown[][] = []
+    for (const value of parsed) {
+      if (!Array.isArray(value)) {
+        bridged.push([value])
+        continue
+      }
+
+      const [name, rawId, rawEventType, rawHasHandler] = value
+      const numericId = Number(rawId)
+      const id = Object.prototype.toString.call(rawId) === "[object Number]" && Number.isFinite(numericId)
+        ? numericId
+        : undefined
+
+      if (name === "destroyElement" && id !== undefined) {
+        requestedByElement.delete(id)
+        bridged.push(value)
+        continue
+      }
+
+      const eventType = Object.prototype.toString.call(rawEventType) === "[object String]"
+        ? String(rawEventType)
+        : undefined
+      const hasHandler = rawHasHandler === true ? true : rawHasHandler === false ? false : undefined
+      if (name !== "setEventListener" || id === undefined || eventType === undefined || hasHandler === undefined) {
+        bridged.push(value)
+        continue
+      }
+
+      const previousRequested = requestedByElement.get(id) ?? new Set<string>()
+      const previousEffective = effectiveListeners(previousRequested)
+      const nextRequested = new Set(previousRequested)
+      if (hasHandler) nextRequested.add(eventType)
+      else nextRequested.delete(eventType)
+      if (nextRequested.size === 0) requestedByElement.delete(id)
+      else requestedByElement.set(id, nextRequested)
+      const nextEffective = effectiveListeners(nextRequested)
+
+      if (!POINTER_CAPTURE_NATIVE_EVENT_SET.has(eventType)) {
+        bridged.push(value)
+        continue
+      }
+
+      for (const nativeEventType of POINTER_CAPTURE_NATIVE_EVENTS) {
+        const before = previousEffective.has(nativeEventType)
+        const after = nextEffective.has(nativeEventType)
+        if (before !== after) bridged.push(["setEventListener", id, nativeEventType, after])
+      }
+    }
+
+    return renderer.applyBatch(JSON.stringify(bridged))
+  }
+
+  return bridgeBatch
+}
+
 export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRenderer {
+  const applyBatch = createPointerCaptureBatchBridge(renderer)
   const applyOne = (mutation: readonly unknown[]): number[] =>
-    renderer.applyBatch(JSON.stringify([mutation]))
+    applyBatch(JSON.stringify([mutation]))
 
   const adapted: BoundsCapableRenderer = {
     createElement(id, elementType) {
@@ -66,13 +152,14 @@ export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRen
     commitMutations() {
       // Single-operation compatibility calls above already commit through applyBatch.
     },
-    applyBatch(json) {
-      return renderer.applyBatch(json)
-    },
+    applyBatch,
   }
 
   if (renderer.focusElement) adapted.focusElement = renderer.focusElement.bind(renderer)
+  if (renderer.focusNext) adapted.focusNext = renderer.focusNext.bind(renderer)
+  if (renderer.focusPrevious) adapted.focusPrevious = renderer.focusPrevious.bind(renderer)
   if (renderer.blur) adapted.blur = renderer.blur.bind(renderer)
+  if (renderer.setWindowKeyEvents) adapted.setWindowKeyEvents = renderer.setWindowKeyEvents.bind(renderer)
   if (renderer.scrollTo) adapted.scrollTo = renderer.scrollTo.bind(renderer)
   if (renderer.scrollToItem) adapted.scrollToItem = renderer.scrollToItem.bind(renderer)
   if (renderer.getScrollOffset) adapted.getScrollOffset = renderer.getScrollOffset.bind(renderer)

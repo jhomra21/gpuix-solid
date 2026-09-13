@@ -297,4 +297,18 @@ describe("live automation backend", () => {
     expect(() => backend.keystrokes(3, "a")).not.toThrow()
     expect(renderer.ticks).toBe(1)
   })
+
+  it("can defer input ticks to an externally managed frame loop", () => {
+    const renderer = new FakeLiveRenderer()
+    const backend = new LiveAutomationBackend(renderer, { tickAfterInput: false })
+
+    backend.click(12, 34)
+    backend.mouseMove(20, 40)
+    backend.scrollWheel(20, 40, 0, -80)
+    backend.keystrokes(3, "a")
+
+    expect(renderer.clicks).toEqual([[12, 34, undefined, undefined]])
+    expect(renderer.mouse).toHaveLength(2)
+    expect(renderer.ticks).toBe(0)
+  })
 })

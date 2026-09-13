@@ -1,20 +1,19 @@
-import { render, type StyleDesc } from "gpuix-solid"
 import { For, Show, createSignal } from "solid-js"
+import { render } from "gpuix-solid"
 
-const README = `# GPUIX Solid
+const README = `# GPUIX
 
-Build **native** desktop apps with *Solid 2*, rendered on the \`GPU\`.
+Build **native** desktop apps with *React*, rendered on the \`GPU\`.
 
 ## Why
 
-- Fine-grained Solid reactivity over GPUIX's retained native tree
 - Selectable text everywhere, across element boundaries
 - Tree-sitter highlighting computed in Rust
 - Diffs virtualized with GPUI's \`list()\`
 
-> Solid updates only the affected host nodes while GPUIX batches native mutations.
+> Immediate mode aligns with React's model: rebuild every frame.
 
-See https://github.com/jhomra21/gpuix-solid for more.
+See https://github.com/remorses/gpuix for more.
 `
 
 const SAMPLE = `export function greet(user: User): string {
@@ -42,20 +41,7 @@ const PATCH = [
 const TABS = ["markdown", "code", "diff"] as const
 type Tab = (typeof TABS)[number]
 
-const CONTENT_STYLE = {
-  display: "flex",
-  flexDirection: "column",
-  flexGrow: 1,
-  minHeight: 0,
-  padding: 24,
-} satisfies StyleDesc
-
-const SCROLL_CONTENT_STYLE = {
-  ...CONTENT_STYLE,
-  overflowY: "scroll",
-} satisfies StyleDesc
-
-function Tabs(props: { active: () => Tab; onSelect: (tab: Tab) => void }) {
+function Tabs(props: { active: Tab; onSelect: (tab: Tab) => void }) {
   return (
     <div
       style={{
@@ -77,8 +63,8 @@ function Tabs(props: { active: () => Tab; onSelect: (tab: Tab) => void }) {
               borderRadius: 6,
               fontSize: 12,
               cursor: "pointer",
-              color: tab === props.active() ? "#ebebeb" : "#b4b4b4",
-              backgroundColor: tab === props.active() ? "#ffffff14" : "#00000000",
+              color: tab === props.active ? "#ebebeb" : "#b4b4b4",
+              backgroundColor: tab === props.active ? "#ffffff14" : "#00000000",
               hover: { backgroundColor: "#ffffff0d" },
             }}
             onClick={() => props.onSelect(tab)}
@@ -87,6 +73,48 @@ function Tabs(props: { active: () => Tab; onSelect: (tab: Tab) => void }) {
           </div>
         )}
       </For>
+    </div>
+  )
+}
+
+function CodeBlock(props: { code: string; language: string }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: "#ffffff1f",
+        backgroundColor: "#ffffff09",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          paddingTop: 5,
+          paddingBottom: 5,
+          paddingLeft: 12,
+          paddingRight: 12,
+          borderBottomWidth: 1,
+          borderColor: "#ffffff1f",
+          backgroundColor: "#ffffff05",
+        }}
+      >
+        <text style={{ fontSize: 11, color: "#b4b4b4" }}>{props.language}</text>
+      </div>
+      <code
+        code={props.code}
+        language={props.language}
+        showLineNumbers
+        style={{
+          minWidth: 0,
+          paddingTop: 10,
+          paddingBottom: 10,
+          paddingLeft: 12,
+          paddingRight: 12,
+        }}
+      />
     </div>
   )
 }
@@ -105,9 +133,18 @@ function App() {
         backgroundColor: "#060606",
       }}
     >
-      <Tabs active={tab} onSelect={setTab} />
+      <Tabs active={tab()} onSelect={setTab} />
 
-      <div style={tab() === "diff" ? CONTENT_STYLE : SCROLL_CONTENT_STYLE}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          flexGrow: 1,
+          minHeight: 0,
+          padding: 24,
+          overflowY: tab() === "diff" ? undefined : "scroll",
+        }}
+      >
         <Show when={tab() === "markdown"}>
           <markdown
             source={README}
@@ -115,7 +152,7 @@ function App() {
           />
         </Show>
         <Show when={tab() === "code"}>
-          <code code={SAMPLE} language="typescript" showLineNumbers />
+          <CodeBlock code={SAMPLE} language="typescript" />
         </Show>
         <Show when={tab() === "diff"}>
           <diff
@@ -146,7 +183,8 @@ function App() {
 }
 
 render(() => <App />, {
-  title: "Solid GPUIX Native Text",
+  title: "GPUIX Native Text",
   width: 900,
   height: 700,
+  focus: process.env.GPUIX_BACKGROUND !== "1",
 })

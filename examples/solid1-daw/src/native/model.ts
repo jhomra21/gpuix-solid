@@ -1,3 +1,5 @@
+import type { AudioWarp } from "../upstream/packages/timeline-core/types"
+
 export type TrackKind = "audio" | "midi" | "return" | "group"
 export type BrowserTab = "assets" | "effects" | "midi-instruments"
 export type BottomTab = "effects" | "clip"
@@ -10,6 +12,8 @@ export interface NativeClip {
   duration: number
   color?: string
   waveform: number[]
+  audioWarp?: AudioWarp
+  gain?: number
 }
 
 export interface NativeTrack {
@@ -25,6 +29,8 @@ export interface NativeTrack {
   soloed: boolean
   armed: boolean
   collapsed?: boolean
+  groupId?: string
+  automationVisible: boolean
   outputTarget: string
   sendTarget: string
   clips: NativeClip[]
@@ -55,11 +61,12 @@ export const initialTracks: NativeTrack[] = [
     muted: false,
     soloed: false,
     armed: false,
+    automationVisible: false,
     outputTarget: "Master",
     sendTarget: "A-Reverb",
     clips: [
-      { id: "drums-a", name: "Drum Loop 01", kind: "audio", startSec: 0.7, duration: 2.2, color: "#00a76c", waveform: [0.3,0.7,0.5,0.85,0.4,0.9,0.55,0.72,0.45,0.82,0.65,0.4,0.75,0.55,0.88,0.42] },
-      { id: "drums-b", name: "Drum Loop 02", kind: "audio", startSec: 3.15, duration: 2.0, color: "#00a76c", waveform: [0.5,0.8,0.35,0.72,0.65,0.9,0.42,0.75,0.6,0.84,0.48,0.7,0.38,0.8,0.52] },
+      { id: "drums-a", name: "Drum Loop 01", kind: "audio", startSec: 0.7, duration: 2.2, color: "#00a76c", waveform: [0.3, 0.7, 0.5, 0.85, 0.4, 0.9, 0.55, 0.72, 0.45, 0.82, 0.65, 0.4, 0.75, 0.55, 0.88, 0.42] },
+      { id: "drums-b", name: "Drum Loop 02", kind: "audio", startSec: 3.15, duration: 2.0, color: "#00a76c", waveform: [0.5, 0.8, 0.35, 0.72, 0.65, 0.9, 0.42, 0.75, 0.6, 0.84, 0.48, 0.7, 0.38, 0.8, 0.52] },
     ],
   },
   {
@@ -74,10 +81,11 @@ export const initialTracks: NativeTrack[] = [
     muted: false,
     soloed: false,
     armed: false,
+    automationVisible: false,
     outputTarget: "Master",
     sendTarget: "A-Reverb",
     clips: [
-      { id: "bass-a", name: "Bass Verse", kind: "audio", startSec: 1.35, duration: 2.75, color: "#5aa37f", waveform: [0.45,0.72,0.5,0.66,0.82,0.38,0.75,0.56,0.7,0.44,0.78,0.6,0.52,0.74] },
+      { id: "bass-a", name: "Bass Verse", kind: "audio", startSec: 1.35, duration: 2.75, color: "#5aa37f", waveform: [0.45, 0.72, 0.5, 0.66, 0.82, 0.38, 0.75, 0.56, 0.7, 0.44, 0.78, 0.6, 0.52, 0.74] },
     ],
   },
   {
@@ -92,10 +100,11 @@ export const initialTracks: NativeTrack[] = [
     muted: false,
     soloed: false,
     armed: true,
+    automationVisible: false,
     outputTarget: "Master",
     sendTarget: "A-Reverb",
     clips: [
-      { id: "synth-a", name: "MIDI · Glass Pad", kind: "midi", startSec: 2.0, duration: 3.4, color: "#0089ed", waveform: [0.22,0.56,0.44,0.8,0.5,0.68,0.34,0.72,0.48,0.62,0.4,0.76,0.58,0.7] },
+      { id: "synth-a", name: "MIDI · Glass Pad", kind: "midi", startSec: 2.0, duration: 3.4, color: "#0089ed", waveform: [0.22, 0.56, 0.44, 0.8, 0.5, 0.68, 0.34, 0.72, 0.48, 0.62, 0.4, 0.76, 0.58, 0.7] },
     ],
   },
   {
@@ -110,11 +119,12 @@ export const initialTracks: NativeTrack[] = [
     muted: false,
     soloed: false,
     armed: false,
+    automationVisible: false,
     outputTarget: "Master",
     sendTarget: "A-Reverb",
     clips: [
-      { id: "vocals-a", name: "Lead Vocal", kind: "audio", startSec: 0.9, duration: 1.75, color: "#8d6ab7", waveform: [0.35,0.7,0.48,0.85,0.6,0.3,0.74,0.5,0.68,0.8,0.42,0.66] },
-      { id: "vocals-b", name: "Hook Comp", kind: "audio", startSec: 3.55, duration: 2.05, color: "#8d6ab7", waveform: [0.54,0.32,0.75,0.65,0.38,0.82,0.56,0.7,0.4,0.78,0.62,0.46,0.72] },
+      { id: "vocals-a", name: "Lead Vocal", kind: "audio", startSec: 0.9, duration: 1.75, color: "#8d6ab7", waveform: [0.35, 0.7, 0.48, 0.85, 0.6, 0.3, 0.74, 0.5, 0.68, 0.8, 0.42, 0.66] },
+      { id: "vocals-b", name: "Hook Comp", kind: "audio", startSec: 3.55, duration: 2.05, color: "#8d6ab7", waveform: [0.54, 0.32, 0.75, 0.65, 0.38, 0.82, 0.56, 0.7, 0.4, 0.78, 0.62, 0.46, 0.72] },
     ],
   },
   {
@@ -129,6 +139,7 @@ export const initialTracks: NativeTrack[] = [
     muted: false,
     soloed: false,
     armed: false,
+    automationVisible: false,
     outputTarget: "Master",
     sendTarget: "None",
     clips: [],

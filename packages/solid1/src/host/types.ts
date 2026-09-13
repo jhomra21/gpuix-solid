@@ -115,6 +115,20 @@ export interface BoxShadow {
   color: string
 }
 
+export interface LinearGradientStop {
+  color: string
+  /** Position along the gradient from 0 to 1. */
+  position: number
+}
+
+export interface LinearGradientBackground {
+  type: "linear-gradient"
+  /** CSS angle in degrees. 0 points up and values increase clockwise. */
+  angle: number
+  stops: [LinearGradientStop, LinearGradientStop]
+  colorSpace?: "srgb" | "oklab"
+}
+
 export interface StyleDesc {
   display?: string
   visibility?: string
@@ -155,12 +169,12 @@ export interface StyleDesc {
   marginLeft?: number
 
   position?: string
-  top?: number
-  right?: number
-  bottom?: number
-  left?: number
+  top?: DimensionValue
+  right?: DimensionValue
+  bottom?: DimensionValue
+  left?: DimensionValue
 
-  background?: string
+  background?: string | LinearGradientBackground
   backgroundColor?: string
   color?: string
   opacity?: number
@@ -186,6 +200,7 @@ export interface StyleDesc {
   whiteSpace?: "normal" | "nowrap"
   textOverflow?: "ellipsis" | "ellipsis-start"
   lineClamp?: number
+  textDecoration?: "underline" | "line-through" | "none"
 
   overflow?: string
   overflowX?: string
@@ -304,11 +319,14 @@ export interface HighlightMatch {
   rects: Array<{ x: number; y: number; width: number; height: number }>
 }
 
-export type DomCompatTarget = {
+export type DomCompatTarget = EventTarget & {
   value: string
+  checked: boolean
+  getAttribute: (name: string) => string | null
   scrollTop: number
   scrollLeft: number
   style: object
+  dataset: Record<string, string>
   classList: {
     add: (...tokens: string[]) => void
     remove: (...tokens: string[]) => void
@@ -355,12 +373,21 @@ export interface HostProps {
   ref?: HostRef
 
   onClick?: HostEventHandler
+  onDblClick?: HostEventHandler
   onAuxClick?: HostEventHandler
+  onContextMenu?: HostEventHandler
   onMouseDown?: HostEventHandler
   onMouseUp?: HostEventHandler
   onMouseEnter?: HostEventHandler
   onMouseLeave?: HostEventHandler
   onMouseMove?: HostEventHandler
+  onPointerDown?: HostEventHandler
+  onPointerUp?: HostEventHandler
+  onPointerCancel?: HostEventHandler
+  onPointerEnter?: HostEventHandler
+  onPointerLeave?: HostEventHandler
+  onPointerMove?: HostEventHandler
+  onLostPointerCapture?: HostEventHandler
   onMouseDownOutside?: HostEventHandler
   onKeyDown?: HostEventHandler
   onKeyUp?: HostEventHandler
@@ -368,6 +395,7 @@ export interface HostProps {
   onBlur?: HostEventHandler
   onScroll?: HostEventHandler
   onChange?: HostEventHandler
+  onInput?: HostEventHandler
   onSubmit?: HostEventHandler
   onToggleFile?: HostEventHandler
   onShowMore?: HostEventHandler
@@ -379,6 +407,15 @@ export interface HostProps {
   highlight?: HighlightSpec | HighlightSpec[] | null
   autoFocus?: boolean
   tabIndex?: number
+  role?: string
+  "aria-label"?: string
+  "aria-description"?: string
+  "aria-id"?: string
+  "aria-expanded"?: boolean
+  "aria-selected"?: boolean
+  "aria-valuetext"?: string
+  "aria-level"?: number
+  title?: string
   testId?: string
 }
 
@@ -487,7 +524,10 @@ export interface NativeRenderer {
   applyBatch?(json: string): number[]
 
   focusElement?(elementId: number): void
+  focusNext?(): void
+  focusPrevious?(): void
   blur?(): void
+  setWindowKeyEvents?(keyDown: boolean, keyUp: boolean, eventId: number): void
   scrollTo?(elementId: number, x: number, y: number): void
   scrollToItem?(elementId: number, index: number, offsetInItem?: number): void
   getScrollOffset?(elementId: number): number[] | null
@@ -504,6 +544,15 @@ export interface NativeRenderer {
   cycleDebugFrameOverlay?(): string
   resetDebugFrameOverlayStats?(): void
   getDebugFrameOverlayStats?(): DebugFrameOverlayStats
+}
+
+export type WindowKeyEventHandler = (event: EventPayload, renderer: NativeRenderer) => void
+
+export interface WindowKeyEventHandlers {
+  /** Window-level GPUI listener. Key actions can consume an event before this runs. */
+  onKeyDown?: WindowKeyEventHandler
+  /** Window-level GPUI listener. */
+  onKeyUp?: WindowKeyEventHandler
 }
 
 export interface PublicInstance {

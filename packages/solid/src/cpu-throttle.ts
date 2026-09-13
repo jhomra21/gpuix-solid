@@ -1,4 +1,4 @@
-/// macOS CPU clamp helpers matching the published GPUIX 0.6 React surface.
+/// macOS CPU clamp helpers matching the published GPUIX 0.7 React surface.
 
 export const MAC_CPU_THROTTLES = ["utility", "background", "maintenance"] as const
 

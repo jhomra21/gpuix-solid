@@ -1,4 +1,4 @@
-import { render } from "gpuix-solid1-experiment"
+import { render } from "@jhomra21/gpuix-solid1"
 import { Solid1CompatibilityLab } from "./app"
 
 render(() => <Solid1CompatibilityLab />, {

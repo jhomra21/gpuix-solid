@@ -1,4 +1,4 @@
-import type { StyleDesc } from "./host/types.js"
+import type { DimensionValue, LinearGradientBackground, StyleDesc } from "./host/types.js"
 
 export type NativeColorMode = "light" | "dark"
 export type NativeClassList = Record<string, boolean | null | undefined>
@@ -10,8 +10,40 @@ export interface NativeStyleVariant {
   dark?: StyleDesc
 }
 
+export interface NativeSvgPaint {
+  fill?: string
+  stroke?: string
+}
+
+export interface NativeSvgPaintVariant {
+  base?: NativeSvgPaint
+  light?: NativeSvgPaint
+  dark?: NativeSvgPaint
+}
+
+/** Fractional visual translation resolved against the element's own native size. */
+export interface NativeStyleTranslation {
+  xFraction?: number
+  yFraction?: number
+}
+
+/** Parent-relative offsets used by percentage positioning utilities such as left-1/2. */
+export interface NativeStyleParentPosition {
+  leftFraction?: number
+  rightFraction?: number
+  topFraction?: number
+  bottomFraction?: number
+}
+
 export interface NativeStyleManifestEntry extends NativeStyleVariant {
+  translation?: NativeStyleTranslation
+  parentPosition?: NativeStyleParentPosition
+  /** Source :focus / :focus-visible styles applied by compatibility components that own focus state. */
+  focus?: NativeStyleVariant
   descendants?: Record<string, NativeStyleVariant>
+  attributeVariants?: Record<string, Record<string, NativeStyleVariant>>
+  lineHeightMultiplier?: number
+  svg?: NativeSvgPaintVariant
   textTransform?: NativeTextTransform
 }
 
@@ -53,6 +85,50 @@ export function onNativeStyleEnvironmentChange(listener: () => void): () => void
 export function resolveNativeClassStyle(
   className: string | undefined,
   classList: NativeClassList | undefined,
+  contextFontSize?: number,
+): StyleDesc | undefined {
+  const candidates = classCandidates(className, classList)
+  if (candidates.length === 0) return undefined
+  const activeManifest = requireManifest()
+
+  let resolved: StyleDesc | undefined
+  let lineHeightMultiplier: number | undefined
+  for (const candidate of candidates) {
+    const entry = activeManifest.classes[candidate]
+    if (!entry) throw missingCandidate(candidate)
+    resolved = mergeNativeStyles(resolved, resolveVariant(entry))
+    if (entry.lineHeightMultiplier !== undefined) lineHeightMultiplier = entry.lineHeightMultiplier
+  }
+  const fontSize = resolved?.fontSize ?? contextFontSize
+  if (lineHeightMultiplier !== undefined && fontSize !== undefined) {
+    resolved = mergeNativeStyles(resolved, { lineHeight: lineHeightMultiplier * fontSize })
+  }
+  return resolved
+}
+
+export function resolveNativeClassSvgPaint(
+  className: string | undefined,
+  classList: NativeClassList | undefined,
+): NativeSvgPaint | undefined {
+  const candidates = classCandidates(className, classList)
+  if (candidates.length === 0) return undefined
+  const activeManifest = requireManifest()
+
+  let resolved: NativeSvgPaint | undefined
+  for (const candidate of candidates) {
+    const entry = activeManifest.classes[candidate]
+    if (!entry) throw missingCandidate(candidate)
+    const paint = resolveSvgPaintVariant(entry.svg)
+    if (!paint) continue
+    resolved = { ...resolved, ...paint }
+  }
+  return resolved
+}
+
+export function resolveNativeClassAttributeStyle(
+  className: string | undefined,
+  classList: NativeClassList | undefined,
+  attributes: ReadonlyMap<string, unknown>,
 ): StyleDesc | undefined {
   const candidates = classCandidates(className, classList)
   if (candidates.length === 0) return undefined
@@ -62,9 +138,138 @@ export function resolveNativeClassStyle(
   for (const candidate of candidates) {
     const entry = activeManifest.classes[candidate]
     if (!entry) throw missingCandidate(candidate)
-    resolved = mergeNativeStyles(resolved, resolveVariant(entry))
+    if (!entry.attributeVariants) continue
+    for (const [attributeName, values] of Object.entries(entry.attributeVariants)) {
+      const attributeValue = attributes.get(attributeName)
+      if (attributeValue === undefined || attributeValue === null) continue
+      resolved = mergeNativeStyles(resolved, resolveVariant(values[String(attributeValue)]))
+    }
   }
   return resolved
+}
+
+export function resolveNativeClassFocusStyle(
+  className: string | undefined,
+  classList: NativeClassList | undefined,
+): StyleDesc | undefined {
+  const candidates = classCandidates(className, classList)
+  if (candidates.length === 0) return undefined
+  const activeManifest = requireManifest()
+
+  let resolved: StyleDesc | undefined
+  for (const candidate of candidates) {
+    const entry = activeManifest.classes[candidate]
+    if (!entry) throw missingCandidate(candidate)
+    resolved = mergeNativeStyles(resolved, resolveVariant(entry.focus))
+  }
+  return resolved
+}
+
+export function resolveNativeClassParentPosition(
+  className: string | undefined,
+  classList: NativeClassList | undefined,
+): NativeStyleParentPosition | undefined {
+  const candidates = classCandidates(className, classList)
+  if (candidates.length === 0) return undefined
+  const activeManifest = requireManifest()
+
+  let resolved: NativeStyleParentPosition | undefined
+  for (const candidate of candidates) {
+    const entry = activeManifest.classes[candidate]
+    if (!entry) throw missingCandidate(candidate)
+    if (!entry.parentPosition) continue
+    resolved = { ...resolved, ...entry.parentPosition }
+  }
+  return resolved
+}
+
+export function applyNativeStyleParentPosition(
+  style: StyleDesc | undefined,
+  position: NativeStyleParentPosition | undefined,
+  parentWidth: number | undefined,
+  parentHeight: number | undefined,
+): StyleDesc | undefined {
+  if (!style) return style
+  const result: StyleDesc = { ...style }
+
+  const left = resolveRelativePosition(result.left, position?.leftFraction, parentWidth)
+  const right = resolveRelativePosition(result.right, position?.rightFraction, parentWidth)
+  const top = resolveRelativePosition(result.top, position?.topFraction, parentHeight)
+  const bottom = resolveRelativePosition(result.bottom, position?.bottomFraction, parentHeight)
+  if (left === undefined) delete result.left
+  else result.left = left
+  if (right === undefined) delete result.right
+  else result.right = right
+  if (top === undefined) delete result.top
+  else result.top = top
+  if (bottom === undefined) delete result.bottom
+  else result.bottom = bottom
+  return result
+}
+
+function resolveRelativePosition(
+  value: DimensionValue | undefined,
+  classFraction: number | undefined,
+  parentSize: number | undefined,
+): DimensionValue | undefined {
+  if (classFraction !== undefined && parentSize !== undefined) return parentSize * classFraction
+  if (value === undefined || parentSize === undefined) return value
+  const numeric = Number(value)
+  if (Number.isFinite(numeric)) return numeric
+  const percentage = String(value).trim().match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))%$/)
+  if (!percentage) return value
+  return parentSize * Number(percentage[1]) / 100
+}
+
+export function resolveNativeClassTranslation(
+  className: string | undefined,
+  classList: NativeClassList | undefined,
+): NativeStyleTranslation | undefined {
+  const candidates = classCandidates(className, classList)
+  if (candidates.length === 0) return undefined
+  const activeManifest = requireManifest()
+
+  let resolved: NativeStyleTranslation | undefined
+  for (const candidate of candidates) {
+    const entry = activeManifest.classes[candidate]
+    if (!entry) throw missingCandidate(candidate)
+    if (!entry.translation) continue
+    resolved = { ...resolved, ...entry.translation }
+  }
+  return resolved
+}
+
+export function applyNativeStyleTranslation(
+  style: StyleDesc | undefined,
+  translation: NativeStyleTranslation | undefined,
+): StyleDesc | undefined {
+  if (!style || !translation) return style
+  const result: StyleDesc = { ...style }
+  const width = numericStyleLength(result.width)
+  const height = numericStyleLength(result.height)
+  if (translation.xFraction !== undefined && width !== undefined) {
+    const offset = width * translation.xFraction
+    const left = numericStyleLength(result.left)
+    const right = numericStyleLength(result.right)
+    if (left !== undefined) result.left = left + offset
+    else if (right !== undefined) result.right = right - offset
+    else result.marginLeft = (result.marginLeft ?? 0) + offset
+  }
+  if (translation.yFraction !== undefined && height !== undefined) {
+    const offset = height * translation.yFraction
+    const top = numericStyleLength(result.top)
+    const bottom = numericStyleLength(result.bottom)
+    if (top !== undefined) result.top = top + offset
+    else if (bottom !== undefined) result.bottom = bottom - offset
+    else result.marginTop = (result.marginTop ?? 0) + offset
+  }
+  return result
+}
+
+function numericStyleLength(value: DimensionValue | undefined): number | undefined {
+  if (value === undefined) return undefined
+  const number = Number(value)
+  return Number.isFinite(number) ? number : undefined
 }
 
 export function resolveNativeClassTextTransform(
@@ -89,6 +294,7 @@ export function resolveNativeDescendantClassStyle(
   classList: NativeClassList | undefined,
   tagName: string,
   directChild: boolean,
+  directChildIndex?: number,
 ): StyleDesc | undefined {
   const candidates = classCandidates(className, classList)
   if (candidates.length === 0) return undefined
@@ -103,6 +309,10 @@ export function resolveNativeDescendantClassStyle(
     resolved = mergeNativeStyles(resolved, resolveVariant(descendants[tagName]))
     if (directChild) {
       resolved = mergeNativeStyles(resolved, resolveVariant(descendants[`>${tagName}`]))
+      if (directChildIndex !== undefined) {
+        resolved = mergeNativeStyles(resolved, resolveVariant(descendants[`>:nth-child(${directChildIndex})`]))
+        resolved = mergeNativeStyles(resolved, resolveVariant(descendants[`>${tagName}:nth-child(${directChildIndex})`]))
+      }
     }
   }
   return resolved
@@ -115,6 +325,15 @@ export function mergeNativeStyles(...styles: Array<StyleDesc | undefined>): Styl
     result = mergeStylePair(result, style)
   }
   return result
+}
+
+function resolveSvgPaintVariant(variant: NativeSvgPaintVariant | undefined): NativeSvgPaint | undefined {
+  if (!variant) return undefined
+  const themed = colorMode === "dark" ? variant.dark : variant.light
+  const paint = { ...variant.base, ...themed }
+  if (paint.fill !== undefined) paint.fill = normalizePublishedNativeColor(paint.fill)
+  if (paint.stroke !== undefined) paint.stroke = normalizePublishedNativeColor(paint.stroke)
+  return Object.keys(paint).length > 0 ? paint : undefined
 }
 
 function requireManifest(): NativeStyleManifest {
@@ -131,7 +350,7 @@ function missingCandidate(candidate: string): Error {
 function resolveVariant(variant: NativeStyleVariant | undefined): StyleDesc | undefined {
   if (!variant) return undefined
   const themed = colorMode === "dark" ? variant.dark : variant.light
-  return normalizePublishedNativeColors(mergeNativeStyles(variant.base, themed))
+  return normalizeNativeStyleColors(mergeNativeStyles(variant.base, themed))
 }
 
 function classCandidates(className: string | undefined, classList: NativeClassList | undefined): string[] {
@@ -163,10 +382,22 @@ function mergeNestedState(
   return { ...base, ...override }
 }
 
-function normalizePublishedNativeColors(style: StyleDesc | undefined): StyleDesc | undefined {
+export function normalizeNativeStyleColors(style: StyleDesc | undefined): StyleDesc | undefined {
   if (!style) return undefined
   const result: StyleDesc = { ...style }
-  for (const key of ["background", "backgroundColor", "color", "borderColor", "selectionColor"] as const) {
+  const background = result.background
+  if (background !== undefined) {
+    result.background = isLinearGradientBackground(background)
+      ? {
+          ...background,
+          stops: [
+            { ...background.stops[0], color: normalizePublishedNativeColor(background.stops[0].color) },
+            { ...background.stops[1], color: normalizePublishedNativeColor(background.stops[1].color) },
+          ],
+        }
+      : normalizePublishedNativeColor(background)
+  }
+  for (const key of ["backgroundColor", "color", "borderColor", "selectionColor"] as const) {
     const value = result[key]
     if (value !== undefined) result[key] = normalizePublishedNativeColor(value)
   }
@@ -184,29 +415,86 @@ function normalizePublishedNativeColors(style: StyleDesc | undefined): StyleDesc
 function normalizeNestedColors(
   style: Omit<StyleDesc, "hover" | "active">,
 ): Omit<StyleDesc, "hover" | "active"> {
-  const normalized = normalizePublishedNativeColors(style)
+  const normalized = normalizeNativeStyleColors(style)
   if (!normalized) return style
   const { hover: _hover, active: _active, ...nested } = normalized
   return nested
 }
 
+function isLinearGradientBackground(
+  value: string | LinearGradientBackground,
+): value is LinearGradientBackground {
+  return Object(value) === value
+}
+
 function normalizePublishedNativeColor(value: string): string {
   const trimmed = value.trim()
-  const oklch = parseOklch(trimmed)
+  const transparentMix = normalizeTransparentColorMix(trimmed)
+  if (transparentMix !== undefined) return transparentMix
+  const normalized = trimmed
+  const oklch = parseOklch(normalized)
   if (oklch) {
     const [red, green, blue] = oklchToSrgb(oklch.lightness, oklch.chroma, oklch.hue)
     return formatSrgbColor(red, green, blue, oklch.alpha)
   }
 
-  const hsl = parseHsl(trimmed)
+  const hsl = parseHsl(normalized)
   if (hsl) {
     const [red, green, blue] = hslToSrgb(hsl.hue, hsl.saturation, hsl.lightness)
     return formatSrgbColor(red, green, blue, hsl.alpha)
   }
 
-  const rgb = parseRgb(trimmed)
+  const rgb = parseRgb(normalized)
   if (!rgb) return value
   return formatSrgbColor(rgb.red, rgb.green, rgb.blue, rgb.alpha)
+}
+
+
+function normalizeTransparentColorMix(value: string): string | undefined {
+  const match = value.match(
+    /^color-mix\(in\s+(?:srgb|oklab),\s*(.+)\s+(\d+(?:\.\d+)?)%,\s*transparent\s*\)$/i,
+  )
+  const color = match?.[1]?.trim()
+  const percent = match?.[2]
+  if (!color || percent === undefined) return undefined
+
+  const mixAlpha = Number(percent) / 100
+  if (!Number.isFinite(mixAlpha)) return undefined
+  const alpha = clamp(mixAlpha, 0, 1)
+
+  const oklch = parseOklch(color)
+  if (oklch) {
+    const [red, green, blue] = oklchToSrgb(oklch.lightness, oklch.chroma, oklch.hue)
+    return formatSrgbColor(red, green, blue, oklch.alpha * alpha)
+  }
+
+  const hsl = parseHsl(color)
+  if (hsl) {
+    const [red, green, blue] = hslToSrgb(hsl.hue, hsl.saturation, hsl.lightness)
+    return formatSrgbColor(red, green, blue, hsl.alpha * alpha)
+  }
+
+  const rgb = parseRgb(color)
+  if (rgb) return formatSrgbColor(rgb.red, rgb.green, rgb.blue, rgb.alpha * alpha)
+
+  const hex = parseHexSrgb(color)
+  if (hex) return formatSrgbColor(hex.red, hex.green, hex.blue, hex.alpha * alpha)
+  return undefined
+}
+
+function parseHexSrgb(value: string): ParsedRgb | undefined {
+  const match = value.match(/^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i)
+  const source = match?.[1]
+  if (!source) return undefined
+  const expanded = source.length <= 4
+    ? [...source].map((digit) => `${digit}${digit}`).join("")
+    : source
+  const red = Number.parseInt(expanded.slice(0, 2), 16)
+  const green = Number.parseInt(expanded.slice(2, 4), 16)
+  const blue = Number.parseInt(expanded.slice(4, 6), 16)
+  const alpha = expanded.length === 8 ? Number.parseInt(expanded.slice(6, 8), 16) / 255 : 1
+  if (![red, green, blue, alpha].every(Number.isFinite)) return undefined
+  return { red, green, blue, alpha }
 }
 
 interface ParsedOklch {

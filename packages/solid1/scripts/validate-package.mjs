@@ -85,6 +85,7 @@ for (const file of files) {
   }
 }
 
+const sourcePackage = JSON.parse(readFileSync(path.join(packageRoot, "package.json"), "utf8"))
 const publicPackage = JSON.parse(readFileSync(path.join(packageRoot, ".publish/package.json"), "utf8"))
 if (publicPackage.name !== "@jhomra21/gpuix-solid1") {
   throw new Error(`Unexpected staged package name: ${publicPackage.name}`)
@@ -96,8 +97,10 @@ if (publicPackage.devDependencies !== undefined) {
 if (publicPackage.peerDependencies?.["solid-js"] !== ">=1.9.0 <2") {
   throw new Error(`Unexpected Solid peer range: ${publicPackage.peerDependencies?.["solid-js"]}`)
 }
-if (publicPackage.dependencies?.["@gpuix/native"] !== "^0.6.0") {
-  throw new Error(`Unexpected GPUIX native dependency: ${publicPackage.dependencies?.["@gpuix/native"]}`)
+const expectedNativeRange = sourcePackage.dependencies?.["@gpuix/native"]
+if (!expectedNativeRange) throw new Error("Source Solid 1 package must declare @gpuix/native")
+if (publicPackage.dependencies?.["@gpuix/native"] !== expectedNativeRange) {
+  throw new Error(`Unexpected GPUIX native dependency: ${publicPackage.dependencies?.["@gpuix/native"]}; expected ${expectedNativeRange}`)
 }
 
 console.log(

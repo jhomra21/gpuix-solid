@@ -1,4 +1,3 @@
-import type { EventPayload as NativeEventPayload } from "@gpuix/native"
 import "./dom-environment.js"
 import {
   splitProps,
@@ -6,7 +5,6 @@ import {
   type JSX,
   type ValidComponent,
 } from "solid-js"
-import { EventRegistry } from "./host/events.js"
 import { HostElementNode, setHostProperty, type HostRootNode } from "./host/nodes.js"
 import { createElement, spread } from "./universal.js"
 
@@ -17,8 +15,6 @@ export type DynamicProps<T extends ValidComponent, P = ComponentProps<T>> = {
 } & {
   component: T | undefined
 }
-
-type LocalEventListener = (event: Event) => void
 
 type CompatDocumentStyle = {
   pointerEvents: string
@@ -59,7 +55,6 @@ installDocumentStyleCompatibility()
 installComputedStyleCompatibility()
 installDocumentFocusCompatibility()
 installDocumentPointerCaptureCompatibility()
-installBrowserKeyboardEventCompatibility()
 
 export function createDynamic<T extends ValidComponent>(
   component: () => T | undefined,
@@ -73,7 +68,6 @@ export function createDynamic<T extends ValidComponent>(
       throw new Error(`Expected host element for <${current}>`)
     }
     installBrowserStyleMutationCompatibility(element)
-    installSemanticTagMetadata(element, current)
     if (hasPopperPositionerProp(props)) promoteNativePopperPositioner(element)
     spread(element, props)
     if (nativePopperPositioners.has(element)) {
@@ -103,13 +97,7 @@ function promoteNativePopperPositioner(element: HostElementNode): void {
   if (element.root || element.nativeAlive) {
     throw new Error("Kobalte popper positioner must be promoted before native adoption")
   }
-  // SAFETY: HostElementNode.type is writable at runtime while detached; changing it before adoption controls only the native createElement opcode while semantic div metadata remains unchanged for Kobalte.
-  Object.defineProperty(element, "type", {
-    configurable: true,
-    enumerable: true,
-    writable: false,
-    value: "anchored",
-  })
+  element.nativeType = "anchored"
   nativePopperPositioners.add(element)
   setHostProperty(element, "position", { x: 0, y: 0 })
   setHostProperty(element, "fit", "snap")
@@ -429,34 +417,6 @@ function installDocumentPointerCaptureCompatibility(): void {
   })
 }
 
-function installBrowserKeyboardEventCompatibility(): void {
-  const nativeDispatch = EventRegistry.prototype.dispatch
-  EventRegistry.prototype.dispatch = function dispatch(event: NativeEventPayload): void {
-    const key = browserKeyboardKey(event.key)
-    nativeDispatch.call(this, key === undefined || key === event.key ? event : { ...event, key })
-  }
-}
-
-function browserKeyboardKey(key: string | undefined): string | undefined {
-  switch (key) {
-    case "enter": return "Enter"
-    case "escape": return "Escape"
-    case "space": return " "
-    case "tab": return "Tab"
-    case "backspace": return "Backspace"
-    case "delete": return "Delete"
-    case "insert": return "Insert"
-    case "home": return "Home"
-    case "end": return "End"
-    case "pageup": return "PageUp"
-    case "pagedown": return "PageDown"
-    case "up": return "ArrowUp"
-    case "down": return "ArrowDown"
-    case "left": return "ArrowLeft"
-    case "right": return "ArrowRight"
-    default: return key
-  }
-}
 
 function syncNativePointerDownObservation(active: boolean): void {
   const roots = new Set<HostRootNode>()
@@ -497,66 +457,4 @@ function createDocumentStyle(): CompatDocumentStyle {
       return previous
     },
   }
-}
-
-function installSemanticTagMetadata(element: ReturnType<typeof createElement>, tagName: string): void {
-  const localName = tagName.toLowerCase()
-  const nodeName = localName.toUpperCase()
-  const listeners = new Map<string, Set<LocalEventListener>>()
-  Object.defineProperties(element, {
-    tagName: { configurable: true, enumerable: true, value: nodeName },
-    nodeName: { configurable: true, enumerable: true, value: nodeName },
-    localName: { configurable: true, enumerable: true, value: localName },
-    matches: {
-      configurable: true,
-      enumerable: true,
-      value: (selector: string) => selector
-        .split(",")
-        .map((candidate) => candidate.trim().toLowerCase())
-        .includes(localName),
-    },
-    contains: {
-      configurable: true,
-      enumerable: true,
-      value: (child: ReturnType<typeof createElement> | null) => {
-        let current = child
-        while (current) {
-          if (current === element) return true
-          if (current.kind === "root") return false
-          const parent = current.parent
-          if (!parent || parent.kind === "root") return false
-          current = parent
-        }
-        return false
-      },
-    },
-    addEventListener: {
-      configurable: true,
-      enumerable: true,
-      value: (type: string, listener: LocalEventListener | null) => {
-        if (!listener) return
-        const entries = listeners.get(type) ?? new Set<LocalEventListener>()
-        entries.add(listener)
-        listeners.set(type, entries)
-      },
-    },
-    removeEventListener: {
-      configurable: true,
-      enumerable: true,
-      value: (type: string, listener: LocalEventListener | null) => {
-        if (!listener) return
-        const entries = listeners.get(type)
-        entries?.delete(listener)
-        if (entries?.size === 0) listeners.delete(type)
-      },
-    },
-    dispatchEvent: {
-      configurable: true,
-      enumerable: true,
-      value: (event: Event) => {
-        for (const listener of listeners.get(event.type) ?? []) listener(event)
-        return !event.defaultPrevented
-      },
-    },
-  })
 }

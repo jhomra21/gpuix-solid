@@ -1,0 +1,158 @@
+import * as base from "./gpuix-solid-canvas"
+import { installLayeredCanvas2D } from "./layered-canvas"
+import {
+  parseTwoRowGridDefinition,
+  placeTwoRowGridItems,
+  twoRowGridItemStyle,
+  type TwoRowGridDefinition,
+} from "./two-row-grid-layout"
+
+export * from "./gpuix-solid-canvas"
+
+type HostNode = Parameters<typeof base.setProp>[0]
+type HostElement = Extract<HostNode, { kind: "element" }>
+type SourceStyleValue = string | number | null | undefined
+type SourceStyle = Record<string, SourceStyleValue>
+type SourceClassValue = string | undefined
+type SourceClasses = { class?: string; className?: string }
+
+const GRID_OWNED_CLASS = "row-span-2"
+const sourceStyles = new WeakMap<HostElement, SourceStyle>()
+const sourceClasses = new WeakMap<HostElement, SourceClasses>()
+const gridDefinitions = new WeakMap<HostElement, TwoRowGridDefinition>()
+const managedGridChildren = new WeakMap<HostElement, Set<HostElement>>()
+
+export function createElement(tagName: string): ReturnType<typeof base.createElement> {
+  const node = base.createElement(tagName)
+  if (tagName === "canvas" && node.kind === "element") installLayeredCanvas2D(node)
+  return node
+}
+
+export function setProp<T>(node: HostNode, name: string, value: T, previous?: T): void {
+  if (node.kind !== "element") {
+    base.setProp(node, name, value, previous)
+    return
+  }
+
+  if (name === "style") {
+    // SAFETY: the Solid universal renderer only routes JSX style records through the style property branch.
+    const style = value as SourceStyle | null | undefined
+    if (!style) {
+      sourceStyles.delete(node)
+      clearGridDefinition(node)
+      base.setProp(node, name, value, previous)
+      syncParentGrid(node)
+      return
+    }
+
+    const sourceStyle = { ...style }
+    sourceStyles.set(node, sourceStyle)
+    const definition = parseTwoRowGridDefinition(
+      optionalStyleText(sourceStyle, "grid-template-columns"),
+      optionalStyleText(sourceStyle, "grid-template-rows"),
+    )
+    if (definition) gridDefinitions.set(node, definition)
+    else clearGridDefinition(node)
+
+    base.setProp(node, name, nativeSourceStyle(sourceStyle, definition))
+    syncGrid(node)
+    syncParentGrid(node)
+    return
+  }
+
+  if (name === "class" || name === "className") {
+    const state = sourceClasses.get(node) ?? {}
+    const next: SourceClassValue = value == null ? undefined : String(value)
+    const prior: SourceClassValue = previous == null ? undefined : String(previous)
+    if (name === "class") state.class = next
+    else state.className = next
+    sourceClasses.set(node, state)
+    base.setProp(node, name, nativeClassValue(next), nativeClassValue(prior))
+    syncParentGrid(node)
+    return
+  }
+
+  base.setProp(node, name, value, previous)
+}
+
+export function insertNode(
+  parent: Parameters<typeof base.insertNode>[0],
+  node: Parameters<typeof base.insertNode>[1],
+  anchor?: Parameters<typeof base.insertNode>[2],
+): void {
+  base.insertNode(parent, node, anchor)
+  if (parent.kind === "element") syncGrid(parent)
+}
+
+function nativeClassValue(value: SourceClassValue): SourceClassValue {
+  if (value === undefined) return undefined
+  return value
+    .split(/\s+/)
+    .filter((token) => token.length > 0 && token !== GRID_OWNED_CLASS)
+    .join(" ")
+}
+
+function optionalStyleText(style: SourceStyle, property: string): string | undefined {
+  const value = style[property]
+  return value === undefined || value === null ? undefined : String(value)
+}
+
+function nativeSourceStyle(style: SourceStyle, definition: TwoRowGridDefinition | undefined): SourceStyle {
+  // SAFETY: filtering properties from a SourceStyle preserves every remaining SourceStyleValue unchanged.
+  const next = Object.fromEntries(
+    Object.entries(style).filter(([property]) => property !== "grid-template-rows"),
+  ) as SourceStyle
+  if (definition && next.position === undefined) next.position = "relative"
+  return next
+}
+
+function clearGridDefinition(node: HostElement): void {
+  gridDefinitions.delete(node)
+  restoreManagedChildren(node)
+}
+
+function syncParentGrid(node: HostElement): void {
+  const parent = node.parent
+  if (parent?.kind === "element") syncGrid(parent)
+}
+
+function syncGrid(parent: HostElement): void {
+  const definition = gridDefinitions.get(parent)
+  if (!definition) return
+
+  const children = parent.children.filter((child): child is HostElement => child.kind === "element")
+  const rowSpans = children.map((child): 1 | 2 => hasClassToken(child, GRID_OWNED_CLASS) ? 2 : 1)
+  const placements = placeTwoRowGridItems(rowSpans)
+  if (!placements || placements.length !== children.length) {
+    restoreManagedChildren(parent)
+    return
+  }
+
+  const managed = managedGridChildren.get(parent) ?? new Set<HostElement>()
+  managedGridChildren.set(parent, managed)
+
+  for (let index = 0; index < children.length; index++) {
+    const child = children[index]
+    const placement = placements[index]
+    if (!child || !placement) continue
+    const authored = sourceStyles.get(child) ?? {}
+    base.setProp(child, "style", {
+      ...authored,
+      ...twoRowGridItemStyle(definition, placement),
+    })
+    managed.add(child)
+  }
+}
+
+function restoreManagedChildren(parent: HostElement): void {
+  const managed = managedGridChildren.get(parent)
+  if (!managed) return
+  for (const child of managed) base.setProp(child, "style", sourceStyles.get(child) ?? {})
+  managed.clear()
+}
+
+function hasClassToken(node: HostElement, token: string): boolean {
+  const classes = sourceClasses.get(node)
+  const combined = `${classes?.class ?? ""} ${classes?.className ?? ""}`
+  return combined.split(/\s+/).includes(token)
+}

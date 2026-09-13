@@ -84,7 +84,68 @@ describe("Solid floating controls", () => {
     expect(changes).toEqual([true, false])
   })
 
-  it("registers detached Select items and skips disabled items during keyboard selection", () => {
+  it("uses Select root items as closed labels and mounts interaction items only with content", () => {
+    const renderer = new ControlRenderer()
+    const root = createRoot(renderer)
+    let trigger: PublicInstance | undefined
+
+    root.render(() => createComponent(Select, {
+      items: [
+        { value: "alpha", label: "Alpha label" },
+        { value: "beta", label: "Beta label" },
+      ],
+      defaultValue: "alpha",
+      get children() {
+        return [
+          createComponent(SelectTrigger, {
+            ref: (instance) => {
+              trigger = instance
+            },
+            get children() {
+              return createComponent(SelectValue, { placeholder: "Choose" })
+            },
+          }),
+          createComponent(SelectContent, {
+            get children() {
+              return [
+                createComponent(SelectItem, { value: "alpha", children: "Alpha item" }),
+                createComponent(SelectItem, { value: "beta", children: "Beta item" }),
+              ]
+            },
+          }),
+        ]
+      },
+    }))
+
+    expect(hasMutation(renderer, "setText", "Alpha label")).toBe(true)
+    expect(hasMutation(renderer, "setText", "Beta item")).toBe(false)
+
+    root.dispatch({ elementId: trigger?.id ?? 0, eventType: "mouseDown" })
+    root.dispatch({ elementId: trigger?.id ?? 0, eventType: "click" })
+
+    expect(hasMutation(renderer, "setText", "Beta item")).toBe(true)
+  })
+
+  it("shows the raw Select value when root items are omitted", () => {
+    const renderer = new ControlRenderer()
+    const root = createRoot(renderer)
+
+    root.render(() => createComponent(Select, {
+      defaultValue: "raw-value",
+      get children() {
+        return createComponent(SelectTrigger, {
+          get children() {
+            return createComponent(SelectValue, { placeholder: "Choose" })
+          },
+        })
+      },
+    }))
+
+    expect(hasMutation(renderer, "setText", "raw-value")).toBe(true)
+    expect(hasMutation(renderer, "setText", "Choose")).toBe(false)
+  })
+
+  it("registers mounted Select items and skips disabled items during keyboard selection", () => {
     const renderer = new ControlRenderer()
     const root = createRoot(renderer)
     let trigger: PublicInstance | undefined
@@ -92,6 +153,11 @@ describe("Solid floating controls", () => {
     const values: string[] = []
 
     root.render(() => createComponent(Select, {
+      items: [
+        { value: "alpha", label: "Alpha" },
+        { value: "disabled", label: "Disabled" },
+        { value: "beta", label: "Beta" },
+      ],
       defaultValue: "alpha",
       onValueChange: (value) => values.push(value),
       get children() {
@@ -134,6 +200,38 @@ describe("Solid floating controls", () => {
 
     expect(values).toEqual(["beta"])
     expect(renderer.focused.at(-1)).toBe(trigger?.id)
+  })
+
+  it("blocks Select interaction when the root is disabled", () => {
+    const renderer = new ControlRenderer()
+    const root = createRoot(renderer)
+    let item: PublicInstance | undefined
+    const values: string[] = []
+
+    root.render(() => createComponent(Select, {
+      items: [{ value: "alpha", label: "Alpha" }],
+      defaultValue: "alpha",
+      defaultOpen: true,
+      disabled: true,
+      onValueChange: (value) => values.push(value),
+      get children() {
+        return createComponent(SelectContent, {
+          get children() {
+            return createComponent(SelectItem, {
+              value: "alpha",
+              ref: (instance) => {
+                item = instance
+              },
+              children: "Alpha",
+            })
+          },
+        })
+      },
+    }))
+
+    expect(item).toBeDefined()
+    root.dispatch({ elementId: item?.id ?? 0, eventType: "click" })
+    expect(values).toEqual([])
   })
 
   it("filters Combobox items and selects the active native-input result", () => {

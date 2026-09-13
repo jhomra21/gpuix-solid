@@ -3,11 +3,14 @@ import { defineConfig } from "vite"
 import { kobalteNativeAliases } from "./kobalte-native-aliases.ts"
 
 export default defineConfig({
+  define: {
+    "import.meta.env.VITE_DESKTOP": JSON.stringify("false"),
+  },
   plugins: [
     solid({
       solid: {
         generate: "universal",
-        moduleName: "@jhomra21/gpuix-solid1",
+        moduleName: "@solid1-daw/gpuix-solid-canvas",
       },
     }),
   ],

@@ -6,3 +6,4 @@ coverage/
 .publish/
 *.tgz
 pack.json
+.cache/gpuix/

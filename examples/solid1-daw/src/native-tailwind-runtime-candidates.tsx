@@ -9,6 +9,8 @@ export function NativeTailwindRuntimeCandidates(): JSX.Element {
     <>
       {/* TransportControls.tsx: centerIconButtonClass */}
       <div class="h-7 w-7 text-muted-foreground hover:bg-timeline-surface-muted hover:text-foreground" />
+      {/* compat/utils.ts: bg-current fallback for the source record dot; GPUIX 0.7 cannot resolve inherited currentColor for native backgrounds */}
+      <div class="bg-muted-foreground" />
       {/* timeline-left-browser.tsx: active/inactive tab classList keys */}
       <div class="bg-app-surface text-foreground" />
       <div class="text-muted-foreground" />

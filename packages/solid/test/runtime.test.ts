@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it } from "vitest"
 import { createElement, setProp } from "../src/host/universal.js"
 import type { HostElementNode } from "../src/host/nodes.js"
 import { createRoot } from "../src/root.js"
+import { render, resetRender } from "../src/runtime.js"
 import { FakeRenderer } from "./fake-renderer.js"
 
 function element(): HostElementNode {
@@ -9,6 +10,19 @@ function element(): HostElementNode {
   if (node.kind !== "element") throw new TypeError("Expected GPUIX host element")
   return node
 }
+
+function testIdElementId(renderer: FakeRenderer, testId: string): number | undefined {
+  for (const batch of renderer.batches) {
+    for (const mutation of batch) {
+      if (mutation[0] !== "setCustomProp" || mutation[2] !== "testId" || mutation[3] !== testId) continue
+      const id = Number(mutation[1])
+      if (Number.isInteger(id)) return id
+    }
+  }
+  return undefined
+}
+
+afterEach(() => resetRender())
 
 describe("root lifecycle", () => {
   it("replaces the mounted native root before mounting the next tree", () => {
@@ -27,12 +41,16 @@ describe("root lifecycle", () => {
         ["createElement", 1, "div"],
         ["setCustomProp", 1, "testId", "first"],
         ["setRoot", 1],
+        ["setEventListener", 1, "mouseMove", true],
+        ["setEventListener", 1, "mouseUp", true],
       ],
       [["destroyElement", 1]],
       [
         ["createElement", 2, "div"],
         ["setCustomProp", 2, "testId", "second"],
         ["setRoot", 2],
+        ["setEventListener", 2, "mouseMove", true],
+        ["setEventListener", 2, "mouseUp", true],
       ],
     ])
   })
@@ -47,12 +65,35 @@ describe("root lifecycle", () => {
     setProp(first, "onClick", click)
 
     root.render(() => first)
-    root.dispatch({ elementId: first.id, eventType: "click" })
+    expect(root.dispatch({ elementId: first.id, eventType: "click" })).toBe(true)
     expect(clicks).toBe(1)
 
     root.render(() => second)
-    root.dispatch({ elementId: first.id, eventType: "click" })
+    expect(root.dispatch({ elementId: first.id, eventType: "click" })).toBe(false)
     expect(clicks).toBe(1)
+  })
+
+  it("rotates window event ownership on remount and rejects the previous lease", () => {
+    const renderer = new FakeRenderer()
+    const received: string[] = []
+    const root = createRoot(renderer, {
+      onKeyDown: () => received.push("first"),
+    })
+    root.render(() => element())
+    const firstWindowEventId = renderer.windowKeyEvents.at(-1)?.[2]
+    if (firstWindowEventId === undefined) throw new Error("Expected initial window key event id")
+
+    root.setWindowKeyEventHandlers({
+      onKeyDown: () => received.push("second"),
+    })
+    root.render(() => element())
+    const secondWindowEventId = renderer.windowKeyEvents.at(-1)?.[2]
+    if (secondWindowEventId === undefined) throw new Error("Expected remounted window key event id")
+
+    expect(secondWindowEventId).toBeGreaterThan(firstWindowEventId)
+    expect(root.dispatch({ elementId: firstWindowEventId, eventType: "windowKeyDown", key: "a" })).toBe(false)
+    expect(root.dispatch({ elementId: secondWindowEventId, eventType: "windowKeyDown", key: "a" })).toBe(true)
+    expect(received).toEqual(["second"])
   })
 
   it("keeps renderer ids and event registries isolated across roots", () => {
@@ -109,5 +150,48 @@ describe("root lifecycle", () => {
     root.unmount()
 
     expect(renderer.batches.at(-1)).toEqual([["destroyElement", 1]])
+  })
+})
+
+describe("render hot remounts", () => {
+  it("reuses one renderer/root and prevents a stale handle from unmounting the replacement", () => {
+    const renderer = new FakeRenderer()
+    const first = element()
+    const firstHandle = render(() => first, { renderer })
+    const second = element()
+    const secondHandle = render(() => second, { renderer })
+
+    expect(firstHandle.root).toBe(secondHandle.root)
+    expect(first.id).toBe(1)
+    expect(second.id).toBe(2)
+
+    firstHandle.unmount()
+    expect(renderer.batches.at(-1)).not.toEqual([["destroyElement", 2]])
+
+    secondHandle.unmount()
+    expect(renderer.batches.at(-1)).toEqual([["destroyElement", 2]])
+  })
+
+  it("shows a runtime error overlay and reloads the last render closure", async () => {
+    const renderer = new FakeRenderer()
+    let attempts = 0
+    const handle = render(() => {
+      attempts += 1
+      if (attempts === 1) throw new Error("runtime overlay detector")
+      const node = element()
+      setProp(node, "testId", "reloaded-app")
+      return node
+    }, { renderer })
+
+    await Promise.resolve()
+
+    expect(testIdElementId(renderer, "runtime-error-overlay")).toBeDefined()
+    const reloadId = testIdElementId(renderer, "runtime-error-reload")
+    expect(reloadId).toBeDefined()
+    if (reloadId === undefined) throw new Error("Expected runtime error Reload element")
+
+    expect(handle.root.dispatch({ elementId: reloadId, eventType: "click" })).toBe(true)
+    expect(attempts).toBe(2)
+    expect(testIdElementId(renderer, "reloaded-app")).toBeDefined()
   })
 })

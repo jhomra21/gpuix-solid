@@ -25,7 +25,7 @@ The primary package is `gpuix-solid` for Solid 2. This repository also contains 
 
 GPUix Solid does not fork GPUIX's Rust renderer. It consumes `@gpuix/native` and implements the Solid side of the host tree, mutation batching, events, testing, and automation.
 
-Against the published GPUIX React 0.6 desktop surface, GPUix Solid now has Solid 2 counterparts for Counter, Native Text, Blurred Window, Todo, Diff, Timeline, Chat, and Infinite Chat. The remaining upstream runtime gap is the browser/WebGPU WebAssembly renderer.
+Against the published GPUIX React 0.7 desktop surface, GPUix Solid has Solid 2 parity counterparts for Counter, Native Text, Todo, Diff, Timeline, Chat, and Infinite Chat. The single Blurred Window target is intentionally the custom native-glass showcase rather than a second parity fixture. The remaining upstream runtime gap is the browser/WebGPU WebAssembly renderer.
 
 ## Quickstart
 
@@ -180,7 +180,7 @@ The documented Solid path is Vite plus Bun. This repository does not yet provide
 
 `packages/solid1` contains the Solid 1 renderer package named `@jhomra21/gpuix-solid1`.
 
-Its peer range is `solid-js >=1.9.0 <2`, and it uses `@gpuix/native ^0.6.0`. The Solid 1 renderer has the same native host contract as the Solid 2 package, plus compatibility code needed by browser-oriented Solid libraries such as Kobalte.
+Its peer range is `solid-js >=1.9.0 <2`, and it uses `@gpuix/native ^0.7.0`. The Solid 1 renderer has the same native host contract as the Solid 2 package, plus compatibility code needed by browser-oriented Solid libraries such as Kobalte.
 
 That compatibility code does not turn GPUIX into a browser DOM. It provides the browser behaviors that the tested Solid libraries read while their visible output still goes through native GPUIX elements.
 
@@ -188,22 +188,25 @@ That compatibility code does not turn GPUIX into a browser DOM. It provides the 
 
 Run these commands from the repository root. The longer example guide lives in [examples/README.md](./examples/README.md).
 
+Where upstream application source exists, the examples use that source as the reference: pinned snapshots are hash checked, and framework/browser/router/network substitutions are kept behind compatibility boundaries rather than used to redesign the application.
+
 ### GPUIX parity examples
 
-These Solid 2 examples correspond directly to the desktop examples in `remorses/gpuix`. The ports keep the same native capability being tested while using Solid state and lifecycle primitives instead of React.
+These Solid 2 examples correspond directly to the desktop examples in `remorses/gpuix`. The ports preserve the upstream capability, user-visible structure, copy, and assets where applicable while translating only the framework/runtime boundaries required for Solid and GPUIX.
 
 | Upstream example | Run | What it covers |
 | --- | --- | --- |
 | [Counter](./examples/counter/src/index.tsx) | `bun run example:counter` | Signals, click events, hover state, and repeated native updates |
-| [Native text](./examples/counter/src/native-text.tsx) | `bun run example:native-text` | Native `<markdown>`, `<code>`, and `<diff>` elements, tabs, scrolling, selection, and link events |
-| [Blurred window](./examples/counter/src/blurred-window.tsx) | `bun run example:blurred-window` | GPUIX 0.6 native blur, transparent titlebar, resize behavior, traffic-light placement, plus the Solid username welcome and personalized dashboard flow |
-| [Todo](./examples/counter/src/todo) | `bun run example:todo` | Standalone app structure, native input, lists, sidebar motion, icons, hover controls, and virtual-list anchoring |
+| [Native text](./examples/counter/src/native-text.tsx) | `bun run example:native-text` | Pinned upstream `CodeBlock`/fixture structure, native `<markdown>`, `<code>`, and `<diff>` elements, tabs, scrolling, selection, and link events |
+| [Todo](./examples/counter/src/todo) | `bun run example:todo` | Standalone app structure, native input, lists, sidebar motion, pinned upstream SVG icons, hover controls, and virtual-list anchoring |
 | [Diff](./examples/counter/src/diff) | `bun run example:diff` | Unified and split source diffs, Shiki highlighting, word-level changes, multi-hunk rendering, and scrolling |
 | [Timeline](./examples/counter/src/timeline) | `bun run example:timeline` | Two-axis pan, clip move and trim, snapping, scrubbing, zoom, marquee selection, culling, frozen panes, and pointer capture |
-| [Chat](./examples/counter/src/chat) | `bun run example:chat` | Native virtual list, Solid-composed safe-MDX, menus, selection, composer input, window insets, scrolling, and sidebar animation |
+| [Chat](./examples/counter/src/chat) | `bun run example:chat` | Pinned upstream transcript/data/assets, native virtual list, Solid-composed safe-MDX, grouped menus, selection, composer input, window insets, scrolling, and sidebar animation |
 | [Infinite chat](./examples/counter/src/infinite-chat) | `bun run example:infinite-chat` | Bidirectional virtual history, bounded page cache, edge loading, logical anchor restoration, and MDX link navigation |
 
-The Diff fixture declares `diff` and `shiki` as normal example-workspace dependencies. Chat and Infinite Chat declare `safe-mdx`, but use only `safe-mdx/parse`; the parsed tree is rendered into Solid components and GPUIX host nodes rather than React.
+Blurred Window intentionally has one runnable target: `bun run example:blurred-window`. It is the animated username/welcome glass showcase, using GPUIX native blur/window behavior; there is no separate parity/showcase command.
+
+The Diff fixture declares `diff` and `shiki` as normal example-workspace dependencies. Chat and Infinite Chat declare `safe-mdx`, but use only `safe-mdx/parse`; the parsed tree is rendered through a Solid MDAST adapter and GPUIX host nodes rather than React.
 
 The remaining upstream runtime example is the browser/WebGPU path. GPUix Solid currently targets the native desktop renderer and does not wrap GPUIX's browser Wasm renderer.
 
@@ -211,13 +214,13 @@ The exact baseline and current gaps are tracked in [docs/upstream-parity.md](./d
 
 ### Solid ecosystem examples
 
-These examples are additional coverage rather than replacements for the upstream parity ports.
+These examples are additional coverage rather than replacements for the upstream parity ports. Dashboard, CodeImage, and TanStack are also source-pinned to their own upstream applications.
 
 | Example | Run | What it covers |
 | --- | --- | --- |
-| [Dashboard](./examples/counter/src/dashboard) | `bun run example:dashboard` | A multi-page Solid 2 app with inputs, textarea, lists, `Select`, `Tooltip`, native animations, and screenshot tests |
-| [CodeImage](./examples/counter/src/codeimage) | `bun run example:codeimage` | A Solid 2 native editor UI with frame, code, theme, input, and export controls |
-| [TanStack kitchen sink](./examples/counter/src/tanstack-kitchen-sink) | `bun run example:tanstack-kitchen-sink` | An adaptation of the TanStack Router Solid 2 kitchen-sink shell with local deterministic route data |
+| [Dashboard](./examples/counter/src/dashboard) | `bun run example:dashboard` | A source-first six-route Solid 2 application with native router/auth/network/modal compatibility, controlled inputs, lists, scrolling, guarded deletion, and screenshot tests |
+| [CodeImage](./examples/counter/src/codeimage) | `bun run example:codeimage` | The pinned CodeImage editor `App` composition with native substitutions isolated behind `compat.tsx` |
+| [TanStack kitchen sink](./examples/counter/src/tanstack-kitchen-sink) | `bun run example:tanstack-kitchen-sink` | The pinned TanStack Router Solid 2 file-based route hierarchy with native route/query/browser compatibility below the application boundary |
 | [Solid 1 blurred window](./examples/solid1-blurred-window) | `bun run example:solid1-blurred-window` | The blurred-window example through the Solid 1 renderer |
 | [Kobalte](./examples/solid1-kobalte) | `bun run example:solid1-kobalte` | Real `@kobalte/core@0.13.13` source, pinned docs TSX and CSS, portals, menus, dialogs, focus, keyboard input, and SVG icons |
 | [Tailwind v4](./examples/solid1-tailwind) | `bun run example:solid1-tailwind` | Tailwind v4 classes compiled into native style data, theme tokens, hover and active states, and reactive `classList` changes |
@@ -323,7 +326,9 @@ For lower-level gesture tests, `app.mouse` exposes native move/down/up/click/whe
 
 `gpuix-solid/automation` also has a typed stdio transport for controlling a launched native process. The live backend can inject native keystrokes and mouse input rather than replacing user interactions with direct state updates.
 
-CI has verify jobs on macOS, Ubuntu, and Windows, plus a separate exact-package smoke job. The GPUIX 0.6 line validates frozen install, lint, typecheck, native package tests, Todo, Diff, Timeline, Chat, Infinite Chat, Dashboard, CodeImage, and TanStack integration tests/builds, Solid 1 package checks, the Kobalte fixture, the Tailwind fixture, the DAW fixture, release tests, and package smoke validation.
+`bun run source:check` verifies the pinned GPUIX, Dashboard, CodeImage, TanStack, and Diffusion Studio snapshots against recorded Git blob hashes.
+
+CI has verify jobs on macOS, Ubuntu, and Windows, plus a separate exact-package smoke job. The GPUIX 0.7 line validates frozen install, lint, typecheck, native package tests, Todo, Diff, Timeline, Chat, Infinite Chat, Dashboard, CodeImage, and TanStack integration tests/builds, Solid 1 package checks, the Kobalte fixture, the Tailwind fixture, the DAW fixture, release tests, and package smoke validation.
 
 ## Compatibility
 
@@ -333,11 +338,11 @@ The current repository contract is:
 | --- | --- |
 | Solid 2 package | `gpuix-solid`, `solid-js ^2.0.0-rc.0`, `@solidjs/universal 2.0.0-rc.0` |
 | Solid 1 package | `@jhomra21/gpuix-solid1`, `solid-js >=1.9.0 <2` |
-| Native renderer | `@gpuix/native ^0.6.0` |
+| Native renderer | `@gpuix/native ^0.7.0` |
 | Bun | `1.3.14` in repository CI |
 | TypeScript | `^5.9.2` in the published package line |
 
-The root lockfile currently resolves GPUIX 0.6 desktop bindings for macOS arm64, Linux x64 GNU, and Windows x64 MSVC. Repository CI validates one runner in each OS family.
+The root lockfile currently resolves GPUIX 0.7 desktop bindings for macOS arm64, Linux x64 GNU, and Windows x64 MSVC. Repository CI validates one runner in each OS family.
 
 See [docs/compatibility.md](./docs/compatibility.md) for the longer compatibility notes.
 
@@ -365,7 +370,7 @@ Read [ARCHITECTURE.md](./ARCHITECTURE.md) before changing renderer ownership or 
 
 The projects differ in the JavaScript framework layer. GPUIX upstream uses React and `react-reconciler`. GPUix Solid uses Solid's universal compiler and keeps a small synchronous host tree for Solid reconciliation.
 
-The published GPUIX 0.6 desktop example set now has Solid 2 counterparts for Counter, Native Text, Blurred Window, Todo, Diff, Timeline, Chat, and Infinite Chat. The DAW remains a separate Solid fixture and does not stand in for Timeline.
+The published GPUIX 0.7 desktop example set has Solid 2 parity counterparts for Counter, Native Text, Todo, Diff, Timeline, Chat, and Infinite Chat. The repository's single Blurred Window target is the custom showcase, and the DAW remains a separate Solid fixture that does not stand in for Timeline.
 
 GPUIX upstream also has `@gpuix/cli`, a browser WebAssembly renderer, and documented single-binary builds. GPUix Solid does not wrap those paths yet.
 

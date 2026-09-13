@@ -8,7 +8,6 @@ import {
   createFocusRegistry,
   mergeComponentStyle,
   mergeStyle,
-  popupBaseStyle,
   resolveNativeComponentStateStyle,
   triggerBaseStyle,
   type FloatingPosition,

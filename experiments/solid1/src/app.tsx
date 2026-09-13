@@ -1,5 +1,5 @@
 import { For, Show, createMemo, createSignal } from "solid-js"
-import type { EventPayload, StyleDesc } from "gpuix-solid1-experiment"
+import type { EventPayload, StyleDesc } from "@jhomra21/gpuix-solid1"
 
 interface LabItem {
   id: string

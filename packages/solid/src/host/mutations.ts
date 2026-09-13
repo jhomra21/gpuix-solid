@@ -6,6 +6,16 @@ export type Mutation = readonly [name: string, ...args: MutationValue[]]
 
 const APPLY_BATCH_CUSTOM_PROP = "setCustomProp"
 const DESTROY_UNLINKS_PARENT = new WeakSet<NativeRenderer>()
+const CUSTOM_NATIVE_CLICK_TYPES = new Set([
+  "input",
+  "textarea",
+  "anchored",
+  "img",
+  "svg",
+  "code",
+  "diff",
+  "markdown",
+])
 
 type DimensionStyleKey =
   | "width"
@@ -90,6 +100,13 @@ export function useDestroyUnlinksParentBatch(renderer: NativeRenderer): void {
 export class MutationDriver {
   readonly #renderer: NativeRenderer
   readonly #events: EventRegistry
+  readonly #parents = new Map<number, number>()
+  readonly #children = new Map<number, Set<number>>()
+  readonly #elementTypes = new Map<number, string>()
+  readonly #directClickListeners = new Map<number, boolean>()
+  readonly #directMouseUpListeners = new Map<number, boolean>()
+  readonly #appliedClickListeners = new Map<number, boolean>()
+  readonly #appliedMouseUpListeners = new Map<number, boolean>()
   #queue: Mutation[] = []
   #scheduled = false
   #disposed = false
@@ -109,12 +126,59 @@ export class MutationDriver {
 
   enqueue(name: string, ...args: MutationValue[]): void {
     if (this.#disposed) throw new Error("GPUix Solid mutation driver is disposed")
+
+    if (name === "createElement") {
+      this.#elementTypes.set(numberArg(args, 0), stringArg(args, 1))
+    }
+
+    if (name === "setEventListener") {
+      const eventType = stringArg(args, 1)
+      const id = numberArg(args, 0)
+      const hasHandler = booleanArg(args, 2)
+      if (eventType === "click") {
+        // DOM click intent is realized through the one native activation channel
+        // the target can actually provide. GPUIX 0.7 retained hosts need mouse-up
+        // for embedded macOS reliability, while its custom adapters expose only a
+        // semantic `click` subscription. Current GPUIX keeps the same custom event
+        // name but implements it from primary mouse-up internally.
+        this.#directClickListeners.set(id, hasHandler)
+        this.#syncActivationSubtree(id)
+        this.#schedule()
+        return
+      }
+      if (eventType === "mouseUp") {
+        this.#directMouseUpListeners.set(id, hasHandler)
+        this.#syncActivationListener(id)
+        this.#schedule()
+        return
+      }
+    }
+
+    let activationSubtree: number | undefined
+    if (name === "appendChild" || name === "insertBefore") {
+      const parentId = numberArg(args, 0)
+      const childId = numberArg(args, 1)
+      this.#setParent(childId, parentId)
+      activationSubtree = childId
+    } else if (name === "removeChild") {
+      const childId = numberArg(args, 1)
+      this.#setParent(childId, null)
+      activationSubtree = childId
+    } else if (name === "setRoot") {
+      const rootId = numberArg(args, 0)
+      this.#setParent(rootId, null)
+      activationSubtree = rootId
+    }
+
     if (name === "setStyle" && isObjectValue(args[1]) && !Array.isArray(args[1])) {
       // SAFETY: setStyle is only enqueued with the renderer-owned StyleDesc object; this boundary widens numeric fields solely to accept CSS unit strings before native serialization.
       const style = args[1] as StyleMutationInput
       args[1] = normalizeStyleMutation(style)
     }
+
     this.#queue.push([name, ...args])
+    if (activationSubtree !== undefined) this.#syncActivationSubtree(activationSubtree)
+    if (name === "destroyElement") this.#forgetSubtree(numberArg(args, 0))
     this.#schedule()
   }
 
@@ -166,6 +230,91 @@ export class MutationDriver {
   dispose(): void {
     this.flush()
     this.#disposed = true
+  }
+
+  #setParent(childId: number, parentId: number | null): void {
+    const previousParent = this.#parents.get(childId)
+    if (previousParent !== undefined) {
+      const siblings = this.#children.get(previousParent)
+      siblings?.delete(childId)
+      if (siblings?.size === 0) this.#children.delete(previousParent)
+    }
+
+    if (parentId === null) {
+      this.#parents.delete(childId)
+    } else {
+      this.#parents.set(childId, parentId)
+      const children = this.#children.get(parentId) ?? new Set<number>()
+      children.add(childId)
+      this.#children.set(parentId, children)
+    }
+    this.#events.setParent(childId, parentId)
+  }
+
+  #hasClickAncestor(id: number): boolean {
+    let parentId = this.#parents.get(id)
+    while (parentId !== undefined) {
+      if (this.#directClickListeners.get(parentId) === true) return true
+      parentId = this.#parents.get(parentId)
+    }
+    return false
+  }
+
+  #needsClickActivation(id: number): boolean {
+    return this.#directClickListeners.get(id) === true || this.#hasClickAncestor(id)
+  }
+
+  #usesSemanticNativeClick(id: number): boolean {
+    const type = this.#elementTypes.get(id)
+    return type !== undefined && CUSTOM_NATIVE_CLICK_TYPES.has(type)
+  }
+
+  #syncActivationSubtree(rootId: number): void {
+    const stack = [rootId]
+    while (stack.length > 0) {
+      const id = stack.pop()!
+      this.#syncActivationListener(id)
+      for (const childId of this.#children.get(id) ?? []) stack.push(childId)
+    }
+  }
+
+  #syncActivationListener(id: number): void {
+    const activation = this.#needsClickActivation(id)
+    const semanticClick = activation && this.#usesSemanticNativeClick(id)
+    const mouseUp = this.#directMouseUpListeners.get(id) === true || (activation && !semanticClick)
+
+    const previousClick = this.#appliedClickListeners.get(id) ?? false
+    if (previousClick !== semanticClick) {
+      this.#appliedClickListeners.set(id, semanticClick)
+      this.#queue.push(["setEventListener", id, "click", semanticClick])
+    }
+
+    const previousMouseUp = this.#appliedMouseUpListeners.get(id) ?? false
+    if (previousMouseUp !== mouseUp) {
+      this.#appliedMouseUpListeners.set(id, mouseUp)
+      this.#queue.push(["setEventListener", id, "mouseUp", mouseUp])
+    }
+  }
+
+  #forgetSubtree(rootId: number): void {
+    const stack = [rootId]
+    while (stack.length > 0) {
+      const id = stack.pop()!
+      for (const childId of this.#children.get(id) ?? []) stack.push(childId)
+      const parentId = this.#parents.get(id)
+      if (parentId !== undefined) {
+        const siblings = this.#children.get(parentId)
+        siblings?.delete(id)
+        if (siblings?.size === 0) this.#children.delete(parentId)
+      }
+      this.#parents.delete(id)
+      this.#children.delete(id)
+      this.#elementTypes.delete(id)
+      this.#directClickListeners.delete(id)
+      this.#directMouseUpListeners.delete(id)
+      this.#appliedClickListeners.delete(id)
+      this.#appliedMouseUpListeners.delete(id)
+    }
   }
 
   #schedule(): void {
