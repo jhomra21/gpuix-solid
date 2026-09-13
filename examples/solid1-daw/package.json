@@ -7,6 +7,7 @@
     "source:check": "node scripts/check-upstream-source-parity.mjs && node scripts/check-waveform-source-parity.mjs && node scripts/check-eq-source-parity.mjs && bun scripts/check-canvas-bridge.ts && bun scripts/check-eq-ui-compat.ts",
     "generate:styles": "node scripts/generate-eq-native-tailwind-source.mjs && bun scripts/generate-native-tailwind.mjs",
     "build": "bun run host:build && bun run generate:styles && vite build",
+    "build:edge": "bun run source:check && bun run generate:styles && vite build",
     "build:test": "bun run host:build && bun run generate:styles && vite build --config vite.test.config.ts",
     "build:test:edge": "bun run source:check && bun run generate:styles && vite build --config vite.test.config.ts",
     "typecheck": "bun run host:build && bun run source:check && bun run generate:styles && tsc --noEmit",
