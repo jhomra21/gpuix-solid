@@ -195,7 +195,7 @@ function renderHandle(slot: RenderSlot, generation: number): RenderHandle {
   }
 }
 
-function mountCodeGeneration(slot: RenderSlot, code: () => Solid1RenderValue, options: RenderOptions): number {
+function mountCode(slot: RenderSlot, code: () => Solid1RenderValue, options: RenderOptions): RenderHandle {
   const { onEvent, onKeyDown, onKeyUp, debugFrameOverlay } = options
   if (slot.nativeRenderer) setRendererOnEvent(slot.nativeRenderer, onEvent)
   slot.root.setWindowKeyEventHandlers(windowKeyEventHandlers(onKeyDown, onKeyUp))
@@ -208,11 +208,7 @@ function mountCodeGeneration(slot: RenderSlot, code: () => Solid1RenderValue, op
   } catch (error) {
     scheduleRuntimeError(error instanceof Error ? error : String(error))
   }
-  return slot.generation
-}
-
-function mountCode(slot: RenderSlot, code: () => Solid1RenderValue, options: RenderOptions): RenderHandle {
-  return renderHandle(slot, mountCodeGeneration(slot, code, options))
+  return renderHandle(slot, slot.generation)
 }
 
 export function resetRender(): void {
@@ -265,30 +261,24 @@ export function render(code: () => Solid1RenderValue, options: RenderOptions = {
   const root = createRoot(host, windowKeyEventHandlers(onKeyDown, onKeyUp))
   rendererBindingState(nativeRenderer).root = root
 
+  // Start the AppKit pump before the first Solid render. A mount-time throw must
+  // not strand the native macOS window without future ticks.
+  const loop = startFrameLoop(nativeRenderer, {
+    onError(error) {
+      scheduleRuntimeError(error)
+    },
+    onTerminated() {
+      process.exit(0)
+    },
+  })
   const slot: RenderSlot = {
     host,
     nativeRenderer,
     root,
-    loop: { stop() {} },
+    loop,
     generation: 0,
     overlayShown: false,
   }
   runtimeGlobalState.__gpuixSolid1RenderSlot = slot
-
-  // Commit the initial retained tree before the first native tick. Starting the
-  // pump in finally keeps the window alive even when initial evaluation fails.
-  try {
-    mountCodeGeneration(slot, code, options)
-  } finally {
-    slot.loop = startFrameLoop(nativeRenderer, {
-      onError(error) {
-        scheduleRuntimeError(error)
-      },
-      onTerminated() {
-        process.exit(0)
-      },
-    })
-  }
-
-  return renderHandle(slot, slot.generation)
+  return mountCode(slot, code, options)
 }

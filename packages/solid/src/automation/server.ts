@@ -4,7 +4,6 @@ import {
   parseAutomationTree,
   parseBounds,
 } from "../automation.js"
-import { setAutomationFrameOwnership } from "../frame-loop.js"
 import { jsonValueSchema, type JsonValue } from "./json.js"
 import {
   automationRequestSchema,
@@ -281,8 +280,7 @@ export function enableAutomation(
   renderer: LiveAutomationRenderer,
   options: { driveFrames?: boolean } = {},
 ): void {
-  const driveFrames = options.driveFrames ?? process.platform === "darwin"
-  setAutomationFrameOwnership(driveFrames)
+  const driveFrames = options.driveFrames ?? false
   serveAutomationStdio(new LiveAutomationBackend(renderer, {
     tickAfterInput: false,
     tickBeforeRead: driveFrames,
