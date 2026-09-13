@@ -1,8 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { setAutomationFrameOwnership, startFrameLoop } from "../src/frame-loop.js"
+import { startFrameLoop } from "../src/frame-loop.js"
 
 afterEach(() => {
-  setAutomationFrameOwnership(false)
   vi.useRealTimers()
   vi.restoreAllMocks()
 })
@@ -37,10 +36,9 @@ describe("frame loop", () => {
     loop.stop()
   })
 
-  it("does not start a competing timer when live automation owns the frame pump", () => {
+  it("starts and keeps the runtime pump active when native requires ticks", () => {
     vi.useFakeTimers()
     let ticks = 0
-    setAutomationFrameOwnership(true)
 
     const loop = startFrameLoop({
       requiresTick: () => true,
@@ -50,9 +48,9 @@ describe("frame loop", () => {
       },
     }, { frameMs: 1 })
 
-    expect(ticks).toBe(0)
+    expect(ticks).toBe(1)
     vi.runOnlyPendingTimers()
-    expect(ticks).toBe(0)
+    expect(ticks).toBe(2)
     loop.stop()
   })
 })
