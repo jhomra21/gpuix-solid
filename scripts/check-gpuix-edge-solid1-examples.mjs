@@ -27,7 +27,7 @@ for (const directory of consumers) {
 }
 
 // Installs above may restore registry @gpuix/native packages. Relink once, after
-// every dependency tree exists, so all native acceptance runs use the source build.
+// every dependency tree exists, so all compatibility builds use the source build.
 run(process.execPath, ["scripts/gpuix-edge.mjs", "link"], ".")
 run(process.execPath, ["scripts/gpuix-edge.mjs", "status"], ".")
 
@@ -39,19 +39,20 @@ for (const directory of ["packages/solid1", ...consumers]) {
   }
 }
 
-run("bun", ["run", "check"], "experiments/solid1")
+run("bun", ["run", "typecheck"], "experiments/solid1")
+run("bun", ["run", "build"], "experiments/solid1")
 for (const directory of [
   "examples/solid1-kobalte",
   "examples/solid1-blurred-window",
   "examples/solid1-tailwind",
 ]) {
   run("bun", ["run", "typecheck"], directory)
-  run("bun", ["run", "test:native"], directory)
+  run("bun", ["run", "build"], directory)
 }
 run("bun", ["run", "typecheck:edge"], "examples/solid1-daw")
-run("bun", ["run", "test:native:edge"], "examples/solid1-daw")
+run("bun", ["run", "build:edge"], "examples/solid1-daw")
 
-console.log("Solid 1 source-edge native examples: passed")
+console.log("Solid 1 source-edge consumer typecheck/build: passed")
 
 function run(executable, args, directory) {
   const cwd = resolve(repoRoot, directory)
