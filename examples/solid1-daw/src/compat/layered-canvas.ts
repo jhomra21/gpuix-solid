@@ -114,16 +114,16 @@ function scheduleRender(node: CanvasHost, state: RuntimeState): void {
     }
 
     const bounds = node.getBoundingClientRect()
-    const surfaceStyle = {
+    const surfaceStyle: Record<string, string | number> = {
       position: "absolute",
       top: 0,
       left: 0,
       width: Math.max(1, bounds.width),
       height: Math.max(1, bounds.height),
-      pointerEvents: "none" as const,
+      pointerEvents: "none",
       flexShrink: 0,
-      ...(presentation.kind === "svg" ? { color: presentation.tint } : {}),
     }
+    if (presentation.kind === "svg") surfaceStyle.color = presentation.tint
     base.setProp(surface, "style", surfaceStyle)
 
     if (presentation.kind === "svg") {

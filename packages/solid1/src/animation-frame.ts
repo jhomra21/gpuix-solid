@@ -40,17 +40,16 @@ export function installPacedAnimationFrame(): void {
     value: cancel,
   })
 
-  const compatWindow = Reflect.get(globalThis, "window")
-  if (compatWindow && (typeof compatWindow === "object" || typeof compatWindow === "function")) {
-    Object.defineProperty(compatWindow, "requestAnimationFrame", {
-      configurable: true,
-      writable: true,
-      value: request,
-    })
-    Object.defineProperty(compatWindow, "cancelAnimationFrame", {
-      configurable: true,
-      writable: true,
-      value: cancel,
-    })
-  }
+  // dom-environment is imported before this installer and establishes the native window compatibility object.
+  const compatWindow = globalThis.window
+  Object.defineProperty(compatWindow, "requestAnimationFrame", {
+    configurable: true,
+    writable: true,
+    value: request,
+  })
+  Object.defineProperty(compatWindow, "cancelAnimationFrame", {
+    configurable: true,
+    writable: true,
+    value: cancel,
+  })
 }

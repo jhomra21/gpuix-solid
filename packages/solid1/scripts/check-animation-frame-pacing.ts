@@ -10,6 +10,7 @@ function requireCondition(condition: boolean, message: string): void {
 let scheduledDelay = -1
 let scheduledCallback: (() => void) | undefined
 let cancelledHandle: ReturnType<typeof globalThis.setTimeout> | undefined
+// SAFETY: the scheduler treats timer handles as opaque values; this sentinel is only compared by identity and is never passed to a real timer API.
 const fakeHandle = {} as ReturnType<typeof globalThis.setTimeout>
 
 const scheduler = createAnimationFrameScheduler(
@@ -34,7 +35,7 @@ requireCondition(
   scheduledDelay === COMPAT_ANIMATION_FRAME_MS,
   `RAF compatibility must pace callbacks at ${COMPAT_ANIMATION_FRAME_MS}ms, got ${scheduledDelay}`,
 )
-requireCondition(typeof scheduledCallback === "function", "RAF compatibility must schedule the requested callback")
+requireCondition(scheduledCallback !== undefined, "RAF compatibility must schedule the requested callback")
 scheduledCallback?.()
 requireCondition(callbackTimestamp === 123.5, `RAF compatibility must pass the scheduler timestamp, got ${callbackTimestamp}`)
 
