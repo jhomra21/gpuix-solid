@@ -21,18 +21,22 @@ function requireCondition(condition: boolean, message: string): void {
 
 function canvasSvg(root: TestRoot, requiredFragments: readonly string[]): string {
   const source = root.renderer.customPropStringContainingAll("source", ["<svg", ...requiredFragments])
-  requireCondition(source.startsWith("<svg"), `Canvas bridge must paint through raw SVG source, got ${source}`)
+  requireCondition(source.startsWith("<svg"), `Canvas bridge must retain exact SVG command source, got ${source}`)
   return source
 }
 
 const canvasBridgeSource = readFileSync(new URL("../src/compat/layered-canvas.ts", import.meta.url), "utf8")
 requireCondition(
-  canvasBridgeSource.includes('base.createElement("svg")'),
-  "Canvas bridge must use the native raw-SVG surface rather than an image decoder",
+  canvasBridgeSource.includes("canvasPresentation(source)"),
+  "Canvas bridge must choose native presentation from the authored Canvas paint set",
 )
 requireCondition(
-  !canvasBridgeSource.includes("data:image/svg+xml"),
-  "Canvas bridge must not percent-encode every draw into an SVG data URL",
+  canvasBridgeSource.includes('base.createElement(presentation.kind)'),
+  "Canvas bridge must support both native SVG and image presentation without changing copied source",
+)
+requireCondition(
+  canvasBridgeSource.includes("svgDataUrl(source)"),
+  "Canvas bridge must route genuinely polychrome frames through GPUIX image decoding",
 )
 requireCondition(
   !canvasBridgeSource.includes("driver.flush()"),
@@ -112,8 +116,8 @@ if (!hasNativeTestRenderer) {
     !waveformSource.includes("<polygon") && !waveformSource.includes("<polyline"),
     `waveform Canvas SVG should compact repeated bars/segments into shared paths, got ${waveformSource}`,
   )
-  requireCondition(app.renderer.hasTestId("gpuix-canvas-2d-surface"), "waveform Canvas should retain one native SVG paint surface")
-  requireCondition(!app.renderer.hasTestId("gpuix-canvas-2d-layer-1"), "waveform Canvas should not split multicolor paint across tint-only SVG layers")
+  requireCondition(app.renderer.hasTestId("gpuix-canvas-2d-surface"), "waveform Canvas should retain one active native paint surface")
+  requireCondition(!app.renderer.hasTestId("gpuix-canvas-2d-layer-1"), "waveform Canvas should not split same-RGB alpha paint across tint-only SVG layers")
   app.unmount()
 
   const eqApp = createTestRoot(260, 140)
@@ -188,6 +192,11 @@ if (!hasNativeTestRenderer) {
     !eqSource.includes('transform="matrix(1 0 0 1 0 0)"'),
     `identity Canvas transforms must not be serialized onto EQ circles, got ${eqSource}`,
   )
+  const eqImageSource = eqApp.renderer.customPropStringContainingAll("src", ["data:image/svg+xml"])
+  requireCondition(
+    eqImageSource.startsWith("data:image/svg+xml,"),
+    `multicolor EQ Canvas must use GPUIX polychrome image presentation, got ${eqImageSource.slice(0, 64)}`,
+  )
 
   const repaint = eqContext
   if (!repaint) throw new Error("EQ Canvas context should remain available for repaint acceptance")
@@ -207,9 +216,9 @@ if (!hasNativeTestRenderer) {
     `opaque full-surface EQ repaint must discard fully occluded retained commands, got ${repaintedSource}`,
   )
 
-  requireCondition(eqApp.renderer.hasTestId("gpuix-canvas-2d-surface"), "multicolor EQ Canvas should retain one native SVG paint surface")
+  requireCondition(eqApp.renderer.hasTestId("gpuix-canvas-2d-surface"), "multicolor EQ Canvas should retain one active native polychrome paint surface")
   requireCondition(!eqApp.renderer.hasTestId("gpuix-canvas-2d-layer-1"), "multicolor EQ Canvas should not depend on tint-only SVG layers")
   eqApp.unmount()
 
-  console.log("DAW Canvas2D compatibility bridge: raw SVG batching, bounded repaint commands, compact waveform paths, and exact multicolor output passed")
+  console.log("DAW Canvas2D compatibility bridge: monochrome raw-SVG batching, bounded repaint commands, compact waveform paths, and polychrome EQ routing passed")
 }

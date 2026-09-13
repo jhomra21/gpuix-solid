@@ -9,6 +9,7 @@ type CanvasSize = { width: number; height: number }
 type CanvasTextAlignValue = CanvasRenderingContext2D["textAlign"]
 type CanvasTextBaselineValue = CanvasRenderingContext2D["textBaseline"]
 type CanvasPaint = CanvasRenderingContext2D["fillStyle"]
+type CanvasSurfaceKind = "svg" | "img"
 
 type CanvasPath =
   | { kind: "polyline"; points: CanvasPoint[] }
@@ -41,10 +42,16 @@ type CanvasDrawing = {
   toSvg(): string
 }
 
+type CanvasPresentation =
+  | { kind: "svg"; tint: string }
+  | { kind: "img" }
+
 type RuntimeState = {
   drawing: CanvasDrawing
   surface?: HostElement
+  surfaceKind?: CanvasSurfaceKind
   lastSource?: string
+  lastImageSource?: string
   queued: boolean
 }
 
@@ -82,36 +89,109 @@ function scheduleRender(node: CanvasHost, state: RuntimeState): void {
     if (!node.nativeAlive || !node.root) return
 
     const source = state.drawing.toSvg()
-    if (source === state.lastSource) return
+    const presentation = canvasPresentation(source)
+    if (source === state.lastSource && presentation.kind === state.surfaceKind) return
 
     let surface = state.surface
-    if (!surface) {
-      const created = base.createElement("svg")
-      if (created.kind !== "element") throw new Error("Canvas2D bridge expected an SVG host element")
+    if (!surface || state.surfaceKind !== presentation.kind) {
+      if (surface) {
+        base.setProp(surface, "testId", "gpuix-canvas-2d-inactive-surface", "gpuix-canvas-2d-surface")
+        base.setProp(surface, "style", { display: "none", pointerEvents: "none" })
+      }
+
+      const created = base.createElement(presentation.kind)
+      if (created.kind !== "element") {
+        throw new Error(`Canvas2D bridge expected a ${presentation.kind} host element`)
+      }
       surface = created
       state.surface = surface
+      state.surfaceKind = presentation.kind
+      state.lastSource = undefined
+      state.lastImageSource = undefined
       base.setProp(surface, "testId", "gpuix-canvas-2d-surface")
-      base.setProp(surface, "style", {
-        position: "absolute",
-        top: 0,
-        right: 0,
-        bottom: 0,
-        left: 0,
-        pointerEvents: "none",
-        flexShrink: 0,
-      })
+      if (presentation.kind === "img") base.setProp(surface, "objectFit", "fill")
       base.insertNode(node, surface)
     }
 
-    // GPUIX accepts raw SVG markup through `source` on both the published
-    // runtime and current source edge. Avoid routing every Canvas frame through
-    // a percent-encoded image data URL: that path decodes/rebuilds an image and
-    // can visibly blank the graph between frames. MutationDriver already batches
-    // and auto-flushes this update, so forcing a synchronous flush here would
-    // only break batching.
-    base.setProp(surface, "source", source, state.lastSource)
+    const bounds = node.getBoundingClientRect()
+    const surfaceStyle = {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: Math.max(1, bounds.width),
+      height: Math.max(1, bounds.height),
+      pointerEvents: "none" as const,
+      flexShrink: 0,
+      ...(presentation.kind === "svg" ? { color: presentation.tint } : {}),
+    }
+    base.setProp(surface, "style", surfaceStyle)
+
+    if (presentation.kind === "svg") {
+      // GPUI paints native SVGs as monochrome alpha masks. Preserve the vector
+      // path only when every authored paint has one RGB tint; per-command alpha
+      // remains encoded in the mask while the opaque RGB tint lives in style.
+      base.setProp(surface, "source", source, state.lastSource)
+      state.lastImageSource = undefined
+    } else {
+      // GPUI's SVG element intentionally discards RGB information. A truly
+      // multicolor Canvas therefore has to use the polychrome image element.
+      // Keep raw `source` in retained props for deterministic bridge inspection;
+      // ImgElement ignores that unsupported prop and renders only `src`.
+      const imageSource = svgDataUrl(source)
+      base.setProp(surface, "source", source, state.lastSource)
+      base.setProp(surface, "src", imageSource, state.lastImageSource)
+      state.lastImageSource = imageSource
+    }
     state.lastSource = source
   })
+}
+
+function canvasPresentation(source: string): CanvasPresentation {
+  let tint: { key: string; value: string } | undefined
+  for (const match of source.matchAll(/\b(?:fill|stroke)="([^"]+)"/g)) {
+    const value = match[1]?.trim()
+    if (!value || value === "none" || value === "transparent") continue
+    const paint = monochromePaint(value)
+    if (!paint) return { kind: "img" }
+    if (!tint) {
+      tint = paint
+      continue
+    }
+    if (paint.key !== tint.key) return { kind: "img" }
+  }
+  return { kind: "svg", tint: tint?.value ?? "#000000" }
+}
+
+function monochromePaint(value: string): { key: string; value: string } | undefined {
+  const paint = value.trim().toLowerCase()
+  const hex = paint.match(/^#([0-9a-f]+)$/)?.[1]
+  if (hex) {
+    if (hex.length === 3 || hex.length === 4) {
+      const rgb = `#${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`
+      return { key: rgb, value: rgb }
+    }
+    if (hex.length === 6 || hex.length === 8) {
+      const rgb = `#${hex.slice(0, 6)}`
+      return { key: rgb, value: rgb }
+    }
+    return undefined
+  }
+
+  if (paint === "white") return { key: "#ffffff", value: "#ffffff" }
+  if (paint === "black") return { key: "#000000", value: "#000000" }
+
+  const legacyRgb = paint.match(/^rgba?\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^,]+?)(?:\s*,\s*[^)]+)?\s*\)$/)
+  if (!legacyRgb) return undefined
+  const red = legacyRgb[1]?.trim()
+  const green = legacyRgb[2]?.trim()
+  const blue = legacyRgb[3]?.trim()
+  if (!red || !green || !blue) return undefined
+  const rgb = `rgb(${red},${green},${blue})`
+  return { key: rgb, value: rgb }
+}
+
+function svgDataUrl(source: string): string {
+  return `data:image/svg+xml,${encodeURIComponent(source)}`
 }
 
 function createCanvasDrawing(getSize: () => CanvasSize, onChange: () => void): CanvasDrawing {
