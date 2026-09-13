@@ -78,9 +78,14 @@ export function setProp<T>(node: HostNode, name: string, value: T, previous?: T)
     return
   }
 
-  const nextPaint = nativeSvgPaint(name, value)
-  const previousPaint = nativeSvgPaint(name, previous)
-  base.setProp(node, name, nextPaint, previousPaint)
+  if (SVG_PAINT_PROPERTIES.has(name)) {
+    const nextPaint = value == null ? undefined : nativeSvgPaint(String(value))
+    const previousPaint = previous == null ? undefined : nativeSvgPaint(String(previous))
+    base.setProp(node, name, nextPaint, previousPaint)
+    return
+  }
+
+  base.setProp(node, name, value, previous)
 }
 
 export function insertNode(
@@ -92,11 +97,8 @@ export function insertNode(
   if (parent.kind === "element") syncGrid(parent)
 }
 
-function nativeSvgPaint(name: string, value: unknown): unknown {
-  if (!SVG_PAINT_PROPERTIES.has(name) || value == null) return value
-  const serialized = String(value)
-  if (value !== serialized) return value
-  const variable = serialized.trim().match(/^var\((--[a-z0-9-]+)\)$/i)?.[1]
+function nativeSvgPaint(value: string): string {
+  const variable = value.trim().match(/^var\((--[a-z0-9-]+)\)$/i)?.[1]
   if (!variable) return value
 
   const mode = base.getNativeStyleColorMode()
