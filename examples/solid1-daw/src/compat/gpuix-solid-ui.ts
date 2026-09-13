@@ -15,11 +15,10 @@ type SourceStyleValue = string | number | null | undefined
 type SourceStyle = Record<string, SourceStyleValue>
 type SourceClassValue = string | undefined
 type SourceClasses = { class?: string; className?: string }
-type SvgPaintVariable = "--device-graph-background" | "--device-graph-grid" | "--device-graph-accent"
 
 const GRID_OWNED_CLASS = "row-span-2"
 const SVG_PAINT_PROPERTIES = new Set(["fill", "stroke", "stopColor"])
-const SVG_PAINT_VARIABLES: Record<SvgPaintVariable, { light: string; dark: string }> = {
+const SVG_PAINT_VARIABLES = {
   "--device-graph-background": { light: "#fafafb", dark: "#040405" },
   "--device-graph-grid": { light: "#3a3a3d29", dark: "#ffffff29" },
   "--device-graph-accent": { light: "#00c3db", dark: "#00c3db" },
@@ -93,13 +92,20 @@ export function insertNode(
   if (parent.kind === "element") syncGrid(parent)
 }
 
-function nativeSvgPaint<T>(name: string, value: T): T | string {
-  if (!SVG_PAINT_PROPERTIES.has(name) || typeof value !== "string") return value
-  const variable = value.trim().match(/^var\((--[a-z0-9-]+)\)$/i)?.[1] as SvgPaintVariable | undefined
+function nativeSvgPaint(name: string, value: unknown): unknown {
+  if (!SVG_PAINT_PROPERTIES.has(name) || value == null) return value
+  const serialized = String(value)
+  if (value !== serialized) return value
+  const variable = serialized.trim().match(/^var\((--[a-z0-9-]+)\)$/i)?.[1]
   if (!variable) return value
-  const paints = SVG_PAINT_VARIABLES[variable]
-  if (!paints) return value
-  return paints[base.getNativeStyleColorMode()]
+
+  const mode = base.getNativeStyleColorMode()
+  switch (variable) {
+    case "--device-graph-background": return SVG_PAINT_VARIABLES["--device-graph-background"][mode]
+    case "--device-graph-grid": return SVG_PAINT_VARIABLES["--device-graph-grid"][mode]
+    case "--device-graph-accent": return SVG_PAINT_VARIABLES["--device-graph-accent"][mode]
+    default: return value
+  }
 }
 
 function nativeClassValue(value: SourceClassValue): SourceClassValue {
