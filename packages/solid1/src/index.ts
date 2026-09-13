@@ -1,4 +1,7 @@
 import "./dom-environment.js"
+import { installPacedAnimationFrame } from "./animation-frame.js"
+
+installPacedAnimationFrame()
 
 export { render, resetRender } from "./runtime.js"
 export type { RenderHandle, RenderOptions } from "./runtime.js"
