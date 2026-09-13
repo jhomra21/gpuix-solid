@@ -1,6 +1,7 @@
 export interface TickRenderer {
   requiresTick(): boolean
   tick(): boolean
+  applyBatch?(json: string): number[]
 }
 
 export interface FrameLoop {
@@ -18,12 +19,7 @@ export function setAutomationFrameOwnership(owned: boolean): void {
 
 export function startFrameLoop(
   renderer: TickRenderer,
-  options: {
-    frameMs?: number
-    onFirstTick?: () => void
-    onTerminated?: () => void
-    onError?: (error: FrameLoopError) => void
-  } = {},
+  options: { frameMs?: number; onTerminated?: () => void; onError?: (error: FrameLoopError) => void } = {},
 ): FrameLoop {
   if (automationOwnsFramePump || !renderer.requiresTick()) return { stop() {} }
 
@@ -46,7 +42,12 @@ export function startFrameLoop(
       running = renderer.tick()
       if (running && firstTickPending) {
         firstTickPending = false
-        options.onFirstTick?.()
+        // GPUIX macOS creates and paints the native window before Solid's first
+        // retained batch exists. An invalidation queued before the first AppKit
+        // pump can therefore leave that empty startup frame on screen. Once the
+        // first pump has completed, an empty batch preserves retained state while
+        // requesting one fresh frame through GPUIX's normal invalidation path.
+        if (process.platform === "darwin") renderer.applyBatch?.("[]")
       }
     } catch (error) {
       const failure = error instanceof Error ? error : String(error)
