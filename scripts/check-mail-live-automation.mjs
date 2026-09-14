@@ -155,8 +155,8 @@ try {
   await step("restore Primary channel", () => app.getByTestId("channel-primary").click())
   await step("open Nora timeline thread", () => app.getByTestId("thread-nora").click())
   await expectPresent(
-    app.getByText("This conversation is only between you and Nora Hale."),
-    "direct-message header",
+    app.getByTestId("mail-reading-pane").getByText("Desk notes"),
+    "direct-message reader subject",
   )
 
   await step("fill composer", () => app.getByTestId("composer").fill("Mail live acceptance draft"))
