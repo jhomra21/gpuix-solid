@@ -80,6 +80,7 @@ switch (command) {
   case "all":
     preparePatchedEdge()
     run("bun", ["run", "gpuix:edge:check"], repoRoot)
+    normalizeGeneratedNativeDeclaration()
     runForegroundConsumer()
     break
   case "status":
@@ -98,14 +99,7 @@ function preparePatchedEdge() {
   applyNativePatch()
   run("git", ["diff", "--check"], nativeCheckout)
 
-  const changed = changedNativeFiles()
-  const expected = [
-    "packages/native/src/renderer.rs",
-    "packages/native/src/text/paint.rs",
-  ]
-  if (JSON.stringify(changed) !== JSON.stringify(expected)) {
-    throw new Error(`Unexpected GPUIX patch surface: ${JSON.stringify(changed)}`)
-  }
+  assertExactSourcePatch()
 
   const head = capture("git", ["rev-parse", "HEAD"], nativeCheckout)
   if (head !== nativeSha) {
@@ -151,6 +145,7 @@ function replaceExactlyOnce(path, before, after) {
 }
 
 function runForegroundConsumer() {
+  normalizeGeneratedNativeDeclaration()
   requirePatchedNative()
 
   let tarballPath
@@ -198,9 +193,9 @@ function runForegroundConsumer() {
     }
 
     console.log(`External Solid candidate: gpuix-solid@${solidManifest.version}`)
-    console.log(`External GPUIX main source: @gpuix/native@${nativeManifest.version} (${nativeSha})`)
+    console.log(`External GPUIX source: @gpuix/native@${nativeManifest.version} (${nativeSha})`)
     console.log(`Patched native path: ${resolvedNative}`)
-    console.log("The published dependency declaration remains ^0.7.0 only because 0.8.0 is not published yet; this disposable consumer overrides it with the exact source build above.")
+    console.log("The disposable consumer uses exact GPUIX 0.8.0 source plus only the proven ownership overlay; nothing from this candidate is published.")
     console.log("Building foreground Counter...")
     run("bun", ["x", "vite", "build"], consumerDir)
 
@@ -258,20 +253,45 @@ function resetConsumer() {
   }, null, 2)}\n`)
 }
 
+function normalizeGeneratedNativeDeclaration() {
+  const generatedDeclaration = "packages/native/index.d.ts"
+  const changed = changedNativeFiles()
+  const unexpected = changed.filter(
+    (path) => path !== generatedDeclaration && !expectedSourcePatch().includes(path),
+  )
+  if (unexpected.length > 0) {
+    throw new Error(`Unexpected GPUIX changes before foreground run: ${JSON.stringify(unexpected)}`)
+  }
+  if (changed.includes(generatedDeclaration)) {
+    run("git", ["restore", "--source=HEAD", "--", generatedDeclaration], nativeCheckout)
+    console.log(`Restored generated ${generatedDeclaration} after napi build ordering drift.`)
+  }
+  assertExactSourcePatch()
+  run("git", ["diff", "--check"], nativeCheckout)
+}
+
+function expectedSourcePatch() {
+  return [
+    "packages/native/src/renderer.rs",
+    "packages/native/src/text/paint.rs",
+  ]
+}
+
+function assertExactSourcePatch() {
+  const changed = changedNativeFiles()
+  const expected = expectedSourcePatch()
+  if (JSON.stringify(changed) !== JSON.stringify(expected)) {
+    throw new Error(`Native ownership overlay is not exact: ${JSON.stringify(changed)}`)
+  }
+}
+
 function requirePatchedNative() {
   const head = capture("git", ["rev-parse", "HEAD"], nativeCheckout)
   if (head !== nativeSha) {
     throw new Error(`Native checkout is ${head}; expected ${nativeSha}. Run prepare first.`)
   }
 
-  const changed = changedNativeFiles()
-  const expected = [
-    "packages/native/src/renderer.rs",
-    "packages/native/src/text/paint.rs",
-  ]
-  if (JSON.stringify(changed) !== JSON.stringify(expected)) {
-    throw new Error(`Native ownership overlay is not exact: ${JSON.stringify(changed)}. Run prepare first.`)
-  }
+  assertExactSourcePatch()
 
   const manifest = readJson(join(nativePackage, "package.json"))
   if (manifest.name !== "@gpuix/native" || manifest.version !== nativeVersion) {
