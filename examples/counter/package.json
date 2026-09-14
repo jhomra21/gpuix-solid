@@ -47,6 +47,7 @@
     "test:dashboard": "bun run build:dashboard-test && bun scripts/run-dashboard-test.mjs",
     "test:codeimage": "bun run build:codeimage-test && bun scripts/run-codeimage-test.mjs",
     "test:tanstack-kitchen-sink": "bun run build:tanstack-kitchen-sink-test && bun scripts/run-tanstack-kitchen-sink-test.mjs",
+    "capture:readme-gallery": "bun run build:readme-gallery && bun dist/readme-gallery/capture.js",
     "perf:chat": "bun run build:chat-perf && bun dist/chat-perf/chat.js",
     "perf:timeline": "bun run build:timeline-perf && bun dist/timeline-perf/timeline.js",
     "bench:serialization": "bun run build:serialization-bench && bun dist/serialization-bench/serialization.js",
