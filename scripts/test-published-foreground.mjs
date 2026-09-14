@@ -71,6 +71,7 @@ function prepare() {
     },
     devDependencies: {
       "@solidjs/vite-plugin": "3.0.0-next.29",
+      "@types/node": "^25.3.3",
       typescript: "5.9.2",
       vite: "8.1.5",
     },
