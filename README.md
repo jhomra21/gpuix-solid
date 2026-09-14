@@ -110,10 +110,19 @@ The starter and clean-package smoke tests use the same configuration.
 
 ## Real application examples
 
-This repository dogfoods the renderer with app-shaped Solid UIs rather than only tiny host fixtures. Run the examples from the repository root after `bun install`.
+These are native retained-tree captures generated from the Solid examples with GPUIX's `TestGpuixRenderer`. They are not browser mockups or screenshots borrowed from the upstream React examples.
+
+| Dashboard | CodeImage |
+| --- | --- |
+| ![Solid Dashboard rendered through GPUIX](./docs/images/dashboard.png) | ![Solid CodeImage rendered through GPUIX](./docs/images/codeimage.png) |
+| **GPUIX 0.8 surface** | **Todo** |
+| ![Solid GPUIX 0.8 capability showcase](./docs/images/gpuix-08.png) | ![Solid Todo application rendered through GPUIX](./docs/images/todo.png) |
+
+The repository dogfoods the renderer with app-shaped Solid UIs rather than only tiny host fixtures. Run the examples from the repository root after `bun install`.
 
 | Example | Run | What it exercises |
 | --- | --- | --- |
+| [GPUIX 0.8 surface](./examples/counter/src/gpuix-08) | `bun run example:gpuix-08` | accessibility metadata, focus/tab metadata, native textarea newline behavior, text decoration |
 | [Dashboard](./examples/counter/src/dashboard) | `bun run example:dashboard` | multi-route app structure, auth/router/network compatibility, dialogs, lists, controlled input |
 | [CodeImage](./examples/counter/src/codeimage) | `bun run example:codeimage` | editor-style controls, native layout, source-pinned Solid application composition |
 | [DAW](./examples/solid1-daw) | `bun run example:solid1-daw` | transport, tracks, ruler, mixer/effects, Tailwind classes, native adapters |
@@ -129,7 +138,7 @@ This repository dogfoods the renderer with app-shaped Solid UIs rather than only
 
 Solid 1 compatibility is also exercised through Kobalte, Tailwind v4, the DAW, and the blurred-window example. See **[examples/README.md](./examples/README.md)** for the full matrix and source-fidelity notes.
 
-A README screenshot gallery is generated from these Solid-rendered native windows; upstream React screenshots are not treated as Solid output.
+The gallery can be regenerated from the repository with `bun run --filter 'gpuix-solid-counter' capture:readme-gallery` on a platform whose `@gpuix/native` build includes `TestGpuixRenderer`.
 
 ## GPUIX 0.8 baseline
 
