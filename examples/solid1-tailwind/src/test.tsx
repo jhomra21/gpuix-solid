@@ -69,5 +69,34 @@ if (!hasNativeTestRenderer) {
   requireEqual(app.renderer.styleTestId("primary-action-label").color, "#fafafa", "light button foreground must inherit into its label")
 
   app.unmount()
+
+  const inlineFlow = createTestRoot(600, 120)
+  const bpm = "118.00"
+  const confidence = "94"
+  const lowAlternative = "59.00"
+  const highAlternative = "236.00"
+  inlineFlow.render(() => (
+    <div style={{ width: 458 }}>
+      <div testId="mixed-inline-text" style={{ width: 458, fontSize: 12, lineHeight: 16 }}>
+        Suggested {bpm} BPM, confidence {confidence}%.{" Applied."}
+      </div>
+      <div testId="mixed-inline-spans" style={{ width: 458, fontSize: 12, lineHeight: 16 }}>
+        Alternatives: <span>{lowAlternative}</span><span>, {highAlternative}</span>
+      </div>
+      <div
+        testId="explicit-column-text"
+        style={{ display: "flex", flexDirection: "column", width: 458, fontSize: 12, lineHeight: 16 }}
+      >
+        {"First"}{"Second"}
+      </div>
+    </div>
+  ))
+  requireEqual(inlineFlow.renderer.boundsTestId("mixed-inline-text").height, 16, "mixed browser text fragments should share one native line")
+  requireEqual(inlineFlow.renderer.boundsTestId("mixed-inline-spans").height, 16, "inline span fragments should share the surrounding native line")
+  const explicitColumnStyle = inlineFlow.renderer.styleTestId("explicit-column-text")
+  requireEqual(explicitColumnStyle.display, "flex", "explicit source display must override inline-flow fallback")
+  requireEqual(explicitColumnStyle.flexDirection, "column", "explicit source flex direction must override inline-flow fallback")
+  inlineFlow.unmount()
+
   console.log("solid1 Tailwind native bridge: passed")
 }

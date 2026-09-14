@@ -45,39 +45,61 @@ export interface LiveAutomationRenderer {
   clockResume(): number
 }
 
+export interface LiveAutomationBackendOptions {
+  tickAfterInput?: boolean
+  tickBeforeRead?: boolean
+}
+
 export class LiveAutomationBackend implements AutomationBackend {
   readonly #renderer: LiveAutomationRenderer
+  readonly #tickAfterInput: boolean
+  readonly #tickBeforeRead: boolean
 
-  constructor(renderer: LiveAutomationRenderer) {
+  constructor(
+    renderer: LiveAutomationRenderer,
+    options: LiveAutomationBackendOptions = {},
+  ) {
     this.#renderer = renderer
+    this.#tickAfterInput = options.tickAfterInput ?? true
+    this.#tickBeforeRead = options.tickBeforeRead ?? false
+  }
+
+  #flushInput(): void {
+    if (this.#tickAfterInput) this.#renderer.tick()
+  }
+
+  #flushRead(): void {
+    if (this.#tickBeforeRead) this.#renderer.tick()
   }
 
   getTree() {
+    this.#flushRead()
     return parseAutomationTree(this.#renderer.getAutomationTree())
   }
 
   getBounds(elementId: number) {
+    this.#flushRead()
     return parseBounds(this.#renderer.getElementBounds(elementId))
   }
 
   click(x: number, y: number, button?: number, modifiers?: string): void {
     this.#renderer.simulateClick(x, y, button, modifiers)
-    this.#renderer.tick()
+    this.#flushInput()
   }
 
   mouseMove(x: number, y: number, pressedButton?: number, modifiers?: string): void {
     this.#renderer.simulateMouseMove(x, y, pressedButton, modifiers)
-    this.#renderer.tick()
+    this.#flushInput()
   }
 
   mouseDown(x: number, y: number, button?: number, modifiers?: string): void {
     this.#renderer.simulateMouseDown(x, y, button, modifiers)
-    this.#renderer.tick()
+    this.#flushInput()
   }
 
   mouseUp(x: number, y: number, button?: number, modifiers?: string): void {
     this.#renderer.simulateMouseUp(x, y, button, modifiers)
-    this.#renderer.tick()
+    this.#flushInput()
   }
 
   scrollWheel(
@@ -88,16 +110,17 @@ export class LiveAutomationBackend implements AutomationBackend {
     modifiers?: string,
   ): void {
     this.#renderer.simulateScrollWheel(x, y, deltaX, deltaY, modifiers)
-    this.#renderer.tick()
+    this.#flushInput()
   }
 
   keystrokes(elementId: number, keys: string): void {
     this.#renderer.focusElement(elementId)
     this.#renderer.simulateKeystrokes(keys)
-    this.#renderer.tick()
+    this.#flushInput()
   }
 
   screenshot(path: string): void {
+    this.#flushRead()
     this.#renderer.captureScreenshot(path)
   }
 
@@ -253,6 +276,13 @@ export function serveAutomationStdio(backend: AutomationBackend): void {
   })
 }
 
-export function enableAutomation(renderer: LiveAutomationRenderer): void {
-  serveAutomationStdio(new LiveAutomationBackend(renderer))
+export function enableAutomation(
+  renderer: LiveAutomationRenderer,
+  options: { driveFrames?: boolean } = {},
+): void {
+  const driveFrames = options.driveFrames ?? false
+  serveAutomationStdio(new LiveAutomationBackend(renderer, {
+    tickAfterInput: false,
+    tickBeforeRead: driveFrames,
+  }))
 }

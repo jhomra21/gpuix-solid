@@ -18,6 +18,69 @@ describe("MutationDriver", () => {
     expect(renderer.batches[0]).toHaveLength(3)
   })
 
+  it("realizes retained DOM click activation through native mouse-up without stealing explicit mouse-up", () => {
+    const renderer = new FakeRenderer()
+    const driver = new MutationDriver(renderer, new EventRegistry())
+
+    driver.enqueue("createElement", 1, "div")
+    driver.enqueue("setEventListener", 1, "click", true)
+    driver.flush()
+    expect(renderer.batches[0]).toEqual([
+      ["createElement", 1, "div"],
+      ["setEventListener", 1, "mouseUp", true],
+    ])
+
+    driver.enqueue("setEventListener", 1, "mouseUp", true)
+    driver.flush()
+    expect(renderer.batches).toHaveLength(1)
+
+    driver.enqueue("setEventListener", 1, "click", false)
+    driver.flush()
+    expect(renderer.batches).toHaveLength(1)
+
+    driver.enqueue("setEventListener", 1, "mouseUp", false)
+    driver.flush()
+    expect(renderer.batches.at(-1)).toEqual([
+      ["setEventListener", 1, "mouseUp", false],
+    ])
+  })
+
+  it("keeps one semantic click source for GPUIX custom adapters", () => {
+    for (const [index, type] of ["input", "textarea", "anchored", "img", "svg", "code", "diff", "markdown"].entries()) {
+      const renderer = new FakeRenderer()
+      const driver = new MutationDriver(renderer, new EventRegistry())
+      const id = index + 1
+
+      driver.enqueue("createElement", id, type)
+      driver.enqueue("setEventListener", id, "click", true)
+      driver.flush()
+
+      expect(renderer.batches[0]).toEqual([
+        ["createElement", id, type],
+        ["setEventListener", id, "click", true],
+      ])
+      expect(renderer.batches[0]).not.toContainEqual(["setEventListener", id, "mouseUp", true])
+    }
+  })
+
+  it("chooses the relay channel from each descendant native type", () => {
+    const renderer = new FakeRenderer()
+    const driver = new MutationDriver(renderer, new EventRegistry())
+
+    driver.enqueue("createElement", 1, "div")
+    driver.enqueue("createElement", 2, "text")
+    driver.enqueue("createElement", 3, "input")
+    driver.enqueue("setEventListener", 1, "click", true)
+    driver.enqueue("appendChild", 1, 2)
+    driver.enqueue("appendChild", 1, 3)
+    driver.flush()
+
+    expect(renderer.batches[0]).toContainEqual(["setEventListener", 1, "mouseUp", true])
+    expect(renderer.batches[0]).toContainEqual(["setEventListener", 2, "mouseUp", true])
+    expect(renderer.batches[0]).toContainEqual(["setEventListener", 3, "click", true])
+    expect(renderer.batches[0]).not.toContainEqual(["setEventListener", 3, "mouseUp", true])
+  })
+
   it("resolves em dimensions against the element font size", () => {
     const renderer = new FakeRenderer()
     const driver = new MutationDriver(renderer, new EventRegistry())

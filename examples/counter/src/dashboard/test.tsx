@@ -5,9 +5,40 @@ import {
   createTestRoot,
   hasNativeTestRenderer,
 } from "gpuix-solid"
-import { DashboardDemo } from "./app"
+import { DashboardDemo } from "./source/app"
 
-const screenshotPath = "/tmp/gpuix-solid-dashboard-demo.png"
+const screenshotPath = "/tmp/gpuix-solid-dashboard-source-first.png"
+
+type TestApp = ReturnType<typeof createTestApp>
+
+async function scrollIntoView(app: TestApp, viewportTestId: string, targetTestId: string): Promise<void> {
+  const viewport = app.getByTestId(viewportTestId)
+  const target = app.getByTestId(targetTestId)
+  const viewportBounds = await viewport.bounds()
+  const viewportBottom = viewportBounds.y + viewportBounds.height
+  const isVisible = (bounds: { y: number; height: number }): boolean => (
+    bounds.y >= viewportBounds.y && bounds.y + bounds.height <= viewportBottom
+  )
+
+  let targetBounds = await target.bounds()
+  if (isVisible(targetBounds)) return
+
+  let deltaY = targetBounds.y >= viewportBottom ? 240 : -240
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const previousY = targetBounds.y
+    await viewport.wheel(0, deltaY)
+    targetBounds = await target.bounds()
+    if (isVisible(targetBounds)) return
+
+    const expectedUp = previousY >= viewportBottom
+    const movedTowardViewport = expectedUp ? targetBounds.y < previousY : targetBounds.y > previousY
+    if (!movedTowardViewport) deltaY *= -1
+  }
+
+  throw new Error(
+    `Could not scroll ${targetTestId} into ${viewportTestId}: viewport=${JSON.stringify(viewportBounds)}, target=${JSON.stringify(targetBounds)}`,
+  )
+}
 
 async function main(): Promise<void> {
   if (!hasNativeTestRenderer) {
@@ -24,71 +55,161 @@ async function main(): Promise<void> {
 
   try {
     assert.equal(await app.getByTestId("dashboard-shell").count(), 1)
-    assert.equal(await app.getByTestId("page-overview").count(), 1)
-    assert.equal(await app.getByTestId("page-title").textContent(), "Overview")
+    assert.equal(await app.getByTestId("page-home").count(), 1)
+    assert.equal(await app.getByTestId("page-title").textContent(), "Dashboard")
+    assert.equal(await app.getByText("About This Demo").count(), 1)
+    assert.equal(await app.getByText("SolidJS and Tanstack Router for reactive UI").count(), 1)
 
-    const progressBefore = await app.getByTestId("release-progress").bounds()
-    await app.clock.fastForward(700)
-    const progressAfter = await app.getByTestId("release-progress").bounds()
-    assert.ok(
-      progressAfter.width > progressBefore.width + 80,
-      `expected native progress animation to advance (${progressBefore.width} -> ${progressAfter.width})`,
-    )
+    assert.equal(Math.round((await app.getByTestId("dashboard-sidebar").bounds()).width), 272)
+    await app.getByTestId("sidebar-toggle").click()
+    assert.equal(Math.round((await app.getByTestId("dashboard-sidebar").bounds()).width), 66)
+    await app.getByTestId("sidebar-toggle").click()
+    assert.equal(Math.round((await app.getByTestId("dashboard-sidebar").bounds()).width), 272)
+
+    await app.getByTestId("nav-user-trigger").click()
+    assert.equal(await app.getByTestId("nav-user-menu").count(), 1)
+    assert.equal(await app.getByText("Go to Home Page").count(), 1)
+    assert.equal(await app.getByText("Profile").count(), 1)
+    assert.equal(await app.getByText("Log out").count(), 1)
+    await app.getByTestId("nav-user-profile").click()
+    assert.equal(await app.getByTestId("page-title").textContent(), "Account")
+    assert.equal(await app.getByTestId("nav-user-menu").count(), 0)
+    await app.getByTestId("nav-home").click()
+    assert.equal(await app.getByTestId("page-title").textContent(), "Dashboard")
+
+    await app.getByTestId("test-api").click()
+    assert.equal(await app.getByText("Hello from the API").count(), 1)
+    await app.getByTestId("close-api").click()
+    assert.equal(await app.getByText("Hello from the API").count(), 0)
 
     await app.getByTestId("nav-tasks").click()
     assert.equal(await app.getByTestId("page-title").textContent(), "Tasks")
-    assert.equal(await app.getByTestId("page-tasks").count(), 1)
+    assert.equal(await app.getByText("My Tasks").count(), 1)
+    assert.equal(await app.getByText("Create, manage and track your tasks").count(), 1)
 
-    await app.getByTestId("task-input").fill("Ship dashboard fixture")
+    await app.getByTestId("task-input").fill("Ship source-first dashboard")
     await app.getByTestId("task-add").click()
-    assert.match(await app.getByTestId("tasks-summary").textContent(), /5 total/)
-    assert.equal(await app.getByText("Ship dashboard fixture").count(), 1)
+    assert.equal(await app.getByText("Ship source-first dashboard").count(), 1)
+    assert.match(await app.getByTestId("tasks-summary").textContent(), /4 tasks/)
 
     await app.getByTestId("task-toggle-1").click()
     assert.match(await app.getByTestId("tasks-summary").textContent(), /2 completed/)
-    await app.getByTestId("filter-completed").click()
-    assert.equal(await app.getByTestId("task-item-2").count(), 1)
+    await app.getByTestId("tasks-filter-completed").click()
     assert.equal(await app.getByTestId("task-item-1").count(), 1)
+    assert.equal(await app.getByTestId("task-item-2").count(), 1)
     assert.equal(await app.getByTestId("task-item-3").count(), 0)
 
-    await app.getByTestId("nav-notes").click()
-    await app.getByTestId("note-new").click()
-    assert.equal(await app.getByTestId("note-editor").count(), 1)
-    await app.clock.fastForward(300)
-    await app.getByTestId("note-title").fill("Dashboard findings")
-    await app.getByTestId("note-body").fill("Native inputs and list mutation are working together.")
-    await app.getByTestId("note-save").click()
-    assert.equal(await app.getByText("Dashboard findings").count(), 1)
-    assert.match(await app.getByTestId("notes-summary").textContent(), /4 notes shown/)
+    await app.getByTestId("tasks-filter-all").click()
+    await app.getByTestId("task-edit-open-3").click()
+    await app.getByTestId("task-edit-3").fill("Test native deployment")
+    await app.getByTestId("task-save-3").click()
+    assert.equal(await app.getByText("Test native deployment").count(), 1)
+    await app.getByTestId("task-delete-3").click()
+    await app.getByTestId("task-confirm-3").click()
+    assert.equal(await app.getByText("Test native deployment").count(), 0)
 
-    await app.getByTestId("note-archive-1").click()
+    await app.getByTestId("nav-notes").click()
+    assert.equal(await app.getByText("My Notes").count(), 1)
+    assert.equal(await app.getByText("Create, edit and manage your notes").count(), 1)
+    await app.getByTestId("note-new").click()
+    assert.equal(await app.getByTestId("note-editor-dialog").count(), 1)
+    assert.equal(await app.getByTestId("note-editor-title").textContent(), "Create New Note")
+    assert.equal(await app.getByTestId("note-status").count(), 0)
+    await app.getByTestId("note-title").fill("Dashboard findings")
+    await app.getByTestId("note-body").fill("Native inputs and route-owned state are working together.")
+    await app.getByTestId("note-save").click()
+    assert.equal(await app.getByTestId("note-editor-dialog").count(), 0)
+    assert.equal(await app.getByText("Dashboard findings").count(), 1)
+    assert.equal(await app.getByTestId("note-created-3").textContent(), "Jun 3, 2025")
+    assert.equal(await app.getByTestId("note-updated-3").textContent(), "Jun 3, 2025")
+
+    await app.getByTestId("note-edit-1").click()
+    assert.equal(await app.getByTestId("note-editor-title").textContent(), "Edit Note")
+    assert.equal(await app.getByTestId("note-status-value").textContent(), "Active")
+    await app.getByTestId("note-status").click()
+    await app.getByTestId("note-status-archived").click()
+    assert.equal(await app.getByTestId("note-status-value").textContent(), "Archived")
+    await app.getByTestId("note-save").click()
+    assert.equal(await app.getByTestId("note-archived-badge-1").textContent(), "Archived")
+
     await app.getByTestId("notes-filter-archived").click()
-    assert.equal(await app.getByTestId("note-card-1").count(), 1)
-    assert.equal(await app.getByTestId("note-card-3").count(), 1)
-    assert.equal(await app.getByTestId("note-card-2").count(), 0)
+    assert.equal(await app.getByText("Project notes").count(), 1)
+    assert.equal(await app.getByText("Release notes").count(), 1)
+    assert.equal(await app.getByText("Dashboard findings").count(), 0)
+
+    await app.getByTestId("note-delete-1").click()
+    assert.equal(await app.getByTestId("note-delete-dialog").count(), 1)
+    assert.equal(await app.getByText("Delete Note?").count(), 1)
+    assert.equal(
+      await app.getByTestId("note-delete-message").textContent(),
+      'Are you sure you want to delete the note "Project notes"? This action cannot be undone.',
+    )
+    await app.getByTestId("note-delete-cancel").click()
+    assert.equal(await app.getByTestId("note-delete-dialog").count(), 0)
+    await app.getByTestId("note-delete-1").click()
+    await app.getByTestId("note-delete-confirm").click()
+    assert.equal(await app.getByText("Project notes").count(), 0)
 
     await app.getByTestId("nav-weather").click()
-    await app.getByTestId("weather-2").click()
-    assert.equal(await app.getByText("Seattle detail").count(), 1)
-    await app.getByTestId("weather-refresh").click()
-    assert.match(await app.getByTestId("weather-refresh-count").textContent(), /1/)
+    assert.equal(await app.getByText("Weather Dashboard").count(), 1)
+    assert.equal(await app.getByText("Monitor weather conditions for your favorite locations").count(), 1)
+    assert.equal(await app.getByText("Add your current location?").count(), 1)
+    assert.equal(await app.getByText("We can automatically detect your location to show local weather conditions.").count(), 1)
+    assert.equal(await app.getByText("Add New Location").count(), 1)
+    assert.equal(await app.getByText("Enter a city name to add it to your weather dashboard. Examples: \"London\", \"New York, NY\", \"Tokyo, Japan\"").count(), 1)
+    assert.equal(await app.getByTestId("weather-temperature-1").textContent(), "33°C")
+    assert.equal(await app.getByTestId("weather-feels-1").textContent(), "35°C")
+    assert.equal(await app.getByTestId("weather-humidity-1").textContent(), "42%")
+    assert.equal(await app.getByTestId("weather-wind-1").textContent(), "4.1 m/s")
+    assert.equal(await app.getByTestId("weather-updated-1").textContent(), "2m ago")
+
+    await app.getByTestId("weather-use-location").click()
+    assert.equal(await app.getByTestId("weather-geolocation-prompt").count(), 0)
+    assert.equal(await app.getByTestId("weather-current-0").textContent(), "Current Location")
+
+    await app.getByTestId("weather-city").fill("Seattle")
+    await app.getByTestId("weather-add").click()
+    assert.equal(await app.getByText("Seattle").count(), 1)
+    assert.equal(await app.getByTestId("weather-temperature-3").textContent(), "22°C")
+
+    await app.getByTestId("weather-refresh-1").click()
+    assert.equal(await app.getByTestId("weather-updated-1").textContent(), "Just now")
+    assert.match(await app.getByTestId("weather-refresh-count").textContent(), /1 refresh/)
+
+    await scrollIntoView(app, "dashboard-content", "weather-delete-3")
+    await app.getByTestId("weather-delete-3").click()
+    assert.equal(await app.getByTestId("weather-delete-confirmation-3").count(), 1)
+    await app.getByTestId("weather-delete-cancel-3").click()
+    assert.equal(await app.getByTestId("weather-delete-confirmation-3").count(), 0)
+    await app.getByTestId("weather-delete-3").click()
+    await app.getByTestId("weather-delete-confirm-3").click()
+    assert.equal(await app.getByText("Seattle").count(), 0)
 
     await app.getByTestId("nav-account").click()
-    assert.equal(await app.getByTestId("page-account").count(), 1)
-    await app.getByTestId("toggle-notifications").click()
-    assert.match(await app.getByTestId("toggle-notifications").textContent(), /Off/)
+    assert.equal(await app.getByText("Account Settings").count(), 1)
+    assert.equal(await app.getByText("Manage your account, preferences, and data.").count(), 1)
+    await app.getByTestId("account-name").fill("Source First User")
+    await app.getByTestId("account-save").click()
+    await app.getByTestId("account-delete-open").click()
+    assert.equal(await app.getByTestId("account-delete-dialog").count(), 1)
+    assert.equal(await app.getByText("This action cannot be undone. This will permanently delete your account and remove all your data from our servers.").count(), 1)
+    await app.getByTestId("delete-confirmation").fill("DELETE")
+    await app.getByTestId("account-delete-confirm").click()
+    assert.equal(await app.getByTestId("account-delete-confirm").count(), 0)
+    assert.equal(await app.getByTestId("account-delete-status").textContent(), "Account deleted successfully")
 
-    await app.getByTestId("density-select").click()
-    assert.equal(await app.getByTestId("density-content").count(), 1)
-    await app.getByTestId("density-content").press("down")
-    await app.getByTestId("density-content").press("enter")
-    assert.match(await app.getByTestId("density-value").textContent(), /compact/)
+    await app.getByTestId("nav-home").click()
+    assert.equal(await app.getByTestId("page-home").count(), 1)
+    assert.equal(await app.getByTestId("logout").count(), 1)
+    await scrollIntoView(app, "dashboard-content", "logout")
+    await app.getByTestId("logout").click()
+    assert.equal(await app.getByTestId("logged-out").count(), 1)
 
     await app.screenshot({ path: screenshotPath })
     assert.equal(existsSync(screenshotPath), true)
     assert.ok(statSync(screenshotPath).size > 0)
 
-    console.log("dashboard integration: passed")
+    console.log("dashboard integration: source-first route, dialog, CRUD, and weather surfaces passed")
   } finally {
     await app.clock.resume()
     await app.close()

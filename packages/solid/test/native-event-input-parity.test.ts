@@ -7,6 +7,7 @@ import {
   insertNode,
   setProp,
 } from "../src/host/universal.js"
+import type { HostElementNode } from "../src/host/nodes.js"
 import { createTestRoot, hasNativeTestRenderer } from "../src/testing.js"
 
 const nativeIt = hasNativeTestRenderer ? it : it.skip
@@ -58,6 +59,45 @@ describe("native event/input parity", () => {
 
     expect(testRoot.renderer.getAllText()).toContain("Value: hi")
     expect(testRoot.renderer.getPaintedText()).toContain("hi")
+    testRoot.unmount()
+  })
+
+  nativeIt("gives an unstyled controlled range intrinsic bounds and commits a drag", () => {
+    const testRoot = createTestRoot()
+    const [value, setValue] = createSignal("0")
+    let range: HostElementNode | undefined
+
+    testRoot.render(() => {
+      const root = createElement("div")
+      setProp(root, "style", { width: 400, height: 80 })
+
+      const rangeNode = createElement("input")
+      if (rangeNode.kind !== "element") throw new TypeError("Expected host range element")
+      range = rangeNode
+      setProp(rangeNode, "type", "range")
+      setProp(rangeNode, "min", "-60")
+      setProp(rangeNode, "max", "6.02")
+      setProp(rangeNode, "step", "0.1")
+      setProp(rangeNode, "onChange", () => setValue(rangeNode.value))
+      bindValue(rangeNode, value)
+
+      insertNode(root, rangeNode)
+      return root
+    })
+
+    expect(range).toBeDefined()
+    const bounds = range?.getBoundingClientRect()
+    expect(bounds?.width).toBeGreaterThan(100)
+    expect(bounds?.height).toBeGreaterThan(0)
+
+    const startX = (bounds?.left ?? 0) + 4
+    const y = (bounds?.top ?? 0) + (bounds?.height ?? 0) / 2
+    testRoot.renderer.nativeSimulateMouseDown(startX, y, 0)
+    testRoot.renderer.nativeSimulateMouseMove(startX + 20, y, 0)
+    testRoot.renderer.nativeSimulateMouseUp(startX + 20, y, 0)
+
+    expect(value()).not.toBe("0")
+    expect(Number(value())).toBeGreaterThan(-60)
     testRoot.unmount()
   })
 
@@ -184,6 +224,62 @@ describe("native event/input parity", () => {
     expect(events[0]?.isHeld).toBe(true)
     expect(events[1]?.eventType).toBe("keyUp")
     expect(events[1]?.key).toBe("a")
+    testRoot.unmount()
+  })
+
+  nativeIt("delivers GPUIX 0.7 Tab to the element and window without implicit focus traversal", () => {
+    const windowKeys: string[] = []
+    const elementKeys: string[] = []
+    const testRoot = createTestRoot(undefined, undefined, {
+      onKeyDown: (event) => windowKeys.push(event.key ?? ""),
+    })
+
+    testRoot.render(() => {
+      const root = createElement("div")
+      setProp(root, "style", { width: 400, height: 120, display: "flex", gap: 8 })
+
+      const first = createElement("div")
+      setProp(first, "tabIndex", 0)
+      setProp(first, "style", { width: 100, height: 40 })
+      setProp(first, "onKeyDown", (event: EventPayload) => {
+        elementKeys.push(`first:${event.modifiers?.shift ? "shift-" : ""}${event.key ?? ""}`)
+      })
+
+      const second = createElement("div")
+      setProp(second, "tabIndex", 0)
+      setProp(second, "style", { width: 100, height: 40 })
+      setProp(second, "onKeyDown", (event: EventPayload) => {
+        elementKeys.push(`second:${event.modifiers?.shift ? "shift-" : ""}${event.key ?? ""}`)
+      })
+
+      insertNode(root, first)
+      insertNode(root, second)
+      return root
+    })
+
+    const focusable = testRoot.renderer
+      .findByType("div")
+      .filter((element) => element.events.has("keyDown"))
+    const first = focusable[0]
+    const second = focusable[1]
+    expect(first).toBeDefined()
+    expect(second).toBeDefined()
+
+    testRoot.renderer.focusElement(first?.id ?? 0)
+    testRoot.renderer.simulateKeystrokes("tab")
+    testRoot.renderer.simulateKeystrokes("a")
+
+    testRoot.renderer.focusElement(second?.id ?? 0)
+    testRoot.renderer.simulateKeystrokes("shift-tab")
+    testRoot.renderer.simulateKeystrokes("b")
+
+    expect(elementKeys).toEqual([
+      "first:tab",
+      "first:a",
+      "second:shift-tab",
+      "second:b",
+    ])
+    expect(windowKeys).toEqual(["tab", "a", "tab", "b"])
     testRoot.unmount()
   })
 

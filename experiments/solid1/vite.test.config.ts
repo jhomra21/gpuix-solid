@@ -1,20 +1,23 @@
 import solid from "vite-plugin-solid"
 import { defineConfig } from "vite"
 
+const solid1Package = /^@jhomra21\/gpuix-solid1(?:\/.*)?$/
+
 export default defineConfig({
   plugins: [
     solid({
       solid: {
         generate: "universal",
-        moduleName: "gpuix-solid1-experiment",
+        moduleName: "@jhomra21/gpuix-solid1",
       },
     }),
   ],
   resolve: {
     conditions: ["browser", "development"],
+    dedupe: ["solid-js"],
   },
   ssr: {
-    noExternal: ["gpuix-solid1-experiment", "solid-js"],
+    noExternal: [solid1Package, "solid-js"],
     resolve: {
       conditions: ["browser", "development", "import", "default"],
     },

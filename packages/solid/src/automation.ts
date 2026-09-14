@@ -182,6 +182,7 @@ function toKeystrokes(text: string): string {
       if (character === " ") return "space"
       if (character === "\n") return "enter"
       if (character === "\t") return "tab"
+      if (character >= "A" && character <= "Z") return `shift-${character.toLowerCase()}`
       return character
     })
     .join(" ")

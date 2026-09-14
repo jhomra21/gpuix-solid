@@ -1,5 +1,4 @@
 import type { EventPayload } from "@gpuix/native"
-import { EVENT_PROP_TO_TYPE } from "./host/events.js"
 
 const BROWSER_KEY_NAMES = new Map<string, string>([
   ["alt", "Alt"],
@@ -23,16 +22,7 @@ const BROWSER_KEY_NAMES = new Map<string, string>([
   ["up", "ArrowUp"],
 ])
 
-/**
- * Browser-only event names used by upstream component libraries that GPUIX
- * exposes through equivalent enter/leave native events.
- */
-export function installBrowserEventCompatibility(): void {
-  EVENT_PROP_TO_TYPE.set("onMouseOver", "mouseEnter")
-  EVENT_PROP_TO_TYPE.set("onMouseOut", "mouseLeave")
-}
-
-/** GPUIX 0.6 reports platform-neutral key names; browser libraries expect KeyboardEvent.key names. */
+/** GPUIX 0.7 reports platform-neutral key names; browser libraries expect KeyboardEvent.key names. */
 export function browserCompatibleNativeEvent(event: EventPayload): EventPayload {
   if ((event.eventType !== "keyDown" && event.eventType !== "keyUp") || !event.key) return event
   return { ...event, key: browserKeyName(event.key) }

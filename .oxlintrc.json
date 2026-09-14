@@ -12,7 +12,8 @@
     ".pi/**",
     ".roo/**",
     ".windsurf/**",
-    "tools/oxlint/anti-slop/**"
+    "tools/oxlint/anti-slop/**",
+    "examples/counter/upstream/**"
   ],
   "jsPlugins": [
     {
@@ -39,5 +40,30 @@
     "anti-slop/no-unsafe-dictionary-type": "error",
     "anti-slop/no-widen-then-assert": "error",
     "anti-slop/require-safety-comment-for-type-assertion": "error"
-  }
+  },
+  "overrides": [
+    {
+      "files": [
+        "examples/counter/src/chat/mdx.tsx",
+        "examples/counter/src/chat/shell.tsx",
+        "examples/counter/src/todo/app.tsx"
+      ],
+      "rules": {
+        "anti-slop/no-runtime-typeof": "off"
+      }
+    },
+    {
+      "files": ["examples/counter/src/chat/mdx.tsx"],
+      "rules": {
+        "anti-slop/require-safety-comment-for-type-assertion": "off"
+      }
+    },
+    {
+      "files": ["examples/counter/src/codeimage/compat.tsx"],
+      "rules": {
+        "anti-slop/no-unknown-parameters": "off",
+        "anti-slop/no-unknown-returns": "off"
+      }
+    }
+  ]
 }

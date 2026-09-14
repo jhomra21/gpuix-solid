@@ -108,7 +108,8 @@ function App() {
 }
 
 render(() => <App />, {
-  title: "Solid GPUIX Counter",
+  title: "GPUIX Counter",
   width: 800,
   height: 600,
+  focus: process.env.GPUIX_BACKGROUND !== "1",
 })

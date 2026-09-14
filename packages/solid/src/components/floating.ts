@@ -17,7 +17,7 @@ import type {
   InputProps,
   StyleDesc,
 } from "../host/types.js"
-import { insert, spread } from "../host/universal.js"
+import { insert, setProp, spread } from "../host/universal.js"
 
 export type FloatingSide = "top" | "right" | "bottom" | "left"
 export type FloatingAlign = "start" | "center" | "end"
@@ -179,7 +179,8 @@ function bindHostProps(
         const value = next.get(name)
         const prior = previous?.get(name)
         if (previous && Object.is(value, prior)) continue
-        setHostProperty(node, name, value, prior)
+        if (name === "style") setProp(node, name, value, prior)
+        else setHostProperty(node, name, value, prior)
       }
       previous = next
     },

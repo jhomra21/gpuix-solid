@@ -9,8 +9,13 @@ import { nativeTailwindManifest } from "./native-tailwind.generated"
 configureNativeStyleManifest(nativeTailwindManifest)
 setNativeStyleColorMode("dark")
 
-render(() => <DawSolid1Showcase />, {
+render(() => (
+  <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column" }}>
+    <DawSolid1Showcase />
+  </div>
+), {
   title: "DAW Browser — Solid 1 + GPUIX",
   width: 1440,
   height: 900,
+  debugFrameOverlay: process.env.GPUIX_DAW_DEBUG_FRAMES === "1" ? "full" : "hidden",
 })

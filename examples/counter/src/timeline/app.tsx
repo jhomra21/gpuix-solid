@@ -722,6 +722,10 @@ export function TimelineApp(props: TimelineAppProps = {}) {
     scrollY: 0,
     pxPerSecond: 24,
   })
+  // Preserve atomic viewport updates without waking consumers of unchanged fields.
+  const scrollX = createMemo(() => viewport().scrollX)
+  const scrollY = createMemo(() => viewport().scrollY)
+  const pxPerSecond = createMemo(() => viewport().pxPerSecond)
   const [playhead, setPlayhead] = createSignal(3.5)
   const [selection, setSelection] = createSignal<ReadonlySet<string>>(new Set<string>())
   const [collapsed, setCollapsed] = createSignal<ReadonlySet<string>>(new Set<string>())
@@ -740,7 +744,7 @@ export function TimelineApp(props: TimelineAppProps = {}) {
   const geometryBase = createMemo(() =>
     buildGeometry({
       project: project(),
-      pxPerSecond: viewport().pxPerSecond,
+      pxPerSecond: pxPerSecond(),
       viewportWidth: viewportWidth(),
       bodyHeight: bodyHeight(),
       collapsed: collapsed(),
@@ -987,14 +991,15 @@ export function TimelineApp(props: TimelineAppProps = {}) {
       : project().clips.filter((clip) => !collapsed().has(clip.trackId))
     if (!cull()) return shown
 
-    const currentViewport = viewport()
     const currentGeometry = geometry()
-    const startSeconds = currentViewport.scrollX / currentViewport.pxPerSecond
+    const currentScrollX = scrollX()
+    const currentScrollY = scrollY()
+    const currentPxPerSecond = pxPerSecond()
+    const startSeconds = currentScrollX / currentPxPerSecond
     const endSeconds =
-      (currentViewport.scrollX + currentGeometry.gridWidth) /
-      currentViewport.pxPerSecond
-    const topPx = currentViewport.scrollY
-    const bottomPx = currentViewport.scrollY + currentGeometry.gridHeight
+      (currentScrollX + currentGeometry.gridWidth) / currentPxPerSecond
+    const topPx = currentScrollY
+    const bottomPx = currentScrollY + currentGeometry.gridHeight
     return shown.filter((clip) => {
       if (clip.start > endSeconds || clip.start + clip.duration < startSeconds) return false
       const top = currentGeometry.rowTops.get(clip.trackId) ?? 0
@@ -1010,11 +1015,10 @@ export function TimelineApp(props: TimelineAppProps = {}) {
   })
 
   const readout = createMemo(() => {
-    const currentViewport = viewport()
     return [
-      `x=${Math.round(currentViewport.scrollX)}`,
-      `y=${Math.round(currentViewport.scrollY)}`,
-      `pps=${currentViewport.pxPerSecond.toFixed(2)}`,
+      `x=${Math.round(scrollX())}`,
+      `y=${Math.round(scrollY())}`,
+      `pps=${pxPerSecond().toFixed(2)}`,
       `head=${playhead().toFixed(2)}`,
       `clips=${visibleClips().length}/${project().clips.length}`,
     ].join(" ")
@@ -1028,7 +1032,7 @@ export function TimelineApp(props: TimelineAppProps = {}) {
   })
 
   const zoomRatio = createMemo(() =>
-    Math.log(viewport().pxPerSecond / MIN_PX_PER_SECOND) /
+    Math.log(pxPerSecond() / MIN_PX_PER_SECOND) /
     Math.log(MAX_PX_PER_SECOND / MIN_PX_PER_SECOND),
   )
 
@@ -1127,7 +1131,7 @@ export function TimelineApp(props: TimelineAppProps = {}) {
             <div
               style={{
                 position: "absolute",
-                left: -viewport().scrollX,
+                left: -scrollX(),
                 top: 0,
                 width: geometry().contentWidth,
                 height: RULER_HEIGHT,
@@ -1136,13 +1140,13 @@ export function TimelineApp(props: TimelineAppProps = {}) {
             >
               <RulerTicks
                 duration={project().durationSeconds}
-                pxPerSecond={viewport().pxPerSecond}
+                pxPerSecond={pxPerSecond()}
               />
               <div
                 testId="timeline-playhead"
                 style={{
                   position: "absolute",
-                  left: playhead() * viewport().pxPerSecond - 4,
+                  left: playhead() * pxPerSecond() - 4,
                   top: 4,
                   width: 9,
                   height: 9,
@@ -1172,7 +1176,7 @@ export function TimelineApp(props: TimelineAppProps = {}) {
               style={{
                 position: "absolute",
                 left: 0,
-                top: -viewport().scrollY,
+                top: -scrollY(),
                 width: HEADER_WIDTH,
                 height: geometry().contentHeight,
                 pointerEvents: "none",
@@ -1203,8 +1207,8 @@ export function TimelineApp(props: TimelineAppProps = {}) {
             <div
               style={{
                 position: "absolute",
-                left: -viewport().scrollX,
-                top: -viewport().scrollY,
+                left: -scrollX(),
+                top: -scrollY(),
                 width: geometry().contentWidth,
                 height: geometry().contentHeight,
                 pointerEvents: "none",
@@ -1214,7 +1218,7 @@ export function TimelineApp(props: TimelineAppProps = {}) {
                 project={project()}
                 clips={visibleClips()}
                 geometry={geometry()}
-                pxPerSecond={viewport().pxPerSecond}
+                pxPerSecond={pxPerSecond()}
                 selection={selection()}
                 draggingClipId={preview()?.clip.id ?? null}
                 gesture={clipGesture}
@@ -1226,7 +1230,7 @@ export function TimelineApp(props: TimelineAppProps = {}) {
                     clip={current().clip}
                     top={geometry().rowTops.get(current().clip.trackId) ?? 0}
                     height={rowHeightOf(geometry(), current().clip.trackId)}
-                    pxPerSecond={viewport().pxPerSecond}
+                    pxPerSecond={pxPerSecond()}
                     selected={true}
                     ghost={false}
                     testId="clip-preview"
@@ -1240,7 +1244,7 @@ export function TimelineApp(props: TimelineAppProps = {}) {
                     testId="snap-guide"
                     style={{
                       position: "absolute",
-                      left: guide() * viewport().pxPerSecond,
+                      left: guide() * pxPerSecond(),
                       top: 0,
                       width: 1,
                       height: geometry().contentHeight,
@@ -1253,7 +1257,7 @@ export function TimelineApp(props: TimelineAppProps = {}) {
               <div
                 style={{
                   position: "absolute",
-                  left: playhead() * viewport().pxPerSecond,
+                  left: playhead() * pxPerSecond(),
                   top: 0,
                   width: 2,
                   height: geometry().contentHeight,

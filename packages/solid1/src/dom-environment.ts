@@ -27,10 +27,7 @@ type CompatRect = {
   height: number
 }
 
-type CompatDataset = {
-  liveAnnouncer: string | undefined
-  reactAriaTopLayer: string | undefined
-}
+type CompatDataset = Record<string, string | undefined>
 
 type CompatTreeElement = HostElementNode | CompatDocumentNode
 
@@ -54,6 +51,13 @@ type CompatDocument = CompatEventTarget & {
   ) => CompatTreeWalker
 }
 
+type CompatClassList = {
+  add(...tokens: string[]): void
+  remove(...tokens: string[]): void
+  contains(token: string): boolean
+  toggle(token: string, force?: boolean): boolean
+}
+
 type CompatDocumentNode = CompatEventTarget & {
   ownerDocument: CompatDocument
   nodeName: string
@@ -62,6 +66,7 @@ type CompatDocumentNode = CompatEventTarget & {
   parentElement: CompatDocumentNode | null
   readonly children: readonly CompatTreeElement[]
   readonly dataset: CompatDataset
+  readonly classList: CompatClassList
   clientWidth: number
   clientHeight: number
   clientLeft: number
@@ -128,6 +133,15 @@ type CompatMutationRecord = {
 
 type CompatMutationCallback = (records: CompatMutationRecord[]) => void
 
+type CompatResizeObserverEntry = {
+  target: HostElementNode
+  contentRect: CompatRect
+}
+
+type CompatResizeObserverCallback = (entries: CompatResizeObserverEntry[]) => void
+
+type CompatResizeObserverConstructor = new (callback: CompatResizeObserverCallback) => CompatResizeObserver
+
 type CompatMutationObserverConstructor = new (callback: CompatMutationCallback) => CompatMutationObserver
 
 type CompatMutationObserverOptions = {
@@ -145,6 +159,7 @@ type CompatWindow = CompatEventTarget & {
   requestAnimationFrame?: CompatAnimationFrameRequest
   cancelAnimationFrame?: CompatAnimationFrameCancel
   MutationObserver?: CompatMutationObserverConstructor
+  ResizeObserver?: CompatResizeObserverConstructor
   NodeFilter?: CompatNodeFilter
   Image?: CompatImageConstructor
   Element?: typeof Element
@@ -208,6 +223,7 @@ export function installDomEventEnvironment(): void {
   windowTarget.requestAnimationFrame = defaultRequestAnimationFrame
   windowTarget.cancelAnimationFrame = (handle) => globalThis.clearTimeout(handle)
   windowTarget.MutationObserver = CompatMutationObserver
+  windowTarget.ResizeObserver = CompatResizeObserver
   windowTarget.NodeFilter = NODE_FILTER
   windowTarget.Image = CompatImageLoader
   windowTarget.getComputedStyle = defaultComputedStyle
@@ -249,6 +265,11 @@ export function installDomEventEnvironment(): void {
     writable: true,
     value: CompatMutationObserver,
   })
+  Object.defineProperty(globalThis, "ResizeObserver", {
+    configurable: true,
+    writable: true,
+    value: CompatResizeObserver,
+  })
   Object.defineProperty(globalThis, "requestAnimationFrame", {
     configurable: true,
     writable: true,
@@ -268,6 +289,31 @@ function createDocumentNode(
 ): CompatDocumentNode {
   const upperTagName = tagName.toUpperCase()
   const attributes = new Map<string, string>()
+  const classes = new Set<string>()
+  const syncClassAttribute = () => {
+    if (classes.size === 0) attributes.delete("class")
+    else attributes.set("class", [...classes].join(" "))
+  }
+  const classList: CompatClassList = {
+    add(...tokens) {
+      for (const token of tokens) if (token) classes.add(token)
+      syncClassAttribute()
+    },
+    remove(...tokens) {
+      for (const token of tokens) classes.delete(token)
+      syncClassAttribute()
+    },
+    contains(token) {
+      return classes.has(token)
+    },
+    toggle(token, force) {
+      const shouldAdd = force ?? !classes.has(token)
+      if (shouldAdd) classes.add(token)
+      else classes.delete(token)
+      syncClassAttribute()
+      return shouldAdd
+    },
+  }
   const node: CompatDocumentNode = {
     ownerDocument,
     nodeName: upperTagName,
@@ -281,6 +327,7 @@ function createDocumentNode(
     get dataset() {
       return datasetFromAttributes(attributes)
     },
+    classList,
     get clientWidth() {
       return windowTarget.innerWidth ?? 800
     },
@@ -301,10 +348,17 @@ function createDocumentNode(
       return attributes.get(name) ?? null
     },
     setAttribute(name, value) {
-      attributes.set(name, String(value))
+      const next = String(value)
+      attributes.set(name, next)
+      if (name === "class") {
+        classes.clear()
+        for (const token of next.split(/\s+/)) if (token) classes.add(token)
+        syncClassAttribute()
+      }
     },
     removeAttribute(name) {
       attributes.delete(name)
+      if (name === "class") classes.clear()
     },
     contains(candidate) {
       if (candidate === node) return true
@@ -564,18 +618,30 @@ function unquote(value: string): string {
   return value
 }
 
+function dataAttributeProperty(name: string): string {
+  return name
+    .slice(5)
+    .split("-")
+    .map((part, index) => index === 0 ? part : `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+    .join("")
+}
+
 function datasetFromHost(node: HostElementNode) {
-  return {
-    liveAnnouncer: hostAttribute(node, "data-live-announcer") ?? undefined,
-    reactAriaTopLayer: hostAttribute(node, "data-react-aria-top-layer") ?? undefined,
-  } satisfies CompatDataset
+  const dataset: CompatDataset = {}
+  for (const [name, value] of node.props) {
+    if (!name.startsWith("data-") || value === null) continue
+    dataset[dataAttributeProperty(name)] = String(value)
+  }
+  return dataset
 }
 
 function datasetFromAttributes(attributes: ReadonlyMap<string, string>) {
-  return {
-    liveAnnouncer: attributes.get("data-live-announcer"),
-    reactAriaTopLayer: attributes.get("data-react-aria-top-layer"),
-  } satisfies CompatDataset
+  const dataset: CompatDataset = {}
+  for (const [name, value] of attributes) {
+    if (!name.startsWith("data-")) continue
+    dataset[dataAttributeProperty(name)] = value
+  }
+  return dataset
 }
 
 function createCompatTreeWalker(
@@ -599,6 +665,61 @@ function createCompatTreeWalker(
       return null
     },
   }
+}
+
+class CompatResizeObserver {
+  readonly #callback: CompatResizeObserverCallback
+  readonly #targets = new Set<HostElementNode>()
+  readonly #bounds = new Map<HostElementNode, CompatRect>()
+  #timer: ReturnType<typeof globalThis.setTimeout> | undefined
+
+  constructor(callback: CompatResizeObserverCallback) {
+    this.#callback = callback
+  }
+
+  observe(target: HostElementNode): void {
+    this.#targets.add(target)
+    this.schedule()
+  }
+
+  unobserve(target: HostElementNode): void {
+    this.#targets.delete(target)
+    this.#bounds.delete(target)
+    if (this.#targets.size === 0) this.stop()
+  }
+
+  disconnect(): void {
+    this.#targets.clear()
+    this.#bounds.clear()
+    this.stop()
+  }
+
+  private schedule(): void {
+    if (this.#timer !== undefined || this.#targets.size === 0) return
+    this.#timer = globalThis.setTimeout(() => this.check(), 16)
+  }
+
+  private stop(): void {
+    if (this.#timer !== undefined) globalThis.clearTimeout(this.#timer)
+    this.#timer = undefined
+  }
+
+  private check(): void {
+    this.#timer = undefined
+    const entries: CompatResizeObserverEntry[] = []
+    for (const target of this.#targets) {
+      const contentRect = target.getBoundingClientRect()
+      const previous = this.#bounds.get(target)
+      if (!previous || !sameSize(previous, contentRect)) entries.push({ target, contentRect })
+      this.#bounds.set(target, contentRect)
+    }
+    if (entries.length > 0) this.#callback(entries)
+    this.schedule()
+  }
+}
+
+function sameSize(left: CompatRect, right: CompatRect): boolean {
+  return left.width === right.width && left.height === right.height
 }
 
 class CompatMutationObserver {

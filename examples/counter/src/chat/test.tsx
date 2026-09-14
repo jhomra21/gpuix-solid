@@ -48,11 +48,11 @@ async function rendersComposedMdx(): Promise<void> {
     assert.equal(root.renderer.findByType("markdown").length, 0)
     assert.equal(root.renderer.findByType("code").length, 1)
     const painted = root.renderer.getPaintedText()
-    assert.ok(painted.includes("Solid-composed Markdown"))
+    assert.ok(painted.includes("React-composed Markdown"))
     assert.ok(painted.includes("safe-mdx"))
     assert.ok(painted.includes("Custom MDX component"))
     assert.ok(painted.includes("Path"))
-    assert.ok(painted.includes("Framework-composed Markdown and custom components"))
+    assert.ok(painted.includes("Custom MDX components and React state inside a message"))
     assert.ok(root.renderer.findByType("text").length > 20)
   } finally {
     root.unmount()
@@ -86,7 +86,7 @@ async function rendersApplicationSurface(): Promise<void> {
   const root = mount()
   try {
     const transcript = requiredElement(root.renderer.findByType("virtual-list")[0], "chat transcript")
-    assert.equal(transcript.children.length, 20)
+    assert.equal(transcript.children.length, 23)
     const painted = root.renderer.getPaintedText()
     for (const text of [
       "New Task",
@@ -99,7 +99,7 @@ async function rendersApplicationSurface(): Promise<void> {
     ]) {
       assert.ok(painted.includes(text), `expected painted chat text: ${text}`)
     }
-    assert.ok(painted.some((line) => line.includes("Solid renderer for GPUI")))
+    assert.ok(painted.some((line) => line.includes("React renderer for GPUI")))
     const icons = root.renderer.findByType("svg")
     assert.ok(icons.length > 8)
     assert.ok(icons.every((icon) => String(icon.customProps?.source ?? "").length > 0))
@@ -138,7 +138,7 @@ async function protectsSidebarSelection(): Promise<void> {
     assert.equal(sidebarSelected, null)
 
     const message = requiredElement(
-      root.renderer.findByText("GPUix Solid"),
+      root.renderer.findByText("GPUIX"),
       "transcript message text",
     )
     const [messageX, messageY, messageWidth, messageHeight] = requiredBounds(root, message)
@@ -223,7 +223,7 @@ async function keepsSafeMdxAsExtraRow(): Promise<void> {
     assert.equal(transcript.children.length, 7)
     root.renderer.scrollToItem(transcript.id, 0)
     root.renderer.flush()
-    assert.ok(root.renderer.getPaintedText().includes("Solid-composed Markdown"))
+    assert.ok(root.renderer.getPaintedText().includes("React-composed Markdown"))
   } finally {
     root.unmount()
   }

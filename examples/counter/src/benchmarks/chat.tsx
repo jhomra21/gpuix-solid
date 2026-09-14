@@ -157,7 +157,7 @@ async function main(): Promise<void> {
   }
 
   console.log(
-    "[chat.perf] workload matches the upstream GPUIX React 0.6 Chat benchmark: " +
+    "[chat.perf] workload matches the upstream GPUIX React 0.7 Chat benchmark: " +
       "1000 turns, idle flush, wheel draw, highlight updates, and sidebar toggles.",
   )
   console.log(

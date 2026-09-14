@@ -3,11 +3,14 @@ import { defineConfig } from "vite"
 import { kobalteNativeAliases } from "./kobalte-native-aliases.ts"
 
 export default defineConfig({
+  define: {
+    "import.meta.env.VITE_DESKTOP": JSON.stringify("false"),
+  },
   plugins: [
     solid({
       solid: {
         generate: "universal",
-        moduleName: "@jhomra21/gpuix-solid1",
+        moduleName: "@solid1-daw/gpuix-solid-canvas",
       },
     }),
   ],
@@ -24,10 +27,13 @@ export default defineConfig({
   },
   build: {
     target: "node22",
-    ssr: "src/test.tsx",
+    ssr: "src/test-entry.tsx",
     outDir: "dist/test",
     rollupOptions: {
       external: ["@gpuix/native"],
+      output: {
+        entryFileNames: "test.js",
+      },
     },
   },
 })
