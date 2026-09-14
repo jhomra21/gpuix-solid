@@ -1,10 +1,14 @@
 import { spawnSync } from "node:child_process"
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..")
-const consumerDir = "/private/tmp/gpuix-solid-published-foreground"
+const consumerDir = join(
+  process.env.GPUIX_FOREGROUND_TMP ?? tmpdir(),
+  "gpuix-solid-published-foreground",
+)
 const packageSpec = process.env.GPUIX_SOLID_VERSION ?? "beta"
 const command = process.argv[2] ?? "all"
 
