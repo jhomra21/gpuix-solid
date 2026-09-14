@@ -4,6 +4,10 @@
 
 <!-- Add user-facing changes here before preparing a release. -->
 
+## 0.1.0-beta.7 - 2026-09-14
+
+- No user-facing changes.
+
 ## 0.1.0-beta.6 - 2026-09-14
 
 - Raise the native renderer baseline from `@gpuix/native ^0.7.0` to `^0.8.0` across the Solid 2 package, Solid 1 package, examples, experiments, lockfile policy, and pinned GPUIX source-edge validation. The 0.8 line adds the upstream accessibility/ARIA bridge, textarea newline behavior, text decoration, HTTP images, file-drop/window additions, primary mouse-up click delivery, macOS event-pump changes, runtime-error resilience, and other published native improvements that GPUix Solid can now target directly.
@@ -42,4 +46,5 @@
 - Solid-native Tooltip, Select, Combobox, and `animate.*` APIs.
 - Native TestRenderer, locator automation, live stdio transport, deterministic clock, retained-tree snapshots, and screenshot parity.
 - Keep the public automation `launch({ env })` contract structural so TypeScript consumers do not need the global `NodeJS` namespace just to use the packaged automation API.
+
 
