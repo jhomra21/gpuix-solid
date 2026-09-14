@@ -264,7 +264,7 @@ From a checkout of this repository, the reproducible acceptance harness is:
 GPUIX_SOLID_VERSION=beta node scripts/test-published-foreground.mjs all
 ```
 
-It creates a fresh consumer under `/private/tmp`, installs only registry packages, typechecks and builds two apps, and launches them sequentially:
+It creates a fresh consumer in the operating system's temporary directory, installs only registry packages, typechecks and builds two apps, and launches them sequentially. Set `GPUIX_FOREGROUND_TMP` only when you intentionally want a different temp root.
 
 1. the original Counter path used to reproduce click/reset/selection failures; and
 2. the GPUIX 0.8 accessibility + textarea + decorated-text surface.
