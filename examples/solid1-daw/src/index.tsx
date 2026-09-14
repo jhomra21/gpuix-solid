@@ -17,5 +17,5 @@ render(() => (
   title: "DAW Browser — Solid 1 + GPUIX",
   width: 1440,
   height: 900,
-  debugFrameOverlay: "full",
+  debugFrameOverlay: process.env.GPUIX_DAW_DEBUG_FRAMES === "1" ? "full" : "hidden",
 })
