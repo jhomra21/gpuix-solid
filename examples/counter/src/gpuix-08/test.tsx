@@ -19,8 +19,10 @@ async function main(): Promise<void> {
     assert.equal(action.customProps?.role, "button")
     assert.equal(action.customProps?.["aria-label"], "Run accessible action")
     assert.equal(action.customProps?.["aria-id"], "gpuix08.accessible-action")
-    assert.ok(action.events.has("click"), "accessible action should retain its click listener")
 
+    // Assert the user-visible event path rather than the renderer's internal
+    // event storage. Native event storage differs by platform, while the
+    // automation click is the public behavior this example promises.
     await app.getByTestId("accessible-action").click()
     assert.equal(await app.getByTestId("accessible-count").textContent(), "Accessible clicks: 1")
 
