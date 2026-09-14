@@ -326,25 +326,48 @@ jobs:
           INTEGRITY: ${{ steps.artifact.outputs.integrity }}
         shell: bash
         run: |
+          expected_tag=latest
+          if [[ "$VERSION" == *-* ]]; then expected_tag=beta; fi
+
           verified=0
-          for attempt in $(seq 1 12); do
+          deadline=$((SECONDS + 300))
+          delay=5
+          attempt=1
+          remote_integrity=""
+          tagged_version=""
+
+          while (( SECONDS < deadline )); do
             remote_integrity=$(npm view "${PACKAGE}@${VERSION}" dist.integrity 2>/dev/null || true)
-            if [[ "$remote_integrity" == "$INTEGRITY" ]]; then
+            tagged_version=$(npm view "$PACKAGE" "dist-tags.${expected_tag}" 2>/dev/null || true)
+
+            if [[ "$remote_integrity" == "$INTEGRITY" && "$tagged_version" == "$VERSION" ]]; then
               verified=1
               break
             fi
-            sleep 5
-          done
-          if [[ "$verified" -ne 1 ]]; then
-            echo "Registry integrity never matched the published artifact."
-            exit 1
-          fi
 
-          expected_tag=latest
-          if [[ "$VERSION" == *-* ]]; then expected_tag=beta; fi
-          tagged_version=$(npm view "$PACKAGE" dist-tags --json | node -e 'let s=""; process.stdin.on("data", c => s += c); process.stdin.on("end", () => { const tags=JSON.parse(s); process.stdout.write(tags[process.argv[1]] ?? ""); })' "$expected_tag")
-          if [[ "$tagged_version" != "$VERSION" ]]; then
-            echo "Expected dist-tag ${expected_tag} -> ${VERSION}, got ${tagged_version:-<missing>}."
+            if [[ -n "$remote_integrity" && "$remote_integrity" != "$INTEGRITY" ]]; then
+              echo "${PACKAGE}@${VERSION} appeared with different registry integrity: ${remote_integrity}."
+              exit 1
+            fi
+
+            remaining=$((deadline - SECONDS))
+            if (( remaining <= 0 )); then
+              break
+            fi
+            sleep_for=$delay
+            if (( sleep_for > remaining )); then sleep_for=$remaining; fi
+
+            echo "Waiting for npm registry propagation (attempt ${attempt}): integrity=${remote_integrity:-<missing>}, ${expected_tag}=${tagged_version:-<missing>}; retrying in ${sleep_for}s."
+            sleep "$sleep_for"
+            attempt=$((attempt + 1))
+            if (( delay < 30 )); then
+              delay=$((delay * 2))
+              if (( delay > 30 )); then delay=30; fi
+            fi
+          done
+
+          if [[ "$verified" -ne 1 ]]; then
+            echo "npm registry did not converge within 300 seconds: integrity=${remote_integrity:-<missing>}, ${expected_tag}=${tagged_version:-<missing>}."
             exit 1
           fi
 
