@@ -4,6 +4,8 @@
 
 <!-- Add user-facing changes here before preparing a release. -->
 
+## 0.1.0-beta.5 - 2026-09-14
+
 - Align the Solid 2 and Solid 1 hosts with the current `@gpuix/native` 0.7 release line, including native two-stop linear gradients, `WindowOptions` passthrough, raw window key handling, last-window lifecycle termination, and the published native TestRenderer availability guard.
 - Improve browser-source compatibility in the native hosts with browser-shaped element bounds, focus/selection/scroll and pointer-capture behavior, controlled input/range synchronization, SVG/event semantics, intrinsic native range geometry, and transparent CSS color-mix normalization used by upstream component source.
 - Keep native windows responsive after JavaScript runtime failures by isolating event-handler exceptions, continuing the frame pump after a thrown tick, and installing one process-level uncaught-error logger for native-window renders.
