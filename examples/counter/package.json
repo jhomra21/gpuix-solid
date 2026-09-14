@@ -10,6 +10,7 @@
     "build:blurred-window": "vite build --config vite.blurred-window.config.ts",
     "build:gpuix-08": "vite build --config vite.gpuix-08.config.ts",
     "build:gpuix-08-test": "vite build --config vite.gpuix-08-test.config.ts",
+    "build:readme-gallery": "vite build --config vite.readme-gallery.config.ts",
     "build:todo": "vite build --config vite.todo.config.ts",
     "build:todo-test": "vite build --config vite.todo-test.config.ts",
     "build:diff": "vite build --config vite.diff.config.ts",
