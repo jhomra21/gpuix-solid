@@ -7,6 +7,7 @@ import { startFrameLoop, type FrameLoop } from "./frame-loop.js"
 import { useDestroyUnlinksParentBatch } from "./host/mutations.js"
 import type { DebugFrameOverlayMode, NativeRenderer, WindowKeyEventHandlers } from "./host/types.js"
 import { withLegacyElementBounds, type LegacyElementBoundsRenderer } from "./native-bounds.js"
+import { createNativeEventBoundary } from "./native-event-boundary.js"
 import { createRoot, type Root } from "./root.js"
 import { createRuntimeErrorOverlay, type RuntimeErrorDetails } from "./runtime-error-overlay.js"
 
@@ -166,20 +167,23 @@ export function createRenderer(
 ): RendererBinding {
   let renderer: GpuixRenderer
   let automationEnabled = false
-  renderer = new GpuixRenderer((error, event) => {
-    if (error) {
-      scheduleRuntimeError(error)
-      return
-    }
-    if (!event) return
-    const state = rendererBindingState(renderer)
-    try {
+  const boundary = createNativeEventBoundary(
+    (event) => {
+      const state = rendererBindingState(renderer)
       const handled = state.root?.dispatch(event) ?? false
       if (handled) state.onEvent?.(event)
-    } catch (eventError) {
-      scheduleRuntimeError(eventError instanceof Error ? eventError : String(eventError))
-    }
-  })
+    },
+    scheduleRuntimeError,
+  )
+  renderer = new GpuixRenderer(boundary.handleNativeEvent)
+
+  // On macOS, native 0.7.0 can synchronously call back into JS while tick() is
+  // still dispatching AppKit input. If that handler commits Solid state, the
+  // ensuing applyBatch() tries to lease GpuixView while GPUI still owns it.
+  // Queue only those re-entrant callbacks until the native tick has returned.
+  const nativeTick = renderer.tick.bind(renderer)
+  renderer.tick = () => boundary.runTick(nativeTick)
+
   const compatibilityRenderer = withLegacyElementBounds(renderer)
   setRendererOnEvent(renderer, onEvent)
 
