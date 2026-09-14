@@ -15,7 +15,7 @@ type Capture = {
   render: () => SolidCaptureElement
 }
 
-const outputDir = resolve(process.cwd(), "docs/images")
+const outputDir = resolve(process.cwd(), "../../docs/images")
 mkdirSync(outputDir, { recursive: true })
 
 if (!hasNativeTestRenderer) {
