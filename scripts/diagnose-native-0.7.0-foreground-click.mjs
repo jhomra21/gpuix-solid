@@ -106,7 +106,6 @@ function preparePatchedNative() {
   }
 
   runEdge("build")
-  runEdge("link")
   console.log(`Patched @gpuix/native source ready: remorses/gpuix@${nativeSha}`)
   console.log(`Native package: ${nativePackage}`)
 }
