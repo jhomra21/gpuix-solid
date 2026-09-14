@@ -1,5 +1,14 @@
 import { spawnSync } from "node:child_process"
-import { cp, lstat, mkdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises"
+import {
+  cpSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -42,9 +51,7 @@ function preparePatchedNative() {
   run("git", ["apply", patchPath], nativeCheckout)
   run("git", ["diff", "--check"], nativeCheckout)
 
-  const changed = capture("git", ["diff", "--name-only"], nativeCheckout)
-    .split("\n")
-    .filter(Boolean)
+  const changed = changedNativeFiles()
   const expected = [
     "packages/native/src/renderer.rs",
     "packages/native/src/text/paint.rs",
@@ -90,12 +97,12 @@ function runForegroundConsumer() {
     ], consumerDir)
 
     const installedNative = join(consumerDir, "node_modules", "@gpuix", "native")
-    rmSync(installedNative)
-    mkdirSync(join(consumerDir, "node_modules", "@gpuix"))
-    symlinkSync(nativePackage, installedNative)
+    rmSync(installedNative, { recursive: true, force: true })
+    mkdirSync(join(consumerDir, "node_modules", "@gpuix"), { recursive: true })
+    symlinkSync(nativePackage, installedNative, "dir")
 
-    const nativeManifest = JSON.parse(readFileSync(join(nativePackage, "package.json")))
-    const solidManifest = JSON.parse(readFileSync(join(consumerDir, "node_modules", "gpuix-solid", "package.json")))
+    const nativeManifest = readJson(join(nativePackage, "package.json"))
+    const solidManifest = readJson(join(consumerDir, "node_modules", "gpuix-solid", "package.json"))
     const resolvedNative = realpathSync(installedNative)
     const expectedNative = realpathSync(nativePackage)
 
@@ -113,7 +120,7 @@ function runForegroundConsumer() {
     console.log(`External native: @gpuix/native@${nativeManifest.version}`)
     console.log(`Patched native path: ${resolvedNative}`)
     console.log("Building foreground Counter...")
-    run("bunx", ["vite", "build"], consumerDir)
+    run("bun", ["x", "vite", "build"], consumerDir)
 
     console.log("\nForeground gate:")
     console.log("1. Confirm initial paint")
@@ -140,17 +147,17 @@ function runForegroundConsumer() {
     }
     console.log("Foreground Counter exited normally.")
   } finally {
-    rmSync(consumerDir)
-    rmSync(publishDir)
-    if (tarballPath) rmSync(tarballPath)
+    rmSync(consumerDir, { recursive: true, force: true })
+    rmSync(publishDir, { recursive: true, force: true })
+    if (tarballPath) rmSync(tarballPath, { force: true })
   }
 }
 
 function resetConsumer() {
-  rmSync(consumerDir)
-  mkdirSync(join(consumerDir, "src"))
-  copySync(join(repoRoot, "examples", "counter", "src", "index.tsx"), join(consumerDir, "src", "index.tsx"))
-  copySync(join(repoRoot, "examples", "counter", "vite.config.ts"), join(consumerDir, "vite.config.ts"))
+  rmSync(consumerDir, { recursive: true, force: true })
+  mkdirSync(join(consumerDir, "src"), { recursive: true })
+  cpSync(join(repoRoot, "examples", "counter", "src", "index.tsx"), join(consumerDir, "src", "index.tsx"))
+  cpSync(join(repoRoot, "examples", "counter", "vite.config.ts"), join(consumerDir, "vite.config.ts"))
   writeFileSync(join(consumerDir, "package.json"), `${JSON.stringify({
     name: "gpuix-solid-native-0.7.0-foreground-click",
     private: true,
@@ -163,35 +170,38 @@ function requirePatchedNative() {
   if (head !== nativeSha) {
     throw new Error(`Native checkout is ${head}; run this script with prepare first`)
   }
-  const changed = capture("git", ["diff", "--name-only"], nativeCheckout)
-  if (!changed.includes("packages/native/src/renderer.rs") || !changed.includes("packages/native/src/text/paint.rs")) {
+
+  const changed = changedNativeFiles()
+  if (
+    !changed.includes("packages/native/src/renderer.rs")
+    || !changed.includes("packages/native/src/text/paint.rs")
+  ) {
     throw new Error("Native foreground-click patch is not applied; run this script with prepare first")
   }
-  const manifest = JSON.parse(readFileSync(join(nativePackage, "package.json")))
+
+  const manifest = readJson(join(nativePackage, "package.json"))
   if (manifest.name !== "@gpuix/native" || manifest.version !== "0.7.0") {
     throw new Error(`Unexpected native package ${manifest.name}@${manifest.version}`)
   }
-  const binaries = listNativeBinaries()
-  if (binaries.length === 0) {
+  if (listNativeBinaries().length === 0) {
     throw new Error("Patched native build has no .node binary; run this script with prepare first")
   }
 }
 
 function printStatus() {
   const head = capture("git", ["rev-parse", "HEAD"], nativeCheckout)
-  const changed = capture("git", ["diff", "--name-only"], nativeCheckout)
   console.log(JSON.stringify({
     nativeSha,
     checkout: nativeCheckout,
     checkoutHead: head,
-    changedFiles: changed.split("\n").filter(Boolean),
+    changedFiles: changedNativeFiles(),
     nativeBinaries: listNativeBinaries(),
   }, null, 2))
 }
 
 function cleanup() {
-  rmSync(consumerDir)
-  rmSync(publishDir)
+  rmSync(consumerDir, { recursive: true, force: true })
+  rmSync(publishDir, { recursive: true, force: true })
   console.log("Removed temporary foreground consumer and staged Solid package.")
 }
 
@@ -202,8 +212,18 @@ function runEdge(edgeCommand) {
   })
 }
 
+function changedNativeFiles() {
+  return capture("git", ["diff", "--name-only"], nativeCheckout)
+    .split("\n")
+    .filter(Boolean)
+}
+
 function listNativeBinaries() {
   return readdirSync(nativePackage).filter((name) => name.endsWith(".node"))
+}
+
+function readJson(path) {
+  return JSON.parse(readFileSync(path, "utf8"))
 }
 
 function run(executable, args, cwd, env = process.env) {
@@ -221,49 +241,4 @@ function capture(executable, args, cwd) {
     throw new Error(`${executable} ${args.join(" ")} failed with exit code ${result.status}: ${result.stderr.trim()}`)
   }
   return result.stdout.trim()
-}
-
-function rmSync(path) {
-  spawnSync("rm", ["-rf", path], { stdio: "ignore" })
-}
-
-function mkdirSync(path) {
-  const result = spawnSync("mkdir", ["-p", path], { stdio: "ignore" })
-  if (result.status !== 0) throw new Error(`mkdir -p ${path} failed`)
-}
-
-function symlinkSync(target, path) {
-  const result = spawnSync("ln", ["-s", target, path], { stdio: "inherit" })
-  if (result.status !== 0) throw new Error(`ln -s ${target} ${path} failed`)
-}
-
-function copySync(source, destination) {
-  const result = spawnSync("cp", [source, destination], { stdio: "inherit" })
-  if (result.status !== 0) throw new Error(`cp ${source} ${destination} failed`)
-}
-
-function writeFileSync(path, content) {
-  const result = spawnSync("sh", ["-c", "cat > \"$1\"", "write", path], {
-    input: content,
-    encoding: "utf8",
-  })
-  if (result.status !== 0) throw new Error(`write ${path} failed`)
-}
-
-function readFileSync(path) {
-  const result = spawnSync("cat", [path], { encoding: "utf8" })
-  if (result.status !== 0) throw new Error(`read ${path} failed`)
-  return result.stdout
-}
-
-function realpathSync(path) {
-  const result = spawnSync("realpath", [path], { encoding: "utf8" })
-  if (result.status !== 0) throw new Error(`realpath ${path} failed`)
-  return result.stdout.trim()
-}
-
-function readdirSync(path) {
-  const result = spawnSync("find", [path, "-maxdepth", "1", "-mindepth", "1", "-printf", "%f\\n"], { encoding: "utf8" })
-  if (result.status !== 0) throw new Error(`read directory ${path} failed`)
-  return result.stdout.split("\n").filter(Boolean)
 }
