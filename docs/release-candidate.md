@@ -20,7 +20,7 @@ After `gpuix-solid@0.1.0-rc.1` is published, run:
 GPUIX_SOLID_VERSION=0.1.0-rc.1 node scripts/test-published-foreground.mjs all
 ```
 
-The script installs registry packages into `/private/tmp` and launches two apps sequentially.
+The script installs registry packages into the operating system's temporary directory and launches two apps sequentially. Set `GPUIX_FOREGROUND_TMP` only when you intentionally want a different temp root.
 
 ### Original Counter reproducer
 
