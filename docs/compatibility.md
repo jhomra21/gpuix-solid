@@ -8,7 +8,7 @@ For the normal application path, start with [`getting-started.md`](./getting-sta
 
 | Layer | Current contract | Notes |
 | --- | --- | --- |
-| `gpuix-solid` | `0.1.0-beta.6` | Published Solid 2 renderer in `packages/solid` |
+| `gpuix-solid` | npm `beta` prerelease channel | Published Solid 2 renderer in `packages/solid`; currently preparing the `0.1.0` release-candidate line |
 | `@jhomra21/gpuix-solid1` | current `0.1.0-beta.x` line in this repository | Solid 1 renderer in `packages/solid1` |
 | `@gpuix/native` | `^0.8.0` | GPUIX desktop renderer contract used by both Solid packages |
 | pinned GPUIX source edge | `8d3ec094387152558d05a5b37de3cfbfca5d2d0a` | Exact source commit for the published 0.8.0 baseline |
@@ -66,13 +66,18 @@ It is not a browser DOM implementation. Visible elements still map to the GPUIX 
 
 The Kobalte fixture compiles installed `@kobalte/core` source through this path and protects its copied upstream docs TSX/CSS with source hashes.
 
-## Known published 0.8 native limitation
+## Published 0.8 foreground-input risk and RC gate
 
-The published `@gpuix/native@0.8.0` line still contains a physical foreground mouse-up re-entrancy defect in GPUIX text-selection cleanup. On affected macOS foreground runs, a real click can synchronously re-enter the root `GpuixView` update while GPUI already owns that entity update and abort before Solid receives the click callback.
+Source inspection of published `@gpuix/native@0.8.0` still shows the text-selection mouse-up ownership path that previously reproduced a fatal nested root-view update on macOS. A source-built 0.8 candidate with the isolated native ownership/defer fix passed foreground acceptance, which keeps the ownership diagnosis credible.
 
-A Solid-side deferral workaround was tested and rejected because the failure happens earlier in native event dispatch. The repository separately proved the same 0.8 source with an isolated native ownership/defer fix: real foreground paint, repeated clicks, decrement/reset, and text drag-selection/release passed. That native fix is not part of published 0.8.0 yet.
+At the same time, a fresh external consumer using the actual published `gpuix-solid@0.1.0-beta.7` + `@gpuix/native@0.8.0` packages passed real foreground paint, hover, repeated clicks, and text-selection drag/release without a panic. The current evidence therefore points to an unresolved source/runtime discrepancy rather than a universally reproducible 0.8 failure.
 
-Therefore `gpuix-solid@0.1.0-beta.6` is the correct published GPUIX 0.8 **build/API baseline**, but physical foreground mouse interaction on the affected upstream native release must remain documented as a known limitation until a fixed `@gpuix/native` version ships.
+Stable promotion is gated on repeating the published-package foreground pass against the release candidate with two paths:
+
+1. the original Counter click/reset/text-selection reproducer; and
+2. the GPUIX 0.8 accessibility + textarea + decorated-text surface.
+
+The repository provides `scripts/test-published-foreground.mjs` to build those consumers from registry packages outside the monorepo. Until that RC pass is complete, do not claim the ownership risk is resolved upstream and do not remove the diagnostic history.
 
 ## Policy
 
