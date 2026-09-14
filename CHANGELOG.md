@@ -4,6 +4,8 @@
 
 <!-- Add user-facing changes here before preparing a release. -->
 
+## 0.1.0-rc.1 - 2026-09-14
+
 - Prepare the 0.1.0 release-candidate line by moving starter/install docs to the npm `beta` channel instead of pinning an older prerelease and by adding a reproducible fresh-registry foreground acceptance harness for the original Counter interaction path plus the GPUIX 0.8 accessibility/textarea/text-decoration surface.
 - Reframe the GPUIX 0.8 foreground-input note around the current evidence: the source-level ownership risk remains unresolved, while the actual published beta.7 + native 0.8.0 external-consumer foreground pass succeeded. Stable promotion now requires the same two-app foreground gate against the exact release candidate.
 
@@ -49,5 +51,6 @@
 - Solid-native Tooltip, Select, Combobox, and `animate.*` APIs.
 - Native TestRenderer, locator automation, live stdio transport, deterministic clock, retained-tree snapshots, and screenshot parity.
 - Keep the public automation `launch({ env })` contract structural so TypeScript consumers do not need the global `NodeJS` namespace just to use the packaged automation API.
+
 
 
