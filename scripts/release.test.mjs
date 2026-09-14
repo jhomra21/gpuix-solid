@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { readFileSync } from "node:fs"
 import test from "node:test"
 import { provenancePolicy } from "./release-policy.mjs"
 import {
@@ -51,4 +52,18 @@ test("allows missing provenance only for the one-time unscoped beta.4 bootstrap"
   assert.equal(provenancePolicy("gpuix-solid", "0.1.0-beta.5").required, true)
   assert.equal(provenancePolicy("gpuix-solid", "0.1.0").required, true)
   assert.equal(provenancePolicy("@jhomra21/gpuix-solid", "0.1.0-beta.4").required, true)
+})
+
+test("release preparation keeps the merged-PR publish trigger runnable", () => {
+  const workflow = readFileSync(new URL("../.github/workflows/prepare-release.yml", import.meta.url), "utf8")
+  assert.doesNotMatch(workflow, /\[skip ci\]/i)
+  assert.match(workflow, /git commit -m "release: v\$\{VERSION\}"/)
+})
+
+test("publish waits for npm integrity and dist-tag propagation", () => {
+  const workflow = readFileSync(new URL("../.github/workflows/publish.yml", import.meta.url), "utf8")
+  assert.match(workflow, /deadline=\$\(\(SECONDS \+ 300\)\)/)
+  assert.match(workflow, /"dist-tags\.\$\{expected_tag\}"/)
+  assert.match(workflow, /remote_integrity.*!=.*INTEGRITY/)
+  assert.doesNotMatch(workflow, /seq 1 12/)
 })
