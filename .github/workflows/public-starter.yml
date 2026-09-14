@@ -1,0 +1,53 @@
+name: Public Starter
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "templates/solid2-vite-bun/**"
+      - "docs/getting-started.md"
+      - ".github/workflows/public-starter.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-external-copy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: 1.3.14
+
+      - name: Copy starter outside the repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="$RUNNER_TEMP/gpuix-solid-starter"
+          rm -rf "$target"
+          cp -R templates/solid2-vite-bun "$target"
+          echo "STARTER_DIR=$target" >> "$GITHUB_ENV"
+
+      - name: Install public packages
+        run: bun install
+        working-directory: ${{ env.STARTER_DIR }}
+
+      - name: Typecheck starter
+        run: bun run typecheck
+        working-directory: ${{ env.STARTER_DIR }}
+
+      - name: Build starter
+        run: bun run build
+        working-directory: ${{ env.STARTER_DIR }}
+
+      - name: Verify emitted entry
+        shell: bash
+        working-directory: ${{ env.STARTER_DIR }}
+        run: |
+          set -euo pipefail
+          test -s dist/index.js
+          grep -q "GPUix Solid starter" dist/index.js
