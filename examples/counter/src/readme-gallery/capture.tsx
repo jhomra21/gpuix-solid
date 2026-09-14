@@ -6,11 +6,13 @@ import { DashboardDemo } from "../dashboard/source/app"
 import { Gpuix08Showcase } from "../gpuix-08/app"
 import { TodoApp } from "../todo/app"
 
+type SolidCaptureElement = ReturnType<typeof Gpuix08Showcase>
+
 type Capture = {
   name: string
   width: number
   height: number
-  render: () => unknown
+  render: () => SolidCaptureElement
 }
 
 const outputDir = resolve(process.cwd(), "docs/images")
