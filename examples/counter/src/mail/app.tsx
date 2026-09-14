@@ -79,8 +79,8 @@ const ICONS = {
 
 type IconName = keyof typeof ICONS
 
-type FaceSpec = { letter?: string; logo?: boolean }
-type Message = { id: string; from: string; to?: string; face: FaceSpec; time: string; day?: string; body: string; image?: boolean }
+type FaceSpec = { src?: string; letter?: string; logo?: boolean }
+type Message = { id: string; from: string; to?: string; face: FaceSpec; time: string; day?: string; body: string; image?: string }
 type MailThread = { id: string; channelId: string; senders: string; subject: string; snippet: string; date: string; lastReplyAt: number; unread: boolean; mentionCount?: number; faces: FaceSpec[]; messages: Message[] }
 type Channel = { id: string; label: string; icon: IconName }
 
@@ -105,8 +105,8 @@ function Face(props: FaceSpec & { size: number }): SolidElement {
   const radius = () => props.logo ? Math.max(4, props.size * 0.22) : props.size / 2
   return (
     <div style={{ width: props.size, height: props.size, flexShrink: 0, borderRadius: radius(), backgroundColor: props.logo ? "#111111" : C.face, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <Show when={props.logo} fallback={<text style={{ fontSize: props.size * 0.38, fontWeight: 600, color: C.text, fontFamily: FONT }}>{props.letter ?? "A"}</text>}>
-        <Icon name="framer" size={props.size * 0.55} color="#FFFFFF" />
+      <Show when={props.src} fallback={<Show when={props.logo} fallback={<text style={{ fontSize: props.size * 0.38, fontWeight: 600, color: C.text, fontFamily: FONT }}>{props.letter ?? "A"}</text>}><Icon name="framer" size={props.size * 0.55} color="#FFFFFF" /></Show>}>
+        {(src) => <img src={src()} objectFit="cover" style={{ width: props.size, height: props.size, borderRadius: radius() }} />}
       </Show>
     </div>
   )
@@ -126,13 +126,14 @@ function MentionBadge(props: { count: number }): SolidElement {
   return <Show when={props.count > 0} fallback={null}><div style={{ height: 13, minWidth: 13, paddingLeft: 4, paddingRight: 4, borderRadius: 7, backgroundColor: C.mention, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><text style={{ fontSize: 9, fontWeight: 700, color: "#FFFFFF", fontFamily: FONT }}>{props.count}</text></div></Show>
 }
 
-const maraFace: FaceSpec = { letter: "M" }
-const noraFace: FaceSpec = { letter: "N" }
-const julesFace: FaceSpec = { letter: "J" }
-const kenjiFace: FaceSpec = { letter: "K" }
-const leaFace: FaceSpec = { letter: "L" }
-const miraFace: FaceSpec = { letter: "M" }
-const atlasFace: FaceSpec = { letter: "A", logo: true }
+const maraFace: FaceSpec = { src: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=128&h=128&fit=crop" }
+const noraFace: FaceSpec = { src: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=128&h=128&fit=crop" }
+const julesFace: FaceSpec = { src: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=128&h=128&fit=crop" }
+const kenjiFace: FaceSpec = { src: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=128&h=128&fit=crop" }
+const leaFace: FaceSpec = { src: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=128&h=128&fit=crop" }
+const miraFace: FaceSpec = { src: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=128&h=128&fit=crop" }
+const atlasFace: FaceSpec = { src: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=128&h=128&fit=crop" }
+const bannerSrc = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&q=80"
 
 const CHANNELS: Channel[] = [
   { id: "primary", label: "Primary", icon: "user" },
@@ -147,7 +148,7 @@ const THREADS: MailThread[] = [
   thread("nora", "primary", "Nora Hale", "Desk notes", "I parked the draft in the shared folder. Ping me when you want a pass.", "Today", 1756900000000, true, [noraFace], 1),
   { id: "jules", channelId: "primary", senders: "Jules Park", subject: "Re: Thursday", snippet: "Re: Thursday", date: "12/08/2024", lastReplyAt: 1723420800000, unread: true, mentionCount: 1, faces: [julesFace], messages: [{ id: "ju-1", from: "Jules Park", face: julesFace, time: "12/08/2024", body: "Can we move Thursday to 4pm?" }, { id: "ju-2", from: "You", face: maraFace, time: "12/08/2024", day: "13 Aug 2024", body: "Re: Thursday" }] },
   thread("kenji", "primary", "Kenji Ito", "Morning", "Morning", "Yesterday", 1723334400000, false, [kenjiFace]),
-  { id: "atlas-weekly", channelId: "primary", senders: "Atlas, Mira, Kenji...", subject: "Atlas Weekly", snippet: "Atlas cut idle spend and shipped the routing board", date: "Jul 30", lastReplyAt: 1722297600000, unread: true, mentionCount: 1, faces: [atlasFace, miraFace, kenjiFace, { letter: "8" }], messages: [{ id: "aw-1", from: "Lea from Atlas", to: "Mara", face: leaFace, time: "4w", body: "Lea sent the weekly recap: routing board is live, idle spend is down 18%, and the studio sale runs through August 31." }, { id: "aw-2", from: "Mira Cole", to: "Mara", face: miraFace, time: "4w", body: "Seat usage dropped after the routing change. The full recap is in the thread." }, { id: "aw-3", from: "Lea from Atlas", to: "Mara", face: leaFace, time: "4w", day: "2 Aug", body: "Northlight 4 and Harbor 2 are in the studio now. We also shipped a live grain shader, form spam filters, and nested folders on design pages.\n\nNorthlight 4\nThis is the most reliable model we have run in-house. First drafts keep style, reuse parts, and land closer to the brief. In our bench it hits 81%, ahead of the previous run at 74%.", image: true }] },
+  { id: "atlas-weekly", channelId: "primary", senders: "Atlas, Mira, Kenji...", subject: "Atlas Weekly", snippet: "Atlas cut idle spend and shipped the routing board", date: "Jul 30", lastReplyAt: 1722297600000, unread: true, mentionCount: 1, faces: [atlasFace, miraFace, kenjiFace, { letter: "8" }], messages: [{ id: "aw-1", from: "Lea from Atlas", to: "Mara", face: leaFace, time: "4w", body: "Lea sent the weekly recap: routing board is live, idle spend is down 18%, and the studio sale runs through August 31." }, { id: "aw-2", from: "Mira Cole", to: "Mara", face: miraFace, time: "4w", body: "Seat usage dropped after the routing change. The full recap is in the thread." }, { id: "aw-3", from: "Lea from Atlas", to: "Mara", face: leaFace, time: "4w", day: "2 Aug", body: "Northlight 4 and Harbor 2 are in the studio now. We also shipped a live grain shader, form spam filters, and nested folders on design pages.\n\nNorthlight 4\nThis is the most reliable model we have run in-house. First drafts keep style, reuse parts, and land closer to the brief. In our bench it hits 81%, ahead of the previous run at 74%.", image: bannerSrc }] },
   thread("lea-july", "primary", "Lea From Atlas, Mi...", "Atlas Weekly", "New studio models and design notes from Atlas", "Jul 8", 1720396800000, true, [leaFace, miraFace, { letter: "T" }, { letter: "8" }]),
   thread("lighthouse", "promotions", "Atlas, Lighthouse, ...", "Studio drop", "Atlas is hosting a short studio drop next week...", "Aug 5", 1722816000000, false, [atlasFace, { letter: "L" }, { letter: "T" }, { letter: "8" }]),
   thread("welcome", "promotions", "Atlas", "Welcome to Atlas", "Welcome to Atlas. Here is how to get started", "01/10/2023", 1696118400000, false, [atlasFace]),
@@ -194,7 +195,7 @@ function DirectHeader(props: { thread: MailThread }): SolidElement {
 }
 
 function MessageRow(props: { message: Message }): SolidElement {
-  return <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-start", gap: 10, paddingTop: 12, paddingBottom: 12 }}><Face {...props.message.face} size={28} /><div style={{ flexGrow: 1, minWidth: 0, gap: 2 }}><div style={{ display: "flex", flexDirection: "row", alignItems: "baseline", gap: 8 }}><text style={{ fontSize: 13.5, fontWeight: 600, color: C.text, fontFamily: FONT }}>{props.message.from}</text><Show when={props.message.time}><text style={{ fontSize: 12.5, color: C.muted, fontFamily: FONT }}>{props.message.time}</text></Show></div><Show when={props.message.to}><text style={{ fontSize: 12.5, color: C.muted, fontFamily: FONT, whiteSpace: "nowrap" }}>{`To ${props.message.to}`}</text></Show><text style={{ fontSize: 13.5, lineHeight: 20, color: C.secondary, fontFamily: FONT }}>{props.message.body}</text><Show when={props.message.image}><div testId="mail-banner-placeholder" style={{ width: "100%", height: 280, borderRadius: 12, backgroundColor: "#232328", marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center" }}><Icon name="sparkle" size={44} color={C.ghost} /></div></Show></div></div>
+  return <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-start", gap: 10, paddingTop: 12, paddingBottom: 12 }}><Face {...props.message.face} size={28} /><div style={{ flexGrow: 1, minWidth: 0, gap: 2 }}><div style={{ display: "flex", flexDirection: "row", alignItems: "baseline", gap: 8 }}><text style={{ fontSize: 13.5, fontWeight: 600, color: C.text, fontFamily: FONT }}>{props.message.from}</text><Show when={props.message.time}><text style={{ fontSize: 12.5, color: C.muted, fontFamily: FONT }}>{props.message.time}</text></Show></div><Show when={props.message.to}><text style={{ fontSize: 12.5, color: C.muted, fontFamily: FONT, whiteSpace: "nowrap" }}>{`To ${props.message.to}`}</text></Show><text style={{ fontSize: 13.5, lineHeight: 20, color: C.secondary, fontFamily: FONT }}>{props.message.body}</text><Show when={props.message.image}>{(image) => <img src={image()} objectFit="cover" style={{ width: "100%", height: 280, borderRadius: 12, backgroundColor: "#000000", marginTop: 12 }} />}</Show></div></div>
 }
 
 function SearchField(props: { value: string; onChange: (value: string) => void; placeholder: string; testId: string }): SolidElement {
