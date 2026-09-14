@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "host:build": "cd ../../packages/solid1 && bun install --no-save && bun run build",
-    "source:check": "node scripts/check-upstream-source-parity.mjs && node scripts/check-waveform-source-parity.mjs && node scripts/check-eq-source-parity.mjs && bun scripts/check-canvas-bridge.ts && bun scripts/check-eq-ui-compat.ts",
+    "source:check": "node scripts/check-upstream-source-parity.mjs && node scripts/check-waveform-source-parity.mjs && node scripts/check-eq-source-parity.mjs && bun scripts/check-browser-scheduler.ts && bun scripts/check-canvas-bridge.ts && bun scripts/check-eq-ui-compat.ts",
     "generate:styles": "node scripts/generate-eq-native-tailwind-source.mjs && bun scripts/generate-native-tailwind.mjs",
     "build": "bun run host:build && bun run generate:styles && vite build",
     "build:edge": "bun run source:check && bun run generate:styles && vite build",

@@ -1,27 +1,36 @@
-type RafCallback = (time: number) => void
-
 type TimerHandle = ReturnType<typeof globalThis.setTimeout>
 
-type ResizeTarget = Element & {
-  getBoundingClientRect(): DOMRect
-}
+type ResizeSize = { width: number; height: number }
 
-const FRAME_INTERVAL_MS = 16
 const RESIZE_POLL_MIN_MS = 16
 const RESIZE_POLL_MAX_MS = 128
 
-function requestFrame(callback: RafCallback): TimerHandle {
-  return globalThis.setTimeout(() => callback(performance.now()), FRAME_INTERVAL_MS)
+export function nextDawResizePollDelay(currentDelayMs: number, changed: boolean): number {
+  if (changed) return RESIZE_POLL_MIN_MS
+  return Math.min(
+    RESIZE_POLL_MAX_MS,
+    Math.max(RESIZE_POLL_MIN_MS * 2, currentDelayMs * 2),
+  )
 }
 
-function cancelFrame(handle: TimerHandle): void {
-  globalThis.clearTimeout(handle)
+function resizeObserverEntry(target: Element, contentRect: DOMRect): ResizeObserverEntry {
+  const size: ResizeObserverSize = {
+    inlineSize: contentRect.width,
+    blockSize: contentRect.height,
+  }
+  return {
+    target,
+    contentRect,
+    borderBoxSize: [size],
+    contentBoxSize: [size],
+    devicePixelContentBoxSize: [size],
+  }
 }
 
 class AdaptiveResizeObserver implements ResizeObserver {
   readonly #callback: ResizeObserverCallback
-  readonly #targets = new Set<ResizeTarget>()
-  readonly #sizes = new WeakMap<ResizeTarget, { width: number; height: number }>()
+  readonly #targets = new Set<Element>()
+  readonly #sizes = new WeakMap<Element, ResizeSize>()
   #timer: TimerHandle | undefined
   #delayMs = RESIZE_POLL_MIN_MS
 
@@ -30,13 +39,14 @@ class AdaptiveResizeObserver implements ResizeObserver {
   }
 
   observe(target: Element): void {
-    this.#targets.add(target as ResizeTarget)
+    this.#targets.add(target)
     this.#delayMs = RESIZE_POLL_MIN_MS
+    this.stop()
     this.schedule(0)
   }
 
   unobserve(target: Element): void {
-    this.#targets.delete(target as ResizeTarget)
+    this.#targets.delete(target)
     if (this.#targets.size === 0) this.stop()
   }
 
@@ -64,58 +74,32 @@ class AdaptiveResizeObserver implements ResizeObserver {
       const previous = this.#sizes.get(target)
       const changed = !previous || previous.width !== contentRect.width || previous.height !== contentRect.height
       this.#sizes.set(target, { width: contentRect.width, height: contentRect.height })
-      if (!changed) continue
-      entries.push({ target, contentRect } as ResizeObserverEntry)
+      if (changed) entries.push(resizeObserverEntry(target, contentRect))
     }
 
-    if (entries.length > 0) {
-      this.#delayMs = RESIZE_POLL_MIN_MS
-      this.#callback(entries, this)
-    } else {
-      this.#delayMs = Math.min(RESIZE_POLL_MAX_MS, Math.max(RESIZE_POLL_MIN_MS * 2, this.#delayMs * 2))
-    }
+    const changed = entries.length > 0
+    this.#delayMs = nextDawResizePollDelay(this.#delayMs, changed)
+    if (changed) this.#callback(entries, this)
     this.schedule()
   }
 }
 
 export function installDawBrowserScheduler(): void {
-  Object.defineProperty(globalThis, "requestAnimationFrame", {
-    configurable: true,
-    writable: true,
-    value: requestFrame,
-  })
-  Object.defineProperty(globalThis, "cancelAnimationFrame", {
-    configurable: true,
-    writable: true,
-    value: cancelFrame,
-  })
   Object.defineProperty(globalThis, "ResizeObserver", {
     configurable: true,
     writable: true,
     value: AdaptiveResizeObserver,
   })
 
-  if (typeof window !== "undefined") {
-    Object.defineProperty(window, "requestAnimationFrame", {
-      configurable: true,
-      writable: true,
-      value: requestFrame,
-    })
-    Object.defineProperty(window, "cancelAnimationFrame", {
-      configurable: true,
-      writable: true,
-      value: cancelFrame,
-    })
-    Object.defineProperty(window, "ResizeObserver", {
-      configurable: true,
-      writable: true,
-      value: AdaptiveResizeObserver,
-    })
-  }
+  const compatWindow = globalThis.window
+  Object.defineProperty(compatWindow, "ResizeObserver", {
+    configurable: true,
+    writable: true,
+    value: AdaptiveResizeObserver,
+  })
 }
 
 export const dawBrowserSchedulerContract = {
-  frameIntervalMs: FRAME_INTERVAL_MS,
   resizePollMinMs: RESIZE_POLL_MIN_MS,
   resizePollMaxMs: RESIZE_POLL_MAX_MS,
 } as const
