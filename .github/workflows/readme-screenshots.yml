@@ -35,6 +35,7 @@ jobs:
             xvfb \
             xdotool \
             imagemagick \
+            x11-utils \
             libfontconfig-dev \
             libwayland-dev \
             libwayland-client0 \
@@ -60,6 +61,11 @@ jobs:
       - name: Capture Solid-rendered native windows
         shell: bash
         env:
+          # Exact GPUI 0.8 source prefers Wayland whenever WAYLAND_DISPLAY is
+          # non-empty, even when DISPLAY is also present. Clear it so the
+          # native window is created on the Xvfb X11 server we can capture.
+          WAYLAND_DISPLAY: ""
+          XDG_SESSION_TYPE: x11
           DISPLAY: :99
           LIBGL_ALWAYS_SOFTWARE: "1"
         run: |
@@ -69,6 +75,13 @@ jobs:
           xvfb_pid=$!
           trap 'kill "$xvfb_pid" 2>/dev/null || true' EXIT
           sleep 2
+
+          # Fail early if the X11 server itself is unavailable. This keeps a
+          # compositor-selection failure distinct from an application crash.
+          xdpyinfo -display "$DISPLAY" >logs/xdpyinfo.log 2>&1
+          printf 'DISPLAY=%s\nWAYLAND_DISPLAY=%s\nXDG_SESSION_TYPE=%s\n' \
+            "$DISPLAY" "${WAYLAND_DISPLAY-}" "${XDG_SESSION_TYPE-}" \
+            >logs/compositor-env.log
 
           capture() {
             local title="$1"
@@ -95,6 +108,7 @@ jobs:
 
             if [ -z "$window" ]; then
               echo "Could not find visible window: $title"
+              xdotool search --onlyvisible --name '.*' getwindowname %@ >"logs/${log%.log}-visible-windows.log" 2>&1 || true
               cat "logs/$log"
               kill "$app_pid" 2>/dev/null || true
               wait "$app_pid" 2>/dev/null || true
