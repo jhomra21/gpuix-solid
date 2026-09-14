@@ -16,6 +16,7 @@
     "gpuix:check-version": "node scripts/check-gpuix-native-version.mjs",
     "source:ownership": "node scripts/check-example-source-ownership.mjs",
     "examples:live": "node scripts/check-gpuix-edge-live-automation.mjs",
+    "mail:parity": "node scripts/mail-parity/run.mjs",
     "gpuix:edge:sync": "node scripts/gpuix-edge.mjs sync",
     "gpuix:edge:build": "node scripts/gpuix-edge.mjs build",
     "gpuix:edge:link": "node scripts/gpuix-edge.mjs link",
