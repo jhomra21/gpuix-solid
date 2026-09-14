@@ -38,6 +38,32 @@ describe("native event boundary", () => {
     ])
   })
 
+  it("does not commit back into native while the tick lease is held", () => {
+    let viewLeaseHeld = false
+    let commits = 0
+    const boundary = createNativeEventBoundary(
+      () => {
+        if (viewLeaseHeld) throw new Error("reentrant native commit")
+        commits += 1
+      },
+      (error) => { throw error },
+    )
+
+    const nativeTick = (): boolean => {
+      viewLeaseHeld = true
+      try {
+        boundary.handleNativeEvent(undefined, { elementId: 3, eventType: "click" })
+        expect(commits).toBe(0)
+        return true
+      } finally {
+        viewLeaseHeld = false
+      }
+    }
+
+    expect(boundary.runTick(nativeTick)).toBe(true)
+    expect(commits).toBe(1)
+  })
+
   it("flushes queued events even when tick throws", () => {
     const phases: string[] = []
     const boundary = createNativeEventBoundary(
