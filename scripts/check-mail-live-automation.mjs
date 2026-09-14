@@ -111,7 +111,8 @@ try {
   await expectPresent(app.getByTestId("mail-reading-toolbar"), "reading toolbar")
   await expectPresent(app.getByTestId("mail-reading-pane"), "reading pane")
   await expectPresent(app.getByText("Atlas Weekly"), "default Atlas thread")
-  await expectPresent(app.getByTestId("mail-banner-placeholder"), "newsletter media surface")
+  await expectCount(app.getByTestId("mail-reading-pane").getByType("img"), 4, "newsletter HTTP image surface")
+  await step("settle remote Mail images", () => delay(2_000))
 
   await step("capture default Mail screenshot", () => app.screenshot({ path: screenshotPath }))
 
@@ -205,7 +206,7 @@ try {
   }
 
   console.log(`Mail live acceptance passed. Screenshot: ${screenshotPath}`)
-  console.log("Validated: search sender/subject/snippet/no-results, channel filter, all 6 channels, all 17 timeline rows, DM and newsletter readers, composer input, split/full/closed modes, sidebar full-reader navigation, three scroll surfaces, and real text drag/release.")
+  console.log("Validated: upstream HTTP avatars/banner, search sender/subject/snippet/no-results, channel filter, all 6 channels, all 17 timeline rows, DM and newsletter readers, composer input, split/full/closed modes, sidebar full-reader navigation, three scroll surfaces, and real text drag/release.")
 } catch (error) {
   const stderr = stderrChunks.join("").trim()
   if (stderr && error instanceof Error && !error.message.includes(stderr)) {
