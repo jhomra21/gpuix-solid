@@ -60,6 +60,14 @@ test("release preparation keeps the merged-PR publish trigger runnable", () => {
   assert.match(workflow, /git commit -m "release: v\$\{VERSION\}"/)
 })
 
+test("release preparation retains the branch if Actions cannot open a PR", () => {
+  const workflow = readFileSync(new URL("../.github/workflows/prepare-release.yml", import.meta.url), "utf8")
+  assert.match(workflow, /gh pr create/)
+  assert.match(workflow, /Release PR requires manual creation/)
+  assert.match(workflow, /prepared branch was retained/i)
+  assert.doesNotMatch(workflow, /git push origin --delete/)
+})
+
 test("publish waits for npm integrity and dist-tag propagation", () => {
   const workflow = readFileSync(new URL("../.github/workflows/publish.yml", import.meta.url), "utf8")
   assert.match(workflow, /deadline=\$\(\(SECONDS \+ 300\)\)/)
