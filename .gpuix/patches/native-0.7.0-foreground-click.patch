@@ -1,0 +1,48 @@
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@
+                 .child(selection_frame_reset(
+                     self.selection.clone(),
+                     move |position, app| {
+-                        drag_move_view
+-                            .update(app, |view, cx| view.on_selection_mouse_move(position, cx))
+-                            .ok();
++                        let drag_move_view = drag_move_view.clone();
++                        app.defer(move |app| {
++                            drag_move_view
++                                .update(app, |view, cx| view.on_selection_mouse_move(position, cx))
++                                .ok();
++                        });
+                     },
+                     move |app| {
+-                        drag_end_view
+-                            .update(app, |view, _cx| view.stop_selection_scroll())
+-                            .ok();
++                        let drag_end_view = drag_end_view.clone();
++                        app.defer(move |app| {
++                            drag_end_view
++                                .update(app, |view, _cx| view.stop_selection_scroll())
++                                .ok();
++                        });
+                     },
+                 ))
+diff --git a/packages/native/src/text/paint.rs b/packages/native/src/text/paint.rs
+--- a/packages/native/src/text/paint.rs
++++ b/packages/native/src/text/paint.rs
+@@
+     window.on_mouse_event(move |event: &MouseUpEvent, phase, _window, cx| {
+         if phase != DispatchPhase::Bubble || event.button != MouseButton::Left {
+             return;
+         }
+         let mut selection = up_selection.lock();
++        let was_dragging = selection.is_dragging();
+         selection.cancel_pending();
+         selection.end_active_drag();
+         drop(selection);
+-        on_drag_end(cx);
++        if was_dragging {
++            on_drag_end(cx);
++        }
+     });
+ }
