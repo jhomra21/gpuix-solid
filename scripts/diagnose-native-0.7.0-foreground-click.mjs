@@ -16,11 +16,53 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const nativeSha = "a24b4a42eb516c7b940eb8d34ecebb077df623bd"
 const nativeCheckout = join(repoRoot, ".cache", "gpuix", `remorses--gpuix-${nativeSha.slice(0, 12)}`)
 const nativePackage = join(nativeCheckout, "packages", "native")
-const patchPath = join(repoRoot, ".gpuix", "patches", "native-0.7.0-foreground-click.patch")
 const solidPackage = join(repoRoot, "packages", "solid")
 const publishDir = join(solidPackage, ".publish")
 const consumerDir = "/private/tmp/gpuix-solid-native-0.7.0-foreground-click"
 const command = process.argv[2] ?? "all"
+
+const rendererBefore = `                    move |position, app| {
+                        drag_move_view
+                            .update(app, |view, cx| view.on_selection_mouse_move(position, cx))
+                            .ok();
+                    },
+                    move |app| {
+                        drag_end_view
+                            .update(app, |view, _cx| view.stop_selection_scroll())
+                            .ok();
+                    },`
+
+const rendererAfter = `                    move |position, app| {
+                        let drag_move_view = drag_move_view.clone();
+                        app.defer(move |app| {
+                            drag_move_view
+                                .update(app, |view, cx| view.on_selection_mouse_move(position, cx))
+                                .ok();
+                        });
+                    },
+                    move |app| {
+                        let drag_end_view = drag_end_view.clone();
+                        app.defer(move |app| {
+                            drag_end_view
+                                .update(app, |view, _cx| view.stop_selection_scroll())
+                                .ok();
+                        });
+                    },`
+
+const paintBefore = `        let mut selection = up_selection.lock();
+        selection.cancel_pending();
+        selection.end_active_drag();
+        drop(selection);
+        on_drag_end(cx);`
+
+const paintAfter = `        let mut selection = up_selection.lock();
+        let was_dragging = selection.is_dragging();
+        selection.cancel_pending();
+        selection.end_active_drag();
+        drop(selection);
+        if was_dragging {
+            on_drag_end(cx);
+        }`
 
 switch (command) {
   case "prepare":
@@ -46,9 +88,7 @@ switch (command) {
 function preparePatchedNative() {
   run("bun", ["install", "--frozen-lockfile"], repoRoot)
   runEdge("sync")
-
-  run("git", ["apply", "--check", patchPath], nativeCheckout)
-  run("git", ["apply", patchPath], nativeCheckout)
+  applyNativePatch()
   run("git", ["diff", "--check"], nativeCheckout)
 
   const changed = changedNativeFiles()
@@ -66,8 +106,32 @@ function preparePatchedNative() {
   }
 
   runEdge("build")
+  runEdge("link")
   console.log(`Patched @gpuix/native source ready: remorses/gpuix@${nativeSha}`)
   console.log(`Native package: ${nativePackage}`)
+}
+
+function applyNativePatch() {
+  replaceExactlyOnce(
+    join(nativePackage, "src", "renderer.rs"),
+    rendererBefore,
+    rendererAfter,
+  )
+  replaceExactlyOnce(
+    join(nativePackage, "src", "text", "paint.rs"),
+    paintBefore,
+    paintAfter,
+  )
+}
+
+function replaceExactlyOnce(path, before, after) {
+  const source = readFileSync(path, "utf8")
+  const first = source.indexOf(before)
+  const second = first === -1 ? -1 : source.indexOf(before, first + before.length)
+  if (first === -1 || second !== -1) {
+    throw new Error(`Expected exactly one native patch target in ${path}; first=${first}, second=${second}`)
+  }
+  writeFileSync(path, `${source.slice(0, first)}${after}${source.slice(first + before.length)}`)
 }
 
 function runForegroundConsumer() {
