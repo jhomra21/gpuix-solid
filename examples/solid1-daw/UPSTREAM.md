@@ -5,7 +5,7 @@ This native example exercises a focused UI slice from `jhomra21/daw-browser-conv
 - source branch: `feat/model-independent-control-platform`
 - pinned revision: `2eaad47813b15aa8511bab8dc04625510c977b12`
 - framework: Solid 1
-- GPUIX native range: `^0.7.0` (the checked-in Bun lock resolves `0.7.0`)
+- GPUIX native range: `^0.8.0` (the checked-in Bun lock resolves `0.8.0`)
 
 ## Fidelity contract
 
@@ -17,9 +17,9 @@ Deterministic local data replaces Convex, collaboration, persistence, audio-engi
 
 ## GPUIX version policy
 
-The repository targets the latest reviewed GPUIX release line, `@gpuix/native ^0.7.0`, rather than floating production dependencies to an unreleased upstream commit. The root lock resolves `0.7.0` reproducibly. Moving to a later GPUIX release requires an explicit dependency/lock update and the full Linux, macOS, Windows, package-smoke, Solid 1 and native-fidelity suite.
+The repository targets the latest reviewed GPUIX release line, `@gpuix/native ^0.8.0`, rather than floating production dependencies to an unreleased upstream commit. The root lock resolves `0.8.0` reproducibly. Moving to a later GPUIX release requires an explicit dependency/lock update and the full Linux, macOS, Windows, package-smoke, Solid 1 and native-fidelity suite.
 
-A separate source-edge lane builds the commit pinned in `/.gpuix/edge.json`. That lane is a compatibility probe, not the published dependency. The pin is intentionally advanced only after reading and auditing current upstream source.
+A separate source-edge lane builds the commit pinned in `/.gpuix/edge.json`. That lane is a compatibility probe, not a replacement for the published dependency. For the beta.6 baseline, the source-edge pin and the published 0.8.0 source commit intentionally agree; future edge movement remains explicit and audited.
 
 ## Source that now runs directly
 
@@ -76,23 +76,23 @@ These are limitations of the current GPUIX/browser contract, not permission to i
 
 The pinned `MixerVolumeSlider` remains byte-for-byte source. It writes `--mixer-volume-percent`, `--mixer-volume-automation-start`, and `--mixer-volume-automation-end`; the pinned stylesheet uses those variables to produce a hard warning/muted split plus a 4 px automation strip over that base.
 
-GPUIX 0.7 supports structured two-stop gradients, but it does not evaluate arbitrary browser CSS background strings driven by CSS custom properties. The DAW universal-renderer boundary therefore registers only those exact mixer paint variables. It converts the source hard split into a muted native base plus a retained warning segment, and converts a non-empty automation interval into a full-width retained flex layer containing a percentage-width spacer followed by the automation segment. This keeps the source component, source CSS, slider mapping, colors, and automation start/end math unchanged while using geometry GPUIX 0.7 actually accepts.
+GPUIX 0.8 supports structured two-stop gradients, but it does not evaluate arbitrary browser CSS background strings driven by CSS custom properties. The DAW universal-renderer boundary therefore registers only those exact mixer paint variables. It converts the source hard split into a muted native base plus a retained warning segment, and converts a non-empty automation interval into a full-width retained flex layer containing a percentage-width spacer followed by the automation segment. This keeps the source component, source CSS, slider mapping, colors, and automation start/end math unchanged while using geometry GPUIX 0.8 actually accepts.
 
 This is not generic CSS-gradient or custom-property support. Styles with none of the registered mixer paint variables pass through unchanged, and an empty automation interval removes the overlay rather than leaving stale paint. Native regression coverage proves that isolation invariant, exact source-derived split/interval geometry, and reactive updates. The dedicated macOS automated-state screenshot additionally verifies that the 4 px automation color overlays the intact warning/muted base instead of replacing or displacing it.
 
 ### Canvas 2D
 
-GPUIX 0.7 does not expose a browser `CanvasRenderingContext2D`. The DAW fixture therefore provides a narrow compatibility surface at the Solid universal-renderer boundary rather than rewriting copied waveform or EQ source.
+GPUIX 0.8 does not expose a browser `CanvasRenderingContext2D`. The DAW fixture therefore provides a narrow compatibility surface at the Solid universal-renderer boundary rather than rewriting copied waveform or EQ source.
 
 Semantic `<canvas>` creation is intercepted only by the DAW universal module. The active facade records the static operations exercised by the pinned source: string fill/stroke paints, line width, image smoothing state, `setTransform`, full-surface `clearRect`, `fillRect`, `beginPath`, `moveTo`, `lineTo`, full-circle `arc`, `fill`, `stroke`, `fillText`, font, text alignment and text baseline. It serializes the ordered draw stream into one multicolor SVG data image and batches native updates through the owning root. Identity circle transforms are omitted; real transforms remain explicit. Unsupported partial clears, partial arcs and unsupported text transforms fail closed instead of being silently approximated.
 
-The exact copied `ClipComponent`, `SampleDetailWaveform`, waveform renderer, waveform layout, `Eq.tsx`, and `eq-render-work.ts` remain source-owned. The fixture fabricates only deterministic peak/audio metadata and the visual-only filter-response service that the real application normally gets from unavailable backends/browser APIs. Drawing algorithms, graph sampling, colors and Canvas calls remain upstream. This is a GPUix Solid compatibility bridge, **not** a claim that `@gpuix/native@0.7.0` has native Canvas support.
+The exact copied `ClipComponent`, `SampleDetailWaveform`, waveform renderer, waveform layout, `Eq.tsx`, and `eq-render-work.ts` remain source-owned. The fixture fabricates only deterministic peak/audio metadata and the visual-only filter-response service that the real application normally gets from unavailable backends/browser APIs. Drawing algorithms, graph sampling, colors and Canvas calls remain upstream. This is a GPUix Solid compatibility bridge, **not** a claim that `@gpuix/native@0.8.0` has native Canvas support.
 
 The EQ fixture passes `spectrumData={null}`. Consequently the source's live-spectrum-only `createLinearGradient`, `quadraticCurveTo` and `globalAlpha` branch is intentionally not executed in this UI-only fixture. Those wider Canvas capabilities are not claimed by this compatibility surface.
 
 ### EQ Eight
 
-`Eq.tsx` and `eq-render-work.ts` are now exact pinned source, not a native recreation. The source's three-column/two-row device layout is hosted through the narrow two-row grid compatibility layer. Solid 1's DOM environment supplies browser-shaped `ResizeObserver` and `requestAnimationFrame`; the exact source uses those APIs to size and schedule its graph. `eq-visual-audio.ts` supplies only the deterministic Biquad frequency response required to draw the static curve.
+`Eq.tsx` and `eq-render-work.ts` are exact pinned source, not a native recreation. The source's three-column/two-row device layout is hosted through the narrow two-row grid compatibility layer. Solid 1's DOM environment supplies browser-shaped `ResizeObserver` and `requestAnimationFrame`; the exact source uses those APIs to size and schedule its graph. `eq-visual-audio.ts` supplies only the deterministic Biquad frequency response required to draw the static curve.
 
 The source deliberately schedules its initial Canvas draw through nested animation frames. Native visual acceptance therefore waits three real animation frames—the same readiness gate used by the interaction test—before inspecting or capturing the graph. The acceptance detector requires the exact graph source to contain the source dB/frequency labels and numbered nodes, then captures a dedicated macOS EQ frame. Manual review of that frame verifies the graph background/grid, response curve, labels, all eight nodes, selected-band treatment, controls and two-row layout.
 
