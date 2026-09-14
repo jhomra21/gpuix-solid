@@ -6,6 +6,9 @@ on:
       - docs/gpuix-080-app-building
     paths:
       - ".github/workflows/readme-screenshots.yml"
+      - "examples/counter/package.json"
+      - "examples/counter/vite.readme-gallery.config.ts"
+      - "examples/counter/src/readme-gallery/**"
       - "examples/counter/src/gpuix-08/**"
       - "examples/counter/src/dashboard/**"
       - "examples/counter/src/codeimage/**"
@@ -14,6 +17,10 @@ on:
 
 permissions:
   contents: write
+
+concurrency:
+  group: readme-screenshots-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   capture:
@@ -27,145 +34,44 @@ jobs:
         with:
           bun-version: 1.3.14
 
-      - name: Install native display dependencies
+      - name: Install GPUI Linux runtime dependencies
         run: |
           sudo rm -f /etc/apt/sources.list.d/google-chrome.list /etc/apt/sources.list.d/google-chrome.sources
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            xvfb \
-            xdotool \
-            imagemagick \
-            x11-utils \
             libfontconfig-dev \
             libwayland-dev \
-            libwayland-client0 \
-            libwayland-cursor0 \
             libxkbcommon-x11-dev \
-            libxcb-xkb1 \
             libx11-xcb-dev \
-            libegl1 \
-            libgl1-mesa-dri \
+            libssl-dev \
+            libzstd-dev \
             libvulkan1 \
-            mesa-vulkan-drivers
+            vulkan-validationlayers
 
       - run: bun install --frozen-lockfile
 
-      - name: Build screenshot targets
-        run: |
-          bun run --filter 'gpuix-solid' build
-          bun run --filter 'gpuix-solid-counter' build:gpuix-08
-          bun run --filter 'gpuix-solid-counter' build:dashboard
-          bun run --filter 'gpuix-solid-counter' build:codeimage
-          bun run --filter 'gpuix-solid-counter' build:todo
+      - name: Build Solid host
+        run: bun run --filter 'gpuix-solid' build
 
-      - name: Capture Solid-rendered native windows
+      - name: Capture native retained-tree gallery
+        run: bun run --filter 'gpuix-solid-counter' capture:readme-gallery
+
+      - name: Validate generated PNGs
         shell: bash
-        env:
-          # Exact GPUI 0.8 source prefers Wayland whenever WAYLAND_DISPLAY is
-          # non-empty, even when DISPLAY is also present. Clear it so the
-          # native window is created on the Xvfb X11 server we can capture.
-          WAYLAND_DISPLAY: ""
-          XDG_SESSION_TYPE: x11
-          DISPLAY: :99
-          LIBGL_ALWAYS_SOFTWARE: "1"
         run: |
           set -euo pipefail
-          mkdir -p docs/images logs
-          Xvfb :99 -screen 0 1600x1100x24 -nolisten tcp >logs/xvfb.log 2>&1 &
-          xvfb_pid=$!
-          trap 'kill "$xvfb_pid" 2>/dev/null || true' EXIT
-          sleep 2
-
-          # Fail early if the X11 server itself is unavailable. This keeps a
-          # compositor-selection failure distinct from an application crash.
-          xdpyinfo -display "$DISPLAY" >logs/xdpyinfo.log 2>&1
-          printf 'DISPLAY=%s\nWAYLAND_DISPLAY=%s\nXDG_SESSION_TYPE=%s\n' \
-            "$DISPLAY" "${WAYLAND_DISPLAY-}" "${XDG_SESSION_TYPE-}" \
-            >logs/compositor-env.log
-
-          capture() {
-            local title="$1"
-            local command="$2"
-            local output="$3"
-            local log="$4"
-
-            bash -lc "$command" >"logs/$log" 2>&1 &
-            local app_pid=$!
-            local window=""
-
-            for _ in $(seq 1 40); do
-              window=$(xdotool search --onlyvisible --name "$title" 2>/dev/null | tail -n 1 || true)
-              if [ -n "$window" ]; then
-                break
-              fi
-              if ! kill -0 "$app_pid" 2>/dev/null; then
-                echo "Application exited before its window appeared: $title"
-                cat "logs/$log"
-                return 1
-              fi
-              sleep 1
-            done
-
-            if [ -z "$window" ]; then
-              echo "Could not find visible window: $title"
-              xdotool search --onlyvisible --name '.*' getwindowname %@ >"logs/${log%.log}-visible-windows.log" 2>&1 || true
-              cat "logs/$log"
-              kill "$app_pid" 2>/dev/null || true
-              wait "$app_pid" 2>/dev/null || true
-              return 1
-            fi
-
-            xdotool windowraise "$window" 2>/dev/null || true
-            sleep 4
-            import -display "$DISPLAY" -window "$window" "docs/images/$output"
-            identify "docs/images/$output"
-
-            kill "$app_pid" 2>/dev/null || true
-            wait "$app_pid" 2>/dev/null || true
-          }
-
-          capture \
-            "GPUix Solid · GPUIX 0.8" \
-            "bun run --filter 'gpuix-solid-counter' start:gpuix-08" \
-            "gpuix-08.png" \
-            "gpuix-08.log"
-
-          capture \
-            "GPUix Solid Dashboard" \
-            "bun run --filter 'gpuix-solid-counter' start:dashboard" \
-            "dashboard.png" \
-            "dashboard.log"
-
-          capture \
-            "CodeImage Native — Solid 2 + GPUIX" \
-            "bun run --filter 'gpuix-solid-counter' start:codeimage" \
-            "codeimage.png" \
-            "codeimage.log"
-
-          capture \
-            "Todo" \
-            "bun run --filter 'gpuix-solid-counter' start:todo" \
-            "todo.png" \
-            "todo.log"
-
-          montage \
-            docs/images/gpuix-08.png \
-            docs/images/dashboard.png \
-            docs/images/codeimage.png \
-            docs/images/todo.png \
-            -tile 2x2 -geometry '760x520+18+18' -background '#111111' \
-            docs/images/gallery.png
-          identify docs/images/gallery.png
+          for image in gpuix-08 dashboard codeimage todo; do
+            test -s "docs/images/${image}.png"
+            file "docs/images/${image}.png"
+            sha256sum "docs/images/${image}.png"
+          done
 
       - name: Upload capture evidence
-        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: readme-native-screenshots
-          path: |
-            docs/images/*.png
-            logs
-          if-no-files-found: warn
+          name: readme-native-retained-tree-screenshots
+          path: docs/images/*.png
+          if-no-files-found: error
 
       - name: Commit generated screenshots to the docs branch
         if: github.event_name == 'push' && github.ref_name == 'docs/gpuix-080-app-building'
