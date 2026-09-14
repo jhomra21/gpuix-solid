@@ -2,9 +2,9 @@
 
 GPUix Solid compiles Solid JSX into GPUIX's retained native tree. The JavaScript process runs under Bun; GPUI creates and paints the desktop window. There is no Electron renderer and no browser web view.
 
-This guide targets the published baseline:
+This guide targets the current prerelease baseline:
 
-- `gpuix-solid@0.1.0-beta.6`
+- `gpuix-solid@beta`
 - `@gpuix/native ^0.8.0`
 - Solid 2 RC
 - Bun 1.3.14
@@ -25,7 +25,7 @@ bun init -y
 Install the public runtime packages:
 
 ```bash
-bun add gpuix-solid@0.1.0-beta.6 solid-js@2.0.0-rc.1
+bun add gpuix-solid@beta solid-js@2.0.0-rc.1
 ```
 
 Install the compiler/build packages:
@@ -249,19 +249,27 @@ Keep the full native panic/backtrace; failures below the JS callback boundary ca
 
 Give native `<text>` an explicit `color`. Browser-style color inheritance is not a general native-host guarantee.
 
-## Known GPUIX 0.8 foreground-input limitation
+## Foreground-input release-candidate gate
 
-`gpuix-solid@0.1.0-beta.6` intentionally matches the published `@gpuix/native@0.8.0` line. That upstream native release still contains a physical foreground mouse-up re-entrancy defect in text-selection cleanup: on affected macOS foreground runs, a real click can attempt to update the root `GpuixView` while GPUI already holds that entity update, causing a fatal `GpuixView already being updated` panic before Solid receives the click.
+The source-level GPUIX 0.8 ownership concern and the latest published runtime result disagree:
 
-GPUix Solid previously tested and rejected a Solid-side timing workaround because the failure occurs inside native event dispatch. A source-built GPUIX 0.8 candidate with the isolated native ownership/defer fix passes real foreground click, repeated updates, reset, and text drag-selection/release, but that fix is not yet present in the published upstream native package.
+- source inspection of `@gpuix/native@0.8.0` still shows the text-selection mouse-up path that previously reproduced a nested `GpuixView` update; and
+- a fresh external consumer using the actual published `gpuix-solid@0.1.0-beta.7` + `@gpuix/native@0.8.0` packages passed real macOS paint, hover, repeated clicks, and text-selection drag/release without a panic.
 
-Until upstream publishes the native fix:
+Because that discrepancy is unresolved, stable promotion requires another published-package foreground pass against the release candidate rather than assuming either result wins by itself.
 
-- beta.6 is the correct GPUIX 0.8 package/build baseline
-- build, typecheck, package-smoke, and source compatibility are validated
-- do not describe physical foreground mouse interaction on published 0.8.0 as fixed
+From a checkout of this repository, the reproducible acceptance harness is:
 
-The native ownership work remains tracked separately from the public 0.8 documentation/examples work.
+```bash
+GPUIX_SOLID_VERSION=beta node scripts/test-published-foreground.mjs all
+```
+
+It creates a fresh consumer under `/private/tmp`, installs only registry packages, typechecks and builds two apps, and launches them sequentially:
+
+1. the original Counter path used to reproduce click/reset/selection failures; and
+2. the GPUIX 0.8 accessibility + textarea + decorated-text surface.
+
+For an exact release candidate, set `GPUIX_SOLID_VERSION` to that version instead of `beta`. A successful pass means both processes paint, interact, and close normally with no native panic or `GpuixView already being updated` output.
 
 ## Where to go next
 
