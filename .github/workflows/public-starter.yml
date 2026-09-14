@@ -7,6 +7,7 @@ on:
     paths:
       - "templates/solid2-vite-bun/**"
       - "docs/getting-started.md"
+      - "scripts/test-published-foreground.mjs"
       - ".github/workflows/public-starter.yml"
   workflow_dispatch:
 
@@ -16,7 +17,7 @@ permissions:
 jobs:
   build-external-copy:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
@@ -36,6 +37,13 @@ jobs:
         run: bun install
         working-directory: ${{ env.STARTER_DIR }}
 
+      - name: Report resolved public package
+        shell: bash
+        working-directory: ${{ env.STARTER_DIR }}
+        run: |
+          set -euo pipefail
+          node -e 'const solid=require("./node_modules/gpuix-solid/package.json"); const native=require("./node_modules/@gpuix/native/package.json"); console.log(`starter resolved gpuix-solid@${solid.version} + @gpuix/native@${native.version}`)'
+
       - name: Typecheck starter
         run: bun run typecheck
         working-directory: ${{ env.STARTER_DIR }}
@@ -51,3 +59,17 @@ jobs:
           set -euo pipefail
           test -s dist/index.js
           grep -q "GPUix Solid starter" dist/index.js
+
+      - name: Prepare published foreground acceptance consumers
+        env:
+          GPUIX_SOLID_VERSION: beta
+        run: node scripts/test-published-foreground.mjs prepare
+
+      - name: Report published foreground acceptance consumer
+        env:
+          GPUIX_SOLID_VERSION: beta
+        run: node scripts/test-published-foreground.mjs status
+
+      - name: Clean published foreground acceptance consumer
+        if: always()
+        run: node scripts/test-published-foreground.mjs cleanup

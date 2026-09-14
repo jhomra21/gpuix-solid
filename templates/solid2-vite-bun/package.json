@@ -11,7 +11,7 @@
     "dev": "bun run build && bun run start"
   },
   "dependencies": {
-    "gpuix-solid": "0.1.0-beta.6",
+    "gpuix-solid": "beta",
     "solid-js": "2.0.0-rc.1"
   },
   "devDependencies": {
