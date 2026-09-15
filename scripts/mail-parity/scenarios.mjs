@@ -240,21 +240,14 @@ async function presentText(adapter, text) {
 }
 
 async function restoreSplit(adapter) {
-  if (await adapter.app.getByTestId("channel-primary").count()) {
-    await adapter.app.getByTestId("channel-primary").click()
-  }
-  if (await adapter.app.getByTestId("thread-close").count()) {
-    await adapter.app.getByTestId("thread-close").click()
-  }
-  if (!(await adapter.app.getByTestId("mail-reading-pane").count())) {
-    await adapter.app.getByTestId("thread-atlas-weekly").click()
-  }
-  if (!(await adapter.app.getByTestId("mail-thread-list").count())) {
-    await adapter.app.getByTestId("thread-split").click()
-  }
-  if (!(await adapter.app.getByTestId("thread-atlas-weekly").count())) {
-    await adapter.app.getByTestId("channel-primary").click()
-  }
+  await present(adapter, "channel-primary")
+  await adapter.app.getByTestId("channel-primary").click()
+  await present(adapter, "mail-thread-list")
+  await absent(adapter, "mail-reading-pane")
+  await present(adapter, "thread-atlas-weekly")
+  await adapter.app.getByTestId("thread-atlas-weekly").click()
+  await present(adapter, "mail-reading-pane")
+  await present(adapter, "mail-thread-list")
 }
 
 async function checkpoint(adapter, context, id) {
