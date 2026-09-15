@@ -149,12 +149,9 @@ const scenarios = [
     id: "12-all-threads",
     run: async (adapter, context) => {
       for (const channel of channels) {
-        await restoreSplit(adapter)
-        await adapter.app.getByTestId("channel-" + channel.id).click()
+        await selectChannelAndWait(adapter, channel)
         for (const threadId of channel.threads) {
-          await present(adapter, "thread-" + threadId)
-          await adapter.app.getByTestId("thread-" + threadId).click()
-          await present(adapter, "mail-reading-pane")
+          await openThreadAndWait(adapter, threadId)
         }
       }
       await restoreSplit(adapter)
@@ -165,13 +162,13 @@ const scenarios = [
     id: "13-hover-controls",
     run: async (adapter, context) => {
       for (const channel of channels) {
-        await restoreSplit(adapter)
+        await present(adapter, "channel-" + channel.id, `hover channel ${channel.id}`)
         await adapter.app.getByTestId("channel-" + channel.id).hover()
       }
-      await restoreSplit(adapter)
       for (const channel of channels) {
+        await selectChannelAndWait(adapter, channel)
         for (const threadId of channel.threads) {
-          await adapter.app.getByTestId("channel-" + channel.id).click()
+          await present(adapter, "thread-" + threadId, `hover thread ${channel.id}/${threadId}`)
           await adapter.app.getByTestId("thread-" + threadId).hover()
         }
       }
@@ -221,12 +218,12 @@ async function expectCount(locator, expected, label) {
   }
 }
 
-async function present(adapter, testId) {
-  await expectCount(adapter.app.getByTestId(testId), 1, "present " + testId)
+async function present(adapter, testId, label = "present " + testId) {
+  await expectCount(adapter.app.getByTestId(testId), 1, label)
 }
 
-async function absent(adapter, testId) {
-  await expectCount(adapter.app.getByTestId(testId), 0, "absent " + testId)
+async function absent(adapter, testId, label = "absent " + testId) {
+  await expectCount(adapter.app.getByTestId(testId), 0, label)
 }
 
 async function presentText(adapter, text) {
@@ -239,20 +236,47 @@ async function presentText(adapter, text) {
   }
 }
 
-async function restoreSplit(adapter) {
-  await present(adapter, "channel-primary")
-  if (await adapter.app.getByTestId("thread-close").count()) {
-    await adapter.app.getByTestId("thread-close").click()
-    await absent(adapter, "mail-reading-pane")
-    await absent(adapter, "mail-reading-toolbar")
+async function differentText(locator, before, label) {
+  const deadline = Date.now() + 5_000
+  let actual = before
+  for (;;) {
+    actual = await locator.textContent()
+    if (actual !== before) return
+    if (Date.now() >= deadline) throw new Error(label + " did not change reader text")
+    await delay(25)
   }
-  await adapter.app.getByTestId("channel-primary").click()
-  await present(adapter, "mail-thread-list")
-  await absent(adapter, "mail-reading-pane")
-  await present(adapter, "thread-atlas-weekly")
-  await adapter.app.getByTestId("thread-atlas-weekly").click()
-  await present(adapter, "mail-reading-pane")
-  await present(adapter, "mail-thread-list")
+}
+
+async function selectChannelAndWait(adapter, channel) {
+  const channelId = channel.id
+  await present(adapter, "channel-" + channelId, `channel ${channelId} control`)
+  await adapter.app.getByTestId("channel-" + channelId).click()
+  await present(adapter, "mail-thread-list", `${channelId} thread list`)
+  await absent(adapter, "mail-reading-pane", `${channelId} reader closed`)
+  await absent(adapter, "mail-reading-toolbar", `${channelId} reader toolbar closed`)
+  for (const threadId of channel.threads) {
+    await present(adapter, "thread-" + threadId, `${channelId}/${threadId} timeline row`)
+  }
+  const outside = channels.find((candidate) => candidate.id !== channelId)?.threads[0]
+  if (outside) await absent(adapter, "thread-" + outside, `${channelId} excludes ${outside}`)
+}
+
+async function openThreadAndWait(adapter, threadId) {
+  const pane = adapter.app.getByTestId("mail-reading-pane")
+  const before = (await pane.count()) ? await pane.textContent() : null
+  await present(adapter, "thread-" + threadId, `thread ${threadId} before open`)
+  await adapter.app.getByTestId("thread-" + threadId).click()
+  await present(adapter, "mail-reading-pane", `${threadId} reading pane`)
+  await present(adapter, "mail-reading-toolbar", `${threadId} reading toolbar`)
+  await present(adapter, "composer", `${threadId} composer`)
+  await present(adapter, "mail-thread-list", `${threadId} keeps split list`)
+  if (before !== null) await differentText(pane, before, `thread ${threadId}`)
+}
+
+async function restoreSplit(adapter) {
+  const primary = channels[0]
+  await selectChannelAndWait(adapter, primary)
+  await openThreadAndWait(adapter, "atlas-weekly")
 }
 
 async function checkpoint(adapter, context, id) {
