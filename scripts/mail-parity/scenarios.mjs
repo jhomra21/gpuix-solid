@@ -162,8 +162,8 @@ const scenarios = [
     id: "13-hover-controls",
     run: async (adapter, context) => {
       for (const channel of channels) {
-        await present(adapter, "channel-" + channel.id, `hover channel ${channel.id}`)
-        await adapter.app.getByTestId("channel-" + channel.id).hover()
+        const control = await sidebarControl(adapter, "channel-" + channel.id, `hover channel ${channel.id}`)
+        await control.hover()
       }
       for (const channel of channels) {
         await selectChannelAndWait(adapter, channel)
@@ -247,10 +247,43 @@ async function differentText(locator, before, label) {
   }
 }
 
+async function sidebarControl(adapter, testId, label) {
+  const sidebar = adapter.app.getByTestId("mail-sidebar")
+  const filter = adapter.app.getByTestId("find-channel")
+  const control = adapter.app.getByTestId(testId)
+  await expectCount(control, 1, label)
+
+  const sidebarBounds = await sidebar.bounds()
+  const filterBounds = await filter.bounds()
+  const minY = filterBounds.y + filterBounds.height + 2
+  const maxY = sidebarBounds.y + sidebarBounds.height - 48
+  const deadline = Date.now() + 5_000
+  let bounds = await control.bounds()
+
+  for (;;) {
+    const centerY = bounds.y + bounds.height / 2
+    if (centerY >= minY && centerY <= maxY) return control
+    if (Date.now() >= deadline) {
+      throw new Error(
+        label +
+          " stayed outside the sidebar viewport: centerY=" +
+          centerY +
+          ", visibleY=" +
+          minY +
+          ".." +
+          maxY,
+      )
+    }
+    await sidebar.wheel(0, centerY < minY ? 180 : -180)
+    await delay(25)
+    bounds = await control.bounds()
+  }
+}
+
 async function selectChannelAndWait(adapter, channel) {
   const channelId = channel.id
-  await present(adapter, "channel-" + channelId, `channel ${channelId} control`)
-  await adapter.app.getByTestId("channel-" + channelId).click()
+  const control = await sidebarControl(adapter, "channel-" + channelId, `channel ${channelId} control`)
+  await control.click()
   await present(adapter, "mail-thread-list", `${channelId} thread list`)
   await absent(adapter, "mail-reading-pane", `${channelId} reader closed`)
   await absent(adapter, "mail-reading-toolbar", `${channelId} reader toolbar closed`)
