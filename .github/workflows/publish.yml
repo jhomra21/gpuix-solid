@@ -206,7 +206,14 @@ jobs:
             exit 1
           fi
 
-          if [[ "$version" == *-* ]]; then
+          remote_integrity=$(npm view "${package}@${version}" dist.integrity 2>/dev/null || true)
+          if [[ -n "$remote_integrity" ]]; then
+            if [[ "$remote_integrity" != "$integrity" ]]; then
+              echo "${package}@${version} already exists with different bytes."
+              exit 1
+            fi
+            echo "${package}@${version} already exists with matching integrity; skipping publish dry-run."
+          elif [[ "$version" == *-* ]]; then
             npm publish "$tarball" --dry-run --access public --tag beta
           else
             npm publish "$tarball" --dry-run --access public
