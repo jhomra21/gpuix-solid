@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+<!-- Add user-facing changes here before preparing a release. -->
+
+## 0.1.0 - 2026-09-15
+
 - Qualify the Solid 2 `0.1.0` line for stable promotion after the exact published `gpuix-solid@0.1.0-rc.1` and `@gpuix/native@0.8.0` pair passed external macOS foreground acceptance with no crash or fatal `GpuixView` error.
 - Clarify the supported framework split. `gpuix-solid` is the Solid 2 renderer, while `@jhomra21/gpuix-solid1` is the separately versioned Solid 1 renderer with a `solid-js >=1.9.0 <2` peer range and maintained CI coverage.
 - Record the exact React GPUIX 0.8.0 versus Solid Mail differential gate that passed 14 shared native scenarios before stable release preparation.
@@ -53,3 +57,4 @@
 - Solid-native Tooltip, Select, Combobox, and `animate.*` APIs.
 - Native TestRenderer, locator automation, live stdio transport, deterministic clock, retained-tree snapshots, and screenshot parity.
 - Keep the public automation `launch({ env })` contract structural so TypeScript consumers do not need the global `NodeJS` namespace just to use the packaged automation API.
+
