@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+<!-- Add user-facing changes here before preparing a release. -->
+
+## 0.1.1 - 2026-09-15
+
 - Refresh the repository and npm package documentation for the stable `gpuix-solid` line, move the public Solid 2 starter from the npm `beta` tag to `^0.1.0`, and align the root quickstart with upstream GPUIX where the Solid integration has a tested equivalent.
 - Record the successful external foreground acceptance run against the published stable `gpuix-solid@0.1.0` and `@gpuix/native@0.8.0` pair. This release contains no renderer runtime changes.
 
@@ -58,3 +62,4 @@
 - Solid-native Tooltip, Select, Combobox, and `animate.*` APIs.
 - Native TestRenderer, locator automation, live stdio transport, deterministic clock, retained-tree snapshots, and screenshot parity.
 - Keep the public automation `launch({ env })` contract structural so TypeScript consumers do not need the global `NodeJS` namespace just to use the packaged automation API.
+
