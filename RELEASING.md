@@ -30,7 +30,7 @@ The Prepare Release workflow moves those notes into a dated immutable version se
 - `major`
 - `explicit`
 
-For a prerelease such as `0.1.0-rc.1`, `promote-stable` produces `0.1.0`.
+For a prerelease such as `0.1.0-rc.1`, `promote-stable` produces `0.1.0`. After a stable release, `patch` advances the patch version, for example `0.1.0` to `0.1.1`.
 
 ## Normal release flow
 
@@ -61,11 +61,13 @@ For a prerelease such as `0.1.0-rc.1`, `promote-stable` produces `0.1.0`.
 
 ## Stable 0.1.0 qualification
 
-The Solid 2 stable line has an additional foreground gate because earlier GPUIX 0.8 source analysis found a text-selection mouse-up ownership path that could reproduce a nested root-view update.
+The Solid 2 stable line had an additional foreground gate because earlier GPUIX 0.8 source analysis found a text-selection mouse-up ownership path that could reproduce a nested root-view update.
 
 The exact published `gpuix-solid@0.1.0-rc.1` and `@gpuix/native@0.8.0` pair passed the external foreground acceptance test on September 15, 2026. The Counter and GPUIX 0.8 text/input applications completed their click, hover, selection, focus, accessibility, multiline textarea, and follow-up interaction paths with no crash or fatal `GpuixView` error.
 
-Before preparing stable `0.1.0`, keep that result recorded in `docs/release-candidate.md` and keep the stable qualification notes under `CHANGELOG.md` -> `Unreleased`.
+After publication, stable `gpuix-solid@0.1.0` passed the same external foreground test. That closes the original stable-promotion gate and is recorded in `docs/release-candidate.md`.
+
+A documentation-only patch release does not need to repeat the historical RC promotion sequence. It still goes through the normal release checks and exact-tarball publication flow. If a patch changes renderer behavior, native dependencies, input ownership, or another path covered by the foreground test, run `scripts/test-published-foreground.mjs` against the exact candidate before treating the release as accepted.
 
 ## Original scoped-package bootstrap
 
