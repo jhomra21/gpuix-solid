@@ -9,7 +9,7 @@ const consumerDir = join(
   process.env.GPUIX_FOREGROUND_TMP ?? tmpdir(),
   "gpuix-solid-published-foreground",
 )
-const packageSpec = process.env.GPUIX_SOLID_VERSION ?? "beta"
+const packageSpec = process.env.GPUIX_SOLID_VERSION ?? "latest"
 const command = process.argv[2] ?? "all"
 
 switch (command) {
