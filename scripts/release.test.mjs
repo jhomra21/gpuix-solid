@@ -75,3 +75,16 @@ test("publish waits for npm integrity and dist-tag propagation", () => {
   assert.match(workflow, /remote_integrity.*!=.*INTEGRITY/)
   assert.doesNotMatch(workflow, /seq 1 12/)
 })
+
+test("publish packaging is idempotent after the version reaches npm", () => {
+  const workflow = readFileSync(new URL("../.github/workflows/publish.yml", import.meta.url), "utf8")
+  const packStep = workflow.slice(
+    workflow.indexOf("      - name: Pack exact publish candidate"),
+    workflow.indexOf("      - name: Upload publish candidate"),
+  )
+
+  assert.match(packStep, /npm view "\$\{package\}@\$\{version\}" dist\.integrity/)
+  assert.match(packStep, /remote_integrity.*!=.*integrity/)
+  assert.match(packStep, /already exists with matching integrity; skipping publish dry-run/)
+  assert.ok(packStep.indexOf("remote_integrity=$(npm view") < packStep.indexOf('npm publish "$tarball" --dry-run'))
+})
