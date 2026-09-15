@@ -1,34 +1,41 @@
-# AGENTS.md — GPUix Solid
+# AGENTS.md: GPUix Solid
 
-Read `README.md` and `ARCHITECTURE.md` before editing the renderer.
+Read `README.md` and `ARCHITECTURE.md` before editing either renderer.
 
 ## Mission
 
-Build idiomatic Solid 2 bindings for GPUIX while preserving the native behavior and design intent of `remorses/gpuix`.
+Build idiomatic Solid 1 and Solid 2 bindings for GPUIX while preserving the native behavior and design intent of `remorses/gpuix`.
+
+The project uses separate framework packages over a shared native contract:
+
+- `gpuix-solid` targets Solid 2;
+- `@jhomra21/gpuix-solid1` targets Solid 1.9.x.
 
 This is a framework port, not a redesign of GPUIX.
 
-## Pre-launch Evolution
-This project has not launched and has no production users or production data. Revisit this policy before the first production deployment:
-- Optimize for the smallest coherent design that represents the product today.
+## Pre-launch evolution
+
+This project has not launched and has no production users or production data. Revisit this policy before the first production deployment.
+
+- Prefer the smallest coherent design that represents the project today.
 - Remove obsolete code, schemas, APIs, configuration, aliases, and transitional paths directly.
 - Do not add backward-compatibility shims, legacy aliases, dual-read or dual-write paths, or data-preserving backfills unless the user explicitly asks for them.
-- Internal interfaces are not public compatibility contracts. Update their callers and tests atomically when they change.
-- Development and test data are disposable. Prefer recreating those databases over complicating the product to preserve local data.
-- Treat migration history as a replaceable development baseline, but keep the checked-in migration chain and setup workflow coherent. Do not rewrite an already-applied migration without also resetting affected development and test databases.
-- Preserve database invariants, transactional safety, migration idempotence, and deterministic setup. These are correctness properties, not backward-compatibility requirements.
-- Consolidate the migration baseline only as an explicit, coordinated change rather than as incidental work in a feature branch.
+- Internal interfaces are not public compatibility contracts. Update their callers and tests together when they change.
+- Development and test data are disposable. Recreate them instead of complicating the product to preserve local data.
+- Keep database invariants, transactional safety, migration idempotence, and deterministic setup intact.
+- Consolidate a migration baseline only as an explicit coordinated change.
 
 ## Canonical references
 
 Use references in this order when a behavior or architecture question arises:
 
-1. `remorses/gpuix` — canonical GPUIX host/native behavior.
-2. Solid 2 universal renderer — canonical Solid custom-renderer semantics.
-3. `jhomra21/mesurer-solid` — prior project conventions for Solid 2 ports, isolation, and framework boundaries.
-4. Pi and OpenCode v2 — repository organization, ownership boundaries, extensibility, and agent-facing codebase practices.
+1. `remorses/gpuix` for GPUIX host and native behavior.
+2. The matching Solid universal renderer contract for the package being edited.
+3. `packages/solid/src/host` and `packages/solid1/src/host` for the shared host behavior that CI keeps in parity.
+4. `jhomra21/mesurer-solid` for prior Solid 2 isolation and renderer conventions where they still apply.
+5. Pi and OpenCode v2 for repository organization and ownership boundaries.
 
-Do not copy React implementation mechanisms merely because upstream uses them. Preserve externally visible behavior and native protocol instead.
+Do not copy React implementation mechanisms merely because upstream uses them. Preserve visible behavior and the native protocol.
 
 ## Dependency direction
 
@@ -36,15 +43,20 @@ Keep runtime dependencies flowing downward:
 
 ```text
 components / public API
-          ↓
+          |
+          v
 runtime + context
-          ↓
+          |
+          v
 universal host adapter
-          ↓
+          |
+          v
 host nodes + events
-          ↓
+          |
+          v
 mutation driver
-          ↓
+          |
+          v
 NativeRenderer / @gpuix/native
 ```
 
@@ -52,45 +64,47 @@ Lower layers must not import higher layers.
 
 ## Renderer invariants
 
-- No `react`, `react-dom`, or `react-reconciler` dependency.
-- No module-global mutable active renderer, root, event map, or element ID counter.
+- Do not add `react`, `react-dom`, or `react-reconciler` to either Solid renderer path.
+- Do not use a module-global mutable active renderer, root, event map, or element ID counter.
 - A host node belongs to at most one root for its lifetime.
-- JS parent/child order is updated synchronously before native flush.
-- Native mutations are batched whenever `applyBatch` is available.
-- Event closures stay in JS; Rust stores only listener enablement.
-- Native animations stay native.
+- Update JavaScript parent and child order synchronously before native flush.
+- Batch native mutations whenever `applyBatch` is available.
+- Keep event closures in JavaScript. Rust stores listener enablement only.
+- Keep native animations in the native renderer.
 - Root disposal is synchronous from the caller's perspective and flushes destruction.
 - Cross-root insertion throws instead of silently reparenting native IDs.
 - Do not query native state to answer Solid's structural reconciliation methods.
 
 ## Solid rules
 
-Target Solid 2.
+Use the universal compiler and runtime rather than DOM emulation.
 
-Use the universal compiler/runtime rather than DOM emulation. Components should use signals, accessors, context, cleanup, and registration patterns directly.
+For Solid 2 work, use `gpuix-solid`, `@solidjs/universal`, and the Solid 2 scheduling contract already covered by the package tests.
+
+For Solid 1 work, use `@jhomra21/gpuix-solid1`, `solid-js >=1.9.0 <2`, and its synchronous update model. Do not copy Solid 2 scheduling assumptions into the Solid 1 package.
+
+Keep framework-neutral host changes aligned across both packages when the native contract is shared. Run `scripts/check-host-parity.ts` after shared host edits.
 
 Avoid React-shaped ports:
 
 - no `forwardRef` compatibility abstraction;
 - no `cloneElement` architecture;
 - no React-style child introspection as state discovery;
-- no hook naming solely for React familiarity when a normal Solid primitive reads better.
+- no hook naming solely for React familiarity when a normal Solid primitive is clearer.
 
-Refs are ordinary Solid refs. Controlled/uncontrolled components should be implemented with accessors and signals.
+Refs are ordinary Solid refs. Controlled and uncontrolled components should use Solid accessors and signals.
 
 ## Style
 
-Borrow the useful parts of the current OpenCode v2 style guide:
+- Prefer `const`.
+- Avoid `any`.
+- Keep helpers close to their use.
+- Do not extract a single-use helper unless it names a real boundary.
+- Use early returns instead of unnecessary `else` branches.
+- Add comments for non-obvious invariants, not obvious assignments.
+- Test the implementation rather than copying it into tests.
 
-- prefer `const`;
-- avoid `any`;
-- keep helpers close to their use;
-- do not extract single-use helpers unless they name a real boundary;
-- use early returns instead of unnecessary `else` branches;
-- add comments for non-obvious invariants, not obvious assignments;
-- test the actual implementation rather than duplicating it in tests.
-
-Unlike OpenCode, this repo does not prohibit all loops or destructuring. Use the clearest TypeScript for renderer algorithms.
+This repository does not ban loops or destructuring. Use the clearest TypeScript for renderer algorithms.
 
 ## Public API parity
 
@@ -99,37 +113,39 @@ Preserve GPUIX names where they are framework-neutral:
 - host element names;
 - style keys;
 - native custom props;
-- event names/payloads;
-- `render`, `createRoot`, `createRenderer` concepts;
-- frame-loop/window behavior;
+- event names and payloads;
+- `render`, `createRoot`, and `createRenderer` concepts;
+- frame-loop and window behavior;
 - native automation vocabulary.
 
-Framework-specific names may become idiomatic Solid equivalents, but compatibility differences must be documented.
+Framework-specific names may use idiomatic Solid equivalents, but package differences must be documented.
 
 ## Upstream attribution and source use
 
-Keep attribution to `remorses/gpuix` in README and `THIRD_PARTY_NOTICES.md`.
+Keep attribution to `remorses/gpuix` in `README.md` and `THIRD_PARTY_NOTICES.md`.
 
-The upstream repository had no root LICENSE file when this project was initialized. Do not paste source from `packages/react` into this repository. Implement against documented contracts, native APIs, tests, and observed behavior. If upstream later publishes an explicit license, reassess what can be shared or ported directly.
+Do not paste unlicensed upstream implementation source into this repository. Implement against documented contracts, native APIs, tests, and source that the repository is allowed to carry.
 
 ## Tests required for host changes
 
-For changes to host nodes, events, mutation batching, or root lifecycle, add/update tests that cover:
+For changes to host nodes, events, mutation batching, or root lifecycle, add or update tests that cover:
 
 - initial mount;
-- reactive property/text update;
+- reactive property and text updates;
 - insertion and reorder;
 - removal and subtree destruction;
-- event handler add/change/remove;
+- event handler add, change, and removal;
 - multiple roots;
-- cleanup/unmount;
+- cleanup and unmount;
 - batch failure behavior when relevant.
 
-When native parity infrastructure lands, run it for every host-protocol change.
+Run the applicable Solid 1 and Solid 2 lanes when a shared native host behavior changes. Use native parity tests whenever they can exercise the behavior.
 
 ## Package management
 
-Use Bun for repository commands and workspaces. Keep versions aligned with the Solid 2 toolchain already proven in `mesurer-solid` unless a deliberate upgrade is validated.
+Use Bun for repository commands and workspaces.
+
+Keep the Solid 1 and Solid 2 dependency ranges separate. Upgrade either framework line only after its package and consumer tests pass. Do not widen one package's peer range because the other package moved.
 
 ## Commits
 

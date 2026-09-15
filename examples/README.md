@@ -14,7 +14,7 @@ Run commands from the repository root after:
 bun install
 ```
 
-If you are trying to build your own application rather than work on this repository, start with [`../docs/getting-started.md`](../docs/getting-started.md) or the copyable [`../templates/solid2-vite-bun`](../templates/solid2-vite-bun) project instead.
+If you are trying to build your own application rather than work on this repository, start with [`../docs/getting-started.md`](../docs/getting-started.md) for Solid 2 or [`../docs/getting-started-solid1.md`](../docs/getting-started-solid1.md) for Solid 1. The copyable [`../templates/solid2-vite-bun`](../templates/solid2-vite-bun) project is Solid 2 only.
 
 ## Start with these
 
@@ -227,4 +227,4 @@ The normal deterministic contracts include:
 - exact package smoke in clean consumers
 - exact pinned GPUIX 0.8 source build/link/compatibility
 
-Physical foreground macOS mouse interaction is a separate acceptance category. The published `@gpuix/native@0.8.0` line still has the known mouse-up/root-view re-entrancy defect documented in [`../docs/compatibility.md`](../docs/compatibility.md); deterministic automation passing does not erase that native foreground limitation.
+Physical foreground macOS input remains a separate acceptance category. The exact published `gpuix-solid@0.1.0-rc.1` and `@gpuix/native@0.8.0` pair passed the external Counter and GPUIX 0.8 text/input foreground test on September 15, 2026 with no crash or fatal `GpuixView` error. The earlier source-level ownership concern remains documented as diagnostic history rather than a currently reproduced release blocker.

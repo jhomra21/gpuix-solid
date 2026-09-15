@@ -8,7 +8,7 @@ GPUix Solid is based on the public architecture and native mutation contract of:
 - Author/repository owner: remorses
 - Source: https://github.com/remorses/gpuix
 
-This repository does not vendor GPUIX's React renderer. It depends on the separately distributed `@gpuix/native` package and implements a Solid renderer independently against that native interface. GPUIX remains the canonical reference for intended host behavior and parity fixtures.
+This repository does not vendor GPUIX's React renderer. It depends on the separately distributed `@gpuix/native` package and implements Solid renderers independently against that native interface. GPUIX remains the canonical reference for intended host behavior and parity fixtures.
 
 The upstream repository did not expose a root `LICENSE` file when this project was initialized on August 23, 2026. For that reason, source from `@gpuix/react` is not copied into this repository. Where behavior is matched, the implementation is written independently from the documented/native protocol and observable tests.
 
@@ -34,11 +34,11 @@ GPUI is consumed indirectly through `@gpuix/native`; it is not vendored here.
 
 ## Solid
 
-Solid and the Solid universal renderer are developed by SolidJS:
+Solid and its universal custom-renderer APIs are developed by SolidJS:
 
 https://github.com/solidjs/solid
 
-The package targets Solid 2 and uses its universal custom-renderer contract.
+GPUix Solid maintains two framework packages. `gpuix-solid` targets Solid 2, and `@jhomra21/gpuix-solid1` targets Solid 1.9.x. Each package uses the universal renderer contract for its Solid runtime version.
 
 ## Architectural references
 

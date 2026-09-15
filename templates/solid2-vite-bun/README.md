@@ -1,16 +1,19 @@
-# GPUix Solid starter
+# GPUix Solid 2 starter
 
-A minimal Solid 2 + GPUIX native desktop app that installs entirely from public npm packages.
+A minimal Solid 2 and GPUIX native desktop app that installs from public npm packages.
 
-This template intentionally lives outside the repository workspaces. Its Vite configuration matches the clean-consumer configuration exercised by GPUix Solid package smoke tests.
+GPUix Solid also maintains a separate Solid 1 renderer. Solid 1 applications use `@jhomra21/gpuix-solid1`; this template is only for the Solid 2 `gpuix-solid` package.
+
+This template lives outside the repository workspaces. Its Vite configuration matches the clean-consumer configuration used by the Solid 2 package smoke tests.
 
 ## Requirements
 
 - Bun 1.3.14 or newer in the 1.3 line
 - a supported `@gpuix/native` desktop platform package
-- the current `gpuix-solid@beta` prerelease channel
+- Solid 2, with the current release qualification on `solid-js@2.0.0-rc.1`
+- the current `gpuix-solid@beta` package until stable `0.1.0` is published
 
-The published 0.8 baseline currently covers the native macOS arm64, Linux x64 GNU, and Windows x64 MSVC packages used by repository CI.
+The GPUIX 0.8 package line is continuously checked on macOS arm64, Linux x64 GNU, and Windows x64 MSVC.
 
 ## Install
 
@@ -18,7 +21,7 @@ The published 0.8 baseline currently covers the native macOS arm64, Linux x64 GN
 bun install
 ```
 
-The template uses the npm `beta` dist-tag intentionally so a copied prerelease starter follows the currently validated GPUix Solid prerelease rather than freezing on an older beta.
+The template currently follows the npm `beta` tag because `gpuix-solid@0.1.0` has not been published yet. The exact published candidate `0.1.0-rc.1` passed the stable-release foreground gate on September 15, 2026. After `0.1.0` is published to `latest`, the template dependency should move from `beta` to the stable line.
 
 ## Typecheck and build
 
@@ -27,7 +30,7 @@ bun run typecheck
 bun run build
 ```
 
-Vite writes the native app entry to `dist/index.js`.
+Vite writes the native application entry to `dist/index.js`.
 
 ## Run
 
@@ -35,32 +38,32 @@ Vite writes the native app entry to `dist/index.js`.
 bun run start
 ```
 
-Or use the simple rebuild-and-run loop:
+For the simple rebuild and run loop:
 
 ```bash
 bun run dev
 ```
 
-The JavaScript process runs under Bun, but the visible window is a GPUI native window. There is no browser DOM, Electron renderer, or web view.
+Bun runs the JavaScript process. GPUI paints the native window. There is no browser DOM, Electron renderer, or web view.
 
 ## Why the Vite config uses the `browser` condition
 
-Solid publishes separate client and SSR runtime conditions. A native GPUix process still needs Solid's live client reactivity even though it does not run in a browser. The Vite config therefore resolves the `browser` condition while compiling JSX with Solid's universal renderer.
+Solid publishes separate client and SSR runtime conditions. A native GPUix process needs Solid's live client reactivity even though it does not run in a browser.
 
-`gpuix-solid`, `@solidjs/universal`, and `solid-js` are bundled into the output so runtime package resolution cannot accidentally select Solid's SSR path. `@gpuix/native` remains external so Bun can load the platform-specific native addon normally.
+The Vite config resolves the `browser` condition and compiles JSX through Solid's universal renderer. `gpuix-solid`, `@solidjs/universal`, and `solid-js` are bundled into the output. `@gpuix/native` stays external so Bun can load the platform-specific native addon.
 
 ## Native styling notes
 
-GPUix Solid accepts browser-shaped JSX, but it is not browser CSS. Native `<text>` nodes should have an explicit `color`, and only the style properties mapped by the host/native renderer are supported.
+GPUix Solid accepts browser-shaped JSX, but GPUIX is not browser CSS. Give native `<text>` nodes an explicit color and rely only on style properties mapped by the host and native renderer.
 
-The starter also shows `role`, `aria-label`, `tabIndex`, `hover`, and `textDecoration`, which are part of the current Solid host contract for the GPUIX 0.8 baseline.
+The starter also exercises `role`, `aria-label`, `tabIndex`, `hover`, and `textDecoration` on the GPUIX 0.8 line.
 
-## Foreground-input release-candidate gate
+## Foreground release result
 
-Source inspection of published `@gpuix/native@0.8.0` still shows the text-selection mouse-up ownership path that previously reproduced a `GpuixView already being updated` abort. A source-built 0.8 candidate with the isolated native ownership/defer patch also passed foreground acceptance.
+Earlier source analysis of `@gpuix/native@0.8.0` found a text-selection mouse-up ownership path that could reproduce a fatal nested root-view update.
 
-However, a fresh external consumer using the actual published `gpuix-solid@0.1.0-beta.7` + `@gpuix/native@0.8.0` registry packages also passed real macOS paint, hover, repeated clicks, and text-selection drag/release with no panic. That means the current evidence no longer supports describing every published 0.8 foreground run as broken, but the source/runtime discrepancy is still unresolved.
+The exact published `gpuix-solid@0.1.0-rc.1` and `@gpuix/native@0.8.0` pair passed the external foreground acceptance test. Counter interactions, selection and follow-up input, accessibility actions, multiline textarea input, Tab and focus behavior, and normal shutdown completed without a native panic or fatal `GpuixView` error.
 
-Before stable promotion, the release candidate is therefore tested again against the original Counter interaction path and a second text/textarea-heavy surface. Do not remove the upstream-risk note solely from one successful foreground run.
+The pass qualifies the Solid 2 candidate for stable promotion. It does not claim the upstream source-level ownership concern was removed.
 
-For the longer setup, packaging, debugging, compatibility, and release-candidate notes, see [`../../docs/getting-started.md`](../../docs/getting-started.md).
+For Solid 2 setup, packaging, debugging, and compatibility details, see [`../../docs/getting-started.md`](../../docs/getting-started.md). For Solid 1, see [`../../docs/getting-started-solid1.md`](../../docs/getting-started-solid1.md).

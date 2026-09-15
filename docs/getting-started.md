@@ -1,20 +1,38 @@
 # Build a native Solid 2 app
 
-GPUix Solid compiles Solid JSX into GPUIX's retained native tree. The JavaScript process runs under Bun; GPUI creates and paints the desktop window. There is no Electron renderer and no browser web view.
+GPUix Solid supports Solid 1 and Solid 2 through separate renderer packages. This guide is for Solid 2 and uses `gpuix-solid`. For Solid 1, use [`getting-started-solid1.md`](./getting-started-solid1.md) and `@jhomra21/gpuix-solid1`.
 
-This guide targets the current prerelease baseline:
+GPUix Solid compiles Solid JSX into GPUIX's retained native tree. Bun runs the JavaScript process and GPUI paints the desktop window. There is no Electron renderer or browser web view.
 
-- `gpuix-solid@beta`
+## Current Solid 2 contract
+
+The `0.1.0` line targets:
+
+- `gpuix-solid`
+- `solid-js ^2.0.0-rc.0`, with release qualification on `2.0.0-rc.1`
 - `@gpuix/native ^0.8.0`
-- Solid 2 RC
+- `@solidjs/universal 2.0.0-rc.0`
 - Bun 1.3.14
 - Vite 8.1.5 with `@solidjs/vite-plugin@3.0.0-next.29`
 
-A copyable project with these exact settings lives at [`templates/solid2-vite-bun`](../templates/solid2-vite-bun).
+The published release candidate is `gpuix-solid@0.1.0-rc.1`. It passed the external foreground acceptance gate on September 15, 2026. Stable `0.1.0` is being prepared from that qualified line.
 
-## 1. Create a project
+Until `0.1.0` is published, install the exact candidate:
 
-Start with an empty directory:
+```bash
+bun add gpuix-solid@0.1.0-rc.1 solid-js@2.0.0-rc.1
+bun add -d @solidjs/vite-plugin@3.0.0-next.29 vite@8.1.5 typescript@5.9.2
+```
+
+After `0.1.0` is published to npm `latest`, the package command becomes:
+
+```bash
+bun add gpuix-solid solid-js@2.0.0-rc.1
+```
+
+A copyable Solid 2 project lives at [`templates/solid2-vite-bun`](../templates/solid2-vite-bun). The template remains on the npm `beta` tag until the stable package exists, so copying it before publication cannot resolve a version that has not been published yet.
+
+## Create a project
 
 ```bash
 mkdir my-gpuix-app
@@ -22,21 +40,11 @@ cd my-gpuix-app
 bun init -y
 ```
 
-Install the public runtime packages:
+Install the runtime and build packages shown above.
 
-```bash
-bun add gpuix-solid@beta solid-js@2.0.0-rc.1
-```
+`gpuix-solid` depends on `@gpuix/native`, so Bun resolves the matching platform package during a normal install.
 
-Install the compiler/build packages:
-
-```bash
-bun add -d @solidjs/vite-plugin@3.0.0-next.29 vite@8.1.5 typescript@5.9.2
-```
-
-`gpuix-solid` depends on `@gpuix/native`, so npm/Bun resolves the platform native package as part of a normal install.
-
-## 2. Configure TypeScript JSX
+## Configure TypeScript JSX
 
 Create `tsconfig.json`:
 
@@ -56,9 +64,9 @@ Create `tsconfig.json`:
 }
 ```
 
-`jsxImportSource` is required. It makes TypeScript use GPUix Solid's JSX types rather than browser DOM element types.
+`jsxImportSource` makes TypeScript use GPUix Solid's JSX types instead of browser DOM element types.
 
-## 3. Configure Solid's universal renderer
+## Configure Solid's universal renderer
 
 Create `vite.config.ts`:
 
@@ -95,21 +103,17 @@ export default defineConfig({
 })
 ```
 
-### Why a native app resolves Solid's `browser` condition
+A native GPUix process still needs Solid's live client reactive runtime. The `browser` condition selects that runtime. It does not add a DOM or web view.
 
-Solid's `browser` export is its live client reactive runtime. The alternative SSR runtime is designed for one-shot server rendering and does not provide the update behavior a long-lived desktop UI needs.
+The build bundles `gpuix-solid`, `@solidjs/universal`, and `solid-js`. `@gpuix/native` stays external so Bun can load its platform-specific native addon.
 
-Using the `browser` condition here does **not** add a browser, DOM, or web view. It only selects Solid's client reactivity while JSX is compiled through the universal renderer into GPUix Solid host operations.
-
-The build inlines `gpuix-solid`, `@solidjs/universal`, and `solid-js` so the launched process cannot accidentally resolve the SSR variant later. `@gpuix/native` stays external because Bun must load its platform-specific `.node` addon normally.
-
-## 4. Write the app
+## Write the app
 
 Create `src/index.tsx`:
 
 ```tsx
-import { render } from "gpuix-solid"
 import { createSignal } from "solid-js"
+import { render } from "gpuix-solid"
 
 function App() {
   const [count, setCount] = createSignal(0)
@@ -125,12 +129,8 @@ function App() {
         backgroundColor: "#151515",
       }}
     >
-      <text style={{ color: "#f7f7f7", fontSize: 28 }}>
-        GPUix Solid
-      </text>
-
+      <text style={{ color: "#f7f7f7", fontSize: 28 }}>GPUix Solid</text>
       <text style={{ color: "#f7f7f7" }}>Count: {count()}</text>
-
       <div
         role="button"
         aria-label="Increment counter"
@@ -158,9 +158,9 @@ render(() => <App />, {
 })
 ```
 
-Native `<text>` nodes should receive an explicit `color`. GPUix Solid accepts browser-shaped JSX, but GPUI is not a browser CSS engine and unsupported/inherited browser behavior should not be assumed.
+Give native `<text>` nodes an explicit color. GPUIX is not a browser CSS engine, so unsupported browser behavior should not be assumed.
 
-## 5. Build and run
+## Build and run
 
 Add these scripts to `package.json`:
 
@@ -176,7 +176,7 @@ Add these scripts to `package.json`:
 }
 ```
 
-Then:
+Then run:
 
 ```bash
 bun run typecheck
@@ -184,97 +184,43 @@ bun run build
 bun run start
 ```
 
-`bun run dev` is currently a rebuild-and-run command, not browser HMR. A first-party GPUix Solid app scaffold/dev server does not exist yet.
+`bun run dev` rebuilds and starts the native app. It is not browser HMR.
 
-## What the build produces
+## Package the native app
 
-Vite emits the application JavaScript entry in `dist/`. The native renderer is **not** bundled into that JavaScript. At runtime Bun resolves the installed `@gpuix/native` package and loads its platform native addon.
+Vite writes the JavaScript entry to `dist/`. The native renderer is not bundled into that file.
 
-That boundary matters for app packaging:
-
-- keep `@gpuix/native` external in Vite/Rollup
-- preserve the installed platform-specific native package and `.node` binary when assembling an application bundle
-- do not treat the output as a self-contained browser bundle
-- do not assume a single-file JavaScript compiler will automatically embed/load a native Node-API addon correctly
-
-GPUix Solid does not yet provide an installer/app-bundle CLI. The repository currently proves package installation, TypeScript compilation, Vite builds, native package loading, and runnable native examples; final `.app`, `.exe`, installer, signing, and notarization workflows remain application/distribution concerns.
+Keep `@gpuix/native` external in Vite or Rollup. Preserve the installed platform package and its `.node` binary when assembling an application bundle. GPUix Solid does not yet ship an app installer or signing tool, so `.app`, `.exe`, installer, signing, and notarization work still belongs to the application.
 
 ## Validated platforms
 
-The repository's current GPUIX 0.8 lock/CI matrix validates:
+Repository CI continuously checks the GPUIX 0.8 package line on:
 
 - macOS arm64
 - Linux x64 GNU
 - Windows x64 MSVC
 
-That is a statement about the platforms continuously exercised by this repository, not a promise that every GPUI/window feature behaves identically on every operating system. Native blur/window effects in particular can be platform-specific.
+Window behavior can still vary by operating system. Native blur is one example.
 
-See [`compatibility.md`](./compatibility.md) for the exact dependency and platform contract.
+## Release-candidate foreground result
 
-## GPUIX 0.8 capabilities exposed through Solid
+The repository keeps a foreground acceptance test because earlier GPUIX 0.8 source analysis found a text-selection mouse-up ownership path that could reproduce a nested `GpuixView` update.
 
-The current Solid 2 host types include the 0.8-facing accessibility metadata (`role`, supported `aria-*` fields), focus/tab metadata, and `textDecoration`. The source-edge capability suite also validates the native 0.8 accessibility/custom-prop path and painted text-decoration output.
+The exact published candidate `gpuix-solid@0.1.0-rc.1` with `@gpuix/native@0.8.0` passed the external macOS foreground test on September 15, 2026. Counter increment, decrement, number click, reset, hover, text selection, accessibility actions, multiline textarea input, Tab and focus behavior, follow-up clicks, and process shutdown all passed. No native panic or fatal `GpuixView` error occurred.
 
-Additional 0.8 features such as textarea newline behavior, remote HTTP images, file drop, and updated selection/focus behavior are being promoted into focused runnable Solid examples only after their Solid host mapping and native behavior are proven. Do not infer support from the upstream React API alone.
+That result qualifies the GPUix Solid candidate for stable promotion. It does not claim that the upstream source-level ownership concern was removed. The history and exact gate remain documented in [`release-candidate.md`](./release-candidate.md).
 
-## Debugging
-
-### The app builds but reactivity is wrong
-
-Check that the Vite config still contains:
-
-```ts
-resolve: {
-  conditions: ["browser", "development"],
-}
-```
-
-and that `gpuix-solid`, `@solidjs/universal`, and `solid-js` remain in `ssr.noExternal`. Accidentally resolving Solid's SSR runtime is a common way to produce a build that looks valid but does not behave like a live client application.
-
-### Bun cannot load the native addon
-
-Check that `@gpuix/native` is still listed in `rollupOptions.external` and that the matching platform package exists under `node_modules` after install.
-
-### Native/Rust crash diagnostics
-
-Run the built app with a Rust backtrace enabled:
+To repeat the exact registry test:
 
 ```bash
-RUST_BACKTRACE=1 bun dist/index.js
+GPUIX_SOLID_VERSION=0.1.0-rc.1 node scripts/test-published-foreground.mjs all
 ```
 
-Keep the full native panic/backtrace; failures below the JS callback boundary cannot be diagnosed reliably from a Solid stack alone.
+## Next references
 
-### Text is invisible
-
-Give native `<text>` an explicit `color`. Browser-style color inheritance is not a general native-host guarantee.
-
-## Foreground-input release-candidate gate
-
-The source-level GPUIX 0.8 ownership concern and the latest published runtime result disagree:
-
-- source inspection of `@gpuix/native@0.8.0` still shows the text-selection mouse-up path that previously reproduced a nested `GpuixView` update; and
-- a fresh external consumer using the actual published `gpuix-solid@0.1.0-beta.7` + `@gpuix/native@0.8.0` packages passed real macOS paint, hover, repeated clicks, and text-selection drag/release without a panic.
-
-Because that discrepancy is unresolved, stable promotion requires another published-package foreground pass against the release candidate rather than assuming either result wins by itself.
-
-From a checkout of this repository, the reproducible acceptance harness is:
-
-```bash
-GPUIX_SOLID_VERSION=beta node scripts/test-published-foreground.mjs all
-```
-
-It creates a fresh consumer in the operating system's temporary directory, installs only registry packages, typechecks and builds two apps, and launches them sequentially. Set `GPUIX_FOREGROUND_TMP` only when you intentionally want a different temp root.
-
-1. the original Counter path used to reproduce click/reset/selection failures; and
-2. the GPUIX 0.8 accessibility + textarea + decorated-text surface.
-
-For an exact release candidate, set `GPUIX_SOLID_VERSION` to that version instead of `beta`. A successful pass means both processes paint, interact, and close normally with no native panic or `GpuixView already being updated` output.
-
-## Where to go next
-
-- [`../templates/solid2-vite-bun`](../templates/solid2-vite-bun) — copyable public-package starter
-- [`../examples/README.md`](../examples/README.md) — runnable application examples
-- [`compatibility.md`](./compatibility.md) — dependency/platform contract
-- [`upstream-parity.md`](./upstream-parity.md) — audited GPUIX/source parity and known gaps
-- [`gpuix-edge.md`](./gpuix-edge.md) — contributor-only source-edge workflow
+- [Solid 1 setup](./getting-started-solid1.md)
+- [Solid 2 starter](../templates/solid2-vite-bun)
+- [Examples](../examples/README.md)
+- [Compatibility](./compatibility.md)
+- [Upstream parity](./upstream-parity.md)
+- [Source-edge workflow](./gpuix-edge.md)
