@@ -241,6 +241,11 @@ async function presentText(adapter, text) {
 
 async function restoreSplit(adapter) {
   await present(adapter, "channel-primary")
+  if (await adapter.app.getByTestId("thread-close").count()) {
+    await adapter.app.getByTestId("thread-close").click()
+    await absent(adapter, "mail-reading-pane")
+    await absent(adapter, "mail-reading-toolbar")
+  }
   await adapter.app.getByTestId("channel-primary").click()
   await present(adapter, "mail-thread-list")
   await absent(adapter, "mail-reading-pane")
