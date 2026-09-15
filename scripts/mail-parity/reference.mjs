@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { spawnSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import { join } from "node:path"
@@ -58,16 +58,22 @@ export function ensureReactReference(repoRoot) {
 
   run("git", ["fetch", "--quiet", "origin"], { cwd: checkout })
   run("git", ["checkout", "--quiet", REACT_SHA], { cwd: checkout })
-  run("git", ["submodule", "update", "--init", "--recursive", "--quiet"], { cwd: checkout })
+  run("git", ["reset", "--hard", "--quiet", REACT_SHA], { cwd: checkout })
+  run("git", ["submodule", "update", "--init", "--recursive", "--force", "--quiet"], { cwd: checkout })
 
   const nativeBinary = join(checkout, "packages/native/gpuix-native.darwin-arm64.node")
   const reactDist = join(checkout, "packages/react/dist/automation/index.js")
-  if (!existsSync(nativeBinary)) {
+  const buildStamp = join(checkout, ".gpuix-solid-mail-parity-build")
+  const buildMatchesReference =
+    existsSync(nativeBinary) &&
+    existsSync(reactDist) &&
+    existsSync(buildStamp) &&
+    readFileSync(buildStamp, "utf8").trim() === REACT_SHA
+
+  if (!buildMatchesReference) {
     run("bun", ["install", "--frozen-lockfile"], { cwd: checkout, capture: false })
     run("bun", ["run", "build"], { cwd: checkout, capture: false })
-  } else if (!existsSync(reactDist)) {
-    run("bun", ["install", "--frozen-lockfile"], { cwd: checkout, capture: false })
-    run("bun", ["run", "build"], { cwd: join(checkout, "packages/react"), capture: false })
+    writeFileSync(buildStamp, REACT_SHA + "\n")
   }
 
   const info = inspectReactReference(checkout)
