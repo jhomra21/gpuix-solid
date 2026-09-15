@@ -4,6 +4,10 @@
 
 Write Solid components in TypeScript. GPUix Solid turns the Solid tree into GPUIX native elements and GPUI paints the window with Metal, DirectX, or Vulkan. There is no Electron renderer and no browser web view.
 
+![GPUix Solid Mail example](./docs/images/mail-app.png)
+
+The Mail example above is GPUix Solid: the sidebar, thread list, reading pane, and native composer, rendered through GPUIX and GPUI.
+
 GPUix Solid supports two Solid generations through separate packages:
 
 | Solid version | Package | Peer range |
