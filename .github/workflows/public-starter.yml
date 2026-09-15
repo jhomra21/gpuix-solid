@@ -62,12 +62,12 @@ jobs:
 
       - name: Prepare published foreground acceptance consumers
         env:
-          GPUIX_SOLID_VERSION: beta
+          GPUIX_SOLID_VERSION: latest
         run: node scripts/test-published-foreground.mjs prepare
 
       - name: Report published foreground acceptance consumer
         env:
-          GPUIX_SOLID_VERSION: beta
+          GPUIX_SOLID_VERSION: latest
         run: node scripts/test-published-foreground.mjs status
 
       - name: Clean published foreground acceptance consumer

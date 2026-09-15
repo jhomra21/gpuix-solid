@@ -6,31 +6,23 @@ GPUix Solid compiles Solid JSX into GPUIX's retained native tree. Bun runs the J
 
 ## Current Solid 2 contract
 
-The `0.1.0` line targets:
+The stable `0.1.x` line targets:
 
-- `gpuix-solid`
+- `gpuix-solid` from npm `latest`
 - `solid-js ^2.0.0-rc.0`, with release qualification on `2.0.0-rc.1`
 - `@gpuix/native ^0.8.0`
 - `@solidjs/universal 2.0.0-rc.0`
 - Bun 1.3.14
 - Vite 8.1.5 with `@solidjs/vite-plugin@3.0.0-next.29`
 
-The published release candidate is `gpuix-solid@0.1.0-rc.1`. It passed the external foreground acceptance gate on September 15, 2026. Stable `0.1.0` is being prepared from that qualified line.
-
-Until `0.1.0` is published, install the exact candidate:
-
-```bash
-bun add gpuix-solid@0.1.0-rc.1 solid-js@2.0.0-rc.1
-bun add -d @solidjs/vite-plugin@3.0.0-next.29 vite@8.1.5 typescript@5.9.2
-```
-
-After `0.1.0` is published to npm `latest`, the package command becomes:
+Install the stable package and the Solid 2 version used by the release qualification:
 
 ```bash
 bun add gpuix-solid solid-js@2.0.0-rc.1
+bun add -d @solidjs/vite-plugin@3.0.0-next.29 vite@8.1.5 typescript@5.9.2
 ```
 
-A copyable Solid 2 project lives at [`templates/solid2-vite-bun`](../templates/solid2-vite-bun). The template remains on the npm `beta` tag until the stable package exists, so copying it before publication cannot resolve a version that has not been published yet.
+A copyable Solid 2 project lives at [`templates/solid2-vite-bun`](../templates/solid2-vite-bun). It depends on the stable `^0.1.0` package line rather than a prerelease dist-tag.
 
 ## Create a project
 
@@ -158,7 +150,8 @@ render(() => <App />, {
 })
 ```
 
-Give native `<text>` nodes an explicit color. GPUIX is not a browser CSS engine, so unsupported browser behavior should not be assumed.
+> [!IMPORTANT]
+> Give native `<text>` nodes an explicit `color`. GPUI does not inherit text color from a parent the way browser CSS does, so an omitted color can paint black text on a dark surface.
 
 ## Build and run
 
@@ -184,13 +177,15 @@ bun run build
 bun run start
 ```
 
-`bun run dev` rebuilds and starts the native app. It is not browser HMR.
+`bun run dev` rebuilds and starts the native app. It is not browser HMR and does not preserve the existing native window.
 
 ## Package the native app
 
 Vite writes the JavaScript entry to `dist/`. The native renderer is not bundled into that file.
 
 Keep `@gpuix/native` external in Vite or Rollup. Preserve the installed platform package and its `.node` binary when assembling an application bundle. GPUix Solid does not yet ship an app installer or signing tool, so `.app`, `.exe`, installer, signing, and notarization work still belongs to the application.
+
+Upstream GPUIX documents additional React-specific CLI, compiled-binary, Hermes, packaging, auto-update, shell-completion, and browser/WebGPU workflows. GPUix Solid does not claim those as supported Solid workflows until they have an implemented and tested Solid path.
 
 ## Validated platforms
 
@@ -202,19 +197,21 @@ Repository CI continuously checks the GPUIX 0.8 package line on:
 
 Window behavior can still vary by operating system. Native blur is one example.
 
-## Release-candidate foreground result
+## Stable foreground result
 
-The repository keeps a foreground acceptance test because earlier GPUIX 0.8 source analysis found a text-selection mouse-up ownership path that could reproduce a nested `GpuixView` update.
+Earlier source analysis of `@gpuix/native@0.8.0` found a text-selection mouse-up ownership path that could reproduce a nested `GpuixView` update.
 
-The exact published candidate `gpuix-solid@0.1.0-rc.1` with `@gpuix/native@0.8.0` passed the external macOS foreground test on September 15, 2026. Counter increment, decrement, number click, reset, hover, text selection, accessibility actions, multiline textarea input, Tab and focus behavior, follow-up clicks, and process shutdown all passed. No native panic or fatal `GpuixView` error occurred.
+The exact published `gpuix-solid@0.1.0-rc.1` with `@gpuix/native@0.8.0` passed the external macOS foreground qualification test on September 15, 2026. After stable publication, `gpuix-solid@0.1.0` passed the same external foreground test. Counter increment, decrement, number click, reset, hover, text selection, accessibility actions, multiline textarea input, Tab and focus behavior, follow-up clicks, and process shutdown all passed. No native panic or fatal `GpuixView` error occurred.
 
-That result qualifies the GPUix Solid candidate for stable promotion. It does not claim that the upstream source-level ownership concern was removed. The history and exact gate remain documented in [`release-candidate.md`](./release-candidate.md).
+That result is the stable `0.1.0` qualification record. It does not claim that the earlier upstream source-level ownership concern was removed. The history and exact gate remain documented in [`release-candidate.md`](./release-candidate.md).
 
-To repeat the exact registry test:
+To repeat the stable `0.1.0` registry test exactly:
 
 ```bash
-GPUIX_SOLID_VERSION=0.1.0-rc.1 node scripts/test-published-foreground.mjs all
+GPUIX_SOLID_VERSION=0.1.0 node scripts/test-published-foreground.mjs all
 ```
+
+For a later patch release, set `GPUIX_SOLID_VERSION` to the exact published version you want to test.
 
 ## Next references
 

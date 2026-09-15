@@ -8,17 +8,17 @@ Use [`getting-started.md`](./getting-started.md) for Solid 2 and [`getting-start
 
 | Layer | Current contract | Notes |
 | --- | --- | --- |
-| `gpuix-solid` | `0.1.0-rc.1` is the qualified release candidate for the `0.1.0` stable line | Solid 2 renderer in `packages/solid` |
-| `solid-js` for Solid 2 | peer `^2.0.0-rc.0` | Release qualification and package smoke currently exercise `2.0.0-rc.1` |
+| `gpuix-solid` | stable `0.1.x` line from npm `latest` | Solid 2 renderer in `packages/solid` |
+| `solid-js` for Solid 2 | peer `^2.0.0-rc.0` | Release qualification and package smoke exercise `2.0.0-rc.1` |
 | `@solidjs/universal` | `2.0.0-rc.0` | Runtime dependency used by the Solid 2 renderer |
 | `@jhomra21/gpuix-solid1` | repository package version `0.1.0-beta.0` | Solid 1 renderer in `packages/solid1`; versioned separately from `gpuix-solid` |
-| `solid-js` for Solid 1 | peer `>=1.9.0 <2` | Repository CI currently exercises `1.9.15` |
+| `solid-js` for Solid 1 | peer `>=1.9.0 <2` | Repository CI exercises `1.9.15` |
 | `@gpuix/native` | `^0.8.0` | Native desktop renderer contract used by both Solid packages |
 | pinned GPUIX source edge | `8d3ec094387152558d05a5b37de3cfbfca5d2d0a` | Exact source reference used for the published 0.8.0 baseline |
 | Bun | `1.3.14` | Repository install, build, test, and release toolchain |
 | TypeScript | `^5.9.2` | Package type and build validation |
 
-The Solid 1 and Solid 2 package versions do not move together automatically. Stable `gpuix-solid@0.1.0` promotes the Solid 2 package only. Solid 1 support remains maintained under `@jhomra21/gpuix-solid1` with its own version and peer range.
+The Solid 1 and Solid 2 package versions do not move together automatically. The stable `gpuix-solid` release line advances the Solid 2 package only. Solid 1 remains maintained under `@jhomra21/gpuix-solid1` with its own version and peer range.
 
 When `@gpuix/native` changes its element, style, event, window, testing, or automation behavior, parity tests should move first. Widen dependency ranges only after those tests pass.
 
@@ -58,13 +58,15 @@ The Solid host mappings cover the GPUIX 0.8 behavior that has explicit Solid tes
 
 An upstream native feature is not treated as Solid support until the Solid types or compatibility layer expose it and a test or runnable example proves the path.
 
+Current upstream GPUIX documentation also covers React-specific CLI, hot reload, Hermes, app packaging, auto-update, shell completion, and browser/WebGPU workflows. GPUix Solid does not claim those paths until the Solid integration is implemented and validated.
+
 ## Foreground acceptance status
 
 Earlier source analysis of `@gpuix/native@0.8.0` found a text-selection mouse-up ownership path that could reproduce a fatal nested root-view update on macOS. The repository kept that as a release risk instead of adding a Solid-side workaround.
 
-The exact published candidate `gpuix-solid@0.1.0-rc.1` with `@gpuix/native@0.8.0` passed the external foreground acceptance test on September 15, 2026. The Counter and GPUIX 0.8 text/input apps completed their click, hover, selection, focus, accessibility, multiline textarea, and follow-up interaction paths with no crash or fatal `GpuixView` error.
+The exact published `gpuix-solid@0.1.0-rc.1` with `@gpuix/native@0.8.0` passed the external foreground qualification test on September 15, 2026. After publication, stable `gpuix-solid@0.1.0` passed the same external Counter and GPUIX 0.8 text/input foreground test. Click, hover, selection, focus, accessibility, multiline textarea, follow-up interaction, and shutdown paths completed without a crash or fatal `GpuixView` error.
 
-That result satisfies the GPUix Solid stable-promotion gate. It does not prove that the upstream source-level ownership concern was removed. Keep the diagnostic history in [`release-candidate.md`](./release-candidate.md) and [`upstream-parity.md`](./upstream-parity.md).
+That result is the stable `0.1.0` qualification record. It does not prove that the upstream source-level ownership concern was removed. Keep the diagnostic history in [`release-candidate.md`](./release-candidate.md) and [`upstream-parity.md`](./upstream-parity.md).
 
 ## Policy
 

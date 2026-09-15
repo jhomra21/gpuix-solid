@@ -1,37 +1,23 @@
 # GPUix Solid
 
-Solid bindings for [GPUIX](https://github.com/remorses/gpuix), which targets [GPUI](https://github.com/zed-industries/zed/tree/main/crates/gpui), Zed's GPU UI framework.
+**Solid** for [GPUIX](https://github.com/remorses/gpuix), which renders through [GPUI](https://github.com/zed-industries/zed/tree/main/crates/gpui), Zed's GPU UI framework.
 
-GPUix Solid supports Solid 1 and Solid 2 through separate renderer packages. Both render native GPUIX trees. Neither package uses React, Electron, or a browser web view.
+Write Solid components in TypeScript. GPUix Solid turns the Solid tree into GPUIX native elements and GPUI paints the window with Metal, DirectX, or Vulkan. There is no Electron renderer and no browser web view.
 
-| Solid version | Package | Solid peer range | Current repository status |
-| --- | --- | --- | --- |
-| Solid 2 | `gpuix-solid` | `^2.0.0-rc.0` | `0.1.0-rc.1` passed stable-release qualification; `0.1.0` is being prepared |
-| Solid 1 | `@jhomra21/gpuix-solid1` | `>=1.9.0 <2` | maintained separately at the version declared in `packages/solid1/package.json`; CI currently exercises Solid 1.9.15 |
+GPUix Solid supports two Solid generations through separate packages:
 
-Both packages target `@gpuix/native ^0.8.0`.
+| Solid version | Package | Peer range |
+| --- | --- | --- |
+| Solid 2 | `gpuix-solid` | `solid-js ^2.0.0-rc.0` |
+| Solid 1 | `@jhomra21/gpuix-solid1` | `solid-js >=1.9.0 <2` |
 
-```text
-Solid 2 + TypeScript         Solid 1 + TypeScript
-        |                            |
-        v                            v
-   gpuix-solid              @jhomra21/gpuix-solid1
-        |                            |
-        +-------------+--------------+
-                      |
-                      v
-               @gpuix/native 0.8
-                      |
-                      v
-                     GPUI
-                      |
-                      v
-          Metal / Vulkan / DirectX
-```
+Both packages target `@gpuix/native ^0.8.0`. The stable Solid 2 line is published on npm `latest`. Solid 1 keeps its own package version and release cycle.
 
-## Start with Solid 2
+## Quickstart
 
-The copyable Solid 2 starter is [`templates/solid2-vite-bun`](./templates/solid2-vite-bun). It lives outside the repository workspaces and installs public packages like a new application.
+### Solid 2
+
+The copyable starter installs public npm packages and lives outside the repository workspaces:
 
 ```bash
 cp -R templates/solid2-vite-bun my-gpuix-app
@@ -42,34 +28,168 @@ bun run build
 bun run start
 ```
 
-The exact published candidate is `gpuix-solid@0.1.0-rc.1`. Until stable `0.1.0` is published, a blank Solid 2 project can install:
-
-```bash
-bun add gpuix-solid@0.1.0-rc.1 solid-js@2.0.0-rc.1
-bun add -d @solidjs/vite-plugin@3.0.0-next.29 vite@8.1.5 typescript@5.9.2
-```
-
-After `0.1.0` is published to npm `latest`, use:
+To start from an empty project instead:
 
 ```bash
 bun add gpuix-solid solid-js@2.0.0-rc.1
+bun add -d @solidjs/vite-plugin@3.0.0-next.29 vite@8.1.5 typescript@5.9.2
 ```
 
-See [Build a native Solid 2 app](./docs/getting-started.md) for the TypeScript and Vite configuration, native addon boundary, packaging notes, and debugging.
+### Solid 1
 
-## Start with Solid 1
+Solid 1 applications use the separate renderer package:
 
-Solid 1 uses `@jhomra21/gpuix-solid1`, not `gpuix-solid`. The package declares `solid-js >=1.9.0 <2` and CI currently runs it against `solid-js@1.9.15`.
+```bash
+bun add @jhomra21/gpuix-solid1 solid-js@1.9.15
+bun add -d vite-plugin-solid vite typescript
+```
 
-The Solid 1 renderer has separate runtime code because Solid 1 updates synchronously. It also provides the tested `./web` compatibility entry used by browser-oriented Solid 1 source such as Kobalte.
+See [Build a native Solid 1 app](./docs/getting-started-solid1.md) for the Solid 1 compiler and runtime configuration.
 
-The maintained Solid 1 examples include the compatibility lab, Kobalte, Tailwind v4, a blurred window, and the DAW.
+## Build a Solid 2 app from scratch
 
-See [Build a native Solid 1 app](./docs/getting-started-solid1.md) for compiler configuration and the current repository contract.
+### 1. Point TypeScript at GPUix Solid JSX
+
+`jsxImportSource` must point at `gpuix-solid` so TypeScript uses the native JSX types instead of browser DOM types.
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "preserve",
+    "jsxImportSource": "gpuix-solid",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  }
+}
+```
+
+### 2. Compile through Solid's universal renderer
+
+```ts
+import solid from "@solidjs/vite-plugin"
+import { defineConfig } from "vite"
+
+export default defineConfig({
+  plugins: [
+    solid({
+      solid: {
+        generate: "universal",
+        moduleName: "gpuix-solid",
+      },
+    }),
+  ],
+  resolve: {
+    conditions: ["browser", "development"],
+  },
+  ssr: {
+    noExternal: ["gpuix-solid", "@solidjs/universal", "solid-js"],
+    resolve: {
+      conditions: ["browser", "development", "import", "default"],
+    },
+  },
+  build: {
+    target: "node22",
+    ssr: "src/index.tsx",
+    outDir: "dist",
+    rollupOptions: {
+      external: ["@gpuix/native"],
+    },
+  },
+})
+```
+
+A native GPUix process needs Solid's live client reactive runtime. The `browser` condition selects that runtime. It does not add a DOM or web view.
+
+### 3. Write the app
+
+```tsx
+import { createSignal } from "solid-js"
+import { render } from "gpuix-solid"
+
+function App() {
+  const [count, setCount] = createSignal(0)
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        padding: 24,
+        gap: 12,
+        flexDirection: "column",
+        backgroundColor: "#1a1a1a",
+      }}
+    >
+      <text style={{ color: "#f5f5f5", fontSize: 24 }}>GPUix Solid</text>
+      <text style={{ color: "#d4d4d4" }}>Count: {count()}</text>
+      <div
+        role="button"
+        aria-label="Increment counter"
+        tabIndex={0}
+        onClick={() => setCount((value) => value + 1)}
+        style={{
+          width: 160,
+          padding: 12,
+          borderRadius: 8,
+          cursor: "pointer",
+          backgroundColor: "#292929",
+          hover: { backgroundColor: "#383838" },
+        }}
+      >
+        <text style={{ color: "#f5f5f5" }}>Increment</text>
+      </div>
+    </div>
+  )
+}
+
+render(() => <App />, {
+  title: "My GPUix app",
+  width: 800,
+  height: 600,
+})
+```
+
+> [!IMPORTANT]
+> Give native `<text>` nodes an explicit `color`. GPUI does not inherit text color from a parent the way browser CSS does, so an omitted color can paint black text on a dark surface.
+
+### 4. Build and run
+
+```bash
+bun run typecheck
+bun run build
+bun run start
+```
+
+The maintained starter uses Vite to produce `dist/index.js`, then Bun runs that file with `@gpuix/native` loaded as the platform-specific native addon. The current `dev` script rebuilds and restarts the app. GPUix Solid does not currently provide the same window-preserving hot reload command as upstream GPUIX React.
+
+For the complete Solid 2 setup, see [Build a native Solid 2 app](./docs/getting-started.md).
+
+## Examples
+
+The repository includes source-pinned GPUIX ports and larger native application fixtures. Visible output renders through GPUIX.
+
+| Example | Solid version | Run | What it exercises |
+| --- | --- | --- | --- |
+| Mail | 2 | `bun run example:mail` | three-pane mail UI, HTTP images, navigation, reader modes, text selection |
+| Chat | 2 | `bun run example:chat` | virtualized history, menus, composer input, selection, scrolling, Markdown/MDX |
+| Timeline | 2 | `bun run example:timeline` | pan and zoom, clip editing, snapping, pointer capture |
+| Todo | 2 | `bun run example:todo` | native input, virtual lists, hover controls, sidebar motion |
+| GPUIX 0.8 surface | 2 | `bun run example:gpuix-08` | accessibility metadata, focus, textarea input, text decoration |
+| Dashboard | 2 | `bun run example:dashboard` | routes, controlled input, lists, dialogs, scrolling |
+| CodeImage | 2 | `bun run example:codeimage` | editor layout, controls, themes, native compatibility |
+| Kobalte | 1 | `bun run example:solid1-kobalte` | portals, dialogs, menus, focus, keyboard input |
+| Tailwind v4 | 1 | `bun run example:solid1-tailwind` | compiled native styles, theme tokens, hover and active states |
+| DAW | 1 | `bun run example:solid1-daw` | tracks, ruler, transport, mixer, effects, native adapters |
+
+See [examples/README.md](./examples/README.md) for the complete matrix and source references.
 
 ## How rendering works
 
-Both packages compile Solid JSX through a custom universal renderer into GPUIX's retained native tree.
+Both renderers compile Solid JSX through a custom universal renderer into GPUIX's retained native tree.
 
 ```text
 Solid signal update
@@ -95,44 +215,13 @@ GPUI frame
 
 Solid 1 and Solid 2 use different framework runtimes, but they share the framework-neutral native host contract where possible. CI checks that shared host code for drift.
 
-A native GPUix process still needs Solid's live client reactive runtime. Vite therefore resolves Solid's `browser` condition while compiling JSX with `generate: "universal"`. That condition selects Solid's client reactivity. It does not add a DOM or web view.
-
-## Examples
-
-The repository includes Solid 2 application ports and Solid 1 ecosystem fixtures. Visible output renders through GPUIX.
-
-| Example | Solid version | Run | What it exercises |
-| --- | --- | --- | --- |
-| GPUIX 0.8 surface | 2 | `bun run example:gpuix-08` | accessibility metadata, focus, textarea input, text decoration |
-| Dashboard | 2 | `bun run example:dashboard` | routing, controlled input, lists, dialogs, scrolling |
-| CodeImage | 2 | `bun run example:codeimage` | editor layout, controls, themes, native compatibility |
-| Chat | 2 | `bun run example:chat` | virtualized history, menus, composer input, selection, scrolling |
-| Timeline | 2 | `bun run example:timeline` | pan and zoom, clip editing, snapping, pointer capture |
-| Mail | 2 | `bun run example:mail` | source-pinned Mail app, HTTP images, navigation, reader states |
-| Kobalte | 1 | `bun run example:solid1-kobalte` | portals, dialogs, menus, focus, keyboard input |
-| Tailwind v4 | 1 | `bun run example:solid1-tailwind` | compiled native styles, theme tokens, hover and active states |
-| Blurred window | 1 | `bun run example:solid1-blurred-window` | native window behavior through the Solid 1 renderer |
-| DAW | 1 | `bun run example:solid1-daw` | tracks, ruler, transport, mixer, effects, native adapters |
-
-See [examples/README.md](./examples/README.md) for the full example matrix and source references.
-
 ## GPUIX 0.8 baseline
 
 Both renderer packages consume the published GPUIX 0.8 native contract.
 
-The maintained Solid paths test accessibility metadata, focus and tab metadata, text decoration, controlled text input, pointer input, native images, and the GPUIX event and window contract used by current examples.
+The maintained Solid paths test accessibility metadata, focus and tab metadata, text decoration, controlled text input, pointer input, native images, and the event and window behavior used by the current examples.
 
 An upstream GPUIX feature is not treated as supported by GPUix Solid until the Solid host or compatibility layer exposes it and a runnable check proves the path. See [compatibility.md](./docs/compatibility.md) and [upstream-parity.md](./docs/upstream-parity.md).
-
-## Stable-release qualification
-
-The exact published Solid 2 candidate `gpuix-solid@0.1.0-rc.1` with `@gpuix/native@0.8.0` passed the external macOS foreground acceptance test on September 15, 2026.
-
-The Counter path passed increment, decrement, number click, reset, hover, text selection, and a follow-up click. The GPUIX 0.8 text and input path passed accessibility actions, multiline textarea input, Tab and focus behavior, selection drags, and a follow-up click. Neither process crashed or emitted a fatal `GpuixView` error.
-
-The repository also passed exact React GPUIX 0.8.0 versus Solid Mail differential parity across 14 shared native scenarios before PR #80 merged.
-
-These results satisfy the GPUix Solid `0.1.0` stable-promotion gate. They do not claim that an earlier upstream source-level ownership concern was removed. The diagnostic history remains in [release-candidate.md](./docs/release-candidate.md) and [upstream-parity.md](./docs/upstream-parity.md).
 
 ## Packages
 
@@ -142,7 +231,7 @@ The Solid 2 renderer. It exports the renderer and JSX runtime, native host compo
 
 ### `@jhomra21/gpuix-solid1`
 
-The Solid 1 renderer. It keeps the Solid 1 runtime boundary separate and provides browser-shaped compatibility entry points used by the maintained Solid 1 fixtures.
+The Solid 1 renderer. It keeps the Solid 1 runtime boundary separate and includes the tested `./web` compatibility entry used by browser-oriented Solid 1 source such as Kobalte.
 
 ### `@gpuix/native`
 
@@ -152,7 +241,7 @@ The upstream GPUIX native package. GPUix Solid consumes it rather than carrying 
 
 Repository CI validates macOS, Ubuntu, Windows, the Solid 1 package and consumers, the Solid 2 package tarball, source-pinned examples, and the exact GPUIX 0.8 source compatibility lane.
 
-The Solid 2 package also exports Playwright-like automation:
+The Solid 2 package also exports Playwright-like native automation:
 
 ```ts
 import { createTestApp } from "gpuix-solid/automation"
@@ -166,6 +255,8 @@ await app.getByTestId("name").fill("New name")
 await app.getByTestId("clip").dragBy(120, 0, { steps: 8 })
 await app.getByTestId("history").wheel(0, 240)
 ```
+
+The stable `0.1.0` release and its `@gpuix/native@0.8.0` dependency passed the external macOS foreground acceptance test after publication. The same test had already passed against `0.1.0-rc.1` before stable promotion. See [release-candidate.md](./docs/release-candidate.md) for the exact interaction paths and diagnostic history.
 
 ## Source-pinned application work
 
@@ -184,6 +275,8 @@ GPUix Solid targets GPUIX's native desktop renderer. It does not wrap GPUIX's br
 
 The continuously validated native package matrix is macOS arm64, Linux x64 GNU, and Windows x64 MSVC. Platform-specific GPUI window behavior can differ across operating systems.
 
+GPUix Solid does not currently ship the upstream `@gpuix/cli`, Hermes runtime path, shell completions, application packaging flow, auto-update integration, or browser renderer as Solid-specific supported workflows. Those upstream features should only be documented here after the Solid path is implemented and tested.
+
 There is no first-party GPUix Solid application installer or packaging CLI yet.
 
 ## Documentation
@@ -193,7 +286,7 @@ There is no first-party GPUix Solid application installer or packaging CLI yet.
 - [Solid 2 starter](./templates/solid2-vite-bun)
 - [Examples](./examples/README.md)
 - [Compatibility](./docs/compatibility.md)
-- [Release-candidate acceptance](./docs/release-candidate.md)
+- [Stable 0.1.0 qualification](./docs/release-candidate.md)
 - [Upstream parity](./docs/upstream-parity.md)
 - [Source-edge workflow](./docs/gpuix-edge.md)
 - [Architecture](./ARCHITECTURE.md)
