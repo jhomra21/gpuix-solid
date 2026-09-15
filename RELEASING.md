@@ -2,13 +2,15 @@
 
 GPUix Solid releases are prepared and published by GitHub Actions. Normal releases must not be published from a developer workstation.
 
+The release automation in this document currently publishes `gpuix-solid`, the Solid 2 package in `packages/solid`. The maintained Solid 1 renderer, `@jhomra21/gpuix-solid1`, has its own version in `packages/solid1` and is not advanced by a `gpuix-solid` release.
+
 ## Release invariants
 
 - `main` is the only source of publishable release bytes.
-- Runtime/source changes go through the normal Linux/macOS/Windows CI matrix before release preparation.
-- Release PRs are metadata-only: exactly `packages/solid/package.json` plus `CHANGELOG.md`.
+- Runtime or source changes go through the normal Linux, macOS, and Windows CI matrix before release preparation.
+- Release PRs are metadata-only. They change exactly `packages/solid/package.json` and `CHANGELOG.md`.
 - The publish workflow builds and packs one sanitized npm artifact, smoke-tests that exact tarball in clean npm, Bun, and Solid TSX/Vite consumers, uploads it as a workflow artifact, then publishes those exact bytes without rebuilding.
-- npm registry integrity and the expected `beta`/`latest` dist-tag are verified after publication.
+- npm registry integrity and the expected `beta` or `latest` dist-tag are verified after publication.
 - The Git tag and GitHub Release are created only after npm succeeds.
 - Publishes are public and use npm provenance. The sole exception is the one-time manual `gpuix-solid@0.1.0-beta.4` package-name bootstrap, which predates the Trusted Publisher that could only be attached after that package existed.
 - A recovery run may accept an already-published version only when npm reports the same SHA-512 integrity as the validated artifact.
@@ -19,7 +21,7 @@ GPUix Solid releases are prepared and published by GitHub Actions. Normal releas
 
 User-facing changes accumulate under `## Unreleased` in `CHANGELOG.md`.
 
-The **Prepare Release** workflow moves those notes into a dated immutable version section and restores an empty `Unreleased` section for the next cycle. The release tooling is covered by `scripts/release.test.mjs` and supports:
+The Prepare Release workflow moves those notes into a dated immutable version section and restores an empty `Unreleased` section for the next cycle. The release tooling is covered by `scripts/release.test.mjs` and supports:
 
 - `beta-next`
 - `promote-stable`
@@ -28,35 +30,42 @@ The **Prepare Release** workflow moves those notes into a dated immutable versio
 - `major`
 - `explicit`
 
-For a beta such as `0.1.0-beta.1`, `beta-next` produces `0.1.0-beta.2`. Promoting that prerelease produces `0.1.0`.
+For a prerelease such as `0.1.0-rc.1`, `promote-stable` produces `0.1.0`.
 
 ## Normal release flow
 
 1. Confirm all intended source changes are merged and CI is green on `main`.
-2. Add meaningful user-facing notes under `CHANGELOG.md` → `Unreleased` while developing release-worthy changes.
-3. Run **Prepare Release** from `main`, or use the owner-only Release Control command for the desired release strategy.
-4. The workflow creates `release/v<version>` with only the package version and changelog transition, opens a release PR, and explicitly dispatches **Release Check**.
-5. The generated release commit uses `[skip ci]`, so the normal source matrix is not repeated for the metadata-only release PR.
-6. Review the version/changelog and merge only after Release Check is green.
-7. The merge creates a push to `main`. **Publish Trigger** detects an untagged approved version, verifies package-affecting inputs have not drifted, and dispatches **Publish Package** through `workflow_dispatch`.
+2. Add meaningful user-facing notes under `CHANGELOG.md` -> `Unreleased` while developing release-worthy changes.
+3. Run Prepare Release from `main`, or use the owner-only Release Control command for the desired release strategy.
+4. The workflow creates `release/v<version>` with only the package version and changelog transition, opens a release PR, and explicitly dispatches Release Check.
+5. The generated release commit intentionally does not use `[skip ci]` or another GitHub skip marker. `scripts/release.test.mjs` enforces this because a skipped merged-PR event can prevent the publication path from running.
+6. Review the version and changelog. Merge only after Release Check is green.
+7. The merge creates a push to `main`. Publish Trigger finds the commit that introduced the approved version, verifies that package inputs have not changed afterward, and dispatches Publish Package through `workflow_dispatch`.
 8. Publish Package:
-   - resolves the approved release source,
-   - runs the full release checks,
-   - installs the GPUI Linux runtime libraries needed to load `@gpuix/native` in the clean consumer,
-   - stages the public package in `packages/solid/.publish`,
-   - packs one npm tarball and verifies its npm SHA-512 integrity,
-   - performs an npm publish dry-run,
-   - installs that exact tarball into clean npm and Bun consumers,
-   - typechecks and bundles a clean external Solid TSX/Vite consumer against that exact tarball,
-   - uploads the exact tarball plus `pack.json`,
-   - downloads and re-verifies those bytes in the publish job,
-   - publishes through npm Trusted Publishing/OIDC when the version is new,
-   - accepts an existing version only when registry integrity matches exactly,
-   - polls npm until registry integrity matches,
-   - verifies the expected dist-tag,
-   - creates `v<version>` only after npm succeeds,
+   - resolves the approved release source;
+   - runs the full release checks;
+   - installs the GPUI Linux runtime libraries needed to load `@gpuix/native` in the clean consumer;
+   - stages the public package in `packages/solid/.publish`;
+   - packs one npm tarball and verifies its npm SHA-512 integrity;
+   - performs an npm publish dry-run;
+   - installs that exact tarball into clean npm and Bun consumers;
+   - typechecks and bundles a clean external Solid TSX/Vite consumer against that exact tarball;
+   - uploads the exact tarball plus `pack.json`;
+   - downloads and re-verifies those bytes in the publish job;
+   - publishes through npm Trusted Publishing/OIDC when the version is new;
+   - accepts an existing version only when registry integrity matches exactly;
+   - polls npm until registry integrity and the expected dist-tag match;
+   - creates `v<version>` only after npm succeeds;
    - creates the GitHub Release last.
 9. Run the Release Control `/verify-release` check when an explicit registry-level proof is useful. It validates the current version, dist-tag, SHA-512 integrity, and npm provenance policy. Provenance is required for every release except the exact one-time `gpuix-solid@0.1.0-beta.4` bootstrap.
+
+## Stable 0.1.0 qualification
+
+The Solid 2 stable line has an additional foreground gate because earlier GPUIX 0.8 source analysis found a text-selection mouse-up ownership path that could reproduce a nested root-view update.
+
+The exact published `gpuix-solid@0.1.0-rc.1` and `@gpuix/native@0.8.0` pair passed the external foreground acceptance test on September 15, 2026. The Counter and GPUIX 0.8 text/input applications completed their click, hover, selection, focus, accessibility, multiline textarea, and follow-up interaction paths with no crash or fatal `GpuixView` error.
+
+Before preparing stable `0.1.0`, keep that result recorded in `docs/release-candidate.md` and keep the stable qualification notes under `CHANGELOG.md` -> `Unreleased`.
 
 ## Original scoped-package bootstrap
 
@@ -64,60 +73,19 @@ The original scoped package bootstrap is complete.
 
 `0.1.0-beta.0` was an internal pre-publication candidate and was intentionally never published. `0.1.0-beta.1` was the first public version of `@jhomra21/gpuix-solid`. Because npm requires a package to exist before a GitHub Actions trusted publisher can be configured, beta.1 was published once manually from the same sanitized staged tarball used by the release tooling. Registry integrity was verified against that tarball before Trusted Publishing was configured.
 
-That bootstrap applies only to the original scoped package.
+That bootstrap applies only to the original scoped Solid 2 package.
 
 `0.1.0-beta.2` was the first steady-state tokenless release for `@jhomra21/gpuix-solid`. It was published through Trusted Publishing/OIDC and the registry exposed a SLSA provenance v1 attestation for the published package.
 
 ## `gpuix-solid` package-name migration bootstrap
 
-The Solid 2 npm package now publishes as `gpuix-solid`. This is a new npm package identity; npm does not rename or transfer the existing `@jhomra21/gpuix-solid` package in place.
+The Solid 2 npm package now publishes as `gpuix-solid`. This is a separate npm package identity from the old `@jhomra21/gpuix-solid` package.
 
-Because `v0.1.0-beta.3` already belongs to the original scoped package release, do not bootstrap `gpuix-solid` with that version. After the rename reaches `main`, prepare the next beta release so the first unscoped publication is `gpuix-solid@0.1.0-beta.4`.
+Because `v0.1.0-beta.3` already belongs to the original scoped package release, the first unscoped version was `gpuix-solid@0.1.0-beta.4`.
 
-npm requires a package to exist before a Trusted Publisher can be attached to it. Therefore the first `gpuix-solid` release is a one-time new-package bootstrap: publish the exact sanitized tarball produced by this release tooling once using an interactive npm maintainer session, verify its registry SHA-512 integrity against that tarball, then configure `gpuix-solid` with the Trusted Publisher settings below. Do not add an npm token to GitHub Actions for this bootstrap.
+The one-time bootstrap sequence is complete. It created the unscoped package, verified the exact tarball integrity, configured the Trusted Publisher, and returned later releases to the normal tokenless OIDC flow.
 
-Recommended cutover sequence:
-
-1. Merge the package rename to `main` only after the normal PR completion gates pass.
-2. Prepare and merge `release/v0.1.0-beta.4` through the normal release tooling.
-3. Let **Publish Package** build, validate, smoke-test, and upload the exact `gpuix-solid@0.1.0-beta.4` tarball. The first OIDC publish is expected to stop because the new npm package does not yet have a Trusted Publisher.
-4. Download that exact `npm-package` workflow artifact and publish its single `.tgz` once from an interactive npm maintainer session. Disable provenance for this workstation-only bootstrap; provenance is supplied by Trusted Publishing for subsequent releases:
-
-   ```bash
-   npm publish ./gpuix-solid-0.1.0-beta.4.tgz --tag beta --access public --provenance=false
-   ```
-
-5. Confirm the new registry identity before configuring trust:
-
-   ```bash
-   npm view gpuix-solid name version dist-tags repository --json
-   npm owner ls gpuix-solid
-   ```
-
-6. Configure the new package's GitHub Actions Trusted Publisher with npm 11.15.0 or newer and account-level 2FA enabled:
-
-   ```bash
-   npm trust github gpuix-solid \
-     --file publish.yml \
-     --repo jhomra21/gpuix-solid \
-     --env npm-publish \
-     --allow-publish
-   npm trust list gpuix-solid --json
-   ```
-
-7. In npm package settings, set **Publishing access** to **Require two-factor authentication and disallow tokens** after Trusted Publishing is confirmed. The OIDC publisher continues to work without a long-lived token.
-8. Re-run **Publish Package** from `main`. Recovery must observe the same SHA-512 integrity, accept the already-published npm bytes, and then complete the Git tag and GitHub Release.
-9. Run `/verify-release`. For the exact `gpuix-solid@0.1.0-beta.4` bootstrap, missing provenance is accepted while version, `beta` dist-tag, and registry integrity remain mandatory. No other package or version receives this exception.
-10. Only after the new package is healthy, deprecate the entire old package with an explicit migration message:
-
-    ```bash
-    npm deprecate @jhomra21/gpuix-solid "Package renamed to gpuix-solid. Install with: npm install gpuix-solid"
-    npm view @jhomra21/gpuix-solid@0.1.0-beta.3 deprecated
-    ```
-
-    Keep the old package published so existing lockfiles and installs remain reproducible. Deprecation is the redirect: npm displays the migration message during installs and on the package page.
-
-After that first `gpuix-solid` publication and trust configuration, all later releases return to the normal tokenless OIDC flow and must have npm provenance. The old scoped package remains a separate registry entry and should receive no new releases.
+The old scoped package remains a separate registry entry and should receive no new releases.
 
 ## Trusted Publisher configuration
 
@@ -129,7 +97,7 @@ Normal npm publication is tokenless after the one-time `gpuix-solid` bootstrap. 
 - GitHub environment: `npm-publish`
 - allowed action: `npm publish`
 
-The publish job keeps `id-token: write` and uses npm 11.19.0+ so npm can exchange the GitHub OIDC identity for a short-lived publish credential.
+The publish job keeps `id-token: write` and uses npm 11.19.0 or newer so npm can exchange the GitHub OIDC identity for a short-lived publish credential.
 
 Do not add `NPM_TOKEN`, `NPM_BOOTSTRAP_TOKEN`, or another long-lived npm publishing token to repository secrets or the workflow.
 
@@ -137,7 +105,7 @@ If the GitHub Environment name changes, update the npm Trusted Publisher to the 
 
 ## Release Control
 
-Issue #31 is the persistent owner-only control surface for release automation. Commands are accepted only on that issue and only from the repository owner.
+Issue #31 is the persistent owner-only control page for release automation. Commands are accepted only on that issue and only from the repository owner.
 
 - `/release beta-next`
 - `/release promote-stable`
@@ -149,27 +117,27 @@ Issue #31 is the persistent owner-only control surface for release automation. C
 - `/finalize-release`
 - `/verify-release`
 
-The `/release` commands prepare a release from `main`. `/recover-release` dispatches the hardened publisher when a release did not reach a terminal state. `/finalize-release` repairs only a missing GitHub Release after validating npm and tag state. `/verify-release` is read-only with respect to npm: it checks the current version, expected dist-tag, registry SHA-512 integrity, and npm provenance policy and reports the result back to issue #31. Missing provenance is accepted only for the exact `gpuix-solid@0.1.0-beta.4` bootstrap.
+The `/release` commands prepare a release from `main`. `/recover-release` dispatches the publisher when a release did not reach a terminal state. `/finalize-release` repairs only a missing GitHub Release after validating npm and tag state. `/verify-release` is read-only with respect to npm. It checks the current version, expected dist-tag, registry SHA-512 integrity, and npm provenance policy.
 
 ## Manual recovery
 
-**Publish Package** can also be dispatched manually from `main` when a release merge succeeded but publication, tag creation, or GitHub Release creation did not complete.
+Publish Package can also be dispatched manually from `main` when a release merge succeeded but publication, tag creation, or GitHub Release creation did not complete.
 
 Recovery is intentionally strict:
 
-- it finds the main-branch commit that introduced the current version,
-- it refuses recovery if publishable runtime inputs changed afterward,
-- it requires an immutable changelog section for that version,
-- it rebuilds one candidate from the reviewed release source,
-- if npm already has the version, the remote `dist.integrity` must exactly match the candidate,
-- an existing tag must point to the version-introducing release commit,
-- an existing GitHub Release is treated as completed state rather than overwritten blindly.
+- it finds the main-branch commit that introduced the current version;
+- it refuses recovery if publishable runtime inputs changed afterward;
+- it requires an immutable changelog section for that version;
+- it rebuilds one candidate from the reviewed release source;
+- if npm already has the version, the remote `dist.integrity` must match the candidate exactly;
+- an existing tag must point to the version-introducing release commit;
+- an existing GitHub Release is treated as completed state rather than overwritten.
 
-If runtime/package inputs changed after a version was prepared, prepare a new version instead of attempting recovery.
+If runtime or package inputs changed after a version was prepared, prepare a new version instead of attempting recovery.
 
 ## Local checks
 
-Before changing release infrastructure, the useful local gates are:
+Before changing release infrastructure, run:
 
 ```bash
 bun install --frozen-lockfile
@@ -179,4 +147,4 @@ node packages/solid/scripts/validate-package.mjs
 node packages/solid/scripts/smoke-package.mjs
 ```
 
-On Linux, the smoke test requires the same GPUI runtime libraries installed by CI/upstream GPUIX. The smoke script creates its consumer projects outside the repository and cleans them when complete.
+On Linux, the smoke test requires the same GPUI runtime libraries installed by CI and upstream GPUIX. The smoke script creates consumer projects outside the repository and removes them when complete.
