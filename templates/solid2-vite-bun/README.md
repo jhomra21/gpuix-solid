@@ -10,8 +10,8 @@ This template lives outside the repository workspaces. Its Vite configuration ma
 
 - Bun 1.3.14 or newer in the 1.3 line
 - a supported `@gpuix/native` desktop platform package
-- Solid 2, with the current release qualification on `solid-js@2.0.0-rc.1`
-- the current `gpuix-solid@beta` package until stable `0.1.0` is published
+- Solid 2, with release qualification on `solid-js@2.0.0-rc.1`
+- the stable `gpuix-solid ^0.1.0` package line from npm `latest`
 
 The GPUIX 0.8 package line is continuously checked on macOS arm64, Linux x64 GNU, and Windows x64 MSVC.
 
@@ -21,7 +21,7 @@ The GPUIX 0.8 package line is continuously checked on macOS arm64, Linux x64 GNU
 bun install
 ```
 
-The template currently follows the npm `beta` tag because `gpuix-solid@0.1.0` has not been published yet. The exact published candidate `0.1.0-rc.1` passed the stable-release foreground gate on September 15, 2026. After `0.1.0` is published to `latest`, the template dependency should move from `beta` to the stable line.
+The starter uses `gpuix-solid ^0.1.0`. A fresh install therefore resolves the current compatible stable patch instead of a prerelease dist-tag.
 
 ## Typecheck and build
 
@@ -46,6 +46,8 @@ bun run dev
 
 Bun runs the JavaScript process. GPUI paints the native window. There is no browser DOM, Electron renderer, or web view.
 
+`bun run dev` rebuilds and starts a new process. This starter does not claim upstream GPUIX React's window-preserving hot reload behavior.
+
 ## Why the Vite config uses the `browser` condition
 
 Solid publishes separate client and SSR runtime conditions. A native GPUix process needs Solid's live client reactivity even though it does not run in a browser.
@@ -58,12 +60,10 @@ GPUix Solid accepts browser-shaped JSX, but GPUIX is not browser CSS. Give nativ
 
 The starter also exercises `role`, `aria-label`, `tabIndex`, `hover`, and `textDecoration` on the GPUIX 0.8 line.
 
-## Foreground release result
+## Stable release result
 
-Earlier source analysis of `@gpuix/native@0.8.0` found a text-selection mouse-up ownership path that could reproduce a fatal nested root-view update.
+The stable `gpuix-solid@0.1.0` package and `@gpuix/native@0.8.0` passed the external macOS foreground acceptance test after publication. The test covered Counter interactions, text selection followed by another click, accessibility actions, multiline textarea input, Tab and focus behavior, and normal shutdown without a native panic or fatal `GpuixView` error.
 
-The exact published `gpuix-solid@0.1.0-rc.1` and `@gpuix/native@0.8.0` pair passed the external foreground acceptance test. Counter interactions, selection and follow-up input, accessibility actions, multiline textarea input, Tab and focus behavior, and normal shutdown completed without a native panic or fatal `GpuixView` error.
-
-The pass qualifies the Solid 2 candidate for stable promotion. It does not claim the upstream source-level ownership concern was removed.
+The same foreground gate had already passed against `0.1.0-rc.1` before stable promotion. The diagnostic history remains in [`../../docs/release-candidate.md`](../../docs/release-candidate.md).
 
 For Solid 2 setup, packaging, debugging, and compatibility details, see [`../../docs/getting-started.md`](../../docs/getting-started.md). For Solid 1, see [`../../docs/getting-started-solid1.md`](../../docs/getting-started-solid1.md).
