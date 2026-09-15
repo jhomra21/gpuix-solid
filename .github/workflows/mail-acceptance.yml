@@ -7,6 +7,7 @@ on:
       - "examples/counter/src/mail/**"
       - "examples/counter/vite.mail*.config.ts"
       - "scripts/check-mail-live-automation.mjs"
+      - "scripts/mail-parity/**"
       - "package.json"
       - "bun.lock"
       - ".gpuix/**"
@@ -24,7 +25,7 @@ jobs:
   mail-live-native:
     name: Mail live native (macOS)
     runs-on: macos-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     env:
       MAIL_ACCEPTANCE_SCREENSHOT: /tmp/gpuix-solid-mail-acceptance.png
     steps:
@@ -43,11 +44,15 @@ jobs:
         run: bun run --filter 'gpuix-solid-counter' build:mail
       - name: Run exhaustive live-native Mail acceptance
         run: node scripts/check-mail-live-automation.mjs
-      - name: Upload Mail acceptance screenshot
+      - name: Run React/Solid differential parity
+        run: bun run mail:parity
+      - name: Upload Mail acceptance artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: mail-acceptance-macos
-          path: /tmp/gpuix-solid-mail-acceptance.png
+          path: |
+            /tmp/gpuix-solid-mail-acceptance.png
+            artifacts/mail-parity/
           if-no-files-found: ignore
           retention-days: 7
