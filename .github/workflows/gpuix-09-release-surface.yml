@@ -24,8 +24,48 @@ jobs:
         with:
           bun-version: 1.3.14
 
+      - name: Match current examples wording
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("scripts/finish-gpuix-09-release-surface.mjs")
+          source = path.read_text()
+          source = source.replace(
+              '"All Solid 2 examples run through the `gpuix-solid` workspace package and the published `@gpuix/native ^0.8.0` contract.",',
+              '"All Solid 2 examples compile with Solid\'s universal renderer and execute as native Bun processes through `@gpuix/native ^0.8.0`. They are not browser apps or Electron windows.",',
+          ).replace(
+              '"All Solid 2 examples run through the `gpuix-solid` workspace package and the exact published `@gpuix/native@0.9.0` contract.",',
+              '"All Solid 2 examples compile with Solid\'s universal renderer and execute as native Bun processes through exact `@gpuix/native@0.9.0`. They are not browser apps or Electron windows.",',
+          )
+          path.write_text(source)
+          PY
+
       - name: Refresh current 0.9 docs and example
         run: node scripts/finish-gpuix-09-release-surface.mjs
+
+      - name: Finish focused examples wording
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("examples/README.md")
+          source = path.read_text()
+          replacements = {
+              "## Focused GPUIX 0.8 surface": "## Focused GPUIX 0.9 surface",
+              "It currently demonstrates three 0.8 capabilities that have both Solid host mappings and runnable native checks:": "It demonstrates the current GPUIX 0.9 surface with Solid host mappings and runnable native checks:",
+              "Upstream GPUIX 0.8 also contains other useful native changes, including HTTP image loading, file-drop/window work, and updated interaction behavior.": "The GPUIX 0.9 baseline also carries the earlier HTTP image, file-drop/window, and interaction improvements.",
+              "The native execution baseline is GPUIX 0.8.": "The native execution baseline is GPUIX 0.9.",
+          }
+          for old, new in replacements.items():
+              if old not in source:
+                  raise SystemExit(f"missing examples wording: {old}")
+              source = source.replace(old, new)
+          marker = '- **Text decoration:** `underline` and `line-through` use the public `textDecoration` style property. The Solid regression verifies the retained style, while the source-edge detector separately verifies that decoration changes native painted screenshot output.\n'
+          addition = marker + '- **Reactive window selection:** `createTextSelection()` exposes the current native selection as a Solid accessor, owns its native subscription through the calling Solid owner, and clears through the same primitive.\n'
+          if marker not in source:
+              raise SystemExit("missing text-decoration bullet")
+          source = source.replace(marker, addition)
+          path.write_text(source)
+          PY
 
       - name: Install exact lock
         run: bun install --frozen-lockfile
