@@ -40,18 +40,8 @@ jobs:
               raise SystemExit("expected nested template literal not found")
           source = source.replace(nested_template, plain_error)
 
-          old_root_patch = '''  replaceOnce(path,
-            "  const root = createRoot(renderer, windowKeyEventHandlers)",
-            "  const root = createRoot(renderer, windowEventHandlers)",
-          )'''
-          new_root_patch = '''  replaceOnce(path,
-            solid1
-              ? "  const root = createRoot(hostRenderer, windowKeyEventHandlers)"
-              : "  const root = createRoot(renderer, windowKeyEventHandlers)",
-            solid1
-              ? "  const root = createRoot(hostRenderer, windowEventHandlers)"
-              : "  const root = createRoot(renderer, windowEventHandlers)",
-          )'''
+          old_root_patch = '  replaceOnce(path,\n    "  const root = createRoot(renderer, windowKeyEventHandlers)",\n    "  const root = createRoot(renderer, windowEventHandlers)",\n  )'
+          new_root_patch = '  replaceOnce(path,\n    solid1\n      ? "  const root = createRoot(hostRenderer, windowKeyEventHandlers)"\n      : "  const root = createRoot(renderer, windowKeyEventHandlers)",\n    solid1\n      ? "  const root = createRoot(hostRenderer, windowEventHandlers)"\n      : "  const root = createRoot(renderer, windowEventHandlers)",\n  )'
           if old_root_patch not in source:
               raise SystemExit("expected test-root migration patch not found")
           source = source.replace(old_root_patch, new_root_patch)
