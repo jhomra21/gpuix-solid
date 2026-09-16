@@ -8,7 +8,7 @@ GPUix Solid supports Solid 1 and Solid 2 through separate renderer packages. `@j
 
 The Solid 1 package declares `solid-js >=1.9.0 <2` as its peer range. Repository CI currently exercises `solid-js@1.9.15` against exact `@gpuix/native@0.9.0`.
 
-The package has its own version line. The `gpuix-solid@0.1.0` stable release applies to the Solid 2 package and does not change the Solid 1 package version.
+The package has its own version line. Solid 2 releases such as `gpuix-solid@0.2.x` do not change the Solid 1 package version unless the Solid 1 package is released separately.
 
 ## Compiler and runtime setup
 
@@ -53,9 +53,33 @@ The `browser` condition selects Solid's live reactive runtime. It does not add a
 
 Solid 1 updates synchronously, so this renderer flushes GPUI mutations after Solid work instead of using the Solid 2 `flush()` scheduling contract.
 
+## Reactive text selection
+
+GPUIX 0.9 selection changes are exposed through the Solid 1 `createTextSelection()` primitive as an accessor owned by the calling Solid computation. Cleanup releases the native window subscription automatically.
+
+```tsx
+import { Show } from "solid-js"
+import { createTextSelection } from "@jhomra21/gpuix-solid1"
+
+function SelectionStatus() {
+  const selection = createTextSelection()
+
+  return (
+    <Show
+      when={selection.text()}
+      fallback={<text style={{ color: "#888" }}>Nothing selected</text>}
+    >
+      {(text) => <text style={{ color: "#f5f5f5" }}>Selected: {text()}</text>}
+    </Show>
+  )
+}
+```
+
+The root-level `onSelectionChange` callback is retained for GPUIX API parity. Components should normally prefer the reactive primitive instead of mirroring that callback into another signal.
+
 ## Current coverage
 
-The maintained Solid 1 path includes native JSX host elements, `render`, `createRoot`, Solid control-flow primitives, native events, controlled inputs and textareas, retained-tree insertion and reordering, and GPU-backed test integration when the native package exposes `TestGpuixRenderer`.
+The maintained Solid 1 path includes native JSX host elements, `render`, `createRoot`, Solid control-flow primitives, native events, controlled inputs and textareas, retained-tree insertion and reordering, window selection signals, and GPU-backed test integration when the native package exposes `TestGpuixRenderer`.
 
 The package also has a `./web` compatibility entry for browser-oriented Solid 1 source such as Kobalte. That entry supplies the tested document, portal, focus, selector, and event behavior used by the repository fixtures. It is not a browser DOM implementation.
 
