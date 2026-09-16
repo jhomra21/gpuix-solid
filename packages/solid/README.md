@@ -6,7 +6,7 @@ Write Solid components in TypeScript and render them as native GPUIX trees. Ther
 
 This package is the Solid 2 renderer. Solid 1 applications use the separate `@jhomra21/gpuix-solid1` package from the same repository.
 
-The `0.2.x` line targets exact `@gpuix/native@0.9.0`. The package peer range is `solid-js ^2.0.0-rc.0`, and release qualification exercises `solid-js@2.0.0-rc.8`.
+The `0.2.x` line targets exact `@gpuix/native@0.9.0` and the paired Solid 2 RC.8 runtime: peer `solid-js ^2.0.0-rc.8` with direct `@solidjs/universal@2.0.0-rc.8`.
 
 ## Install
 
@@ -110,6 +110,6 @@ function SelectionStatus() {
 
 The package exports the renderer and JSX runtime, native host components, Solid primitives, animation helpers, test renderer helpers, and `gpuix-solid/automation` for live native-process automation.
 
-The `0.2.x` repository baseline uses exact `@gpuix/native@0.9.0`. CI exercises macOS arm64, Linux x64 GNU, Windows x64 MSVC, the exact pinned GPUIX 0.9 source lane, the Solid 2 package tarball, Solid 2 RC.8 clean consumers, and native interaction/parity fixtures. The 0.1 release records remain historical qualification evidence for the earlier GPUIX 0.8 line.
+The `0.2.x` repository baseline uses exact `@gpuix/native@0.9.0` plus the paired Solid 2 RC.8 runtime. CI exercises macOS arm64, Linux x64 GNU, Windows x64 MSVC, the exact pinned GPUIX 0.9 source lane, the Solid 2 package tarball, clean RC.8 consumers, and native interaction/parity fixtures. The 0.1 release records remain historical qualification evidence for the earlier GPUIX 0.8 line.
 
 For the complete Vite configuration, Solid 1 setup, examples, compatibility notes, source-pinned GPUIX parity work, and release history, see the [GPUix Solid repository](https://github.com/jhomra21/gpuix-solid).
