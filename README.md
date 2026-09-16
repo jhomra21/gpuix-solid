@@ -12,10 +12,10 @@ GPUix Solid supports two Solid generations through separate packages:
 
 | Solid version | Package | Peer range |
 | --- | --- | --- |
-| Solid 2 | `gpuix-solid` | `solid-js ^2.0.0-rc.0` |
+| Solid 2 | `gpuix-solid` | `solid-js ^2.0.0-rc.8` |
 | Solid 1 | `@jhomra21/gpuix-solid1` | `solid-js >=1.9.0 <2` |
 
-Both packages target the exact `@gpuix/native@0.9.0` contract. The repository is preparing the Solid 2 `0.2.0` line; npm `latest` remains the last published stable version until that release lands. Solid 1 keeps its own package version and release cycle. Release qualification exercises Solid 2 against `solid-js@2.0.0-rc.8`.
+Both packages target the exact `@gpuix/native@0.9.0` contract. The repository is preparing the Solid 2 `0.2.0` line; npm `latest` remains the last published stable version until that release lands. Solid 2 uses the paired `solid-js@2.0.0-rc.8` and `@solidjs/universal@2.0.0-rc.8` runtime baseline. Solid 1 keeps its own package version and release cycle.
 
 ## Quickstart
 
@@ -249,7 +249,7 @@ The upstream GPUIX native package. GPUix Solid consumes it rather than carrying 
 
 ## Testing
 
-Repository CI validates macOS, Ubuntu, Windows, the Solid 1 package and consumers, the Solid 2 package tarball, source-pinned examples, and the exact GPUIX 0.9 source compatibility lane. The clean Solid 2 package consumer is qualified against `solid-js@2.0.0-rc.8` with both npm and Bun.
+Repository CI validates macOS, Ubuntu, Windows, the Solid 1 package and consumers, the Solid 2 package tarball, source-pinned examples, and the exact GPUIX 0.9 source compatibility lane. The Solid 2 package and clean consumers run against the paired `solid-js@2.0.0-rc.8` and `@solidjs/universal@2.0.0-rc.8` baseline.
 
 The Solid 2 package also exports Playwright-like native automation:
 
