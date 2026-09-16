@@ -15,7 +15,7 @@ GPUix Solid supports two Solid generations through separate packages:
 | Solid 2 | `gpuix-solid` | `solid-js ^2.0.0-rc.0` |
 | Solid 1 | `@jhomra21/gpuix-solid1` | `solid-js >=1.9.0 <2` |
 
-Both packages now target the exact `@gpuix/native@0.9.0` contract. The repository is preparing the Solid 2 `0.2.0` line; npm `latest` remains the last published stable version until that release lands. Solid 1 keeps its own package version and release cycle.
+Both packages target the exact `@gpuix/native@0.9.0` contract. The repository is preparing the Solid 2 `0.2.0` line; npm `latest` remains the last published stable version until that release lands. Solid 1 keeps its own package version and release cycle. Release qualification exercises Solid 2 against `solid-js@2.0.0-rc.8`.
 
 ## Quickstart
 
@@ -35,7 +35,7 @@ bun run start
 To start from an empty project instead:
 
 ```bash
-bun add gpuix-solid solid-js@2.0.0-rc.1
+bun add gpuix-solid solid-js@2.0.0-rc.8
 bun add -d @solidjs/vite-plugin@3.0.0-next.29 vite@8.1.5 typescript@5.9.2
 ```
 
@@ -172,6 +172,12 @@ The maintained starter uses Vite to produce `dist/index.js`, then Bun runs that 
 
 For the complete Solid 2 setup, see [Build a native Solid 2 app](./docs/getting-started.md).
 
+## Solid-native primitives
+
+Stateful Solid helpers use `create*` names. `createWindowSize()`, `createWindowInsets()`, `createTextSearch()`, and `createTextSelection()` allocate reactive state or subscriptions under the current Solid owner and clean up with that owner. The older `useWindowSize`, `useWindowInsets`, and `useTextSearch` exports remain as deprecated compatibility aliases for existing applications.
+
+Context accessors such as `useGpuix()` keep `use*` naming because they read an existing context rather than creating reactive ownership.
+
 ## Examples
 
 The repository includes source-pinned GPUIX ports and larger native application fixtures. Visible output renders through GPUIX.
@@ -231,7 +237,7 @@ An upstream GPUIX feature is not treated as supported by GPUix Solid until the S
 
 ### `gpuix-solid`
 
-The Solid 2 renderer. It exports the renderer and JSX runtime, native host components, animation helpers, test renderer helpers, window geometry hooks, text-search helpers, and `gpuix-solid/automation`.
+The Solid 2 renderer. It exports the renderer and JSX runtime, native host components, animation helpers, test renderer helpers, Solid-native window/text primitives, and `gpuix-solid/automation`.
 
 ### `@jhomra21/gpuix-solid1`
 
@@ -243,7 +249,7 @@ The upstream GPUIX native package. GPUix Solid consumes it rather than carrying 
 
 ## Testing
 
-Repository CI validates macOS, Ubuntu, Windows, the Solid 1 package and consumers, the Solid 2 package tarball, source-pinned examples, and the exact GPUIX 0.9 source compatibility lane.
+Repository CI validates macOS, Ubuntu, Windows, the Solid 1 package and consumers, the Solid 2 package tarball, source-pinned examples, and the exact GPUIX 0.9 source compatibility lane. The clean Solid 2 package consumer is qualified against `solid-js@2.0.0-rc.8` with both npm and Bun.
 
 The Solid 2 package also exports Playwright-like native automation:
 
@@ -260,7 +266,7 @@ await app.getByTestId("clip").dragBy(120, 0, { steps: 8 })
 await app.getByTestId("history").wheel(0, 240)
 ```
 
-The stable `0.1.0` release and its `@gpuix/native@0.8.0` dependency passed the external macOS foreground acceptance test after publication. The same test had already passed against `0.1.0-rc.1` before stable promotion. See [release-candidate.md](./docs/release-candidate.md) for the exact interaction paths and diagnostic history.
+The stable `0.1.0` release and its `@gpuix/native@0.8.0` dependency passed the external macOS foreground acceptance test after publication. The same test had already passed against `0.1.0-rc.1` before stable promotion. See [release-candidate.md](./docs/release-candidate.md) for that historical qualification record.
 
 ## Source-pinned application work
 
