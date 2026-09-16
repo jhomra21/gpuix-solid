@@ -11,8 +11,8 @@
     "dev": "bun run build && bun run start"
   },
   "dependencies": {
-    "gpuix-solid": "^0.1.0",
-    "solid-js": "2.0.0-rc.1"
+    "gpuix-solid": "latest",
+    "solid-js": "2.0.0-rc.8"
   },
   "devDependencies": {
     "@solidjs/vite-plugin": "3.0.0-next.29",
