@@ -6,7 +6,7 @@ Write Solid components in TypeScript and render them as native GPUIX trees. Ther
 
 This package is the Solid 2 renderer. Solid 1 applications use the separate `@jhomra21/gpuix-solid1` package from the same repository.
 
-The stable `0.1.x` line targets `@gpuix/native ^0.8.0`. The package peer range is `solid-js ^2.0.0-rc.0`, and release qualification exercises `solid-js@2.0.0-rc.1`.
+The `0.2.x` line targets exact `@gpuix/native@0.9.0`. The package peer range is `solid-js ^2.0.0-rc.0`, and release qualification exercises `solid-js@2.0.0-rc.1`.
 
 ## Install
 
@@ -66,10 +66,39 @@ render(() => <App />, {
 
 Give native `<text>` nodes an explicit `color`. GPUI does not inherit text color from a parent the way browser CSS does.
 
+## Reactive text selection
+
+GPUIX 0.9 can report window-level text-selection changes. In Solid code, prefer `createTextSelection()` over manually mirroring the low-level callback into component state. The primitive returns a normal Solid accessor and owns the native subscription for the lifetime of the calling Solid owner.
+
+```tsx
+import { Show } from "solid-js"
+import { createTextSelection } from "gpuix-solid"
+
+function SelectionStatus() {
+  const selection = createTextSelection()
+
+  return (
+    <div style={{ gap: 8, flexDirection: "column" }}>
+      <Show
+        when={selection.text()}
+        fallback={<text style={{ color: "#888" }}>Nothing selected</text>}
+      >
+        {(text) => <text style={{ color: "#f5f5f5" }}>Selected: {text()}</text>}
+      </Show>
+      <div role="button" tabIndex={0} onClick={selection.clear}>
+        <text style={{ color: "#f5f5f5" }}>Clear selection</text>
+      </div>
+    </div>
+  )
+}
+```
+
+`render(..., { onSelectionChange })` remains available as the low-level GPUIX-compatible window event boundary. Application components normally do not need it when they can consume the reactive primitive directly.
+
 ## Runtime and testing
 
-The package exports the renderer and JSX runtime, native host components, animation helpers, test renderer helpers, window geometry hooks, text-search helpers, and `gpuix-solid/automation` for live native-process automation.
+The package exports the renderer and JSX runtime, native host components, Solid primitives, animation helpers, test renderer helpers, window geometry helpers, text-search helpers, and `gpuix-solid/automation` for live native-process automation.
 
-The stable 0.1 line is validated against the published GPUIX 0.8 native contract on macOS arm64, Linux x64 GNU, and Windows x64 MSVC. Stable `gpuix-solid@0.1.0` also passed the external macOS foreground interaction test after publication.
+The `0.2.x` repository baseline uses exact `@gpuix/native@0.9.0`. CI is configured to exercise macOS arm64, Linux x64 GNU, Windows x64 MSVC, the exact pinned GPUIX 0.9 source lane, the Solid 2 package tarball, and native interaction/parity fixtures. The 0.1 release records remain historical qualification evidence for the earlier GPUIX 0.8 line.
 
 For the complete Vite configuration, Solid 1 setup, examples, compatibility notes, source-pinned GPUIX parity work, and release history, see the [GPUix Solid repository](https://github.com/jhomra21/gpuix-solid).

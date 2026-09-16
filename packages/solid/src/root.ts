@@ -1,5 +1,5 @@
 import type { EventPayload } from "@gpuix/native"
-import { flush as flushSolid, type Element as SolidElement } from "solid-js"
+import { createSignal, flush as flushSolid, type Element as SolidElement } from "solid-js"
 import { GpuixContext, type GpuixContextValue } from "./context.js"
 import { EventRegistry } from "./host/events.js"
 import { HostRootNode, removeHostNode, type HostNode } from "./host/nodes.js"
@@ -8,6 +8,7 @@ import type { NativeRenderer, WindowKeyEventHandlers } from "./host/types.js"
 import { createComponent, universalRender } from "./host/universal.js"
 
 const windowKeyEventIds = new WeakMap<NativeRenderer, number>()
+const windowSelectionEventIds = new WeakMap<NativeRenderer, number>()
 type PointerRelayEventType = "mouseMove" | "mouseUp"
 type PointerRelayBurst = {
   eventType: PointerRelayEventType
@@ -38,6 +39,12 @@ const POINTER_TARGET_EVENTS = [
 function nextWindowKeyEventId(renderer: NativeRenderer): number {
   const id = (windowKeyEventIds.get(renderer) ?? 0) + 1
   windowKeyEventIds.set(renderer, id)
+  return id
+}
+
+function nextWindowSelectionEventId(renderer: NativeRenderer): number {
+  const id = (windowSelectionEventIds.get(renderer) ?? 0) + 1
+  windowSelectionEventIds.set(renderer, id)
   return id
 }
 
@@ -129,22 +136,34 @@ function samePointerDownBurst(left: PointerDownBurst, right: PointerDownBurst): 
     && left.button === right.button
 }
 
+export type WindowSelectionChangeHandler = (event: EventPayload, renderer: NativeRenderer) => void
+
+export type WindowEventHandlers = WindowKeyEventHandlers & {
+  /** Window-level text selection listener added by GPUIX 0.9. */
+  onSelectionChange?: WindowSelectionChangeHandler
+}
+
 export interface Root {
   render(code: () => SolidElement): void
   flush(): void
   flushSync<T>(fn: () => T): T
   setWindowKeyEventHandlers(handlers: WindowKeyEventHandlers): void
+  setWindowSelectionChangeHandler(handler?: WindowSelectionChangeHandler): void
   dispatch(event: EventPayload): boolean
   unmount(): void
 }
 
-export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandlers: WindowKeyEventHandlers = {}): Root {
+export function createRoot(renderer: NativeRenderer, initialWindowEventHandlers: WindowEventHandlers = {}): Root {
   const events = new EventRegistry()
   const driver = new BrowserPointerMutationDriver(renderer, events)
   const releaseRelay = new BrowserPointerReleaseRelay()
   const container = new HostRootNode(renderer, events, driver)
-  let windowKeyEventHandlers = initialWindowKeyEventHandlers
+  let windowKeyEventHandlers: WindowKeyEventHandlers = initialWindowEventHandlers
+  let windowSelectionChangeHandler = initialWindowEventHandlers.onSelectionChange
   let windowKeyEventId = nextWindowKeyEventId(renderer)
+  let windowSelectionEventId = nextWindowSelectionEventId(renderer)
+  let selectionObserverCount = 0
+  const [selectedText, setSelectedText] = createSignal<string | null>(null, { ownedWrite: true })
   let dispose: (() => void) | undefined
   let pointerRelayBurst: PointerRelayBurst | undefined
   let pointerDownBurst: PointerDownBurst | undefined
@@ -156,7 +175,27 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
       windowKeyEventId,
     )
   }
+  const syncWindowSelectionChange = (): void => {
+    renderer.setWindowSelectionChange?.(
+      Boolean(windowSelectionChangeHandler) || selectionObserverCount > 0,
+      windowSelectionEventId,
+    )
+  }
+  const retainWindowSelectionChange = (): (() => void) => {
+    const wasIdle = selectionObserverCount === 0
+    selectionObserverCount += 1
+    if (wasIdle) setSelectedText(renderer.getSelectedText?.() ?? null)
+    syncWindowSelectionChange()
+    let active = true
+    return () => {
+      if (!active) return
+      active = false
+      selectionObserverCount = Math.max(0, selectionObserverCount - 1)
+      syncWindowSelectionChange()
+    }
+  }
   syncWindowKeyEvents()
+  syncWindowSelectionChange()
 
   const flushNative = (): void => driver.flush()
   const flush = (): void => {
@@ -170,7 +209,15 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
       flushNative()
     }
   }
-  const contextValue: GpuixContextValue = { renderer, flushSync }
+  const contextValue: GpuixContextValue = {
+    renderer,
+    flushSync,
+    selection: {
+      text: selectedText,
+      retain: retainWindowSelectionChange,
+      clear: () => renderer.clearSelection?.(),
+    },
+  }
 
   const isDuplicatePointerDown = (event: EventPayload): boolean => {
     if (event.eventType !== "mouseDown") return false
@@ -228,7 +275,9 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
         // A remount owns a new renderer-level keyboard event id. Queued events
         // from the replaced tree therefore cannot enter the replacement root.
         windowKeyEventId = nextWindowKeyEventId(renderer)
+        windowSelectionEventId = nextWindowSelectionEventId(renderer)
         syncWindowKeyEvents()
+        syncWindowSelectionChange()
         driver.endAuthoredPointerRelay()
         dispose()
         dispose = undefined
@@ -265,10 +314,25 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
       windowKeyEventHandlers = handlers
       syncWindowKeyEvents()
     },
+    setWindowSelectionChangeHandler(handler) {
+      windowSelectionChangeHandler = handler
+      syncWindowSelectionChange()
+    },
     dispatch(event) {
       let handled = false
       try {
         flushSolid(() => {
+          if (event.eventType === "selectionChange") {
+            if (event.elementId !== windowSelectionEventId) return
+            if (!windowSelectionChangeHandler && selectionObserverCount === 0) return
+            setSelectedText(event.value ?? null)
+            windowSelectionChangeHandler?.(
+              event.elementId === 0 ? event : { ...event, elementId: 0 },
+              renderer,
+            )
+            handled = true
+            return
+          }
           if (event.eventType === "windowKeyDown" || event.eventType === "windowKeyUp") {
             if (event.elementId !== windowKeyEventId) return
             const handler = event.eventType === "windowKeyDown"
@@ -353,6 +417,9 @@ export function createRoot(renderer: NativeRenderer, initialWindowKeyEventHandle
       pointerDownBurst = undefined
       if (windowKeyEventIds.get(renderer) === windowKeyEventId) {
         renderer.setWindowKeyEvents?.(false, false, windowKeyEventId)
+      }
+      if (windowSelectionEventIds.get(renderer) === windowSelectionEventId) {
+        renderer.setWindowSelectionChange?.(false, windowSelectionEventId)
       }
       driver.dispose()
     },

@@ -1,9 +1,16 @@
-import { createContext, useContext } from "solid-js"
+import { createContext, useContext, type Accessor } from "solid-js"
 import type { NativeRenderer } from "./host/types.js"
+
+export interface GpuixSelectionContext {
+  text: Accessor<string | null>
+  retain(): () => void
+  clear(): void
+}
 
 export interface GpuixContextValue {
   renderer: NativeRenderer
   flushSync<T>(fn: () => T): T
+  selection: GpuixSelectionContext
 }
 
 export const GpuixContext = createContext<GpuixContextValue>()

@@ -6,11 +6,11 @@ GPUix Solid compiles Solid JSX into GPUIX's retained native tree. Bun runs the J
 
 ## Current Solid 2 contract
 
-The stable `0.1.x` line targets:
+The repository's next `0.2.x` line targets:
 
 - `gpuix-solid` from npm `latest`
 - `solid-js ^2.0.0-rc.0`, with release qualification on `2.0.0-rc.1`
-- `@gpuix/native ^0.8.0`
+- exact `@gpuix/native 0.9.0`
 - `@solidjs/universal 2.0.0-rc.0`
 - Bun 1.3.14
 - Vite 8.1.5 with `@solidjs/vite-plugin@3.0.0-next.29`
@@ -22,7 +22,7 @@ bun add gpuix-solid solid-js@2.0.0-rc.1
 bun add -d @solidjs/vite-plugin@3.0.0-next.29 vite@8.1.5 typescript@5.9.2
 ```
 
-A copyable Solid 2 project lives at [`templates/solid2-vite-bun`](../templates/solid2-vite-bun). It depends on the stable `^0.1.0` package line rather than a prerelease dist-tag.
+A copyable Solid 2 project lives at [`templates/solid2-vite-bun`](../templates/solid2-vite-bun). Until `0.2.0` is published, that public-install starter intentionally remains on the published `^0.1.0` line. It will move to `^0.2.0` only after npm can resolve that version in a clean external install.
 
 ## Create a project
 
@@ -189,7 +189,7 @@ Upstream GPUIX documents additional React-specific CLI, compiled-binary, Hermes,
 
 ## Validated platforms
 
-Repository CI continuously checks the GPUIX 0.8 package line on:
+Repository CI continuously checks the GPUIX 0.9 package line on:
 
 - macOS arm64
 - Linux x64 GNU

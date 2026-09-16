@@ -11,6 +11,7 @@ const consumerDir = join(
 )
 const packageSpec = process.env.GPUIX_SOLID_VERSION ?? "latest"
 const command = process.argv[2] ?? "all"
+const surfaceApp = "gpuix-surface"
 
 switch (command) {
   case "prepare":
@@ -20,12 +21,16 @@ switch (command) {
     launch("counter")
     break
   case "surface":
-    launch("gpuix-08")
+    launch(surfaceApp)
     break
   case "all":
     prepare()
     launch("counter")
-    launch("gpuix-08")
+    if (preparedPackageSupportsCurrentSurface()) {
+      launch(surfaceApp)
+    } else {
+      console.log("Skipping the current GPUIX surface because the installed published package predates gpuix-solid@0.2.0.")
+    }
     cleanup()
     break
   case "status":
@@ -41,19 +46,10 @@ switch (command) {
 function prepare() {
   rmSync(consumerDir, { recursive: true, force: true })
   mkdirSync(join(consumerDir, "src", "counter"), { recursive: true })
-  mkdirSync(join(consumerDir, "src", "gpuix-08"), { recursive: true })
 
   cpSync(
     join(repoRoot, "examples", "counter", "src", "index.tsx"),
     join(consumerDir, "src", "counter", "index.tsx"),
-  )
-  cpSync(
-    join(repoRoot, "examples", "counter", "src", "gpuix-08", "index.tsx"),
-    join(consumerDir, "src", "gpuix-08", "index.tsx"),
-  )
-  cpSync(
-    join(repoRoot, "examples", "counter", "src", "gpuix-08", "app.tsx"),
-    join(consumerDir, "src", "gpuix-08", "app.tsx"),
   )
   cpSync(
     join(repoRoot, "templates", "solid2-vite-bun", "tsconfig.json"),
@@ -78,21 +74,40 @@ function prepare() {
   }, null, 2)}\n`)
 
   writeConfig("counter")
-  writeConfig("gpuix-08")
 
   run("bun", ["install"], consumerDir)
   assertRegistryIdentity()
+
+  if (preparedPackageSupportsCurrentSurface()) {
+    mkdirSync(join(consumerDir, "src", surfaceApp), { recursive: true })
+    cpSync(
+      join(repoRoot, "examples", "counter", "src", surfaceApp, "index.tsx"),
+      join(consumerDir, "src", surfaceApp, "index.tsx"),
+    )
+    cpSync(
+      join(repoRoot, "examples", "counter", "src", surfaceApp, "app.tsx"),
+      join(consumerDir, "src", surfaceApp, "app.tsx"),
+    )
+    writeConfig(surfaceApp)
+  }
+
   run("bun", ["x", "tsc", "--noEmit"], consumerDir)
   run("bun", ["x", "vite", "build", "--config", "vite.counter.config.ts"], consumerDir)
-  run("bun", ["x", "vite", "build", "--config", "vite.gpuix-08.config.ts"], consumerDir)
+  if (preparedPackageSupportsCurrentSurface()) {
+    run("bun", ["x", "vite", "build", "--config", "vite.gpuix-surface.config.ts"], consumerDir)
+  }
 
   console.log("\nPublished foreground consumer prepared.")
   status()
-  console.log("Run `node scripts/test-published-foreground.mjs counter` and then `surface`, or use `all` to run both sequentially.")
+  if (preparedPackageSupportsCurrentSurface()) {
+    console.log("Run `node scripts/test-published-foreground.mjs counter` and then `surface`, or use `all` to run both sequentially.")
+  } else {
+    console.log("The installed package predates the current GPUIX surface; Counter remains available for published foreground acceptance.")
+  }
 }
 
 function writeConfig(app) {
-  const fileName = app === "counter" ? "vite.counter.config.ts" : "vite.gpuix-08.config.ts"
+  const fileName = app === "counter" ? "vite.counter.config.ts" : "vite.gpuix-surface.config.ts"
   writeFileSync(join(consumerDir, fileName), `import solid from "@solidjs/vite-plugin"\nimport { defineConfig } from "vite"\n\nexport default defineConfig({\n  plugins: [\n    solid({\n      solid: { generate: "universal", moduleName: "gpuix-solid" },\n    }),\n  ],\n  resolve: { conditions: ["browser", "development"] },\n  ssr: {\n    noExternal: ["gpuix-solid", "@solidjs/universal", "solid-js"],\n    resolve: { conditions: ["browser", "development", "import", "default"] },\n  },\n  build: {\n    target: "node22",\n    ssr: "src/${app}/index.tsx",\n    outDir: "dist/${app}",\n    rollupOptions: { external: ["@gpuix/native"] },\n  },\n})\n`)
 }
 
@@ -101,13 +116,17 @@ function launch(app) {
   const installed = readJson(join(consumerDir, "node_modules", "gpuix-solid", "package.json"))
   const native = readJson(join(consumerDir, "node_modules", "@gpuix", "native", "package.json"))
 
-  console.log(`\nLaunching ${app === "counter" ? "original Counter reproducer" : "GPUIX 0.8 text/input surface"}`)
+  if (app === surfaceApp && !supportsCurrentSurface(installed.version)) {
+    throw new Error(`The current GPUIX surface requires gpuix-solid@0.2.0 or newer; prepared ${installed.version}.`)
+  }
+
+  console.log(`\nLaunching ${app === "counter" ? "original Counter reproducer" : "current GPUIX text/input/selection surface"}`)
   console.log(`gpuix-solid@${installed.version} + @gpuix/native@${native.version}`)
 
   if (app === "counter") {
     console.log("Foreground checklist: paint; hover +; click + repeatedly; click -; click the number; Reset; drag-select text and release; close normally.")
   } else {
-    console.log("Foreground checklist: click accessible action repeatedly; type in textarea; press Enter for multiple lines; Tab/focus around; drag-select decorated and textarea text; close normally.")
+    console.log("Foreground checklist: click accessible action repeatedly; type in textarea; press Enter for multiple lines; Tab/focus around; drag-select surface text; clear selection; close normally.")
   }
 
   const result = spawnSync("bun", [`dist/${app}/index.js`], {
@@ -119,6 +138,19 @@ function launch(app) {
   if (result.signal) throw new Error(`${app} terminated by ${result.signal}`)
   if (result.status !== 0) throw new Error(`${app} exited with code ${result.status}`)
   console.log(`${app} exited normally.`)
+}
+
+function supportsCurrentSurface(version) {
+  const match = /^(\d+)\.(\d+)\.(\d+)/.exec(version)
+  if (!match) throw new Error(`Could not parse gpuix-solid version ${JSON.stringify(version)}`)
+  const major = Number(match[1])
+  const minor = Number(match[2])
+  return major > 0 || minor >= 2
+}
+
+function preparedPackageSupportsCurrentSurface() {
+  const installed = readJson(join(consumerDir, "node_modules", "gpuix-solid", "package.json"))
+  return supportsCurrentSurface(installed.version)
 }
 
 function assertRegistryIdentity() {
@@ -146,13 +178,15 @@ function status() {
   assertPrepared()
   const installed = readJson(join(consumerDir, "node_modules", "gpuix-solid", "package.json"))
   const native = readJson(join(consumerDir, "node_modules", "@gpuix", "native", "package.json"))
+  const surfaceSupported = supportsCurrentSurface(installed.version)
   console.log(JSON.stringify({
     consumerDir,
     requestedPackage: packageSpec,
     gpuixSolid: installed.version,
     gpuixNative: native.version,
     counterEntry: join(consumerDir, "dist", "counter", "index.js"),
-    surfaceEntry: join(consumerDir, "dist", "gpuix-08", "index.js"),
+    surfaceSupported,
+    surfaceEntry: surfaceSupported ? join(consumerDir, "dist", surfaceApp, "index.js") : null,
   }, null, 2))
 }
 

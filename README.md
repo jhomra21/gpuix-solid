@@ -15,7 +15,7 @@ GPUix Solid supports two Solid generations through separate packages:
 | Solid 2 | `gpuix-solid` | `solid-js ^2.0.0-rc.0` |
 | Solid 1 | `@jhomra21/gpuix-solid1` | `solid-js >=1.9.0 <2` |
 
-Both packages target `@gpuix/native ^0.8.0`. The stable Solid 2 line is published on npm `latest`. Solid 1 keeps its own package version and release cycle.
+Both packages now target the exact `@gpuix/native@0.9.0` contract. The repository is preparing the Solid 2 `0.2.0` line; npm `latest` remains the last published stable version until that release lands. Solid 1 keeps its own package version and release cycle.
 
 ## Quickstart
 
@@ -182,7 +182,7 @@ The repository includes source-pinned GPUIX ports and larger native application 
 | Chat | 2 | `bun run example:chat` | virtualized history, menus, composer input, selection, scrolling, Markdown/MDX |
 | Timeline | 2 | `bun run example:timeline` | pan and zoom, clip editing, snapping, pointer capture |
 | Todo | 2 | `bun run example:todo` | native input, virtual lists, hover controls, sidebar motion |
-| GPUIX 0.8 surface | 2 | `bun run example:gpuix-08` | accessibility metadata, focus, textarea input, text decoration |
+| GPUIX 0.9 surface | 2 | `bun run example:gpuix-surface` | accessibility metadata, textarea input, text decoration, reactive window selection |
 | Dashboard | 2 | `bun run example:dashboard` | routes, controlled input, lists, dialogs, scrolling |
 | CodeImage | 2 | `bun run example:codeimage` | editor layout, controls, themes, native compatibility |
 | Kobalte | 1 | `bun run example:solid1-kobalte` | portals, dialogs, menus, focus, keyboard input |
@@ -219,9 +219,9 @@ GPUI frame
 
 Solid 1 and Solid 2 use different framework runtimes, but they share the framework-neutral native host contract where possible. CI checks that shared host code for drift.
 
-## GPUIX 0.8 baseline
+## GPUIX 0.9 baseline
 
-Both renderer packages consume the published GPUIX 0.8 native contract.
+Both renderer packages consume the exact published GPUIX 0.9 native contract. GPUIX 0.9 adds window-level selection-change events and includes the upstream native click/selection ownership fix; GPUix Solid exposes the event at the root boundary and as the Solid-native `createTextSelection()` primitive.
 
 The maintained Solid paths test accessibility metadata, focus and tab metadata, text decoration, controlled text input, pointer input, native images, and the event and window behavior used by the current examples.
 
@@ -243,7 +243,7 @@ The upstream GPUIX native package. GPUix Solid consumes it rather than carrying 
 
 ## Testing
 
-Repository CI validates macOS, Ubuntu, Windows, the Solid 1 package and consumers, the Solid 2 package tarball, source-pinned examples, and the exact GPUIX 0.8 source compatibility lane.
+Repository CI validates macOS, Ubuntu, Windows, the Solid 1 package and consumers, the Solid 2 package tarball, source-pinned examples, and the exact GPUIX 0.9 source compatibility lane.
 
 The Solid 2 package also exports Playwright-like native automation:
 

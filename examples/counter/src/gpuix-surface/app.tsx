@@ -1,5 +1,5 @@
-import { createSignal } from "solid-js"
-import type { EventPayload } from "gpuix-solid"
+import { Show, createSignal } from "solid-js"
+import { createTextSelection, type EventPayload } from "gpuix-solid"
 
 const cardStyle = {
   width: "100%",
@@ -12,9 +12,10 @@ const cardStyle = {
   backgroundColor: "#1d1d1d",
 } as const
 
-export function Gpuix08Showcase() {
+export function GpuixSurfaceShowcase() {
   const [accessibleClicks, setAccessibleClicks] = createSignal(0)
   const [note, setNote] = createSignal("")
+  const selection = createTextSelection()
 
   return (
     <div
@@ -28,10 +29,10 @@ export function Gpuix08Showcase() {
       }}
     >
       <text style={{ color: "#f5f5f5", fontSize: 26, fontWeight: 650 }}>
-        GPUIX 0.8 · Solid surface
+        GPUIX 0.9 · Solid surface
       </text>
       <text style={{ color: "#9d9d9d", fontSize: 14 }}>
-        Focused checks for accessibility metadata, textarea newline behavior, and text decoration.
+        Focused checks for native metadata, text input, styling, and reactive window selection.
       </text>
 
       <div style={cardStyle}>
@@ -42,7 +43,7 @@ export function Gpuix08Showcase() {
           testId="accessible-action"
           role="button"
           aria-label="Run accessible action"
-          aria-id="gpuix08.accessible-action"
+          aria-id="gpuix.surface.accessible-action"
           tabIndex={0}
           onClick={() => setAccessibleClicks((value) => value + 1)}
           style={{
@@ -69,11 +70,39 @@ export function Gpuix08Showcase() {
           testId="decorated-text"
           style={{ color: "#d8d8d8", fontSize: 17, textDecoration: "underline" }}
         >
-          Underlined by the native 0.8 renderer
+          Underlined by the native 0.9 renderer
         </text>
         <text style={{ color: "#858585", fontSize: 14, textDecoration: "line-through" }}>
           Line-through uses the same public style property
         </text>
+      </div>
+
+      <div style={cardStyle}>
+        <text style={{ color: "#f5f5f5", fontSize: 17, fontWeight: 600 }}>
+          Reactive window selection
+        </text>
+        <text testId="selection-source" style={{ color: "#d8d8d8", fontSize: 15 }}>
+          Select this GPUIX 0.9 text
+        </text>
+        <Show
+          when={selection.text()}
+          fallback={<text testId="selection-value" style={{ color: "#858585", fontSize: 13 }}>Selection: none</text>}
+        >
+          {(text) => (
+            <text testId="selection-value" style={{ color: "#a6a6a6", fontSize: 13 }}>
+              Selection: {text()}
+            </text>
+          )}
+        </Show>
+        <div
+          testId="clear-selection"
+          role="button"
+          tabIndex={0}
+          onClick={selection.clear}
+          style={{ width: 140, padding: 9, borderRadius: 8, cursor: "pointer", backgroundColor: "#2c2c2c" }}
+        >
+          <text style={{ color: "#f5f5f5" }}>Clear selection</text>
+        </div>
       </div>
 
       <div style={cardStyle}>

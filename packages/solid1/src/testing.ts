@@ -3,9 +3,9 @@ import type { EventPayload, TestGpuixRenderer as NativeTestRendererApi } from "@
 import type { JSX } from "solid-js"
 import { adaptBatchRenderer } from "./batch-renderer-adapter.js"
 import { useDestroyUnlinksParentBatch, type MutationValue } from "./host/mutations.js"
-import type { StyleDesc, WindowKeyEventHandlers } from "./host/types.js"
+import type { StyleDesc } from "./host/types.js"
 import { withLegacyElementBounds, type LegacyElementBoundsRenderer } from "./native-bounds.js"
-import { createRoot, type Root } from "./root.js"
+import { createRoot, type Root, type WindowEventHandlers } from "./root.js"
 
 type NativeTestRendererConstructor = new (
   width?: number | null,
@@ -168,6 +168,7 @@ export class TestRenderer {
   focusNext(): void { this.#native.focusNext() }
   focusPrevious(): void { this.#native.focusPrevious() }
   setWindowKeyEvents(keyDown: boolean, keyUp: boolean, eventId: number): void { this.#native.setWindowKeyEvents(keyDown, keyUp, eventId) }
+  setWindowSelectionChange(enabled: boolean, eventId: number): void { this.#native.setWindowSelectionChange(enabled, eventId) }
   getElementBounds(elementId: number): number[] | null { return this.#native.getElementBounds(elementId) }
 
   flush(): void { this.#native.flush() }
@@ -527,11 +528,11 @@ export interface TestRoot {
   unmount(): void
 }
 
-export function createTestRoot(width?: number, height?: number, windowKeyEventHandlers: WindowKeyEventHandlers = {}): TestRoot {
+export function createTestRoot(width?: number, height?: number, windowEventHandlers: WindowEventHandlers = {}): TestRoot {
   const renderer = new TestRenderer(width, height)
   const hostRenderer = adaptBatchRenderer(renderer)
   useDestroyUnlinksParentBatch(hostRenderer)
-  const root = createRoot(hostRenderer, windowKeyEventHandlers)
+  const root = createRoot(hostRenderer, windowEventHandlers)
   renderer.bindRoot(root)
   return {
     root,

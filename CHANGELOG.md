@@ -4,6 +4,11 @@
 
 <!-- Add user-facing changes here before preparing a release. -->
 
+- Move both renderer packages to the exact `@gpuix/native@0.9.0` contract and pin the source-edge and React Mail parity baselines to the published GPUIX 0.9 source. This carries the upstream native click/selection ownership fix into GPUix Solid and removes the old GPUIX 0.8 foreground selection ownership concern from the current baseline.
+- Expose GPUIX 0.9 window-level selection changes through the low-level root `onSelectionChange` callback and the Solid-native `createTextSelection()` primitive in both Solid 2 and Solid 1. The primitive returns a reactive accessor, owns the native subscription through the current Solid owner, cleans it up automatically, and can clear the native selection without requiring React-style callback/state mirroring.
+- Add native regression coverage for selection-change subscription leases, selection clearing, real selection drags, and the GPUIX 0.9 live-click panic path. Native selection helpers now deliver resulting Solid updates before returning.
+- Rename the focused versioned `gpuix-08` example surface to the version-neutral `gpuix-surface` command/path while keeping its visible documentation tied to the current GPUIX 0.9 baseline, and update the README, package docs, compatibility guides, source ownership, lockfile policy, and published-foreground acceptance harness for the new line.
+
 ## 0.1.1 - 2026-09-15
 
 - Refresh the repository and npm package documentation for the stable `gpuix-solid` line, move the public Solid 2 starter from the npm `beta` tag to `^0.1.0`, and align the root quickstart with upstream GPUIX where the Solid integration has a tested equivalent.
@@ -62,4 +67,3 @@
 - Solid-native Tooltip, Select, Combobox, and `animate.*` APIs.
 - Native TestRenderer, locator automation, live stdio transport, deterministic clock, retained-tree snapshots, and screenshot parity.
 - Keep the public automation `launch({ env })` contract structural so TypeScript consumers do not need the global `NodeJS` namespace just to use the packaged automation API.
-

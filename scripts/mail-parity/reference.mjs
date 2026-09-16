@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import { join } from "node:path"
 
-export const REACT_SHA = "8d3ec094387152558d05a5b37de3cfbfca5d2d0a"
+export const REACT_SHA = "7ac9880abd8e91e5bf0e4feb0fa850729cf95a68"
 export const REACT_MAIL_BLOB_SHA = "c8d0f4a0950c553a9b4be97c9ca26f8316b96f0d"
 const cacheRoot = fileURLToPath(new URL("../../.cache/gpuix/", import.meta.url))
 
@@ -23,8 +23,8 @@ function run(command, args, options = {}) {
 
 function findExistingCheckout() {
   const preferred = [
-    join(cacheRoot, "remorses--gpuix-8d3ec0943871"),
-    join(cacheRoot, "react-mail-0.8.0"),
+    join(cacheRoot, "remorses--gpuix-7ac9880abd8e"),
+    join(cacheRoot, "react-mail-0.9.0"),
   ]
   for (const candidate of preferred) {
     if (existsSync(join(candidate, ".git"))) return candidate
@@ -48,7 +48,7 @@ export function ensureReactReference(repoRoot) {
   mkdirSync(cacheRoot, { recursive: true })
   let checkout = findExistingCheckout()
   if (!checkout) {
-    checkout = join(cacheRoot, "react-mail-0.8.0")
+    checkout = join(cacheRoot, "react-mail-0.9.0")
     run(
       "git",
       ["clone", "--recurse-submodules", "https://github.com/remorses/gpuix.git", checkout],
@@ -78,8 +78,8 @@ export function ensureReactReference(repoRoot) {
 
   const info = inspectReactReference(checkout)
   if (info.sha !== REACT_SHA) throw new Error("React checkout drifted to " + info.sha)
-  if (info.packageVersion !== "0.8.0") {
-    throw new Error("Expected React package version 0.8.0, got " + info.packageVersion)
+  if (info.packageVersion !== "0.9.0") {
+    throw new Error("Expected React package version 0.9.0, got " + info.packageVersion)
   }
   if (info.mailBlobSha !== REACT_MAIL_BLOB_SHA) {
     throw new Error("React Mail blob drifted to " + info.mailBlobSha)

@@ -85,15 +85,15 @@ function writeReport({ startSha, react, currentMain, inventory, runs, comparison
     "## Future upstream-main parity",
     "",
     currentMain
-      ? "The exact 0.8.0 Mail source was compared with upstream main at " +
+      ? "The exact 0.9.0 Mail source was compared with upstream main at " +
         currentMain.currentSha +
         ". The raw diff is stored below for follow-up review; it is not mixed into the release parity result."
-      : "The current-main audit did not run because the exact 0.8.0 parity suite did not finish green.",
+      : "The current-main audit did not run because the exact 0.9.0 parity suite did not finish green.",
     "",
     currentMain
       ? currentMain.diff.trim()
         ? "    " + currentMain.diff.replace(/\n/g, "\n    ")
-        : "No changes to examples/mail.tsx were found between the exact 0.8.0 reference and upstream main."
+        : "No changes to examples/mail.tsx were found between the exact 0.9.0 reference and upstream main."
       : "",
     "",
     "## Known intentional differences and limits",

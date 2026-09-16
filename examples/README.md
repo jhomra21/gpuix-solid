@@ -6,7 +6,7 @@ GPUix Solid keeps runnable native examples for three different reasons:
 2. **GPUIX parity:** Solid ports preserve the purpose and source structure of audited upstream GPUIX examples.
 3. **Application dogfood:** larger Solid applications exercise the renderer under realistic layouts, routing, scrolling, controls, and interaction patterns.
 
-All Solid 2 examples compile with Solid's universal renderer and execute as native Bun processes through `@gpuix/native ^0.8.0`. They are not browser apps or Electron windows.
+All Solid 2 examples compile with Solid's universal renderer and execute as native Bun processes through exact `@gpuix/native@0.9.0`. They are not browser apps or Electron windows.
 
 Run commands from the repository root after:
 
@@ -20,7 +20,7 @@ If you are trying to build your own application rather than work on this reposit
 
 | Example | Run | Why it is useful |
 | --- | --- | --- |
-| GPUIX 0.8 surface | `bun run example:gpuix-08` | Focused Solid proof for accessibility metadata, accessible click, textarea Enter/newline behavior, and `textDecoration` |
+| GPUIX 0.9 surface | `bun run example:gpuix-surface` | Focused Solid proof for accessibility metadata, accessible click, textarea Enter/newline behavior, `textDecoration`, and reactive window selection |
 | Dashboard | `bun run example:dashboard` | App-shaped Solid 2 surface with routing/auth/network/modal compatibility, controlled input, lists, scrolling, and guarded actions |
 | CodeImage | `bun run example:codeimage` | Editor composition with toolbars, canvas/frame layout, sidebars, theme controls, and native compatibility boundaries |
 | Chat | `bun run example:chat` | Virtualized transcript, composer input, menus, text selection, scrolling, animation, code/diff content, and Solid-composed MDX |
@@ -30,27 +30,28 @@ If you are trying to build your own application rather than work on this reposit
 
 The README screenshot gallery is generated from these Solid-rendered native windows. Upstream React screenshots are never presented as GPUix Solid output.
 
-## Focused GPUIX 0.8 surface
+## Focused GPUIX 0.9 surface
 
 ```bash
-bun run example:gpuix-08
+bun run example:gpuix-surface
 ```
 
-This example exists specifically to keep upstream availability separate from proven Solid exposure. It currently demonstrates three 0.8 capabilities that have both Solid host mappings and runnable native checks:
+This example exists specifically to keep upstream availability separate from proven Solid exposure. It demonstrates the current GPUIX 0.9 surface with Solid host mappings and runnable native checks:
 
 - **Accessibility metadata:** `role`, `aria-label`, `aria-id`, `tabIndex`, and a clickable native host node. The Solid regression verifies the retained custom props and click listener; the exact GPUIX source-edge detector separately inspects the native accessibility tree and AccessKit Click action.
 - **Textarea Enter/newline:** a controlled native `<textarea>` round-trips Enter as `"\n"` through the Solid `onChange` path.
 - **Text decoration:** `underline` and `line-through` use the public `textDecoration` style property. The Solid regression verifies the retained style, while the source-edge detector separately verifies that decoration changes native painted screenshot output.
+- **Reactive window selection:** `createTextSelection()` exposes the current native selection as a Solid accessor, owns its native subscription through the calling Solid owner, and clears through the same primitive.
 
 The focused Solid regression runs in the normal `test:logic` contract and therefore also runs inside the exact pinned GPUIX source-edge check.
 
-Upstream GPUIX 0.8 also contains other useful native changes, including HTTP image loading, file-drop/window work, and updated interaction behavior. Those are **not** automatically labeled Solid parity. Each capability is promoted here only after the Solid types/host mapping and a runnable check prove the public path.
+The GPUIX 0.9 baseline also carries the earlier HTTP image, file-drop/window, and interaction improvements. Those are **not** automatically labeled Solid parity. Each capability is promoted here only after the Solid types/host mapping and a runnable check prove the public path.
 
 ## GPUIX parity snapshots
 
 The runnable ports below preserve the application/component purpose and audited source reference of upstream GPUIX examples while translating the React/runtime boundary to Solid.
 
-The native execution baseline is GPUIX 0.8. Some copied example source snapshots intentionally remain pinned to the immutable upstream commit they were originally audited against; upgrading the native dependency does not silently rewrite source-fidelity fixtures.
+The native execution baseline is GPUIX 0.9. Some copied example source snapshots intentionally remain pinned to the immutable upstream commit they were originally audited against; upgrading the native dependency does not silently rewrite source-fidelity fixtures.
 
 ### Counter
 
@@ -211,7 +212,7 @@ The serialization workload captures mutation tuples emitted by Solid's real `app
 
 The normal deterministic contracts include:
 
-- focused GPUIX 0.8 accessibility/textarea/text-decoration Solid regression
+- focused GPUIX 0.9 accessibility/textarea/text-decoration/selection Solid regression
 - Todo
 - Diff
 - Timeline

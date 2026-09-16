@@ -1,7 +1,7 @@
 export { render, resetRender, createRenderer } from "./runtime.js"
 export type { RenderHandle, RenderOptions, RendererBinding } from "./runtime.js"
 export { createRoot } from "./root.js"
-export type { Root } from "./root.js"
+export type { Root, WindowEventHandlers, WindowSelectionChangeHandler } from "./root.js"
 export { startFrameLoop } from "./frame-loop.js"
 export type { FrameLoop, TickRenderer } from "./frame-loop.js"
 export { GpuixContext, useGpuix, useGpuixRequired } from "./context.js"
@@ -14,6 +14,8 @@ export type { MacCpuThrottle } from "./cpu-throttle.js"
 export { findRanges, useTextSearch } from "./hooks/use-text-search.js"
 export type { FindRangesOptions, TextSearch, TextSearchOptions } from "./hooks/use-text-search.js"
 export { useWindowInsets, useWindowSize } from "./hooks/use-window-size.js"
+export { createTextSelection } from "./primitives/create-text-selection.js"
+export type { TextSelection } from "./primitives/create-text-selection.js"
 export type {
   WindowInsets,
   WindowInsetsOptions,

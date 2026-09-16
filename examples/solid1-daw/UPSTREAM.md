@@ -17,7 +17,7 @@ Deterministic local data replaces Convex, collaboration, persistence, audio-engi
 
 ## GPUIX version policy
 
-The repository targets the latest reviewed GPUIX release line, `@gpuix/native ^0.8.0`, rather than floating production dependencies to an unreleased upstream commit. The root lock resolves `0.8.0` reproducibly. Moving to a later GPUIX release requires an explicit dependency/lock update and the full Linux, macOS, Windows, package-smoke, Solid 1 and native-fidelity suite.
+The repository targets the latest reviewed GPUIX release line, exact `@gpuix/native@0.9.0`, rather than floating production dependencies to an unreleased upstream commit. The root lock resolves `0.9.0` reproducibly. Moving to a later GPUIX release requires an explicit dependency/lock update and the full Linux, macOS, Windows, package-smoke, Solid 1 and native-fidelity suite.
 
 A separate source-edge lane builds the commit pinned in `/.gpuix/edge.json`. That lane is a compatibility probe, not a replacement for the published dependency. For the beta.6 baseline, the source-edge pin and the published 0.8.0 source commit intentionally agree; future edge movement remains explicit and audited.
 

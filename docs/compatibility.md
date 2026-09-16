@@ -8,13 +8,13 @@ Use [`getting-started.md`](./getting-started.md) for Solid 2 and [`getting-start
 
 | Layer | Current contract | Notes |
 | --- | --- | --- |
-| `gpuix-solid` | stable `0.1.x` line from npm `latest` | Solid 2 renderer in `packages/solid` |
+| `gpuix-solid` | repository target `0.2.0`; npm `latest` remains the last published stable until release | Solid 2 renderer in `packages/solid` |
 | `solid-js` for Solid 2 | peer `^2.0.0-rc.0` | Release qualification and package smoke exercise `2.0.0-rc.1` |
 | `@solidjs/universal` | `2.0.0-rc.0` | Runtime dependency used by the Solid 2 renderer |
 | `@jhomra21/gpuix-solid1` | repository package version `0.1.0-beta.0` | Solid 1 renderer in `packages/solid1`; versioned separately from `gpuix-solid` |
 | `solid-js` for Solid 1 | peer `>=1.9.0 <2` | Repository CI exercises `1.9.15` |
-| `@gpuix/native` | `^0.8.0` | Native desktop renderer contract used by both Solid packages |
-| pinned GPUIX source edge | `8d3ec094387152558d05a5b37de3cfbfca5d2d0a` | Exact source reference used for the published 0.8.0 baseline |
+| `@gpuix/native` | exact `0.9.0` | Native desktop renderer contract used by both Solid packages; exact pairing follows GPUIX's pre-1.0 version policy |
+| pinned GPUIX source edge | `7ac9880abd8e91e5bf0e4feb0fa850729cf95a68` | Exact source reference for the published 0.9.0 baseline |
 | Bun | `1.3.14` | Repository install, build, test, and release toolchain |
 | TypeScript | `^5.9.2` | Package type and build validation |
 
@@ -24,7 +24,7 @@ When `@gpuix/native` changes its element, style, event, window, testing, or auto
 
 ## Desktop targets
 
-The repository continuously exercises the GPUIX 0.8 native packages for:
+The repository continuously exercises the GPUIX 0.9 native packages for:
 
 - macOS arm64
 - Linux x64 GNU
@@ -52,9 +52,9 @@ It is not a browser DOM implementation. Visible nodes still map to GPUIX. The co
 
 The maintained Solid 1 validation set includes the compatibility lab, Kobalte, Tailwind v4, a blurred-window app, and the DAW.
 
-## GPUIX 0.8 support
+## GPUIX 0.9 support
 
-The Solid host mappings cover the GPUIX 0.8 behavior that has explicit Solid tests or runnable examples. That includes accessibility metadata, focus and tab metadata, text decoration, controlled textarea input, HTTP images in the Mail example, and the native event and window contract consumed through `@gpuix/native`.
+The Solid host mappings cover the GPUIX 0.9 behavior that has explicit Solid tests or runnable examples. That includes accessibility metadata, focus and tab metadata, text decoration, controlled textarea input, HTTP images in the Mail example, window-level selection-change events, and the native event/window contract consumed through `@gpuix/native`. The app-facing selection API is `createTextSelection()`, which returns a Solid accessor and follows owner cleanup rather than React component-state conventions.
 
 An upstream native feature is not treated as Solid support until the Solid types or compatibility layer expose it and a test or runnable example proves the path.
 
@@ -66,7 +66,7 @@ Earlier source analysis of `@gpuix/native@0.8.0` found a text-selection mouse-up
 
 The exact published `gpuix-solid@0.1.0-rc.1` with `@gpuix/native@0.8.0` passed the external foreground qualification test on September 15, 2026. After publication, stable `gpuix-solid@0.1.0` passed the same external Counter and GPUIX 0.8 text/input foreground test. Click, hover, selection, focus, accessibility, multiline textarea, follow-up interaction, and shutdown paths completed without a crash or fatal `GpuixView` error.
 
-That result is the stable `0.1.0` qualification record. It does not prove that the upstream source-level ownership concern was removed. Keep the diagnostic history in [`release-candidate.md`](./release-candidate.md) and [`upstream-parity.md`](./upstream-parity.md).
+That result is the stable `0.1.0` qualification record. GPUIX 0.9 subsequently shipped the native click/selection ownership fix, so the old 0.8 source-level concern is historical rather than a current 0.9 blocker. Keep the diagnostic history in [`release-candidate.md`](./release-candidate.md) and [`upstream-parity.md`](./upstream-parity.md).
 
 ## Policy
 

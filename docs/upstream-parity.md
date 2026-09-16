@@ -1,8 +1,8 @@
 # Upstream GPUIX parity
 
-GPUix Solid treats `remorses/gpuix` as the native capability baseline. The published package baseline is now GPUIX 0.8. This document separates three things that should not be conflated:
+GPUix Solid treats `remorses/gpuix` as the native capability baseline. The current repository baseline is GPUIX 0.9. This document separates three things that should not be conflated:
 
-1. the published 0.8 native/React contract GPUix Solid installs;
+1. the published 0.9 native/React contract GPUix Solid installs;
 2. immutable source snapshots used to preserve exact example/application fidelity;
 3. newer or broader upstream capabilities that are not called Solid parity until the Solid types/host mapping and a runnable check prove them.
 
@@ -11,13 +11,13 @@ Normal application setup lives in [`getting-started.md`](./getting-started.md). 
 ## Audit pins
 
 - Upstream repository: `remorses/gpuix`
-- Published React baseline: `@gpuix/react@0.8.0`
-- Published/native 0.8 source commit: `8d3ec094387152558d05a5b37de3cfbfca5d2d0a`
-- Native package used by GPUix Solid: `@gpuix/native ^0.8.0`
-- Audited source-edge commit: `8d3ec094387152558d05a5b37de3cfbfca5d2d0a`
+- Published React baseline: `@gpuix/react@0.9.0`
+- Published/native 0.9 source commit: `7ac9880abd8e91e5bf0e4feb0fa850729cf95a68`
+- Native package used by GPUix Solid: exact `@gpuix/native@0.9.0`
+- Audited source-edge commit: `7ac9880abd8e91e5bf0e4feb0fa850729cf95a68`
 - Source-fidelity snapshot commit for copied GPUIX examples: `a24b4a42eb516c7b940eb8d34ecebb077df623bd`
 
-The native dependency and source-edge lane now point at the exact published 0.8 baseline. Copied GPUIX example snapshots remain pinned to their immutable audited source commit until an example is deliberately re-audited/rebased; changing the native dependency does not silently rewrite source-fidelity fixtures.
+The native dependency and source-edge lane now point at the exact published 0.9 baseline. Copied GPUIX example snapshots remain pinned to their immutable audited source commit until an example is deliberately re-audited/rebased; changing the native dependency does not silently rewrite source-fidelity fixtures.
 
 ## Source-fidelity contract
 
@@ -75,7 +75,7 @@ The desktop examples below use the same GPUIX native renderer and preserve the u
 | Timeline performance | `examples/timeline.perf.test.tsx` | `examples/counter/src/benchmarks/timeline.tsx` | workload parity |
 | Serialization | `examples/bench-serialization.ts` | `examples/counter/src/benchmarks/serialization.tsx` | Solid-side workload parity |
 
-“Parity snapshot” means the application/source reference is the pinned audited GPUIX snapshot. Runtime/native execution now uses the 0.8 package baseline; the snapshot is not silently rewritten to whatever happens to be on upstream `main`.
+“Parity snapshot” means the application/source reference is the pinned audited GPUIX snapshot. Runtime/native execution now uses the 0.9 package baseline; the snapshot is not silently rewritten to whatever happens to be on upstream `main`.
 
 Dashboard, CodeImage, TanStack, Kobalte, Tailwind and DAW are additional Solid coverage. They do not replace an upstream example in this table. Dashboard, CodeImage, TanStack and DAW also follow the source-first rule for their own upstream applications.
 
@@ -109,9 +109,9 @@ The native fixture uses GPUIX controls, a native `<virtual-list>`, composed safe
 
 Infinite Chat builds on the same composed MDX renderer. It keeps a bounded page cache, loads only when a real edge row reaches the viewport, performs separate insert and eviction commits, reads the native logical list anchor, restores that anchor after page changes and supports navigation through links in message content.
 
-## Published 0.8 API parity
+## Published 0.9 API parity
 
-The package baseline is the published React/native 0.8 line. Existing 0.7-compatible behavior remains covered, and 0.8 additions are only marked parity where the Solid surface is actually mapped and checked.
+The package baseline is the published React/native 0.9 line. Existing behavior remains covered, and 0.9 additions are only marked parity where the Solid surface is actually mapped and checked.
 
 | Area | Published React/native capability | GPUix Solid status |
 | --- | --- | --- |
@@ -134,19 +134,20 @@ The package baseline is the published React/native 0.8 line. Existing 0.7-compat
 | Textarea Enter/newline | upstream 0.8 behavior | native capability present; focused Solid runnable check pending |
 | HTTP images | upstream 0.8 behavior | native capability present; focused Solid runnable check pending |
 | Native file drop | upstream 0.8 behavior | do not claim Solid parity until host/event mapping and runnable check land |
-| Physical primary mouse-up | upstream 0.8 click delivery | **known native foreground re-entrancy blocker on affected macOS runs**; see below |
+| Physical primary mouse-up | upstream click delivery | parity on the 0.9 native line; 0.9 includes the native ownership fix for the earlier 0.8 click/selection panic |
+| Window text selection | 0.9 `onSelectionChange` / native selection subscription | root parity plus Solid-native `createTextSelection()` accessor primitive in Solid 1 and Solid 2 |
 
 `animate.div` is intentionally named for the Solid package rather than copying React's component name. The native animation behavior is the capability being matched.
 
 The automation layer also normalizes text fill into GPUI-native keystrokes, including shifted keystrokes for uppercase input. That behavior is covered by a real native controlled-input regression because application fixtures rely on exact confirmation text rather than test-only state mutation.
 
-### Known physical foreground ownership defect
+### Historical 0.8 physical foreground ownership defect
 
-The published `@gpuix/native@0.8.0` source still has a physical foreground mouse-up path where text-selection cleanup can synchronously call back into the root `GpuixView` while GPUI already owns that entity update. On affected macOS foreground runs the process can abort with `GpuixView already being updated` before the Solid click handler receives control.
+The published `@gpuix/native@0.8.0` source had a physical foreground mouse-up path where text-selection cleanup could synchronously call back into the root `GpuixView` while GPUI already owned that entity update. On affected macOS foreground runs the process could abort with `GpuixView already being updated` before the Solid click handler received control. GPUIX 0.9 ships the native ownership fix, and GPUix Solid's 0.9 qualification keeps a real click/selection regression so this does not silently return.
 
 A Solid-side tick/callback deferral workaround was tested and rejected because it runs too late. The repository separately built the exact 0.8 source with the narrow native ownership fix: plain mouse-up avoids unnecessary root updates, real drag move/end root work is deferred to the end of the GPUI effect cycle, and real foreground click/repeated update/reset/text-selection acceptance passed.
 
-That overlay is **diagnostic evidence, not part of beta.6**. Published beta.6 deliberately consumes the real 0.8.0 package and documents the limitation until upstream releases the fix.
+That overlay remains historical diagnostic evidence for the 0.8 line. The current 0.9 baseline consumes the upstream fix directly; GPUix Solid does not carry the rejected Solid-side workaround.
 
 ## Performance workloads
 
@@ -164,17 +165,17 @@ The commands print upstream React thresholds as reference values, not pass/fail 
 
 The serialization benchmark captures the actual mutation tuples emitted by Solid's `applyBatch` path. It measures JSON encoding, UTF-8 buffer conversion and style interning. Upstream's Rust decoder benchmark stays in `remorses/gpuix` because this repository consumes the native package rather than owning that Rust code.
 
-## 0.8 release deltas adopted
+## 0.9 release deltas adopted
 
-The 0.8 release moves capabilities that were previously source-edge-only into the published native line, including accessibility/ARIA plumbing, text-decoration styling, primary mouse-up click delivery, textarea newline behavior, HTTP image loading, macOS event-pump changes, input/caret fixes, and runtime-error resilience. The current release also includes additional native window/file-drop work that is audited at the Solid boundary before being advertised as parity.
+The 0.9 release keeps the 0.8 capability set and adds the window-level selection-change callback plus the native click/selection ownership fix. GPUix Solid maps that new event into both renderer roots and exposes `createTextSelection()` as the normal Solid API, while retaining root callback parity for lower-level consumers.
 
-GPUix Solid does not vendor those Rust changes. Both Solid renderers consume `@gpuix/native ^0.8.0`, and `.gpuix/edge.json` pins the exact 0.8 source commit so the source-build lane and published package baseline now agree.
+GPUix Solid does not vendor those Rust changes. Both Solid renderers consume exact `@gpuix/native@0.9.0`, and `.gpuix/edge.json` pins the exact 0.9 source commit so the source-build lane and published package baseline agree.
 
 The Solid host additionally carries source-driven compatibility proven by application fixtures: browser-shaped bounds and identity, focus/selection/scroll behavior, pointer capture and global pointer continuation, semantic SVG/event handling, native range geometry, DOM scheduling/observation compatibility and source color normalization. These are Solid binding responsibilities rather than forks of the Rust renderer.
 
-## 0.8 capability promotion policy
+## 0.9 capability promotion policy
 
-Upstream availability is not enough to label a feature Solid parity. For each newly useful 0.8 capability, promotion requires:
+Upstream availability is not enough to label a feature Solid parity. For each newly useful 0.9 capability, promotion requires:
 
 1. a public Solid type/prop/event mapping when one is necessary;
 2. host/native serialization or direct passthrough that matches the upstream contract;

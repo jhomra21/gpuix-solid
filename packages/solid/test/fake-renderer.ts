@@ -6,6 +6,7 @@ export class FakeRenderer implements NativeRenderer {
   readonly direct: MutationValue[][] = []
   destroyed: number[] = []
   readonly windowKeyEvents: Array<[boolean, boolean, number]> = []
+  readonly windowSelectionChanges: Array<[boolean, number]> = []
   focusNextCount = 0
   focusPreviousCount = 0
 
@@ -32,5 +33,8 @@ export class FakeRenderer implements NativeRenderer {
   focusPrevious(): void { this.focusPreviousCount++ }
   setWindowKeyEvents(keyDown: boolean, keyUp: boolean, eventId: number): void {
     this.windowKeyEvents.push([keyDown, keyUp, eventId])
+  }
+  setWindowSelectionChange(enabled: boolean, eventId: number): void {
+    this.windowSelectionChanges.push([enabled, eventId])
   }
 }
