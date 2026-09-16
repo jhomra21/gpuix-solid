@@ -171,10 +171,9 @@ function bindHostProps(
   props: HostPropSource,
   styleOverride: Accessor<StyleDesc | undefined> | undefined,
 ): void {
-  let previous: HostSnapshot | undefined
   createRenderEffect(
     () => snapshotHostProps(props, styleOverride),
-    (next) => {
+    (next, previous) => {
       for (const name of BOUND_HOST_PROPS) {
         const value = next.get(name)
         const prior = previous?.get(name)
@@ -182,7 +181,7 @@ function bindHostProps(
         if (name === "style") setProp(node, name, value, prior)
         else setHostProperty(node, name, value, prior)
       }
-      previous = next
+      return next
     },
   )
   if (props.ref) spread(node, { ref: props.ref }, true)
@@ -195,17 +194,16 @@ function snapshotInputProps(props: InputPropSource): InputSnapshot {
 }
 
 function bindInputProps(node: HostElementNode, props: InputPropSource): void {
-  let previous: InputSnapshot | undefined
   createRenderEffect(
     () => snapshotInputProps(props),
-    (next) => {
+    (next, previous) => {
       for (const name of INPUT_CUSTOM_PROPS) {
         const value = next.get(name)
         const prior = previous?.get(name)
         if (previous && Object.is(value, prior)) continue
         setHostProperty(node, name, value, prior)
       }
-      previous = next
+      return next
     },
   )
 }
@@ -287,6 +285,7 @@ function bindAnchoredProps(
         setHostProperty(node, "priority", 1, undefined)
         setHostProperty(node, "occlude", true, undefined)
       }
+      return next
     },
   )
 }
