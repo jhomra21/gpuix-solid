@@ -73,9 +73,11 @@ interface TooltipContextValue {
 const TooltipContext = createContext<TooltipContextValue>()
 
 function useTooltipContext(name: string): TooltipContextValue {
-  const context = useContext(TooltipContext)
-  if (!context) throw new Error(`${name} must be used inside Tooltip`)
-  return context
+  try {
+    return useContext(TooltipContext)
+  } catch {
+    throw new Error(`${name} must be used inside Tooltip`)
+  }
 }
 
 export interface TooltipProps extends Omit<HostProps, "children"> {
