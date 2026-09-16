@@ -181,7 +181,6 @@ function bindHostProps(
         if (name === "style") setProp(node, name, value, prior)
         else setHostProperty(node, name, value, prior)
       }
-      return next
     },
   )
   if (props.ref) spread(node, { ref: props.ref }, true)
@@ -203,7 +202,6 @@ function bindInputProps(node: HostElementNode, props: InputPropSource): void {
         if (previous && Object.is(value, prior)) continue
         setHostProperty(node, name, value, prior)
       }
-      return next
     },
   )
 }
@@ -285,7 +283,6 @@ function bindAnchoredProps(
         setHostProperty(node, "priority", 1, undefined)
         setHostProperty(node, "occlude", true, undefined)
       }
-      return next
     },
   )
 }
