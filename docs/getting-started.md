@@ -8,17 +8,17 @@ GPUix Solid compiles Solid JSX into GPUIX's retained native tree. Bun runs the J
 
 The repository's next `0.2.x` line targets:
 
-- `gpuix-solid` from npm `latest`
-- `solid-js ^2.0.0-rc.0`, with release qualification on `2.0.0-rc.1`
+- `gpuix-solid` from npm `latest` until the 0.2 release is published
+- `solid-js ^2.0.0-rc.0`, with clean-consumer release qualification on `2.0.0-rc.8`
 - exact `@gpuix/native 0.9.0`
-- `@solidjs/universal 2.0.0-rc.0`
+- `@solidjs/universal 2.0.0-rc.0` as the renderer's direct runtime dependency
 - Bun 1.3.14
 - Vite 8.1.5 with `@solidjs/vite-plugin@3.0.0-next.29`
 
-Install the stable package and the Solid 2 version used by the release qualification:
+Install the published package and the Solid 2 version used by current release qualification:
 
 ```bash
-bun add gpuix-solid solid-js@2.0.0-rc.1
+bun add gpuix-solid solid-js@2.0.0-rc.8
 bun add -d @solidjs/vite-plugin@3.0.0-next.29 vite@8.1.5 typescript@5.9.2
 ```
 
@@ -153,6 +153,34 @@ render(() => <App />, {
 > [!IMPORTANT]
 > Give native `<text>` nodes an explicit `color`. GPUI does not inherit text color from a parent the way browser CSS does, so an omitted color can paint black text on a dark surface.
 
+## Use Solid-owned native state
+
+Helpers that allocate reactive state or native subscriptions follow Solid's `create*` convention:
+
+```tsx
+import {
+  createTextSearch,
+  createTextSelection,
+  createWindowInsets,
+  createWindowSize,
+} from "gpuix-solid"
+
+function NativeState() {
+  const size = createWindowSize()
+  const insets = createWindowInsets()
+  const selection = createTextSelection()
+  const search = createTextSearch({ query: "GPUix" })
+
+  return (
+    <text style={{ color: "#f7f7f7" }}>
+      {size.width} × {size.height}; selected {selection.text() ?? "nothing"}; {search.total} matches; visible height {insets.visibleHeight}
+    </text>
+  )
+}
+```
+
+`useWindowSize`, `useWindowInsets`, and `useTextSearch` remain deprecated compatibility aliases for existing code. `useGpuix()` remains the context accessor because it reads an existing renderer context rather than creating state.
+
 ## Build and run
 
 Add these scripts to `package.json`:
@@ -197,13 +225,13 @@ Repository CI continuously checks the GPUIX 0.9 package line on:
 
 Window behavior can still vary by operating system. Native blur is one example.
 
-## Stable foreground result
+## Historical foreground result
 
 Earlier source analysis of `@gpuix/native@0.8.0` found a text-selection mouse-up ownership path that could reproduce a nested `GpuixView` update.
 
 The exact published `gpuix-solid@0.1.0-rc.1` with `@gpuix/native@0.8.0` passed the external macOS foreground qualification test on September 15, 2026. After stable publication, `gpuix-solid@0.1.0` passed the same external foreground test. Counter increment, decrement, number click, reset, hover, text selection, accessibility actions, multiline textarea input, Tab and focus behavior, follow-up clicks, and process shutdown all passed. No native panic or fatal `GpuixView` error occurred.
 
-That result is the stable `0.1.0` qualification record. It does not claim that the earlier upstream source-level ownership concern was removed. The history and exact gate remain documented in [`release-candidate.md`](./release-candidate.md).
+That result is the stable `0.1.0` qualification record. It does not describe the current GPUIX 0.9 baseline. The history and exact gate remain documented in [`release-candidate.md`](./release-candidate.md).
 
 To repeat the stable `0.1.0` registry test exactly:
 
@@ -211,7 +239,7 @@ To repeat the stable `0.1.0` registry test exactly:
 GPUIX_SOLID_VERSION=0.1.0 node scripts/test-published-foreground.mjs all
 ```
 
-For a later patch release, set `GPUIX_SOLID_VERSION` to the exact published version you want to test.
+For a later published release, set `GPUIX_SOLID_VERSION` to the exact registry version you want to test.
 
 ## Next references
 
