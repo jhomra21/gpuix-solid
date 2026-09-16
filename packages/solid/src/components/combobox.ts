@@ -66,9 +66,11 @@ interface ComboboxContextValue {
 const ComboboxContext = createContext<ComboboxContextValue>()
 
 function useComboboxContext(name: string): ComboboxContextValue {
-  const context = useContext(ComboboxContext)
-  if (!context) throw new Error(`${name} must be used inside Combobox`)
-  return context
+  try {
+    return useContext(ComboboxContext)
+  } catch {
+    throw new Error(`${name} must be used inside Combobox`)
+  }
 }
 
 function defaultFilter(
