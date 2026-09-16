@@ -46,6 +46,12 @@ jobs:
               raise SystemExit("expected test-root migration patch not found")
           source = source.replace(old_root_patch, new_root_patch)
 
+          old_cleanup = r'  replaceAllChecked(path, "  WindowKeyEventHandlers,\n", "", 1)'
+          new_cleanup = '  if (solid1) {\n    replaceAllChecked(path, ", WindowKeyEventHandlers", "", 1)\n  } else {\n    replaceAllChecked(path, "  WindowKeyEventHandlers,\\n", "", 1)\n  }'
+          if old_cleanup not in source:
+              raise SystemExit("expected handler-import cleanup not found")
+          source = source.replace(old_cleanup, new_cleanup)
+
           path.write_text(source)
           PY
 
