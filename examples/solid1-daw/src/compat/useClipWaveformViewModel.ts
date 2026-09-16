@@ -10,7 +10,7 @@ type Options = {
 
 type WaveformLayout = ReturnType<typeof getAudioWaveformLayout>
 
-export function useClipWaveformViewModel(options: Options) {
+export function createClipWaveformViewModel(options: Options) {
   let cachedKey = ""
   let cachedPeaks: Uint8Array | null = null
 
@@ -40,6 +40,9 @@ export function useClipWaveformViewModel(options: Options) {
     },
   }
 }
+
+/** @deprecated Use createClipWaveformViewModel. Kept for the pinned upstream DAW import contract. */
+export const useClipWaveformViewModel = createClipWaveformViewModel
 
 function sourceDurationSec(clip: RuntimeClip): number {
   const bufferDuration = clip.buffer?.duration
