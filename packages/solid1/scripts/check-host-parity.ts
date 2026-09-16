@@ -244,6 +244,7 @@ let doubleClicks = 0
 doubleClickRegistry.set(3, "dblClick", () => { doubleClicks += 1 })
 const click = { elementId: 3, eventType: "click", x: 10, y: 10, button: 0 } satisfies Parameters<EventRegistry["dispatch"]>[0]
 doubleClickRegistry.dispatch(click)
+await Promise.resolve()
 doubleClickRegistry.dispatch(click)
 if (doubleClicks !== 1) throw new Error("double click must be synthesized once from two nearby clicks")
 
