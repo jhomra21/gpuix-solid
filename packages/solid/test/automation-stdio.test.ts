@@ -273,22 +273,58 @@ class FakeLiveRenderer implements LiveAutomationRenderer {
   clockResume(): number { return 0 }
 }
 
+class PhaseAwareLiveRenderer extends FakeLiveRenderer {
+  pressTurnCompleted = false
+  releaseObservedCompletedPressTurn = false
+
+  override simulateMouseDown(x: number, y: number, button?: number, modifiers?: string): void {
+    super.simulateMouseDown(x, y, button, modifiers)
+    setImmediate(() => {
+      this.pressTurnCompleted = true
+    })
+  }
+
+  override simulateMouseUp(x: number, y: number, button?: number, modifiers?: string): void {
+    this.releaseObservedCompletedPressTurn = this.pressTurnCompleted
+    super.simulateMouseUp(x, y, button, modifiers)
+  }
+}
+
 describe("live automation backend", () => {
-  it("ticks after native pointer input and exposes tree/bounds", () => {
+  it("phases clicks through native mouse-down and mouse-up instead of simulateClick", async () => {
     const renderer = new FakeLiveRenderer()
     const backend = new LiveAutomationBackend(renderer)
 
-    backend.click(12, 34, 2, "alt")
+    await backend.click(12, 34, 2, "alt")
     backend.mouseMove(20, 40, 0, "shift")
     backend.mouseDown(20, 40, 0)
     backend.mouseUp(40, 60, 0)
     backend.scrollWheel(40, 60, 0, -100)
 
-    expect(renderer.clicks).toEqual([[12, 34, 2, "alt"]])
-    expect(renderer.mouse).toHaveLength(4)
-    expect(renderer.ticks).toBe(5)
+    expect(renderer.clicks).toEqual([])
+    expect(renderer.mouse.slice(0, 2)).toEqual([
+      ["down", 12, 34, 2, undefined, "alt"],
+      ["up", 12, 34, 2, undefined, "alt"],
+    ])
+    expect(renderer.mouse).toHaveLength(6)
+    expect(renderer.ticks).toBe(6)
     expect(backend.getTree()?.testId).toBe("root")
     expect(backend.getBounds(2)).toEqual({ x: 10, y: 20, width: 100, height: 40 })
+  })
+
+  it("yields a host turn between live click press and release", async () => {
+    const renderer = new PhaseAwareLiveRenderer()
+    const backend = new LiveAutomationBackend(renderer, { tickAfterInput: false })
+
+    await backend.click(12, 34)
+
+    expect(renderer.releaseObservedCompletedPressTurn).toBe(true)
+    expect(renderer.clicks).toEqual([])
+    expect(renderer.mouse).toEqual([
+      ["down", 12, 34, undefined, undefined, undefined],
+      ["up", 12, 34, undefined, undefined, undefined],
+    ])
+    expect(renderer.ticks).toBe(0)
   })
 
   it("routes live keystrokes through the production renderer", () => {
@@ -298,17 +334,22 @@ describe("live automation backend", () => {
     expect(renderer.ticks).toBe(1)
   })
 
-  it("can defer input ticks to an externally managed frame loop", () => {
+  it("can defer input ticks to an externally managed frame loop", async () => {
     const renderer = new FakeLiveRenderer()
     const backend = new LiveAutomationBackend(renderer, { tickAfterInput: false })
 
-    backend.click(12, 34)
+    await backend.click(12, 34)
     backend.mouseMove(20, 40)
     backend.scrollWheel(20, 40, 0, -80)
     backend.keystrokes(3, "a")
 
-    expect(renderer.clicks).toEqual([[12, 34, undefined, undefined]])
-    expect(renderer.mouse).toHaveLength(2)
+    expect(renderer.clicks).toEqual([])
+    expect(renderer.mouse).toEqual([
+      ["down", 12, 34, undefined, undefined, undefined],
+      ["up", 12, 34, undefined, undefined, undefined],
+      ["move", 20, 40, undefined, undefined, undefined],
+      ["wheel", 20, 40, 0, -80, undefined],
+    ])
     expect(renderer.ticks).toBe(0)
   })
 })
