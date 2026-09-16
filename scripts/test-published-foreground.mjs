@@ -63,7 +63,7 @@ function prepare() {
     packageManager: "bun@1.3.14",
     dependencies: {
       "gpuix-solid": packageSpec,
-      "solid-js": "2.0.0-rc.1",
+      "solid-js": "2.0.0-rc.8",
     },
     devDependencies: {
       "@solidjs/vite-plugin": "3.0.0-next.29",
