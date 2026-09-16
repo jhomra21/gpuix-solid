@@ -22,7 +22,7 @@ export interface TextSearch {
 }
 
 /** Drive native text highlighting with Solid-owned find-bar state. */
-export function useTextSearch(options: TextSearchOptions): TextSearch {
+export function createTextSearch(options: TextSearchOptions): TextSearch {
   const [reported, setReported] = createSignal(0)
   const [requested, setRequested] = createSignal(0)
 
@@ -86,6 +86,9 @@ export function useTextSearch(options: TextSearchOptions): TextSearch {
     goTo,
   }
 }
+
+/** @deprecated Use createTextSearch in Solid code. */
+export const useTextSearch = createTextSearch
 
 export interface FindRangesOptions {
   text: string
