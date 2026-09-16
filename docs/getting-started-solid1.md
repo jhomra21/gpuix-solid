@@ -12,7 +12,7 @@ The repository currently validates:
 - Bun 1.3.14
 - Vite with `vite-plugin-solid`
 
-The Solid 1 package declares `solid-js >=1.9.0 <2` as its peer range. The Solid 1 package is versioned separately from `gpuix-solid`, so the Solid 2 `0.1.0` release does not change the Solid 1 package version.
+The Solid 1 package declares `solid-js >=1.9.0 <2` as its peer range. The Solid 1 package is versioned separately from `gpuix-solid`, so publishing a Solid 2 release does not change the Solid 1 package version.
 
 The smallest maintained reference app is [`experiments/solid1`](../experiments/solid1). The repository also validates Kobalte, Tailwind v4, a blurred window, and the DAW through the Solid 1 renderer.
 
