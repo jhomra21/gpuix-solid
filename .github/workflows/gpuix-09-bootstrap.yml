@@ -26,6 +26,20 @@ jobs:
         with:
           bun-version: 1.3.14
 
+      - name: Repair bootstrap generator
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("scripts/upgrade-gpuix-09.mjs")
+          source = path.read_text()
+          old = 'if (values.join(",") !== "solid1") throw new Error(`Unexpected Solid 1 selection values: ${values.join(",")}`)'
+          new = 'if (values.join(",") !== "solid1") throw new Error("Unexpected Solid 1 selection values: " + values.join(","))'
+          if old not in source:
+              raise SystemExit("expected nested template literal not found")
+          path.write_text(source.replace(old, new))
+          PY
+
       - name: Apply deterministic 0.9 migration
         run: |
           node scripts/upgrade-gpuix-09.mjs
