@@ -72,6 +72,7 @@ jobs:
 
       - name: Validate current release-surface example
         run: |
+          bun run --filter 'gpuix-solid' build
           bun run --filter 'gpuix-solid-counter' typecheck
           bun run --filter 'gpuix-solid-counter' test:gpuix-08
 
