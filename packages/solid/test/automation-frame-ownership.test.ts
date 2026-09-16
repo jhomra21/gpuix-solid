@@ -43,7 +43,7 @@ class FrameOwnedRenderer implements LiveAutomationRenderer {
 }
 
 describe("automation frame ownership", () => {
-  it("pumps reads without adding a competing post-input tick", () => {
+  it("pumps reads without adding a competing post-input tick", async () => {
     const renderer = new FrameOwnedRenderer()
     const backend = new LiveAutomationBackend(renderer, {
       tickAfterInput: false,
@@ -54,7 +54,7 @@ describe("automation frame ownership", () => {
     expect(backend.getBounds(1)).toEqual({ x: 0, y: 0, width: 100, height: 80 })
     expect(renderer.ticks).toBe(2)
 
-    backend.click(50, 40)
+    await backend.click(50, 40)
     expect(renderer.ticks).toBe(2)
   })
 })
