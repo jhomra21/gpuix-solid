@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/gpuix-09-release-surface.yml"
       - "scripts/finish-gpuix-09-release-surface.mjs"
+      - "scripts/fix-gpuix-09-selection-test-renderer.mjs"
 
 permissions:
   contents: write
@@ -77,6 +78,9 @@ jobs:
           test.write_text(test_source)
           PY
 
+      - name: Make native selection helpers reactive
+        run: node scripts/fix-gpuix-09-selection-test-renderer.mjs
+
       - name: Install exact lock
         run: bun install --frozen-lockfile
 
@@ -97,6 +101,7 @@ jobs:
         run: |
           rm .github/workflows/gpuix-09-release-surface.yml
           rm scripts/finish-gpuix-09-release-surface.mjs
+          rm scripts/fix-gpuix-09-selection-test-renderer.mjs
 
       - name: Commit release-facing surface
         run: |
