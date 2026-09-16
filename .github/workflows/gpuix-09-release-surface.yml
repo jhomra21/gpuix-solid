@@ -43,12 +43,13 @@ jobs:
       - name: Refresh current 0.9 docs and example
         run: node scripts/finish-gpuix-09-release-surface.mjs
 
-      - name: Finish focused examples wording
+      - name: Finish focused examples wording and structural test type
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          path = Path("examples/README.md")
-          source = path.read_text()
+
+          docs = Path("examples/README.md")
+          source = docs.read_text()
           replacements = {
               "## Focused GPUIX 0.8 surface": "## Focused GPUIX 0.9 surface",
               "It currently demonstrates three 0.8 capabilities that have both Solid host mappings and runnable native checks:": "It demonstrates the current GPUIX 0.9 surface with Solid host mappings and runnable native checks:",
@@ -63,8 +64,17 @@ jobs:
           addition = marker + '- **Reactive window selection:** `createTextSelection()` exposes the current native selection as a Solid accessor, owns its native subscription through the calling Solid owner, and clears through the same primitive.\n'
           if marker not in source:
               raise SystemExit("missing text-decoration bullet")
-          source = source.replace(marker, addition)
-          path.write_text(source)
+          docs.write_text(source.replace(marker, addition))
+
+          test = Path("examples/counter/src/gpuix-08/test.tsx")
+          test_source = test.read_text()
+          old_import = 'import { createTestApp, createTestRoot, hasNativeTestRenderer, type TestElement } from "gpuix-solid"'
+          new_import = 'import { createTestApp, createTestRoot, hasNativeTestRenderer } from "gpuix-solid"'
+          if old_import not in test_source:
+              raise SystemExit("missing generated TestElement import")
+          test_source = test_source.replace(old_import, new_import)
+          test_source = test_source.replace("  element: TestElement,", "  element: { id: number },")
+          test.write_text(test_source)
           PY
 
       - name: Install exact lock
