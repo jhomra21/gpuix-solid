@@ -33,11 +33,30 @@ jobs:
 
           path = Path("scripts/upgrade-gpuix-09.mjs")
           source = path.read_text()
-          old = 'if (values.join(",") !== "solid1") throw new Error(`Unexpected Solid 1 selection values: ${values.join(",")}`)'
-          new = 'if (values.join(",") !== "solid1") throw new Error("Unexpected Solid 1 selection values: " + values.join(","))'
-          if old not in source:
+
+          nested_template = 'if (values.join(",") !== "solid1") throw new Error(`Unexpected Solid 1 selection values: ${values.join(",")}`)'
+          plain_error = 'if (values.join(",") !== "solid1") throw new Error("Unexpected Solid 1 selection values: " + values.join(","))'
+          if nested_template not in source:
               raise SystemExit("expected nested template literal not found")
-          path.write_text(source.replace(old, new))
+          source = source.replace(nested_template, plain_error)
+
+          old_root_patch = '''  replaceOnce(path,
+            "  const root = createRoot(renderer, windowKeyEventHandlers)",
+            "  const root = createRoot(renderer, windowEventHandlers)",
+          )'''
+          new_root_patch = '''  replaceOnce(path,
+            solid1
+              ? "  const root = createRoot(hostRenderer, windowKeyEventHandlers)"
+              : "  const root = createRoot(renderer, windowKeyEventHandlers)",
+            solid1
+              ? "  const root = createRoot(hostRenderer, windowEventHandlers)"
+              : "  const root = createRoot(renderer, windowEventHandlers)",
+          )'''
+          if old_root_patch not in source:
+              raise SystemExit("expected test-root migration patch not found")
+          source = source.replace(old_root_patch, new_root_patch)
+
+          path.write_text(source)
           PY
 
       - name: Apply deterministic 0.9 migration
