@@ -10,10 +10,10 @@ This template lives outside the repository workspaces. Its Vite configuration ma
 
 - Bun 1.3.14 or newer in the 1.3 line
 - a supported `@gpuix/native` desktop platform package
-- Solid 2, with release qualification on `solid-js@2.0.0-rc.1`
-- the stable `gpuix-solid ^0.1.0` package line from npm `latest`
+- Solid 2, with release qualification on `solid-js@2.0.0-rc.8`
+- `gpuix-solid` from npm `latest`
 
-The GPUIX 0.8 package line is continuously checked on macOS arm64, Linux x64 GNU, and Windows x64 MSVC.
+The repository's upcoming `0.2.x` line targets exact `@gpuix/native@0.9.0` and is continuously checked on macOS arm64, Linux x64 GNU, and Windows x64 MSVC. Until 0.2.0 is published, `latest` still resolves the last published 0.1.x package; after publication the same starter resolves the new stable line without a template-only version edit.
 
 ## Install
 
@@ -21,7 +21,7 @@ The GPUIX 0.8 package line is continuously checked on macOS arm64, Linux x64 GNU
 bun install
 ```
 
-The starter uses `gpuix-solid ^0.1.0`. A fresh install therefore resolves the current compatible stable patch instead of a prerelease dist-tag.
+The starter deliberately follows npm `latest` because it is the clean public-install template. Release qualification separately pins exact package and native versions before publication.
 
 ## Typecheck and build
 
@@ -54,16 +54,16 @@ Solid publishes separate client and SSR runtime conditions. A native GPUix proce
 
 The Vite config resolves the `browser` condition and compiles JSX through Solid's universal renderer. `gpuix-solid`, `@solidjs/universal`, and `solid-js` are bundled into the output. `@gpuix/native` stays external so Bun can load the platform-specific native addon.
 
-## Native styling notes
+## Native styling and state notes
 
 GPUix Solid accepts browser-shaped JSX, but GPUIX is not browser CSS. Give native `<text>` nodes an explicit color and rely only on style properties mapped by the host and native renderer.
 
-The starter also exercises `role`, `aria-label`, `tabIndex`, `hover`, and `textDecoration` on the GPUIX 0.8 line.
+The current GPUIX 0.9 host path covers `role`, supported `aria-*`, `tabIndex`, `hover`, `textDecoration`, controlled text input, and window-level text selection. Solid-owned stateful helpers use the canonical `createWindowSize()`, `createWindowInsets()`, `createTextSearch()`, and `createTextSelection()` names; older `useWindow*` and `useTextSearch` names remain deprecated compatibility aliases.
 
-## Stable release result
+## Historical stable result
 
 The stable `gpuix-solid@0.1.0` package and `@gpuix/native@0.8.0` passed the external macOS foreground acceptance test after publication. The test covered Counter interactions, text selection followed by another click, accessibility actions, multiline textarea input, Tab and focus behavior, and normal shutdown without a native panic or fatal `GpuixView` error.
 
-The same foreground gate had already passed against `0.1.0-rc.1` before stable promotion. The diagnostic history remains in [`../../docs/release-candidate.md`](../../docs/release-candidate.md).
+The same foreground gate had already passed against `0.1.0-rc.1` before stable promotion. That is historical qualification for the 0.1/GPUIX 0.8 line; current release work targets GPUIX 0.9. The diagnostic history remains in [`../../docs/release-candidate.md`](../../docs/release-candidate.md).
 
 For Solid 2 setup, packaging, debugging, and compatibility details, see [`../../docs/getting-started.md`](../../docs/getting-started.md). For Solid 1, see [`../../docs/getting-started-solid1.md`](../../docs/getting-started-solid1.md).
