@@ -8,10 +8,9 @@ import type {
   HighlightMatch,
   NativeRenderer,
   StyleDesc,
-  WindowKeyEventHandlers,
 } from "./host/types.js"
 import { normalizeNativeElementBounds } from "./native-bounds.js"
-import { createRoot, type Root } from "./root.js"
+import { createRoot, type Root, type WindowEventHandlers } from "./root.js"
 
 type NativeTestRendererConstructor = new (
   width?: number | null,
@@ -268,6 +267,10 @@ export class TestRenderer implements NativeRenderer {
     this.#native.setWindowKeyEvents(keyDown, keyUp, eventId)
   }
 
+  setWindowSelectionChange(enabled: boolean, eventId: number): void {
+    this.#native.setWindowSelectionChange(enabled, eventId)
+  }
+
   scrollTo(elementId: number, x: number, y: number): void {
     this.#native.flush()
     this.#native.scrollTo(elementId, x, y)
@@ -476,10 +479,10 @@ export interface TestRoot {
 }
 
 /** Create a Solid root backed by the real GPUI native test renderer. */
-export function createTestRoot(width?: number, height?: number, windowKeyEventHandlers: WindowKeyEventHandlers = {}): TestRoot {
+export function createTestRoot(width?: number, height?: number, windowEventHandlers: WindowEventHandlers = {}): TestRoot {
   const renderer = new TestRenderer(width, height)
   useDestroyUnlinksParentBatch(renderer)
-  const root = createRoot(renderer, windowKeyEventHandlers)
+  const root = createRoot(renderer, windowEventHandlers)
   renderer.bindRoot(root)
 
   const render = (code: () => SolidElement): void => {

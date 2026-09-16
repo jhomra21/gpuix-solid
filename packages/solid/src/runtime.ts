@@ -5,9 +5,9 @@ import { adaptBatchRenderer } from "./batch-renderer-adapter.js"
 import { applyDebugFrameOverlay } from "./capabilities.js"
 import { startFrameLoop, type FrameLoop } from "./frame-loop.js"
 import { useDestroyUnlinksParentBatch } from "./host/mutations.js"
-import type { DebugFrameOverlayMode, NativeRenderer, WindowKeyEventHandlers } from "./host/types.js"
+import type { DebugFrameOverlayMode, NativeRenderer } from "./host/types.js"
 import { withLegacyElementBounds, type LegacyElementBoundsRenderer } from "./native-bounds.js"
-import { createRoot, type Root } from "./root.js"
+import { createRoot, type Root, type WindowEventHandlers } from "./root.js"
 import { createRuntimeErrorOverlay, type RuntimeErrorDetails } from "./runtime-error-overlay.js"
 
 export { createRoot } from "./root.js"
@@ -204,7 +204,7 @@ export function createRenderer(
   }
 }
 
-export interface RenderOptions extends WindowOptions, WindowKeyEventHandlers {
+export interface RenderOptions extends WindowOptions, WindowEventHandlers {
   renderer?: NativeRenderer
   onEvent?: (event: EventPayload) => void
   debugFrameOverlay?: DebugFrameOverlayMode
@@ -224,10 +224,15 @@ export interface RenderHandle {
   unmount(): void
 }
 
-function windowKeyEventHandlers(onKeyDown: RenderOptions["onKeyDown"], onKeyUp: RenderOptions["onKeyUp"]): WindowKeyEventHandlers {
-  const handlers: WindowKeyEventHandlers = {}
+function windowEventHandlers(
+  onKeyDown: RenderOptions["onKeyDown"],
+  onKeyUp: RenderOptions["onKeyUp"],
+  onSelectionChange: RenderOptions["onSelectionChange"],
+): WindowEventHandlers {
+  const handlers: WindowEventHandlers = {}
   if (onKeyDown) handlers.onKeyDown = onKeyDown
   if (onKeyUp) handlers.onKeyUp = onKeyUp
+  if (onSelectionChange) handlers.onSelectionChange = onSelectionChange
   return handlers
 }
 
@@ -244,9 +249,10 @@ function renderHandle(slot: RenderSlot, generation: number): RenderHandle {
 }
 
 function mountCode(slot: RenderSlot, code: () => SolidElement, options: RenderOptions): RenderHandle {
-  const { onEvent, onKeyDown, onKeyUp, debugFrameOverlay } = options
+  const { onEvent, onKeyDown, onKeyUp, onSelectionChange, debugFrameOverlay } = options
   if (slot.nativeRenderer) setRendererOnEvent(slot.nativeRenderer, onEvent)
-  slot.root.setWindowKeyEventHandlers(windowKeyEventHandlers(onKeyDown, onKeyUp))
+  slot.root.setWindowKeyEventHandlers(windowEventHandlers(onKeyDown, onKeyUp, onSelectionChange))
+  slot.root.setWindowSelectionChangeHandler(onSelectionChange)
   applyDebugFrameOverlay(slot.host, debugFrameOverlay)
   slot.lastCode = code
   slot.overlayShown = false
@@ -272,7 +278,7 @@ export function resetRender(): void {
 
 /** Mount the app. Under `bun --hot`, later calls remount on the same native window. */
 export function render(code: () => SolidElement, options: RenderOptions = {}): RenderHandle {
-  const { renderer: injected, onEvent, onKeyDown, onKeyUp, debugFrameOverlay, ...windowOptions } = options
+  const { renderer: injected, onEvent, onKeyDown, onKeyUp, onSelectionChange, debugFrameOverlay, ...windowOptions } = options
   const existing = runtimeGlobalState.__gpuixSolidRenderSlot
 
   if (existing) {
@@ -283,7 +289,7 @@ export function render(code: () => SolidElement, options: RenderOptions = {}): R
   }
 
   if (injected) {
-    const root = createRoot(injected, windowKeyEventHandlers(onKeyDown, onKeyUp))
+    const root = createRoot(injected, windowEventHandlers(onKeyDown, onKeyUp, onSelectionChange))
     const slot: RenderSlot = {
       host: injected,
       root,
@@ -301,7 +307,7 @@ export function render(code: () => SolidElement, options: RenderOptions = {}): R
   const host = adaptBatchRenderer(native.compatibilityRenderer)
   useDestroyUnlinksParentBatch(host)
   applyDebugFrameOverlay(host, debugFrameOverlay)
-  const root = createRoot(host, windowKeyEventHandlers(onKeyDown, onKeyUp))
+  const root = createRoot(host, windowEventHandlers(onKeyDown, onKeyUp, onSelectionChange))
   native.bindRoot(root)
 
   // Start the AppKit pump before the first Solid render. A mount-time throw must

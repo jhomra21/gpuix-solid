@@ -528,6 +528,7 @@ export interface NativeRenderer {
   focusPrevious?(): void
   blur?(): void
   setWindowKeyEvents?(keyDown: boolean, keyUp: boolean, eventId: number): void
+  setWindowSelectionChange?(enabled: boolean, eventId: number): void
   scrollTo?(elementId: number, x: number, y: number): void
   scrollToItem?(elementId: number, index: number, offsetInItem?: number): void
   getScrollOffset?(elementId: number): number[] | null
