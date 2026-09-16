@@ -24,9 +24,9 @@
       "note": "Intentional animated showcase; the official static blurred-window source is retained as a separately locked reference.",
       "referenceContract": "examples/counter/upstream/gpuix/source-main-surface-lock.json"
     },
-    "example:gpuix-08": {
+    "example:gpuix-surface": {
       "classification": "original",
-      "note": "Repository-owned focused showcase for public GPUIX 0.8 capabilities proven through the Solid host."
+      "note": "Repository-owned focused showcase for the current published GPUIX capabilities proven through the Solid host."
     },
     "example:todo": {
       "classification": "official-gpuix-solid-derived",

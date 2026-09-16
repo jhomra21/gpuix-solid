@@ -3,10 +3,10 @@ import { resolve } from "node:path"
 import { createTestRoot, hasNativeTestRenderer } from "gpuix-solid"
 import { CodeImageNativeDemo } from "../codeimage/app"
 import { DashboardDemo } from "../dashboard/source/app"
-import { Gpuix08Showcase } from "../gpuix-08/app"
+import { GpuixSurfaceShowcase } from "../gpuix-surface/app"
 import { TodoApp } from "../todo/app"
 
-type SolidCaptureElement = ReturnType<typeof Gpuix08Showcase>
+type SolidCaptureElement = ReturnType<typeof GpuixSurfaceShowcase>
 
 type Capture = {
   name: string
@@ -24,10 +24,10 @@ if (!hasNativeTestRenderer) {
 
 const captures: Capture[] = [
   {
-    name: "gpuix-08",
+    name: "gpuix-surface",
     width: 860,
     height: 720,
-    render: () => <Gpuix08Showcase />,
+    render: () => <GpuixSurfaceShowcase />,
   },
   {
     name: "dashboard",

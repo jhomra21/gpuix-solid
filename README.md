@@ -182,7 +182,7 @@ The repository includes source-pinned GPUIX ports and larger native application 
 | Chat | 2 | `bun run example:chat` | virtualized history, menus, composer input, selection, scrolling, Markdown/MDX |
 | Timeline | 2 | `bun run example:timeline` | pan and zoom, clip editing, snapping, pointer capture |
 | Todo | 2 | `bun run example:todo` | native input, virtual lists, hover controls, sidebar motion |
-| GPUIX 0.9 surface | 2 | `bun run example:gpuix-08` | accessibility metadata, textarea input, text decoration, reactive window selection |
+| GPUIX 0.9 surface | 2 | `bun run example:gpuix-surface` | accessibility metadata, textarea input, text decoration, reactive window selection |
 | Dashboard | 2 | `bun run example:dashboard` | routes, controlled input, lists, dialogs, scrolling |
 | CodeImage | 2 | `bun run example:codeimage` | editor layout, controls, themes, native compatibility |
 | Kobalte | 1 | `bun run example:solid1-kobalte` | portals, dialogs, menus, focus, keyboard input |

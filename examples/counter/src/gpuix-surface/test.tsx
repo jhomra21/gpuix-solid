@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { createTestApp, createTestRoot, hasNativeTestRenderer } from "gpuix-solid"
-import { Gpuix08Showcase } from "./app"
+import { GpuixSurfaceShowcase } from "./app"
 
 function requiredBounds(
   root: ReturnType<typeof createTestRoot>,
@@ -22,7 +22,7 @@ async function main(): Promise<void> {
   }
 
   const testRoot = createTestRoot(860, 900)
-  testRoot.render(() => <Gpuix08Showcase />)
+  testRoot.render(() => <GpuixSurfaceShowcase />)
   const app = createTestApp(testRoot.renderer)
 
   try {
@@ -31,7 +31,7 @@ async function main(): Promise<void> {
     assert.ok(action, "accessible action should exist in the retained tree")
     assert.equal(action.customProps?.role, "button")
     assert.equal(action.customProps?.["aria-label"], "Run accessible action")
-    assert.equal(action.customProps?.["aria-id"], "gpuix08.accessible-action")
+    assert.equal(action.customProps?.["aria-id"], "gpuix.surface.accessible-action")
 
     await app.getByTestId("accessible-action").click()
     assert.equal(await app.getByTestId("accessible-count").textContent(), "Accessible clicks: 1")

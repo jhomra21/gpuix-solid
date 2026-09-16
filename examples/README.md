@@ -20,7 +20,7 @@ If you are trying to build your own application rather than work on this reposit
 
 | Example | Run | Why it is useful |
 | --- | --- | --- |
-| GPUIX 0.9 surface | `bun run example:gpuix-08` | Focused Solid proof for accessibility metadata, accessible click, textarea Enter/newline behavior, `textDecoration`, and reactive window selection |
+| GPUIX 0.9 surface | `bun run example:gpuix-surface` | Focused Solid proof for accessibility metadata, accessible click, textarea Enter/newline behavior, `textDecoration`, and reactive window selection |
 | Dashboard | `bun run example:dashboard` | App-shaped Solid 2 surface with routing/auth/network/modal compatibility, controlled input, lists, scrolling, and guarded actions |
 | CodeImage | `bun run example:codeimage` | Editor composition with toolbars, canvas/frame layout, sidebars, theme controls, and native compatibility boundaries |
 | Chat | `bun run example:chat` | Virtualized transcript, composer input, menus, text selection, scrolling, animation, code/diff content, and Solid-composed MDX |
@@ -33,7 +33,7 @@ The README screenshot gallery is generated from these Solid-rendered native wind
 ## Focused GPUIX 0.9 surface
 
 ```bash
-bun run example:gpuix-08
+bun run example:gpuix-surface
 ```
 
 This example exists specifically to keep upstream availability separate from proven Solid exposure. It demonstrates the current GPUIX 0.9 surface with Solid host mappings and runnable native checks:
@@ -212,7 +212,7 @@ The serialization workload captures mutation tuples emitted by Solid's real `app
 
 The normal deterministic contracts include:
 
-- focused GPUIX 0.8 accessibility/textarea/text-decoration Solid regression
+- focused GPUIX 0.9 accessibility/textarea/text-decoration/selection Solid regression
 - Todo
 - Diff
 - Timeline

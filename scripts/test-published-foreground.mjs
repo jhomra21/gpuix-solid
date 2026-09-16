@@ -20,12 +20,12 @@ switch (command) {
     launch("counter")
     break
   case "surface":
-    launch("gpuix-08")
+    launch("gpuix-surface")
     break
   case "all":
     prepare()
     launch("counter")
-    launch("gpuix-08")
+    launch("gpuix-surface")
     cleanup()
     break
   case "status":
@@ -41,19 +41,19 @@ switch (command) {
 function prepare() {
   rmSync(consumerDir, { recursive: true, force: true })
   mkdirSync(join(consumerDir, "src", "counter"), { recursive: true })
-  mkdirSync(join(consumerDir, "src", "gpuix-08"), { recursive: true })
+  mkdirSync(join(consumerDir, "src", "gpuix-surface"), { recursive: true })
 
   cpSync(
     join(repoRoot, "examples", "counter", "src", "index.tsx"),
     join(consumerDir, "src", "counter", "index.tsx"),
   )
   cpSync(
-    join(repoRoot, "examples", "counter", "src", "gpuix-08", "index.tsx"),
-    join(consumerDir, "src", "gpuix-08", "index.tsx"),
+    join(repoRoot, "examples", "counter", "src", "gpuix-surface", "index.tsx"),
+    join(consumerDir, "src", "gpuix-surface", "index.tsx"),
   )
   cpSync(
-    join(repoRoot, "examples", "counter", "src", "gpuix-08", "app.tsx"),
-    join(consumerDir, "src", "gpuix-08", "app.tsx"),
+    join(repoRoot, "examples", "counter", "src", "gpuix-surface", "app.tsx"),
+    join(consumerDir, "src", "gpuix-surface", "app.tsx"),
   )
   cpSync(
     join(repoRoot, "templates", "solid2-vite-bun", "tsconfig.json"),
@@ -78,13 +78,13 @@ function prepare() {
   }, null, 2)}\n`)
 
   writeConfig("counter")
-  writeConfig("gpuix-08")
+  writeConfig("gpuix-surface")
 
   run("bun", ["install"], consumerDir)
   assertRegistryIdentity()
   run("bun", ["x", "tsc", "--noEmit"], consumerDir)
   run("bun", ["x", "vite", "build", "--config", "vite.counter.config.ts"], consumerDir)
-  run("bun", ["x", "vite", "build", "--config", "vite.gpuix-08.config.ts"], consumerDir)
+  run("bun", ["x", "vite", "build", "--config", "vite.gpuix-surface.config.ts"], consumerDir)
 
   console.log("\nPublished foreground consumer prepared.")
   status()
@@ -92,7 +92,7 @@ function prepare() {
 }
 
 function writeConfig(app) {
-  const fileName = app === "counter" ? "vite.counter.config.ts" : "vite.gpuix-08.config.ts"
+  const fileName = app === "counter" ? "vite.counter.config.ts" : "vite.gpuix-surface.config.ts"
   writeFileSync(join(consumerDir, fileName), `import solid from "@solidjs/vite-plugin"\nimport { defineConfig } from "vite"\n\nexport default defineConfig({\n  plugins: [\n    solid({\n      solid: { generate: "universal", moduleName: "gpuix-solid" },\n    }),\n  ],\n  resolve: { conditions: ["browser", "development"] },\n  ssr: {\n    noExternal: ["gpuix-solid", "@solidjs/universal", "solid-js"],\n    resolve: { conditions: ["browser", "development", "import", "default"] },\n  },\n  build: {\n    target: "node22",\n    ssr: "src/${app}/index.tsx",\n    outDir: "dist/${app}",\n    rollupOptions: { external: ["@gpuix/native"] },\n  },\n})\n`)
 }
 
@@ -101,7 +101,7 @@ function launch(app) {
   const installed = readJson(join(consumerDir, "node_modules", "gpuix-solid", "package.json"))
   const native = readJson(join(consumerDir, "node_modules", "@gpuix", "native", "package.json"))
 
-  console.log(`\nLaunching ${app === "counter" ? "original Counter reproducer" : "GPUIX 0.8 text/input surface"}`)
+  console.log(`\nLaunching ${app === "counter" ? "original Counter reproducer" : "GPUIX 0.9 text/input/selection surface"}`)
   console.log(`gpuix-solid@${installed.version} + @gpuix/native@${native.version}`)
 
   if (app === "counter") {
@@ -152,7 +152,7 @@ function status() {
     gpuixSolid: installed.version,
     gpuixNative: native.version,
     counterEntry: join(consumerDir, "dist", "counter", "index.js"),
-    surfaceEntry: join(consumerDir, "dist", "gpuix-08", "index.js"),
+    surfaceEntry: join(consumerDir, "dist", "gpuix-surface", "index.js"),
   }, null, 2))
 }
 

@@ -12,7 +12,7 @@ const cardStyle = {
   backgroundColor: "#1d1d1d",
 } as const
 
-export function Gpuix08Showcase() {
+export function GpuixSurfaceShowcase() {
   const [accessibleClicks, setAccessibleClicks] = createSignal(0)
   const [note, setNote] = createSignal("")
   const selection = createTextSelection()
@@ -43,7 +43,7 @@ export function Gpuix08Showcase() {
           testId="accessible-action"
           role="button"
           aria-label="Run accessible action"
-          aria-id="gpuix08.accessible-action"
+          aria-id="gpuix.surface.accessible-action"
           tabIndex={0}
           onClick={() => setAccessibleClicks((value) => value + 1)}
           style={{
