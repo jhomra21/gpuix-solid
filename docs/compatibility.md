@@ -9,14 +9,16 @@ Use [`getting-started.md`](./getting-started.md) for Solid 2 and [`getting-start
 | Layer | Current contract | Notes |
 | --- | --- | --- |
 | `gpuix-solid` | repository target `0.2.0`; npm `latest` remains the last published stable until release | Solid 2 renderer in `packages/solid` |
-| `solid-js` for Solid 2 | peer `^2.0.0-rc.0` | Clean-consumer release qualification and package smoke exercise `2.0.0-rc.8` |
-| `@solidjs/universal` | `2.0.0-rc.0` | Direct runtime dependency used by the Solid 2 renderer |
+| `solid-js` for Solid 2 | peer `^2.0.0-rc.8` | Repository package and clean-consumer qualification use `2.0.0-rc.8` |
+| `@solidjs/universal` | exact `2.0.0-rc.8` | Direct runtime dependency paired with the Solid 2 RC.8 peer line |
 | `@jhomra21/gpuix-solid1` | repository package version `0.1.0-beta.0` | Solid 1 renderer in `packages/solid1`; versioned separately from `gpuix-solid` |
 | `solid-js` for Solid 1 | peer `>=1.9.0 <2` | Repository CI exercises `1.9.15` |
 | `@gpuix/native` | exact `0.9.0` | Native desktop renderer contract used by both Solid packages; exact pairing follows GPUIX's pre-1.0 version policy |
 | pinned GPUIX source edge | `7ac9880abd8e91e5bf0e4feb0fa850729cf95a68` | Exact source reference for the published 0.9.0 baseline |
 | Bun | `1.3.14` | Repository install, build, test, and release toolchain |
 | TypeScript | `^5.9.2` | Package type and build validation |
+
+The Solid 2 runtime pair moves together. `@solidjs/universal@2.0.0-rc.8` declares `solid-js ^2.0.0-rc.8` as its peer, so the renderer package, examples, clean consumers, and lockfile are kept on that same RC.8 line instead of mixing release candidates.
 
 The Solid 1 and Solid 2 package versions do not move together automatically. The stable `gpuix-solid` release line advances the Solid 2 package only. Solid 1 remains maintained under `@jhomra21/gpuix-solid1` with its own version and peer range.
 
@@ -79,6 +81,7 @@ That result is the stable `0.1.0` qualification record. GPUIX 0.9 subsequently s
 ## Policy
 
 - Keep the Solid 1 and Solid 2 package and peer ranges separate.
+- Keep the Solid 2 framework and universal-renderer release-candidate line aligned unless compatibility is deliberately tested and documented otherwise.
 - Do not claim a new GPUIX native minor before the cross-platform suite passes against it.
 - Do not claim a native capability as Solid support until a Solid mapping and runnable check prove it.
 - Keep `@gpuix/native` external at application runtime.
