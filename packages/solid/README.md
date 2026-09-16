@@ -6,7 +6,7 @@ Write Solid components in TypeScript and render them as native GPUIX trees. Ther
 
 This package is the Solid 2 renderer. Solid 1 applications use the separate `@jhomra21/gpuix-solid1` package from the same repository.
 
-The stable `0.1.x` line targets `@gpuix/native ^0.8.0`. The package peer range is `solid-js ^2.0.0-rc.0`, and release qualification exercises `solid-js@2.0.0-rc.1`.
+The repository's next `0.2.x` line targets exact `@gpuix/native@0.9.0`. The package peer range is `solid-js ^2.0.0-rc.0`, and release qualification exercises `solid-js@2.0.0-rc.1`.
 
 ## Install
 

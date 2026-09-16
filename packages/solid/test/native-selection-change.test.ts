@@ -38,7 +38,6 @@ describe("GPUIX 0.9 selection events", () => {
     ))
 
     expect(testRoot.renderer.dragSelect(21, 30, 900, 30)).toBe("hello world")
-    testRoot.renderer.dispatchNativeEvents()
     expect(values).toEqual(["hello world"])
 
     testRoot.renderer.flush()
@@ -46,7 +45,6 @@ describe("GPUIX 0.9 selection events", () => {
     expect(values).toEqual(["hello world"])
 
     testRoot.renderer.clearSelection()
-    testRoot.renderer.dispatchNativeEvents()
     expect(values).toEqual(["hello world", null])
   })
 

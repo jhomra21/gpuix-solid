@@ -6,7 +6,7 @@ GPUix Solid supports Solid 1 and Solid 2 through separate renderer packages. `@j
 
 ## Supported versions
 
-The Solid 1 package declares `solid-js >=1.9.0 <2` as its peer range. Repository CI currently exercises `solid-js@1.9.15` against `@gpuix/native ^0.8.0`.
+The Solid 1 package declares `solid-js >=1.9.0 <2` as its peer range. Repository CI currently exercises `solid-js@1.9.15` against exact `@gpuix/native@0.9.0`.
 
 The package has its own version line. The `gpuix-solid@0.1.0` stable release applies to the Solid 2 package and does not change the Solid 1 package version.
 

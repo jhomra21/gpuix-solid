@@ -315,6 +315,8 @@ export class TestRenderer implements NativeRenderer {
 
   dragSelect(x1: number, y1: number, x2: number, y2: number): string | null {
     this.#native.dragSelect(x1, y1, x2, y2)
+    this.dispatchNativeEvents()
+    this.#native.flush()
     return this.#native.getSelectedText()
   }
 
@@ -324,6 +326,7 @@ export class TestRenderer implements NativeRenderer {
 
   clearSelection(): void {
     this.#native.clearSelection()
+    this.dispatchNativeEvents()
     this.#native.flush()
   }
 

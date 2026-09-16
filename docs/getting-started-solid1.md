@@ -8,7 +8,7 @@ The repository currently validates:
 
 - `@jhomra21/gpuix-solid1` at the version declared in `packages/solid1/package.json`
 - `solid-js@1.9.15`
-- `@gpuix/native ^0.8.0`
+- exact `@gpuix/native 0.9.0`
 - Bun 1.3.14
 - Vite with `vite-plugin-solid`
 

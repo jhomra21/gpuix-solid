@@ -2,13 +2,26 @@ import assert from "node:assert/strict"
 import { createTestApp, createTestRoot, hasNativeTestRenderer } from "gpuix-solid"
 import { Gpuix08Showcase } from "./app"
 
+function requiredBounds(
+  root: ReturnType<typeof createTestRoot>,
+  element: { id: number },
+): [number, number, number, number] {
+  const bounds = root.renderer.getElementBounds(element.id)
+  if (!bounds || bounds.length < 4) throw new Error(`Missing bounds for element ${element.id}`)
+  const [x, y, width, height] = bounds
+  if (x === undefined || y === undefined || width === undefined || height === undefined) {
+    throw new Error(`Incomplete bounds for element ${element.id}`)
+  }
+  return [x, y, width, height]
+}
+
 async function main(): Promise<void> {
   if (!hasNativeTestRenderer) {
-    console.log("GPUIX 0.8 Solid showcase: native TestGpuixRenderer unavailable; skipped")
+    console.log("GPUIX 0.9 Solid showcase: native TestGpuixRenderer unavailable; skipped")
     return
   }
 
-  const testRoot = createTestRoot(860, 720)
+  const testRoot = createTestRoot(860, 900)
   testRoot.render(() => <Gpuix08Showcase />)
   const app = createTestApp(testRoot.renderer)
 
@@ -20,9 +33,6 @@ async function main(): Promise<void> {
     assert.equal(action.customProps?.["aria-label"], "Run accessible action")
     assert.equal(action.customProps?.["aria-id"], "gpuix08.accessible-action")
 
-    // Assert the user-visible event path rather than the renderer's internal
-    // event storage. Native event storage differs by platform, while the
-    // automation click is the public behavior this example promises.
     await app.getByTestId("accessible-action").click()
     assert.equal(await app.getByTestId("accessible-count").textContent(), "Accessible clicks: 1")
 
@@ -31,10 +41,21 @@ async function main(): Promise<void> {
     assert.ok(decorated, "decorated text should exist in the retained tree")
     assert.equal(decorated.style.textDecoration, "underline")
 
+    const selectionSource = await app.getByTestId("selection-source").element()
+    const [x, y, width, height] = requiredBounds(testRoot, selectionSource)
+    const selected = testRoot.renderer.dragSelect(x + 2, y + height / 2, x + width - 2, y + height / 2)
+    assert.equal(selected, "Select this GPUIX 0.9 text")
+    assert.equal(
+      await app.getByTestId("selection-value").textContent(),
+      "Selection: Select this GPUIX 0.9 text",
+    )
+    await app.getByTestId("clear-selection").click()
+    assert.equal(await app.getByTestId("selection-value").textContent(), "Selection: none")
+
     await app.getByTestId("newline-editor").fill("\n")
     assert.equal(await app.getByTestId("newline-value").textContent(), 'Textarea value: "\\n"')
 
-    console.log("GPUIX 0.8 Solid showcase: accessibility, textarea newline, and text decoration passed")
+    console.log("GPUIX 0.9 Solid showcase: metadata, selection, textarea newline, and text decoration passed")
   } finally {
     await app.close()
     testRoot.unmount()
