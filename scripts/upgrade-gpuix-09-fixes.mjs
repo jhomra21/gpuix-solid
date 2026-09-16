@@ -15,11 +15,15 @@ for (const path of ["packages/solid/src/runtime.ts", "packages/solid1/src/runtim
 
 for (const path of ["packages/solid/src/root.ts", "packages/solid1/src/root.ts"]) {
   let source = readFileSync(path, "utf8")
+  const signal = path === "packages/solid/src/root.ts"
+    ? "  const [selectedText, setSelectedText] = createSignal<string | null>(null, { ownedWrite: true })"
+    : "  const [selectedText, setSelectedText] = createSignal<string | null>(null)"
+
   source = replaceOnce(
     path,
     source,
     "  const [selectedText, setSelectedText] = createSignal(renderer.getSelectedText?.() ?? null)",
-    "  const [selectedText, setSelectedText] = createSignal<string | null>(null)",
+    signal,
   )
   source = replaceOnce(
     path,
