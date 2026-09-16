@@ -64,6 +64,26 @@ class RelayRenderer implements NativeRenderer {
 
 {
   const events = new EventRegistry()
+  const elementId = 6
+  let clicks = 0
+
+  events.activate(elementId)
+  events.set(elementId, "click", () => {
+    clicks += 1
+  })
+
+  const click = primaryClick(elementId)
+  events.dispatch(click)
+  events.dispatch(click)
+  assert.equal(clicks, 1, "duplicate semantic clicks in one native burst must activate once")
+
+  await Promise.resolve()
+  events.dispatch(click)
+  assert.equal(clicks, 2, "a later semantic click must remain a distinct activation")
+}
+
+{
+  const events = new EventRegistry()
   const parentId = 8
   const childId = 9
   const order: string[] = []
