@@ -35,9 +35,9 @@ function readWindowSize(renderer: NativeRenderer | null): WindowSize {
  *
  * The first read can happen before a platform window has a usable size, and a
  * one-shot fallback would leave coordinate-driven UIs permanently stale after
- * resize. Polling mirrors the published GPUIX 0.7 React contract.
+ * resize. Polling mirrors the published GPUIX window-size contract.
  */
-export function useWindowSize(options: WindowSizeOptions = {}): WindowSize {
+export function createWindowSize(options: WindowSizeOptions = {}): WindowSize {
   const renderer = useGpuix()?.renderer ?? null
   const [size, setSize] = createSignal(readWindowSize(renderer))
   let timer: ReturnType<typeof setInterval> | undefined
@@ -72,6 +72,9 @@ export function useWindowSize(options: WindowSizeOptions = {}): WindowSize {
     },
   }
 }
+
+/** @deprecated Use createWindowSize in Solid code. */
+export const useWindowSize = createWindowSize
 
 export interface WindowInsets extends NativeWindowInsets {
   /** Y coordinate where unobscured content ends. Equals window height when closed. */
@@ -131,7 +134,7 @@ function sameWindowInsets(left: WindowInsets, right: WindowInsets): boolean {
 }
 
 /** Get safe-area and keyboard geometry, sampled every 100ms by default. */
-export function useWindowInsets(options: WindowInsetsOptions = {}): WindowInsets {
+export function createWindowInsets(options: WindowInsetsOptions = {}): WindowInsets {
   const renderer = useGpuix()?.renderer ?? null
   const [insets, setInsets] = createSignal(readWindowInsets(renderer))
   let timer: ReturnType<typeof setInterval> | undefined
@@ -174,3 +177,6 @@ export function useWindowInsets(options: WindowInsetsOptions = {}): WindowInsets
     },
   }
 }
+
+/** @deprecated Use createWindowInsets in Solid code. */
+export const useWindowInsets = createWindowInsets
