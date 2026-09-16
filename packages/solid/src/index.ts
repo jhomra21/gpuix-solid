@@ -11,9 +11,14 @@ export {
   readMacCpuThrottle,
 } from "./cpu-throttle.js"
 export type { MacCpuThrottle } from "./cpu-throttle.js"
-export { findRanges, useTextSearch } from "./hooks/use-text-search.js"
+export { createTextSearch, findRanges, useTextSearch } from "./hooks/use-text-search.js"
 export type { FindRangesOptions, TextSearch, TextSearchOptions } from "./hooks/use-text-search.js"
-export { useWindowInsets, useWindowSize } from "./hooks/use-window-size.js"
+export {
+  createWindowInsets,
+  createWindowSize,
+  useWindowInsets,
+  useWindowSize,
+} from "./hooks/use-window-size.js"
 export { createTextSelection } from "./primitives/create-text-selection.js"
 export type { TextSelection } from "./primitives/create-text-selection.js"
 export type {
