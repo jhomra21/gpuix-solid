@@ -9,13 +9,15 @@ GPUix Solid compiles Solid JSX into GPUIX's retained native tree. Bun runs the J
 The repository's next `0.2.x` line targets:
 
 - `gpuix-solid` from npm `latest` until the 0.2 release is published
-- `solid-js ^2.0.0-rc.0`, with clean-consumer release qualification on `2.0.0-rc.8`
+- `solid-js ^2.0.0-rc.8`
 - exact `@gpuix/native 0.9.0`
-- `@solidjs/universal 2.0.0-rc.0` as the renderer's direct runtime dependency
+- `@solidjs/universal 2.0.0-rc.8` as the renderer's direct runtime dependency
 - Bun 1.3.14
 - Vite 8.1.5 with `@solidjs/vite-plugin@3.0.0-next.29`
 
-Install the published package and the Solid 2 version used by current release qualification:
+The Solid runtime pair is kept aligned: `@solidjs/universal@2.0.0-rc.8` peers on `solid-js ^2.0.0-rc.8`, and repository package smoke exercises that same pair in clean npm and Bun consumers.
+
+Install the published package and the Solid 2 runtime used by the current repository baseline:
 
 ```bash
 bun add gpuix-solid solid-js@2.0.0-rc.8
