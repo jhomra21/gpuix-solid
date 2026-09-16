@@ -50,6 +50,10 @@ export interface LiveAutomationBackendOptions {
   tickBeforeRead?: boolean
 }
 
+function nextNativeInputTurn(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve))
+}
+
 export class LiveAutomationBackend implements AutomationBackend {
   readonly #renderer: LiveAutomationRenderer
   readonly #tickAfterInput: boolean
@@ -82,8 +86,16 @@ export class LiveAutomationBackend implements AutomationBackend {
     return parseBounds(this.#renderer.getElementBounds(elementId))
   }
 
-  click(x: number, y: number, button?: number, modifiers?: string): void {
-    this.#renderer.simulateClick(x, y, button, modifiers)
+  async click(x: number, y: number, button?: number, modifiers?: string): Promise<void> {
+    // Production GPUIX simulateClick queues press and release before its N-API
+    // callbacks can let Solid process the press. Mirror TestRenderer's proven
+    // phased click contract instead: deliver the down, yield one host turn for
+    // the callback + Solid mutation microtasks, then resolve release hit testing.
+    // The yield does not pump a competing GPUI frame when driveFrames is external.
+    this.#renderer.simulateMouseDown(x, y, button, modifiers)
+    this.#flushInput()
+    await nextNativeInputTurn()
+    this.#renderer.simulateMouseUp(x, y, button, modifiers)
     this.#flushInput()
   }
 
