@@ -22,7 +22,7 @@ bun add gpuix-solid solid-js@2.0.0-rc.8
 bun add -d @solidjs/vite-plugin@3.0.0-next.29 vite@8.1.5 typescript@5.9.2
 ```
 
-A copyable Solid 2 project lives at [`templates/solid2-vite-bun`](../templates/solid2-vite-bun). Until `0.2.0` is published, that public-install starter intentionally remains on the published `^0.1.0` line. It will move to `^0.2.0` only after npm can resolve that version in a clean external install.
+A copyable Solid 2 project lives at [`templates/solid2-vite-bun`](../templates/solid2-vite-bun). The public-install starter follows npm `latest`: before `0.2.0` is published it resolves the current stable 0.1.x line, and after publication the same template resolves 0.2.x without a release-after-the-release documentation edit. Exact release qualification still pins the candidate version separately.
 
 ## Create a project
 
