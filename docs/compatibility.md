@@ -9,8 +9,8 @@ Use [`getting-started.md`](./getting-started.md) for Solid 2 and [`getting-start
 | Layer | Current contract | Notes |
 | --- | --- | --- |
 | `gpuix-solid` | repository target `0.2.0`; npm `latest` remains the last published stable until release | Solid 2 renderer in `packages/solid` |
-| `solid-js` for Solid 2 | peer `^2.0.0-rc.0` | Release qualification and package smoke exercise `2.0.0-rc.1` |
-| `@solidjs/universal` | `2.0.0-rc.0` | Runtime dependency used by the Solid 2 renderer |
+| `solid-js` for Solid 2 | peer `^2.0.0-rc.0` | Clean-consumer release qualification and package smoke exercise `2.0.0-rc.8` |
+| `@solidjs/universal` | `2.0.0-rc.0` | Direct runtime dependency used by the Solid 2 renderer |
 | `@jhomra21/gpuix-solid1` | repository package version `0.1.0-beta.0` | Solid 1 renderer in `packages/solid1`; versioned separately from `gpuix-solid` |
 | `solid-js` for Solid 1 | peer `>=1.9.0 <2` | Repository CI exercises `1.9.15` |
 | `@gpuix/native` | exact `0.9.0` | Native desktop renderer contract used by both Solid packages; exact pairing follows GPUIX's pre-1.0 version policy |
@@ -43,6 +43,14 @@ The Solid 2 Vite path compiles JSX with `generate: "universal"` and `moduleName:
 The Solid 1 path follows the same runtime rule with `vite-plugin-solid` and `moduleName: "@jhomra21/gpuix-solid1"`. It also deduplicates `solid-js` so browser-oriented Solid 1 libraries use the same runtime instance as the renderer.
 
 The `browser` condition selects Solid's live reactive runtime. It does not add a DOM or web view.
+
+## Solid 2 API conventions
+
+Solid-owned helpers that allocate signals, timers, or native subscriptions use `create*` names: `createWindowSize()`, `createWindowInsets()`, `createTextSearch()`, and `createTextSelection()`. The `useWindowSize`, `useWindowInsets`, and `useTextSearch` names remain deprecated compatibility aliases so applications can migrate without an abrupt 0.2 break.
+
+Context readers keep normal Solid context naming. `useGpuix()` reads the existing renderer context; it does not allocate a new reactive primitive.
+
+Component context helpers explicitly reject missing providers so a `SelectTrigger`, `ComboboxInput`, or `TooltipContent` used outside its root fails at the component boundary rather than later with an unrelated property-access error.
 
 ## Solid 1 browser compatibility
 
