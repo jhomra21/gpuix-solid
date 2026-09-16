@@ -597,9 +597,12 @@ export class EventRegistry {
       && previous.clickCount === clickCount
       && Math.hypot(previous.x - x, previous.y - y) <= DOUBLE_CLICK_DISTANCE_PX
 
-    if (samePhysicalActivation && !previous.sourceKeys.has(sourceKey)) {
-      previous.sourceKeys.add(sourceKey)
-      return false
+    if (samePhysicalActivation) {
+      if (sourceKey.startsWith("click:") && previous.sourceKeys.has(sourceKey)) return false
+      if (!previous.sourceKeys.has(sourceKey)) {
+        previous.sourceKeys.add(sourceKey)
+        return false
+      }
     }
 
     const next: ActivationBurst = {
@@ -613,9 +616,9 @@ export class EventRegistry {
     this.#primaryClickBursts.set(event.elementId, next)
     // GPUI can report one physical activation through every retained subscription
     // on the hit path and, on some surfaces, both mouse-up and semantic-click
-    // channels. Keep those distinct sources in one synchronous burst, but seeing
-    // the same channel+element source twice starts the next real click. The burst
-    // expires at the next microtask, so separate activations never use a debounce.
+    // channels. Duplicate semantic-click delivery for the same retained source is
+    // also one activation. Repeated mouse-up sources still start the next real click,
+    // preserving rapid/double activation without introducing a time-based debounce.
     queueMicrotask(() => {
       if (this.#primaryClickBursts.get(event.elementId) === next) this.#primaryClickBursts.delete(event.elementId)
     })
