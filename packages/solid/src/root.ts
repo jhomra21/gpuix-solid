@@ -12,6 +12,7 @@ const windowSelectionEventIds = new WeakMap<NativeRenderer, number>()
 type PointerRelayEventType = "mouseMove" | "mouseUp"
 type PointerRelayBurst = {
   eventType: PointerRelayEventType
+  elementId: number
   x: number
   y: number
   button: number
@@ -236,37 +237,30 @@ export function createRoot(renderer: NativeRenderer, initialWindowEventHandlers:
     return false
   }
 
-  const isSyntheticRootRelayDuplicate = (event: EventPayload): boolean => {
+  const isSyntheticPointerRelayDuplicate = (event: EventPayload): boolean => {
     const relayType = pointerRelayEventType(event.eventType)
     if (!relayType) return false
     const mounted = container.children[0]
     if (!mounted || mounted.kind !== "element") return false
 
-    if (event.elementId !== mounted.id) {
-      const next = {
-        eventType: relayType,
-        x: event.x ?? 0,
-        y: event.y ?? 0,
-        button: event.button ?? 0,
-      } satisfies PointerRelayBurst
-      pointerRelayBurst = next
-      queueMicrotask(() => {
-        if (pointerRelayBurst === next) pointerRelayBurst = undefined
-      })
-      return false
-    }
-
-    const previous = pointerRelayBurst
-    if (!previous) return false
     const current = {
       eventType: relayType,
+      elementId: event.elementId,
       x: event.x ?? 0,
       y: event.y ?? 0,
       button: event.button ?? 0,
     } satisfies PointerRelayBurst
-    if (!samePointerRelayBurst(previous, current)) return false
     const pointerType = relayType === "mouseMove" ? "pointerMove" : "pointerUp"
-    return !events.has(mounted.id, pointerType) && !events.has(mounted.id, relayType)
+    const authored = events.has(event.elementId, pointerType) || events.has(event.elementId, relayType)
+    const previous = pointerRelayBurst
+
+    if (previous && samePointerRelayBurst(previous, current) && !authored) return true
+
+    pointerRelayBurst = current
+    queueMicrotask(() => {
+      if (pointerRelayBurst === current) pointerRelayBurst = undefined
+    })
+    return false
   }
 
   return {
@@ -367,7 +361,7 @@ export function createRoot(renderer: NativeRenderer, initialWindowEventHandlers:
             handled = true
             return
           }
-          if (isSyntheticRootRelayDuplicate(routedEvent)) {
+          if (isSyntheticPointerRelayDuplicate(routedEvent)) {
             handled = true
             return
           }
