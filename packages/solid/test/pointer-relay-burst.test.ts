@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { createElement } from "../src/host/universal.js"
+import { createElement, setProp } from "../src/host/universal.js"
 import type { HostElementNode } from "../src/host/nodes.js"
 import { createRoot } from "../src/root.js"
 import { FakeRenderer } from "./fake-renderer.js"
@@ -38,8 +38,7 @@ describe("synthetic pointer relay bursts", () => {
     const node = element()
     let localMoves = 0
     let globalMoves = 0
-
-    node.events.set("pointerMove", () => { localMoves += 1 })
+    setProp(node, "onPointerMove", () => { localMoves += 1 })
     root.render(() => node)
 
     const onPointerMove = () => { globalMoves += 1 }
