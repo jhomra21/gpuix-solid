@@ -71,11 +71,9 @@ interface SelectContextValue {
 const SelectContext = createContext<SelectContextValue>()
 
 function useSelectContext(name: string): SelectContextValue {
-  try {
-    return useContext(SelectContext)
-  } catch {
-    throw new Error(`${name} must be used inside Select`)
-  }
+  const context = useContext(SelectContext)
+  if (!context) throw new Error(`${name} must be used inside Select`)
+  return context
 }
 
 export interface SelectProps extends Omit<HostProps, "children" | "onChange"> {
