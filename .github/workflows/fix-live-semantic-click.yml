@@ -1,0 +1,103 @@
+name: Apply live semantic click fix
+
+on:
+  push:
+    branches:
+      - chore/solid-idioms-docs
+    paths:
+      - .github/workflows/fix-live-semantic-click.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: chore/solid-idioms-docs
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - name: Patch duplicate semantic click delivery
+        shell: python
+        run: |
+          from pathlib import Path
+
+          events_path = Path("packages/solid/src/host/events.ts")
+          events = events_path.read_text()
+          old_guard = '''    if (samePhysicalActivation && !previous.sourceKeys.has(sourceKey)) {
+              previous.sourceKeys.add(sourceKey)
+              return false
+            }
+          '''
+          new_guard = '''    if (samePhysicalActivation && previous.sourceKeys.has(sourceKey) && sourceKey.startsWith("click:")) {
+              return false
+            }
+
+            if (samePhysicalActivation && !previous.sourceKeys.has(sourceKey)) {
+              previous.sourceKeys.add(sourceKey)
+              return false
+            }
+          '''
+          if events.count(old_guard) != 1:
+              raise SystemExit("expected primary-click source guard exactly once")
+          events = events.replace(old_guard, new_guard)
+
+          old_comment = '''    // GPUI can report one physical activation through every retained subscription
+            // on the hit path and, on some surfaces, both mouse-up and semantic-click
+            // channels. Keep those distinct sources in one synchronous burst, but seeing
+            // the same channel+element source twice starts the next real click. The burst
+            // expires at the next microtask, so separate activations never use a debounce.
+          '''
+          new_comment = '''    // GPUI can report one physical activation through every retained subscription
+            // on the hit path and, on some surfaces, both mouse-up and semantic-click
+            // channels. Keep those distinct sources in one synchronous burst. Repeated
+            // semantic-click callbacks from the same retained source are duplicate delivery;
+            // repeated mouse-up remains a real rapid/double-click activation path. The burst
+            // expires at the next microtask, so separate activations never use a debounce.
+          '''
+          if events.count(old_comment) != 1:
+              raise SystemExit("expected primary-click burst comment exactly once")
+          events_path.write_text(events.replace(old_comment, new_comment))
+
+          test_path = Path("packages/solid/test/primary-click-compat.test.ts")
+          tests = test_path.read_text()
+          marker = '''  it("keeps double-click-only controls activatable through primary mouse-up", () => {
+          '''
+          regression = '''  it("coalesces duplicate semantic click callbacks within one native burst", async () => {
+            const events = new EventRegistry()
+            const elementId = 45
+            let clicks = 0
+
+            events.activate(elementId)
+            events.set(elementId, "click", () => {
+              clicks += 1
+            })
+
+            events.dispatch(primaryClick(elementId))
+            events.dispatch(primaryClick(elementId))
+            expect(clicks).toBe(1)
+
+            await Promise.resolve()
+            events.dispatch(primaryClick(elementId))
+            expect(clicks).toBe(2)
+          })
+
+          '''
+          if tests.count(marker) != 1:
+              raise SystemExit("expected double-click regression marker exactly once")
+          test_path.write_text(tests.replace(marker, regression + marker))
+      - name: Run focused click compatibility regression
+        run: cd packages/solid && bunx vitest run test/primary-click-compat.test.ts
+      - name: Commit runtime fix and remove helper workflow
+        run: |
+          rm .github/workflows/fix-live-semantic-click.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: coalesce duplicate native semantic clicks"
+          git push origin HEAD:chore/solid-idioms-docs
