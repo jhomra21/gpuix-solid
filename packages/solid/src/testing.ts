@@ -1,45 +1,88 @@
-import { createRequire } from "node:module"
-import type { EventPayload, TestGpuixRenderer as NativeTestRendererApi } from "@gpuix/native"
-import type { Element as SolidElement } from "solid-js"
-import { useDestroyUnlinksParentBatch, type MutationValue } from "./host/mutations.js"
 import type {
+  AnimationSnapshot,
   DebugFrameOverlayMode,
   DebugFrameOverlayStats,
+  EventPayload,
+  GpuixRenderer,
   HighlightMatch,
-  NativeRenderer,
+  MutationValue,
+  NativeElementBounds,
   StyleDesc,
+  WindowEventHandlers,
 } from "./host/types.js"
-import { normalizeNativeElementBounds } from "./native-bounds.js"
-import { createRoot, type Root, type WindowEventHandlers } from "./root.js"
+import { useDestroyUnlinksParentBatch } from "./host/behavior.js"
+import { Root } from "./root.js"
+import { createRoot } from "./runtime.js"
+import type { SolidElement } from "solid-js"
 
-type NativeTestRendererConstructor = new (
-  width?: number | null,
-  height?: number | null,
-) => NativeTestRendererApi
+// The testing adapter intentionally mirrors the useful public GPUIX test
+// surface while keeping the native renderer typed through the host contract.
+// The native addon is optional at import time so pure logic tests can still run
+// on machines where the platform binary is unavailable.
+
+type NativeTestRenderer = GpuixRenderer & {
+  getRootId(): number | null
+  getTreeJson(): string
+  getAllText(): string[]
+  getText(id: number): string | null
+  findByType(type: string): number[]
+  hasEventListener(id: number, eventType: string): boolean
+  dispatchEvent(id: number, eventType: string, payload?: EventPayload): void
+  flush(): void
+  drainEvents(): EventPayload[]
+  getA11yTree(): string
+  getAutomationTree(): string
+  getRetainedElementCount(): number
+  getElementBounds(elementId: number): NativeElementBounds | null
+  clockPause(): number
+  clockSet(nowMs: number): number
+  clockFastForward(deltaMs: number): number
+  clockResume(): number
+  simulateClick(x: number, y: number, button?: number, modifiers?: string): void
+  simulateMouseMove(x: number, y: number, pressedButton?: number, modifiers?: string): void
+  simulateMouseDown(x: number, y: number, button?: number, modifiers?: string): void
+  simulateMouseUp(x: number, y: number, button?: number, modifiers?: string): void
+  simulateScrollWheel(x: number, y: number, deltaX: number, deltaY: number, modifiers?: string): void
+  simulateKeystrokes(text: string): void
+  simulateKeyDown(keystroke: string, isHeld?: boolean): void
+  simulateKeyUp(keystroke: string): void
+  simulateFileDrop(x: number, y: number, paths: string[]): void
+  focusElement(elementId: number): void
+  getFocusedElementId(): number | null
+  focusNextWithin(elementId: number): void
+  focusPreviousWithin(elementId: number): void
+  getWindowSize(): { width: number; height: number }
+  scrollTo(elementId: number, x: number, y: number): void
+  scrollToItem(elementId: number, index: number, offsetInItem?: number): void
+  getScrollOffset(elementId: number): number[] | null
+  getListScrollTop(elementId: number): number[] | null
+  dragSelect(x1: number, y1: number, x2: number, y2: number): void
+  getSelectedText(): string | null
+  clearSelection(): void
+  getPaintedText(): string[]
+  getPaintedHighlights(): HighlightMatch[]
+  getSyntaxCacheStats(): number[]
+  captureScreenshot(path: string): void
+  setDebugFrameOverlay(mode: DebugFrameOverlayMode): string
+  getDebugFrameOverlay(): string
+  cycleDebugFrameOverlay(): string
+  resetDebugFrameOverlayStats(): void
+  getDebugFrameOverlayStats(): DebugFrameOverlayStats
+}
+
 type NativeModule = {
-  TestGpuixRenderer?: NativeTestRendererConstructor
-  hasTestGpuixRenderer?: () => boolean
+  TestGpuixRenderer?: new (width?: number, height?: number) => NativeTestRenderer
 }
 
-function loadNativeTestRenderer(): NativeTestRendererConstructor | undefined {
-  try {
-    const require = createRequire(import.meta.url)
-    // SAFETY: @gpuix/native's generated entrypoint exports this constructor
-    // when the installed platform binding was built with native test support.
-    const nativeModule = require("@gpuix/native") as NativeModule
-    if (nativeModule.hasTestGpuixRenderer?.() !== true) return undefined
-    return nativeModule.TestGpuixRenderer
-  } catch {
-    return undefined
-  }
+let NativeCtor: NativeModule["TestGpuixRenderer"]
+try {
+  const native = await import("@gpuix/native") as NativeModule
+  NativeCtor = native.TestGpuixRenderer
+} catch {
+  NativeCtor = undefined
 }
 
-const NativeTestRenderer = loadNativeTestRenderer()
-
-/** Whether this installed native build provides the real GPU-backed test renderer. */
-export const hasNativeTestRenderer = NativeTestRenderer !== undefined
-
-type TestCustomProps = Record<string, MutationValue>
+export const hasNativeTestRenderer = NativeCtor !== undefined
 
 export interface TestElement {
   id: number
@@ -49,160 +92,174 @@ export interface TestElement {
   events: Set<string>
   children: number[]
   parentId: number | null
-  customProps?: TestCustomProps
+  testId?: string
+  customProps?: Record<string, unknown>
 }
 
-interface NativeTreeNode {
+type NativeTreeNode = {
   id: number
   type: string
-  testId?: string
   style?: StyleDesc
   text?: string | null
   events?: string[]
   children?: NativeTreeNode[]
-  customProps?: TestCustomProps
+  testId?: string
+  customProps?: Record<string, unknown>
 }
 
 function parseTree(json: string): NativeTreeNode | null {
-  // SAFETY: TestGpuixRenderer.getTreeJson() is a native contract that returns
-  // a serialized retained-tree node or null with this exact recursive shape.
-  return JSON.parse(json) as NativeTreeNode | null
+  if (!json) return null
+  return JSON.parse(json) as NativeTreeNode
 }
 
-/** Solid adapter over GPUIX's native TestGpuixRenderer. */
-export class TestRenderer implements NativeRenderer {
-  readonly #native: NativeTestRendererApi
-  #root: Root | undefined
-  commitCount = 0
+function normalizeNativeElementBounds(bounds: NativeElementBounds | null): number[] | null {
+  if (!bounds) return null
+  if (Array.isArray(bounds)) return bounds
+  return [bounds.x, bounds.y, bounds.width, bounds.height]
+}
+
+export class TestRenderer implements GpuixRenderer {
+  readonly #native: NativeTestRenderer
+  #root: Root | null = null
 
   constructor(width?: number, height?: number) {
-    if (!NativeTestRenderer) {
-      throw new Error(
-        "Native TestGpuixRenderer not available. Use a native build with test support.",
-      )
-    }
-    this.#native = new NativeTestRenderer(width, height)
+    if (!NativeCtor) throw new Error("@gpuix/native TestGpuixRenderer is unavailable")
+    this.#native = new NativeCtor(width, height)
   }
 
   bindRoot(root: Root): void {
     this.#root = root
   }
 
-  createElement(id: number, elementType: string): void {
-    this.#applyOne(["createElement", id, elementType])
+  createElement(type: string): number {
+    return this.#native.createElement(type)
   }
 
-  destroyElement(id: number): number[] {
-    return this.#applyOne(["destroyElement", id])
-  }
-
-  appendChild(parentId: number, childId: number): void {
-    this.#applyOne(["appendChild", parentId, childId])
-  }
-
-  removeChild(parentId: number, childId: number): void {
-    this.#applyOne(["removeChild", parentId, childId])
-  }
-
-  insertBefore(parentId: number, childId: number, beforeId: number): void {
-    this.#applyOne(["insertBefore", parentId, childId, beforeId])
-  }
-
-  setStyle(id: number, styleJson: string): void {
-    this.#applyOne(["setStyle", id, parseMutationValue(styleJson)])
-  }
-
-  setText(id: number, content: string): void {
-    this.#applyOne(["setText", id, content])
-  }
-
-  setEventListener(id: number, eventType: string, hasHandler: boolean): void {
-    this.#applyOne(["setEventListener", id, eventType, hasHandler])
+  createTextNode(text: string): number {
+    return this.#native.createTextNode(text)
   }
 
   setRoot(id: number): void {
-    this.#applyOne(["setRoot", id])
+    this.#native.setRoot(id)
+  }
+
+  appendChild(parentId: number, childId: number): void {
+    this.#native.appendChild(parentId, childId)
+  }
+
+  insertBefore(parentId: number, childId: number, beforeId: number): void {
+    this.#native.insertBefore(parentId, childId, beforeId)
+  }
+
+  removeChild(parentId: number, childId: number): void {
+    this.#native.removeChild(parentId, childId)
+  }
+
+  clearChildren(parentId: number): void {
+    this.#native.clearChildren(parentId)
+  }
+
+  destroyElement(id: number): void {
+    this.#native.destroyElement(id)
+  }
+
+  setText(id: number, text: string): void {
+    this.#native.setText(id, text)
+  }
+
+  setStyle(id: number, key: string, valueJson: string): void {
+    this.#native.setStyle(id, key, valueJson)
+  }
+
+  setStyles(id: number, stylesJson: string): void {
+    this.#native.setStyles(id, stylesJson)
+  }
+
+  clearStyle(id: number, key: string): void {
+    this.#native.clearStyle(id, key)
+  }
+
+  clearStyles(id: number): void {
+    this.#native.clearStyles(id)
   }
 
   setCustomProp(id: number, key: string, valueJson: string): void {
-    this.#applyOne(["setCustomProp", id, key, parseMutationValue(valueJson)])
+    this.#native.setCustomProp(id, key, valueJson)
   }
 
-  commitMutations(): void {
-    // GPUIX applyBatch commits immediately; compatibility calls above are already visible.
+  clearCustomProp(id: number, key: string): void {
+    this.#native.clearCustomProp(id, key)
   }
 
-  applyBatch(json: string): number[] {
-    const destroyed = this.#native.applyBatch(json)
-    this.commitCount++
-    return destroyed
+  addEventListener(id: number, eventType: string): void {
+    this.#native.addEventListener(id, eventType)
   }
 
-  /** Run GPUI rendering/layout until the native test dispatcher parks. */
+  removeEventListener(id: number, eventType: string): void {
+    this.#native.removeEventListener(id, eventType)
+  }
+
+  setWindowKeyEvents(keyDown: boolean, keyUp: boolean, eventId: number): void {
+    this.#native.setWindowKeyEvents?.(keyDown, keyUp, eventId)
+  }
+
+  setWindowSelectionChange(enabled: boolean, eventId: number): void {
+    this.#native.setWindowSelectionChange?.(enabled, eventId)
+  }
+
+  setWindowBoundsListener(enabled: boolean, eventId: number): void {
+    this.#native.setWindowBoundsListener?.(enabled, eventId)
+  }
+
+  requestClose(): void {
+    this.#native.requestClose?.()
+  }
+
+  applyBatch(mutationsJson: string): number[] {
+    return this.#native.applyBatch(mutationsJson)
+  }
+
   flush(): void {
     this.#native.flush()
   }
 
-  drainEvents(): EventPayload[] {
-    return this.#native.drainEvents()
-  }
-
-  /** Feed all pending native GPUI events through this Solid root. */
   dispatchNativeEvents(): void {
-    const root = this.#root
-    if (!root) {
-      throw new Error("TestRenderer is not bound to a Solid test root")
-    }
-
-    for (;;) {
-      const events = this.#native.drainEvents()
-      if (events.length === 0) return
-      for (const event of events) root.dispatch(event)
-    }
+    const events = this.#native.drainEvents()
+    for (const event of events) this.#root?.dispatchNativeEvent(event)
   }
 
-  simulateKeystrokes(keystrokes: string): void {
-    this.#native.flush()
-    this.#native.simulateKeystrokes(keystrokes)
+  dispatchEvent(id: number, eventType: string, payload: EventPayload = {}): void {
+    this.#native.dispatchEvent(id, eventType, payload)
     this.dispatchNativeEvents()
     this.#native.flush()
   }
 
-  nativeSimulateKeystrokes(elementId: number, keystrokes: string): void {
+  nativeSimulateClick(x: number, y: number, button?: number, modifiers?: string): void {
     this.#native.flush()
-    this.#native.focusElement(elementId)
-    this.#native.simulateKeystrokes(keystrokes)
+    this.#native.simulateClick(x, y, button, modifiers)
     this.dispatchNativeEvents()
     this.#native.flush()
   }
 
-  nativeSimulateKeyDown(elementId: number, keystroke: string, isHeld = false): void {
+  nativeSimulateMouseMove(x: number, y: number, pressedButton?: number, modifiers?: string): void {
     this.#native.flush()
-    this.#native.focusElement(elementId)
-    this.#native.simulateKeyDown(keystroke, isHeld)
+    this.#native.simulateMouseMove(x, y, pressedButton, modifiers)
     this.dispatchNativeEvents()
     this.#native.flush()
   }
 
-  nativeSimulateKeyUp(elementId: number, keystroke: string): void {
+  nativeSimulateMouseDown(x: number, y: number, button?: number, modifiers?: string): void {
     this.#native.flush()
-    this.#native.focusElement(elementId)
-    this.#native.simulateKeyUp(keystroke)
+    this.#native.simulateMouseDown(x, y, button ?? 0, modifiers)
     this.dispatchNativeEvents()
     this.#native.flush()
   }
 
-  nativeSimulateClick(
-    x: number,
-    y: number,
-    button = 0,
-    modifiers?: string,
-  ): void {
-    // GPUIX simulateClick queues mouse-down and mouse-up before Solid can process
-    // either event. Drive the phases separately so down-side mutations/remounts
-    // are committed before native hit testing resolves the physical release.
-    this.nativeSimulateMouseDown(x, y, button, modifiers)
-    this.nativeSimulateMouseUp(x, y, button, modifiers)
+  nativeSimulateMouseUp(x: number, y: number, button?: number, modifiers?: string): void {
+    this.#native.flush()
+    this.#native.simulateMouseUp(x, y, button ?? 0, modifiers)
+    this.dispatchNativeEvents()
+    this.#native.flush()
   }
 
   nativeSimulateScrollWheel(
@@ -218,38 +275,27 @@ export class TestRenderer implements NativeRenderer {
     this.#native.flush()
   }
 
-  nativeSimulateMouseMove(
-    x: number,
-    y: number,
-    pressedButton?: number,
-    modifiers?: string,
-  ): void {
+  nativeSimulateFileDrop(x: number, y: number, paths: string[]): void {
     this.#native.flush()
-    this.#native.simulateMouseMove(x, y, pressedButton, modifiers)
+    this.#native.simulateFileDrop(x, y, paths)
     this.dispatchNativeEvents()
     this.#native.flush()
   }
 
-  nativeSimulateMouseDown(
-    x: number,
-    y: number,
-    button = 0,
-    modifiers?: string,
-  ): void {
-    this.#native.flush()
-    this.#native.simulateMouseDown(x, y, button, modifiers)
+  simulateKeystrokes(text: string): void {
+    this.#native.simulateKeystrokes(text)
     this.dispatchNativeEvents()
     this.#native.flush()
   }
 
-  nativeSimulateMouseUp(
-    x: number,
-    y: number,
-    button = 0,
-    modifiers?: string,
-  ): void {
+  simulateKeyDown(keystroke: string, isHeld?: boolean): void {
+    this.#native.simulateKeyDown(keystroke, isHeld)
+    this.dispatchNativeEvents()
     this.#native.flush()
-    this.#native.simulateMouseUp(x, y, button, modifiers)
+  }
+
+  simulateKeyUp(keystroke: string): void {
+    this.#native.simulateKeyUp(keystroke)
     this.dispatchNativeEvents()
     this.#native.flush()
   }
@@ -258,45 +304,26 @@ export class TestRenderer implements NativeRenderer {
     this.#native.flush()
     this.#native.focusElement(elementId)
     this.dispatchNativeEvents()
-    this.#native.flush()
   }
 
-  focusNext(): void { this.#native.focusNext() }
-  focusPrevious(): void { this.#native.focusPrevious() }
-  setWindowKeyEvents(keyDown: boolean, keyUp: boolean, eventId: number): void {
-    this.#native.setWindowKeyEvents(keyDown, keyUp, eventId)
+  getFocusedElementId(): number | null {
+    this.#native.flush()
+    return this.#native.getFocusedElementId()
   }
 
-  setWindowSelectionChange(enabled: boolean, eventId: number): void {
-    this.#native.setWindowSelectionChange(enabled, eventId)
+  focusNextWithin(elementId: number): void {
+    this.#native.flush()
+    this.#native.focusNextWithin(elementId)
+    this.dispatchNativeEvents()
   }
 
-  scrollTo(elementId: number, x: number, y: number): void {
+  focusPreviousWithin(elementId: number): void {
     this.#native.flush()
-    this.#native.scrollTo(elementId, x, y)
-    this.#native.flush()
-  }
-
-  scrollToItem(elementId: number, index: number, offsetInItem?: number): void {
-    this.#native.flush()
-    this.#native.scrollToItem(elementId, index, offsetInItem)
-    this.#native.flush()
-  }
-
-  getScrollOffset(elementId: number): [number, number] | null {
-    this.#native.flush()
-    const offset = this.#native.getScrollOffset(elementId)
-    if (!offset) return null
-    const x = offset[0]
-    const y = offset[1]
-    if (x === undefined || y === undefined) {
-      throw new Error("Native scroll offset did not contain two coordinates")
-    }
-    return [x, y]
+    this.#native.focusPreviousWithin(elementId)
+    this.dispatchNativeEvents()
   }
 
   getWindowSize(): { width: number; height: number } {
-    this.#native.flush()
     return this.#native.getWindowSize()
   }
 
@@ -326,6 +353,9 @@ export class TestRenderer implements NativeRenderer {
 
   clearSelection(): void {
     this.#native.clearSelection()
+    // GPUI emits the selectionChange event while processing the repaint.
+    // Flush before draining events, then flush once more after Solid updates.
+    this.#native.flush()
     this.dispatchNativeEvents()
     this.#native.flush()
   }
