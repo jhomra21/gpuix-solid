@@ -5,7 +5,7 @@ type Options = {
   onChangeBpm: (next: number) => void
 }
 
-export function useTransportTempoController(options: Options) {
+export function createTransportTempoController(options: Options) {
   const [tempoDraft, setTempoDraft] = createSignal(String(options.bpm()))
   const [tempoEditing, setTempoEditing] = createSignal(false)
   const [tempoDragActive, setTempoDragActive] = createSignal(false)
@@ -114,3 +114,6 @@ export function useTransportTempoController(options: Options) {
     endTempoDrag,
   }
 }
+
+/** @deprecated Use createTransportTempoController. Kept for the pinned upstream DAW import contract. */
+export const useTransportTempoController = createTransportTempoController
