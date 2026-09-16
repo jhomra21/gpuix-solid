@@ -26,7 +26,7 @@ function App() {
       </text>
 
       <text style={{ color: "#a8a8a8", fontSize: 15 }}>
-        Solid 2 signals driving a native GPUIX 0.8 retained tree.
+        Solid 2 signals driving a native GPUIX 0.9 retained tree.
       </text>
 
       <text style={{ color: "#f7f7f7", fontSize: 20 }}>
