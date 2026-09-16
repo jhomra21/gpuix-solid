@@ -7,6 +7,7 @@ on:
       - ".github/workflows/gpuix-09-bootstrap.yml"
       - "scripts/upgrade-gpuix-09.mjs"
       - "scripts/upgrade-gpuix-09-version-policy.mjs"
+      - "scripts/upgrade-gpuix-09-fixes.mjs"
 
 permissions:
   contents: write
@@ -29,6 +30,7 @@ jobs:
         run: |
           node scripts/upgrade-gpuix-09.mjs
           node scripts/upgrade-gpuix-09-version-policy.mjs
+          node scripts/upgrade-gpuix-09-fixes.mjs
 
       - name: Resolve exact 0.9 native packages and regenerate lock
         run: bun install
@@ -53,6 +55,7 @@ jobs:
           rm .github/workflows/gpuix-09-bootstrap.yml
           rm scripts/upgrade-gpuix-09.mjs
           rm scripts/upgrade-gpuix-09-version-policy.mjs
+          rm scripts/upgrade-gpuix-09-fixes.mjs
 
       - name: Commit migrated tree
         run: |
