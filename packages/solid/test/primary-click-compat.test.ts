@@ -53,6 +53,26 @@ describe("embedded primary click compatibility", () => {
     expect(clicks).toBe(1)
   })
 
+  it("coalesces duplicate semantic click delivery within one burst without debouncing later clicks", async () => {
+    const events = new EventRegistry()
+    const elementId = 6
+    let clicks = 0
+
+    events.activate(elementId)
+    events.set(elementId, "click", () => {
+      clicks += 1
+    })
+
+    const click = primaryClick(elementId)
+    events.dispatch(click)
+    events.dispatch(click)
+    expect(clicks).toBe(1)
+
+    await Promise.resolve()
+    events.dispatch(click)
+    expect(clicks).toBe(2)
+  })
+
   it("replays a missed owner pointer-down before a relayed primary click", () => {
     const events = new EventRegistry()
     const parentId = 8
