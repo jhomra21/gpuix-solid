@@ -226,6 +226,6 @@ The normal deterministic contracts include:
 - Solid 1 package and consumer builds
 - Kobalte/Tailwind/DAW native fixtures in their dedicated validation lanes
 - exact package smoke in clean consumers
-- exact pinned GPUIX 0.8 source build/link/compatibility
+- exact pinned GPUIX 0.9 source build/link/compatibility
 
-Physical foreground macOS input remains a separate acceptance category. The exact published `gpuix-solid@0.1.0-rc.1` and `@gpuix/native@0.8.0` pair passed the external Counter and GPUIX 0.8 text/input foreground test on September 15, 2026 with no crash or fatal `GpuixView` error. The earlier source-level ownership concern remains documented as diagnostic history rather than a currently reproduced release blocker.
+Physical foreground macOS input remains a separate acceptance category. The exact published `gpuix-solid@0.1.0-rc.1` and `@gpuix/native@0.8.0` pair passed the external Counter and GPUIX 0.8 text/input foreground test on September 15, 2026 with no crash or fatal `GpuixView` error. That paragraph is historical qualification for the 0.1 line; the current deterministic and source-edge baseline is GPUIX 0.9.
