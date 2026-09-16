@@ -11,9 +11,9 @@ This template lives outside the repository workspaces. Its Vite configuration ma
 - Bun 1.3.14 or newer in the 1.3 line
 - a supported `@gpuix/native` desktop platform package
 - the paired Solid 2 RC.8 runtime line: `solid-js@2.0.0-rc.8` with `@solidjs/universal@2.0.0-rc.8` supplied by `gpuix-solid`
-- `gpuix-solid` from npm `latest`
+- the stable `gpuix-solid ^0.1.0` package line from npm `latest`
 
-The repository's upcoming `0.2.x` line targets exact `@gpuix/native@0.9.0` and is continuously checked on macOS arm64, Linux x64 GNU, and Windows x64 MSVC. Until 0.2.0 is published, `latest` still resolves the last published 0.1.x package; after publication the same starter resolves the new stable line without a template-only version edit.
+The repository's upcoming `0.2.x` line targets exact `@gpuix/native@0.9.0` and is continuously checked on macOS arm64, Linux x64 GNU, and Windows x64 MSVC. Until `0.2.0` is published and verified from a clean external install, this public starter intentionally remains bounded to the published 0.1.x line. After publication, it will move deliberately to `^0.2.0`.
 
 ## Install
 
@@ -21,7 +21,7 @@ The repository's upcoming `0.2.x` line targets exact `@gpuix/native@0.9.0` and i
 bun install
 ```
 
-The starter deliberately follows npm `latest` because it is the clean public-install template. Release qualification separately pins exact package, Solid runtime, and native versions before publication.
+The starter uses `gpuix-solid ^0.1.0`. A fresh install therefore resolves the current compatible stable patch instead of silently floating across future release lines or prerelease tags. Release qualification separately pins exact package, Solid runtime, and native versions before publication.
 
 ## Typecheck and build
 
