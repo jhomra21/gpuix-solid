@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url"
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const npm = process.platform === "win32" ? "npm.cmd" : "npm"
 const bun = process.platform === "win32" ? "bun.exe" : "bun"
+const solidVersion = "2.0.0-rc.8"
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -62,7 +63,7 @@ try {
   )
   run(
     npm,
-    ["install", "--ignore-scripts", "--no-audit", "--no-fund", tarball, "solid-js@2.0.0-rc.1"],
+    ["install", "--ignore-scripts", "--no-audit", "--no-fund", tarball, `solid-js@${solidVersion}`],
     { cwd: npmConsumer },
   )
   run(
@@ -73,7 +74,18 @@ try {
       `
         const main = await import("gpuix-solid")
         const automation = await import("gpuix-solid/automation")
-        for (const key of ["render", "animate", "Tooltip", "Select", "Combobox", "createTestRoot"]) {
+        for (const key of [
+          "render",
+          "animate",
+          "Tooltip",
+          "Select",
+          "Combobox",
+          "createTestRoot",
+          "createTextSearch",
+          "createWindowInsets",
+          "createWindowSize",
+          "createTextSelection",
+        ]) {
           if (!(key in main)) throw new Error("Missing root export: " + key)
         }
         for (const key of ["launch", "Locator", "connectStdio"]) {
@@ -102,6 +114,9 @@ try {
       TooltipProvider,
       TooltipTrigger,
       animate,
+      createTextSearch,
+      createWindowInsets,
+      createWindowSize,
       type AnimationStyle,
       type HostProps,
     } from "gpuix-solid"
@@ -119,6 +134,12 @@ try {
 
     export function ConsumerFixture() {
       const [count, setCount] = createSignal(0)
+      const windowSize = createWindowSize({ intervalMs: false })
+      const insets = createWindowInsets({ intervalMs: false })
+      const search = createTextSearch({ query: "Count" })
+      void windowSize.width
+      void insets.visibleHeight
+      void search.total
 
       return (
         <TooltipProvider delayDuration={0}>
@@ -217,7 +238,7 @@ try {
     path.join(bunConsumer, "package.json"),
     `${JSON.stringify({ private: true, type: "module" }, null, 2)}\n`,
   )
-  run(bun, ["add", "--ignore-scripts", tarball, "solid-js@2.0.0-rc.1"], { cwd: bunConsumer })
+  run(bun, ["add", "--ignore-scripts", tarball, `solid-js@${solidVersion}`], { cwd: bunConsumer })
   run(
     bun,
     [
@@ -226,6 +247,7 @@ try {
         import * as main from "gpuix-solid"
         import * as automation from "gpuix-solid/automation"
         if (!("render" in main) || !("animate" in main)) throw new Error("Bun root import failed")
+        if (!("createTextSearch" in main) || !("createWindowInsets" in main)) throw new Error("Bun Solid primitive imports failed")
         if (!("launch" in automation) || !("Locator" in automation)) throw new Error("Bun automation import failed")
         console.log("Bun clean-consumer imports: PASS")
       `,
@@ -234,7 +256,7 @@ try {
   )
 
   console.log(
-    `Smoked ${manifest.name}@${manifest.version}: ${manifest.filename}, ${manifest.integrity}`,
+    `Smoked ${manifest.name}@${manifest.version} with solid-js@${solidVersion}: ${manifest.filename}, ${manifest.integrity}`,
   )
 } finally {
   rmSync(root, { recursive: true, force: true })
