@@ -57,6 +57,18 @@ describe("frame-change pointer release recovery", () => {
     expect(relay.route(pointerEvent("mouseUp", rootId), rootId, () => true)?.elementId).toBe(pressedId)
   })
 
+  it("keeps separate physical releases distinct even at identical coordinates", () => {
+    const relay = new BrowserPointerReleaseRelay()
+    const rootId = 1
+    const pressedId = 2
+
+    relay.route(pointerEvent("mouseDown", pressedId), rootId, () => true)
+    expect(relay.route(pointerEvent("mouseUp", pressedId), rootId, () => true)?.elementId).toBe(pressedId)
+
+    relay.route(pointerEvent("mouseDown", pressedId), rootId, () => true)
+    expect(relay.route(pointerEvent("mouseUp", pressedId), rootId, () => true)?.elementId).toBe(pressedId)
+  })
+
   it("keeps a sibling relay release global-only after the pressed target remounts", () => {
     const relay = new BrowserPointerReleaseRelay()
     const rootId = 1
