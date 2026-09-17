@@ -66,6 +66,7 @@ const POINTER_ID = 0
 const PERSISTENT_DEVICE_ID = 0
 const DOUBLE_CLICK_MS = 500
 const DOUBLE_CLICK_DISTANCE_PX = 4
+const NATIVE_CLICK_RELAY_MS = 250
 
 installNativeDomGlobals()
 
@@ -137,7 +138,6 @@ function domCompatibleEvent(
   const currentTarget = target ?? fallbackTarget(event)
   if (event.value !== undefined) currentTarget.value = event.value
   const state = { defaultPrevented: false, propagationStopped: false }
-  // SAFETY: EventPayload is the native event plus the DOM-compatible fields constructed below.
   const payload = Object.assign({}, event, {
     type: browserEventName(domEventType),
     currentTarget,
@@ -291,10 +291,12 @@ type LastClick = {
 type ActivationBurst = {
   elementId: number
   sourceKeys: Set<string>
+  source: "mouseUp" | "click"
   button: number
   clickCount: number
   x: number
   y: number
+  at: number
 }
 
 type NativeClickBubble = {
@@ -330,17 +332,9 @@ export class EventRegistry {
   #activeRangeId: number | undefined
   #lastClick: LastClick | undefined
 
-  activate(id: number): void {
-    this.#live.add(id)
-  }
-
-  setTarget(id: number, target: DomCompatTarget): void {
-    this.#targets.set(id, target)
-  }
-
-  setParent(id: number, parentId: number | null): void {
-    this.#parents.set(id, parentId)
-  }
+  activate(id: number): void { this.#live.add(id) }
+  setTarget(id: number, target: DomCompatTarget): void { this.#targets.set(id, target) }
+  setParent(id: number, parentId: number | null): void { this.#parents.set(id, parentId) }
 
   deactivate(id: number): void {
     for (const [pointerId, ownerId] of this.#pointerCapture) {
@@ -395,9 +389,7 @@ export class EventRegistry {
     this.#lastClick = undefined
   }
 
-  has(id: number, eventType: string): boolean {
-    return this.#handlers.get(id)?.has(eventType) ?? false
-  }
+  has(id: number, eventType: string): boolean { return this.#handlers.get(id)?.has(eventType) ?? false }
 
   setPointerCapture(id: number, pointerId: number): void {
     if (!this.#live.has(id)) throw new DOMException("Pointer capture target is not connected", "InvalidStateError")
@@ -413,14 +405,13 @@ export class EventRegistry {
     this.#releasePointerCapture(id, pointerId)
   }
 
-  hasPointerCapture(id: number, pointerId: number): boolean {
-    return this.#pointerCapture.get(pointerId) === id
-  }
+  hasPointerCapture(id: number, pointerId: number): boolean { return this.#pointerCapture.get(pointerId) === id }
 
   dispatch(event: NativeEventPayload): void {
     if (!this.#live.has(event.elementId)) return
     switch (event.eventType) {
       case "mouseDown": {
+        this.#primaryClickBursts.clear()
         this.#activePointers.add(POINTER_ID)
         this.#lastPointerEvent.set(POINTER_ID, event)
         if ((event.button ?? 0) === 0 && this.#isRangeTarget(event.elementId)) {
@@ -471,9 +462,7 @@ export class EventRegistry {
         if (this.#isBubbledNativeClick(event)) return
         const sourceElementId = event.elementId
         const clickOwner = this.#primaryClickOwner(sourceElementId)
-        const clickEvent = clickOwner === undefined || clickOwner === sourceElementId
-          ? event
-          : { ...event, elementId: clickOwner }
+        const clickEvent = clickOwner === undefined || clickOwner === sourceElementId ? event : { ...event, elementId: clickOwner }
         if (this.#shouldDispatchPrimaryClick(clickEvent, `click:${sourceElementId}`)) this.#dispatchPrimaryClick(clickEvent)
         return
       }
@@ -490,19 +479,12 @@ export class EventRegistry {
         return
       }
       default:
-        for (const domEventType of DOM_EVENTS_BY_NATIVE.get(event.eventType) ?? []) {
-          this.#dispatchDom(event.elementId, domEventType, event)
-        }
+        for (const domEventType of DOM_EVENTS_BY_NATIVE.get(event.eventType) ?? []) this.#dispatchDom(event.elementId, domEventType, event)
     }
   }
 
-  #isRangeTarget(elementId: number): boolean {
-    return this.#targets.get(elementId)?.getAttribute("type")?.toLowerCase() === "range"
-  }
-
-  #isCheckboxTarget(elementId: number): boolean {
-    return this.#targets.get(elementId)?.getAttribute("type")?.toLowerCase() === "checkbox"
-  }
+  #isRangeTarget(elementId: number): boolean { return this.#targets.get(elementId)?.getAttribute("type")?.toLowerCase() === "range" }
+  #isCheckboxTarget(elementId: number): boolean { return this.#targets.get(elementId)?.getAttribute("type")?.toLowerCase() === "checkbox" }
 
   #primaryClickOwner(elementId: number): number | undefined {
     if (this.#isCheckboxTarget(elementId)) return elementId
@@ -521,17 +503,7 @@ export class EventRegistry {
     const x = event.x ?? 0
     const y = event.y ?? 0
     const previous = this.#nativeClickBubble
-    if (
-      previous
-      && previous.ancestors.has(event.elementId)
-      && previous.button === button
-      && previous.clickCount === clickCount
-      && previous.x === x
-      && previous.y === y
-    ) {
-      return true
-    }
-
+    if (previous && previous.ancestors.has(event.elementId) && previous.button === button && previous.clickCount === clickCount && previous.x === x && previous.y === y) return true
     const ancestors = new Set<number>()
     let current = this.#parents.get(event.elementId)
     while (current !== undefined && current !== null) {
@@ -540,9 +512,7 @@ export class EventRegistry {
     }
     const next: NativeClickBubble = { ancestors, button, clickCount, x, y }
     this.#nativeClickBubble = next
-    queueMicrotask(() => {
-      if (this.#nativeClickBubble === next) this.#nativeClickBubble = undefined
-    })
+    queueMicrotask(() => { if (this.#nativeClickBubble === next) this.#nativeClickBubble = undefined })
     return false
   }
 
@@ -567,18 +537,15 @@ export class EventRegistry {
   }
 
   #dispatchPrimaryClick(event: NativeEventPayload): void {
-    if (!this.#nativePointerDown.has(event.elementId)) {
-      this.#dispatchDom(event.elementId, "pointerDown", event)
-    }
+    if (!this.#nativePointerDown.has(event.elementId)) this.#dispatchDom(event.elementId, "pointerDown", event)
     const target = this.#targets.get(event.elementId)
     const checkbox = target?.getAttribute("type")?.toLowerCase() === "checkbox" ? target : undefined
     const previousChecked = checkbox?.checked
     if (checkbox) checkbox.checked = !checkbox.checked
     const clickEvent = this.#dispatchDom(event.elementId, "click", event)
     if (checkbox && previousChecked !== undefined) {
-      if (clickEvent?.defaultPrevented) {
-        checkbox.checked = previousChecked
-      } else {
+      if (clickEvent?.defaultPrevented) checkbox.checked = previousChecked
+      else {
         this.#dispatchDom(event.elementId, "input", event)
         this.#dispatchDom(event.elementId, "change", event)
       }
@@ -591,46 +558,36 @@ export class EventRegistry {
     const clickCount = event.clickCount ?? 1
     const x = event.x ?? 0
     const y = event.y ?? 0
+    const now = Date.now()
+    const source: ActivationBurst["source"] = sourceKey.startsWith("mouseUp:") ? "mouseUp" : "click"
     const previous = this.#primaryClickBursts.get(event.elementId)
     const samePhysicalActivation = previous !== undefined
+      && now - previous.at <= NATIVE_CLICK_RELAY_MS
       && previous.button === button
       && previous.clickCount === clickCount
       && Math.hypot(previous.x - x, previous.y - y) <= DOUBLE_CLICK_DISTANCE_PX
-
     if (samePhysicalActivation) {
-      if (sourceKey.startsWith("click:") && previous.sourceKeys.has(sourceKey)) return false
+      if (previous.source === "mouseUp" && source === "click") {
+        previous.sourceKeys.add(sourceKey)
+        return false
+      }
+      if (source === "click" && previous.source === "click" && previous.sourceKeys.has(sourceKey)) return false
       if (!previous.sourceKeys.has(sourceKey)) {
         previous.sourceKeys.add(sourceKey)
         return false
       }
     }
-
-    const next: ActivationBurst = {
-      elementId: event.elementId,
-      sourceKeys: new Set([sourceKey]),
-      button,
-      clickCount,
-      x,
-      y,
-    }
+    const next: ActivationBurst = { elementId: event.elementId, sourceKeys: new Set([sourceKey]), source, button, clickCount, x, y, at: now }
     this.#primaryClickBursts.set(event.elementId, next)
-    // GPUI can report one physical activation through every retained subscription
-    // on the hit path and, on some surfaces, both mouse-up and semantic-click
-    // channels. Duplicate semantic-click delivery for the same retained source is
-    // also one activation. Repeated mouse-up sources still start the next real click,
-    // preserving rapid/double activation without introducing a time-based debounce.
-    queueMicrotask(() => {
-      if (this.#primaryClickBursts.get(event.elementId) === next) this.#primaryClickBursts.delete(event.elementId)
-    })
+    if (source === "click") {
+      queueMicrotask(() => {
+        if (this.#primaryClickBursts.get(event.elementId) === next) this.#primaryClickBursts.delete(event.elementId)
+      })
+    }
     return true
   }
 
-  #dispatchDom(
-    elementId: number,
-    eventType: string,
-    nativeEvent: NativeEventPayload,
-    globalOnly = false,
-  ): EventPayload | undefined {
+  #dispatchDom(elementId: number, eventType: string, nativeEvent: NativeEventPayload, globalOnly = false): EventPayload | undefined {
     if (!this.#live.has(elementId)) return undefined
     const target = this.#targets.get(elementId)
     const event = domCompatibleEvent({ ...nativeEvent, elementId }, target, eventType)
@@ -644,15 +601,8 @@ export class EventRegistry {
 
   #dispatchSynthetic(elementId: number, eventType: string, pointerId: number): void {
     const previous = this.#lastPointerEvent.get(pointerId)
-    const fallbackSynthetic = {
-      elementId,
-      eventType: "mouseMove",
-      x: 0,
-      y: 0,
-    } satisfies NativeEventPayload
-    const synthetic = previous
-      ? { ...previous, elementId }
-      : fallbackSynthetic
+    const fallbackSynthetic = { elementId, eventType: "mouseMove", x: 0, y: 0 } satisfies NativeEventPayload
+    const synthetic = previous ? { ...previous, elementId } : fallbackSynthetic
     this.#dispatchDom(elementId, eventType, synthetic)
   }
 
@@ -663,13 +613,7 @@ export class EventRegistry {
   }
 
   #maybeDispatchDoubleClick(event: NativeEventPayload): void {
-    const next: LastClick = {
-      elementId: event.elementId,
-      button: event.button ?? 0,
-      x: event.x ?? 0,
-      y: event.y ?? 0,
-      at: Date.now(),
-    }
+    const next: LastClick = { elementId: event.elementId, button: event.button ?? 0, x: event.x ?? 0, y: event.y ?? 0, at: Date.now() }
     const previous = this.#lastClick
     this.#lastClick = next
     if (!previous) return
