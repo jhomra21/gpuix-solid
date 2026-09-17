@@ -68,6 +68,15 @@ test("release preparation retains the branch if Actions cannot open a PR", () =>
   assert.doesNotMatch(workflow, /git push origin --delete/)
 })
 
+test("release preparation can safely reuse an abandoned release branch", () => {
+  const workflow = readFileSync(new URL("../.github/workflows/prepare-release.yml", import.meta.url), "utf8")
+  assert.match(workflow, /existing_sha=\$\(git ls-remote origin/)
+  assert.match(workflow, /--force-with-lease="refs\/heads\/\$\{branch\}:\$\{existing_sha\}"/)
+  assert.match(workflow, /--state closed/)
+  assert.match(workflow, /--json number,mergedAt/)
+  assert.match(workflow, /gh pr reopen "\$existing_pr"/)
+})
+
 test("publish waits for npm integrity and dist-tag propagation", () => {
   const workflow = readFileSync(new URL("../.github/workflows/publish.yml", import.meta.url), "utf8")
   assert.match(workflow, /deadline=\$\(\(SECONDS \+ 300\)\)/)
