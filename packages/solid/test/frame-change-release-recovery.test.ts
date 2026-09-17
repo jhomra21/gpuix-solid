@@ -25,6 +25,38 @@ describe("frame-change pointer release recovery", () => {
     expect(relay.route(pointerEvent("mouseUp", pressedId), rootId, () => true)).toBeUndefined()
   })
 
+  it("keeps a completed target release correlated across host turns until the next press", async () => {
+    const relay = new BrowserPointerReleaseRelay()
+    const rootId = 1
+    const pressedId = 2
+
+    relay.route(pointerEvent("mouseDown", pressedId), rootId, () => true)
+    expect(relay.route(pointerEvent("mouseUp", pressedId), rootId, () => true)?.elementId).toBe(pressedId)
+
+    await Promise.resolve()
+    expect(relay.route(pointerEvent("mouseUp", rootId), rootId, () => true)).toBeUndefined()
+    expect(relay.route(pointerEvent("mouseUp", rootId), rootId, () => true)).toBeUndefined()
+
+    relay.route(pointerEvent("mouseDown", pressedId), rootId, () => true)
+    expect(relay.route(pointerEvent("mouseUp", pressedId), rootId, () => true)?.elementId).toBe(pressedId)
+  })
+
+  it("keeps a root-fallback release correlated across host turns until the next press", async () => {
+    const relay = new BrowserPointerReleaseRelay()
+    const rootId = 1
+    const pressedId = 2
+
+    relay.route(pointerEvent("mouseDown", pressedId), rootId, () => true)
+    expect(relay.route(pointerEvent("mouseUp", rootId), rootId, () => true)?.elementId).toBe(pressedId)
+
+    await Promise.resolve()
+    expect(relay.route(pointerEvent("mouseUp", pressedId), rootId, () => true)).toBeUndefined()
+    expect(relay.route(pointerEvent("mouseUp", pressedId), rootId, () => true)).toBeUndefined()
+
+    relay.route(pointerEvent("mouseDown", pressedId), rootId, () => true)
+    expect(relay.route(pointerEvent("mouseUp", rootId), rootId, () => true)?.elementId).toBe(pressedId)
+  })
+
   it("keeps a sibling relay release global-only after the pressed target remounts", () => {
     const relay = new BrowserPointerReleaseRelay()
     const rootId = 1
