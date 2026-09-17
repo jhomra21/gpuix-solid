@@ -135,16 +135,19 @@ jobs:
         shell: bash
         run: |
           branch="release/v${VERSION}"
-          if git ls-remote --exit-code origin "refs/heads/${branch}" >/dev/null 2>&1; then
-            echo "Release branch already exists: ${branch}"
-            exit 1
-          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -c "$branch"
           git add packages/solid/package.json CHANGELOG.md
           git commit -m "release: v${VERSION}"
-          git push --set-upstream origin "$branch"
+
+          existing_sha=$(git ls-remote origin "refs/heads/${branch}" | awk '{print $1}')
+          if [[ -n "$existing_sha" ]]; then
+            echo "Replacing stale release branch ${branch} at ${existing_sha}."
+            git push --force-with-lease="refs/heads/${branch}:${existing_sha}" --set-upstream origin "$branch"
+          else
+            git push --set-upstream origin "$branch"
+          fi
 
       - name: Open release PR
         id: pr
@@ -163,6 +166,23 @@ jobs:
 
           Merge only after the explicitly dispatched **Release Check** workflow is green and the version/changelog are correct. Merging this PR triggers publication of one exact npm tarball, registry verification, the release tag, and the GitHub Release.
           EOF_BODY
+
+          existing_pr=$(gh pr list \
+            --state closed \
+            --base main \
+            --head "$branch" \
+            --json number,mergedAt \
+            --jq '.[] | select(.mergedAt == null) | .number' \
+            | head -n 1)
+
+          if [[ -n "$existing_pr" ]]; then
+            gh pr reopen "$existing_pr"
+            gh pr edit "$existing_pr" \
+              --title "release: v${VERSION}" \
+              --body-file /tmp/release-pr.md
+            echo "opened=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           if gh pr create \
             --base main \
