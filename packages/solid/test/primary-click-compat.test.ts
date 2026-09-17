@@ -4,6 +4,16 @@ import { EventRegistry } from "../src/host/events.js"
 import { MutationDriver } from "../src/host/mutations.js"
 import { FakeRenderer } from "./fake-renderer.js"
 
+function primaryMouseDown(elementId: number) {
+  return {
+    elementId,
+    eventType: "mouseDown",
+    x: 24,
+    y: 16,
+    button: 0,
+  } satisfies NativeEventPayload
+}
+
 function primaryMouseUp(elementId: number) {
   return {
     elementId,
@@ -51,6 +61,33 @@ describe("embedded primary click compatibility", () => {
 
     events.dispatch({ ...mouseUp, eventType: "mouseUp", button: 2 })
     expect(clicks).toBe(1)
+  })
+
+  it("deduplicates a semantic click delivered on a later host turn", async () => {
+    const events = new EventRegistry()
+    const elementId = 5
+    let clicks = 0
+
+    events.activate(elementId)
+    events.set(elementId, "click", () => {
+      clicks += 1
+    })
+
+    events.dispatch(primaryMouseDown(elementId))
+    events.dispatch(primaryMouseUp(elementId))
+    expect(clicks).toBe(1)
+
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    events.dispatch(primaryClick(elementId))
+    expect(clicks).toBe(1)
+
+    events.dispatch(primaryMouseDown(elementId))
+    events.dispatch(primaryMouseUp(elementId))
+    expect(clicks).toBe(2)
+
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    events.dispatch(primaryClick(elementId))
+    expect(clicks).toBe(2)
   })
 
   it("coalesces duplicate semantic click delivery within one burst without debouncing later clicks", async () => {
