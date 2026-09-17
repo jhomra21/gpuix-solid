@@ -74,7 +74,13 @@ test("release preparation can safely reuse an abandoned release branch", () => {
   assert.match(workflow, /--force-with-lease="refs\/heads\/\$\{branch\}:\$\{existing_sha\}"/)
   assert.match(workflow, /--state closed/)
   assert.match(workflow, /--json number,mergedAt/)
-  assert.match(workflow, /gh pr reopen "\$existing_pr"/)
+  assert.match(workflow, /if gh pr reopen "\$existing_pr"; then/)
+
+  const reopen = workflow.indexOf('if gh pr reopen "$existing_pr"; then')
+  const create = workflow.indexOf("if gh pr create")
+  assert.notEqual(reopen, -1)
+  assert.ok(create > reopen)
+  assert.match(workflow, /could not be reopened; creating a new release PR/)
 })
 
 test("publish waits for npm integrity and dist-tag propagation", () => {
