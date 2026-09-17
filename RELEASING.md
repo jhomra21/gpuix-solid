@@ -8,6 +8,7 @@ The release automation in this document currently publishes `gpuix-solid`, the S
 
 - `main` is the only source of publishable release bytes.
 - Runtime or source changes go through the normal Linux, macOS, and Windows CI matrix before release preparation.
+- Release-facing documentation must describe the candidate's actual runtime, dependency, API, and compatibility baseline before release preparation. Historical qualification records remain explicitly labeled as historical rather than being presented as the current contract.
 - Release PRs are metadata-only. They change exactly `packages/solid/package.json` and `CHANGELOG.md`.
 - The publish workflow builds and packs one sanitized npm artifact, smoke-tests that exact tarball in clean npm, Bun, and Solid TSX/Vite consumers, uploads it as a workflow artifact, then publishes those exact bytes without rebuilding.
 - npm registry integrity and the expected `beta` or `latest` dist-tag are verified after publication.
@@ -35,13 +36,14 @@ For a prerelease such as `0.1.0-rc.1`, `promote-stable` produces `0.1.0`. After 
 ## Normal release flow
 
 1. Confirm all intended source changes are merged and CI is green on `main`.
-2. Add meaningful user-facing notes under `CHANGELOG.md` -> `Unreleased` while developing release-worthy changes.
-3. Run Prepare Release from `main`, or use the owner-only Release Control command for the desired release strategy.
-4. The workflow creates `release/v<version>` with only the package version and changelog transition, opens a release PR, and explicitly dispatches Release Check.
-5. The generated release commit intentionally does not use `[skip ci]` or another GitHub skip marker. `scripts/release.test.mjs` enforces this because a skipped merged-PR event can prevent the publication path from running.
-6. Review the version and changelog. Merge only after Release Check is green.
-7. The merge creates a push to `main`. Publish Trigger finds the commit that introduced the approved version, verifies that package inputs have not changed afterward, and dispatches Publish Package through `workflow_dispatch`.
-8. Publish Package:
+2. Confirm release-facing documentation matches the exact candidate runtime/dependency/API baseline and that older qualification material is clearly historical.
+3. Add meaningful user-facing notes under `CHANGELOG.md` -> `Unreleased` while developing release-worthy changes.
+4. Run Prepare Release from `main`, or use the owner-only Release Control command for the desired release strategy.
+5. The workflow creates `release/v<version>` with only the package version and changelog transition, opens a release PR, and explicitly dispatches Release Check.
+6. The generated release commit intentionally does not use `[skip ci]` or another GitHub skip marker. `scripts/release.test.mjs` enforces this because a skipped merged-PR event can prevent the publication path from running.
+7. Review the version and changelog. Merge only after Release Check is green.
+8. The merge creates a push to `main`. Publish Trigger finds the commit that introduced the approved version, verifies that package inputs have not changed afterward, and dispatches Publish Package through `workflow_dispatch`.
+9. Publish Package:
    - resolves the approved release source;
    - runs the full release checks;
    - installs the GPUI Linux runtime libraries needed to load `@gpuix/native` in the clean consumer;
@@ -57,7 +59,7 @@ For a prerelease such as `0.1.0-rc.1`, `promote-stable` produces `0.1.0`. After 
    - polls npm until registry integrity and the expected dist-tag match;
    - creates `v<version>` only after npm succeeds;
    - creates the GitHub Release last.
-9. Run the Release Control `/verify-release` check when an explicit registry-level proof is useful. It validates the current version, dist-tag, SHA-512 integrity, and npm provenance policy. Provenance is required for every release except the exact one-time `gpuix-solid@0.1.0-beta.4` bootstrap.
+10. Run the Release Control `/verify-release` check when an explicit registry-level proof is useful. It validates the current version, dist-tag, SHA-512 integrity, and npm provenance policy. Provenance is required for every release except the exact one-time `gpuix-solid@0.1.0-beta.4` bootstrap.
 
 ## Stable 0.1.0 qualification
 
@@ -67,7 +69,7 @@ The exact published `gpuix-solid@0.1.0-rc.1` and `@gpuix/native@0.8.0` pair pass
 
 After publication, stable `gpuix-solid@0.1.0` passed the same external foreground test. That closes the original stable-promotion gate and is recorded in `docs/release-candidate.md`.
 
-A documentation-only patch release does not need to repeat the historical RC promotion sequence. It still goes through the normal release checks and exact-tarball publication flow. If a patch changes renderer behavior, native dependencies, input ownership, or another path covered by the foreground test, run `scripts/test-published-foreground.mjs` against the exact candidate before treating the release as accepted.
+A documentation-only patch release does not need to repeat the historical RC promotion sequence. It still goes through the normal release checks and exact-tarball publication flow. If a release changes renderer behavior, native dependencies, input ownership, or another path covered by the foreground test, run `scripts/test-published-foreground.mjs` against the exact candidate before treating the release as accepted.
 
 ## Original scoped-package bootstrap
 
