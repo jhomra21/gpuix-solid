@@ -66,6 +66,7 @@ const POINTER_ID = 0
 const PERSISTENT_DEVICE_ID = 0
 const DOUBLE_CLICK_MS = 500
 const DOUBLE_CLICK_DISTANCE_PX = 4
+const NATIVE_CLICK_RELAY_MS = 250
 
 installNativeDomGlobals()
 
@@ -291,10 +292,12 @@ type LastClick = {
 type ActivationBurst = {
   elementId: number
   sourceKeys: Set<string>
+  source: "mouseUp" | "click"
   button: number
   clickCount: number
   x: number
   y: number
+  at: number
 }
 
 type NativeClickBubble = {
@@ -421,6 +424,7 @@ export class EventRegistry {
     if (!this.#live.has(event.elementId)) return
     switch (event.eventType) {
       case "mouseDown": {
+        this.#primaryClickBursts.clear()
         this.#activePointers.add(POINTER_ID)
         this.#lastPointerEvent.set(POINTER_ID, event)
         if ((event.button ?? 0) === 0 && this.#isRangeTarget(event.elementId)) {
@@ -591,14 +595,21 @@ export class EventRegistry {
     const clickCount = event.clickCount ?? 1
     const x = event.x ?? 0
     const y = event.y ?? 0
+    const now = Date.now()
+    const source: ActivationBurst["source"] = sourceKey.startsWith("mouseUp:") ? "mouseUp" : "click"
     const previous = this.#primaryClickBursts.get(event.elementId)
     const samePhysicalActivation = previous !== undefined
+      && now - previous.at <= NATIVE_CLICK_RELAY_MS
       && previous.button === button
       && previous.clickCount === clickCount
       && Math.hypot(previous.x - x, previous.y - y) <= DOUBLE_CLICK_DISTANCE_PX
 
     if (samePhysicalActivation) {
-      if (sourceKey.startsWith("click:") && previous.sourceKeys.has(sourceKey)) return false
+      if (previous.source === "mouseUp" && source === "click") {
+        previous.sourceKeys.add(sourceKey)
+        return false
+      }
+      if (source === "click" && previous.source === "click" && previous.sourceKeys.has(sourceKey)) return false
       if (!previous.sourceKeys.has(sourceKey)) {
         previous.sourceKeys.add(sourceKey)
         return false
@@ -608,20 +619,23 @@ export class EventRegistry {
     const next: ActivationBurst = {
       elementId: event.elementId,
       sourceKeys: new Set([sourceKey]),
+      source,
       button,
       clickCount,
       x,
       y,
+      at: now,
     }
     this.#primaryClickBursts.set(event.elementId, next)
-    // GPUI can report one physical activation through every retained subscription
-    // on the hit path and, on some surfaces, both mouse-up and semantic-click
-    // channels. Duplicate semantic-click delivery for the same retained source is
-    // also one activation. Repeated mouse-up sources still start the next real click,
-    // preserving rapid/double activation without introducing a time-based debounce.
-    queueMicrotask(() => {
-      if (this.#primaryClickBursts.get(event.elementId) === next) this.#primaryClickBursts.delete(event.elementId)
-    })
+    // A retained mouse-up may be followed by GPUIX's semantic click callback on a
+    // later host turn. Keep that physical activation correlated until the next
+    // mouse-down (or the short relay window expires). Semantic-only click bursts
+    // still clear in a microtask so accessibility/custom clicks are not debounced.
+    if (source === "click") {
+      queueMicrotask(() => {
+        if (this.#primaryClickBursts.get(event.elementId) === next) this.#primaryClickBursts.delete(event.elementId)
+      })
+    }
     return true
   }
 
