@@ -62,6 +62,7 @@ const SVG = {
   minimize: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 10 7-7"/><path d="M20 10h-6V4"/><path d="m3 21 7-7"/><path d="M4 14h6v6"/></svg>`,
   snooze: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>`,
   framer: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="#000" d="M4 0h16v8h-8zm0 8h8l8 8H4zm8 8h8v8z"/></svg>`,
+  mentionOne: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><path fill="#000" d="M2.3 1.4 3.5.5h1.2v6h1.1v1H2.2v-1h1.3V2.1l-.6.45z"/></svg>`,
 } as const
 
 const ICONS = {
@@ -123,7 +124,7 @@ function FaceStack(props: { faces: FaceSpec[] }): SolidElement {
 }
 
 function MentionBadge(props: { count: number }): SolidElement {
-  return <Show when={props.count > 0} fallback={null}><div style={{ height: 13, minWidth: 13, paddingLeft: 4, paddingRight: 4, borderRadius: 7, backgroundColor: C.mention, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><text style={{ fontSize: 9, fontWeight: 700, color: "#FFFFFF", fontFamily: FONT }}>{props.count}</text></div></Show>
+  return <Show when={props.count > 0} fallback={null}><div style={{ height: 13, minWidth: 13, paddingLeft: 4, paddingRight: 4, borderRadius: 7, backgroundColor: C.mention, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Show when={props.count === 1} fallback={<text style={{ fontSize: 9, fontWeight: 700, color: "#FFFFFF", fontFamily: FONT }}>{props.count}</text>}><Icon name="mentionOne" size={8} color="#FFFFFF" /></Show></div></Show>
 }
 
 const maraFace: FaceSpec = { src: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=128&h=128&fit=crop" }
@@ -132,7 +133,7 @@ const julesFace: FaceSpec = { src: "https://images.unsplash.com/photo-1500648767
 const kenjiFace: FaceSpec = { src: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=128&h=128&fit=crop" }
 const leaFace: FaceSpec = { src: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=128&h=128&fit=crop" }
 const miraFace: FaceSpec = { src: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=128&h=128&fit=crop" }
-const atlasFace: FaceSpec = { src: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=128&h=128&fit=crop" }
+const atlasFace: FaceSpec = { src: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=128&q=80" }
 const bannerSrc = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&q=80"
 
 const CHANNELS: Channel[] = [
