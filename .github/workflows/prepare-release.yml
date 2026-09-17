@@ -176,12 +176,15 @@ jobs:
             | head -n 1)
 
           if [[ -n "$existing_pr" ]]; then
-            gh pr reopen "$existing_pr"
-            gh pr edit "$existing_pr" \
-              --title "release: v${VERSION}" \
-              --body-file /tmp/release-pr.md
-            echo "opened=true" >> "$GITHUB_OUTPUT"
-            exit 0
+            if gh pr reopen "$existing_pr"; then
+              gh pr edit "$existing_pr" \
+                --title "release: v${VERSION}" \
+                --body-file /tmp/release-pr.md
+              echo "opened=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            echo "Closed release PR #${existing_pr} could not be reopened; creating a new release PR."
           fi
 
           if gh pr create \
