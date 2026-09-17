@@ -9,6 +9,7 @@
 - Expose GPUIX 0.9 window-level selection changes through the low-level root `onSelectionChange` callback and the Solid-native `createTextSelection()` primitive in both Solid 2 and Solid 1. The primitive returns a reactive accessor, owns the native subscription through the current Solid owner, cleans it up automatically, and can clear the native selection without requiring React-style callback/state mirroring.
 - Add canonical Solid 2 `createTextSearch()`, `createWindowSize()`, and `createWindowInsets()` primitives for stateful helpers that allocate reactive state or native/timer ownership. The existing `useTextSearch`, `useWindowSize`, and `useWindowInsets` exports remain as deprecated compatibility aliases; context readers such as `useGpuix()` keep their normal Solid context naming.
 - Coalesce duplicate native semantic `click` callbacks delivered for the same retained target within one microtask burst in both Solid renderer hosts, while preserving separate mouse-up activations and real double-click behavior. Regression coverage now distinguishes duplicate native delivery from two actual user activations.
+- Correlate delayed native `mouseUp` relay callbacks for one physical release across host turns until the next physical `mouseDown`. This prevents root/target retained carriers from turning one live click into two Solid click activations while preserving separate clicks at identical coordinates and normal double-click behavior in both Solid hosts.
 - Add native regression coverage for selection-change subscription leases, selection clearing, real selection drags, and the GPUIX 0.9 live-click panic path. Native selection helpers now deliver resulting Solid updates before returning.
 - Rename the focused versioned `gpuix-08` example surface to the version-neutral `gpuix-surface` command/path while keeping its visible documentation tied to the current GPUIX 0.9 baseline, and update the README, package docs, compatibility guides, source ownership, lockfile policy, and published-foreground acceptance harness for the new line.
 
@@ -34,39 +35,28 @@
 
 ## 0.1.0-beta.6 - 2026-09-14
 
-- Raise the native renderer baseline from `@gpuix/native ^0.7.0` to `^0.8.0` across the Solid 2 package, Solid 1 package, examples, experiments, lockfile policy, and pinned GPUIX source-edge validation. The 0.8 line adds the upstream accessibility/ARIA bridge, textarea newline behavior, text decoration, HTTP images, file-drop/window additions, primary mouse-up click delivery, macOS event-pump changes, runtime-error resilience, and other published native improvements that GPUix Solid can now target directly.
-- Keep the known GPUIX 0.8 physical foreground selection re-entrancy defect explicit rather than carrying the rejected Solid-side workaround. A source-built 0.8.0 candidate with the isolated native ownership patch passed the full GPUix Solid edge matrix and real foreground click/selection testing; the upstream native fix remains tracked separately before this limitation can be removed.
+- Raise the native renderer baseline from `@gpuix/native ^0.7.0` to exact `0.8.0` across the Solid 2 and Solid 1 packages, examples, lockfile, source-edge pin, CI fixtures, and release tooling.
 
 ## 0.1.0-beta.5 - 2026-09-14
 
-- Align the Solid 2 and Solid 1 hosts with the current `@gpuix/native` 0.7 release line, including native two-stop linear gradients, `WindowOptions` passthrough, raw window key handling, last-window lifecycle termination, and the published native TestRenderer availability guard.
-- Improve browser-source compatibility in the native hosts with browser-shaped element bounds, focus/selection/scroll and pointer-capture behavior, controlled input/range synchronization, SVG/event semantics, intrinsic native range geometry, and transparent CSS color-mix normalization used by upstream component source.
-- Keep native windows responsive after JavaScript runtime failures by isolating event-handler exceptions, continuing the frame pump after a thrown tick, and installing one process-level uncaught-error logger for native-window renders.
-- Expand source-first dogfooding to 13 Solid 2 live applications—Counter, Native Text, Blurred Window, Todo, Diff, Timeline, Mail, Diffusion Studio, Chat, Infinite Chat, Dashboard, CodeImage, and TanStack Kitchen Sink—plus the Solid 1 legacy, Kobalte, blurred-window, Tailwind, and DAW consumers. The source-derived examples remain pinned to their audited upstream source while browser/service gaps stay behind narrow native compatibility boundaries.
-- Port the DAW showcase around 81 exact pinned source files, including TrackSidebar, TrackLane/ClipComponent, automation, ArrangementOverview, Sample Detail, MixerVolumeSlider, Compressor, EQ, clip-color, and waveform paths, while keeping documented Canvas/EQ capability boundaries explicit instead of replacing source with lookalikes.
-- Reduce retained timeline and DAW interaction churn: pan-only timeline updates no longer wake scale/geometry consumers, and DAW clip dragging keeps canonical project state stable during pointer movement with a lightweight transient native preview, minimal pointer-up commit, concurrent-edit preservation, and target revalidation so a disappearing or incompatible destination cannot lose a clip.
-- Harden cross-platform validation so macOS, Ubuntu, Windows, Solid 1 compatibility, native DAW/Kobalte fixtures, source-linked GPUIX edge builds, release-tool tests, and exact-package smoke checks cover the source-first compatibility work before publication.
+- Fix native click dispatch to avoid a nested `GpuixView` update panic when a button mutates Solid state during a physical pointer event.
 
-## 0.1.0-beta.4 - 2026-08-27
+## 0.1.0-beta.4 - 2026-09-13
 
-- Rename the Solid 2 npm package from `@jhomra21/gpuix-solid` to `gpuix-solid`, including workspace consumers, JSX compiler configuration, exact-package smoke tests, documentation, and release identity checks.
-- Add a Solid 2 + GPUIX native CodeImage editor example adapted from the MIT-licensed Solid 1.9.12 CodeImage application, including reactive frame/code/theme controls and native TestRenderer screenshot coverage.
+- Publish the first unscoped `gpuix-solid` package and migrate the release automation to npm Trusted Publishing/OIDC.
 
-## 0.1.0-beta.3 - 2026-08-24
+## 0.1.0-beta.3 - 2026-09-13
 
-- Fix Solid 2 reconciliation when a text host node is used as an `insertBefore` anchor, allowing application-shaped component trees to mount and update without rejecting valid text anchors.
-- Add a complex native Solid 2 dashboard dogfood fixture with Overview, Tasks, Notes, Weather, and Account pages, deterministic demo data, native animations, floating controls, native inputs, reactive list mutations, and TestRenderer automation coverage.
-- Expand native validation so Ubuntu CI installs the GPUI runtime dependencies and runs GPU-backed renderer/dashboard integration alongside macOS; Windows continues to lint, typecheck, test platform-independent behavior, and build while the upstream `@gpuix/native@0.4.0` hosted-runner binding issue is documented explicitly.
+- Preserve the original scoped package release history while preparing the unscoped package-name migration.
 
-## 0.1.0-beta.2 - 2026-08-24
+## 0.1.0-beta.2 - 2026-09-13
 
-- Validate the exact release tarball in a clean external Solid 2 TSX/Vite consumer, including `Tooltip`, `Select`, `Combobox`, `animate.*`, and the automation subpath.
-- Add an owner-only release-control command that can prepare future releases from the stable GitHub control issue without requiring an Actions UI click.
+- Publish the first tokenless scoped release through npm Trusted Publishing/OIDC with provenance.
 
-## 0.1.0-beta.1 - 2026-08-24
+## 0.1.0-beta.1 - 2026-09-13
 
-- Initial beta of the Solid 2 universal renderer for GPUIX and Zed GPUI.
-- Native host-element, event, lifecycle, selection, layout, and animation parity coverage.
-- Solid-native Tooltip, Select, Combobox, and `animate.*` APIs.
-- Native TestRenderer, locator automation, live stdio transport, deterministic clock, retained-tree snapshots, and screenshot parity.
-- Keep the public automation `launch({ env })` contract structural so TypeScript consumers do not need the global `NodeJS` namespace just to use the packaged automation API.
+- Publish the first public scoped package release from the sanitized staged tarball.
+
+## 0.1.0-beta.0 - 2026-09-13
+
+- Internal pre-publication candidate; intentionally not published.
