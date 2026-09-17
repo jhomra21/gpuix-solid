@@ -424,6 +424,9 @@ export class EventRegistry {
     if (!this.#live.has(event.elementId)) return
     switch (event.eventType) {
       case "mouseDown": {
+        // A real mouse-down is the authoritative boundary between physical
+        // activations. It clears any delayed semantic-click carrier from the
+        // previous release before this activation starts.
         this.#primaryClickBursts.clear()
         this.#activePointers.add(POINTER_ID)
         this.#lastPointerEvent.set(POINTER_ID, event)
@@ -627,10 +630,11 @@ export class EventRegistry {
       at: now,
     }
     this.#primaryClickBursts.set(event.elementId, next)
-    // A retained mouse-up may be followed by GPUIX's semantic click callback on a
-    // later host turn. Keep that physical activation correlated until the next
-    // mouse-down (or the short relay window expires). Semantic-only click bursts
-    // still clear in a microtask so accessibility/custom clicks are not debounced.
+    // GPUIX may report one physical release through a retained mouse-up carrier and
+    // then deliver the matching semantic click on a later host turn. Correlate the
+    // cross-channel pair until the next real mouse-down, while the short time bound
+    // prevents a stale release from consuming an unrelated semantic-only activation.
+    // Semantic-only click bursts still clear in a microtask and are not debounced.
     if (source === "click") {
       queueMicrotask(() => {
         if (this.#primaryClickBursts.get(event.elementId) === next) this.#primaryClickBursts.delete(event.elementId)
