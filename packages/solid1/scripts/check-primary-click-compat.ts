@@ -4,6 +4,16 @@ import { EventRegistry } from "../src/host/events.js"
 import { MutationDriver, type MutationValue } from "../src/host/mutations.js"
 import type { NativeRenderer } from "../src/host/types.js"
 
+function primaryMouseDown(elementId: number) {
+  return {
+    elementId,
+    eventType: "mouseDown",
+    x: 24,
+    y: 16,
+    button: 0,
+  } satisfies NativeEventPayload
+}
+
 function primaryMouseUp(elementId: number) {
   return {
     elementId,
@@ -60,6 +70,33 @@ class RelayRenderer implements NativeRenderer {
 
   events.dispatch({ ...mouseUp, eventType: "mouseUp", button: 2 })
   assert.equal(clicks, 1, "non-primary mouse-up must not synthesize a click")
+}
+
+{
+  const events = new EventRegistry()
+  const elementId = 5
+  let clicks = 0
+
+  events.activate(elementId)
+  events.set(elementId, "click", () => {
+    clicks += 1
+  })
+
+  events.dispatch(primaryMouseDown(elementId))
+  events.dispatch(primaryMouseUp(elementId))
+  assert.equal(clicks, 1, "mouse-up should activate once")
+
+  await new Promise<void>((resolve) => setImmediate(resolve))
+  events.dispatch(primaryClick(elementId))
+  assert.equal(clicks, 1, "delayed semantic click from the same native activation must deduplicate")
+
+  events.dispatch(primaryMouseDown(elementId))
+  events.dispatch(primaryMouseUp(elementId))
+  assert.equal(clicks, 2, "a new physical mouse-down should begin a distinct activation")
+
+  await new Promise<void>((resolve) => setImmediate(resolve))
+  events.dispatch(primaryClick(elementId))
+  assert.equal(clicks, 2, "the second delayed semantic click should deduplicate only against its own mouse-up")
 }
 
 {
