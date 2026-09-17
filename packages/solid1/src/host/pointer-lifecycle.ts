@@ -84,6 +84,10 @@ export class BrowserPointerReleaseRelay {
     isDescendantOf: (elementId: number, ancestorId: number) => boolean = () => false,
   ): EventPayload | undefined {
     if (event.eventType === "mouseDown") {
+      // A new physical press is the activation boundary. GPUI may deliver the
+      // previous release through retained subscribers on later host turns, so
+      // release correlation must outlive a microtask and end only here.
+      this.#rootFallback = undefined
       this.#completedRelease = undefined
       if (event.elementId !== rootId) {
         const pressedElementId = this.#pressedElementId
@@ -104,7 +108,6 @@ export class BrowserPointerReleaseRelay {
     if (event.elementId !== rootId) {
       const fallback = this.#rootFallback
       if (fallback && fallback.elementId === event.elementId && sameReleaseBurst(fallback.burst, burst)) {
-        this.#rootFallback = undefined
         return undefined
       }
 
@@ -133,7 +136,6 @@ export class BrowserPointerReleaseRelay {
     if (pressedElementId === undefined) {
       const completed = this.#completedRelease
       if (completed && sameReleaseBurst(completed.burst, burst)) {
-        this.#completedRelease = undefined
         return undefined
       }
       return event
@@ -155,19 +157,11 @@ export class BrowserPointerReleaseRelay {
   }
 
   #rememberFallbackRelease(elementId: number, burst: PointerReleaseBurst): void {
-    const fallback = { elementId, burst }
-    this.#rootFallback = fallback
-    queueMicrotask(() => {
-      if (this.#rootFallback === fallback) this.#rootFallback = undefined
-    })
+    this.#rootFallback = { elementId, burst }
   }
 
   #rememberCompletedRelease(elementId: number, burst: PointerReleaseBurst): void {
-    const completed = { elementId, burst }
-    this.#completedRelease = completed
-    queueMicrotask(() => {
-      if (this.#completedRelease === completed) this.#completedRelease = undefined
-    })
+    this.#completedRelease = { elementId, burst }
   }
 
   #rememberRecoveredRelease(elementId: number, burst: PointerReleaseBurst): void {
