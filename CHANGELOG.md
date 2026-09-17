@@ -4,6 +4,8 @@
 
 <!-- Add user-facing changes here before preparing a release. -->
 
+## 0.2.0 - 2026-09-17
+
 - Move both renderer packages to the exact `@gpuix/native@0.9.0` contract and pin the source-edge and React Mail parity baselines to the published GPUIX 0.9 source. This carries the upstream native click/selection ownership fix into GPUix Solid and removes the old GPUIX 0.8 foreground selection ownership concern from the current baseline.
 - Align the Solid 2 renderer, examples, lockfile, public starter, and clean-consumer qualification on the paired `solid-js@2.0.0-rc.8` / `@solidjs/universal@2.0.0-rc.8` runtime line instead of mixing Solid release candidates.
 - Expose GPUIX 0.9 window-level selection changes through the low-level root `onSelectionChange` callback and the Solid-native `createTextSelection()` primitive in both Solid 2 and Solid 1. The primitive returns a reactive accessor, owns the native subscription through the current Solid owner, cleans it up automatically, and can clear the native selection without requiring React-style callback/state mirroring.
@@ -71,3 +73,4 @@
 - Solid-native Tooltip, Select, Combobox, and `animate.*` APIs.
 - Native TestRenderer, locator automation, live stdio transport, deterministic clock, retained-tree snapshots, and screenshot parity.
 - Keep the public automation `launch({ env })` contract structural so TypeScript consumers do not need the global `NodeJS` namespace just to use the packaged automation API.
+
