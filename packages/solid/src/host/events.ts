@@ -631,10 +631,10 @@ export class EventRegistry {
     }
     this.#primaryClickBursts.set(event.elementId, next)
     // GPUIX may report one physical release through a retained mouse-up carrier and
-    // then deliver the matching semantic click on a later host turn. Correlate the
-    // cross-channel pair until the next real mouse-down, while the short time bound
-    // prevents a stale release from consuming an unrelated semantic-only activation.
-    // Semantic-only click bursts still clear in a microtask and are not debounced.
+    // then deliver the matching semantic click on a later host turn. The next real
+    // mouse-down is the primary ownership boundary; the short time bound only keeps
+    // a stale release from consuming an unrelated semantic-only activation when no
+    // new pointer sequence occurs. Semantic-only bursts still clear in a microtask.
     if (source === "click") {
       queueMicrotask(() => {
         if (this.#primaryClickBursts.get(event.elementId) === next) this.#primaryClickBursts.delete(event.elementId)
