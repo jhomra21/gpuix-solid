@@ -247,6 +247,26 @@ The Solid 1 renderer. It keeps the Solid 1 runtime boundary separate and include
 
 The upstream GPUIX native package. GPUix Solid consumes it rather than carrying a Rust fork.
 
+## JSX-free authoring
+
+For runtime-authored UI that does not pass through the Solid JSX compiler, GPUix Solid now exposes a small hyperscript helper:
+
+```ts
+import { h, render } from "gpuix-solid"
+
+render(() =>
+  h(
+    "div",
+    {
+      class: () => active() ? "flex px-4 bg-blue-500" : "flex px-2 bg-zinc-900",
+    },
+    () => active() ? "Active" : "Idle",
+  )
+)
+```
+
+`h()` uses the same universal renderer paths as JSX. Event handlers stay ordinary function props, while common data/style props and function-valued children can stay reactive. `makeH()` returns an isolated helper with the same behavior.
+
 ## Solid 2 styling conveniences
 
 Without a generated native style manifest, Solid 2 can compile a deliberately small Tailwind-compatible utility subset directly into GPUIX styles:
