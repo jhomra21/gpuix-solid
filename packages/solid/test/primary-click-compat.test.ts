@@ -35,6 +35,17 @@ function primaryClick(elementId: number) {
   } satisfies NativeEventPayload
 }
 
+function secondaryMouseUp(elementId: number) {
+  return {
+    elementId,
+    eventType: "mouseUp",
+    x: 24,
+    y: 16,
+    button: 2,
+    clickCount: 1,
+  } satisfies NativeEventPayload
+}
+
 function mouseUpListenerMutations(renderer: FakeRenderer, id: number) {
   return renderer.batches
     .flat()
@@ -274,5 +285,48 @@ describe("embedded primary click compatibility", () => {
     events.dispatch(primaryMouseUp(elementId))
 
     expect(doubleClicks).toBe(1)
+  })
+
+  it("relays a nested secondary mouse-up to the nearest context-menu owner once", () => {
+    const events = new EventRegistry()
+    const renderer = new FakeRenderer()
+    const driver = new MutationDriver(renderer, events)
+    const parentId = 61
+    const childId = 62
+    let contextMenus = 0
+
+    events.activate(parentId)
+    events.activate(childId)
+    events.set(parentId, "contextMenu", () => {
+      contextMenus += 1
+    })
+    driver.setContextMenuListener(parentId, true)
+    driver.enqueue("setEventListener", parentId, "mouseUp", true)
+    driver.enqueue("appendChild", parentId, childId)
+    driver.flush()
+
+    expect(mouseUpListenerMutations(renderer, childId)).toContainEqual([
+      "setEventListener",
+      childId,
+      "mouseUp",
+      true,
+    ])
+
+    const childRelease = secondaryMouseUp(childId)
+    events.dispatch(childRelease)
+    events.dispatch(secondaryMouseUp(parentId))
+    expect(contextMenus).toBe(1)
+
+    events.delete(parentId, "contextMenu")
+    driver.setContextMenuListener(parentId, false)
+    driver.enqueue("setEventListener", parentId, "mouseUp", false)
+    driver.flush()
+
+    expect(mouseUpListenerMutations(renderer, childId).at(-1)).toEqual([
+      "setEventListener",
+      childId,
+      "mouseUp",
+      false,
+    ])
   })
 })
