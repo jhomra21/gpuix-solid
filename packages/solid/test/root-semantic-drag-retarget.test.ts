@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { createElement, insertNode, setProp } from "../src/host/universal.js"
 import type { HostElementNode } from "../src/host/nodes.js"
 import type { EventPayload } from "../src/host/types.js"
@@ -169,5 +169,108 @@ describe("root semantic drag retargeting", () => {
 
     root.unmount()
   })
+
+  it("returns a rejected drag preview to its source before removing it", () => {
+    vi.useFakeTimers()
+    const renderer = new BoundsRenderer()
+    const root = createRoot(renderer)
+
+    try {
+      let shell: HostElementNode | undefined
+      let source: HostElementNode | undefined
+      let target: HostElementNode | undefined
+
+      root.render(() => {
+        const nextShell = element()
+        shell = nextShell
+        setProp(nextShell, "style", { width: 500, height: 180 })
+
+        const nextSource = element()
+        source = nextSource
+        setProp(nextSource, "dragData", { clipId: "clip-return" })
+        setProp(nextSource, "style", { width: 120, height: 80 })
+
+        const nextTarget = element()
+        target = nextTarget
+        setProp(nextTarget, "style", { width: 140, height: 80 })
+        setProp(nextTarget, "onDrop", () => undefined)
+
+        insertNode(nextShell, nextSource)
+        insertNode(nextShell, nextTarget)
+        return nextShell
+      })
+
+      if (!shell || !source || !target) throw new Error("Expected rejected drag fixture nodes")
+
+      renderer.bounds.set(shell.id, [0, 0, 500, 180])
+      renderer.bounds.set(source.id, [20, 20, 120, 80])
+      renderer.bounds.set(target.id, [220, 20, 140, 80])
+
+      root.dispatch({
+        eventType: "mouseDown",
+        elementId: source.id,
+        x: 60,
+        y: 60,
+        button: 0,
+      })
+      root.dispatch({
+        eventType: "mouseMove",
+        elementId: shell.id,
+        x: 400,
+        y: 120,
+        pressedButton: 0,
+      })
+
+      const previewMutation = renderer.batches
+        .flat()
+        .find((mutation) =>
+          mutation[0] === "setCustomProp"
+          && mutation[2] === "testId"
+          && mutation[3] === "gpuix-drag-preview")
+      if (!previewMutation || typeof previewMutation[1] !== "number") {
+        throw new Error("Expected semantic drag preview")
+      }
+      const previewId = previewMutation[1]
+      const releaseBatchStart = renderer.batches.length
+
+      root.dispatch({
+        eventType: "mouseUp",
+        elementId: shell.id,
+        x: 400,
+        y: 120,
+        button: 0,
+      })
+
+      const releaseMutations = renderer.batches.slice(releaseBatchStart).flat()
+      expect(releaseMutations).toContainEqual([
+        "setCustomProp",
+        previewId,
+        "motion",
+        {
+          initial: { left: 360, top: 80 },
+          animate: { left: 20, top: 20 },
+          transition: { duration: 0.15, ease: "easeOut" },
+        },
+      ])
+      expect(releaseMutations.some((mutation) =>
+        mutation[0] === "destroyElement" && mutation[1] === previewId
+      )).toBe(false)
+
+      vi.advanceTimersByTime(149)
+      expect(renderer.batches.slice(releaseBatchStart).flat().some((mutation) =>
+        mutation[0] === "destroyElement" && mutation[1] === previewId
+      )).toBe(false)
+
+      vi.advanceTimersByTime(1)
+      expect(renderer.batches.slice(releaseBatchStart).flat()).toContainEqual([
+        "destroyElement",
+        previewId,
+      ])
+    } finally {
+      root.unmount()
+      vi.useRealTimers()
+    }
+  })
+
 })
 
