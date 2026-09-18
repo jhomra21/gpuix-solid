@@ -25,7 +25,9 @@ function Action(props: { label: string; onClick: () => void }) {
 }
 
 function App() {
-  const [status, setStatus] = createSignal("Ready. Try a system dialog or drop files into the target.")
+  const [status, setStatus] = createSignal("Ready. Try a system dialog or either drag/drop target.")
+  const [dragging, setDragging] = createSignal(false)
+  const [dropHot, setDropHot] = createSignal(false)
 
   const run = (work: () => Promise<void>) => {
     void work().catch((error: unknown) => {
@@ -100,6 +102,55 @@ function App() {
             setStatus("Opened GPUIX with the system handler")
           })}
         />
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "row", gap: 12 }}>
+        <div
+          testId="desktop-drag-source"
+          dragData={{ kind: "demo-card", id: 1 }}
+          onDragStart={() => {
+            setDragging(true)
+            setStatus("Internal drag started")
+          }}
+          onDragEnd={() => {
+            setDragging(false)
+            setDropHot(false)
+          }}
+          style={{
+            width: 180,
+            height: 88,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: 10,
+            backgroundColor: dragging() ? "#365e8d" : "#294969",
+            cursor: "grab",
+          }}
+        >
+          <text style={{ color: "#e5f0ff", fontSize: 13 }}>Drag this card</text>
+        </div>
+        <div
+          testId="desktop-internal-drop-target"
+          onDragOver={() => setDropHot(true)}
+          onMouseLeave={() => setDropHot(false)}
+          onDrop={(event) => {
+            setDropHot(false)
+            setStatus(`Internal drop: ${JSON.stringify(event.dragData)}`)
+          }}
+          style={{
+            flexGrow: 1,
+            height: 88,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            borderWidth: 1,
+            borderColor: dropHot() ? "#7cb6ff" : "#4b4b55",
+            borderRadius: 10,
+            backgroundColor: dropHot() ? "#213a58" : "#1d1d21",
+          }}
+        >
+          <text style={{ color: "#c7c7ce", fontSize: 13 }}>Drop the card here</text>
+        </div>
       </div>
 
       <div
