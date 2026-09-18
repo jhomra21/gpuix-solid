@@ -15,7 +15,7 @@ GPUix Solid uses [heyhuynhgiabuu/solid-gpui](https://github.com/heyhuynhgiabuu/s
 | Window title / activation | In progress in #96 | Thin wrappers around the two imperative GPUIX 0.9 window methods. |
 | Retained-list commands | In progress in #96 | Public wrappers for native scroll and item positioning. |
 | Runtime hyperscript `h()` | In progress in #96 | Low-level JSX-free authoring helper with reactive children and selected accessor props. |
-| Dynamic intrinsic/component helper | In progress in #96 | Universal `Dynamic` switches intrinsic tags or Solid components without depending on `solid-js/web`. |
+| Dynamic intrinsic/component helper | Deferred | Solid 2 root replacement semantics need a dedicated retained-root change before this can be exposed safely. |
 | Window-scoped semantic `theme.set` | Native gap | GPUIX 0.9 exposes per-element `GpuixTheme` for native rich-content elements, not solid-gpui's window-scoped surface/foreground command. |
 | Minimize / zoom / fullscreen commands | Native gap | GPUIX 0.9 has creation-time window options but no matching imperative renderer methods. |
 | Custom native app menus | Native gap | GPUIX 0.9 owns its default native menus but does not expose arbitrary menu replacement through the renderer contract. |
