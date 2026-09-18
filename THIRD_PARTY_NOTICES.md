@@ -40,6 +40,17 @@ https://github.com/solidjs/solid
 
 GPUix Solid maintains two framework packages. `gpuix-solid` targets Solid 2, and `@jhomra21/gpuix-solid1` targets Solid 1.9.x. Each package uses the universal renderer contract for its Solid runtime version.
 
+## solid-gpui
+
+The following public API ideas were consulted while extending GPUix Solid's Solid 2 convenience surface:
+
+- Project: solid-gpui
+- Author/repository owner: heyhuynhgiabuu
+- Source: https://github.com/heyhuynhgiabuu/solid-gpui
+- License: Apache-2.0
+
+GPUix Solid does not depend on or vendor solid-gpui. Utility-class parsing, layout shorthands, window/list helpers, and related tests are implemented against GPUix Solid's existing GPUIX native host contract.
+
 ## Architectural references
 
 The following codebases were consulted for repository and architecture conventions but are not runtime dependencies and are not vendored:
