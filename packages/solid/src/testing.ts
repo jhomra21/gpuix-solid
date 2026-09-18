@@ -218,6 +218,13 @@ export class TestRenderer implements NativeRenderer {
     this.#native.flush()
   }
 
+  nativeSimulateFileDrop(x: number, y: number, paths: string[]): void {
+    this.#native.flush()
+    this.#native.simulateFileDrop(x, y, paths)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+  }
+
   nativeSimulateMouseMove(
     x: number,
     y: number,
