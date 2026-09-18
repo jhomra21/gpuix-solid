@@ -1,5 +1,6 @@
-import type { HostEventHandler, HostRef } from "./host/types.js"
 import type { MutationValue } from "./host/mutations.js"
+import type { HostElementNode } from "./host/nodes.js"
+import type { HostEventHandler, HostRef } from "./host/types.js"
 import {
   createElement,
   effect,
@@ -7,7 +8,7 @@ import {
   setProp,
 } from "./host/universal.js"
 
-export type HNode = ReturnType<typeof createElement>
+export type HNode = HostElementNode
 export type HAccessorValue = MutationValue | undefined
 export type HAccessor = () => HAccessorValue
 export type HPropValue =
@@ -72,9 +73,15 @@ function insertHChild(node: HNode, child: HChild): void {
   insert(node, child)
 }
 
+function createHostNode(tag: string): HNode {
+  const node = createElement(tag)
+  if (node.kind !== "element") throw new Error(`Expected hyperscript host element for <${tag}>`)
+  return node
+}
+
 function createH(): H {
   return (tag, rawProps, ...children) => {
-    const node = createElement(tag)
+    const node = createHostNode(tag)
     const props = rawProps ?? {}
 
     for (const [name, value] of Object.entries(props)) {
