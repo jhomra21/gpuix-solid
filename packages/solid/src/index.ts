@@ -9,6 +9,8 @@ export type {
 } from "./desktop.js"
 export { list } from "./list.js"
 export type { NativeListTarget } from "./list.js"
+export { h, makeH } from "./h.js"
+export type { H, HChild, HNode, HProps } from "./h.js"
 export { parseNativeUtilities } from "./utilities.js"
 export type { NativeUtilityParseResult } from "./utilities.js"
 export { createRoot } from "./root.js"
