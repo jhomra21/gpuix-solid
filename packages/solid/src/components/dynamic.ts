@@ -1,29 +1,32 @@
 import {
-  splitProps,
-  type ComponentProps,
+  untrack,
   type Element as SolidElement,
-  type ValidComponent,
 } from "solid-js"
 import {
-  createComponent,
   createElement,
   spread,
 } from "../host/universal.js"
 
-export type DynamicProps<T extends ValidComponent, Props = ComponentProps<T>> = {
-  [K in keyof Props]: Props[K]
-} & {
-  component: T | undefined
-}
+export type DynamicComponent<Props extends Record<string, unknown> = Record<string, unknown>> =
+  | string
+  | ((props: Props) => SolidElement)
 
-function isHostTag(component: ValidComponent): component is string {
+export type DynamicProps<Props extends Record<string, unknown> = Record<string, unknown>> =
+  Props & {
+    component: DynamicComponent<Props> | undefined
+    children?: unknown
+  }
+
+function isHostTag<Props extends Record<string, unknown>>(
+  component: DynamicComponent<Props>,
+): component is string {
   return typeof component === "string"
 }
 
-function createDynamic<T extends ValidComponent>(
-  component: T | undefined,
-  props: ComponentProps<T>,
-) {
+function createDynamic<Props extends Record<string, unknown>>(
+  component: DynamicComponent<Props> | undefined,
+  props: Props,
+): SolidElement {
   if (component === undefined) return undefined
 
   if (isHostTag(component)) {
@@ -32,22 +35,31 @@ function createDynamic<T extends ValidComponent>(
     return node
   }
 
-  return createComponent(component, props)
+  return untrack(() => component(props))
 }
 
 /**
  * Universal Dynamic helper for switching between intrinsic tags and Solid
  * components without routing through solid-js/web.
  */
-export function Dynamic<T extends ValidComponent>(
-  props: DynamicProps<T>,
+export function Dynamic<Props extends Record<string, unknown>>(
+  props: DynamicProps<Props>,
 ): SolidElement {
-  const [, others] = splitProps(props, ["component"])
-  // SAFETY: splitProps removes only Dynamic's synthetic component key, leaving ComponentProps<T>.
-  const componentProps = others as ComponentProps<T>
+  const rest: Record<string, unknown> = {}
+  for (const key of Object.keys(props)) {
+    if (key === "component") continue
+    Object.defineProperty(rest, key, {
+      enumerable: true,
+      configurable: true,
+      get: () => props[key],
+    })
+  }
 
-  // SAFETY: Solid's universal insert path unwraps accessors, so reading
-  // props.component here makes intrinsic/component identity changes replace
-  // the retained subtree without a web renderer.
+  // SAFETY: rest is the original Dynamic props object with only the synthetic
+  // component key removed; its remaining getters preserve the exact Props contract.
+  const componentProps = rest as Props
+
+  // SAFETY: Solid's universal insert path unwraps accessors. Returning this
+  // accessor makes component identity changes replace the retained subtree.
   return (() => createDynamic(props.component, componentProps)) as SolidElement
 }
