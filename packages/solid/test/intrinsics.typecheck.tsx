@@ -179,6 +179,11 @@ export function IntrinsicSurfaceFixture() {
       onBlur={onEvent}
       onScroll={onEvent}
       onFileDrop={onEvent}
+      dragData={{ id: "fixture" }}
+      onDragStart={onEvent}
+      onDragOver={onEvent}
+      onDrop={onEvent}
+      onDragEnd={onEvent}
       onChange={onEvent}
       onSubmit={onEvent}
       onToggleFile={onEvent}
