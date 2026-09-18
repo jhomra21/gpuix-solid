@@ -476,7 +476,9 @@ export function setHostProperty<T>(
     return
   }
 
-  const previousPointerEvents = name === "role" ? effectivePointerEvents(node) : undefined
+  const previousPointerEvents = name === "role" || name === "dragData"
+    ? effectivePointerEvents(node)
+    : undefined
   const previousDragNativeHandlers = name === "dragData"
     ? new Map((["mouseDown", "mouseMove", "mouseUp"] as const).map((nativeType) => [nativeType, hasNativeEventHandler(node, nativeType)]))
     : undefined
@@ -497,6 +499,11 @@ export function setHostProperty<T>(
       const previous = previousDragNativeHandlers?.get(nativeType) ?? false
       const next = hasNativeEventHandler(node, nativeType)
       if (previous !== next) node.root.driver.enqueue("setEventListener", node.id, nativeType, next)
+    }
+    const nextPointerEvents = effectivePointerEvents(node)
+    if (previousPointerEvents !== nextPointerEvents) {
+      node.root.driver.enqueue("setStyle", node.id, nativeStyleFor(node, nextPointerEvents))
+      appliedPointerEvents.set(node, nextPointerEvents)
     }
   }
   if (node.root && node.nativeAlive && name === "role") {
@@ -712,7 +719,12 @@ function effectivePointerEvents(node: HostElementNode): StyleDesc["pointerEvents
   // GPUIX 0.7 needs an explicit hit surface for transparent semantic controls.
   // Plain event-bearing divs keep their existing paint/hit behavior so parent
   // containers do not become new occluding surfaces.
-  if (node.events.size > 0 && ownsSemanticHitSurface(node)) return "auto"
+  if (
+    node.props.has("dragData")
+    || node.events.has("dragOver")
+    || node.events.has("drop")
+    || (node.events.size > 0 && ownsSemanticHitSurface(node))
+  ) return "auto"
   return undefined
 }
 
