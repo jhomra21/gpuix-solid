@@ -2,7 +2,7 @@ import { writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { createSignal } from "solid-js"
-import { appMenu, dialog, render, shell } from "gpuix-solid"
+import { appMenu, dialog, render, shell, type EventPayload } from "gpuix-solid"
 
 function Action(props: { label: string; onClick: () => void }) {
   return (
@@ -28,7 +28,33 @@ function App() {
   const [status, setStatus] = createSignal("Ready. Try a system dialog or either drag/drop target.")
   const [dragging, setDragging] = createSignal(false)
   const [dropHot, setDropHot] = createSignal(false)
-  const [dropped, setDropped] = createSignal(false)
+  const [dropPosition, setDropPosition] = createSignal<{ left: number; top: number }>()
+  let grabOffset = { x: 90, y: 44 }
+  let pendingDropPosition: { left: number; top: number } | undefined
+
+  const rememberGrabPoint = (event: EventPayload): void => {
+    const bounds = event.currentTarget?.getBoundingClientRect()
+    if (!bounds) return
+    grabOffset = {
+      x: (event.clientX ?? event.x ?? bounds.left) - bounds.left,
+      y: (event.clientY ?? event.y ?? bounds.top) - bounds.top,
+    }
+  }
+
+  const startInternalDrag = (): void => {
+    pendingDropPosition = undefined
+    setDragging(true)
+    setStatus("Internal drag started")
+  }
+
+  const finishInternalDrag = (event: EventPayload): void => {
+    setDragging(false)
+    setDropHot(false)
+    if (event.dropTargetId !== undefined && pendingDropPosition) {
+      setDropPosition(pendingDropPosition)
+    }
+    pendingDropPosition = undefined
+  }
 
   const run = (work: () => Promise<void>) => {
     void work().catch((error: Error) => {
@@ -114,19 +140,13 @@ function App() {
             flexShrink: 0,
           }}
         >
-          {dropped() ? null : (
+          {dropPosition() ? null : (
             <div
               testId="desktop-drag-source"
               dragData={{ kind: "demo-card", id: 1 }}
-              onDragStart={() => {
-                setDragging(true)
-                setStatus("Internal drag started")
-              }}
-              onDragEnd={(event) => {
-                setDragging(false)
-                setDropHot(false)
-                if (event.dropTargetId !== undefined) setDropped(true)
-              }}
+              onMouseDown={rememberGrabPoint}
+              onDragStart={startInternalDrag}
+              onDragEnd={finishInternalDrag}
               style={{
                 width: 180,
                 height: 88,
@@ -147,10 +167,20 @@ function App() {
           onDragOver={() => setDropHot(true)}
           onMouseLeave={() => setDropHot(false)}
           onDrop={(event) => {
+            const bounds = event.currentTarget?.getBoundingClientRect()
+            const x = event.clientX ?? event.x
+            const y = event.clientY ?? event.y
+            if (bounds && x !== undefined && y !== undefined) {
+              pendingDropPosition = {
+                left: x - bounds.left - grabOffset.x,
+                top: y - bounds.top - grabOffset.y,
+              }
+            }
             setDropHot(false)
             setStatus(`Internal drop: ${JSON.stringify(event.dragData)}`)
           }}
           style={{
+            position: "relative",
             flexGrow: 1,
             height: 88,
             display: "flex",
@@ -162,19 +192,17 @@ function App() {
             backgroundColor: dropHot() ? "#213a58" : "#1d1d21",
           }}
         >
-          {dropped() ? (
+          {dropPosition() ? (
             <div
               testId="desktop-drag-source"
               dragData={{ kind: "demo-card", id: 1 }}
-              onDragStart={() => {
-                setDragging(true)
-                setStatus("Internal drag started")
-              }}
-              onDragEnd={() => {
-                setDragging(false)
-                setDropHot(false)
-              }}
+              onMouseDown={rememberGrabPoint}
+              onDragStart={startInternalDrag}
+              onDragEnd={finishInternalDrag}
               style={{
+                position: "absolute",
+                left: dropPosition()?.left ?? 0,
+                top: dropPosition()?.top ?? 0,
                 width: 180,
                 height: 88,
                 display: "flex",
