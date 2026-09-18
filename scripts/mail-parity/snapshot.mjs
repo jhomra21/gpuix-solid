@@ -159,9 +159,27 @@ function compareValues(left, right, path, mismatches) {
   mismatches.push(path + ": " + JSON.stringify(left) + " != " + JSON.stringify(right))
 }
 
+function comparableLeafTexts(reactSnapshot, solidSnapshot, mismatches) {
+  const react = [...reactSnapshot.leafTexts]
+  const solid = [...solidSnapshot.leafTexts]
+  const vectorMentionCount = solidSnapshot.testIds["mail-vector-mention-count"]?.count ?? 0
+
+  for (let index = 0; index < vectorMentionCount; index += 1) {
+    const mentionTextIndex = react.indexOf("1")
+    if (mentionTextIndex < 0) {
+      mismatches.push("vector mention count has no matching React text leaf")
+      break
+    }
+    react.splice(mentionTextIndex, 1)
+  }
+
+  return { react, solid }
+}
+
 export function compareSnapshots(reactSnapshot, solidSnapshot) {
   const mismatches = []
-  if (reactSnapshot.leafTexts.join("\u0000") !== solidSnapshot.leafTexts.join("\u0000")) {
+  const comparableText = comparableLeafTexts(reactSnapshot, solidSnapshot, mismatches)
+  if (comparableText.react.join("\u0000") !== comparableText.solid.join("\u0000")) {
     mismatches.push("leaf text differs")
   }
   for (const key of ["img", "input", "textarea"]) {
