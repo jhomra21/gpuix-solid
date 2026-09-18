@@ -38,6 +38,10 @@ export const EVENT_PROPS = [
   ["onBlur", "blur", "blur"],
   ["onScroll", "scroll", "scroll"],
   ["onFileDrop", "fileDrop", "fileDrop"],
+  ["onDragStart", "dragStart", null],
+  ["onDragOver", "dragOver", null],
+  ["onDrop", "drop", null],
+  ["onDragEnd", "dragEnd", null],
 ] as const
 
 export type EventPropName = (typeof EVENT_PROPS)[number][0]
@@ -68,6 +72,7 @@ const PERSISTENT_DEVICE_ID = 0
 const DOUBLE_CLICK_MS = 500
 const DOUBLE_CLICK_DISTANCE_PX = 4
 const NATIVE_CLICK_RELAY_MS = 250
+const DRAG_START_DISTANCE_PX = 4
 
 installNativeDomGlobals()
 
@@ -309,6 +314,14 @@ type NativeClickBubble = {
   y: number
 }
 
+type DragSession = {
+  sourceId: number
+  data: unknown
+  startX: number
+  startY: number
+  started: boolean
+}
+
 function finiteRangeNumber(value: string | null | undefined, fallback: number): number {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : fallback
@@ -330,6 +343,8 @@ export class EventRegistry {
   readonly #pointerCapture = new Map<number, number>()
   readonly #lastPointerEvent = new Map<number, NativeEventPayload>()
   readonly #primaryClickBursts = new Map<number, ActivationBurst>()
+  readonly #dragData = new Map<number, unknown>()
+  #dragSession: DragSession | undefined
   #nativeClickBubble: NativeClickBubble | undefined
   #activeRangeId: number | undefined
   #lastClick: LastClick | undefined
@@ -340,6 +355,11 @@ export class EventRegistry {
 
   setTarget(id: number, target: DomCompatTarget): void {
     this.#targets.set(id, target)
+  }
+
+  setDragData(id: number, data: unknown): void {
+    if (data === undefined) this.#dragData.delete(id)
+    else this.#dragData.set(id, data)
   }
 
   setParent(id: number, parentId: number | null): void {
@@ -356,6 +376,8 @@ export class EventRegistry {
     this.#handlers.delete(id)
     this.#targets.delete(id)
     this.#parents.delete(id)
+    this.#dragData.delete(id)
+    if (this.#dragSession?.sourceId === id) this.#dragSession = undefined
     this.#nativePointerDown.delete(id)
     this.#primaryClickBursts.delete(id)
     if (this.#activeRangeId === id) this.#activeRangeId = undefined
@@ -389,6 +411,8 @@ export class EventRegistry {
     this.#live.clear()
     this.#targets.clear()
     this.#parents.clear()
+    this.#dragData.clear()
+    this.#dragSession = undefined
     this.#nativePointerDown.clear()
     this.#activePointers.clear()
     this.#pointerCapture.clear()
@@ -425,6 +449,18 @@ export class EventRegistry {
     if (!this.#live.has(event.elementId)) return
     switch (event.eventType) {
       case "mouseDown": {
+        if ((event.button ?? 0) === 0) {
+          const sourceId = this.#dragSourceOwner(event.elementId)
+          this.#dragSession = sourceId === undefined
+            ? undefined
+            : {
+                sourceId,
+                data: this.#dragData.get(sourceId),
+                startX: event.x ?? 0,
+                startY: event.y ?? 0,
+                started: false,
+              }
+        }
         // A real mouse-down is the authoritative boundary between physical
         // activations. It clears any delayed semantic-click carrier from the
         // previous release before this activation starts.
@@ -443,6 +479,7 @@ export class EventRegistry {
       }
       case "mouseMove": {
         this.#lastPointerEvent.set(POINTER_ID, event)
+        this.#advanceDrag(event.elementId, event)
         const activeRangeId = this.#activeRangeId
         if (activeRangeId !== undefined && this.#updateRangeValue(activeRangeId, event)) {
           this.#dispatchDom(activeRangeId, "input", { ...event, elementId: activeRangeId })
@@ -454,6 +491,7 @@ export class EventRegistry {
       }
       case "mouseUp": {
         this.#lastPointerEvent.set(POINTER_ID, event)
+        const completedDrag = this.#finishDrag(event.elementId, event)
         const activeRangeId = this.#activeRangeId
         if (activeRangeId !== undefined) {
           const rangeEvent = { ...event, elementId: activeRangeId }
@@ -466,7 +504,7 @@ export class EventRegistry {
         this.#dispatchDom(event.elementId, "mouseUp", event)
         const sourceElementId = event.elementId
         const clickOwner = (event.button ?? 0) === 0 ? this.#primaryClickOwner(sourceElementId) : undefined
-        if (clickOwner !== undefined) {
+        if (!completedDrag && clickOwner !== undefined) {
           const clickEvent = { ...event, elementId: clickOwner, eventType: "click", button: 0 } satisfies NativeEventPayload
           if (this.#shouldDispatchPrimaryClick(clickEvent, `mouseUp:${sourceElementId}`)) this.#dispatchPrimaryClick(clickEvent)
         }
@@ -502,6 +540,76 @@ export class EventRegistry {
           this.#dispatchDom(event.elementId, domEventType, event)
         }
     }
+  }
+
+  #dragSourceOwner(elementId: number): number | undefined {
+    let current: number | null | undefined = elementId
+    while (current !== undefined && current !== null && this.#live.has(current)) {
+      if (this.#dragData.has(current)) return current
+      current = this.#parents.get(current)
+    }
+    return undefined
+  }
+
+  #dragEventOwner(elementId: number, eventType: "dragOver" | "drop"): number | undefined {
+    let current: number | null | undefined = elementId
+    while (current !== undefined && current !== null && this.#live.has(current)) {
+      if (this.#handlers.get(current)?.has(eventType)) return current
+      current = this.#parents.get(current)
+    }
+    return undefined
+  }
+
+  #advanceDrag(nativeTargetId: number, event: NativeEventPayload): void {
+    const session = this.#dragSession
+    if (!session) return
+    if (!session.started) {
+      const distance = Math.hypot((event.x ?? 0) - session.startX, (event.y ?? 0) - session.startY)
+      if (distance < DRAG_START_DISTANCE_PX) return
+      session.started = true
+      this.#dispatchDom(
+        session.sourceId,
+        "dragStart",
+        { ...event, elementId: session.sourceId },
+        false,
+        { dragData: session.data, dragSourceId: session.sourceId },
+      )
+    }
+
+    const overId = this.#dragEventOwner(nativeTargetId, "dragOver")
+    if (overId === undefined) return
+    this.#dispatchDom(
+      overId,
+      "dragOver",
+      { ...event, elementId: overId },
+      false,
+      { dragData: session.data, dragSourceId: session.sourceId, dropTargetId: overId },
+    )
+  }
+
+  #finishDrag(nativeTargetId: number, event: NativeEventPayload): boolean {
+    const session = this.#dragSession
+    this.#dragSession = undefined
+    if (!session?.started) return false
+
+    const dropTargetId = this.#dragEventOwner(nativeTargetId, "drop")
+    if (dropTargetId !== undefined) {
+      this.#dispatchDom(
+        dropTargetId,
+        "drop",
+        { ...event, elementId: dropTargetId },
+        false,
+        { dragData: session.data, dragSourceId: session.sourceId, dropTargetId },
+      )
+    }
+    this.#dispatchDom(
+      session.sourceId,
+      "dragEnd",
+      { ...event, elementId: session.sourceId },
+      false,
+      { dragData: session.data, dragSourceId: session.sourceId, dropTargetId },
+    )
+    return true
   }
 
   #isRangeTarget(elementId: number): boolean {
@@ -649,10 +757,12 @@ export class EventRegistry {
     eventType: string,
     nativeEvent: NativeEventPayload,
     globalOnly = false,
+    extras?: Pick<EventPayload, "dragData" | "dragSourceId" | "dropTargetId">,
   ): EventPayload | undefined {
     if (!this.#live.has(elementId)) return undefined
     const target = this.#targets.get(elementId)
     const event = domCompatibleEvent({ ...nativeEvent, elementId }, target, eventType)
+    if (extras) Object.assign(event, extras)
     if (!globalOnly) {
       this.#handlers.get(elementId)?.get(eventType)?.(event)
       if (target) target.dispatchEvent(createTargetEvent(eventType, event, target))
