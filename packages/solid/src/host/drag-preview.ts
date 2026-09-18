@@ -185,7 +185,6 @@ export class SemanticDragPreview {
       },
     }
     this.#root.driver.enqueue("setCustomProp", wrapperId, "motion", motion)
-    this.#root.driver.flush()
 
     this.#returnTimer = setTimeout(() => {
       this.#returnTimer = undefined
