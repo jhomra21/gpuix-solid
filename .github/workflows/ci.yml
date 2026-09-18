@@ -52,6 +52,9 @@ jobs:
       - name: Run logic tests
         run: bun run test:logic
       - run: bun run build
+      - name: Run desktop live-native drag acceptance
+        if: matrix.os == 'macos-latest'
+        run: node scripts/check-desktop-live-automation.mjs
       - name: Verify Solid 1 package and consumer builds
         run: bun run solid1:check
       - run: node --test scripts/release.test.mjs
