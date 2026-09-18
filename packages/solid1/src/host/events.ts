@@ -37,6 +37,7 @@ export const EVENT_PROPS = [
   ["onFocus", "focus", "focus"],
   ["onBlur", "blur", "blur"],
   ["onScroll", "scroll", "scroll"],
+  ["onFileDrop", "fileDrop", "fileDrop"],
 ] as const
 
 export type EventPropName = (typeof EVENT_PROPS)[number][0]
