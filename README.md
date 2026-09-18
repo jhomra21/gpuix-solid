@@ -247,6 +247,38 @@ The Solid 1 renderer. It keeps the Solid 1 runtime boundary separate and include
 
 The upstream GPUIX native package. GPUix Solid consumes it rather than carrying a Rust fork.
 
+## Desktop integration
+
+GPUix Solid exposes OS-facing helpers for native desktop applications:
+
+```ts
+import { appMenu, dialog, shell } from "gpuix-solid"
+
+const files = await dialog.openFile({ multiple: true })
+const destination = await dialog.saveFile({ suggestedName: "project.json" })
+await shell.revealPath("/tmp/project.json")
+await shell.openWithSystem("https://github.com/remorses/gpuix")
+
+render(() => <App />, {
+  title: "My App",
+  ...appMenu.default("My App"),
+})
+```
+
+On macOS, dialogs use the system dialog service and shell actions use `open`; Windows uses the platform PowerShell/Explorer integrations; Linux uses `zenity` for dialogs and `xdg-open` for shell actions. GPUIX 0.9 already owns the native macOS App + Window menus; `appMenu.default()` supplies its application label. Arbitrary custom native menu items are not exposed by the GPUIX 0.9 native contract.
+
+Finder/OS file drops are native GPUI events:
+
+```tsx
+<div onFileDrop={(event) => openFiles(event.paths ?? [])}>
+  <text>Drop files here</text>
+</div>
+```
+
+The native test renderer and locator API can drive the same path with `locator.dropFiles([...])`.
+
+Run the complete local showcase with `bun run example:desktop`.
+
 ## Testing
 
 Repository CI validates macOS, Ubuntu, Windows, the Solid 1 package and consumers, the Solid 2 package tarball, source-pinned examples, and the exact GPUIX 0.9 source compatibility lane. The Solid 2 package and clean consumers run against the paired `solid-js@2.0.0-rc.8` and `@solidjs/universal@2.0.0-rc.8` baseline.
