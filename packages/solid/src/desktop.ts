@@ -35,6 +35,7 @@ interface CommandResult {
   code: number | null
   stdout: string
   stderr: string
+  errorCode?: string
 }
 
 interface RunOptions {
@@ -42,7 +43,7 @@ interface RunOptions {
 }
 
 function run(command: string, args: readonly string[], options: RunOptions = {}): Promise<CommandResult> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const child = spawn(command, [...args], {
       env: options.env ?? process.env,
       stdio: ["ignore", "pipe", "pipe"],
@@ -54,13 +55,18 @@ function run(command: string, args: readonly string[], options: RunOptions = {})
     child.stderr.setEncoding("utf8")
     child.stdout.on("data", (chunk: string) => { stdout += chunk })
     child.stderr.on("data", (chunk: string) => { stderr += chunk })
-    child.once("error", reject)
+    child.once("error", (error: NodeJS.ErrnoException) => {
+      resolve({ code: null, stdout, stderr, errorCode: error.code })
+    })
     child.once("close", (code) => resolve({ code, stdout, stderr }))
   })
 }
 
 function commandFailure(command: string, result: CommandResult): Error {
-  const detail = result.stderr.trim() || result.stdout.trim() || `exit ${result.code ?? "unknown"}`
+  const detail = result.stderr.trim()
+    || result.stdout.trim()
+    || result.errorCode
+    || `exit ${result.code ?? "unknown"}`
   return new Error(`${command} failed: ${detail}`)
 }
 
@@ -268,15 +274,11 @@ async function linuxOpenFile(options: OpenFileDialogOptions): Promise<string[] |
   if (kind === "directory") args.push("--directory")
   if (options.multiple) args.push("--multiple", "--separator=\n")
   if (options.defaultPath) args.push(`--filename=${options.defaultPath}`)
-  let result: CommandResult
-  try {
-    result = await run("zenity", args)
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      throw new DesktopUnsupportedError("Linux file dialogs require zenity")
-    }
-    throw error
+  const result = await run("zenity", args)
+  if (result.errorCode === "ENOENT") {
+    throw new DesktopUnsupportedError("Linux file dialogs require zenity")
   }
+  if (result.errorCode) throw commandFailure("zenity", result)
   if (result.code === 1) return null
   if (result.code !== 0) throw commandFailure("zenity", result)
   return lines(result.stdout)
@@ -288,15 +290,11 @@ async function linuxSaveFile(options: SaveFileDialogOptions): Promise<string | n
     : options.suggestedName
   const args = ["--file-selection", "--save", "--confirm-overwrite", `--title=${options.prompt ?? "Save file"}`]
   if (filename) args.push(`--filename=${filename}`)
-  let result: CommandResult
-  try {
-    result = await run("zenity", args)
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      throw new DesktopUnsupportedError("Linux save dialogs require zenity")
-    }
-    throw error
+  const result = await run("zenity", args)
+  if (result.errorCode === "ENOENT") {
+    throw new DesktopUnsupportedError("Linux save dialogs require zenity")
   }
+  if (result.errorCode) throw commandFailure("zenity", result)
   if (result.code === 1) return null
   if (result.code !== 0) throw commandFailure("zenity", result)
   return result.stdout.trim() || null
@@ -308,15 +306,11 @@ async function linuxMessage(options: MessageDialogOptions): Promise<number | nul
   const args = buttons.length === 1
     ? ["--info", `--text=${text}`, `--ok-label=${buttons[0]}`]
     : ["--question", `--text=${text}`, `--cancel-label=${buttons[0]}`, `--ok-label=${buttons[1]}`]
-  let result: CommandResult
-  try {
-    result = await run("zenity", args)
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      throw new DesktopUnsupportedError("Linux message dialogs require zenity")
-    }
-    throw error
+  const result = await run("zenity", args)
+  if (result.errorCode === "ENOENT") {
+    throw new DesktopUnsupportedError("Linux message dialogs require zenity")
   }
+  if (result.errorCode) throw commandFailure("zenity", result)
   if (buttons.length === 1) {
     if (result.code !== 0 && result.code !== 1) throw commandFailure("zenity", result)
     return 0
