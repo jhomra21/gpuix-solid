@@ -459,7 +459,9 @@ export function createRoot(renderer: NativeRenderer, initialWindowEventHandlers:
               rootId,
               routedEvent.x ?? 0,
               routedEvent.y ?? 0,
-              preview.label,
+              preview.sourceId,
+              preview.startX,
+              preview.startY,
             )
           } else {
             semanticDragPreview.hide()
