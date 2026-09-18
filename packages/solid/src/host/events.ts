@@ -190,6 +190,9 @@ function createTargetEvent(eventType: string, event: EventPayload, target: Event
     metaKey: { configurable: true, value: event.metaKey ?? false },
     altKey: { configurable: true, value: event.altKey ?? false },
     ctrlKey: { configurable: true, value: event.ctrlKey ?? false },
+    dragData: { configurable: true, value: event.dragData },
+    dragSourceId: { configurable: true, value: event.dragSourceId },
+    dropTargetId: { configurable: true, value: event.dropTargetId },
     preventDefault: {
       configurable: true,
       value: () => {
