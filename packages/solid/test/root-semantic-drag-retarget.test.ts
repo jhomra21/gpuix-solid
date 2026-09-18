@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { createElement, insertNode, setProp } from "../src/host/universal.js"
 import type { HostElementNode } from "../src/host/nodes.js"
+import type { EventPayload } from "../src/host/types.js"
 import { createRoot } from "../src/root.js"
 import { FakeRenderer } from "./fake-renderer.js"
 
@@ -47,7 +48,7 @@ describe("root semantic drag retargeting", () => {
       setProp(nextTarget, "onDragOver", () => {
         if (!events.includes("over")) events.push("over")
       })
-      setProp(nextTarget, "onDrop", (event) => {
+      setProp(nextTarget, "onDrop", (event: EventPayload) => {
         dropped = event.dragData
         events.push("drop")
       })
