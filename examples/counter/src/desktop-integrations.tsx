@@ -108,7 +108,6 @@ function App() {
         <div
           testId="desktop-drag-source"
           dragData={{ kind: "demo-card", id: 1 }}
-          dragPreview="Drag this card"
           onDragStart={() => {
             setDragging(true)
             setStatus("Internal drag started")
