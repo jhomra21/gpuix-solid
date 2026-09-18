@@ -435,14 +435,14 @@ export function createRoot(renderer: NativeRenderer, initialWindowEventHandlers:
         const previewBeforeRelease = routedEvent.eventType === "mouseUp"
           ? events.activeDragPreview()
           : undefined
-        let semanticDropTargetId: number | undefined
+        let semanticDragTargetId: number | null | undefined
         if (
           events.hasDragSession()
           && (routedEvent.eventType === "mouseMove" || routedEvent.eventType === "mouseUp")
         ) {
           const dragEventType = routedEvent.eventType === "mouseMove" ? "dragOver" : "drop"
           const targetId = semanticDragTargetAtPoint(container, renderer, events, routedEvent, dragEventType)
-          if (dragEventType === "drop") semanticDropTargetId = targetId
+          semanticDragTargetId = targetId ?? null
           if (targetId !== undefined && targetId !== routedEvent.elementId) {
             routedEvent = { ...routedEvent, elementId: targetId }
           }
@@ -454,7 +454,7 @@ export function createRoot(renderer: NativeRenderer, initialWindowEventHandlers:
           driver.beginAuthoredPointerRelay(routedEvent.elementId)
         }
         const browserEvent = browserCompatibleNativeEvent(routedEvent)
-        events.dispatch(browserEvent)
+        events.dispatch(browserEvent, semanticDragTargetId)
         dispatchBrowserKeyboardEvent(browserEvent)
         if (routedEvent.eventType === "mouseMove") {
           const preview = events.activeDragPreview()
@@ -472,7 +472,7 @@ export function createRoot(renderer: NativeRenderer, initialWindowEventHandlers:
             semanticDragPreview.hide()
           }
         } else if (routedEvent.eventType === "mouseUp") {
-          if (previewBeforeRelease && semanticDropTargetId === undefined) {
+          if (previewBeforeRelease && semanticDragTargetId === null) {
             semanticDragPreview.returnToSource()
           } else {
             semanticDragPreview.hide()
