@@ -10,7 +10,7 @@ import type {
   StyleDesc,
 } from "./types.js"
 
-const RESERVED_PROPS = new Set(["children", "ref", "style", "className", "key", "dragData"])
+const RESERVED_PROPS = new Set(["children", "ref", "style", "className", "key", "dragData", "dragPreview"])
 const BUILT_IN_TYPES = new Set<ElementType>(["div", "text"])
 const UNIVERSAL_PROPS = new Set(["autoFocus", "tabIndex", "motion", "testId", "highlight", "title"])
 
@@ -105,6 +105,7 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   style: HostStyleDeclaration
   readonly props = new Map<string, MutationValue>()
   dragData: DragData | undefined
+  dragPreview: string | undefined
   readonly events = new Map<string, HostEventHandler>()
   readonly classList = {
     add: (..._tokens: string[]): void => undefined,
@@ -451,10 +452,14 @@ export function setHostProperty<T>(
       if (previous !== next) node.root.driver.enqueue("setEventListener", node.id, nativeType, next)
     }
     const nextPointerEvents = effectivePointerEvents(node)
-    if (previousPointerEvents !== nextPointerEvents) {
-      node.root.driver.enqueue("setStyle", node.id, nativeStyleFor(node, nextPointerEvents))
-      appliedPointerEvents.set(node, nextPointerEvents)
-    }
+    node.root.driver.enqueue("setStyle", node.id, nativeStyleFor(node, nextPointerEvents))
+    appliedPointerEvents.set(node, nextPointerEvents)
+    return
+  }
+
+  if (name === "dragPreview") {
+    node.dragPreview = value == null ? undefined : String(value)
+    if (node.root && node.nativeAlive) node.root.events.setDragPreview(node.id, node.dragPreview)
     return
   }
 
@@ -746,13 +751,16 @@ function nativeStyleFor(
   // but an authored width such as w-full must still be allowed to shrink below
   // that preferred size. Preserve the 129px browser-like basis while removing
   // the 129px minimum that previously forced compact mixer cells to overflow.
-  const style: StyleDesc = isRangeInput(node)
+  let style: StyleDesc = isRangeInput(node)
     ? node.style.width === undefined
       ? { minHeight: 16, height: 16, width: 129, minWidth: 129, ...node.style }
       : node.style.width === "100%"
         ? { minHeight: 16, height: 16, ...node.style, width: 129, minWidth: 0, flexShrink: 1 }
         : { minHeight: 16, height: 16, minWidth: 0, ...node.style }
     : node.style
+  if (node.dragData !== undefined && node.style.userSelect === undefined) {
+    style = { ...style, userSelect: "none" }
+  }
   if (node.style.pointerEvents !== undefined || pointerEvents === undefined) return style
   return { ...style, pointerEvents }
 }
@@ -832,6 +840,7 @@ function adopt(root: HostRootNode, node: HostNode): void {
   } else {
     root.events.setTarget(node.id, node)
     if (node.dragData !== undefined) root.events.setDragData(node.id, node.dragData)
+    if (node.dragPreview !== undefined) root.events.setDragPreview(node.id, node.dragPreview)
     const nativeEventTypes = new Set<string>()
     const pointerEvents = effectivePointerEvents(node)
     const nativeStyle = nativeStyleFor(node, pointerEvents)
