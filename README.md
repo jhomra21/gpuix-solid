@@ -247,17 +247,35 @@ The Solid 1 renderer. It keeps the Solid 1 runtime boundary separate and include
 
 The upstream GPUIX native package. GPUix Solid consumes it rather than carrying a Rust fork.
 
+## Solid 2 styling conveniences
+
+Without a generated native style manifest, Solid 2 can compile a deliberately small Tailwind-compatible utility subset directly into GPUIX styles:
+
+```tsx
+<div class="flex items-center gap-2 px-3 py-2 bg-zinc-900 text-white rounded-md hover:bg-zinc-800">
+  <text style={{ color: "#fff" }}>Native utility classes</text>
+</div>
+```
+
+Supported utilities cover common flex layout, spacing, sizing, colors, typography, radius, opacity, cursors, and `hover:` / `active:` states. Unsupported tokens fail instead of being silently ignored. If `configureNativeStyleManifest()` is present, that generated manifest remains authoritative.
+
+Inline styles also accept the layout shorthands `paddingX`, `paddingY`, `marginX`, `marginY`, `size`, `inset`, `insetX`, and `insetY`; GPUix Solid expands them to GPUIX's physical style keys before native delivery. Explicit physical keys win when both are provided.
+
 ## Desktop integration
 
 GPUix Solid exposes OS-facing helpers for native desktop applications:
 
 ```ts
-import { appMenu, dialog, shell } from "gpuix-solid"
+import { appMenu, appWindow, dialog, list, shell } from "gpuix-solid"
 
 const files = await dialog.openFile({ multiple: true })
 const destination = await dialog.saveFile({ suggestedName: "project.json" })
 await shell.revealPath("/tmp/project.json")
 await shell.openWithSystem("https://github.com/remorses/gpuix")
+
+appWindow.setTitle(renderer, "Renamed window")
+appWindow.activate(renderer)
+list.scrollToItem(renderer, virtualListId, 200)
 
 render(() => <App />, {
   title: "My App",
@@ -265,7 +283,7 @@ render(() => <App />, {
 })
 ```
 
-On macOS, dialogs use the system dialog service and shell actions use `open`; Windows uses the platform PowerShell/Explorer integrations; Linux uses `zenity` for dialogs and `xdg-open` for shell actions. GPUIX 0.9 already owns the native macOS App + Window menus; `appMenu.default()` supplies its application label. Arbitrary custom native menu items are not exposed by the GPUIX 0.9 native contract.
+On macOS, dialogs use the system dialog service and shell actions use `open`; Windows uses the platform PowerShell/Explorer integrations; Linux uses `zenity` for dialogs and `xdg-open` for shell actions. `appWindow` exposes the imperative window capabilities GPUIX 0.9 actually provides (`setTitle` and `activate`), while `list` wraps its retained-list scrolling methods. GPUIX 0.9 already owns the native macOS App + Window menus; `appMenu.default()` supplies its application label. Arbitrary custom native menu items and imperative minimize/zoom/fullscreen commands are not exposed by the GPUIX 0.9 native contract.
 
 Finder/OS file drops are native GPUI events:
 
