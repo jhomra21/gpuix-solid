@@ -259,6 +259,13 @@ const examples = [
       await expectText(app.getByTestId("diffusion-folder-1"), "New folder", "created folder name", {
         includes: true,
       })
+      await step("open layer context menu", () =>
+        app.getByTestId("diffusion-layer-row-video").click({ button: 2 }),
+      )
+      const layerContext = app.getByTestId("diffusion-layer-context-video")
+      await expectPresent(layerContext, "layer context menu")
+      await step("close layer context menu", () => layerContext.getByText("Mute").click())
+      await expectCount(layerContext, 0, "closed layer context menu")
       await step("toggle playback", () => app.getByTestId("diffusion-play").click())
       await expectText(app.getByTestId("diffusion-play"), "Ⅱ", "playing state")
       await step("hide editor chrome", () => app.getByTestId("diffusion-toggle-ui").click())
