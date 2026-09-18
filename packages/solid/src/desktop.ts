@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process"
 import { dirname } from "node:path"
 import type { WindowOptions } from "@gpuix/native"
+import type { NativeRenderer } from "./host/types.js"
 
 export class DesktopUnsupportedError extends Error {
   constructor(message: string) {
@@ -341,6 +342,32 @@ export const dialog = {
     if (process.platform === "linux") return await linuxMessage(options)
     throw new DesktopUnsupportedError(`Message dialogs are not supported on ${process.platform}`)
   },
+}
+
+/**
+ * Imperative window actions that GPUIX 0.9 exposes on the live renderer.
+ *
+ * Window creation options such as blur, transparent titlebars and traffic-light
+ * placement still belong in render(..., options).
+ */
+export const appWindow = {
+  setTitle(renderer: NativeRenderer, title: string): void {
+    if (!renderer.setWindowTitle) {
+      throw new DesktopUnsupportedError("GPUIX native renderer does not expose setWindowTitle")
+    }
+    renderer.setWindowTitle(title)
+  },
+
+  activate(renderer: NativeRenderer): void {
+    if (!renderer.activateWindow) {
+      throw new DesktopUnsupportedError("GPUIX native renderer does not expose activateWindow")
+    }
+    renderer.activateWindow()
+  },
+
+  supportsMinimize: false as const,
+  supportsZoom: false as const,
+  supportsFullscreenToggle: false as const,
 }
 
 export const shell = {

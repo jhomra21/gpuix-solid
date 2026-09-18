@@ -1,4 +1,5 @@
 import type { DimensionValue, LinearGradientBackground, StyleDesc } from "./host/types.js"
+import { parseNativeUtilities } from "./utilities.js"
 
 export type NativeColorMode = "light" | "dark"
 export type NativeClassList = Record<string, boolean | null | undefined>
@@ -70,11 +71,16 @@ export function resolveNativeClassStyle(
 ): StyleDesc | undefined {
   const candidates = classCandidates(className, classList)
   if (candidates.length === 0) return undefined
-  const activeManifest = requireManifest()
+
+  if (!manifest) {
+    const compiled = parseNativeUtilities(candidates.join(" "))
+    if (compiled.unknown.length > 0) throw missingUtilityCandidates(compiled.unknown)
+    return normalizeNativeStyleColors(compiled.style) ?? compiled.style
+  }
 
   let resolved: StyleDesc | undefined
   for (const candidate of candidates) {
-    const entry = activeManifest.classes[candidate]
+    const entry = manifest.classes[candidate]
     if (!entry) throw missingCandidate(candidate)
     resolved = mergeNativeStyles(resolved, resolveVariant(entry))
   }
@@ -86,8 +92,8 @@ export function resolveNativeClassParentPosition(
   classList: NativeClassList | undefined,
 ): NativeStyleParentPosition | undefined {
   const candidates = classCandidates(className, classList)
-  if (candidates.length === 0) return undefined
-  const activeManifest = requireManifest()
+  if (candidates.length === 0 || !manifest) return undefined
+  const activeManifest = manifest
 
   let resolved: NativeStyleParentPosition | undefined
   for (const candidate of candidates) {
@@ -142,8 +148,8 @@ export function resolveNativeClassTranslation(
   classList: NativeClassList | undefined,
 ): NativeStyleTranslation | undefined {
   const candidates = classCandidates(className, classList)
-  if (candidates.length === 0) return undefined
-  const activeManifest = requireManifest()
+  if (candidates.length === 0 || !manifest) return undefined
+  const activeManifest = manifest
 
   let resolved: NativeStyleTranslation | undefined
   for (const candidate of candidates) {
@@ -193,8 +199,8 @@ export function resolveNativeClassTextTransform(
   classList: NativeClassList | undefined,
 ): NativeTextTransform | undefined {
   const candidates = classCandidates(className, classList)
-  if (candidates.length === 0) return undefined
-  const activeManifest = requireManifest()
+  if (candidates.length === 0 || !manifest) return undefined
+  const activeManifest = manifest
 
   let resolved: NativeTextTransform | undefined
   for (const candidate of candidates) {
@@ -212,8 +218,8 @@ export function resolveNativeDescendantClassStyle(
   directChild: boolean,
 ): StyleDesc | undefined {
   const candidates = classCandidates(className, classList)
-  if (candidates.length === 0) return undefined
-  const activeManifest = requireManifest()
+  if (candidates.length === 0 || !manifest) return undefined
+  const activeManifest = manifest
 
   let resolved: StyleDesc | undefined
   for (const candidate of candidates) {
@@ -236,13 +242,15 @@ export function mergeNativeStyles(...styles: Array<StyleDesc | undefined>): Styl
   return result
 }
 
-function requireManifest(): NativeStyleManifest {
-  if (!manifest) throw new Error("Native class styling requires configureNativeStyleManifest() before render")
-  return manifest
-}
-
 function missingCandidate(candidate: string): Error {
   return new Error(`Native style manifest is missing Tailwind candidate ${JSON.stringify(candidate)}`)
+}
+
+function missingUtilityCandidates(candidates: readonly string[]): Error {
+  const unique = [...new Set(candidates)]
+  return new Error(
+    `Native class styling has no configured manifest and cannot compile ${unique.map((candidate) => JSON.stringify(candidate)).join(", ")} as built-in utilities`,
+  )
 }
 
 function resolveVariant(variant: NativeStyleVariant | undefined): StyleDesc | undefined {
