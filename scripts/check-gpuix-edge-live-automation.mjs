@@ -377,8 +377,17 @@ const examples = [
   },
 ]
 
+const requestedName = process.argv[2]?.trim()
+const selectedExamples = requestedName
+  ? examples.filter((example) => example.name === requestedName)
+  : examples
+
+if (requestedName && selectedExamples.length === 0) {
+  throw new Error(`Unknown live example ${JSON.stringify(requestedName)}`)
+}
+
 const failures = []
-for (const example of examples) {
+for (const example of selectedExamples) {
   try {
     await runExample(example)
   } catch (error) {
@@ -390,10 +399,12 @@ for (const example of examples) {
 
 if (failures.length > 0) {
   throw new Error(
-    `GPUIX source-edge live automation: ${failures.length}/${examples.length} examples failed (${failures.map(({ name }) => name).join(", ")})`,
+    `GPUIX source-edge live automation: ${failures.length}/${selectedExamples.length} examples failed (${failures.map(({ name }) => name).join(", ")})`,
   )
 }
 
 console.log(
-  `GPUIX source-edge live automation: all ${examples.length} Solid 2 examples passed end to end`,
+  requestedName
+    ? `GPUIX source-edge live automation: ${requestedName} passed end to end`
+    : `GPUIX source-edge live automation: all ${selectedExamples.length} Solid 2 examples passed end to end`,
 )
