@@ -7,7 +7,7 @@ export interface NativeUtilityParseResult {
 
 const shades = ["50", "100", "200", "300", "400", "500", "600", "700", "800", "900", "950"] as const
 
-const palette = new Map([
+const palette = new Map<string, readonly string[]>([
   ["slate", ["#f8fafc", "#f1f5f9", "#e2e8f0", "#cbd5e1", "#94a3b8", "#64748b", "#475569", "#334155", "#1e293b", "#0f172a", "#020617"]],
   ["gray", ["#f9fafb", "#f3f4f6", "#e5e7eb", "#d1d5db", "#9ca3af", "#6b7280", "#4b5563", "#374151", "#1f2937", "#111827", "#030712"]],
   ["zinc", ["#fafafa", "#f4f4f5", "#e4e4e7", "#d4d4d8", "#a1a1aa", "#71717a", "#52525b", "#3f3f46", "#27272a", "#18181b", "#09090b"]],
@@ -30,9 +30,9 @@ const palette = new Map([
   ["fuchsia", ["#fdf4ff", "#fae8ff", "#f5d0fe", "#f0abfc", "#e879f9", "#d946ef", "#c026d3", "#a21caf", "#86198f", "#701a75", "#4a044e"]],
   ["pink", ["#fdf2f8", "#fce7f3", "#fbcfe8", "#f9a8d4", "#f472b6", "#ec4899", "#db2777", "#be185d", "#9d174d", "#831843", "#500724"]],
   ["rose", ["#fff1f2", "#ffe4e6", "#fecdd3", "#fda4af", "#fb7185", "#f43f5e", "#e11d48", "#be123c", "#9f1239", "#881337", "#4c0519"]],
-] as const)
+])
 
-const textSizes = new Map([
+const textSizes = new Map<string, number>([
   ["xs", 12],
   ["sm", 14],
   ["base", 16],
@@ -46,9 +46,9 @@ const textSizes = new Map([
   ["7xl", 72],
   ["8xl", 96],
   ["9xl", 128],
-] as const)
+])
 
-const fontWeights = new Map([
+const fontWeights = new Map<string, number>([
   ["thin", 100],
   ["extralight", 200],
   ["light", 300],
@@ -58,9 +58,9 @@ const fontWeights = new Map([
   ["bold", 700],
   ["extrabold", 800],
   ["black", 900],
-] as const)
+])
 
-const radii = new Map([
+const radii = new Map<string, number>([
   ["none", 0],
   ["sm", 2],
   ["md", 6],
@@ -69,7 +69,7 @@ const radii = new Map([
   ["2xl", 16],
   ["3xl", 24],
   ["full", 9999],
-] as const)
+])
 
 function parseLength(value: string): number | string | undefined {
   if (value === "px") return 1
