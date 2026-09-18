@@ -1,6 +1,10 @@
 import type { HostRootNode } from "./nodes.js"
 import type { NativeRenderer, StyleDesc } from "./types.js"
 
+type DragPreviewRenderer = NativeRenderer & {
+  getElementBounds?(elementId: number): number[] | null
+}
+
 const PREVIEW_OFFSET = 14
 
 const previewStyle: StyleDesc = {
@@ -41,13 +45,13 @@ const previewTextStyle: StyleDesc = {
 
 export class SemanticDragPreview {
   readonly #root: HostRootNode
-  readonly #renderer: NativeRenderer
+  readonly #renderer: DragPreviewRenderer
   #parentId: number | undefined
   #surfaceId: number | undefined
   #textId: number | undefined
   #label = ""
 
-  constructor(root: HostRootNode, renderer: NativeRenderer) {
+  constructor(root: HostRootNode, renderer: DragPreviewRenderer) {
     this.#root = root
     this.#renderer = renderer
   }
