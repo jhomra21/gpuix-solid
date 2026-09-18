@@ -721,6 +721,7 @@ function effectivePointerEvents(node: HostElementNode): StyleDesc["pointerEvents
   // containers do not become new occluding surfaces.
   if (
     node.props.has("dragData")
+    || node.events.has("fileDrop")
     || node.events.has("dragOver")
     || node.events.has("drop")
     || (node.events.size > 0 && ownsSemanticHitSurface(node))
