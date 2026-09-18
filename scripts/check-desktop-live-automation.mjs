@@ -83,8 +83,19 @@ try {
   await step("wait for drop target", () => target.waitFor({ timeoutMs: 5_000 }))
 
   const sourceBounds = await step("read drag source bounds", () => source.bounds())
-  const start = await step("read drag source center", () => source.center())
-  const end = await step("read drop target center", () => target.center())
+  const targetBounds = await step("read drop target bounds", () => target.bounds())
+  const grabOffset = {
+    x: sourceBounds.width * 0.25,
+    y: sourceBounds.height / 2,
+  }
+  const start = {
+    x: sourceBounds.x + grabOffset.x,
+    y: sourceBounds.y + grabOffset.y,
+  }
+  const end = {
+    x: targetBounds.x + targetBounds.width * 0.65,
+    y: targetBounds.y + targetBounds.height / 2,
+  }
   const previewPoint = {
     x: start.x + (end.x - start.x) * 0.45,
     y: start.y + (end.y - start.y) * 0.45,
@@ -114,17 +125,17 @@ try {
         `Desktop live acceptance drag preview must match the source element size: ${JSON.stringify({ sourceBounds, bounds, sizeError })}`,
       )
     }
-    const previewCenter = {
-      x: bounds.x + bounds.width / 2,
-      y: bounds.y + bounds.height / 2,
+    const expectedPreview = {
+      x: previewPoint.x - grabOffset.x,
+      y: previewPoint.y - grabOffset.y,
     }
     const hotspotError = {
-      x: Math.abs(previewCenter.x - previewPoint.x),
-      y: Math.abs(previewCenter.y - previewPoint.y),
+      x: Math.abs(bounds.x - expectedPreview.x),
+      y: Math.abs(bounds.y - expectedPreview.y),
     }
-    if (hotspotError.x > 8 || hotspotError.y > 8) {
+    if (hotspotError.x > 4 || hotspotError.y > 4) {
       throw new Error(
-        `Desktop live acceptance drag preview did not preserve the source-center grab point: ${JSON.stringify({ previewCenter, previewPoint, hotspotError })}`,
+        `Desktop live acceptance drag preview did not preserve the source grab point: ${JSON.stringify({ bounds, expectedPreview, hotspotError })}`,
       )
     }
   })
@@ -163,31 +174,26 @@ try {
 
   await step("observe committed card position", async () => {
     const committedBounds = await source.bounds()
-    const targetBounds = await target.bounds()
-    const committedCenter = {
-      x: committedBounds.x + committedBounds.width / 2,
-      y: committedBounds.y + committedBounds.height / 2,
-    }
-    const targetCenter = {
-      x: targetBounds.x + targetBounds.width / 2,
-      y: targetBounds.y + targetBounds.height / 2,
+    const expectedCommitted = {
+      x: end.x - grabOffset.x,
+      y: end.y - grabOffset.y,
     }
     const sizeError = {
       width: Math.abs(committedBounds.width - sourceBounds.width),
       height: Math.abs(committedBounds.height - sourceBounds.height),
     }
-    const centerError = {
-      x: Math.abs(committedCenter.x - targetCenter.x),
-      y: Math.abs(committedCenter.y - targetCenter.y),
+    const positionError = {
+      x: Math.abs(committedBounds.x - expectedCommitted.x),
+      y: Math.abs(committedBounds.y - expectedCommitted.y),
     }
     if (sizeError.width > 4 || sizeError.height > 4) {
       throw new Error(
         `Desktop live acceptance committed card changed size: ${JSON.stringify({ sourceBounds, committedBounds, sizeError })}`,
       )
     }
-    if (centerError.x > 8 || centerError.y > 8) {
+    if (positionError.x > 4 || positionError.y > 4) {
       throw new Error(
-        `Desktop live acceptance expected the dropped card to commit into the target: ${JSON.stringify({ committedBounds, targetBounds, centerError })}`,
+        `Desktop live acceptance expected the dropped card to preserve its release position: ${JSON.stringify({ committedBounds, expectedCommitted, positionError })}`,
       )
     }
   })
