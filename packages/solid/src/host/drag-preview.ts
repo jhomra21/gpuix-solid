@@ -1,5 +1,5 @@
 import type { HostRootNode } from "./nodes.js"
-import type { StyleDesc } from "./types.js"
+import type { NativeRenderer, StyleDesc } from "./types.js"
 
 const PREVIEW_OFFSET = 14
 
@@ -41,13 +41,15 @@ const previewTextStyle: StyleDesc = {
 
 export class SemanticDragPreview {
   readonly #root: HostRootNode
+  readonly #renderer: NativeRenderer
   #parentId: number | undefined
   #surfaceId: number | undefined
   #textId: number | undefined
   #label = ""
 
-  constructor(root: HostRootNode) {
+  constructor(root: HostRootNode, renderer: NativeRenderer) {
     this.#root = root
+    this.#renderer = renderer
   }
 
   show(parentId: number, x: number, y: number, label: string): void {
@@ -70,10 +72,13 @@ export class SemanticDragPreview {
       this.#root.driver.enqueue("setText", this.#textId, label)
     }
 
+    const parentBounds = this.#renderer.getElementBounds?.(parentId)
+    const parentX = parentBounds?.[0] ?? 0
+    const parentY = parentBounds?.[1] ?? 0
     this.#root.driver.enqueue("setStyle", this.#surfaceId, {
       ...previewStyle,
-      left: Math.round(x + PREVIEW_OFFSET),
-      top: Math.round(y + PREVIEW_OFFSET),
+      left: Math.round(x - parentX + PREVIEW_OFFSET),
+      top: Math.round(y - parentY + PREVIEW_OFFSET),
     })
   }
 
