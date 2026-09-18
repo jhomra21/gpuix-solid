@@ -28,6 +28,7 @@ class RecordingBackend implements AutomationBackend {
   readonly pointer: PointerCall[] = []
   readonly keys: Array<[number, string]> = []
   readonly screenshots: string[] = []
+  readonly fileDrops: Array<readonly [number, number, readonly string[]]> = []
   nowMs = 0
 
   constructor(tree: AutomationTreeNode | null) {
@@ -73,6 +74,10 @@ class RecordingBackend implements AutomationBackend {
     modifiers?: string,
   ): void {
     this.pointer.push(["wheel", x, y, deltaX, deltaY, modifiers])
+  }
+
+  fileDrop(x: number, y: number, paths: string[]): void {
+    this.fileDrops.push([x, y, [...paths]])
   }
 
   keystrokes(elementId: number, keys: string): void {
@@ -193,6 +198,14 @@ describe("Playwright-like locator API", () => {
       ["move", 260, 80, 0, undefined, undefined],
       ["up", 260, 80, 0, undefined, undefined],
     ])
+  })
+
+  it("drops files at the locator center when the backend supports it", async () => {
+    const backend = new RecordingBackend(tree)
+    const app = new App(backend)
+
+    await app.getByTestId("search").dropFiles(["/tmp/a.txt", "/tmp/b.txt"])
+    expect(backend.fileDrops).toEqual([[60, 35, ["/tmp/a.txt", "/tmp/b.txt"]]])
   })
 
   it("forwards screenshot and clock operations through the backend", async () => {
