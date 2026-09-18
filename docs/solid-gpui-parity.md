@@ -14,6 +14,7 @@ GPUix Solid uses [heyhuynhgiabuu/solid-gpui](https://github.com/heyhuynhgiabuu/s
 | CSS-familiar layout shorthands | In progress in #96 | `paddingX/Y`, `marginX/Y`, `size`, and inset shorthands expand before native delivery. |
 | Window title / activation | In progress in #96 | Thin wrappers around the two imperative GPUIX 0.9 window methods. |
 | Retained-list commands | In progress in #96 | Public wrappers for native scroll and item positioning. |
+| Runtime hyperscript `h()` | In progress in #96 | Low-level JSX-free authoring helper with reactive children and selected accessor props. |
 | Dynamic intrinsic/component helper | Not yet exposed | Useful next ergonomic surface; requires a type-safe universal-renderer contract that passes this repository's anti-slop checks. |
 | Window-scoped semantic `theme.set` | Native gap | GPUIX 0.9 exposes per-element `GpuixTheme` for native rich-content elements, not solid-gpui's window-scoped surface/foreground command. |
 | Minimize / zoom / fullscreen commands | Native gap | GPUIX 0.9 has creation-time window options but no matching imperative renderer methods. |
