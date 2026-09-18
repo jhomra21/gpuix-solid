@@ -844,6 +844,9 @@ function adopt(root: HostRootNode, node: HostNode): void {
       const nativeEventType = nativeEventTypeForDomEvent(eventType)
       if (nativeEventType) nativeEventTypes.add(nativeEventType)
     }
+    for (const nativeEventType of ["mouseDown", "mouseMove", "mouseUp"] as const) {
+      if (hasNativeEventHandler(node, nativeEventType)) nativeEventTypes.add(nativeEventType)
+    }
     if (hasCheckboxActivationHandler(node)) nativeEventTypes.add("click")
     if (hasRangeChangeHandler(node)) {
       nativeEventTypes.add("mouseDown")
