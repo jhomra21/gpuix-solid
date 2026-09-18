@@ -881,9 +881,13 @@ function hasRangeChangeHandler(node: HostElementNode): boolean {
 
 function hasNativeEventHandler(node: HostElementNode, nativeEventType: string): boolean {
   const hasDragSource = node.dragData !== undefined
+  // GPUI implicitly captures a pointer when a node owns mouseDown + mouseMove at
+  // press time. Pre-arm drag sources for mouseDown only; BrowserPointerMutationDriver
+  // adds move/up after the physical press, while drop targets may safely own
+  // move/up because they do not own the source mouseDown.
   if (nativeEventType === "mouseDown" && hasDragSource) return true
-  if (nativeEventType === "mouseMove" && (hasDragSource || node.events.has("dragOver"))) return true
-  if (nativeEventType === "mouseUp" && (hasDragSource || node.events.has("drop"))) return true
+  if (nativeEventType === "mouseMove" && node.events.has("dragOver")) return true
+  if (nativeEventType === "mouseUp" && node.events.has("drop")) return true
   if (nativeEventType === "click" && hasCheckboxActivationHandler(node)) return true
   if ((nativeEventType === "mouseDown" || nativeEventType === "mouseMove" || nativeEventType === "mouseUp") && hasRangeChangeHandler(node)) return true
   for (const eventType of node.events.keys()) {
