@@ -33,10 +33,6 @@ function omitComponent<Props extends object>(
       if (key === "component") return undefined
       return Reflect.getOwnPropertyDescriptor(target, key)
     },
-    get(target, key, receiver) {
-      if (key === "component") return undefined
-      return Reflect.get(target, key, receiver)
-    },
   })
 
   // SAFETY: the proxy preserves every original prop except Dynamic's synthetic
