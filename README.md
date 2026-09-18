@@ -282,7 +282,6 @@ Internal application drag/drop uses GPUIX pointer hit testing while the Solid ho
 ```tsx
 <div
   dragData={{ id: "clip-1" }}
-  dragPreview="Clip 1"
   onDragStart={onStart}
   onDragEnd={onEnd}
 >
@@ -293,7 +292,7 @@ Internal application drag/drop uses GPUIX pointer hit testing while the Solid ho
 </div>
 ```
 
-A four-pixel movement threshold separates a drag from a click, and completing a drag suppresses the source click for that release. Once the threshold is crossed, GPUix Solid shows a pointer-following translucent preview chip. `dragPreview` supplies its label; otherwise a compact `dragData` representation is used. Draggable sources default to `userSelect: "none"` so semantic dragging does not start native text selection; an explicitly authored `userSelect` still wins.
+A four-pixel movement threshold separates a drag from a click, and completing a drag suppresses the source click for that release. Once the threshold is crossed, GPUix Solid clones the dragged host subtree into a translucent pointer-following overlay, preserving the original grab point and the source element's measured size, styles, text, and nested visual children. Draggable sources default to `userSelect: "none"` so semantic dragging does not start native text selection; an explicitly authored `userSelect` still wins.
 
 Run the complete local showcase with `bun run example:desktop`.
 
