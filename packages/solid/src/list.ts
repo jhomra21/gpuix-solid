@@ -4,7 +4,7 @@ export type NativeListTarget = number
 
 /**
  * Convenience wrappers around GPUIX's native retained-list scrolling surface.
- * They accept either a raw host id or a Solid host ref.
+ * Targets use the retained native element id exposed by a host ref.
  */
 export const list = {
   scrollTo(
