@@ -1,5 +1,5 @@
 import type { EventPayload as NativeEventPayload } from "@gpuix/native"
-import type { DomCompatTarget, EventPayload, HostEventHandler } from "./types.js"
+import type { DomCompatTarget, DragData, EventPayload, HostEventHandler } from "./types.js"
 
 export type { DomCompatTarget } from "./types.js"
 
@@ -319,7 +319,7 @@ type NativeClickBubble = {
 
 type DragSession = {
   sourceId: number
-  data: unknown
+  data: DragData
   startX: number
   startY: number
   started: boolean
@@ -346,7 +346,7 @@ export class EventRegistry {
   readonly #pointerCapture = new Map<number, number>()
   readonly #lastPointerEvent = new Map<number, NativeEventPayload>()
   readonly #primaryClickBursts = new Map<number, ActivationBurst>()
-  readonly #dragData = new Map<number, unknown>()
+  readonly #dragData = new Map<number, DragData>()
   #dragSession: DragSession | undefined
   #nativeClickBubble: NativeClickBubble | undefined
   #activeRangeId: number | undefined
@@ -360,7 +360,7 @@ export class EventRegistry {
     this.#targets.set(id, target)
   }
 
-  setDragData(id: number, data: unknown): void {
+  setDragData(id: number, data: DragData | undefined): void {
     if (data === undefined) this.#dragData.delete(id)
     else this.#dragData.set(id, data)
   }
@@ -761,7 +761,7 @@ export class EventRegistry {
     nativeEvent: NativeEventPayload,
     globalOnly = false,
     extras?: {
-      dragData?: unknown
+      dragData?: DragData
       dragSourceId?: number | undefined
       dropTargetId?: number | undefined
     },
