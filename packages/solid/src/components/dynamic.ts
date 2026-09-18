@@ -37,7 +37,8 @@ export function Dynamic(props: DynamicProps): SolidElement {
   return (() => {
     const component = props.component
     if (typeof component === "function") {
-      return createComponent(component, rest) as SolidElement
+      const universalComponent = component as Parameters<typeof createComponent>[0]
+      return createComponent(universalComponent, rest) as SolidElement
     }
 
     const element = createElement(component)
