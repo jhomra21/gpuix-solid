@@ -472,6 +472,9 @@ export function setHostProperty<T>(
     if (!node.root || !node.nativeAlive) return
     if (handler) node.root.events.set(node.id, eventType, handler)
     else node.root.events.delete(node.id, eventType)
+    if (eventType === "contextMenu") {
+      node.root.driver.setContextMenuListener(node.id, handler !== undefined)
+    }
 
     if (nativeEventType) {
       const hasNativeHandler = hasNativeEventHandler(node, nativeEventType)
@@ -845,6 +848,7 @@ function adopt(root: HostRootNode, node: HostNode): void {
       const nativeEventType = nativeEventTypeForDomEvent(eventType)
       if (nativeEventType) nativeEventTypes.add(nativeEventType)
     }
+    if (node.events.has("contextMenu")) root.driver.setContextMenuListener(node.id, true)
     for (const nativeEventType of ["mouseDown", "mouseMove", "mouseUp"] as const) {
       if (hasNativeEventHandler(node, nativeEventType)) nativeEventTypes.add(nativeEventType)
     }
