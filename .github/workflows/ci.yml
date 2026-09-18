@@ -58,6 +58,9 @@ jobs:
       - name: Run Diffusion native regression
         if: matrix.os == 'macos-latest'
         run: bun run --filter 'gpuix-solid-counter' test:diffusion
+      - name: Run Diffusion live-native regression
+        if: matrix.os == 'macos-latest' && !cancelled()
+        run: node scripts/check-gpuix-edge-live-automation.mjs Diffusion
       - name: Run Solid 1 DAW native regression
         if: matrix.os == 'macos-latest' && !cancelled()
         run: bun run solid1:daw
