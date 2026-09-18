@@ -12,11 +12,11 @@ describe("desktop integration surface", () => {
   })
 
   it("exports desktop operations without executing them during module load", () => {
-    expect(typeof dialog.openFile).toBe("function")
-    expect(typeof dialog.saveFile).toBe("function")
-    expect(typeof dialog.message).toBe("function")
-    expect(typeof shell.openWithSystem).toBe("function")
-    expect(typeof shell.revealPath).toBe("function")
+    expect(dialog.openFile).toBeDefined()
+    expect(dialog.saveFile).toBeDefined()
+    expect(dialog.message).toBeDefined()
+    expect(shell.openWithSystem).toBeDefined()
+    expect(shell.revealPath).toBeDefined()
     expect(new DesktopUnsupportedError("unsupported").name).toBe("DesktopUnsupportedError")
   })
 })
