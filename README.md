@@ -266,21 +266,23 @@ Inline styles also accept the layout shorthands `paddingX`, `paddingY`, `marginX
 GPUix Solid exposes OS-facing helpers for native desktop applications:
 
 ```ts
-import { appMenu, appWindow, dialog, list, shell } from "gpuix-solid"
+import { appMenu, appWindow, dialog, list, render, shell } from "gpuix-solid"
 
 const files = await dialog.openFile({ multiple: true })
 const destination = await dialog.saveFile({ suggestedName: "project.json" })
 await shell.revealPath("/tmp/project.json")
 await shell.openWithSystem("https://github.com/remorses/gpuix")
 
-appWindow.setTitle(renderer, "Renamed window")
-appWindow.activate(renderer)
-list.scrollToItem(renderer, virtualListId, 200)
-
-render(() => <App />, {
+const app = render(() => <App />, {
   title: "My App",
   ...appMenu.default("My App"),
 })
+
+appWindow.setTitle(app.renderer, "Renamed window")
+appWindow.activate(app.renderer)
+
+// For a <virtual-list ref={listRef}> where listRef.id is the native element id:
+list.scrollToItem(app.renderer, listRef.id, 200)
 ```
 
 On macOS, dialogs use the system dialog service and shell actions use `open`; Windows uses the platform PowerShell/Explorer integrations; Linux uses `zenity` for dialogs and `xdg-open` for shell actions. `appWindow` exposes the imperative window capabilities GPUIX 0.9 actually provides (`setTitle` and `activate`), while `list` wraps its retained-list scrolling methods. GPUIX 0.9 already owns the native macOS App + Window menus; `appMenu.default()` supplies its application label. Arbitrary custom native menu items and imperative minimize/zoom/fullscreen commands are not exposed by the GPUIX 0.9 native contract.
