@@ -125,6 +125,8 @@ export type {
   AnimationStyle,
   AnimationTransition,
 } from "./components/animate.js"
+export { Dynamic } from "./components/dynamic.js"
+export type { DynamicComponent, DynamicProps } from "./components/dynamic.js"
 
 export {
   applyNativeStyleParentPosition,
