@@ -100,6 +100,15 @@ try {
     if (label !== "Drag this card") {
       throw new Error(`Desktop live acceptance expected drag preview label "Drag this card", got ${JSON.stringify(label)}`)
     }
+    const bounds = await preview.bounds()
+    if (bounds.width <= 0 || bounds.height <= 0) {
+      throw new Error(`Desktop live acceptance drag preview did not paint non-zero bounds: ${JSON.stringify(bounds)}`)
+    }
+    if (Math.abs(bounds.x - (previewPoint.x + 14)) > 4 || Math.abs(bounds.y - (previewPoint.y + 14)) > 4) {
+      throw new Error(
+        `Desktop live acceptance drag preview did not follow the pointer: ${JSON.stringify({ bounds, previewPoint })}`,
+      )
+    }
   })
 
   await step("move over drop target", () => app.mouse.move(end, { pressedButton: 0 }))
