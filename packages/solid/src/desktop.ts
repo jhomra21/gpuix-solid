@@ -165,14 +165,16 @@ else
 end if
 return button returned of answer
 end run`
+  const firstButton = buttons[0]
+  const secondButton = buttons.length === 2 ? buttons[1] : ""
   const result = await run("osascript", [
     "-e",
     script,
     "--",
     options.message,
     options.detail ?? "",
-    buttons[0],
-    buttons[1] ?? "",
+    firstButton,
+    secondButton,
   ])
   if (isMacCancel(result)) return 0
   if (result.code !== 0) throw commandFailure("osascript", result)
