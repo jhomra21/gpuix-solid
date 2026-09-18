@@ -7,23 +7,44 @@ import {
   spread,
 } from "../host/universal.js"
 
-export type DynamicComponent<Props extends Record<string, unknown> = Record<string, unknown>> =
+export type DynamicComponent<Props extends object = object> =
   | string
   | ((props: Props) => SolidElement)
 
-export type DynamicProps<Props extends Record<string, unknown> = Record<string, unknown>> =
+export type DynamicProps<Props extends object = object> =
   Props & {
     component: DynamicComponent<Props> | undefined
-    children?: unknown
   }
 
-function isHostTag<Props extends Record<string, unknown>>(
+function isHostTag<Props extends object>(
   component: DynamicComponent<Props>,
 ): component is string {
   return typeof component === "string"
 }
 
-function createDynamic<Props extends Record<string, unknown>>(
+function omitComponent<Props extends object>(
+  props: DynamicProps<Props>,
+): Props {
+  const proxy = new Proxy(props, {
+    ownKeys(target) {
+      return Reflect.ownKeys(target).filter((key) => key !== "component")
+    },
+    getOwnPropertyDescriptor(target, key) {
+      if (key === "component") return undefined
+      return Reflect.getOwnPropertyDescriptor(target, key)
+    },
+    get(target, key, receiver) {
+      if (key === "component") return undefined
+      return Reflect.get(target, key, receiver)
+    },
+  })
+
+  // SAFETY: the proxy preserves every original prop except Dynamic's synthetic
+  // component key, so consumers observe the exact Props contract.
+  return proxy as Props
+}
+
+function createDynamic<Props extends object>(
   component: DynamicComponent<Props> | undefined,
   props: Props,
 ): SolidElement {
@@ -42,22 +63,10 @@ function createDynamic<Props extends Record<string, unknown>>(
  * Universal Dynamic helper for switching between intrinsic tags and Solid
  * components without routing through solid-js/web.
  */
-export function Dynamic<Props extends Record<string, unknown>>(
+export function Dynamic<Props extends object>(
   props: DynamicProps<Props>,
 ): SolidElement {
-  const rest: Record<string, unknown> = {}
-  for (const key of Object.keys(props)) {
-    if (key === "component") continue
-    Object.defineProperty(rest, key, {
-      enumerable: true,
-      configurable: true,
-      get: () => props[key],
-    })
-  }
-
-  // SAFETY: rest is the original Dynamic props object with only the synthetic
-  // component key removed; its remaining getters preserve the exact Props contract.
-  const componentProps = rest as Props
+  const componentProps = omitComponent(props)
 
   // SAFETY: Solid's universal insert path unwraps accessors. Returning this
   // accessor makes component identity changes replace the retained subtree.
