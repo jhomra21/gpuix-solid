@@ -80,7 +80,10 @@
     "run:infinite-chat": "bun run build:infinite-chat && bun run start:infinite-chat",
     "run:dashboard": "bun run build:dashboard && bun run start:dashboard",
     "run:codeimage": "bun run build:codeimage && bun run start:codeimage",
-    "run:tanstack-kitchen-sink": "bun run build:tanstack-kitchen-sink && bun run start:tanstack-kitchen-sink"
+    "run:tanstack-kitchen-sink": "bun run build:tanstack-kitchen-sink && bun run start:tanstack-kitchen-sink",
+    "build:desktop-integrations": "vite build --config vite.desktop-integrations.config.ts",
+    "start:desktop-integrations": "bun dist/desktop-integrations/desktop-integrations.js",
+    "run:desktop-integrations": "bun run build:desktop-integrations && bun run start:desktop-integrations"
   },
   "dependencies": {
     "@gpuix/native": "0.9.0",
