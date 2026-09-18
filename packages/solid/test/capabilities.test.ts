@@ -63,8 +63,8 @@ describe("native capabilities", () => {
     appWindow.setTitle(renderer, "GPUix Solid")
     appWindow.activate(renderer)
     list.scrollTo(renderer, target, -12, -24)
-    list.scrollToItem(renderer, target, 8, -6)
-    expect(list.getScrollOffset(renderer, target)).toEqual([-4, -8])
+    list.scrollToItem(renderer, { id: target, type: "virtual-list" }, 8, -6)
+    expect(list.getScrollOffset(renderer, { id: target, type: "virtual-list" })).toEqual([-4, -8])
     expect(list.getScrollTop(renderer, target)).toEqual([12, -6, 480])
 
     expect(appWindow.supportsMinimize).toBe(false)
