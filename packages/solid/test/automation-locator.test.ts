@@ -373,6 +373,7 @@ describe("native locator actions", () => {
     expect(events).toContain("drop")
     expect(events.at(-1)).toBe("end:target")
     expect(events).not.toContain("click")
+    expect(testRoot.renderer.getSelectedText()).toBeNull()
     testRoot.unmount()
   })
 })
