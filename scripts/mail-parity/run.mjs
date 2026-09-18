@@ -102,6 +102,7 @@ function writeReport({ startSha, react, currentMain, inventory, runs, comparison
     "- Native text metrics and platform rasterization are not expected to be pixel-identical. Important bounds use an 8 px tolerance.",
     "- The upstream Mail source leaves several IconButton surfaces inert. The shared inert-icon scenario records that clicking them does not change semantic state.",
     "- The Solid stdio automation backend does not currently expose getScrollOffset. React offsets are recorded where its API exposes them; scroll-offset equality is skipped when Solid cannot report the value.",
+    "- The Solid Mail keeps the approved count=1 mention badge as a centered vector glyph. The parity comparator maps each explicitly tagged vector badge to the upstream React text leaf \"1\"; any other leaf-text difference still fails.",
     "- The automation tree does not expose every CSS-computed style or reliable native image-load completion state, so this report compares image presence, bounds, and visible text.",
     "",
     "## Artifact locations",
