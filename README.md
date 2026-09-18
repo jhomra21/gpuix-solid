@@ -332,6 +332,7 @@ There is no first-party GPUix Solid application installer or packaging CLI yet.
 - [Upstream parity](./docs/upstream-parity.md)
 - [Source-edge workflow](./docs/gpuix-edge.md)
 - [Architecture](./ARCHITECTURE.md)
+- [Performance](./docs/performance.md)
 - [Releasing](./RELEASING.md)
 
 ## License
