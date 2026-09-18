@@ -458,7 +458,7 @@ export class EventRegistry {
     return this.#pointerCapture.get(pointerId) === id
   }
 
-  dispatch(event: NativeEventPayload): void {
+  dispatch(event: NativeEventPayload, resolvedDragTargetId?: number | null): void {
     if (!this.#live.has(event.elementId)) return
     switch (event.eventType) {
       case "mouseDown": {
@@ -493,7 +493,7 @@ export class EventRegistry {
       }
       case "mouseMove": {
         this.#lastPointerEvent.set(POINTER_ID, event)
-        this.#advanceDrag(event.elementId, event)
+        this.#advanceDrag(event.elementId, event, resolvedDragTargetId)
         const activeRangeId = this.#activeRangeId
         if (activeRangeId !== undefined && this.#updateRangeValue(activeRangeId, event)) {
           this.#dispatchDom(activeRangeId, "input", { ...event, elementId: activeRangeId })
@@ -505,7 +505,7 @@ export class EventRegistry {
       }
       case "mouseUp": {
         this.#lastPointerEvent.set(POINTER_ID, event)
-        const completedDrag = this.#finishDrag(event.elementId, event)
+        const completedDrag = this.#finishDrag(event.elementId, event, resolvedDragTargetId)
         const activeRangeId = this.#activeRangeId
         if (activeRangeId !== undefined) {
           const rangeEvent = { ...event, elementId: activeRangeId }
@@ -574,7 +574,11 @@ export class EventRegistry {
     return undefined
   }
 
-  #advanceDrag(nativeTargetId: number, event: NativeEventPayload): void {
+  #advanceDrag(
+    nativeTargetId: number,
+    event: NativeEventPayload,
+    resolvedDragTargetId?: number | null,
+  ): void {
     const session = this.#dragSession
     if (!session) return
     if (!session.started) {
@@ -590,7 +594,9 @@ export class EventRegistry {
       )
     }
 
-    const overId = this.#dragEventOwner(nativeTargetId, "dragOver")
+    const overId = resolvedDragTargetId === undefined
+      ? this.#dragEventOwner(nativeTargetId, "dragOver")
+      : resolvedDragTargetId ?? undefined
     if (overId === undefined) return
     this.#dispatchDom(
       overId,
@@ -601,12 +607,18 @@ export class EventRegistry {
     )
   }
 
-  #finishDrag(nativeTargetId: number, event: NativeEventPayload): boolean {
+  #finishDrag(
+    nativeTargetId: number,
+    event: NativeEventPayload,
+    resolvedDragTargetId?: number | null,
+  ): boolean {
     const session = this.#dragSession
     this.#dragSession = undefined
     if (!session?.started) return false
 
-    const dropTargetId = this.#dragEventOwner(nativeTargetId, "drop")
+    const dropTargetId = resolvedDragTargetId === undefined
+      ? this.#dragEventOwner(nativeTargetId, "drop")
+      : resolvedDragTargetId ?? undefined
     if (dropTargetId !== undefined) {
       this.#dispatchDom(
         dropTargetId,
