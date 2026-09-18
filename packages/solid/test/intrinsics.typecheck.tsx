@@ -180,7 +180,6 @@ export function IntrinsicSurfaceFixture() {
       onScroll={onEvent}
       onFileDrop={onEvent}
       dragData={{ id: "fixture" }}
-      dragPreview="Fixture"
       onDragStart={onEvent}
       onDragOver={onEvent}
       onDrop={onEvent}
