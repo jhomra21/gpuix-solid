@@ -272,5 +272,107 @@ describe("root semantic drag retargeting", () => {
     }
   })
 
+
+  it("rejects a captured release outside an ancestor drop target and returns the preview", () => {
+    vi.useFakeTimers()
+    const renderer = new BoundsRenderer()
+    const root = createRoot(renderer)
+
+    try {
+      let shell: HostElementNode | undefined
+      let source: HostElementNode | undefined
+      let target: HostElementNode | undefined
+      let drops = 0
+      let dragEndTarget: number | undefined
+
+      root.render(() => {
+        const nextShell = element()
+        shell = nextShell
+        setProp(nextShell, "style", { width: 500, height: 220 })
+
+        const nextTarget = element()
+        target = nextTarget
+        setProp(nextTarget, "style", { width: 220, height: 100 })
+        setProp(nextTarget, "onDragOver", () => undefined)
+        setProp(nextTarget, "onDrop", () => {
+          drops += 1
+        })
+
+        const nextSource = element()
+        source = nextSource
+        setProp(nextSource, "dragData", { clipId: "clip-nested" })
+        setProp(nextSource, "style", { width: 120, height: 80 })
+        setProp(nextSource, "onDragEnd", (event: EventPayload) => {
+          dragEndTarget = event.dropTargetId
+        })
+
+        insertNode(nextTarget, nextSource)
+        insertNode(nextShell, nextTarget)
+        return nextShell
+      })
+
+      if (!shell || !source || !target) throw new Error("Expected nested drag fixture nodes")
+
+      renderer.bounds.set(shell.id, [0, 0, 500, 220])
+      renderer.bounds.set(target.id, [220, 20, 220, 100])
+      renderer.bounds.set(source.id, [250, 30, 120, 80])
+
+      root.dispatch({
+        eventType: "mouseDown",
+        elementId: source.id,
+        x: 270,
+        y: 50,
+        button: 0,
+      })
+      root.dispatch({
+        eventType: "mouseMove",
+        elementId: source.id,
+        x: 100,
+        y: 160,
+        pressedButton: 0,
+      })
+
+      const previewMutation = renderer.batches
+        .flat()
+        .find((mutation) =>
+          mutation[0] === "setCustomProp"
+          && mutation[2] === "testId"
+          && mutation[3] === "gpuix-drag-preview")
+      const previewId = Number(previewMutation?.[1])
+      if (!Number.isInteger(previewId)) throw new Error("Expected nested semantic drag preview")
+
+      const releaseBatchStart = renderer.batches.length
+      root.dispatch({
+        eventType: "mouseUp",
+        elementId: source.id,
+        x: 100,
+        y: 160,
+        button: 0,
+      })
+
+      expect(drops).toBe(0)
+      expect(dragEndTarget).toBeUndefined()
+      expect(renderer.batches.slice(releaseBatchStart).flat()).toContainEqual([
+        "setCustomProp",
+        previewId,
+        "motion",
+        {
+          initial: { left: 80, top: 140 },
+          animate: { left: 250, top: 30 },
+          transition: { duration: 0.15, ease: "easeOut" },
+        },
+      ])
+
+      vi.advanceTimersByTime(150)
+      expect(renderer.batches.slice(releaseBatchStart).flat()).toContainEqual([
+        "destroyElement",
+        previewId,
+      ])
+    } finally {
+      root.unmount()
+      vi.useRealTimers()
+    }
+  })
+
 })
 
