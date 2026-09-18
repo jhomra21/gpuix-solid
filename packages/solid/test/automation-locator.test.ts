@@ -306,4 +306,71 @@ describe("native locator actions", () => {
     await app.getByTestId("field").fill("hi")
     expect(await app.getByText("Value: hi").count()).toBe(1)
   })
+
+  nativeIt("uses native pointer hit testing for semantic internal drag and drop", async () => {
+    const testRoot = createTestRoot(500, 220)
+    const app = createTestApp(testRoot.renderer)
+    const events: string[] = []
+    let droppedData: unknown
+
+    testRoot.render(() => {
+      const root = element("div")
+      setProp(root, "style", {
+        display: "flex",
+        flexDirection: "row",
+        gap: 80,
+        width: 500,
+        height: 180,
+        padding: 20,
+      })
+
+      const source = element("div")
+      setProp(source, "testId", "drag-source")
+      setProp(source, "dragData", { clipId: "clip-1" })
+      setProp(source, "style", {
+        width: 120,
+        height: 80,
+        backgroundColor: "#334155",
+      })
+      setProp(source, "onClick", () => events.push("click"))
+      setProp(source, "onDragStart", (event: EventPayload) => {
+        const data = event.dragData as { clipId?: string } | undefined
+        events.push(`start:${data?.clipId ?? "missing"}`)
+      })
+      setProp(source, "onDragEnd", (event: EventPayload) => {
+        events.push(`end:${event.dropTargetId === undefined ? "none" : "target"}`)
+      })
+      insert(source, "Drag me")
+
+      const target = element("div")
+      setProp(target, "testId", "drop-target")
+      setProp(target, "style", {
+        width: 140,
+        height: 80,
+        backgroundColor: "#1f2937",
+      })
+      setProp(target, "onDragOver", () => {
+        if (!events.includes("over")) events.push("over")
+      })
+      setProp(target, "onDrop", (event: EventPayload) => {
+        droppedData = event.dragData
+        events.push("drop")
+      })
+      insert(target, "Drop here")
+
+      insertNode(root, source)
+      insertNode(root, target)
+      return root
+    })
+
+    await app.getByTestId("drag-source").dragTo(app.getByTestId("drop-target"), { steps: 4 })
+
+    expect(droppedData).toEqual({ clipId: "clip-1" })
+    expect(events[0]).toBe("start:clip-1")
+    expect(events).toContain("over")
+    expect(events).toContain("drop")
+    expect(events.at(-1)).toBe("end:target")
+    expect(events).not.toContain("click")
+    testRoot.unmount()
+  })
 })
