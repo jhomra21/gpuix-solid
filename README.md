@@ -267,8 +267,6 @@ render(() =>
 
 `h()` uses the same universal renderer paths as JSX. Event handlers stay ordinary function props, while common data/style props and function-valued children can stay reactive. `makeH()` returns an isolated helper with the same behavior.
 
-`Dynamic` is also available for renderer-native intrinsic/component switching without importing `solid-js/web`.
-
 ## Solid 2 styling conveniences
 
 Without a generated native style manifest, Solid 2 can compile a deliberately small Tailwind-compatible utility subset directly into GPUIX styles:
