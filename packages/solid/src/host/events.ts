@@ -757,7 +757,11 @@ export class EventRegistry {
     eventType: string,
     nativeEvent: NativeEventPayload,
     globalOnly = false,
-    extras?: Pick<EventPayload, "dragData" | "dragSourceId" | "dropTargetId">,
+    extras?: {
+      dragData?: unknown
+      dragSourceId?: number | undefined
+      dropTargetId?: number | undefined
+    },
   ): EventPayload | undefined {
     if (!this.#live.has(elementId)) return undefined
     const target = this.#targets.get(elementId)
