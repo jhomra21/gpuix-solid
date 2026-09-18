@@ -177,7 +177,7 @@ end run`
   if (isMacCancel(result)) return 0
   if (result.code !== 0) throw commandFailure("osascript", result)
   const label = result.stdout.trim()
-  return Math.max(0, buttons.indexOf(label))
+  return Math.max(0, buttons.findIndex((button) => button === label))
 }
 
 function windowsEnv(values: Record<string, string>): NodeJS.ProcessEnv {
@@ -242,7 +242,9 @@ async function windowsMessage(options: MessageDialogOptions): Promise<number | n
   const script = `Add-Type -AssemblyName System.Windows.Forms
 $text = $env:GPUIX_DIALOG_MESSAGE
 if ($env:GPUIX_DIALOG_DETAIL) { $text = $text + [Environment]::NewLine + [Environment]::NewLine + $env:GPUIX_DIALOG_DETAIL }
-$result = [System.Windows.Forms.MessageBox]::Show($text, "", [System.Windows.Forms.MessageBoxButtons]::$env:GPUIX_DIALOG_BUTTONS, [System.Windows.Forms.MessageBoxIcon]::$env:GPUIX_DIALOG_ICON)
+$buttons = [System.Enum]::Parse([System.Windows.Forms.MessageBoxButtons], $env:GPUIX_DIALOG_BUTTONS)
+$icon = [System.Enum]::Parse([System.Windows.Forms.MessageBoxIcon], $env:GPUIX_DIALOG_ICON)
+$result = [System.Windows.Forms.MessageBox]::Show($text, "", $buttons, $icon)
 Write-Output $result.ToString()`
   const result = await run("powershell.exe", ["-NoProfile", "-Command", script], {
     env: windowsEnv({
