@@ -88,6 +88,9 @@ try {
           "dialog",
           "shell",
           "appMenu",
+          "appWindow",
+          "list",
+          "parseNativeUtilities",
         ]) {
           if (!(key in main)) throw new Error("Missing root export: " + key)
         }
@@ -121,7 +124,10 @@ try {
       createWindowInsets,
       createWindowSize,
       appMenu,
+      appWindow,
       dialog,
+      list,
+      parseNativeUtilities,
       shell,
       type AnimationStyle,
       type HostProps,
@@ -130,10 +136,17 @@ try {
     import { createSignal } from "solid-js"
 
     const animationStyle: AnimationStyle = { width: 120, opacity: 1 }
-    const hostProps: HostProps = { style: { width: 120 }, onFileDrop: () => undefined }
+    const hostProps: HostProps = {
+      style: { paddingX: 12, paddingY: 6, size: 120, insetX: 4 },
+      onFileDrop: () => undefined,
+    }
+    const utilityStyle = parseNativeUtilities("flex gap-2 px-3 rounded-md")
     const appMenuOptions = appMenu.default("Smoke")
+    void appWindow
     void dialog
+    void list
     void shell
+    void utilityStyle
     void appMenuOptions
     type Backend = AutomationBackend
     const backend = null as unknown as Backend
@@ -257,6 +270,9 @@ try {
         import * as main from "gpuix-solid"
         import * as automation from "gpuix-solid/automation"
         if (!("render" in main) || !("animate" in main)) throw new Error("Bun root import failed")
+        if (!("appWindow" in main) || !("list" in main) || !("parseNativeUtilities" in main)) {
+          throw new Error("Bun parity-helper imports failed")
+        }
         if (!("createTextSearch" in main) || !("createWindowInsets" in main)) throw new Error("Bun Solid primitive imports failed")
         if (!("launch" in automation) || !("Locator" in automation)) throw new Error("Bun automation import failed")
         console.log("Bun clean-consumer imports: PASS")
