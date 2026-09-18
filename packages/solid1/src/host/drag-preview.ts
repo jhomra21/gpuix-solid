@@ -55,12 +55,18 @@ function previewChildStyle(style: StyleDesc): StyleDesc {
 }
 
 function previewRootStyle(style: StyleDesc, width: number, height: number): StyleDesc {
+  const {
+    position: _position,
+    top: _top,
+    right: _right,
+    bottom: _bottom,
+    left: _left,
+    ...visualStyle
+  } = style
   return {
-    ...style,
+    ...visualStyle,
     position: "relative",
     top: 0,
-    right: undefined,
-    bottom: undefined,
     left: 0,
     width,
     height,
