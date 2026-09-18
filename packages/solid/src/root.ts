@@ -406,12 +406,17 @@ export function createRoot(renderer: NativeRenderer, initialWindowEventHandlers:
             }
           }
 
+          const previewBeforeRelease = routedEvent.eventType === "mouseUp"
+            ? events.activeDragPreview()
+            : undefined
+          let semanticDropTargetId: number | undefined
           if (
             events.hasDragSession()
             && (routedEvent.eventType === "mouseMove" || routedEvent.eventType === "mouseUp")
           ) {
             const dragEventType = routedEvent.eventType === "mouseMove" ? "dragOver" : "drop"
             const targetId = semanticDragTargetAtPoint(container, renderer, events, routedEvent, dragEventType)
+            if (dragEventType === "drop") semanticDropTargetId = targetId
             if (targetId !== undefined && targetId !== routedEvent.elementId) {
               routedEvent = { ...routedEvent, elementId: targetId }
             }
@@ -441,7 +446,13 @@ export function createRoot(renderer: NativeRenderer, initialWindowEventHandlers:
             } else {
               semanticDragPreview.hide()
             }
-          } else if (routedEvent.eventType === "mouseUp" || routedEvent.eventType === "mouseDown") {
+          } else if (routedEvent.eventType === "mouseUp") {
+            if (previewBeforeRelease && semanticDropTargetId === undefined) {
+              semanticDragPreview.returnToSource()
+            } else {
+              semanticDragPreview.hide()
+            }
+          } else if (routedEvent.eventType === "mouseDown") {
             semanticDragPreview.hide()
           }
           handled = true
