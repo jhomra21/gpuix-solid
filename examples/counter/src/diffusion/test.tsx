@@ -72,7 +72,10 @@ async function main(): Promise<void> {
     assert.equal(await app.getByTestId("diffusion-add-assets-menu").getByText("Import assets").count(), 1)
     assert.equal(await app.getByTestId("diffusion-add-assets-menu").getByText("Create folder").count(), 1)
     await app.getByTestId("diffusion-create-folder").click()
+    await app.getByTestId("diffusion-folder-1").waitFor()
     assert.equal(await app.getByTestId("diffusion-folder-1").count(), 1)
+    assert.equal(await app.getByTestId("diffusion-folder-1").textContent(), "▸New folder")
+    assert.equal(await app.getByTestId("diffusion-add-assets-menu").count(), 0)
 
     assert.equal(await app.getByTestId("diffusion-tool-move").count(), 1)
     await app.getByTestId("diffusion-tool-select-menu").click()
