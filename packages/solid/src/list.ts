@@ -1,10 +1,6 @@
-import type { NativeRenderer, PublicInstance } from "./host/types.js"
+import type { NativeRenderer } from "./host/types.js"
 
-export type NativeListTarget = number | Pick<PublicInstance, "id">
-
-function targetId(target: NativeListTarget): number {
-  return typeof target === "number" ? target : target.id
-}
+export type NativeListTarget = number
 
 /**
  * Convenience wrappers around GPUIX's native retained-list scrolling surface.
@@ -18,7 +14,7 @@ export const list = {
     y: number,
   ): void {
     if (!renderer.scrollTo) throw new Error("GPUIX native renderer does not expose scrollTo")
-    renderer.scrollTo(targetId(target), x, y)
+    renderer.scrollTo(target, x, y)
   },
 
   scrollToItem(
@@ -28,16 +24,16 @@ export const list = {
     offsetInItem?: number,
   ): void {
     if (!renderer.scrollToItem) throw new Error("GPUIX native renderer does not expose scrollToItem")
-    renderer.scrollToItem(targetId(target), index, offsetInItem)
+    renderer.scrollToItem(target, index, offsetInItem)
   },
 
   getScrollOffset(renderer: NativeRenderer, target: NativeListTarget): number[] | null {
     if (!renderer.getScrollOffset) throw new Error("GPUIX native renderer does not expose getScrollOffset")
-    return renderer.getScrollOffset(targetId(target))
+    return renderer.getScrollOffset(target)
   },
 
   getScrollTop(renderer: NativeRenderer, target: NativeListTarget): number[] | null {
     if (!renderer.getListScrollTop) throw new Error("GPUIX native renderer does not expose getListScrollTop")
-    return renderer.getListScrollTop(targetId(target))
+    return renderer.getListScrollTop(target)
   },
 }
