@@ -430,6 +430,10 @@ export class EventRegistry {
     return this.#handlers.get(id)?.has(eventType) ?? false
   }
 
+  hasDragSession(): boolean {
+    return this.#dragSession !== undefined
+  }
+
   setPointerCapture(id: number, pointerId: number): void {
     if (!this.#live.has(id)) throw new DOMException("Pointer capture target is not connected", "InvalidStateError")
     if (!this.#activePointers.has(pointerId)) throw new DOMException(`Pointer ${pointerId} is not active`, "NotFoundError")
