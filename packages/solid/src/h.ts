@@ -41,6 +41,10 @@ const ACCESSOR_PROPS = new Set([
   "testId",
 ])
 
+function isAccessor(value: unknown): value is () => unknown {
+  return typeof value === "function"
+}
+
 function bindAccessor(
   node: HNode,
   name: string,
@@ -61,8 +65,8 @@ function createH(): H {
 
     for (const [name, value] of Object.entries(props)) {
       if (name === "children") continue
-      if (ACCESSOR_PROPS.has(name) && typeof value === "function") {
-        bindAccessor(node, name, value as () => unknown)
+      if (ACCESSOR_PROPS.has(name) && isAccessor(value)) {
+        bindAccessor(node, name, value)
         continue
       }
       setProp(node, name, value)
