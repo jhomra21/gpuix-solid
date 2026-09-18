@@ -72,7 +72,8 @@
     "example:solid1-blurred-window": "cd packages/solid1 && bun install --no-save && bun run build && cd ../../examples/solid1-blurred-window && bun install --no-save && bun run run",
     "example:solid1-tailwind": "cd packages/solid1 && bun install --no-save && bun run build && cd ../../examples/solid1-tailwind && bun install --no-save && bun run run",
     "example:solid1-daw": "cd examples/solid1-daw && bun install --no-save && bun run run",
-    "example:desktop": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:desktop-integrations"
+    "example:desktop": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:desktop-integrations",
+    "perf:report": "node scripts/perf-report.mjs"
   },
   "devDependencies": {
     "@oxlint/plugins": "1.79.0",
