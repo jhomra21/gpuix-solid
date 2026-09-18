@@ -1,6 +1,6 @@
 import { createSignal } from "solid-js"
 import { describe, expect, it } from "vitest"
-import { h, makeH } from "../src/h.js"
+import { h, makeH, type HNode } from "../src/h.js"
 import { createRoot } from "../src/root.js"
 import { FakeRenderer } from "./fake-renderer.js"
 
@@ -10,18 +10,21 @@ describe("hyperscript authoring", () => {
     const root = createRoot(renderer)
     const [active, setActive] = createSignal(false)
 
-    const node = h(
-      "div",
-      {
-        class: () => active()
-          ? "flex px-4 bg-red-500"
-          : "flex px-2 bg-blue-500",
-        testId: "hyperscript-root",
-      },
-      () => active() ? "active" : "idle",
-    )
-
-    root.render(() => node)
+    let node: HNode | undefined
+    root.render(() => {
+      node = h(
+        "div",
+        {
+          class: () => active()
+            ? "flex px-4 bg-red-500"
+            : "flex px-2 bg-blue-500",
+          testId: "hyperscript-root",
+        },
+        () => active() ? "active" : "idle",
+      )
+      return node
+    })
+    if (!node) throw new Error("Expected hyperscript root")
 
     expect(node.style.display).toBe("flex")
     expect(node.style.paddingLeft).toBe(8)
@@ -52,13 +55,16 @@ describe("hyperscript authoring", () => {
     let clicks = 0
     const localH = makeH()
 
-    const node = localH("button", {
-      onClick: () => {
-        clicks += 1
-      },
-    }, "Press")
-
-    root.render(() => node)
+    let node: HNode | undefined
+    root.render(() => {
+      node = localH("button", {
+        onClick: () => {
+          clicks += 1
+        },
+      }, "Press")
+      return node
+    })
+    if (!node) throw new Error("Expected hyperscript button")
     expect(clicks).toBe(0)
     expect(node.events.has("click")).toBe(true)
 
