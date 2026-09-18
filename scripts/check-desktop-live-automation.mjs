@@ -100,12 +100,71 @@ try {
     x: start.x + (end.x - start.x) * 0.45,
     y: start.y + (end.y - start.y) * 0.45,
   }
+  const invalid = {
+    x: targetBounds.x + targetBounds.width / 2,
+    y: targetBounds.y + targetBounds.height + 60,
+  }
+  const preview = app.getByTestId("gpuix-drag-preview")
+
+  await step("move to source for rejected drag", () => app.mouse.move(start))
+  await step("press source for rejected drag", () => app.mouse.down(start))
+  await step("move rejected drag outside target", () => app.mouse.move(invalid, { pressedButton: 0 }))
+  await step("observe rejected drag preview", () => preview.waitFor({ timeoutMs: 5_000 }))
+  const rejectedReleaseBounds = await step("read rejected release bounds", () => preview.bounds())
+  await step("release rejected drag", () => app.mouse.up(invalid))
+
+  await step("keep rejected preview mounted for return", async () => {
+    if (await preview.count() !== 1) {
+      throw new Error("Desktop live acceptance rejected drag preview disappeared before return animation")
+    }
+  })
+
+  await delay(60)
+  await step("observe rejected preview moving home", async () => {
+    const returningBounds = await preview.bounds()
+    const releaseDistance = Math.hypot(
+      rejectedReleaseBounds.x - sourceBounds.x,
+      rejectedReleaseBounds.y - sourceBounds.y,
+    )
+    const returningDistance = Math.hypot(
+      returningBounds.x - sourceBounds.x,
+      returningBounds.y - sourceBounds.y,
+    )
+    if (!(returningDistance < releaseDistance)) {
+      throw new Error(
+        `Desktop live acceptance rejected drag preview did not move toward its source: ${JSON.stringify({ rejectedReleaseBounds, returningBounds, sourceBounds })}`,
+      )
+    }
+  })
+
+  await step("remove rejected preview after return", async () => {
+    const deadline = Date.now() + 1_000
+    for (;;) {
+      if (await preview.count() === 0) return
+      if (Date.now() >= deadline) {
+        throw new Error("Desktop live acceptance rejected drag preview remained mounted after return animation")
+      }
+      await delay(settleMs)
+    }
+  })
+
+  await step("preserve source after rejected drop", async () => {
+    const after = await source.bounds()
+    const positionError = {
+      x: Math.abs(after.x - sourceBounds.x),
+      y: Math.abs(after.y - sourceBounds.y),
+    }
+    if (positionError.x > 1 || positionError.y > 1) {
+      throw new Error(
+        `Desktop live acceptance rejected drop moved the committed source: ${JSON.stringify({ sourceBounds, after, positionError })}`,
+      )
+    }
+  })
 
   await step("move to drag source", () => app.mouse.move(start))
   await step("press drag source", () => app.mouse.down(start))
   await step("move semantic drag", () => app.mouse.move(previewPoint, { pressedButton: 0 }))
 
-  const preview = app.getByTestId("gpuix-drag-preview")
   await step("observe drag preview", async () => {
     await preview.waitFor({ timeoutMs: 5_000 })
     const label = (await preview.textContent()).trim()
