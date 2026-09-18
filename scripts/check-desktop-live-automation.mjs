@@ -113,6 +113,10 @@ try {
     }
   })
 
+  await step("capture drag preview screenshot", () =>
+    app.screenshot({ path: "/tmp/gpuix-solid-desktop-drag-preview.png" }),
+  )
+
   await step("move over drop target", () => app.mouse.move(end, { pressedButton: 0 }))
   await step("release over drop target", () => app.mouse.up(end))
 
