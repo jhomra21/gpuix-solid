@@ -280,7 +280,12 @@ The native test renderer and locator API can drive the same path with `locator.d
 Internal application drag/drop uses GPUIX pointer hit testing while the Solid host owns the semantic payload:
 
 ```tsx
-<div dragData={{ id: "clip-1" }} onDragStart={onStart} onDragEnd={onEnd}>
+<div
+  dragData={{ id: "clip-1" }}
+  dragPreview="Clip 1"
+  onDragStart={onStart}
+  onDragEnd={onEnd}
+>
   <text>Drag me</text>
 </div>
 <div onDragOver={onDragOver} onDrop={(event) => moveClip(event.dragData)}>
@@ -288,7 +293,7 @@ Internal application drag/drop uses GPUIX pointer hit testing while the Solid ho
 </div>
 ```
 
-A four-pixel movement threshold separates a drag from a click, and completing a drag suppresses the source click for that release.
+A four-pixel movement threshold separates a drag from a click, and completing a drag suppresses the source click for that release. Once the threshold is crossed, GPUix Solid shows a pointer-following translucent preview chip. `dragPreview` supplies its label; otherwise a compact `dragData` representation is used. Draggable sources default to `userSelect: "none"` so semantic dragging does not start native text selection; an explicitly authored `userSelect` still wins.
 
 Run the complete local showcase with `bun run example:desktop`.
 
