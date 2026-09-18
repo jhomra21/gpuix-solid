@@ -35,7 +35,7 @@ interface CommandResult {
   code: number | null
   stdout: string
   stderr: string
-  errorCode?: string
+  errorCode: string | undefined
 }
 
 interface RunOptions {
@@ -58,7 +58,7 @@ function run(command: string, args: readonly string[], options: RunOptions = {})
     child.once("error", (error: NodeJS.ErrnoException) => {
       resolve({ code: null, stdout, stderr, errorCode: error.code })
     })
-    child.once("close", (code) => resolve({ code, stdout, stderr }))
+    child.once("close", (code) => resolve({ code, stdout, stderr, errorCode: undefined }))
   })
 }
 
