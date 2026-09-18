@@ -1,3 +1,4 @@
+import { parseDragData } from "./drag-data.js"
 import { EVENT_PROP_TO_TYPE, nativeEventTypeForDomEvent, type DomCompatTarget, type EventRegistry } from "./events.js"
 import type { MutationDriver, MutationValue } from "./mutations.js"
 import type {
@@ -905,33 +906,6 @@ function removeFromChildren(parent: HostParent, node: HostNode): void {
 
 function isReserved(name: string): boolean {
   return RESERVED_PROPS.has(name) || EVENT_PROP_TO_TYPE.has(name)
-}
-
-function parseDragData<T>(value: T): DragData | undefined {
-  if (value === undefined) return undefined
-  if (
-    value === null
-    || typeof value === "string"
-    || typeof value === "number"
-    || typeof value === "boolean"
-  ) return value
-  if (Array.isArray(value)) {
-    return value.map((item) => {
-      const parsed = parseDragData(item)
-      if (parsed === undefined) throw new TypeError("dragData arrays cannot contain undefined")
-      return parsed
-    })
-  }
-  if (typeof value === "object") {
-    const parsed: Record<string, DragData> = {}
-    for (const [key, item] of Object.entries(value)) {
-      const entry = parseDragData(item)
-      if (entry === undefined) throw new TypeError(`dragData property "${key}" cannot be undefined`)
-      parsed[key] = entry
-    }
-    return parsed
-  }
-  throw new TypeError("dragData must be JSON-like data")
 }
 
 function customPropValue<T>(value: T): MutationValue {
