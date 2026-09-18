@@ -161,6 +161,37 @@ try {
     }
   })
 
+  await step("observe committed card position", async () => {
+    const committedBounds = await source.bounds()
+    const targetBounds = await target.bounds()
+    const committedCenter = {
+      x: committedBounds.x + committedBounds.width / 2,
+      y: committedBounds.y + committedBounds.height / 2,
+    }
+    const targetCenter = {
+      x: targetBounds.x + targetBounds.width / 2,
+      y: targetBounds.y + targetBounds.height / 2,
+    }
+    const sizeError = {
+      width: Math.abs(committedBounds.width - sourceBounds.width),
+      height: Math.abs(committedBounds.height - sourceBounds.height),
+    }
+    const centerError = {
+      x: Math.abs(committedCenter.x - targetCenter.x),
+      y: Math.abs(committedCenter.y - targetCenter.y),
+    }
+    if (sizeError.width > 4 || sizeError.height > 4) {
+      throw new Error(
+        `Desktop live acceptance committed card changed size: ${JSON.stringify({ sourceBounds, committedBounds, sizeError })}`,
+      )
+    }
+    if (centerError.x > 8 || centerError.y > 8) {
+      throw new Error(
+        `Desktop live acceptance expected the dropped card to commit into the target: ${JSON.stringify({ committedBounds, targetBounds, centerError })}`,
+      )
+    }
+  })
+
   const stderr = stderrChunks.join("")
   if (fatalNativePattern.test(stderr)) {
     throw new Error(`Desktop live acceptance saw fatal native output:\n${stderr.trim()}`)
