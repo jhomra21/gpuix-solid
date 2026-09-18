@@ -63,7 +63,13 @@ jobs:
         run: node scripts/check-gpuix-edge-live-automation.mjs Diffusion
       - name: Run Solid 1 DAW native regression
         if: matrix.os == 'macos-latest' && !cancelled()
-        run: bun run solid1:daw
+        run: |
+          cd packages/solid1
+          bun install --no-save
+          bun run build
+          cd ../../examples/solid1-daw
+          bun install --no-save
+          bun run test:native:edge
       - name: Upload desktop drag preview artifact
         if: matrix.os == 'macos-latest' && always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
