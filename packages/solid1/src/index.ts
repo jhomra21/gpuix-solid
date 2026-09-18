@@ -72,6 +72,7 @@ export type {
   DebugFrameOverlayStats,
   DiffProps,
   DimensionValue,
+  DragData,
   EdgeInsets,
   ElementType,
   EventPayload,

@@ -85,6 +85,9 @@ try {
           "createWindowInsets",
           "createWindowSize",
           "createTextSelection",
+          "dialog",
+          "shell",
+          "appMenu",
         ]) {
           if (!(key in main)) throw new Error("Missing root export: " + key)
         }
@@ -117,6 +120,9 @@ try {
       createTextSearch,
       createWindowInsets,
       createWindowSize,
+      appMenu,
+      dialog,
+      shell,
       type AnimationStyle,
       type HostProps,
     } from "gpuix-solid"
@@ -124,7 +130,11 @@ try {
     import { createSignal } from "solid-js"
 
     const animationStyle: AnimationStyle = { width: 120, opacity: 1 }
-    const hostProps: HostProps = { style: { width: 120 } }
+    const hostProps: HostProps = { style: { width: 120 }, onFileDrop: () => undefined }
+    const appMenuOptions = appMenu.default("Smoke")
+    void dialog
+    void shell
+    void appMenuOptions
     type Backend = AutomationBackend
     const backend = null as unknown as Backend
     void launch

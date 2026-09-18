@@ -113,6 +113,10 @@
       "repository": "jhomra21/daw-browser-convex",
       "revision": "2eaad47813b15aa8511bab8dc04625510c977b12",
       "contract": "examples/solid1-daw/UPSTREAM.md"
+    },
+    "example:desktop": {
+      "classification": "original",
+      "note": "Repository-owned diagnostic showcase for desktop dialogs, shell integration, native file drops, semantic internal drag/drop, and the GPUIX default application menu."
     }
   }
 }

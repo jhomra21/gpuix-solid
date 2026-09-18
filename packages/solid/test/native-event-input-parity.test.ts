@@ -31,6 +31,32 @@ function createReactiveText(value: () => string): ReturnType<typeof createElemen
 }
 
 describe("native event/input parity", () => {
+  nativeIt("delivers Finder/OS file-drop paths through GPUI hit testing", () => {
+    const testRoot = createTestRoot()
+    const received: string[][] = []
+
+    testRoot.render(() => {
+      const root = createElement("div")
+      setProp(root, "testId", "drop-target")
+      setProp(root, "style", { width: 320, height: 120 })
+      setProp(root, "onFileDrop", (event: EventPayload) => {
+        received.push([...(event.paths ?? [])])
+      })
+      return root
+    })
+
+    const target = testRoot.renderer.findByType("div")[0]
+    expect(target).toBeDefined()
+    const bounds = testRoot.renderer.getElementBounds(target?.id ?? 0)
+    expect(bounds).not.toBeNull()
+    const x = (bounds?.[0] ?? 0) + 20
+    const y = (bounds?.[1] ?? 0) + 20
+    testRoot.renderer.nativeSimulateFileDrop(x, y, ["/tmp/alpha.txt", "/tmp/βeta.txt"])
+
+    expect(received).toEqual([["/tmp/alpha.txt", "/tmp/βeta.txt"]])
+    testRoot.unmount()
+  })
+
   nativeIt("edits a controlled input and emits the complete value", () => {
     const testRoot = createTestRoot()
     const [value, setValue] = createSignal("")

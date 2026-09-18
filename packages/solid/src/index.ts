@@ -1,5 +1,12 @@
 export { render, resetRender, createRenderer } from "./runtime.js"
 export type { RenderHandle, RenderOptions, RendererBinding } from "./runtime.js"
+export { appMenu, dialog, shell, DesktopUnsupportedError } from "./desktop.js"
+export type {
+  MessageDialogButtons,
+  MessageDialogOptions,
+  OpenFileDialogOptions,
+  SaveFileDialogOptions,
+} from "./desktop.js"
 export { createRoot } from "./root.js"
 export type { Root, WindowEventHandlers, WindowSelectionChangeHandler } from "./root.js"
 export { startFrameLoop } from "./frame-loop.js"
@@ -165,6 +172,7 @@ export type {
   DebugFrameOverlayStats,
   DiffProps,
   DimensionValue,
+  DragData,
   EdgeInsets,
   ElementType,
   EventPayload,

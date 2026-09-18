@@ -8,6 +8,7 @@ import {
 import { installBrowserPreflushCompatibility } from "./browser-preflush-compat.js"
 import { syncBrowserViewportSize } from "./browser-viewport-compat.js"
 import { GpuixContext, type ViewportSize } from "./context.js"
+import { SemanticDragPreview } from "./host/drag-preview.js"
 import { EventRegistry } from "./host/events.js"
 import { HostRootNode, removeHostNode, type HostNode } from "./host/nodes.js"
 import { BrowserPointerMutationDriver, BrowserPointerReleaseRelay } from "./host/pointer-lifecycle.js"
@@ -87,6 +88,27 @@ function isHostDescendant(container: HostRootNode, elementId: number, ancestorId
     descendants.push(...node.children)
   }
   return false
+}
+
+function semanticDragTargetAtPoint(
+  container: HostRootNode,
+  renderer: NativeRenderer,
+  events: EventRegistry,
+  event: EventPayload,
+  eventType: "dragOver" | "drop",
+): number | undefined {
+  const visit = (nodes: readonly HostNode[]): number | undefined => {
+    for (let index = nodes.length - 1; index >= 0; index -= 1) {
+      const node = nodes[index]
+      if (!node || node.kind !== "element" || !node.nativeAlive) continue
+      const descendant = visit(node.children)
+      if (descendant !== undefined) return descendant
+      if (!eventPointInsideElement(renderer, node.id, event)) continue
+      if (events.has(node.id, eventType)) return node.id
+    }
+    return undefined
+  }
+  return visit(container.children)
 }
 
 function pointerRelayEventType(eventType: string): PointerRelayEventType | undefined {
@@ -187,6 +209,7 @@ export function createRoot(renderer: NativeRenderer, initialWindowEventHandlers:
   const driver = new BrowserPointerMutationDriver(renderer, events)
   const releaseRelay = new BrowserPointerReleaseRelay()
   const container = new HostRootNode(renderer, events, driver)
+  const semanticDragPreview = new SemanticDragPreview(container, renderer)
   let windowKeyEventHandlers: WindowKeyEventHandlers = initialWindowEventHandlers
   let windowSelectionChangeHandler = initialWindowEventHandlers.onSelectionChange
   let windowKeyEventId = nextWindowKeyEventId(renderer)
@@ -302,6 +325,7 @@ export function createRoot(renderer: NativeRenderer, initialWindowEventHandlers:
         syncWindowKeyEvents()
         syncWindowSelectionChange()
         driver.endAuthoredPointerRelay()
+        semanticDragPreview.hide()
         dispose()
         dispose = undefined
         const mounted = container.children[0]
@@ -408,14 +432,54 @@ export function createRoot(renderer: NativeRenderer, initialWindowEventHandlers:
           }
         }
 
+        const previewBeforeRelease = routedEvent.eventType === "mouseUp"
+          ? events.activeDragPreview()
+          : undefined
+        let semanticDragTargetId: number | null | undefined
+        if (
+          events.hasDragSession()
+          && (routedEvent.eventType === "mouseMove" || routedEvent.eventType === "mouseUp")
+        ) {
+          const dragEventType = routedEvent.eventType === "mouseMove" ? "dragOver" : "drop"
+          const targetId = semanticDragTargetAtPoint(container, renderer, events, routedEvent, dragEventType)
+          semanticDragTargetId = targetId ?? null
+          if (targetId !== undefined && targetId !== routedEvent.elementId) {
+            routedEvent = { ...routedEvent, elementId: targetId }
+          }
+        }
+
         if (!hasLiveElement(container, routedEvent.elementId)) return false
         if (isDuplicatePointerDown(routedEvent)) return true
         if (routedEvent.eventType === "mouseDown") {
           driver.beginAuthoredPointerRelay(routedEvent.elementId)
         }
         const browserEvent = browserCompatibleNativeEvent(routedEvent)
-        events.dispatch(browserEvent)
+        events.dispatch(browserEvent, semanticDragTargetId)
         dispatchBrowserKeyboardEvent(browserEvent)
+        if (routedEvent.eventType === "mouseMove") {
+          const preview = events.activeDragPreview()
+          if (preview && rootId !== undefined) {
+            renderer.clearSelection?.()
+            semanticDragPreview.show(
+              rootId,
+              routedEvent.x ?? 0,
+              routedEvent.y ?? 0,
+              preview.sourceId,
+              preview.startX,
+              preview.startY,
+            )
+          } else {
+            semanticDragPreview.hide()
+          }
+        } else if (routedEvent.eventType === "mouseUp") {
+          if (previewBeforeRelease && semanticDragTargetId === null) {
+            semanticDragPreview.returnToSource()
+          } else {
+            semanticDragPreview.hide()
+          }
+        } else if (routedEvent.eventType === "mouseDown") {
+          semanticDragPreview.hide()
+        }
         handled = true
       } finally {
         if (event.eventType === "mouseUp") driver.endAuthoredPointerRelay()
@@ -425,6 +489,7 @@ export function createRoot(renderer: NativeRenderer, initialWindowEventHandlers:
     },
     unmount() {
       driver.endAuthoredPointerRelay()
+      semanticDragPreview.hide()
       dispose?.()
       dispose = undefined
       const mounted = container.children[0]

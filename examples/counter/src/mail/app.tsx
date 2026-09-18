@@ -124,7 +124,7 @@ function FaceStack(props: { faces: FaceSpec[] }): SolidElement {
 }
 
 function MentionBadge(props: { count: number }): SolidElement {
-  return <Show when={props.count > 0} fallback={null}><div style={{ height: 13, minWidth: 13, paddingLeft: 4, paddingRight: 4, borderRadius: 7, backgroundColor: C.mention, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Show when={props.count === 1} fallback={<text style={{ fontSize: 9, fontWeight: 700, color: "#FFFFFF", fontFamily: FONT }}>{props.count}</text>}><Icon name="mentionOne" size={8} color="#FFFFFF" /></Show></div></Show>
+  return <Show when={props.count > 0} fallback={null}><div testId={props.count === 1 ? "mail-vector-mention-count" : undefined} aria-label={String(props.count)} style={{ height: 13, minWidth: 13, paddingLeft: 4, paddingRight: 4, borderRadius: 7, backgroundColor: C.mention, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Show when={props.count === 1} fallback={<text style={{ fontSize: 9, fontWeight: 700, color: "#FFFFFF", fontFamily: FONT }}>{props.count}</text>}><Icon name="mentionOne" size={8} color="#FFFFFF" /></Show></div></Show>
 }
 
 const maraFace: FaceSpec = { src: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=128&h=128&fit=crop" }

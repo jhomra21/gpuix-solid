@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { createRoot, type NativeRenderer } from "gpuix-solid"
 import { ChatApp } from "../chat/shell"
-import { median } from "./stats"
+import { median, summarize, type BenchmarkStats } from "./stats"
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 type Op = JsonValue[]
@@ -113,8 +113,8 @@ function internStyles(ops: readonly Op[]): Op[] {
 
 interface BenchRow {
   label: string
-  encodeMs: number
-  decodeMs: number
+  encode: BenchmarkStats
+  decode: BenchmarkStats
   bytes: number
 }
 
@@ -144,8 +144,8 @@ function benchJsonString(label: string, ops: readonly Op[], iterations: number):
 
   return {
     label,
-    encodeMs: median(encodeSamples),
-    decodeMs: median(decodeSamples),
+    encode: summarize(encodeSamples),
+    decode: summarize(decodeSamples),
     bytes,
   }
 }
@@ -169,8 +169,8 @@ function benchJsonBuffer(label: string, ops: readonly Op[], iterations: number):
 
   return {
     label,
-    encodeMs: median(encodeSamples),
-    decodeMs: median(decodeSamples),
+    encode: summarize(encodeSamples),
+    decode: summarize(decodeSamples),
     bytes,
   }
 }
@@ -247,11 +247,13 @@ function main(): void {
   ]
   const baseline = rows[0]?.bytes ?? 1
 
-  console.log("\n| path | encode | decode | wire bytes | vs JSON |")
+  console.log("\n| path | encode p50/p95/p99 | decode p50/p95/p99 | wire bytes | vs JSON |")
   console.log("| --- | ---: | ---: | ---: | ---: |")
   for (const row of rows) {
+    const encode = `${row.encode.p50.toFixed(2)}/${row.encode.p95.toFixed(2)}/${row.encode.p99.toFixed(2)} ms`
+    const decode = `${row.decode.p50.toFixed(2)}/${row.decode.p95.toFixed(2)}/${row.decode.p99.toFixed(2)} ms`
     console.log(
-      `| ${row.label} | ${row.encodeMs.toFixed(2)} ms | ${row.decodeMs.toFixed(2)} ms | ` +
+      `| ${row.label} | ${encode} | ${decode} | ` +
         `${(row.bytes / 1e6).toFixed(2)} MB | ${(row.bytes / baseline).toFixed(2)}x |`,
     )
   }

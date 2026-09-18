@@ -42,6 +42,8 @@ export interface AutomationBackend {
     deltaY: number,
     modifiers?: string,
   ): void | Promise<void>
+  /** Optional because live GPUIX 0.9 automation cannot synthesize OS file drops. */
+  fileDrop?(x: number, y: number, paths: string[]): void | Promise<void>
   keystrokes(elementId: number, keys: string): void | Promise<void>
   screenshot(path: string): void | Promise<void>
   clockPause(): number | Promise<number>
@@ -106,6 +108,10 @@ export class InProcessAutomationBackend implements AutomationBackend {
     modifiers?: string,
   ): void {
     this.#renderer.nativeSimulateScrollWheel(x, y, deltaX, deltaY, modifiers)
+  }
+
+  fileDrop(x: number, y: number, paths: string[]): void {
+    this.#renderer.nativeSimulateFileDrop(x, y, paths)
   }
 
   keystrokes(elementId: number, keys: string): void {
@@ -290,6 +296,15 @@ export class Locator {
       { x: start.x + offset.x + dx, y: start.y + offset.y + dy },
       options,
     )
+  }
+
+  async dropFiles(paths: readonly string[]): Promise<void> {
+    const fileDrop = this.#app.backend.fileDrop
+    if (fileDrop === undefined) {
+      throw new AutomationError("Unsupported", "This automation backend cannot synthesize OS file drops")
+    }
+    const point = await this.center()
+    await fileDrop.call(this.#app.backend, point.x, point.y, [...paths])
   }
 
   async fill(text: string): Promise<void> {

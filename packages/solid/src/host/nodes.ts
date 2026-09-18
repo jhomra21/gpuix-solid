@@ -1,6 +1,8 @@
+import { parseDragData } from "./drag-data.js"
 import { EVENT_PROP_TO_TYPE, nativeEventTypeForDomEvent, type DomCompatTarget, type EventRegistry } from "./events.js"
 import type { MutationDriver, MutationValue } from "./mutations.js"
 import type {
+  DragData,
   ElementType,
   HostEventHandler,
   NativeRenderer,
@@ -8,7 +10,7 @@ import type {
   StyleDesc,
 } from "./types.js"
 
-const RESERVED_PROPS = new Set(["children", "ref", "style", "className", "key"])
+const RESERVED_PROPS = new Set(["children", "ref", "style", "className", "key", "dragData"])
 const BUILT_IN_TYPES = new Set<ElementType>(["div", "text"])
 const UNIVERSAL_PROPS = new Set(["autoFocus", "tabIndex", "motion", "testId", "highlight", "title"])
 
@@ -102,6 +104,7 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   nativeAlive = false
   style: HostStyleDeclaration
   readonly props = new Map<string, MutationValue>()
+  dragData: DragData | undefined
   readonly events = new Map<string, HostEventHandler>()
   readonly classList = {
     add: (..._tokens: string[]): void => undefined,
@@ -431,6 +434,28 @@ export function setHostProperty<T>(
     return
   }
 
+  if (name === "dragData") {
+    const previousPointerEvents = effectivePointerEvents(node)
+    const previousDragNativeHandlers = new Map(
+      (["mouseDown", "mouseMove", "mouseUp"] as const).map((nativeType) => [
+        nativeType,
+        hasNativeEventHandler(node, nativeType),
+      ]),
+    )
+    node.dragData = parseDragData(value)
+    if (!node.root || !node.nativeAlive) return
+    node.root.events.setDragData(node.id, node.dragData)
+    for (const nativeType of ["mouseDown", "mouseMove", "mouseUp"] as const) {
+      const previous = previousDragNativeHandlers.get(nativeType) ?? false
+      const next = hasNativeEventHandler(node, nativeType)
+      if (previous !== next) node.root.driver.enqueue("setEventListener", node.id, nativeType, next)
+    }
+    const nextPointerEvents = effectivePointerEvents(node)
+    node.root.driver.enqueue("setStyle", node.id, nativeStyleFor(node, nextPointerEvents))
+    appliedPointerEvents.set(node, nextPointerEvents)
+    return
+  }
+
   const eventType = EVENT_PROP_TO_TYPE.get(name)
   if (eventType) {
     const previousPointerEvents = effectivePointerEvents(node)
@@ -701,7 +726,13 @@ function effectivePointerEvents(node: HostElementNode): StyleDesc["pointerEvents
   // GPUIX 0.7 needs an explicit hit surface for transparent semantic controls.
   // Plain event-bearing divs keep their existing paint/hit behavior so parent
   // containers do not become new occluding surfaces.
-  if (node.events.size > 0 && ownsSemanticHitSurface(node)) return "auto"
+  if (
+    node.dragData !== undefined
+    || node.events.has("fileDrop")
+    || node.events.has("dragOver")
+    || node.events.has("drop")
+    || (node.events.size > 0 && ownsSemanticHitSurface(node))
+  ) return "auto"
   return undefined
 }
 
@@ -713,13 +744,16 @@ function nativeStyleFor(
   // but an authored width such as w-full must still be allowed to shrink below
   // that preferred size. Preserve the 129px browser-like basis while removing
   // the 129px minimum that previously forced compact mixer cells to overflow.
-  const style: StyleDesc = isRangeInput(node)
+  let style: StyleDesc = isRangeInput(node)
     ? node.style.width === undefined
       ? { minHeight: 16, height: 16, width: 129, minWidth: 129, ...node.style }
       : node.style.width === "100%"
         ? { minHeight: 16, height: 16, ...node.style, width: 129, minWidth: 0, flexShrink: 1 }
         : { minHeight: 16, height: 16, minWidth: 0, ...node.style }
     : node.style
+  if (node.dragData !== undefined && node.style.userSelect === undefined) {
+    style = { ...style, userSelect: "none" }
+  }
   if (node.style.pointerEvents !== undefined || pointerEvents === undefined) return style
   return { ...style, pointerEvents }
 }
@@ -798,6 +832,7 @@ function adopt(root: HostRootNode, node: HostNode): void {
     appliedTextPointerEvents.set(node, pointerEvents)
   } else {
     root.events.setTarget(node.id, node)
+    if (node.dragData !== undefined) root.events.setDragData(node.id, node.dragData)
     const nativeEventTypes = new Set<string>()
     const pointerEvents = effectivePointerEvents(node)
     const nativeStyle = nativeStyleFor(node, pointerEvents)
@@ -809,6 +844,9 @@ function adopt(root: HostRootNode, node: HostNode): void {
       root.events.set(node.id, eventType, handler)
       const nativeEventType = nativeEventTypeForDomEvent(eventType)
       if (nativeEventType) nativeEventTypes.add(nativeEventType)
+    }
+    for (const nativeEventType of ["mouseDown", "mouseMove", "mouseUp"] as const) {
+      if (hasNativeEventHandler(node, nativeEventType)) nativeEventTypes.add(nativeEventType)
     }
     if (hasCheckboxActivationHandler(node)) nativeEventTypes.add("click")
     if (hasRangeChangeHandler(node)) {
@@ -843,6 +881,14 @@ function hasRangeChangeHandler(node: HostElementNode): boolean {
 }
 
 function hasNativeEventHandler(node: HostElementNode, nativeEventType: string): boolean {
+  const hasDragSource = node.dragData !== undefined
+  // GPUI implicitly captures a pointer when a node owns mouseDown + mouseMove at
+  // press time. Pre-arm drag sources for mouseDown only; BrowserPointerMutationDriver
+  // adds move/up after the physical press, while drop targets may safely own
+  // move/up because they do not own the source mouseDown.
+  if (nativeEventType === "mouseDown" && hasDragSource) return true
+  if (nativeEventType === "mouseMove" && node.events.has("dragOver")) return true
+  if (nativeEventType === "mouseUp" && node.events.has("drop")) return true
   if (nativeEventType === "click" && hasCheckboxActivationHandler(node)) return true
   if ((nativeEventType === "mouseDown" || nativeEventType === "mouseMove" || nativeEventType === "mouseUp") && hasRangeChangeHandler(node)) return true
   for (const eventType of node.events.keys()) {

@@ -16,6 +16,13 @@ export type ElementType =
 
 export type DebugFrameOverlayMode = "hidden" | "minimal" | "full"
 export type DimensionValue = number | string
+export type DragData =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly DragData[]
+  | { readonly [key: string]: DragData }
 
 export interface DebugFrameOverlayStats {
   currentMs?: number
@@ -360,6 +367,10 @@ export type EventPayload = NativeEventPayload &
     metaKey?: boolean
     altKey?: boolean
     ctrlKey?: boolean
+    /** Application-owned payload for internal semantic drag/drop. */
+    dragData?: DragData
+    dragSourceId?: number
+    dropTargetId?: number
     preventDefault?: () => void
     stopPropagation?: () => void
   }
@@ -394,6 +405,14 @@ export interface HostProps {
   onFocus?: HostEventHandler
   onBlur?: HostEventHandler
   onScroll?: HostEventHandler
+  /** Finder / OS file drop paths delivered by GPUIX. */
+  onFileDrop?: HostEventHandler
+  /** JSON-like application payload used by internal semantic drag/drop. */
+  dragData?: DragData
+  onDragStart?: HostEventHandler
+  onDragOver?: HostEventHandler
+  onDrop?: HostEventHandler
+  onDragEnd?: HostEventHandler
   onChange?: HostEventHandler
   onInput?: HostEventHandler
   onSubmit?: HostEventHandler
