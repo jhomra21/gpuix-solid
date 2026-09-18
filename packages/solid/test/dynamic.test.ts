@@ -1,6 +1,7 @@
 import { createSignal } from "solid-js"
 import { describe, expect, it } from "vitest"
 import { Dynamic } from "../src/components/dynamic.js"
+import { h } from "../src/h.js"
 import { createRoot } from "../src/root.js"
 import { FakeRenderer } from "./fake-renderer.js"
 
@@ -72,4 +73,27 @@ describe("Dynamic", () => {
 
     root.unmount()
   })
+
+  it("renders a Solid component with its original prop contract", () => {
+    const renderer = new FakeRenderer()
+    const root = createRoot(renderer)
+
+    function Label(props: { label: string }) {
+      return h("text", { testId: "dynamic-component" }, props.label)
+    }
+
+    root.render(() => Dynamic({
+      component: Label,
+      label: "Component child",
+    }))
+
+    const mutations = renderer.batches.flat()
+    expect(mutations.some((mutation) =>
+      mutation[0] === "setText"
+      && mutation[2] === "Component child"
+    )).toBe(true)
+
+    root.unmount()
+  })
+
 })
