@@ -311,6 +311,7 @@ describe("native locator actions", () => {
     const testRoot = createTestRoot(500, 220)
     const app = createTestApp(testRoot.renderer)
     const events: string[] = []
+    let startData: unknown
     let droppedData: unknown
 
     testRoot.render(() => {
@@ -334,8 +335,8 @@ describe("native locator actions", () => {
       })
       setProp(source, "onClick", () => events.push("click"))
       setProp(source, "onDragStart", (event: EventPayload) => {
-        const data = event.dragData as { clipId?: string } | undefined
-        events.push(`start:${data?.clipId ?? "missing"}`)
+        startData = event.dragData
+        events.push("start")
       })
       setProp(source, "onDragEnd", (event: EventPayload) => {
         events.push(`end:${event.dropTargetId === undefined ? "none" : "target"}`)
@@ -365,8 +366,9 @@ describe("native locator actions", () => {
 
     await app.getByTestId("drag-source").dragTo(app.getByTestId("drop-target"), { steps: 4 })
 
+    expect(startData).toEqual({ clipId: "clip-1" })
     expect(droppedData).toEqual({ clipId: "clip-1" })
-    expect(events[0]).toBe("start:clip-1")
+    expect(events[0]).toBe("start")
     expect(events).toContain("over")
     expect(events).toContain("drop")
     expect(events.at(-1)).toBe("end:target")
