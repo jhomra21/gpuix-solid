@@ -28,6 +28,7 @@ function App() {
   const [status, setStatus] = createSignal("Ready. Try a system dialog or either drag/drop target.")
   const [dragging, setDragging] = createSignal(false)
   const [dropHot, setDropHot] = createSignal(false)
+  const [dropped, setDropped] = createSignal(false)
 
   const run = (work: () => Promise<void>) => {
     void work().catch((error: Error) => {
@@ -106,28 +107,40 @@ function App() {
 
       <div style={{ display: "flex", flexDirection: "row", gap: 12 }}>
         <div
-          testId="desktop-drag-source"
-          dragData={{ kind: "demo-card", id: 1 }}
-          onDragStart={() => {
-            setDragging(true)
-            setStatus("Internal drag started")
-          }}
-          onDragEnd={() => {
-            setDragging(false)
-            setDropHot(false)
-          }}
           style={{
             width: 180,
             height: 88,
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            borderRadius: 10,
-            backgroundColor: dragging() ? "#365e8d" : "#294969",
-            cursor: "grab",
+            flexShrink: 0,
           }}
         >
-          <text style={{ color: "#e5f0ff", fontSize: 13 }}>Drag this card</text>
+          {dropped() ? null : (
+            <div
+              testId="desktop-drag-source"
+              dragData={{ kind: "demo-card", id: 1 }}
+              onDragStart={() => {
+                setDragging(true)
+                setStatus("Internal drag started")
+              }}
+              onDragEnd={(event) => {
+                setDragging(false)
+                setDropHot(false)
+                if (event.dropTargetId !== undefined) setDropped(true)
+              }}
+              style={{
+                width: 180,
+                height: 88,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 10,
+                backgroundColor: dragging() ? "#365e8d" : "#294969",
+                cursor: "grab",
+              }}
+            >
+              <text style={{ color: "#e5f0ff", fontSize: 13 }}>Drag this card</text>
+            </div>
+          )}
         </div>
         <div
           testId="desktop-internal-drop-target"
@@ -149,7 +162,34 @@ function App() {
             backgroundColor: dropHot() ? "#213a58" : "#1d1d21",
           }}
         >
-          <text style={{ color: "#c7c7ce", fontSize: 13 }}>Drop the card here</text>
+          {dropped() ? (
+            <div
+              testId="desktop-drag-source"
+              dragData={{ kind: "demo-card", id: 1 }}
+              onDragStart={() => {
+                setDragging(true)
+                setStatus("Internal drag started")
+              }}
+              onDragEnd={() => {
+                setDragging(false)
+                setDropHot(false)
+              }}
+              style={{
+                width: 180,
+                height: 88,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 10,
+                backgroundColor: dragging() ? "#365e8d" : "#294969",
+                cursor: "grab",
+              }}
+            >
+              <text style={{ color: "#e5f0ff", fontSize: 13 }}>Drag this card</text>
+            </div>
+          ) : (
+            <text style={{ color: "#c7c7ce", fontSize: 13 }}>Drop the card here</text>
+          )}
         </div>
       </div>
 
