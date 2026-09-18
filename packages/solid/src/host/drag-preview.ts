@@ -1,92 +1,200 @@
-import type { HostRootNode } from "./nodes.js"
-import type { StyleDesc } from "./types.js"
+import type { HostElementNode, HostNode, HostRootNode } from "./nodes.js"
+import type { NativeRenderer, StyleDesc } from "./types.js"
 
-const PREVIEW_OFFSET = 14
+type BoundsRenderer = NativeRenderer & {
+  getElementBounds?(elementId: number): number[] | null
+}
 
-const previewStyle: StyleDesc = {
+const PREVIEW_TEST_ID = "gpuix-drag-preview"
+const BUILT_IN_VISUAL_PROPS = new Set(["highlight"])
+const OMITTED_PREVIEW_PROPS = new Set([
+  "autoFocus",
+  "motion",
+  "role",
+  "tabIndex",
+  "testId",
+  "title",
+])
+
+const wrapperBaseStyle: StyleDesc = {
   position: "absolute",
   display: "flex",
   flexDirection: "row",
-  alignItems: "center",
-  maxWidth: 240,
-  paddingTop: 6,
-  paddingRight: 10,
-  paddingBottom: 6,
-  paddingLeft: 10,
-  borderWidth: 1,
-  borderColor: "#ffffff26",
-  borderRadius: 7,
-  backgroundColor: "#313244e6",
-  boxShadow: {
-    offsetX: 0,
-    offsetY: 5,
-    blurRadius: 16,
-    spreadRadius: 0,
-    color: "#00000055",
-  },
+  flexGrow: 0,
+  flexShrink: 0,
   pointerEvents: "none",
   userSelect: "none",
+  opacity: 0.94,
 }
 
-const previewTextStyle: StyleDesc = {
-  maxWidth: 220,
-  color: "#f2f2f4",
-  fontSize: 12,
-  lineHeight: 16,
-  whiteSpace: "nowrap",
-  textOverflow: "ellipsis",
-  pointerEvents: "none",
-  userSelect: "none",
+function findElement(root: HostRootNode, elementId: number): HostElementNode | undefined {
+  const pending: HostNode[] = [...root.children]
+  while (pending.length > 0) {
+    const node = pending.pop()
+    if (!node) continue
+    if (node.kind === "element" && node.id === elementId) return node
+    pending.push(...node.children)
+  }
+  return undefined
+}
+
+function previewPropAllowed(node: HostElementNode, name: string): boolean {
+  if (OMITTED_PREVIEW_PROPS.has(name) || name.startsWith("aria-")) return false
+  if (node.nativeType === "div" || node.nativeType === "text") {
+    return BUILT_IN_VISUAL_PROPS.has(name)
+  }
+  return true
+}
+
+function previewChildStyle(style: StyleDesc): StyleDesc {
+  return {
+    ...style,
+    pointerEvents: "none",
+    userSelect: "none",
+  }
+}
+
+function previewRootStyle(style: StyleDesc, width: number, height: number): StyleDesc {
+  return {
+    ...style,
+    position: "relative",
+    top: 0,
+    right: undefined,
+    bottom: undefined,
+    left: 0,
+    width,
+    height,
+    minWidth: width,
+    minHeight: height,
+    maxWidth: width,
+    maxHeight: height,
+    margin: 0,
+    marginTop: 0,
+    marginRight: 0,
+    marginBottom: 0,
+    marginLeft: 0,
+    flexGrow: 0,
+    flexShrink: 0,
+    pointerEvents: "none",
+    userSelect: "none",
+  }
 }
 
 export class SemanticDragPreview {
   readonly #root: HostRootNode
+  readonly #renderer: BoundsRenderer
   #parentId: number | undefined
-  #surfaceId: number | undefined
-  #textId: number | undefined
-  #label = ""
+  #wrapperId: number | undefined
+  #sourceId: number | undefined
+  #grabX = 0
+  #grabY = 0
+  #width = 0
+  #height = 0
 
-  constructor(root: HostRootNode) {
+  constructor(root: HostRootNode, renderer: NativeRenderer) {
     this.#root = root
+    this.#renderer = renderer
   }
 
-  show(parentId: number, x: number, y: number, label: string): void {
-    if (this.#parentId !== undefined && this.#parentId !== parentId) this.hide()
+  show(
+    parentId: number,
+    x: number,
+    y: number,
+    sourceId: number,
+    startX: number,
+    startY: number,
+  ): void {
+    const source = findElement(this.#root, sourceId)
+    const bounds = this.#renderer.getElementBounds?.(sourceId)
+    if (!source || !bounds || bounds.length < 4) {
+      this.hide()
+      return
+    }
 
-    if (this.#surfaceId === undefined || this.#textId === undefined) {
+    const left = bounds[0] ?? 0
+    const top = bounds[1] ?? 0
+    const width = bounds[2] ?? 0
+    const height = bounds[3] ?? 0
+    if (width <= 0 || height <= 0) {
+      this.hide()
+      return
+    }
+
+    if (this.#sourceId !== sourceId || this.#wrapperId === undefined || this.#parentId !== parentId) {
+      this.hide()
       this.#parentId = parentId
-      this.#surfaceId = this.#root.allocateId()
-      this.#textId = this.#root.allocateId()
-      this.#root.driver.enqueue("createElement", this.#surfaceId, "div")
-      this.#root.driver.enqueue("setCustomProp", this.#surfaceId, "testId", "gpuix-drag-preview")
-      this.#root.driver.enqueue("createElement", this.#textId, "text")
-      this.#root.driver.enqueue("setStyle", this.#textId, previewTextStyle)
-      this.#root.driver.enqueue("appendChild", this.#surfaceId, this.#textId)
-      this.#root.driver.enqueue("appendChild", parentId, this.#surfaceId)
+      this.#sourceId = sourceId
+      this.#grabX = Math.min(width, Math.max(0, startX - left))
+      this.#grabY = Math.min(height, Math.max(0, startY - top))
+      this.#width = width
+      this.#height = height
+
+      const wrapperId = this.#root.allocateId()
+      this.#wrapperId = wrapperId
+      this.#root.driver.enqueue("createElement", wrapperId, "div")
+      this.#root.driver.enqueue("setCustomProp", wrapperId, "testId", PREVIEW_TEST_ID)
+
+      const cloneId = this.#cloneNode(source, true)
+      this.#root.driver.enqueue("appendChild", wrapperId, cloneId)
+      this.#root.driver.enqueue("appendChild", parentId, wrapperId)
     }
 
-    if (this.#label !== label) {
-      this.#label = label
-      this.#root.driver.enqueue("setText", this.#textId, label)
-    }
-
-    this.#root.driver.enqueue("setStyle", this.#surfaceId, {
-      ...previewStyle,
-      left: Math.round(x + PREVIEW_OFFSET),
-      top: Math.round(y + PREVIEW_OFFSET),
+    this.#root.driver.enqueue("setStyle", this.#wrapperId, {
+      ...wrapperBaseStyle,
+      left: Math.round(x - this.#grabX),
+      top: Math.round(y - this.#grabY),
+      width: this.#width,
+      height: this.#height,
     })
   }
 
   hide(): void {
     const parentId = this.#parentId
-    const surfaceId = this.#surfaceId
-    if (parentId !== undefined && surfaceId !== undefined) {
-      this.#root.driver.enqueue("removeChild", parentId, surfaceId)
-      this.#root.driver.enqueue("destroyElement", surfaceId)
+    const wrapperId = this.#wrapperId
+    if (parentId !== undefined && wrapperId !== undefined) {
+      this.#root.driver.enqueue("removeChild", parentId, wrapperId)
+      this.#root.driver.enqueue("destroyElement", wrapperId)
     }
     this.#parentId = undefined
-    this.#surfaceId = undefined
-    this.#textId = undefined
-    this.#label = ""
+    this.#wrapperId = undefined
+    this.#sourceId = undefined
+    this.#grabX = 0
+    this.#grabY = 0
+    this.#width = 0
+    this.#height = 0
+  }
+
+  #cloneNode(node: HostNode, isRoot = false): number {
+    const id = this.#root.allocateId()
+    this.#root.driver.enqueue(
+      "createElement",
+      id,
+      node.kind === "element" ? node.nativeType : node.type,
+    )
+
+    if (node.kind === "text") {
+      this.#root.driver.enqueue("setText", id, node.text)
+      this.#root.driver.enqueue("setStyle", id, {
+        pointerEvents: "none",
+        userSelect: "none",
+      })
+      return id
+    }
+
+    const style = isRoot
+      ? previewRootStyle(node.style, this.#width, this.#height)
+      : previewChildStyle(node.style)
+    this.#root.driver.enqueue("setStyle", id, style)
+
+    for (const [name, value] of node.props) {
+      if (!previewPropAllowed(node, name)) continue
+      this.#root.driver.enqueue("setCustomProp", id, name, value)
+    }
+
+    for (const child of node.children) {
+      const childId = this.#cloneNode(child)
+      this.#root.driver.enqueue("appendChild", id, childId)
+    }
+    return id
   }
 }
