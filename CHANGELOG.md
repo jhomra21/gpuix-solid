@@ -4,6 +4,10 @@
 
 <!-- Add user-facing changes here before preparing a release. -->
 
+- Expose GPUIX native Finder/OS file drops as `onFileDrop` in both Solid renderer hosts, with GPU-backed regression coverage and Solid 2 locator `dropFiles()` automation.
+- Add Solid 2 desktop integration helpers for open/save/message dialogs, system open/reveal actions, and the GPUIX 0.9 default native application-menu label, plus a `bun run example:desktop` manual showcase.
+- Add `bun run perf:report` and a documented benchmark policy with named Chat, Timeline, and mutation-serialization scenarios reporting p50/p95/p99 where samples are meaningful.
+
 ## 0.2.0 - 2026-09-17
 
 - Move both renderer packages to the exact `@gpuix/native@0.9.0` contract and pin the source-edge and React Mail parity baselines to the published GPUIX 0.9 source. This carries the upstream native click/selection ownership fix into GPUix Solid and removes the old GPUIX 0.8 foreground selection ownership concern from the current baseline.
