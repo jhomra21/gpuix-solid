@@ -118,6 +118,27 @@ function pointerTargetAtPoint(
   return visit(container.children)
 }
 
+function semanticDragTargetAtPoint(
+  container: HostRootNode,
+  renderer: NativeRenderer,
+  events: EventRegistry,
+  event: EventPayload,
+  eventType: "dragOver" | "drop",
+): number | undefined {
+  const visit = (nodes: readonly HostNode[]): number | undefined => {
+    for (let index = nodes.length - 1; index >= 0; index -= 1) {
+      const node = nodes[index]
+      if (!node || node.kind !== "element" || !node.nativeAlive) continue
+      const descendant = visit(node.children)
+      if (descendant !== undefined) return descendant
+      if (!eventPointInsideElement(renderer, node.id, event)) continue
+      if (events.has(node.id, eventType)) return node.id
+    }
+    return undefined
+  }
+  return visit(container.children)
+}
+
 function pointerRelayEventType(eventType: string): PointerRelayEventType | undefined {
   if (eventType === "mouseMove" || eventType === "mouseUp") return eventType
   return undefined
@@ -379,6 +400,19 @@ export function createRoot(renderer: NativeRenderer, initialWindowEventHandlers:
                   (elementId, ancestorId) => isHostDescendant(container, elementId, ancestorId),
                 ) ?? routedEvent
               }
+            }
+          }
+
+          if (
+            event.elementId === rootId
+            && routedEvent.elementId === rootId
+            && events.hasDragSession()
+            && (event.eventType === "mouseMove" || event.eventType === "mouseUp")
+          ) {
+            const dragEventType = event.eventType === "mouseMove" ? "dragOver" : "drop"
+            const targetId = semanticDragTargetAtPoint(container, renderer, events, event, dragEventType)
+            if (targetId !== undefined && targetId !== rootId) {
+              routedEvent = { ...routedEvent, elementId: targetId }
             }
           }
 
