@@ -17,7 +17,9 @@ export type HPropValue =
   | HAccessor
   | undefined
 
-export type HChild = HAccessorValue | HAccessor
+export type HStaticChild = HNode | string | number | boolean | null | undefined
+export type HChildAccessor = () => HStaticChild
+export type HChild = HStaticChild | HChildAccessor
 
 export type HProps = Record<string, HPropValue>
 
@@ -58,6 +60,18 @@ function bindAccessor(
   )
 }
 
+function isChildAccessor(child: HChild): child is HChildAccessor {
+  return typeof child === "function"
+}
+
+function insertHChild(node: HNode, child: HChild): void {
+  if (isChildAccessor(child)) {
+    insert(node, child)
+    return
+  }
+  insert(node, child)
+}
+
 function createH(): H {
   return (tag, rawProps, ...children) => {
     const node = createElement(tag)
@@ -72,9 +86,7 @@ function createH(): H {
       setProp(node, name, value)
     }
 
-    const propChildren = props.children
-    if (propChildren !== undefined) insert(node, propChildren)
-    for (const child of children) insert(node, child)
+    for (const child of children) insertHChild(node, child)
 
     return node
   }
