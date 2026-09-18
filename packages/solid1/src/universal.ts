@@ -463,6 +463,14 @@ function normalizeNativeInlineStyle(style: NativeInlineStyleInput | undefined): 
     gap,
     rowGap,
     columnGap,
+    paddingX,
+    paddingY,
+    marginX,
+    marginY,
+    size,
+    inset,
+    insetX,
+    insetY,
     top,
     right,
     bottom,
@@ -511,8 +519,48 @@ function normalizeNativeInlineStyle(style: NativeInlineStyleInput | undefined): 
   if (cssPointerEvents !== undefined) normalized.pointerEvents = cssPointerEvents
   if (cssUserSelect !== undefined) normalized.userSelect = cssUserSelect
 
+  if (size !== undefined) {
+    const normalizedSize = normalizeInlineDimension(size)
+    if (style.width === undefined) normalized.width = normalizedSize
+    if (style.height === undefined) normalized.height = normalizedSize
+  }
   if (style.width !== undefined) normalized.width = normalizeInlineDimension(style.width)
   if (style.height !== undefined) normalized.height = normalizeInlineDimension(style.height)
+
+  if (paddingX !== undefined) {
+    if (style.paddingLeft === undefined) normalized.paddingLeft = paddingX
+    if (style.paddingRight === undefined) normalized.paddingRight = paddingX
+  }
+  if (paddingY !== undefined) {
+    if (style.paddingTop === undefined) normalized.paddingTop = paddingY
+    if (style.paddingBottom === undefined) normalized.paddingBottom = paddingY
+  }
+  if (marginX !== undefined) {
+    if (style.marginLeft === undefined) normalized.marginLeft = marginX
+    if (style.marginRight === undefined) normalized.marginRight = marginX
+  }
+  if (marginY !== undefined) {
+    if (style.marginTop === undefined) normalized.marginTop = marginY
+    if (style.marginBottom === undefined) normalized.marginBottom = marginY
+  }
+
+  if (inset !== undefined) {
+    const value = normalizeInlineDimension(inset)
+    if (top === undefined && insetY === undefined) normalized.top = value
+    if (right === undefined && insetX === undefined) normalized.right = value
+    if (bottom === undefined && insetY === undefined) normalized.bottom = value
+    if (left === undefined && insetX === undefined) normalized.left = value
+  }
+  if (insetX !== undefined) {
+    const value = normalizeInlineDimension(insetX)
+    if (right === undefined) normalized.right = value
+    if (left === undefined) normalized.left = value
+  }
+  if (insetY !== undefined) {
+    const value = normalizeInlineDimension(insetY)
+    if (top === undefined) normalized.top = value
+    if (bottom === undefined) normalized.bottom = value
+  }
   if (top !== undefined) normalized.top = normalizeInlineDimension(top)
   if (right !== undefined) normalized.right = normalizeInlineDimension(right)
   if (bottom !== undefined) normalized.bottom = normalizeInlineDimension(bottom)

@@ -1,12 +1,18 @@
 export { render, resetRender, createRenderer } from "./runtime.js"
 export type { RenderHandle, RenderOptions, RendererBinding } from "./runtime.js"
-export { appMenu, dialog, shell, DesktopUnsupportedError } from "./desktop.js"
+export { appMenu, appWindow, dialog, shell, DesktopUnsupportedError } from "./desktop.js"
 export type {
   MessageDialogButtons,
   MessageDialogOptions,
   OpenFileDialogOptions,
   SaveFileDialogOptions,
 } from "./desktop.js"
+export { list } from "./list.js"
+export type { NativeListTarget } from "./list.js"
+export { h, makeH } from "./h.js"
+export type { H, HChild, HNode, HProps } from "./h.js"
+export { parseNativeUtilities } from "./utilities.js"
+export type { NativeUtilityParseResult } from "./utilities.js"
 export { createRoot } from "./root.js"
 export type { Root, WindowEventHandlers, WindowSelectionChangeHandler } from "./root.js"
 export { startFrameLoop } from "./frame-loop.js"

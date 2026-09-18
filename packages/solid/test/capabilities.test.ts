@@ -1,6 +1,8 @@
 import { createSignal } from "solid-js"
 import { describe, expect, it } from "vitest"
 import { applyDebugFrameOverlay } from "../src/capabilities.js"
+import { appWindow } from "../src/desktop.js"
+import { list } from "../src/list.js"
 import { animate } from "../src/components/animate.js"
 import { useGpuixRequired } from "../src/context.js"
 import { createHostElement } from "../src/host/nodes.js"
@@ -52,6 +54,30 @@ describe("native capabilities", () => {
       ["setWindowTitle", "Solid GPUIX"],
     ])
     expect(renderer.selectedText).toBeNull()
+  })
+
+  it("wraps the GPUIX window and list capabilities with public helpers", () => {
+    const renderer = new CapabilityRenderer()
+    const target = 19
+
+    appWindow.setTitle(renderer, "GPUix Solid")
+    appWindow.activate(renderer)
+    list.scrollTo(renderer, target, -12, -24)
+    list.scrollToItem(renderer, target, 8, -6)
+    expect(list.getScrollOffset(renderer, target)).toEqual([-4, -8])
+    expect(list.getScrollTop(renderer, target)).toEqual([12, -6, 480])
+
+    expect(appWindow.supportsMinimize).toBe(false)
+    expect(appWindow.supportsZoom).toBe(false)
+    expect(appWindow.supportsFullscreenToggle).toBe(false)
+    expect(renderer.capabilityCalls).toEqual([
+      ["setWindowTitle", "GPUix Solid"],
+      ["activateWindow"],
+      ["scrollTo", 19, -12, -24],
+      ["scrollToItem", 19, 8, -6],
+      ["getScrollOffset", 19],
+      ["getListScrollTop", 19],
+    ])
   })
 
   it("reads the initialized native window size through a reactive Solid value", () => {

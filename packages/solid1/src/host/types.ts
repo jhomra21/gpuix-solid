@@ -164,18 +164,35 @@ export interface StyleDesc {
   maxHeight?: DimensionValue
 
   padding?: number
+  /** Horizontal padding shorthand; expands to left + right before native render. */
+  paddingX?: number
+  /** Vertical padding shorthand; expands to top + bottom before native render. */
+  paddingY?: number
   paddingTop?: number
   paddingRight?: number
   paddingBottom?: number
   paddingLeft?: number
 
   margin?: number
+  /** Horizontal margin shorthand; expands to left + right before native render. */
+  marginX?: number
+  /** Vertical margin shorthand; expands to top + bottom before native render. */
+  marginY?: number
   marginTop?: number
   marginRight?: number
   marginBottom?: number
   marginLeft?: number
 
+  /** Width + height shorthand; explicit width/height win. */
+  size?: DimensionValue
+
   position?: string
+  /** All-edge positioning shorthand; explicit physical edges win. */
+  inset?: DimensionValue
+  /** Horizontal positioning shorthand; explicit left/right win. */
+  insetX?: DimensionValue
+  /** Vertical positioning shorthand; explicit top/bottom win. */
+  insetY?: DimensionValue
   top?: DimensionValue
   right?: DimensionValue
   bottom?: DimensionValue

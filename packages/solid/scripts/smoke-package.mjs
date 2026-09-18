@@ -63,7 +63,7 @@ try {
   )
   run(
     npm,
-    ["install", "--ignore-scripts", "--no-audit", "--no-fund", tarball, `solid-js@${solidVersion}`],
+    ["install", "--ignore-scripts", "--no-audit", "--no-fund", tarball, `solid-js@${solidVersion}`, "cn@0.3.0"],
     { cwd: npmConsumer },
   )
   run(
@@ -74,6 +74,7 @@ try {
       `
         const main = await import("gpuix-solid")
         const automation = await import("gpuix-solid/automation")
+        const { cn } = await import("cn")
         for (const key of [
           "render",
           "animate",
@@ -88,13 +89,26 @@ try {
           "dialog",
           "shell",
           "appMenu",
+          "appWindow",
+          "list",
+          "h",
+          "makeH",
+          "parseNativeUtilities",
         ]) {
           if (!(key in main)) throw new Error("Missing root export: " + key)
         }
         for (const key of ["launch", "Locator", "connectStdio"]) {
           if (!(key in automation)) throw new Error("Missing automation export: " + key)
         }
-        console.log("npm clean-consumer imports: PASS")
+        const merged = cn("px-2 bg-blue-500", false && "bg-red-500", "px-4")
+        if (merged !== "bg-blue-500 px-4") {
+          throw new Error("cn did not resolve Tailwind conflicts as expected: " + merged)
+        }
+        const parsed = main.parseNativeUtilities(merged)
+        if (parsed.unknown.length !== 0 || parsed.style.paddingLeft !== 16 || parsed.style.paddingRight !== 16) {
+          throw new Error("gpuix-solid did not consume cn output correctly: " + JSON.stringify(parsed))
+        }
+        console.log("npm clean-consumer imports + cn merge: PASS")
       `,
     ],
     { cwd: npmConsumer },
@@ -121,19 +135,33 @@ try {
       createWindowInsets,
       createWindowSize,
       appMenu,
+      appWindow,
       dialog,
+      list,
+      h,
+      parseNativeUtilities,
       shell,
       type AnimationStyle,
       type HostProps,
     } from "gpuix-solid"
     import { launch, type AutomationBackend } from "gpuix-solid/automation"
     import { createSignal } from "solid-js"
+    import { cn } from "cn"
 
     const animationStyle: AnimationStyle = { width: 120, opacity: 1 }
-    const hostProps: HostProps = { style: { width: 120 }, onFileDrop: () => undefined }
+    const hostProps: HostProps = {
+      style: { paddingX: 12, paddingY: 6, size: 120, insetX: 4 },
+      onFileDrop: () => undefined,
+    }
+    const utilityStyle = parseNativeUtilities("flex gap-2 px-3 rounded-md")
+    const authoredNode = h("div", { class: "flex px-2" }, "hyperscript")
     const appMenuOptions = appMenu.default("Smoke")
+    void appWindow
     void dialog
+    void list
     void shell
+    void utilityStyle
+    void authoredNode
     void appMenuOptions
     type Backend = AutomationBackend
     const backend = null as unknown as Backend
@@ -151,9 +179,18 @@ try {
       void insets.visibleHeight
       void search.total
 
+      const mergedClasses = cn(
+        "flex px-2 bg-blue-500",
+        count() > 0 && "bg-red-500",
+        "px-4",
+      )
+
       return (
         <TooltipProvider delayDuration={0}>
-          <div style={{ padding: 16, gap: 8, flexDirection: "column" }}>
+          <div
+            class={mergedClasses}
+            style={{ paddingY: 8, gap: 8, flexDirection: "column" }}
+          >
             <Tooltip>
               <TooltipTrigger onClick={() => setCount((value) => value + 1)}>
                 <text>Count: {count()}</text>
@@ -257,6 +294,9 @@ try {
         import * as main from "gpuix-solid"
         import * as automation from "gpuix-solid/automation"
         if (!("render" in main) || !("animate" in main)) throw new Error("Bun root import failed")
+        if (!("appWindow" in main) || !("list" in main) || !("h" in main) || !("makeH" in main) || !("parseNativeUtilities" in main)) {
+          throw new Error("Bun parity-helper imports failed")
+        }
         if (!("createTextSearch" in main) || !("createWindowInsets" in main)) throw new Error("Bun Solid primitive imports failed")
         if (!("launch" in automation) || !("Locator" in automation)) throw new Error("Bun automation import failed")
         console.log("Bun clean-consumer imports: PASS")
