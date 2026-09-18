@@ -1,11 +1,13 @@
 import type { HostElementNode, HostNode, HostRootNode } from "./nodes.js"
-import type { NativeRenderer, StyleDesc } from "./types.js"
+import type { MotionProps, NativeRenderer, StyleDesc } from "./types.js"
 
 type BoundsRenderer = NativeRenderer & {
   getElementBounds?(elementId: number): number[] | null
 }
 
 const PREVIEW_TEST_ID = "gpuix-drag-preview"
+const RETURN_DURATION_MS = 150
+const RETURN_DURATION_SECONDS = RETURN_DURATION_MS / 1000
 const BUILT_IN_VISUAL_PROPS = new Set(["highlight"])
 const OMITTED_PREVIEW_PROPS = new Set([
   "autoFocus",
@@ -94,8 +96,13 @@ export class SemanticDragPreview {
   #sourceId: number | undefined
   #grabX = 0
   #grabY = 0
+  #sourceLeft = 0
+  #sourceTop = 0
+  #currentLeft = 0
+  #currentTop = 0
   #width = 0
   #height = 0
+  #returnTimer: ReturnType<typeof setTimeout> | undefined
 
   constructor(root: HostRootNode, renderer: NativeRenderer) {
     this.#root = root
@@ -132,6 +139,8 @@ export class SemanticDragPreview {
       this.#sourceId = sourceId
       this.#grabX = Math.min(width, Math.max(0, startX - left))
       this.#grabY = Math.min(height, Math.max(0, startY - top))
+      this.#sourceLeft = left
+      this.#sourceTop = top
       this.#width = width
       this.#height = height
 
@@ -145,16 +154,49 @@ export class SemanticDragPreview {
       this.#root.driver.enqueue("appendChild", parentId, wrapperId)
     }
 
+    this.#currentLeft = Math.round(x - this.#grabX)
+    this.#currentTop = Math.round(y - this.#grabY)
     this.#root.driver.enqueue("setStyle", this.#wrapperId, {
       ...wrapperBaseStyle,
-      left: Math.round(x - this.#grabX),
-      top: Math.round(y - this.#grabY),
+      left: this.#currentLeft,
+      top: this.#currentTop,
       width: this.#width,
       height: this.#height,
     })
   }
 
+  returnToSource(): void {
+    const wrapperId = this.#wrapperId
+    if (wrapperId === undefined) return
+    this.#cancelReturnTimer()
+
+    const motion: MotionProps = {
+      initial: {
+        left: this.#currentLeft,
+        top: this.#currentTop,
+      },
+      animate: {
+        left: this.#sourceLeft,
+        top: this.#sourceTop,
+      },
+      transition: {
+        duration: RETURN_DURATION_SECONDS,
+        ease: "easeOut",
+      },
+    }
+    this.#root.driver.enqueue("setCustomProp", wrapperId, "motion", motion)
+    this.#root.driver.flush()
+
+    this.#returnTimer = setTimeout(() => {
+      this.#returnTimer = undefined
+      if (this.#wrapperId !== wrapperId) return
+      this.hide()
+      this.#root.driver.flush()
+    }, RETURN_DURATION_MS)
+  }
+
   hide(): void {
+    this.#cancelReturnTimer()
     const parentId = this.#parentId
     const wrapperId = this.#wrapperId
     if (parentId !== undefined && wrapperId !== undefined) {
@@ -166,8 +208,18 @@ export class SemanticDragPreview {
     this.#sourceId = undefined
     this.#grabX = 0
     this.#grabY = 0
+    this.#sourceLeft = 0
+    this.#sourceTop = 0
+    this.#currentLeft = 0
+    this.#currentTop = 0
     this.#width = 0
     this.#height = 0
+  }
+
+  #cancelReturnTimer(): void {
+    if (this.#returnTimer === undefined) return
+    clearTimeout(this.#returnTimer)
+    this.#returnTimer = undefined
   }
 
   #cloneNode(node: HostNode, isRoot = false): number {
