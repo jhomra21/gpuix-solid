@@ -45,7 +45,9 @@ describe("native event/input parity", () => {
       return root
     })
 
-    const bounds = testRoot.renderer.getElementBounds(1)
+    const target = testRoot.renderer.findByType("div")[0]
+    expect(target).toBeDefined()
+    const bounds = testRoot.renderer.getElementBounds(target?.id ?? 0)
     expect(bounds).not.toBeNull()
     const x = (bounds?.[0] ?? 0) + 20
     const y = (bounds?.[1] ?? 0) + 20
