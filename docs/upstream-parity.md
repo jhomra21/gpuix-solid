@@ -133,7 +133,7 @@ The package baseline is the published React/native 0.9 line. Existing behavior r
 | Animation | React `motion.div` capability | parity via Solid `animate.div` |
 | Textarea Enter/newline | upstream 0.8 behavior | native capability present; focused Solid runnable check pending |
 | HTTP images | upstream 0.8 behavior | native capability present; focused Solid runnable check pending |
-| Native file drop | upstream 0.8 behavior | do not claim Solid parity until host/event mapping and runnable check land |
+| Native file drop | upstream 0.8 behavior | parity in Solid 1/2 host mapping; GPU-backed Solid 2 regression drives GPUI file-drop hit testing and locator automation exposes `dropFiles()` |
 | Physical primary mouse-up | upstream click delivery | parity on the 0.9 native line; 0.9 includes the native ownership fix for the earlier 0.8 click/selection panic |
 | Window text selection | 0.9 `onSelectionChange` / native selection subscription | root parity plus Solid-native `createTextSelection()` accessor primitive in Solid 1 and Solid 2 |
 
