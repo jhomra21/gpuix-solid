@@ -2,6 +2,7 @@ export interface BenchmarkStats {
   n: number
   p50: number
   p95: number
+  p99: number
   max: number
 }
 
@@ -20,6 +21,7 @@ export function summarize(samples: readonly number[]): BenchmarkStats {
     n: samples.length,
     p50: percentile(sorted, 50),
     p95: percentile(sorted, 95),
+    p99: percentile(sorted, 99),
     max: sorted.at(-1) ?? 0,
   }
 }
@@ -28,7 +30,7 @@ export function report(prefix: string, label: string, samples: readonly number[]
   const stats = summarize(samples)
   console.log(
     `[${prefix}] ${label} n=${stats.n} p50=${stats.p50.toFixed(2)}ms ` +
-      `p95=${stats.p95.toFixed(2)}ms max=${stats.max.toFixed(2)}ms`,
+      `p95=${stats.p95.toFixed(2)}ms p99=${stats.p99.toFixed(2)}ms max=${stats.max.toFixed(2)}ms`,
   )
   return stats
 }
