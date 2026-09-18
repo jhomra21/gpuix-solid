@@ -178,6 +178,7 @@ export function IntrinsicSurfaceFixture() {
       onFocus={onEvent}
       onBlur={onEvent}
       onScroll={onEvent}
+      onFileDrop={onEvent}
       onChange={onEvent}
       onSubmit={onEvent}
       onToggleFile={onEvent}
