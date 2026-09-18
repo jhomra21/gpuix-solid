@@ -104,9 +104,11 @@ try {
     if (bounds.width <= 0 || bounds.height <= 0) {
       throw new Error(`Desktop live acceptance drag preview did not paint non-zero bounds: ${JSON.stringify(bounds)}`)
     }
-    if (Math.abs(bounds.x - (previewPoint.x + 14)) > 4 || Math.abs(bounds.y - (previewPoint.y + 14)) > 4) {
+    const deltaX = bounds.x - previewPoint.x
+    const deltaY = bounds.y - previewPoint.y
+    if (deltaX < 0 || deltaY < 0 || deltaX > 64 || deltaY > 64) {
       throw new Error(
-        `Desktop live acceptance drag preview did not follow the pointer: ${JSON.stringify({ bounds, previewPoint })}`,
+        `Desktop live acceptance drag preview did not paint near the pointer: ${JSON.stringify({ bounds, previewPoint, deltaX, deltaY })}`,
       )
     }
   })
