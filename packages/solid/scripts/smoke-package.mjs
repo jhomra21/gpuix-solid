@@ -63,7 +63,7 @@ try {
   )
   run(
     npm,
-    ["install", "--ignore-scripts", "--no-audit", "--no-fund", tarball, `solid-js@${solidVersion}`],
+    ["install", "--ignore-scripts", "--no-audit", "--no-fund", tarball, `solid-js@${solidVersion}`, "cn@0.3.0"],
     { cwd: npmConsumer },
   )
   run(
@@ -134,6 +134,7 @@ try {
     } from "gpuix-solid"
     import { launch, type AutomationBackend } from "gpuix-solid/automation"
     import { createSignal } from "solid-js"
+    import { cn } from "cn"
 
     const animationStyle: AnimationStyle = { width: 120, opacity: 1 }
     const hostProps: HostProps = {
@@ -164,9 +165,18 @@ try {
       void insets.visibleHeight
       void search.total
 
+      const mergedClasses = cn(
+        "flex px-2 bg-blue-500",
+        count() > 0 && "bg-red-500",
+        "px-4",
+      )
+
       return (
         <TooltipProvider delayDuration={0}>
-          <div style={{ padding: 16, gap: 8, flexDirection: "column" }}>
+          <div
+            class={mergedClasses}
+            style={{ paddingY: 8, gap: 8, flexDirection: "column" }}
+          >
             <Tooltip>
               <TooltipTrigger onClick={() => setCount((value) => value + 1)}>
                 <text>Count: {count()}</text>
