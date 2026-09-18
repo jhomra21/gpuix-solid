@@ -79,4 +79,24 @@ describe("hyperscript authoring", () => {
     expect(clicks).toBe(1)
     root.unmount()
   })
+
+  it("accepts children through the props bag", () => {
+    const renderer = new FakeRenderer()
+    const root = createRoot(renderer)
+    let node: HNode | undefined
+
+    root.render(() => {
+      node = h("text", { children: "Prop child" })
+      return node
+    })
+    if (!node) throw new Error("Expected hyperscript text host")
+
+    expect(node.children).toHaveLength(1)
+    expect(node.children[0]?.kind).toBe("text")
+    if (node.children[0]?.kind !== "text") throw new Error("Expected prop text child")
+    expect(node.children[0].text).toBe("Prop child")
+
+    root.unmount()
+  })
+
 })
