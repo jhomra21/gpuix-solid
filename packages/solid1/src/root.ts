@@ -430,14 +430,12 @@ export function createRoot(renderer: NativeRenderer, initialWindowEventHandlers:
         }
 
         if (
-          event.elementId === rootId
-          && routedEvent.elementId === rootId
-          && events.hasDragSession()
-          && (event.eventType === "mouseMove" || event.eventType === "mouseUp")
+          events.hasDragSession()
+          && (routedEvent.eventType === "mouseMove" || routedEvent.eventType === "mouseUp")
         ) {
-          const dragEventType = event.eventType === "mouseMove" ? "dragOver" : "drop"
-          const targetId = semanticDragTargetAtPoint(container, renderer, events, event, dragEventType)
-          if (targetId !== undefined && targetId !== rootId) {
+          const dragEventType = routedEvent.eventType === "mouseMove" ? "dragOver" : "drop"
+          const targetId = semanticDragTargetAtPoint(container, renderer, events, routedEvent, dragEventType)
+          if (targetId !== undefined && targetId !== routedEvent.elementId) {
             routedEvent = { ...routedEvent, elementId: targetId }
           }
         }
