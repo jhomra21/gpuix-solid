@@ -10,7 +10,7 @@ import type {
   StyleDesc,
 } from "./types.js"
 
-const RESERVED_PROPS = new Set(["children", "ref", "style", "className", "key", "dragData", "dragPreview"])
+const RESERVED_PROPS = new Set(["children", "ref", "style", "className", "key", "dragData"])
 const BUILT_IN_TYPES = new Set<ElementType>(["div", "text"])
 const UNIVERSAL_PROPS = new Set(["autoFocus", "tabIndex", "motion", "testId", "highlight", "title"])
 
@@ -105,7 +105,6 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   style: HostStyleDeclaration
   readonly props = new Map<string, MutationValue>()
   dragData: DragData | undefined
-  dragPreview: string | undefined
   readonly events = new Map<string, HostEventHandler>()
   readonly classList = {
     add: (..._tokens: string[]): void => undefined,
@@ -454,12 +453,6 @@ export function setHostProperty<T>(
     const nextPointerEvents = effectivePointerEvents(node)
     node.root.driver.enqueue("setStyle", node.id, nativeStyleFor(node, nextPointerEvents))
     appliedPointerEvents.set(node, nextPointerEvents)
-    return
-  }
-
-  if (name === "dragPreview") {
-    node.dragPreview = value == null ? undefined : String(value)
-    if (node.root && node.nativeAlive) node.root.events.setDragPreview(node.id, node.dragPreview)
     return
   }
 
@@ -840,7 +833,6 @@ function adopt(root: HostRootNode, node: HostNode): void {
   } else {
     root.events.setTarget(node.id, node)
     if (node.dragData !== undefined) root.events.setDragData(node.id, node.dragData)
-    if (node.dragPreview !== undefined) root.events.setDragPreview(node.id, node.dragPreview)
     const nativeEventTypes = new Set<string>()
     const pointerEvents = effectivePointerEvents(node)
     const nativeStyle = nativeStyleFor(node, pointerEvents)
