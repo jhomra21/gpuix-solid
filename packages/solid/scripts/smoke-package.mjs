@@ -91,6 +91,8 @@ try {
           "appMenu",
           "appWindow",
           "list",
+          "h",
+          "makeH",
           "parseNativeUtilities",
         ]) {
           if (!(key in main)) throw new Error("Missing root export: " + key)
@@ -136,6 +138,7 @@ try {
       appWindow,
       dialog,
       list,
+      h,
       parseNativeUtilities,
       shell,
       type AnimationStyle,
@@ -151,12 +154,14 @@ try {
       onFileDrop: () => undefined,
     }
     const utilityStyle = parseNativeUtilities("flex gap-2 px-3 rounded-md")
+    const authoredNode = h("div", { class: "flex px-2" }, "hyperscript")
     const appMenuOptions = appMenu.default("Smoke")
     void appWindow
     void dialog
     void list
     void shell
     void utilityStyle
+    void authoredNode
     void appMenuOptions
     type Backend = AutomationBackend
     const backend = null as unknown as Backend
@@ -289,7 +294,7 @@ try {
         import * as main from "gpuix-solid"
         import * as automation from "gpuix-solid/automation"
         if (!("render" in main) || !("animate" in main)) throw new Error("Bun root import failed")
-        if (!("appWindow" in main) || !("list" in main) || !("parseNativeUtilities" in main)) {
+        if (!("appWindow" in main) || !("list" in main) || !("h" in main) || !("makeH" in main) || !("parseNativeUtilities" in main)) {
           throw new Error("Bun parity-helper imports failed")
         }
         if (!("createTextSearch" in main) || !("createWindowInsets" in main)) throw new Error("Bun Solid primitive imports failed")
