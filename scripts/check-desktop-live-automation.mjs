@@ -231,28 +231,113 @@ try {
     }
   })
 
-  await step("observe committed card position", async () => {
-    const committedBounds = await source.bounds()
+  const committedBounds = await step("observe committed card position", async () => {
+    const bounds = await source.bounds()
     const expectedCommitted = {
       x: end.x - grabOffset.x,
       y: end.y - grabOffset.y,
     }
     const sizeError = {
-      width: Math.abs(committedBounds.width - sourceBounds.width),
-      height: Math.abs(committedBounds.height - sourceBounds.height),
+      width: Math.abs(bounds.width - sourceBounds.width),
+      height: Math.abs(bounds.height - sourceBounds.height),
     }
     const positionError = {
-      x: Math.abs(committedBounds.x - expectedCommitted.x),
-      y: Math.abs(committedBounds.y - expectedCommitted.y),
+      x: Math.abs(bounds.x - expectedCommitted.x),
+      y: Math.abs(bounds.y - expectedCommitted.y),
     }
     if (sizeError.width > 4 || sizeError.height > 4) {
       throw new Error(
-        `Desktop live acceptance committed card changed size: ${JSON.stringify({ sourceBounds, committedBounds, sizeError })}`,
+        `Desktop live acceptance committed card changed size: ${JSON.stringify({ sourceBounds, committedBounds: bounds, sizeError })}`,
       )
     }
     if (positionError.x > 4 || positionError.y > 4) {
       throw new Error(
-        `Desktop live acceptance expected the dropped card to preserve its release position: ${JSON.stringify({ committedBounds, expectedCommitted, positionError })}`,
+        `Desktop live acceptance expected the dropped card to preserve its release position: ${JSON.stringify({ committedBounds: bounds, expectedCommitted, positionError })}`,
+      )
+    }
+    return bounds
+  })
+
+  const nestedGrabOffset = {
+    x: committedBounds.width * 0.75,
+    y: committedBounds.height * 0.25,
+  }
+  const nestedStart = {
+    x: committedBounds.x + nestedGrabOffset.x,
+    y: committedBounds.y + nestedGrabOffset.y,
+  }
+  const nestedInvalid = {
+    x: targetBounds.x + targetBounds.width / 2,
+    y: targetBounds.y + targetBounds.height + 90,
+  }
+
+  await step("move to committed source for rejected drag", () => app.mouse.move(nestedStart))
+  await step("press committed source for rejected drag", () => app.mouse.down(nestedStart))
+  await step("move committed source outside target", () =>
+    app.mouse.move(nestedInvalid, { pressedButton: 0 }))
+  await step("observe committed-source rejected preview", () =>
+    preview.waitFor({ timeoutMs: 5_000 }))
+  const nestedReleaseBounds = await step(
+    "read committed-source rejected release bounds",
+    () => preview.bounds(),
+  )
+  await step("release committed source outside target", () => app.mouse.up(nestedInvalid))
+
+  await step("keep committed-source preview mounted for return", async () => {
+    if (await preview.count() !== 1) {
+      throw new Error(
+        "Desktop live acceptance committed-source preview disappeared before return animation",
+      )
+    }
+  })
+
+  await delay(60)
+  await step("observe committed-source preview moving home", async () => {
+    const returningBounds = await preview.bounds()
+    const releaseDistance = Math.hypot(
+      nestedReleaseBounds.x - committedBounds.x,
+      nestedReleaseBounds.y - committedBounds.y,
+    )
+    const returningDistance = Math.hypot(
+      returningBounds.x - committedBounds.x,
+      returningBounds.y - committedBounds.y,
+    )
+    if (!(returningDistance < releaseDistance)) {
+      throw new Error(
+        `Desktop live acceptance committed-source preview did not return toward its committed position: ${JSON.stringify({ nestedReleaseBounds, returningBounds, committedBounds })}`,
+      )
+    }
+  })
+
+  await step("remove committed-source preview after return", async () => {
+    const deadline = Date.now() + 1_000
+    for (;;) {
+      if (await preview.count() === 0) return
+      if (Date.now() >= deadline) {
+        throw new Error(
+          "Desktop live acceptance committed-source preview remained mounted after return animation",
+        )
+      }
+      await delay(settleMs)
+    }
+  })
+
+  await step("preserve committed source after rejected nested drop", async () => {
+    const after = await source.bounds()
+    const positionError = {
+      x: Math.abs(after.x - committedBounds.x),
+      y: Math.abs(after.y - committedBounds.y),
+    }
+    if (positionError.x > 1 || positionError.y > 1) {
+      throw new Error(
+        `Desktop live acceptance rejected nested drop moved the committed source: ${JSON.stringify({ committedBounds, after, positionError })}`,
+      )
+    }
+
+    const actualStatus = (await status.textContent()).trim()
+    if (actualStatus !== "Internal drag started") {
+      throw new Error(
+        `Desktop live acceptance rejected nested drop incorrectly fired onDrop: ${JSON.stringify(actualStatus)}`,
       )
     }
   })
