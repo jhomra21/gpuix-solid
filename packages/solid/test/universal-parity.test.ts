@@ -100,4 +100,49 @@ describe("Solid universal parity", () => {
     expect(referenced?.id).toBe(1)
     expect(referenced?.type).toBe("div")
   })
+
+  it("expands layout shorthands before native style delivery", () => {
+    const renderer = new FakeRenderer()
+    const root = createRoot(renderer)
+    const node = element()
+
+    setProp(node, "style", {
+      paddingX: 12,
+      paddingY: 6,
+      paddingLeft: 14,
+      marginX: 8,
+      marginY: 4,
+      size: "3rem",
+      width: 72,
+      position: "absolute",
+      inset: 10,
+      insetX: 20,
+      left: 24,
+    })
+
+    root.render(() => node)
+
+    expect(node.style).toMatchObject({
+      paddingLeft: 14,
+      paddingRight: 12,
+      paddingTop: 6,
+      paddingBottom: 6,
+      marginLeft: 8,
+      marginRight: 8,
+      marginTop: 4,
+      marginBottom: 4,
+      width: 72,
+      height: 48,
+      top: 10,
+      right: 20,
+      bottom: 10,
+      left: 24,
+    })
+    expect("paddingX" in node.style).toBe(false)
+    expect("size" in node.style).toBe(false)
+    expect("inset" in node.style).toBe(false)
+
+    root.unmount()
+  })
+
 })
