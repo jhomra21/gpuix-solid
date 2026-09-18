@@ -7,6 +7,7 @@ describe("semantic internal drag/drop", () => {
     const sourceId = 11
     const targetId = 12
     const order: string[] = []
+    let startPayload: unknown
     let payload: unknown
 
     events.activate(sourceId)
@@ -16,8 +17,8 @@ describe("semantic internal drag/drop", () => {
     events.setDragData(sourceId, { clipId: "clip-1" })
 
     events.set(sourceId, "dragStart", (event) => {
-      const data = event.dragData as { clipId?: string } | undefined
-      order.push(`start:${data?.clipId ?? "missing"}`)
+      startPayload = event.dragData
+      order.push("start")
     })
     events.set(sourceId, "dragEnd", (event) => {
       order.push(`end:${event.dropTargetId === targetId ? "target" : "none"}`)
@@ -33,8 +34,9 @@ describe("semantic internal drag/drop", () => {
     events.dispatch({ elementId: targetId, eventType: "mouseMove", x: 30, y: 10, button: 0 })
     events.dispatch({ elementId: targetId, eventType: "mouseUp", x: 30, y: 10, button: 0 })
 
+    expect(startPayload).toEqual({ clipId: "clip-1" })
     expect(payload).toEqual({ clipId: "clip-1" })
-    expect(order).toEqual(["start:clip-1", "over", "drop", "end:target"])
+    expect(order).toEqual(["start", "over", "drop", "end:target"])
   })
 
   it("does not promote pointer jitter into a drag", () => {
