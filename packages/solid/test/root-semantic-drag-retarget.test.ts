@@ -227,10 +227,10 @@ describe("root semantic drag retargeting", () => {
           mutation[0] === "setCustomProp"
           && mutation[2] === "testId"
           && mutation[3] === "gpuix-drag-preview")
-      if (!previewMutation || typeof previewMutation[1] !== "number") {
+      const previewId = Number(previewMutation?.[1])
+      if (!Number.isInteger(previewId)) {
         throw new Error("Expected semantic drag preview")
       }
-      const previewId = previewMutation[1]
       const releaseBatchStart = renderer.batches.length
 
       root.dispatch({
