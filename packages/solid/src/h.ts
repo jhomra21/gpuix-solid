@@ -22,7 +22,9 @@ export type HStaticChild = HNode | string | number | boolean | null | undefined
 export type HChildAccessor = () => HStaticChild
 export type HChild = HStaticChild | HChildAccessor
 
-export type HProps = Record<string, HPropValue>
+export type HProps = Record<string, HPropValue> & {
+  children?: HChild
+}
 
 export interface H {
   (tag: string, props?: HProps | null, ...children: HChild[]): HNode
@@ -93,6 +95,8 @@ function createH(): H {
       setProp(node, name, value)
     }
 
+    const propChildren = props.children
+    if (propChildren !== undefined) insertHChild(node, propChildren)
     for (const child of children) insertHChild(node, child)
 
     return node
