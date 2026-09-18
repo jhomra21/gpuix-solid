@@ -55,6 +55,14 @@ jobs:
       - name: Run desktop live-native drag acceptance
         if: matrix.os == 'macos-latest'
         run: node scripts/check-desktop-live-automation.mjs
+      - name: Upload desktop drag preview artifact
+        if: matrix.os == 'macos-latest' && always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: desktop-drag-preview-macos
+          path: /tmp/gpuix-solid-desktop-drag-preview.png
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Verify Solid 1 package and consumer builds
         run: bun run solid1:check
       - run: node --test scripts/release.test.mjs
