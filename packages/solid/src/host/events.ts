@@ -320,15 +320,9 @@ type NativeClickBubble = {
 type DragSession = {
   sourceId: number
   data: DragData
-  previewLabel: string
   startX: number
   startY: number
   started: boolean
-}
-
-function compactDragDataLabel(data: DragData): string {
-  const encoded = JSON.stringify(data) ?? String(data)
-  return encoded.length > 24 ? `${encoded.slice(0, 24)}…` : encoded
 }
 
 function finiteRangeNumber(value: string | null | undefined, fallback: number): number {
@@ -353,7 +347,6 @@ export class EventRegistry {
   readonly #lastPointerEvent = new Map<number, NativeEventPayload>()
   readonly #primaryClickBursts = new Map<number, ActivationBurst>()
   readonly #dragData = new Map<number, DragData>()
-  readonly #dragPreviewLabels = new Map<number, string>()
   #dragSession: DragSession | undefined
   #nativeClickBubble: NativeClickBubble | undefined
   #activeRangeId: number | undefined
@@ -372,11 +365,6 @@ export class EventRegistry {
     else this.#dragData.set(id, data)
   }
 
-  setDragPreview(id: number, label: string | undefined): void {
-    if (label === undefined) this.#dragPreviewLabels.delete(id)
-    else this.#dragPreviewLabels.set(id, label)
-  }
-
   setParent(id: number, parentId: number | null): void {
     this.#parents.set(id, parentId)
   }
@@ -392,7 +380,6 @@ export class EventRegistry {
     this.#targets.delete(id)
     this.#parents.delete(id)
     this.#dragData.delete(id)
-    this.#dragPreviewLabels.delete(id)
     if (this.#dragSession?.sourceId === id) this.#dragSession = undefined
     this.#nativePointerDown.delete(id)
     this.#primaryClickBursts.delete(id)
@@ -417,7 +404,6 @@ export class EventRegistry {
       this.#handlers.delete(id)
       this.#targets.delete(id)
       this.#parents.delete(id)
-      this.#dragPreviewLabels.delete(id)
       this.#nativePointerDown.delete(id)
       this.#primaryClickBursts.delete(id)
     }
@@ -429,7 +415,6 @@ export class EventRegistry {
     this.#targets.clear()
     this.#parents.clear()
     this.#dragData.clear()
-    this.#dragPreviewLabels.clear()
     this.#dragSession = undefined
     this.#nativePointerDown.clear()
     this.#activePointers.clear()
@@ -449,10 +434,10 @@ export class EventRegistry {
     return this.#dragSession !== undefined
   }
 
-  activeDragPreview(): { sourceId: number; label: string } | undefined {
+  activeDragPreview(): { sourceId: number; startX: number; startY: number } | undefined {
     const session = this.#dragSession
     if (!session?.started) return undefined
-    return { sourceId: session.sourceId, label: session.previewLabel }
+    return { sourceId: session.sourceId, startX: session.startX, startY: session.startY }
   }
 
   setPointerCapture(id: number, pointerId: number): void {
@@ -485,7 +470,6 @@ export class EventRegistry {
             : {
                 sourceId,
                 data,
-                previewLabel: this.#dragPreviewLabels.get(sourceId) ?? compactDragDataLabel(data),
                 startX: event.x ?? 0,
                 startY: event.y ?? 0,
                 started: false,
