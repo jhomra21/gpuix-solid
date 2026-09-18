@@ -1,6 +1,7 @@
 import { EVENT_PROP_TO_TYPE, nativeEventTypeForDomEvent, type DomCompatTarget, type EventRegistry } from "./events.js"
 import type { MutationDriver, MutationValue } from "./mutations.js"
 import type {
+  DragData,
   ElementType,
   HostEventHandler,
   NativeRenderer,
@@ -102,6 +103,7 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   nativeAlive = false
   style: HostStyleDeclaration
   readonly props = new Map<string, MutationValue>()
+  dragData: DragData | undefined
   readonly events = new Map<string, HostEventHandler>()
   readonly classList = {
     add: (..._tokens: string[]): void => undefined,
@@ -431,6 +433,30 @@ export function setHostProperty<T>(
     return
   }
 
+  if (name === "dragData") {
+    const previousPointerEvents = effectivePointerEvents(node)
+    const previousDragNativeHandlers = new Map(
+      (["mouseDown", "mouseMove", "mouseUp"] as const).map((nativeType) => [
+        nativeType,
+        hasNativeEventHandler(node, nativeType),
+      ]),
+    )
+    node.dragData = parseDragData(value)
+    if (!node.root || !node.nativeAlive) return
+    node.root.events.setDragData(node.id, node.dragData)
+    for (const nativeType of ["mouseDown", "mouseMove", "mouseUp"] as const) {
+      const previous = previousDragNativeHandlers.get(nativeType) ?? false
+      const next = hasNativeEventHandler(node, nativeType)
+      if (previous !== next) node.root.driver.enqueue("setEventListener", node.id, nativeType, next)
+    }
+    const nextPointerEvents = effectivePointerEvents(node)
+    if (previousPointerEvents !== nextPointerEvents) {
+      node.root.driver.enqueue("setStyle", node.id, nativeStyleFor(node, nextPointerEvents))
+      appliedPointerEvents.set(node, nextPointerEvents)
+    }
+    return
+  }
+
   const eventType = EVENT_PROP_TO_TYPE.get(name)
   if (eventType) {
     const previousPointerEvents = effectivePointerEvents(node)
@@ -476,12 +502,7 @@ export function setHostProperty<T>(
     return
   }
 
-  const previousPointerEvents = name === "role" || name === "dragData"
-    ? effectivePointerEvents(node)
-    : undefined
-  const previousDragNativeHandlers = name === "dragData"
-    ? new Map((["mouseDown", "mouseMove", "mouseUp"] as const).map((nativeType) => [nativeType, hasNativeEventHandler(node, nativeType)]))
-    : undefined
+  const previousPointerEvents = name === "role" ? effectivePointerEvents(node) : undefined
   const previousTypeClickHandler = name === "type" ? hasNativeEventHandler(node, "click") : false
   const previousTypeRangeHandlers = name === "type"
     ? new Map((["mouseDown", "mouseMove", "mouseUp"] as const).map((nativeType) => [nativeType, hasNativeEventHandler(node, nativeType)]))
@@ -493,19 +514,6 @@ export function setHostProperty<T>(
     node.nativeType = String(value).toLowerCase() === "range" ? "div" : "input"
   }
 
-  if (node.root && node.nativeAlive && name === "dragData") {
-    node.root.events.setDragData(node.id, value === undefined ? undefined : node.props.get(name))
-    for (const nativeType of ["mouseDown", "mouseMove", "mouseUp"] as const) {
-      const previous = previousDragNativeHandlers?.get(nativeType) ?? false
-      const next = hasNativeEventHandler(node, nativeType)
-      if (previous !== next) node.root.driver.enqueue("setEventListener", node.id, nativeType, next)
-    }
-    const nextPointerEvents = effectivePointerEvents(node)
-    if (previousPointerEvents !== nextPointerEvents) {
-      node.root.driver.enqueue("setStyle", node.id, nativeStyleFor(node, nextPointerEvents))
-      appliedPointerEvents.set(node, nextPointerEvents)
-    }
-  }
   if (node.root && node.nativeAlive && name === "role") {
     const nextPointerEvents = effectivePointerEvents(node)
     if (previousPointerEvents !== nextPointerEvents) {
@@ -720,7 +728,7 @@ function effectivePointerEvents(node: HostElementNode): StyleDesc["pointerEvents
   // Plain event-bearing divs keep their existing paint/hit behavior so parent
   // containers do not become new occluding surfaces.
   if (
-    node.props.has("dragData")
+    node.dragData !== undefined
     || node.events.has("fileDrop")
     || node.events.has("dragOver")
     || node.events.has("drop")
@@ -822,7 +830,7 @@ function adopt(root: HostRootNode, node: HostNode): void {
     appliedTextPointerEvents.set(node, pointerEvents)
   } else {
     root.events.setTarget(node.id, node)
-    if (node.props.has("dragData")) root.events.setDragData(node.id, node.props.get("dragData"))
+    if (node.dragData !== undefined) root.events.setDragData(node.id, node.dragData)
     const nativeEventTypes = new Set<string>()
     const pointerEvents = effectivePointerEvents(node)
     const nativeStyle = nativeStyleFor(node, pointerEvents)
@@ -868,7 +876,7 @@ function hasRangeChangeHandler(node: HostElementNode): boolean {
 }
 
 function hasNativeEventHandler(node: HostElementNode, nativeEventType: string): boolean {
-  const hasDragSource = node.props.has("dragData")
+  const hasDragSource = node.dragData !== undefined
   if (nativeEventType === "mouseDown" && hasDragSource) return true
   if (nativeEventType === "mouseMove" && (hasDragSource || node.events.has("dragOver"))) return true
   if (nativeEventType === "mouseUp" && (hasDragSource || node.events.has("drop"))) return true
@@ -897,6 +905,33 @@ function removeFromChildren(parent: HostParent, node: HostNode): void {
 
 function isReserved(name: string): boolean {
   return RESERVED_PROPS.has(name) || EVENT_PROP_TO_TYPE.has(name)
+}
+
+function parseDragData<T>(value: T): DragData | undefined {
+  if (value === undefined) return undefined
+  if (
+    value === null
+    || typeof value === "string"
+    || typeof value === "number"
+    || typeof value === "boolean"
+  ) return value
+  if (Array.isArray(value)) {
+    return value.map((item) => {
+      const parsed = parseDragData(item)
+      if (parsed === undefined) throw new TypeError("dragData arrays cannot contain undefined")
+      return parsed
+    })
+  }
+  if (typeof value === "object") {
+    const parsed: Record<string, DragData> = {}
+    for (const [key, item] of Object.entries(value)) {
+      const entry = parseDragData(item)
+      if (entry === undefined) throw new TypeError(`dragData property "${key}" cannot be undefined`)
+      parsed[key] = entry
+    }
+    return parsed
+  }
+  throw new TypeError("dragData must be JSON-like data")
 }
 
 function customPropValue<T>(value: T): MutationValue {
