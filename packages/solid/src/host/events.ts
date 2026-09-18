@@ -454,11 +454,12 @@ export class EventRegistry {
       case "mouseDown": {
         if ((event.button ?? 0) === 0) {
           const sourceId = this.#dragSourceOwner(event.elementId)
-          this.#dragSession = sourceId === undefined
+          const data = sourceId === undefined ? undefined : this.#dragData.get(sourceId)
+          this.#dragSession = sourceId === undefined || data === undefined
             ? undefined
             : {
                 sourceId,
-                data: this.#dragData.get(sourceId),
+                data,
                 startX: event.x ?? 0,
                 startY: event.y ?? 0,
                 started: false,
