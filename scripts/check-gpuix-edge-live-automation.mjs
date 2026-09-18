@@ -252,6 +252,13 @@ const examples = [
         app.getByTestId("diffusion-project-menu-content").getByText("Zoom in").click(),
       )
       await expectPresent(app.getByText("125%"), "zoom result")
+      await step("open asset actions", () => app.getByTestId("diffusion-import").click())
+      await expectPresent(app.getByTestId("diffusion-create-folder"), "create folder action")
+      await step("create asset folder", () => app.getByTestId("diffusion-create-folder").click())
+      await expectPresent(app.getByTestId("diffusion-folder-1"), "created asset folder")
+      await expectText(app.getByTestId("diffusion-folder-1"), "New folder", "created folder name", {
+        includes: true,
+      })
       await step("toggle playback", () => app.getByTestId("diffusion-play").click())
       await expectText(app.getByTestId("diffusion-play"), "Ⅱ", "playing state")
       await step("hide editor chrome", () => app.getByTestId("diffusion-toggle-ui").click())
