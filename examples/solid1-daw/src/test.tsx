@@ -503,9 +503,17 @@ if (!hasNativeTestRenderer) {
   const disableBand8 = { "aria-label": "Disable EQ band 8" } as const
   const enableBand8 = { "aria-label": "Enable EQ band 8" } as const
   app.renderer.clickCustomProps(disableBand8)
-  requireCondition(app.renderer.hasCustomProps(enableBand8), "exact EQ band toggle should expose Enable after disabling band 8")
+  await waitForCondition(
+    "EQ band 8 disable",
+    () => app.renderer.hasCustomProps(enableBand8),
+    flushNative,
+  )
   app.renderer.clickCustomProps(enableBand8)
-  requireCondition(app.renderer.hasCustomProps(disableBand8), "exact EQ band toggle should restore Disable after enabling band 8")
+  await waitForCondition(
+    "EQ band 8 enable",
+    () => app.renderer.hasCustomProps(disableBand8),
+    flushNative,
+  )
 
   app.renderer.clickCustomProps({ title: "EQ channel mode" })
   const eqModeMenuText = app.renderer.textContentRoot()
