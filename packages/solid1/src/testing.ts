@@ -183,6 +183,13 @@ export class TestRenderer {
     }
   }
 
+  nativeSimulateFileDrop(x: number, y: number, paths: string[]): void {
+    this.#native.flush()
+    this.#native.simulateFileDrop(x, y, paths)
+    this.dispatchNativeEvents()
+    this.#native.flush()
+  }
+
   clickTestId(testId: string): void {
     this.clickPoint(insetPoint(this.boundsTestId(testId)))
   }
