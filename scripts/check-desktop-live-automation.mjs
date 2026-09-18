@@ -81,7 +81,40 @@ try {
 
   await step("wait for drag source", () => source.waitFor({ timeoutMs: 5_000 }))
   await step("wait for drop target", () => target.waitFor({ timeoutMs: 5_000 }))
-  await step("internal drag", () => source.dragTo(target, { steps: 8 }))
+
+  const start = await step("read drag source center", () => source.center())
+  const end = await step("read drop target center", () => target.center())
+  const previewPoint = {
+    x: start.x + (end.x - start.x) * 0.45,
+    y: start.y + (end.y - start.y) * 0.45,
+  }
+
+  await step("move to drag source", () => app.mouse.move(start))
+  await step("press drag source", () => app.mouse.down(start))
+  await step("move semantic drag", () => app.mouse.move(previewPoint, { pressedButton: 0 }))
+
+  const preview = app.getByTestId("gpuix-drag-preview")
+  await step("observe drag preview", async () => {
+    await preview.waitFor({ timeoutMs: 5_000 })
+    const label = (await preview.textContent()).trim()
+    if (label !== "Drag this card") {
+      throw new Error(`Desktop live acceptance expected drag preview label "Drag this card", got ${JSON.stringify(label)}`)
+    }
+  })
+
+  await step("move over drop target", () => app.mouse.move(end, { pressedButton: 0 }))
+  await step("release over drop target", () => app.mouse.up(end))
+
+  await step("remove drag preview after release", async () => {
+    const deadline = Date.now() + 5_000
+    for (;;) {
+      if (await preview.count() === 0) return
+      if (Date.now() >= deadline) {
+        throw new Error("Desktop live acceptance drag preview remained mounted after release")
+      }
+      await delay(settleMs)
+    }
+  })
 
   await step("observe semantic drop", async () => {
     const deadline = Date.now() + 5_000
