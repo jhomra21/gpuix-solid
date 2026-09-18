@@ -4,6 +4,8 @@
 
 <!-- Add user-facing changes here before preparing a release. -->
 
+## 0.2.1-beta.0 - 2026-09-18
+
 - Add Solid 2 `h()` / `makeH()` hyperscript authoring for JSX-free runtime UI, using the same native class/style and reactive child paths as compiled JSX.
 - Add Solid 2 parity conveniences inspired by `solid-gpui`: a strict built-in utility-class subset when no generated native style manifest is configured, CSS-familiar layout shorthands that compile to GPUIX physical style keys, `appWindow` wrappers for title/activation, and retained-list scroll helpers. Generated manifests remain authoritative and unsupported utilities still fail explicitly.
 - Expose GPUIX native Finder/OS file drops as `onFileDrop` in both Solid renderer hosts, with GPU-backed regression coverage and Solid 2 locator `dropFiles()` automation. Add internal semantic drag/drop through `dragData`, `onDragStart`, `onDragOver`, `onDrop`, and `onDragEnd`, using pointer-geometry drop targeting, a full source-element subtree preview that preserves the grab point, automatic draggable text-selection suppression, and click suppression after a completed drag.
@@ -79,4 +81,5 @@
 - Solid-native Tooltip, Select, Combobox, and `animate.*` APIs.
 - Native TestRenderer, locator automation, live stdio transport, deterministic clock, retained-tree snapshots, and screenshot parity.
 - Keep the public automation `launch({ env })` contract structural so TypeScript consumers do not need the global `NodeJS` namespace just to use the packaged automation API.
+
 
