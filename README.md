@@ -277,6 +277,19 @@ Finder/OS file drops are native GPUI events:
 
 The native test renderer and locator API can drive the same path with `locator.dropFiles([...])`.
 
+Internal application drag/drop uses GPUIX pointer hit testing while the Solid host owns the semantic payload:
+
+```tsx
+<div dragData={{ id: "clip-1" }} onDragStart={onStart} onDragEnd={onEnd}>
+  <text>Drag me</text>
+</div>
+<div onDragOver={onDragOver} onDrop={(event) => moveClip(event.dragData)}>
+  <text>Drop here</text>
+</div>
+```
+
+A four-pixel movement threshold separates a drag from a click, and completing a drag suppresses the source click for that release.
+
 Run the complete local showcase with `bun run example:desktop`.
 
 ## Testing
