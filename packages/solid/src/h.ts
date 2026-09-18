@@ -1,3 +1,5 @@
+import type { HostEventHandler, HostRef } from "./host/types.js"
+import type { MutationValue } from "./host/mutations.js"
 import {
   createElement,
   effect,
@@ -6,20 +8,18 @@ import {
 } from "./host/universal.js"
 
 export type HNode = ReturnType<typeof createElement>
-
-export type HChild =
-  | HNode
-  | string
-  | number
-  | boolean
-  | null
+export type HAccessorValue = MutationValue | undefined
+export type HAccessor = () => HAccessorValue
+export type HPropValue =
+  | MutationValue
+  | HostEventHandler
+  | HostRef
+  | HAccessor
   | undefined
-  | readonly HChild[]
-  | (() => HChild)
 
-export type HProps = Record<string, unknown> & {
-  children?: HChild
-}
+export type HChild = HAccessorValue | HAccessor
+
+export type HProps = Record<string, HPropValue>
 
 export interface H {
   (tag: string, props?: HProps | null, ...children: HChild[]): HNode
@@ -41,14 +41,14 @@ const ACCESSOR_PROPS = new Set([
   "testId",
 ])
 
-function isAccessor(value: unknown): value is () => unknown {
+function isAccessor(value: HPropValue): value is HAccessor {
   return typeof value === "function"
 }
 
 function bindAccessor(
   node: HNode,
   name: string,
-  read: () => unknown,
+  read: HAccessor,
 ): void {
   effect(
     read,
