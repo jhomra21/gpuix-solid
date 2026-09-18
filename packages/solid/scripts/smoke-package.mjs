@@ -74,6 +74,7 @@ try {
       `
         const main = await import("gpuix-solid")
         const automation = await import("gpuix-solid/automation")
+        const { cn } = await import("cn")
         for (const key of [
           "render",
           "animate",
@@ -97,7 +98,15 @@ try {
         for (const key of ["launch", "Locator", "connectStdio"]) {
           if (!(key in automation)) throw new Error("Missing automation export: " + key)
         }
-        console.log("npm clean-consumer imports: PASS")
+        const merged = cn("px-2 bg-blue-500", false && "bg-red-500", "px-4")
+        if (merged !== "bg-blue-500 px-4") {
+          throw new Error("cn did not resolve Tailwind conflicts as expected: " + merged)
+        }
+        const parsed = main.parseNativeUtilities(merged)
+        if (parsed.unknown.length !== 0 || parsed.style.paddingLeft !== 16 || parsed.style.paddingRight !== 16) {
+          throw new Error("gpuix-solid did not consume cn output correctly: " + JSON.stringify(parsed))
+        }
+        console.log("npm clean-consumer imports + cn merge: PASS")
       `,
     ],
     { cwd: npmConsumer },
