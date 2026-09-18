@@ -4,7 +4,7 @@
 
 <!-- Add user-facing changes here before preparing a release. -->
 
-- Expose GPUIX native Finder/OS file drops as `onFileDrop` in both Solid renderer hosts, with GPU-backed regression coverage and Solid 2 locator `dropFiles()` automation.
+- Expose GPUIX native Finder/OS file drops as `onFileDrop` in both Solid renderer hosts, with GPU-backed regression coverage and Solid 2 locator `dropFiles()` automation. Add internal semantic drag/drop through `dragData`, `onDragStart`, `onDragOver`, `onDrop`, and `onDragEnd`, using GPUIX pointer hit testing and suppressing click activation after a completed drag.
 - Add Solid 2 desktop integration helpers for open/save/message dialogs, system open/reveal actions, and the GPUIX 0.9 default native application-menu label, plus a `bun run example:desktop` manual showcase.
 - Add `bun run perf:report` and a documented benchmark policy with named Chat, Timeline, and mutation-serialization scenarios reporting p50/p95/p99 where samples are meaningful.
 
