@@ -409,8 +409,6 @@ export interface HostProps {
   onFileDrop?: HostEventHandler
   /** JSON-like application payload used by internal semantic drag/drop. */
   dragData?: DragData
-  /** Optional label shown in GPUix Solid's default pointer-following drag preview. */
-  dragPreview?: string
   onDragStart?: HostEventHandler
   onDragOver?: HostEventHandler
   onDrop?: HostEventHandler
