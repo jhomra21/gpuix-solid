@@ -82,6 +82,7 @@ try {
   await step("wait for drag source", () => source.waitFor({ timeoutMs: 5_000 }))
   await step("wait for drop target", () => target.waitFor({ timeoutMs: 5_000 }))
 
+  const sourceBounds = await step("read drag source bounds", () => source.bounds())
   const start = await step("read drag source center", () => source.center())
   const end = await step("read drop target center", () => target.center())
   const previewPoint = {
@@ -104,11 +105,26 @@ try {
     if (bounds.width <= 0 || bounds.height <= 0) {
       throw new Error(`Desktop live acceptance drag preview did not paint non-zero bounds: ${JSON.stringify(bounds)}`)
     }
-    const deltaX = bounds.x - previewPoint.x
-    const deltaY = bounds.y - previewPoint.y
-    if (deltaX < 0 || deltaY < 0 || deltaX > 64 || deltaY > 64) {
+    const sizeError = {
+      width: Math.abs(bounds.width - sourceBounds.width),
+      height: Math.abs(bounds.height - sourceBounds.height),
+    }
+    if (sizeError.width > 4 || sizeError.height > 4) {
       throw new Error(
-        `Desktop live acceptance drag preview did not paint near the pointer: ${JSON.stringify({ bounds, previewPoint, deltaX, deltaY })}`,
+        `Desktop live acceptance drag preview must match the source element size: ${JSON.stringify({ sourceBounds, bounds, sizeError })}`,
+      )
+    }
+    const previewCenter = {
+      x: bounds.x + bounds.width / 2,
+      y: bounds.y + bounds.height / 2,
+    }
+    const hotspotError = {
+      x: Math.abs(previewCenter.x - previewPoint.x),
+      y: Math.abs(previewCenter.y - previewPoint.y),
+    }
+    if (hotspotError.x > 8 || hotspotError.y > 8) {
+      throw new Error(
+        `Desktop live acceptance drag preview did not preserve the source-center grab point: ${JSON.stringify({ previewCenter, previewPoint, hotspotError })}`,
       )
     }
   })
