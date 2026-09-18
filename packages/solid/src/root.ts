@@ -181,7 +181,7 @@ export function createRoot(renderer: NativeRenderer, initialWindowEventHandlers:
   const driver = new BrowserPointerMutationDriver(renderer, events)
   const releaseRelay = new BrowserPointerReleaseRelay()
   const container = new HostRootNode(renderer, events, driver)
-  const semanticDragPreview = new SemanticDragPreview(container)
+  const semanticDragPreview = new SemanticDragPreview(container, renderer)
   let windowKeyEventHandlers: WindowKeyEventHandlers = initialWindowEventHandlers
   let windowSelectionChangeHandler = initialWindowEventHandlers.onSelectionChange
   let windowKeyEventId = nextWindowKeyEventId(renderer)
@@ -434,7 +434,9 @@ export function createRoot(renderer: NativeRenderer, initialWindowEventHandlers:
                 rootId,
                 routedEvent.x ?? 0,
                 routedEvent.y ?? 0,
-                preview.label,
+                preview.sourceId,
+                preview.startX,
+                preview.startY,
               )
             } else {
               semanticDragPreview.hide()
