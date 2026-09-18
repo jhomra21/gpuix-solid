@@ -394,6 +394,8 @@ export interface HostProps {
   onFocus?: HostEventHandler
   onBlur?: HostEventHandler
   onScroll?: HostEventHandler
+  /** Finder / OS file drop paths delivered by GPUIX. */
+  onFileDrop?: HostEventHandler
   onChange?: HostEventHandler
   onInput?: HostEventHandler
   onSubmit?: HostEventHandler
