@@ -1,4 +1,4 @@
-import type { EventPayload } from "@gpuix/native"
+import type { EventPayload } from "../src/host/types.js"
 import { createRenderEffect, createSignal } from "solid-js"
 import { describe, expect, it } from "vitest"
 import {
