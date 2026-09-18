@@ -30,8 +30,8 @@ function App() {
   const [dropHot, setDropHot] = createSignal(false)
 
   const run = (work: () => Promise<void>) => {
-    void work().catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : String(error))
+    void work().catch((error: Error) => {
+      setStatus(error.message)
     })
   }
 
