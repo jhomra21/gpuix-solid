@@ -15,7 +15,6 @@ describe("semantic internal drag/drop", () => {
     events.setParent(sourceId, null)
     events.setParent(targetId, null)
     events.setDragData(sourceId, { clipId: "clip-1" })
-    events.setDragPreview(sourceId, "Clip One")
 
     events.set(sourceId, "dragStart", (event) => {
       startPayload = event.dragData
@@ -33,7 +32,7 @@ describe("semantic internal drag/drop", () => {
 
     events.dispatch({ elementId: sourceId, eventType: "mouseDown", x: 10, y: 10, button: 0 })
     events.dispatch({ elementId: targetId, eventType: "mouseMove", x: 30, y: 10, button: 0 })
-    expect(events.activeDragPreview()).toEqual({ sourceId, label: "Clip One" })
+    expect(events.activeDragPreview()).toEqual({ sourceId, startX: 10, startY: 10 })
     events.dispatch({ elementId: targetId, eventType: "mouseUp", x: 30, y: 10, button: 0 })
 
     expect(events.activeDragPreview()).toBeUndefined()
