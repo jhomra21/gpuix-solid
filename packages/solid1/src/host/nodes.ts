@@ -8,7 +8,7 @@ import type {
   StyleDesc,
 } from "./types.js"
 
-const RESERVED_PROPS = new Set(["children", "ref", "style", "className", "key"])
+const RESERVED_PROPS = new Set(["children", "ref", "style", "className", "key", "dragData"])
 const BUILT_IN_TYPES = new Set<ElementType>(["div", "text"])
 const UNIVERSAL_PROPS = new Set(["autoFocus", "tabIndex", "motion", "testId", "highlight", "title"])
 
@@ -477,6 +477,9 @@ export function setHostProperty<T>(
   }
 
   const previousPointerEvents = name === "role" ? effectivePointerEvents(node) : undefined
+  const previousDragNativeHandlers = name === "dragData"
+    ? new Map((["mouseDown", "mouseMove", "mouseUp"] as const).map((nativeType) => [nativeType, hasNativeEventHandler(node, nativeType)]))
+    : undefined
   const previousTypeClickHandler = name === "type" ? hasNativeEventHandler(node, "click") : false
   const previousTypeRangeHandlers = name === "type"
     ? new Map((["mouseDown", "mouseMove", "mouseUp"] as const).map((nativeType) => [nativeType, hasNativeEventHandler(node, nativeType)]))
@@ -488,6 +491,14 @@ export function setHostProperty<T>(
     node.nativeType = String(value).toLowerCase() === "range" ? "div" : "input"
   }
 
+  if (node.root && node.nativeAlive && name === "dragData") {
+    node.root.events.setDragData(node.id, value === undefined ? undefined : node.props.get(name))
+    for (const nativeType of ["mouseDown", "mouseMove", "mouseUp"] as const) {
+      const previous = previousDragNativeHandlers?.get(nativeType) ?? false
+      const next = hasNativeEventHandler(node, nativeType)
+      if (previous !== next) node.root.driver.enqueue("setEventListener", node.id, nativeType, next)
+    }
+  }
   if (node.root && node.nativeAlive && name === "role") {
     const nextPointerEvents = effectivePointerEvents(node)
     if (previousPointerEvents !== nextPointerEvents) {
@@ -798,6 +809,7 @@ function adopt(root: HostRootNode, node: HostNode): void {
     appliedTextPointerEvents.set(node, pointerEvents)
   } else {
     root.events.setTarget(node.id, node)
+    if (node.props.has("dragData")) root.events.setDragData(node.id, node.props.get("dragData"))
     const nativeEventTypes = new Set<string>()
     const pointerEvents = effectivePointerEvents(node)
     const nativeStyle = nativeStyleFor(node, pointerEvents)
@@ -843,6 +855,10 @@ function hasRangeChangeHandler(node: HostElementNode): boolean {
 }
 
 function hasNativeEventHandler(node: HostElementNode, nativeEventType: string): boolean {
+  const hasDragSource = node.props.has("dragData")
+  if (nativeEventType === "mouseDown" && hasDragSource) return true
+  if (nativeEventType === "mouseMove" && (hasDragSource || node.events.has("dragOver"))) return true
+  if (nativeEventType === "mouseUp" && (hasDragSource || node.events.has("drop"))) return true
   if (nativeEventType === "click" && hasCheckboxActivationHandler(node)) return true
   if ((nativeEventType === "mouseDown" || nativeEventType === "mouseMove" || nativeEventType === "mouseUp") && hasRangeChangeHandler(node)) return true
   for (const eventType of node.events.keys()) {
