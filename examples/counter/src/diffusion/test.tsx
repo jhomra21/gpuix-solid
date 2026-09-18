@@ -175,6 +175,7 @@ async function main(): Promise<void> {
     await app.getByTestId("diffusion-layer-solo-video").click()
     await app.getByTestId("diffusion-layer-hide-video").click()
     await app.getByTestId("diffusion-layer-row-video").click({ button: 2 })
+    await app.getByTestId("diffusion-layer-context-video").waitFor()
     assert.equal(await app.getByTestId("diffusion-layer-context-video").count(), 1)
     assert.equal(await app.getByText("Unmute").count(), 1)
     assert.equal(await app.getByText("Unsolo").count(), 1)
@@ -183,6 +184,7 @@ async function main(): Promise<void> {
     await app.clock.fastForward(16)
     assert.ok((await app.getByTestId("diffusion-layer-row-video").bounds()).y > (await app.getByTestId("diffusion-layer-row-captions").bounds()).y)
     await app.getByTestId("diffusion-layer-row-video").click({ button: 2 })
+    await app.getByTestId("diffusion-layer-context-video").waitFor()
     await app.getByTestId("diffusion-layer-context-back-video").click()
     await app.clock.fastForward(16)
     assert.ok((await app.getByTestId("diffusion-layer-row-video").bounds()).y < (await app.getByTestId("diffusion-layer-row-title").bounds()).y)
@@ -190,6 +192,7 @@ async function main(): Promise<void> {
     await app.getByTestId("diffusion-layer-row-voiceover").hover()
     await app.getByTestId("diffusion-layer-solo-voiceover").click()
     await app.getByTestId("diffusion-layer-row-video").click({ button: 2 })
+    await app.getByTestId("diffusion-layer-context-video").waitFor()
     assert.equal(await app.getByText("Solo").count(), 1, "soloing another layer must clear the previous solo")
     await app.getByTestId("diffusion-layer-context-video").getByText("Solo").click()
 
@@ -249,6 +252,7 @@ async function main(): Promise<void> {
     assert.ok(Math.abs(layerScrollDelta - clipScrollDelta) <= 2, "layer and clip panes must share vertical timeline scroll")
 
     await app.getByTestId("diffusion-layer-row-layer-1").click({ button: 2 })
+    await app.getByTestId("diffusion-layer-context-layer-1").waitFor()
     assert.equal(await app.getByTestId("diffusion-layer-context-layer-1").count(), 1)
     await app.getByTestId("diffusion-layer-context-remove-layer-1").click()
     assert.equal(await app.getByTestId("diffusion-layer-row-layer-1").count(), 0)
