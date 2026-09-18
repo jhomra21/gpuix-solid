@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta
+    name="description"
+    content="GPUix Solid renders Solid components through GPUIX and Zed's native GPUI framework."
+  >
+  <title>GPUix Solid</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="GPUix Solid home">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span>GPUix Solid</span>
+    </a>
+    <nav>
+      <a href="#quickstart">Quickstart</a>
+      <a href="#examples">Examples</a>
+      <a href="https://github.com/jhomra21/gpuix-solid">GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="eyebrow">Solid 2 + GPUIX + GPUI</div>
+      <h1>Solid components.<br>Native GPU windows.</h1>
+      <p class="hero-copy">
+        GPUix Solid turns Solid's reactive tree into GPUIX native elements. GPUI paints the window
+        with Metal, DirectX, or Vulkan. There is no Electron renderer and no browser web view.
+      </p>
+      <div class="hero-actions">
+        <a class="button primary" href="#quickstart">Get started</a>
+        <a class="button secondary" href="https://github.com/jhomra21/gpuix-solid">View source</a>
+      </div>
+      <div class="version-row">
+        <span>gpuix-solid v__GPUIX_SOLID_VERSION__</span>
+        <span>@gpuix/native 0.9.0</span>
+        <span>macOS · Linux · Windows</span>
+      </div>
+    </section>
+
+    <section class="window-frame" aria-label="GPUix Solid Mail example">
+      <div class="window-bar">
+        <span class="traffic red"></span>
+        <span class="traffic yellow"></span>
+        <span class="traffic green"></span>
+        <span class="window-title">Mail example · native GPUIX</span>
+      </div>
+      <img src="/images/mail-app.png" alt="GPUix Solid Mail example">
+    </section>
+
+    <section class="split" id="quickstart">
+      <div>
+        <p class="section-kicker">Quickstart</p>
+        <h2>Start with the native renderer.</h2>
+        <p>
+          Solid 2 apps compile through Solid's universal renderer and run as a native process with
+          <code>@gpuix/native</code>.
+        </p>
+      </div>
+
+      <div class="code-card">
+        <div class="code-card-header">
+          <span>Terminal</span>
+          <button type="button" data-copy>Copy</button>
+        </div>
+        <pre><code data-install-command>bun add gpuix-solid solid-js@2.0.0-rc.8</code></pre>
+        <pre class="code-secondary"><code>bun add -d @solidjs/vite-plugin vite typescript</code></pre>
+        <a class="text-link" href="https://github.com/jhomra21/gpuix-solid/blob/main/docs/getting-started.md">
+          Read the Solid 2 setup guide
+        </a>
+      </div>
+    </section>
+
+    <section class="architecture">
+      <p class="section-kicker">Rendering path</p>
+      <h2>Solid owns reactivity. GPUI owns the window.</h2>
+      <div class="pipeline" aria-label="Rendering pipeline">
+        <div>Signal update</div>
+        <span>→</span>
+        <div>Solid computation</div>
+        <span>→</span>
+        <div>Batched native mutations</div>
+        <span>→</span>
+        <div>GPUIX retained tree</div>
+        <span>→</span>
+        <div>GPUI frame</div>
+      </div>
+    </section>
+
+    <section class="examples" id="examples">
+      <div class="examples-heading">
+        <div>
+          <p class="section-kicker">Examples</p>
+          <h2>Real application-shaped fixtures.</h2>
+        </div>
+        <p>
+          The repository keeps larger native apps because a renderer needs more than a counter to
+          prove input, scrolling, selection, layout, and window behavior.
+        </p>
+      </div>
+
+      <div class="shot-tabs" role="tablist" aria-label="Example screenshots">
+        <button type="button" role="tab" aria-selected="true" data-shot-target="dashboard">Dashboard</button>
+        <button type="button" role="tab" aria-selected="false" data-shot-target="codeimage">CodeImage</button>
+        <button type="button" role="tab" aria-selected="false" data-shot-target="todo">Todo</button>
+      </div>
+
+      <div class="shot-stage">
+        <img data-shot="dashboard" src="/images/dashboard.png" alt="GPUix Solid dashboard example">
+        <img data-shot="codeimage" src="/images/codeimage.png" alt="GPUix Solid CodeImage example" hidden>
+        <img data-shot="todo" src="/images/todo.png" alt="GPUix Solid Todo example" hidden>
+      </div>
+    </section>
+
+    <section class="package-grid">
+      <article>
+        <span class="package-name">gpuix-solid</span>
+        <h3>Solid 2</h3>
+        <p>The main renderer package for Solid 2 and the GPUIX 0.9 native contract.</p>
+      </article>
+      <article>
+        <span class="package-name">@jhomra21/gpuix-solid1</span>
+        <h3>Solid 1</h3>
+        <p>A separate package keeps the Solid 1 runtime boundary independent.</p>
+      </article>
+      <article>
+        <span class="package-name">gpuix-solid/automation</span>
+        <h3>Native automation</h3>
+        <p>Playwright-style locators drive click, input, drag, wheel, and screenshot checks against the native renderer.</p>
+      </article>
+    </section>
+
+    <section class="scope">
+      <p class="section-kicker">Scope</p>
+      <h2>This site runs in a browser. GPUix Solid apps do not.</h2>
+      <p>
+        The project targets GPUIX's native desktop renderer. This website documents the project with
+        captured native output. It does not wrap the native renderer in a browser.
+      </p>
+      <div class="scope-links">
+        <a href="https://github.com/jhomra21/gpuix-solid/blob/main/docs/compatibility.md">Compatibility</a>
+        <a href="https://github.com/jhomra21/gpuix-solid/tree/main/examples">Examples</a>
+        <a href="https://www.npmjs.com/package/gpuix-solid">npm</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>GPUix Solid · MIT</span>
+    <span>Site served by Cloudflare Workers</span>
+  </footer>
+</body>
+</html>
