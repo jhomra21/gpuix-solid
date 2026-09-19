@@ -73,6 +73,9 @@ See [Build a native Solid 1 app](./docs/getting-started-solid1.md) for the Solid
 
 ### 2. Compile through Solid's universal renderer
 
+> [!NOTE]
+> `gpuix-solid/vite` is part of the repository's next prerelease. Until that version is published, the stable `^0.2.0` starter keeps the equivalent explicit Vite configuration.
+
 ```ts
 import { gpuixSolid } from "gpuix-solid/vite"
 import { defineConfig } from "vite"
