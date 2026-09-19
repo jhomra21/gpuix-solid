@@ -54,4 +54,19 @@ assert.deepEqual(batches, [[
   ["setEventListener", 7, "mouseMove", false],
 ]])
 
+const selectionCalls: Array<[boolean, number]> = []
+const selectionRenderer: BatchRendererApi = {
+  applyBatch: () => [],
+  setWindowSelectionChange(enabled, eventId) {
+    selectionCalls.push([enabled, eventId])
+  },
+}
+const selectionAdapted = adaptBatchRenderer(selectionRenderer)
+selectionAdapted.setWindowSelectionChange?.(true, 41)
+selectionAdapted.setWindowSelectionChange?.(false, 41)
+assert.deepEqual(selectionCalls, [
+  [true, 41],
+  [false, 41],
+])
+
 console.log("solid1 browser drag native relay compatibility: passed")
