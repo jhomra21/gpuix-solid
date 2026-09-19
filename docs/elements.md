@@ -9,7 +9,7 @@ GPUix Solid JSX is browser-shaped where that improves source portability, but it
 | `div`, `text` | general layout and text |
 | `img` | native image from a file, data URL, or supported HTTP source |
 | `svg` | native SVG image; inline SVG children are serialized into its source |
-| `canvas` | raw GPUIX canvas host element; there is no public general draw-list API yet |
+| `canvas` | source-compatible intrinsic only on GPUIX 0.9; there is no registered native paint adapter or public draw-list API yet |
 | `input`, `textarea` | controlled native text input |
 | `anchored` | floating native surface positioned relative to a point |
 | `code` | native syntax-highlighted code surface |
@@ -17,7 +17,7 @@ GPUix Solid JSX is browser-shaped where that improves source portability, but it
 | `markdown` | native Markdown surface |
 | `virtual-list` | retained virtualized list |
 
-The native element set follows the published `@gpuix/native@0.9.0` contract. A capability is not documented as supported merely because GPUI has an equivalent Rust API.
+The native element set follows the published `@gpuix/native@0.9.0` contract. A capability is not documented as supported merely because GPUI has an equivalent Rust API. `canvas` remains in the JSX surface so browser-derived source can be typed and intercepted by narrow compatibility layers, but GPUIX 0.9's custom-element registry does not register a Canvas adapter; using the intrinsic directly is not native drawing support.
 
 ## Semantic source aliases
 
