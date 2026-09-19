@@ -62,7 +62,7 @@ The current GPUIX 0.9 host path covers `role`, supported `aria-*`, `tabIndex`, `
 
 ## Current release line
 
-`gpuix-solid@0.2.0` is the stable package used by this starter. The current published prerelease is `0.2.1-beta.0`; prerelease acceptance is performed in isolated exact-version consumers rather than through this template.
+`gpuix-solid@0.2.0` is the stable package used by this starter. Prereleases advance on the npm `beta` dist-tag; prerelease acceptance is performed in isolated exact-version consumers rather than through this template.
 
 ## Historical stable result
 

@@ -9,6 +9,14 @@ Repository-wide documentation lives here. Package-specific usage stays with the 
 - [Compatibility matrix](./compatibility.md)
 - [Examples](../examples/README.md)
 
+## API guides
+
+- [Elements](./elements.md)
+- [Styling](./styling.md)
+- [Events](./events.md)
+- [Desktop and native integration](./desktop.md)
+- [Automation and testing](./automation.md)
+
 ## Architecture and ownership
 
 - [Architecture](./architecture.md)

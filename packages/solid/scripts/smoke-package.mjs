@@ -114,6 +114,31 @@ try {
     { cwd: npmConsumer },
   )
 
+  run(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `
+        const { render } = await import("gpuix-solid")
+        let failure
+        try {
+          render(() => null, { renderer: {} })
+        } catch (error) {
+          failure = error
+        }
+        if (!(failure instanceof Error)) {
+          throw new Error("Plain Node render unexpectedly accepted Solid's server runtime")
+        }
+        if (!/browser export condition.*gpuix-solid\\/vite/u.test(failure.message)) {
+          throw new Error("Unexpected Solid runtime guard error: " + failure.message)
+        }
+        console.log("npm clean-consumer Solid server-runtime guard: PASS")
+      `,
+    ],
+    { cwd: npmConsumer },
+  )
+
   const consumerSource = `
     import {
       Combobox,
@@ -255,7 +280,7 @@ try {
   )
   writeFileSync(
     path.join(npmConsumer, "vite.config.mjs"),
-    `import solid from "@solidjs/vite-plugin"\nimport { defineConfig } from "vite"\n\nexport default defineConfig({\n  plugins: [\n    solid({\n      solid: {\n        generate: "universal",\n        moduleName: "gpuix-solid",\n      },\n    }),\n  ],\n  resolve: {\n    conditions: ["browser", "development"],\n  },\n  ssr: {\n    noExternal: ["gpuix-solid", "@solidjs/universal", "solid-js"],\n    resolve: {\n      conditions: ["browser", "development", "import", "default"],\n    },\n  },\n  build: {\n    target: "node22",\n    ssr: "src/index.tsx",\n    outDir: "dist",\n    rollupOptions: {\n      external: ["@gpuix/native"],\n    },\n  },\n})\n`,
+    `import { gpuixSolid } from "gpuix-solid/vite"\nimport { defineConfig } from "vite"\n\nexport default defineConfig({\n  plugins: [gpuixSolid()],\n  build: {\n    target: "node22",\n    ssr: "src/index.tsx",\n    outDir: "dist",\n  },\n})\n`,
   )
   run(
     npm,
@@ -271,6 +296,23 @@ try {
     ],
     { cwd: npmConsumer },
   )
+  run(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `
+        const vite = await import("gpuix-solid/vite")
+        if (typeof vite.gpuixSolid !== "function") throw new Error("Missing gpuixSolid Vite helper")
+        const config = vite.gpuixSolidConfig()
+        if (!config.resolve?.conditions?.includes("browser")) throw new Error("Vite helper missed browser condition")
+        if (!config.ssr?.noExternal?.includes?.("gpuix-solid")) throw new Error("Vite helper missed Solid noExternal contract")
+        console.log("npm clean-consumer Vite helper import: PASS")
+      `,
+    ],
+    { cwd: npmConsumer },
+  )
+
   run(bin(npmConsumer, "tsc"), [], { cwd: npmConsumer })
   run(bin(npmConsumer, "vite"), ["build"], { cwd: npmConsumer })
   const builtSource = readFileSync(path.join(npmConsumer, "dist", "index.js"), "utf8")

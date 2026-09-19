@@ -3,6 +3,7 @@ import { Errored, type Element as SolidElement } from "solid-js"
 import { enableAutomation } from "./automation/server.js"
 import { adaptBatchRenderer } from "./batch-renderer-adapter.js"
 import { applyDebugFrameOverlay } from "./capabilities.js"
+import { assertSolidClientRuntime } from "./client-runtime.js"
 import { startFrameLoop, type FrameLoop } from "./frame-loop.js"
 import { useDestroyUnlinksParentBatch } from "./host/mutations.js"
 import type { DebugFrameOverlayMode, NativeRenderer } from "./host/types.js"
@@ -278,6 +279,7 @@ export function resetRender(): void {
 
 /** Mount the app. Under `bun --hot`, later calls remount on the same native window. */
 export function render(code: () => SolidElement, options: RenderOptions = {}): RenderHandle {
+  assertSolidClientRuntime()
   const { renderer: injected, onEvent, onKeyDown, onKeyUp, onSelectionChange, debugFrameOverlay, ...windowOptions } = options
   const existing = runtimeGlobalState.__gpuixSolidRenderSlot
 

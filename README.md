@@ -15,7 +15,7 @@ GPUix Solid supports two Solid generations through separate packages:
 | Solid 2 | `gpuix-solid` | `solid-js ^2.0.0-rc.8` |
 | Solid 1 | `@jhomra21/gpuix-solid1` | `solid-js >=1.9.0 <2` |
 
-Both packages target the exact `@gpuix/native@0.9.0` contract. `gpuix-solid@0.2.0` is the current stable npm `latest`, and `gpuix-solid@0.2.1-beta.0` is the current published prerelease. The repository now contains post-beta fixes that will ship in the next beta. Solid 2 uses the paired `solid-js@2.0.0-rc.8` and `@solidjs/universal@2.0.0-rc.8` runtime baseline. Solid 1 keeps its own package version and release cycle.
+Both packages target the exact `@gpuix/native@0.9.0` contract. `gpuix-solid@0.2.0` is the current stable npm `latest`; prereleases advance on the npm `beta` dist-tag after exact-package qualification. Solid 2 uses the paired `solid-js@2.0.0-rc.8` and `@solidjs/universal@2.0.0-rc.8` runtime baseline. Solid 1 keeps its own package version and release cycle.
 
 ## Quickstart
 
@@ -73,40 +73,24 @@ See [Build a native Solid 1 app](./docs/getting-started-solid1.md) for the Solid
 
 ### 2. Compile through Solid's universal renderer
 
+> [!NOTE]
+> `gpuix-solid/vite` is part of the repository's next prerelease. Until that version is published, the stable `^0.2.0` starter keeps the equivalent explicit Vite configuration.
+
 ```ts
-import solid from "@solidjs/vite-plugin"
+import { gpuixSolid } from "gpuix-solid/vite"
 import { defineConfig } from "vite"
 
 export default defineConfig({
-  plugins: [
-    solid({
-      solid: {
-        generate: "universal",
-        moduleName: "gpuix-solid",
-      },
-    }),
-  ],
-  resolve: {
-    conditions: ["browser", "development"],
-  },
-  ssr: {
-    noExternal: ["gpuix-solid", "@solidjs/universal", "solid-js"],
-    resolve: {
-      conditions: ["browser", "development", "import", "default"],
-    },
-  },
+  plugins: [gpuixSolid()],
   build: {
     target: "node22",
     ssr: "src/index.tsx",
     outDir: "dist",
-    rollupOptions: {
-      external: ["@gpuix/native"],
-    },
   },
 })
 ```
 
-A native GPUix process needs Solid's live client reactive runtime. The `browser` condition selects that runtime. It does not add a DOM or web view.
+`gpuixSolid()` configures Solid's universal JSX transform, selects the live `browser` runtime, keeps the Solid runtime bundled, and leaves `@gpuix/native` external. The application still owns its entry point, output directory, and build target. GPUix Solid also verifies at startup that Solid is actually reactive and reports a targeted configuration error instead of silently rendering one frozen frame.
 
 ### 3. Write the app
 
@@ -170,7 +154,7 @@ bun run start
 
 The maintained starter uses Vite to produce `dist/index.js`, then Bun runs that file with `@gpuix/native` loaded as the platform-specific native addon. The current `dev` script rebuilds and restarts the app. GPUix Solid does not currently provide the same window-preserving hot reload command as upstream GPUIX React.
 
-For the complete Solid 2 setup, see [Build a native Solid 2 app](./docs/getting-started.md).
+For the complete Solid 2 setup and the equivalent explicit Vite configuration, see [Build a native Solid 2 app](./docs/getting-started.md). User-facing API references live in the [documentation index](./docs/README.md).
 
 ## Solid-native primitives
 

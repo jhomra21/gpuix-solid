@@ -2,7 +2,7 @@
 
 ## 0.2.1 beta and post-beta candidate
 
-Status: `gpuix-solid@0.2.1-beta.0` published; post-beta fixes qualified for the next prerelease on September 19, 2026.
+Status: `gpuix-solid@0.2.1-beta.0` is the published prerelease baseline for this record; the post-beta fixes below were qualified on September 19, 2026 for a subsequent 0.2.1 prerelease.
 
 The current runtime pair is:
 

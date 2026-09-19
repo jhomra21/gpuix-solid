@@ -8,7 +8,7 @@ GPUix Solid compiles Solid JSX into GPUIX's retained native tree. Bun runs the J
 
 The current `0.2.x` line uses:
 
-- `gpuix-solid@0.2.0` on npm `latest`, with `0.2.1-beta.0` as the current published prerelease
+- `gpuix-solid@0.2.0` on npm `latest`; prereleases advance on the npm `beta` dist-tag after exact-package qualification
 - `solid-js ^2.0.0-rc.8`
 - exact `@gpuix/native 0.9.0`
 - `@solidjs/universal 2.0.0-rc.8` as the renderer's direct runtime dependency
@@ -24,7 +24,7 @@ bun add gpuix-solid solid-js@2.0.0-rc.8
 bun add -d @solidjs/vite-plugin@3.0.0-next.29 vite@8.1.5 typescript@5.9.2
 ```
 
-A copyable Solid 2 project lives at [`templates/solid2-vite-bun`](../templates/solid2-vite-bun). The public starter tracks the stable `^0.2.0` line; release qualification for prereleases uses exact versions in clean external consumers instead of moving the starter onto a beta tag.
+A copyable Solid 2 project lives at [`templates/solid2-vite-bun`](../templates/solid2-vite-bun). The public starter tracks the stable `^0.2.0` line; until a release containing `gpuix-solid/vite` is published, that stable starter keeps the equivalent explicit Vite configuration. Release qualification for prereleases uses exact versions in clean external consumers instead of moving the starter onto a beta tag.
 
 ## Create a project
 
@@ -65,6 +65,30 @@ Create `tsconfig.json`:
 Create `vite.config.ts`:
 
 ```ts
+import { gpuixSolid } from "gpuix-solid/vite"
+import { defineConfig } from "vite"
+
+export default defineConfig({
+  plugins: [gpuixSolid()],
+  build: {
+    target: "node22",
+    ssr: "src/index.tsx",
+    outDir: "dist",
+  },
+})
+```
+
+`gpuixSolid()` owns the renderer invariants: it configures Solid with `generate: "universal"` and `moduleName: "gpuix-solid"`, selects the live `browser` export condition, bundles `gpuix-solid`, `@solidjs/universal`, and `solid-js`, and keeps `@gpuix/native` external.
+
+The application still chooses its entry point, output directory, target, and other build policy. The `browser` condition selects Solid's live reactive runtime; it does not add a DOM or browser web view.
+
+GPUix Solid also verifies this condition at runtime. If Solid resolves to its non-reactive server build, `render()` fails immediately with a configuration message instead of mounting one frame that never updates.
+
+### Explicit configuration
+
+If a build system cannot use `gpuix-solid/vite`, reproduce the same invariants directly:
+
+```ts
 import solid from "@solidjs/vite-plugin"
 import { defineConfig } from "vite"
 
@@ -96,10 +120,6 @@ export default defineConfig({
   },
 })
 ```
-
-A native GPUix process still needs Solid's live client reactive runtime. The `browser` condition selects that runtime. It does not add a DOM or web view.
-
-The build bundles `gpuix-solid`, `@solidjs/universal`, and `solid-js`. `@gpuix/native` stays external so Bun can load its platform-specific native addon.
 
 ## Write the app
 
@@ -251,6 +271,11 @@ For a later published release, set `GPUIX_SOLID_VERSION` to the exact registry v
 
 ## Next references
 
+- [Elements](./elements.md)
+- [Styling](./styling.md)
+- [Events](./events.md)
+- [Desktop integration](./desktop.md)
+- [Automation](./automation.md)
 - [Solid 1 setup](./getting-started-solid1.md)
 - [Solid 2 starter](../templates/solid2-vite-bun)
 - [Examples](../examples/README.md)

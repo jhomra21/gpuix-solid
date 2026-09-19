@@ -65,6 +65,14 @@ async function main(): Promise<void> {
       )
     }
 
+    const listNode = await app.getByType("virtual-list").element()
+    await app.getByTestId("list-bottom").click()
+    const bottomAnchor = testRoot.renderer.getListScrollTop(listNode.id)
+    assert.ok(bottomAnchor && bottomAnchor[0] > 0, `expected Bottom to move retained-list anchor, got ${JSON.stringify(bottomAnchor)}`)
+    await app.getByTestId("list-top").click()
+    const topAnchor = testRoot.renderer.getListScrollTop(listNode.id)
+    assert.ok(topAnchor && topAnchor[0] === 0, `expected Top to restore first retained-list row, got ${JSON.stringify(topAnchor)}`)
+
     console.log("todo parity: passed")
   } finally {
     await app.clock.resume()

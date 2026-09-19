@@ -33,7 +33,8 @@ Use references in this order when a behavior or architecture question arises:
 2. The matching Solid universal renderer contract for the package being edited.
 3. `packages/solid/src/host` and `packages/solid1/src/host` for the shared host behavior that CI keeps in parity.
 4. `jhomra21/mesurer-solid` for prior Solid 2 isolation and renderer conventions where they still apply.
-5. Pi and OpenCode v2 for repository organization and ownership boundaries.
+5. Independent Solid-on-GPUI projects listed in `docs/solid-gpui-parity.md` for ergonomics and capability ideas only; never treat their custom native protocols as GPUIX authority.
+6. Pi and OpenCode v2 for repository organization and ownership boundaries.
 
 Do not copy React implementation mechanisms merely because upstream uses them. Preserve visible behavior and the native protocol.
 

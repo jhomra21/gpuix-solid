@@ -25,6 +25,11 @@
       "types": "./dist/automation/index.d.ts",
       "import": "./dist/automation/index.js",
       "default": "./dist/automation/index.js"
+    },
+    "./vite": {
+      "types": "./dist/vite.d.ts",
+      "import": "./dist/vite.js",
+      "default": "./dist/vite.js"
     }
   },
   "files": [
@@ -46,13 +51,17 @@
     "zod": "^4.4.3"
   },
   "peerDependencies": {
-    "solid-js": "^2.0.0-rc.8"
+    "@solidjs/vite-plugin": "^3.0.0-next.29",
+    "solid-js": "^2.0.0-rc.8",
+    "vite": "^8.1.5"
   },
   "devDependencies": {
+    "@solidjs/vite-plugin": "^3.0.0-next.29",
+    "@types/node": "^25.3.3",
     "solid-js": "2.0.0-rc.8",
     "typescript": "^5.9.2",
-    "vitest": "^4.1.10",
-    "@types/node": "^25.3.3"
+    "vite": "^8.1.5",
+    "vitest": "^4.1.10"
   },
   "repository": {
     "type": "git",
@@ -71,5 +80,13 @@
     "zed",
     "desktop",
     "native"
-  ]
+  ],
+  "peerDependenciesMeta": {
+    "@solidjs/vite-plugin": {
+      "optional": true
+    },
+    "vite": {
+      "optional": true
+    }
+  }
 }

@@ -8,7 +8,7 @@ Use [`getting-started.md`](./getting-started.md) for Solid 2 and [`getting-start
 
 | Layer | Current contract | Notes |
 | --- | --- | --- |
-| `gpuix-solid` | stable `0.2.0`; published prerelease `0.2.1-beta.0`; repository contains post-beta fixes for the next prerelease | Solid 2 renderer in `packages/solid` |
+| `gpuix-solid` | stable `0.2.0`; prereleases advance on the npm `beta` dist-tag after exact-package qualification | Solid 2 renderer in `packages/solid` |
 | `solid-js` for Solid 2 | peer `^2.0.0-rc.8` | Repository package and clean-consumer qualification use `2.0.0-rc.8` |
 | `@solidjs/universal` | exact `2.0.0-rc.8` | Direct runtime dependency paired with the Solid 2 RC.8 peer line |
 | `@jhomra21/gpuix-solid1` | repository package version `0.1.0-beta.0` | Solid 1 renderer in `packages/solid1`; versioned separately from `gpuix-solid` |
@@ -40,7 +40,7 @@ Window behavior can still vary by operating system. Native blur is one example.
 
 A native Bun process still needs Solid's live client reactive runtime. Running outside a browser does not mean the app should resolve Solid's SSR implementation.
 
-The Solid 2 Vite path compiles JSX with `generate: "universal"` and `moduleName: "gpuix-solid"`. It resolves Solid with the `browser` condition, bundles `gpuix-solid`, `@solidjs/universal`, and `solid-js`, and keeps `@gpuix/native` external.
+The Solid 2 Vite path compiles JSX with `generate: "universal"` and `moduleName: "gpuix-solid"`. The first-party `gpuix-solid/vite` helper owns those compiler settings, resolves Solid with the `browser` condition, bundles `gpuix-solid`, `@solidjs/universal`, and `solid-js`, and keeps `@gpuix/native` external. `render()` also verifies that the resolved Solid runtime actually reruns reactive effects so a missing client condition fails with a targeted configuration error instead of a frozen first frame.
 
 The Solid 1 path follows the same runtime rule with `vite-plugin-solid` and `moduleName: "@jhomra21/gpuix-solid1"`. It also deduplicates `solid-js` so browser-oriented Solid 1 libraries use the same runtime instance as the renderer.
 
