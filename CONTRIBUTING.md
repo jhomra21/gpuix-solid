@@ -40,3 +40,16 @@ fix(events): remove stale handler on disposal
 test(native): add retained-tree parity fixture
 docs: document Solid batch boundary
 ```
+
+
+## Branch lifecycle
+
+Delete merged feature/release branches and abandoned diagnostic or experiment branches once their work is preserved on `main` or in a closed pull request.
+
+Repository owners can run the guarded cleanup from issue #31 with:
+
+```text
+/cleanup-branches
+```
+
+The maintenance workflow preserves the default branch and every open pull-request head. It deletes heads of closed pull requests plus clearly disposable `diag/`, `diagnostic/`, `experiment/`, `perf/`, and `tmp` branches.
