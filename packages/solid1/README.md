@@ -75,7 +75,7 @@ function SelectionStatus() {
 }
 ```
 
-The root-level `onSelectionChange` callback is retained for GPUIX API parity. Components should normally prefer the reactive primitive instead of mirroring that callback into another signal.
+The root-level `onSelectionChange` callback is retained for GPUIX API parity. Components should normally prefer the reactive primitive instead of mirroring that callback into another signal. The production batch adapter explicitly forwards `setWindowSelectionChange()`; the Solid 1 regression mirrors the Solid 2 capability-forwarding check so this live subscription path cannot silently disappear behind TestRenderer-only coverage.
 
 ## Current coverage
 
