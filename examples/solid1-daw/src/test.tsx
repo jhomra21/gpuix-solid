@@ -26,6 +26,23 @@ function requireText(actual: string, expected: string, label: string): void {
   }
 }
 
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds))
+}
+
+async function waitForCondition(
+  label: string,
+  condition: () => boolean,
+  flush: () => void,
+): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    flush()
+    if (condition()) return
+    await wait(10)
+  }
+  throw new Error(`Timed out waiting for ${label}`)
+}
+
 function bottom(bounds: { y: number; height: number }): number {
   return bounds.y + bounds.height
 }
@@ -220,33 +237,62 @@ if (!hasNativeTestRenderer) {
     `source mixer volume should shrink into its 3fr column instead of retaining intrinsic range width: ${JSON.stringify({ volume: volumeBounds, ancestors: volumeAncestors })}`,
   )
 
+  const flushNative = (): void => {
+    app.root.flush()
+    app.renderer.flush()
+  }
+
   const muteBackground = app.renderer.styleCustomProps(muteOn).backgroundColor
   app.renderer.clickCustomProps(muteOn)
-  requireCondition(app.renderer.hasCustomProps(muteOff), "exact source mute should expose Activate after muting")
+  await waitForCondition(
+    "mute activation",
+    () => app.renderer.hasCustomProps(muteOff),
+    flushNative,
+  )
   requireCondition(app.renderer.styleCustomProps(muteOff).backgroundColor !== muteBackground, "exact source mute should change its painted state")
   app.renderer.clickCustomProps(muteOff)
-  requireCondition(app.renderer.hasCustomProps(muteOn), "exact source mute should restore Deactivate after unmuting")
+  await waitForCondition(
+    "mute deactivation",
+    () => app.renderer.hasCustomProps(muteOn),
+    flushNative,
+  )
 
   app.renderer.clickCustomProps(soloOff)
-  requireCondition(app.renderer.hasCustomProps(soloOn), "exact source solo should expose Unsolo after activation")
+  await waitForCondition(
+    "solo activation",
+    () => app.renderer.hasCustomProps(soloOn),
+    flushNative,
+  )
   const soloActiveBackground = app.renderer.styleCustomProps(soloOn).backgroundColor ?? ""
   requireCondition(
     soloActiveBackground.startsWith("rgba(") && soloActiveBackground.endsWith(", 0.9)"),
     `exact source bg-blue-500/90 Solo state should reach native as translucent sRGB, got ${JSON.stringify(soloActiveBackground)}`,
   )
   app.renderer.clickCustomProps(soloOn)
-  requireCondition(app.renderer.hasCustomProps(soloOff), "exact source solo should restore after second activation")
+  await waitForCondition(
+    "solo deactivation",
+    () => app.renderer.hasCustomProps(soloOff),
+    flushNative,
+  )
 
   const armInactiveBackground = app.renderer.styleCustomProps(armOff).backgroundColor ?? ""
   app.renderer.clickCustomProps(armOff)
-  requireCondition(app.renderer.hasCustomProps(armOn), "exact source record arm should expose Disarm after activation")
+  await waitForCondition(
+    "record arm activation",
+    () => app.renderer.hasCustomProps(armOn),
+    flushNative,
+  )
   const armActiveBackground = app.renderer.styleCustomProps(armOn).backgroundColor ?? ""
   requireCondition(
     armActiveBackground !== "" && armActiveBackground !== armInactiveBackground,
     `exact source record-arm bg-red-500 state should change native paint, got ${JSON.stringify({ inactive: armInactiveBackground, active: armActiveBackground })}`,
   )
   app.renderer.clickCustomProps(armOn)
-  requireCondition(app.renderer.hasCustomProps(armOff), "exact source record arm should restore after second activation")
+  await waitForCondition(
+    "record arm deactivation",
+    () => app.renderer.hasCustomProps(armOff),
+    flushNative,
+  )
 
   const volumeBefore = app.renderer.customPropByCustomProps(volume, "aria-valuetext")
   app.renderer.dragCustomProps(volume, 20, 0)
@@ -457,9 +503,17 @@ if (!hasNativeTestRenderer) {
   const disableBand8 = { "aria-label": "Disable EQ band 8" } as const
   const enableBand8 = { "aria-label": "Enable EQ band 8" } as const
   app.renderer.clickCustomProps(disableBand8)
-  requireCondition(app.renderer.hasCustomProps(enableBand8), "exact EQ band toggle should expose Enable after disabling band 8")
+  await waitForCondition(
+    "EQ band 8 disable",
+    () => app.renderer.hasCustomProps(enableBand8),
+    flushNative,
+  )
   app.renderer.clickCustomProps(enableBand8)
-  requireCondition(app.renderer.hasCustomProps(disableBand8), "exact EQ band toggle should restore Disable after enabling band 8")
+  await waitForCondition(
+    "EQ band 8 enable",
+    () => app.renderer.hasCustomProps(disableBand8),
+    flushNative,
+  )
 
   app.renderer.clickCustomProps({ title: "EQ channel mode" })
   const eqModeMenuText = app.renderer.textContentRoot()

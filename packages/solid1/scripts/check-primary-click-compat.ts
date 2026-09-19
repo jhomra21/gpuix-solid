@@ -35,6 +35,17 @@ function primaryClick(elementId: number) {
   } satisfies NativeEventPayload
 }
 
+function secondaryMouseUp(elementId: number) {
+  return {
+    elementId,
+    eventType: "mouseUp",
+    x: 24,
+    y: 16,
+    button: 2,
+    clickCount: 1,
+  } satisfies NativeEventPayload
+}
+
 class RelayRenderer implements NativeRenderer {
   readonly direct: MutationValue[][] = []
 
@@ -304,6 +315,52 @@ class RelayRenderer implements NativeRenderer {
   events.dispatch(primaryMouseUp(elementId))
   events.dispatch(primaryMouseUp(elementId))
   assert.equal(doubleClicks, 1, "double-click-only controls should remain activatable through primary mouse-up")
+}
+
+{
+  const events = new EventRegistry()
+  const renderer = new RelayRenderer()
+  const driver = new MutationDriver(renderer, events)
+  const parentId = 61
+  const childId = 62
+  let contextMenus = 0
+
+  events.activate(parentId)
+  events.activate(childId)
+  events.set(parentId, "contextMenu", () => {
+    contextMenus += 1
+  })
+  driver.setContextMenuListener(parentId, true)
+  driver.enqueue("setEventListener", parentId, "mouseUp", true)
+  driver.enqueue("appendChild", parentId, childId)
+  driver.flush()
+
+  const childMouseUpMutations = renderer.direct.filter(
+    (mutation) => mutation[0] === "setEventListener" && mutation[1] === childId && mutation[2] === "mouseUp",
+  )
+  assert.deepEqual(
+    childMouseUpMutations.at(-1),
+    ["setEventListener", childId, "mouseUp", true],
+    "nested retained content should be armed for context-menu mouse-up relay",
+  )
+
+  events.dispatch(secondaryMouseUp(childId))
+  events.dispatch(secondaryMouseUp(parentId))
+  assert.equal(contextMenus, 1, "nested secondary mouse-up should reach its context-menu owner once")
+
+  events.delete(parentId, "contextMenu")
+  driver.setContextMenuListener(parentId, false)
+  driver.enqueue("setEventListener", parentId, "mouseUp", false)
+  driver.flush()
+
+  const updatedChildMouseUpMutations = renderer.direct.filter(
+    (mutation) => mutation[0] === "setEventListener" && mutation[1] === childId && mutation[2] === "mouseUp",
+  )
+  assert.deepEqual(
+    updatedChildMouseUpMutations.at(-1),
+    ["setEventListener", childId, "mouseUp", false],
+    "removing the context-menu owner should remove the descendant mouse-up relay",
+  )
 }
 
 console.log("solid1 embedded primary click compatibility: passed")

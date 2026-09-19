@@ -105,6 +105,7 @@ export class MutationDriver {
   readonly #elementTypes = new Map<number, string>()
   readonly #directClickListeners = new Map<number, boolean>()
   readonly #directMouseUpListeners = new Map<number, boolean>()
+  readonly #contextMenuListeners = new Map<number, boolean>()
   readonly #appliedClickListeners = new Map<number, boolean>()
   readonly #appliedMouseUpListeners = new Map<number, boolean>()
   #queue: Mutation[] = []
@@ -122,6 +123,14 @@ export class MutationDriver {
 
   get pending(): number {
     return this.#queue.length
+  }
+
+  setContextMenuListener(id: number, hasHandler: boolean): void {
+    if (this.#disposed) throw new Error("GPUix Solid mutation driver is disposed")
+    if (hasHandler) this.#contextMenuListeners.set(id, true)
+    else this.#contextMenuListeners.delete(id)
+    this.#syncActivationSubtree(id)
+    this.#schedule()
   }
 
   enqueue(name: string, ...args: MutationValue[]): void {
@@ -264,6 +273,19 @@ export class MutationDriver {
     return this.#directClickListeners.get(id) === true || this.#hasClickAncestor(id)
   }
 
+  #hasContextMenuAncestor(id: number): boolean {
+    let parentId = this.#parents.get(id)
+    while (parentId !== undefined) {
+      if (this.#contextMenuListeners.get(parentId) === true) return true
+      parentId = this.#parents.get(parentId)
+    }
+    return false
+  }
+
+  #needsContextMenuRelay(id: number): boolean {
+    return this.#contextMenuListeners.get(id) === true || this.#hasContextMenuAncestor(id)
+  }
+
   #usesSemanticNativeClick(id: number): boolean {
     const type = this.#elementTypes.get(id)
     return type !== undefined && CUSTOM_NATIVE_CLICK_TYPES.has(type)
@@ -281,7 +303,8 @@ export class MutationDriver {
   #syncActivationListener(id: number): void {
     const activation = this.#needsClickActivation(id)
     const semanticClick = activation && this.#usesSemanticNativeClick(id)
-    const mouseUp = this.#directMouseUpListeners.get(id) === true || (activation && !semanticClick)
+    const contextMenuRelay = this.#needsContextMenuRelay(id)
+    const mouseUp = this.#directMouseUpListeners.get(id) === true || contextMenuRelay || (activation && !semanticClick)
 
     const previousClick = this.#appliedClickListeners.get(id) ?? false
     if (previousClick !== semanticClick) {
@@ -312,6 +335,7 @@ export class MutationDriver {
       this.#elementTypes.delete(id)
       this.#directClickListeners.delete(id)
       this.#directMouseUpListeners.delete(id)
+      this.#contextMenuListeners.delete(id)
       this.#appliedClickListeners.delete(id)
       this.#appliedMouseUpListeners.delete(id)
     }

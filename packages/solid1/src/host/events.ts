@@ -349,6 +349,7 @@ export class EventRegistry {
   readonly #dragData = new Map<number, DragData>()
   #dragSession: DragSession | undefined
   #nativeClickBubble: NativeClickBubble | undefined
+  #nativeContextMenuBubble: NativeClickBubble | undefined
   #activeRangeId: number | undefined
   #lastClick: LastClick | undefined
 
@@ -422,6 +423,7 @@ export class EventRegistry {
     this.#lastPointerEvent.clear()
     this.#primaryClickBursts.clear()
     this.#nativeClickBubble = undefined
+    this.#nativeContextMenuBubble = undefined
     this.#activeRangeId = undefined
     this.#lastClick = undefined
   }
@@ -522,7 +524,16 @@ export class EventRegistry {
           const clickEvent = { ...event, elementId: clickOwner, eventType: "click", button: 0 } satisfies NativeEventPayload
           if (this.#shouldDispatchPrimaryClick(clickEvent, `mouseUp:${sourceElementId}`)) this.#dispatchPrimaryClick(clickEvent)
         }
-        if (event.button === 2) this.#dispatchDom(event.elementId, "contextMenu", event)
+        if (event.button === 2 && !this.#isBubbledNativeContextMenu(event)) {
+          const contextMenuOwner = this.#contextMenuOwner(sourceElementId)
+          if (contextMenuOwner !== undefined) {
+            this.#dispatchDom(
+              contextMenuOwner,
+              "contextMenu",
+              contextMenuOwner === sourceElementId ? event : { ...event, elementId: contextMenuOwner },
+            )
+          }
+        }
         this.#activePointers.delete(POINTER_ID)
         if (capturedId !== undefined) this.#releasePointerCapture(capturedId, POINTER_ID)
         return
@@ -657,6 +668,15 @@ export class EventRegistry {
     return undefined
   }
 
+  #contextMenuOwner(elementId: number): number | undefined {
+    let current: number | null | undefined = elementId
+    while (current !== undefined && current !== null && this.#live.has(current)) {
+      if (this.#handlers.get(current)?.has("contextMenu")) return current
+      current = this.#parents.get(current)
+    }
+    return undefined
+  }
+
   #isBubbledNativeClick(event: NativeEventPayload): boolean {
     const button = event.button ?? 0
     const clickCount = event.clickCount ?? 1
@@ -684,6 +704,37 @@ export class EventRegistry {
     this.#nativeClickBubble = next
     queueMicrotask(() => {
       if (this.#nativeClickBubble === next) this.#nativeClickBubble = undefined
+    })
+    return false
+  }
+
+  #isBubbledNativeContextMenu(event: NativeEventPayload): boolean {
+    const button = event.button ?? 0
+    const clickCount = event.clickCount ?? 1
+    const x = event.x ?? 0
+    const y = event.y ?? 0
+    const previous = this.#nativeContextMenuBubble
+    if (
+      previous
+      && previous.ancestors.has(event.elementId)
+      && previous.button === button
+      && previous.clickCount === clickCount
+      && previous.x === x
+      && previous.y === y
+    ) {
+      return true
+    }
+
+    const ancestors = new Set<number>()
+    let current = this.#parents.get(event.elementId)
+    while (current !== undefined && current !== null) {
+      ancestors.add(current)
+      current = this.#parents.get(current)
+    }
+    const next: NativeClickBubble = { ancestors, button, clickCount, x, y }
+    this.#nativeContextMenuBubble = next
+    queueMicrotask(() => {
+      if (this.#nativeContextMenuBubble === next) this.#nativeContextMenuBubble = undefined
     })
     return false
   }

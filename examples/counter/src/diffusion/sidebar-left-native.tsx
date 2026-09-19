@@ -147,10 +147,12 @@ function AddAssetsMenu(props: { onImport: () => void; onCreateFolder: () => void
     <div style={{ position: "relative" }}>
       <Button testId="diffusion-import" active={open()} onClick={() => setOpen(!open())}><text style={muted}>＋</text></Button>
       <Show when={open()}>
-        <div testId="diffusion-add-assets-menu" style={{ position: "absolute", right: 0, top: 32, width: 160, padding: 5, borderWidth: 1, borderColor: C.borderStrong, borderRadius: 7, backgroundColor: C.background }}>
-          <MenuRow label="Import assets" shortcut="⌘I" testId="diffusion-import-assets" onClick={() => { props.onImport(); setOpen(false) }} />
-          <MenuRow label="Create folder" shortcut="⇧⌘N" testId="diffusion-create-folder" onClick={() => { props.onCreateFolder(); setOpen(false) }} />
-        </div>
+        <anchored side="bottom" align="end" gap={4} fit="snap" deferred priority={1} occlude>
+          <div testId="diffusion-add-assets-menu" style={{ width: 160, padding: 5, borderWidth: 1, borderColor: C.borderStrong, borderRadius: 7, backgroundColor: C.background }}>
+            <MenuRow label="Import assets" shortcut="⌘I" testId="diffusion-import-assets" onClick={() => { props.onImport(); setOpen(false) }} />
+            <MenuRow label="Create folder" shortcut="⇧⌘N" testId="diffusion-create-folder" onClick={() => { props.onCreateFolder(); setOpen(false) }} />
+          </div>
+        </anchored>
       </Show>
     </div>
   )
