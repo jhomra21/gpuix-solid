@@ -2,7 +2,7 @@ import { writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { createSignal } from "solid-js"
-import { appMenu, dialog, render, shell, type EventPayload } from "gpuix-solid"
+import { appMenu, appWindow, dialog, render, shell, useGpuixRequired, type EventPayload } from "gpuix-solid"
 
 function Action(props: { label: string; onClick: () => void }) {
   return (
@@ -25,7 +25,9 @@ function Action(props: { label: string; onClick: () => void }) {
 }
 
 function App() {
-  const [status, setStatus] = createSignal("Ready. Try a system dialog or either drag/drop target.")
+  const renderer = useGpuixRequired()
+  const [status, setStatus] = createSignal("Ready. Try a system dialog, window action, or either drag/drop target.")
+  const [renamed, setRenamed] = createSignal(false)
   const [dragging, setDragging] = createSignal(false)
   const [dropHot, setDropHot] = createSignal(false)
   const [dropPosition, setDropPosition] = createSignal<{ left: number; top: number }>()
@@ -78,10 +80,26 @@ function App() {
         Desktop integrations
       </text>
       <text style={{ color: "#a7a7ae", fontSize: 13, lineHeight: 19 }}>
-        GPUIX native window + Solid dialogs, shell helpers, native file drops, and the default app menu.
+        GPUIX native window controls + Solid dialogs, shell helpers, native file drops, and the default app menu.
       </text>
 
       <div style={{ display: "flex", flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+        <Action
+          label={renamed() ? "Restore title" : "Rename window"}
+          onClick={() => {
+            const next = !renamed()
+            appWindow.setTitle(renderer, next ? "GPUix Solid · Renamed" : "GPUix Solid Desktop Integrations")
+            setRenamed(next)
+            setStatus(next ? "Window title changed through GPUIX" : "Window title restored")
+          }}
+        />
+        <Action
+          label="Activate window"
+          onClick={() => {
+            appWindow.activate(renderer)
+            setStatus("Requested native window activation")
+          }}
+        />
         <Action
           label="Open file…"
           onClick={() => run(async () => {
@@ -241,6 +259,10 @@ function App() {
       >
         <text style={{ color: "#c7c7ce", fontSize: 14 }}>Drop files here from Finder</text>
       </div>
+
+      <text testId="desktop-window-capabilities" style={{ color: "#85858d", fontSize: 11 }}>
+        {`GPUIX 0.9 · minimize ${appWindow.supportsMinimize ? "yes" : "no"} · zoom ${appWindow.supportsZoom ? "yes" : "no"} · fullscreen toggle ${appWindow.supportsFullscreenToggle ? "yes" : "no"} · custom menus ${appMenu.supportsCustomItems ? "yes" : "no"}`}
+      </text>
 
       <div
         testId="desktop-status"
