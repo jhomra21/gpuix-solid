@@ -6,7 +6,7 @@ GPUix Solid keeps runnable native examples for three different reasons:
 2. **GPUIX parity:** Solid ports preserve the purpose and source structure of audited upstream GPUIX examples.
 3. **Application dogfood:** larger Solid applications exercise the renderer under realistic layouts, routing, scrolling, controls, and interaction patterns.
 
-All Solid 2 examples compile with Solid's universal renderer and execute as native Bun processes through exact `@gpuix/native@0.9.0`. They are not browser apps or Electron windows.
+All Solid 2 example, test, and benchmark Vite configs use the first-party `gpuixSolid()` helper, so they exercise the same universal compiler settings, live Solid runtime conditions, and native-addon externalization recommended to applications. Runnable entries call `render()`, so the Solid client-runtime guard and native runtime-error recovery path are part of every live example automatically. They execute as native Bun processes through exact `@gpuix/native@0.9.0`; they are not browser apps or Electron windows.
 
 Run commands from the repository root after:
 
@@ -25,7 +25,7 @@ If you are trying to build your own application rather than work on this reposit
 | CodeImage | `bun run example:codeimage` | Editor composition with toolbars, canvas/frame layout, sidebars, theme controls, and native compatibility boundaries |
 | Chat | `bun run example:chat` | Virtualized transcript, composer input, menus, text selection, scrolling, animation, code/diff content, and Solid-composed MDX |
 | Timeline | `bun run example:timeline` | Pan/zoom, clip move/trim, snapping, scrubbing, marquee selection, culling, frozen panes, and pointer capture |
-| Todo | `bun run example:todo` | Native input, lists, hover controls, sidebar motion, icons, and virtual-list anchoring |
+| Todo | `bun run example:todo` | Native input, hover controls, sidebar motion, icons, virtual-list anchoring, and public retained-list Top/Bottom commands |
 | Counter | `bun run example:counter` | Smallest signal/click/hover/update fixture |
 
 The README screenshot gallery is generated from these Solid-rendered native windows. Upstream React screenshots are never presented as GPUix Solid output.
@@ -83,7 +83,7 @@ The single Solid 2 Blurred Window target is the animated username/welcome glass 
 bun run example:todo
 ```
 
-Covers a standalone application layout, native `<input>`, view switching, hover-only row controls, completion/star/delete actions, sidebar animation, pinned upstream SVG artwork, and `<virtual-list>` anchoring when rows are prepended.
+Covers a standalone application layout, native `<input>`, view switching, hover-only row controls, completion/star/delete actions, sidebar animation, pinned upstream SVG artwork, `<virtual-list>` anchoring when rows are prepended, and the public `list.scrollToItem()` retained-list command through visible Top/Bottom controls.
 
 ### Diff
 
@@ -136,6 +136,14 @@ The exact source/native baseline and gap tracking live in [`../docs/upstream-par
 ## Source-first application dogfood
 
 These are additional renderer fixtures rather than substitutes for the upstream parity ports. When an application comes from another repository, its source snapshot is pinned and compatibility changes live beneath the application boundary.
+
+### Desktop integrations
+
+```bash
+bun run example:desktop
+```
+
+Shows the desktop API surface in one runnable window: native open/save/message dialogs, system open/reveal, native file drop, semantic application drag/drop, default application-menu naming, `appWindow.setTitle()`, `appWindow.activate()`, and visible capability flags for minimize/zoom/fullscreen/custom-menu operations that GPUIX 0.9 does not expose yet.
 
 ### Diffusion Studio editor
 
