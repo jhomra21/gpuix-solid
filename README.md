@@ -399,7 +399,7 @@ Package-specific documentation stays with its package. Repository-wide docs belo
 - [Solid 2 starter](./templates/solid2-vite-bun)
 - [Examples](./examples/README.md)
 - [Compatibility](./docs/compatibility.md)
-- [Stable 0.1.0 qualification](./docs/release-candidate.md)
+- [Release qualification](./docs/release-candidate.md)
 - [Upstream parity](./docs/upstream-parity.md)
 - [solid-gpui parity notes](./docs/solid-gpui-parity.md)
 - [Source-edge workflow](./docs/gpuix-edge.md)
