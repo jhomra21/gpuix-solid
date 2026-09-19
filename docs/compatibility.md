@@ -8,7 +8,7 @@ Use [`getting-started.md`](./getting-started.md) for Solid 2 and [`getting-start
 
 | Layer | Current contract | Notes |
 | --- | --- | --- |
-| `gpuix-solid` | stable `0.2.0`; published prerelease `0.2.1-beta.0`; repository contains post-beta fixes for the next prerelease | Solid 2 renderer in `packages/solid` |
+| `gpuix-solid` | stable `0.2.0`; prereleases advance on the npm `beta` dist-tag after exact-package qualification | Solid 2 renderer in `packages/solid` |
 | `solid-js` for Solid 2 | peer `^2.0.0-rc.8` | Repository package and clean-consumer qualification use `2.0.0-rc.8` |
 | `@solidjs/universal` | exact `2.0.0-rc.8` | Direct runtime dependency paired with the Solid 2 RC.8 peer line |
 | `@jhomra21/gpuix-solid1` | repository package version `0.1.0-beta.0` | Solid 1 renderer in `packages/solid1`; versioned separately from `gpuix-solid` |
