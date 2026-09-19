@@ -6,9 +6,9 @@ GPUix Solid compiles Solid JSX into GPUIX's retained native tree. Bun runs the J
 
 ## Current Solid 2 contract
 
-The repository's next `0.2.x` line targets:
+The current `0.2.x` line uses:
 
-- `gpuix-solid` repository target `0.2.x`; npm `latest` remains the last published stable until release
+- `gpuix-solid@0.2.0` on npm `latest`, with `0.2.1-beta.0` as the current published prerelease
 - `solid-js ^2.0.0-rc.8`
 - exact `@gpuix/native 0.9.0`
 - `@solidjs/universal 2.0.0-rc.8` as the renderer's direct runtime dependency
@@ -24,7 +24,7 @@ bun add gpuix-solid solid-js@2.0.0-rc.8
 bun add -d @solidjs/vite-plugin@3.0.0-next.29 vite@8.1.5 typescript@5.9.2
 ```
 
-A copyable Solid 2 project lives at [`templates/solid2-vite-bun`](../templates/solid2-vite-bun). Until `0.2.0` is published, that public-install starter intentionally remains on the published `^0.1.0` line. It will move to `^0.2.0` only after npm can resolve that version in a clean external install.
+A copyable Solid 2 project lives at [`templates/solid2-vite-bun`](../templates/solid2-vite-bun). The public starter tracks the stable `^0.2.0` line; release qualification for prereleases uses exact versions in clean external consumers instead of moving the starter onto a beta tag.
 
 ## Create a project
 
@@ -226,6 +226,12 @@ Repository CI continuously checks the GPUIX 0.9 package line on:
 - Windows x64 MSVC
 
 Window behavior can still vary by operating system. Native blur is one example.
+
+## Current 0.2.x acceptance
+
+The published `gpuix-solid@0.2.1-beta.0` passed clean external-consumer build and interaction checks. The post-beta selection-subscription fix was then qualified on exact candidate `ab6436a0744a2907dcbf9325efbc0365e30e5517`: live native automation observed a real selection value through `createTextSelection()`, clear back to `null`, reselection, and a later action click with no fatal runtime error.
+
+That validates the live native renderer event path. A literal physical mouse/trackpad drag remains unverified on the current GPUIX 0.9 line because CUA could not attach to the Bun-launched native window.
 
 ## Historical foreground result
 
