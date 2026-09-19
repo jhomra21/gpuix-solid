@@ -2,6 +2,8 @@ import { createRenderEffect, createRoot, createSignal, flush } from "solid-js"
 
 export type SolidClientRuntimeCheck = () => boolean
 
+let cachedClientRuntimeReactive: boolean | undefined
+
 /**
  * Verify that the resolved Solid runtime actually reruns reactive effects.
  *
@@ -34,7 +36,10 @@ export function isSolidClientRuntimeReactive(): boolean {
 export function assertSolidClientRuntime(
   check: SolidClientRuntimeCheck = isSolidClientRuntimeReactive,
 ): void {
-  if (check()) return
+  const reactive = check === isSolidClientRuntimeReactive
+    ? (cachedClientRuntimeReactive ??= check())
+    : check()
+  if (reactive) return
 
   throw new Error(
     "gpuix-solid: solid-js resolved to a non-reactive server runtime. " +
