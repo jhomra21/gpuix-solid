@@ -1,30 +1,11 @@
-import solid from "@solidjs/vite-plugin"
+import { gpuixSolid } from "gpuix-solid/vite"
 import { defineConfig } from "vite"
 
 export default defineConfig({
-  plugins: [
-    solid({
-      solid: {
-        generate: "universal",
-        moduleName: "gpuix-solid",
-      },
-    }),
-  ],
-  resolve: {
-    conditions: ["browser", "development"],
-  },
-  ssr: {
-    noExternal: ["gpuix-solid", "@solidjs/universal", "solid-js"],
-    resolve: {
-      conditions: ["browser", "development", "import", "default"],
-    },
-  },
+  plugins: [gpuixSolid()],
   build: {
     target: "node22",
     ssr: "src/gpuix-surface/index.tsx",
     outDir: "dist/gpuix-surface",
-    rollupOptions: {
-      external: ["@gpuix/native"],
-    },
   },
 })
