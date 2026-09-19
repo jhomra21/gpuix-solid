@@ -64,4 +64,23 @@ describe("batch renderer browser drag capture bridge", () => {
       ["setEventListener", 11, "mouseMove", true],
     ]])
   })
+
+  it("forwards window selection subscriptions to the native renderer", () => {
+    const calls: Array<[boolean, number]> = []
+    const renderer: BatchRendererApi = {
+      applyBatch: () => [],
+      setWindowSelectionChange(enabled, eventId) {
+        calls.push([enabled, eventId])
+      },
+    }
+    const adapted = adaptBatchRenderer(renderer)
+
+    adapted.setWindowSelectionChange?.(true, 41)
+    adapted.setWindowSelectionChange?.(false, 41)
+
+    expect(calls).toEqual([
+      [true, 41],
+      [false, 41],
+    ])
+  })
 })
