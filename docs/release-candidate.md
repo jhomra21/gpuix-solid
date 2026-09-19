@@ -41,7 +41,7 @@ Do not describe that as a physical foreground gesture. It is strong end-to-end e
 
 ---
 
-# 0.1.0 release qualification
+## Historical 0.1.0 qualification
 
 Status: passed and released on September 15, 2026.
 
