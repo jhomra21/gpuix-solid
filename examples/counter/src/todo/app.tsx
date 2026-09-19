@@ -1,5 +1,5 @@
 import { For, Show, createMemo, createSignal } from "solid-js"
-import { animate, type EventPayload } from "gpuix-solid"
+import { animate, list, useGpuixRequired, type EventPayload, type PublicInstance } from "gpuix-solid"
 import iconCheck from "../../upstream/gpuix/example-app/assets/icons/check.svg?raw"
 import iconCircleCheck from "../../upstream/gpuix/example-app/assets/icons/circle-check.svg?raw"
 import iconInbox from "../../upstream/gpuix/example-app/assets/icons/inbox.svg?raw"
@@ -343,6 +343,8 @@ export function TodoApp() {
   const [todos, setTodos] = createSignal<Todo[]>(INITIAL)
   const [view, setView] = createSignal<ViewId>("today")
   const [collapsed, setCollapsed] = createSignal(false)
+  const renderer = useGpuixRequired()
+  let listRef: PublicInstance | undefined
   let nextId = INITIAL.length
 
   const counts = createMemo(() => {
@@ -355,6 +357,11 @@ export function TodoApp() {
 
   const update = (id: string, patch: Partial<Todo>): void => {
     setTodos((current) => current.map((todo) => todo.id === id ? { ...todo, ...patch } : todo))
+  }
+
+  const scrollToItem = (index: number): void => {
+    if (!listRef) return
+    list.scrollToItem(renderer, listRef.id, Math.max(0, index))
   }
 
   const add = (title: string): void => {
@@ -473,11 +480,26 @@ export function TodoApp() {
             {String(visible().length)}
           </text>
           <div style={{ flexGrow: 1 }} />
+          <div
+            testId="list-top"
+            onClick={() => scrollToItem(0)}
+            style={{ paddingLeft: 8, paddingRight: 8, height: 28, borderRadius: 7, alignItems: "center", justifyContent: "center", cursor: "pointer", hover: { backgroundColor: C.overlay } }}
+          >
+            <text style={{ fontSize: 11, fontFamily: FONT, color: C.tertiary }}>Top</text>
+          </div>
+          <div
+            testId="list-bottom"
+            onClick={() => scrollToItem(Math.max(0, visible().length - 1))}
+            style={{ paddingLeft: 8, paddingRight: 8, height: 28, borderRadius: 7, alignItems: "center", justifyContent: "center", cursor: "pointer", hover: { backgroundColor: C.overlay } }}
+          >
+            <text style={{ fontSize: 11, fontFamily: FONT, color: C.tertiary }}>Bottom</text>
+          </div>
           <IconButton icon="search" testId="search" />
         </div>
 
         <Show when={visible().length > 0} fallback={<EmptyState view={view()} />}>
           <virtual-list
+            ref={(instance) => { listRef = instance }}
             estimatedItemHeight={48}
             style={{
               flexGrow: 1,
