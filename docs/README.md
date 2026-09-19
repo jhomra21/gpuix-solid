@@ -32,6 +32,7 @@ Repository-wide documentation lives here. Package-specific usage stays with the 
 - `examples`: runnable native fixtures and source-pinned application dogfood
 - `templates`: copyable public starter projects
 - `scripts`: repository validation, source-edge, release, parity, and benchmark tooling
+- `experiments`: the legacy Solid 1 compatibility lab only; new maintained runnable coverage belongs in `examples/` or its owning package
 - `docs`: repository-wide architecture, compatibility, qualification, and release contracts
 - `.github`: CI, acceptance, and release automation
 
