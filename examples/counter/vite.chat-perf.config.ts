@@ -1,5 +1,5 @@
 import { createRequire } from "node:module"
-import solid from "@solidjs/vite-plugin"
+import { gpuixSolid } from "gpuix-solid/vite"
 import { defineConfig } from "vite"
 
 const require = createRequire(import.meta.url)
@@ -7,14 +7,7 @@ const safeMdxRequire = createRequire(require.resolve("safe-mdx/parse"))
 const decodeNamedCharacterReference = safeMdxRequire.resolve("decode-named-character-reference")
 
 export default defineConfig({
-  plugins: [
-    solid({
-      solid: {
-        generate: "universal",
-        moduleName: "gpuix-solid",
-      },
-    }),
-  ],
+  plugins: [gpuixSolid()],
   resolve: {
     alias: [
       {
@@ -22,20 +15,13 @@ export default defineConfig({
         replacement: decodeNamedCharacterReference,
       },
     ],
-    conditions: ["browser", "development"],
   },
   ssr: {
-    noExternal: ["gpuix-solid", "@solidjs/universal", "solid-js", "safe-mdx"],
-    resolve: {
-      conditions: ["browser", "development", "import", "default"],
-    },
+    noExternal: ["safe-mdx"],
   },
   build: {
     target: "node22",
     ssr: "src/benchmarks/chat.tsx",
     outDir: "dist/chat-perf",
-    rollupOptions: {
-      external: ["@gpuix/native"],
-    },
   },
 })
