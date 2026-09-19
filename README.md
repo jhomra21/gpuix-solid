@@ -386,6 +386,7 @@ GPUix Solid keeps ownership explicit rather than accumulating framework, fixture
 - `examples/` owns runnable native fixtures and source-pinned application dogfood;
 - `templates/` owns copyable public starters;
 - `scripts/` owns repository tooling and acceptance harnesses;
+- `tools/` owns maintained repository tooling that is packaged or configured as source, including the custom oxlint anti-slop plugin;
 - `experiments/` is limited to the legacy Solid 1 compatibility lab; new maintained runnable coverage belongs in `examples/` or its owning package;
 - `docs/` owns repository-wide architecture, compatibility, qualification, and release contracts;
 - `.github/` owns CI and release automation.
