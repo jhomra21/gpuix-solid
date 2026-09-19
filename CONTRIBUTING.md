@@ -5,9 +5,9 @@ GPUix Solid is early-stage and prioritizes behavioral parity with GPUIX over API
 Before changing renderer internals, read:
 
 - `README.md`
-- `ARCHITECTURE.md`
+- `docs/architecture.md`
 - `AGENTS.md`
-- `UPSTREAM.md`
+- `docs/upstream.md`
 
 ## Development
 
