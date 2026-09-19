@@ -25,7 +25,7 @@ This project has not launched and has no production users or production data. Re
 - Keep database invariants, transactional safety, migration idempotence, and deterministic setup intact.
 - Consolidate a migration baseline only as an explicit coordinated change.
 
-## Canonical references
+## Reference Codebases
 
 Use references in this order when a behavior or architecture question arises:
 
