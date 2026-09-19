@@ -8,7 +8,7 @@ Use [`getting-started.md`](./getting-started.md) for Solid 2 and [`getting-start
 
 | Layer | Current contract | Notes |
 | --- | --- | --- |
-| `gpuix-solid` | repository target `0.2.0`; npm `latest` remains the last published stable until release | Solid 2 renderer in `packages/solid` |
+| `gpuix-solid` | stable `0.2.0`; published prerelease `0.2.1-beta.0`; repository contains post-beta fixes for the next prerelease | Solid 2 renderer in `packages/solid` |
 | `solid-js` for Solid 2 | peer `^2.0.0-rc.8` | Repository package and clean-consumer qualification use `2.0.0-rc.8` |
 | `@solidjs/universal` | exact `2.0.0-rc.8` | Direct runtime dependency paired with the Solid 2 RC.8 peer line |
 | `@jhomra21/gpuix-solid1` | repository package version `0.1.0-beta.0` | Solid 1 renderer in `packages/solid1`; versioned separately from `gpuix-solid` |
@@ -72,11 +72,15 @@ Current upstream GPUIX documentation also covers React-specific CLI, hot reload,
 
 ## Foreground acceptance status
 
-Earlier source analysis of `@gpuix/native@0.8.0` found a text-selection mouse-up ownership path that could reproduce a fatal nested root-view update on macOS. The repository kept that as a release risk instead of adding a Solid-side workaround.
+GPUIX 0.9 ships the native click/selection ownership fix that replaced the old 0.8 source-level risk.
 
-The exact published `gpuix-solid@0.1.0-rc.1` with `@gpuix/native@0.8.0` passed the external foreground qualification test on September 15, 2026. After publication, stable `gpuix-solid@0.1.0` passed the same external Counter and GPUIX 0.8 text/input foreground test. Click, hover, selection, focus, accessibility, multiline textarea, follow-up interaction, and shutdown paths completed without a crash or fatal `GpuixView` error.
+The published `gpuix-solid@0.2.1-beta.0` passed clean external-consumer build and interaction checks. That run exposed one Solid integration gap: native text selection painted correctly, but `createTextSelection()` stayed at `Selection: none` because the production batch adapter did not forward `setWindowSelectionChange()`.
 
-That result is the stable `0.1.0` qualification record. GPUIX 0.9 subsequently shipped the native click/selection ownership fix, so the old 0.8 source-level concern is historical rather than a current 0.9 blocker. Keep the diagnostic history in [`release-candidate.md`](./release-candidate.md) and [`upstream-parity.md`](./upstream-parity.md).
+PR #98 fixed that forwarding in both Solid renderers. Its exact candidate `ab6436a0744a2907dcbf9325efbc0365e30e5517` passed full CI and Mail Acceptance. Live native automation then selected “Select this GPUIX 0.9 text”, observed the reactive label update, cleared back to `Selection: none`, selected again, and performed a later action click exactly once. The focused GPUIX surface test also passed; only the known duplicate-font warnings appeared.
+
+A literal physical foreground mouse/trackpad drag on the current GPUIX 0.9 line is still unverified because CUA could not attach to the Bun-launched native window. That distinction remains explicit in the release qualification record.
+
+The older `0.1.0` / GPUIX 0.8 foreground runs remain historical evidence. See [`release-candidate.md`](./release-candidate.md) and [`upstream-parity.md`](./upstream-parity.md).
 
 ## Policy
 
