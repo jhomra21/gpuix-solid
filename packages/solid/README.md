@@ -15,7 +15,7 @@ bun add gpuix-solid solid-js@2.0.0-rc.8
 bun add -d @solidjs/vite-plugin@3.0.0-next.29 vite@8.1.5 typescript@5.9.2
 ```
 
-Compile Solid JSX through the universal renderer with `jsxImportSource: "gpuix-solid"` and `moduleName: "gpuix-solid"`. Keep `@gpuix/native` external so Bun can load its platform-specific native addon.
+Set `jsxImportSource: "gpuix-solid"`, then prefer `gpuixSolid()` from `gpuix-solid/vite` for the qualified universal renderer, live Solid runtime conditions, and native-addon externalization. The equivalent explicit configuration remains documented in the repository for non-Vite or custom build integrations.
 
 ## Minimal app
 
