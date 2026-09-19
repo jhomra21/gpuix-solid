@@ -467,6 +467,13 @@ export interface TextareaProps extends InputProps {
   maxRows?: number
 }
 
+export interface CanvasProps extends HostProps {
+  /** Canvas backing-store width in logical pixels. Defaults to 300. */
+  width?: number
+  /** Canvas backing-store height in logical pixels. Defaults to 150. */
+  height?: number
+}
+
 type VirtualListShared = {
   style?: Omit<StyleDesc, "hover" | "active">
   children?: unknown
@@ -574,6 +581,8 @@ export interface NativeRenderer {
   getPaintedHighlights?(): HighlightMatch[]
   getWindowSize?(): { width: number; height: number }
   getWindowInsets?(): NativeWindowInsets
+  /** Version of the native retained Canvas2D draw-list protocol, or undefined when unavailable. */
+  getCanvasDrawListVersion?(): number
   activateWindow?(): void
   setWindowTitle?(title: string): void
   setDebugFrameOverlay?(mode: DebugFrameOverlayMode): string
