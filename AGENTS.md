@@ -44,7 +44,8 @@ Keep top-level ownership narrow:
 - published renderers live in `packages/`;
 - runnable fixtures live in `examples/`;
 - copyable starters live in `templates/`;
-- repository tooling lives in `scripts/`;
+- repository automation and command scripts live in `scripts/`;
+- maintained tooling source lives in `tools/`, including the custom oxlint anti-slop plugin;
 - repository-wide architecture, compatibility, qualification, and release docs live in `docs/`.
 
 Keep package-specific implementation notes with the package that owns them. Do not create new top-level project documents when an existing ownership bucket fits.
