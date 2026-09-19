@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add the `gpuix-solid/vite` first-party Vite helper for the qualified Solid universal/compiler/runtime configuration, plus a startup guard that fails clearly when Solid resolves to its non-reactive server build.
+- Add user-facing element, styling, event, desktop, and automation API guides derived from the current GPUIX 0.9 Solid surface.
 - Fix live `createTextSelection()` updates by forwarding GPUIX's window-level selection subscription through the production batch renderer adapter in both Solid 2 and Solid 1.
 - Fix nested `onContextMenu` delivery by relaying secondary mouse-up to the nearest authored context-menu owner while suppressing duplicate retained callbacks.
 - Move the Diffusion asset-actions menu onto GPUIX's native anchored/occluding overlay path so painted overlay order and hit testing agree.
