@@ -77,6 +77,12 @@ Helpers that create reactive state or subscriptions use Solid's `create*` conven
 
 The older `useWindowSize`, `useWindowInsets`, and `useTextSearch` exports remain as deprecated compatibility aliases. `useGpuix()` keeps its name because it reads an existing context rather than creating reactive ownership.
 
+## Vite helper
+
+`gpuix-solid/vite` exports `gpuixSolid()`, which applies the universal Solid compiler settings, live browser export conditions, Solid bundling contract, and native-addon externalization required by GPUix Solid. The application still chooses its build entry, output directory, and target.
+
+`render()` independently verifies that the resolved Solid runtime reruns reactive effects and throws an actionable configuration error when the server build was selected.
+
 ## Reactive text selection
 
 GPUIX 0.9 can report window-level text-selection changes. In Solid code, prefer `createTextSelection()` over manually mirroring the low-level callback into component state. The primitive returns a normal Solid accessor and owns the native subscription for the lifetime of the calling Solid owner.
