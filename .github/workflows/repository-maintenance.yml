@@ -1,0 +1,90 @@
+name: Repository Maintenance
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: repository-maintenance
+  cancel-in-progress: false
+
+jobs:
+  cleanup-branches:
+    if: >-
+      github.event.issue.number == 31 &&
+      github.event.issue.pull_request == null &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.body == '/cleanup-branches'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete stale repository branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          repo="$GITHUB_REPOSITORY"
+          default_branch=$(gh repo view "$repo" --json defaultBranchRef --jq '.defaultBranchRef.name')
+
+          declare -A open_heads=()
+          while IFS= read -r branch; do
+            [[ -n "$branch" ]] && open_heads["$branch"]=1
+          done < <(
+            gh pr list --repo "$repo" --state open --limit 500 --json headRefName --jq '.[].headRefName'
+          )
+
+          declare -A closed_heads=()
+          while IFS= read -r branch; do
+            [[ -n "$branch" ]] && closed_heads["$branch"]=1
+          done < <(
+            gh pr list --repo "$repo" --state closed --limit 500 --json headRefName --jq '.[].headRefName' | sort -u
+          )
+
+          deleted=()
+          preserved=()
+
+          while IFS= read -r branch; do
+            [[ -z "$branch" ]] && continue
+
+            if [[ "$branch" == "$default_branch" || -n "${open_heads[$branch]:-}" ]]; then
+              preserved+=("$branch")
+              continue
+            fi
+
+            disposable=false
+            case "$branch" in
+              diag/*|diagnostic/*|experiment/*|perf/*|tmp/*|tmp-*|m5-retained-tree-parity-2)
+                disposable=true
+                ;;
+            esac
+
+            if [[ -z "${closed_heads[$branch]:-}" && "$disposable" != true ]]; then
+              preserved+=("$branch")
+              continue
+            fi
+
+            echo "Deleting stale branch: $branch"
+            gh api --method DELETE "repos/$repo/git/refs/heads/$branch"
+            deleted+=("$branch")
+          done < <(
+            gh api --paginate "repos/$repo/branches?per_page=100" --jq '.[].name'
+          )
+
+          {
+            echo "### Repository branch cleanup"
+            echo
+            echo "Deleted ${#deleted[@]} stale branches."
+            echo "Preserved the default branch, every open-PR head, and unclassified orphan branches."
+            if (( ${#deleted[@]} > 0 )); then
+              echo
+              echo "Deleted branches:"
+              printf -- '- %s\n' "${deleted[@]}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          gh issue comment 31 --repo "$repo" --body "Repository branch cleanup complete: deleted ${#deleted[@]} stale branches and preserved the default branch plus all open-PR heads."
