@@ -44,7 +44,7 @@ docs: document Solid batch boundary
 
 ## Branch lifecycle
 
-Delete merged feature/release branches and abandoned diagnostic or experiment branches once their work is preserved on `main` or in a closed pull request.
+Merged same-repository pull-request branches are deleted automatically. Abandoned diagnostic or experiment branches should also be removed once their work is preserved on `main` or in a closed pull request.
 
 Repository owners can run the guarded cleanup from issue #31 with:
 
@@ -52,4 +52,4 @@ Repository owners can run the guarded cleanup from issue #31 with:
 /cleanup-branches
 ```
 
-The maintenance workflow preserves the default branch and every open pull-request head. It deletes heads of closed pull requests plus clearly disposable `diag/`, `diagnostic/`, `experiment/`, `perf/`, and `tmp` branches.
+The manual maintenance pass preserves the default branch and every open pull-request head. It deletes heads of closed pull requests plus clearly disposable `diag/`, `diagnostic/`, `experiment/`, `perf/`, and `tmp` branches.
