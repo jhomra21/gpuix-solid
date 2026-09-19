@@ -56,5 +56,5 @@ GPUix Solid does not depend on or vendor solid-gpui. Utility-class parsing, layo
 The following codebases were consulted for repository and architecture conventions but are not runtime dependencies and are not vendored:
 
 - Pi: https://github.com/earendil-works/pi
-- OpenCode: https://github.com/anomalyco/opencode
+- OpenCode v2: https://github.com/anomalyco/opencode
 - Mesurer Solid: https://github.com/jhomra21/mesurer-solid

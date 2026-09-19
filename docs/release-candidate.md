@@ -1,4 +1,47 @@
-# 0.1.0 release qualification
+# Release qualification
+
+## 0.2.1 beta and post-beta candidate
+
+Status: `gpuix-solid@0.2.1-beta.0` published; post-beta fixes qualified for the next prerelease on September 19, 2026.
+
+The current runtime pair is:
+
+- `gpuix-solid@0.2.1-beta.0` as the published prerelease baseline
+- `@gpuix/native@0.9.0`
+- `solid-js@2.0.0-rc.8`
+- `@solidjs/universal@2.0.0-rc.8`
+
+The published beta passed a clean external consumer: Counter interaction, accessibility actions, textarea newline behavior, and the GPUIX surface built and ran without a fatal native error. That run exposed a production-only integration gap in reactive text selection: the native highlight painted, but `createTextSelection()` remained at `Selection: none`.
+
+The cause was the Solid batch renderer adapter forwarding `getSelectedText()` and `clearSelection()` but not `setWindowSelectionChange()`. PR #98 fixed that capability forwarding in both Solid 2 and Solid 1 and added direct regression coverage.
+
+The exact post-beta candidate was:
+
+```text
+ab6436a0744a2907dcbf9325efbc0365e30e5517
+```
+
+On that SHA:
+
+- CI passed on macOS, Ubuntu, and Windows;
+- package smoke passed for Solid 2 and Solid 1;
+- the pinned GPUIX 0.9 source-edge lane passed;
+- Diffusion deterministic and live-native regressions passed;
+- the Solid 1 DAW native regression passed;
+- exhaustive Mail live-native acceptance and React/Solid differential parity passed;
+- live native selection automation selected “Select this GPUIX 0.9 text”, observed the reactive selection label, cleared it to `Selection: none`, selected it again, and a later action click incremented exactly once;
+- the focused `test:gpuix-surface` passed;
+- only the known duplicate-font GPUI/CoreText warnings appeared.
+
+### Physical-input limitation
+
+The current 0.9 line still does not have a literal physical foreground mouse/trackpad selection pass from this candidate. CUA could not attach to the Bun-launched native window, so the successful interaction above used GPUIX live native stdio automation.
+
+Do not describe that as a physical foreground gesture. It is strong end-to-end evidence for the production native event/subscription path, while physical foreground input remains a separate manual acceptance item.
+
+---
+
+## Historical 0.1.0 qualification
 
 Status: passed and released on September 15, 2026.
 

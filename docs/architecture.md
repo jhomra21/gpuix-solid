@@ -148,6 +148,37 @@ Replacing a handler while an event type remains enabled changes the JavaScript c
 
 GPUI events dispatch into the owning root. The framework adapter flushes synchronous updates according to its Solid version's runtime rules before the interaction is considered complete.
 
+Browser-shaped bubbling that GPUI does not provide natively is implemented deliberately at the host boundary. For example, secondary mouse-up can relay to the nearest authored context-menu owner, while duplicate retained callbacks for the same physical release are suppressed. Solid 1 and Solid 2 keep this framework-neutral routing behavior aligned.
+
+## Renderer capability forwarding
+
+The batch adapter is also the capability boundary between the Solid host and the live `@gpuix/native` renderer. Any optional native method consumed above that adapter must be forwarded explicitly.
+
+That includes window-level capabilities such as `setWindowSelectionChange()` as well as `getSelectedText()` and `clearSelection()`. Tests must exercise forwarding itself, not only the native test renderer, because a test renderer can expose a method directly while the production batch adapter accidentally hides it.
+
+Window-wide selection follows this path:
+
+```text
+createTextSelection()
+        |
+        v
+root selection lease
+        |
+        v
+setWindowSelectionChange(true, eventId)
+        |
+        v
+@gpuix/native
+        |
+        v
+selectionChange event
+        |
+        v
+root Solid signal
+```
+
+The production and test paths must prove the same subscription lifecycle: retain, change delivery, clear, cleanup, and remount isolation.
+
 ## Properties
 
 The host adapter handles these prop categories:
