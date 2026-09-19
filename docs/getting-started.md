@@ -8,7 +8,7 @@ GPUix Solid compiles Solid JSX into GPUIX's retained native tree. Bun runs the J
 
 The current `0.2.x` line uses:
 
-- `gpuix-solid@0.2.0` on npm `latest`, with `0.2.1-beta.0` as the current published prerelease
+- `gpuix-solid@0.2.0` on npm `latest`; prereleases advance on the npm `beta` dist-tag after exact-package qualification
 - `solid-js ^2.0.0-rc.8`
 - exact `@gpuix/native 0.9.0`
 - `@solidjs/universal 2.0.0-rc.8` as the renderer's direct runtime dependency
