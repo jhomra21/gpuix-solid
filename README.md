@@ -15,7 +15,7 @@ GPUix Solid supports two Solid generations through separate packages:
 | Solid 2 | `gpuix-solid` | `solid-js ^2.0.0-rc.8` |
 | Solid 1 | `@jhomra21/gpuix-solid1` | `solid-js >=1.9.0 <2` |
 
-Both packages target the exact `@gpuix/native@0.9.0` contract. The repository is preparing the Solid 2 `0.2.0` line; npm `latest` remains the last published stable version until that release lands. Solid 2 uses the paired `solid-js@2.0.0-rc.8` and `@solidjs/universal@2.0.0-rc.8` runtime baseline. Solid 1 keeps its own package version and release cycle.
+Both packages target the exact `@gpuix/native@0.9.0` contract. `gpuix-solid@0.2.0` is the current stable npm `latest`, and `gpuix-solid@0.2.1-beta.0` is the current published prerelease. The repository now contains post-beta fixes that will ship in the next beta. Solid 2 uses the paired `solid-js@2.0.0-rc.8` and `@solidjs/universal@2.0.0-rc.8` runtime baseline. Solid 1 keeps its own package version and release cycle.
 
 ## Quickstart
 
@@ -355,7 +355,7 @@ await app.getByTestId("clip").dragBy(120, 0, { steps: 8 })
 await app.getByTestId("history").wheel(0, 240)
 ```
 
-The stable `0.1.0` release and its `@gpuix/native@0.8.0` dependency passed the external macOS foreground acceptance test after publication. The same test had already passed against `0.1.0-rc.1` before stable promotion. See [release-candidate.md](./docs/release-candidate.md) for that historical qualification record.
+The published `0.2.1-beta.0` package passed clean external-consumer build and live interaction checks. A post-beta candidate then fixed production `createTextSelection()` subscription forwarding; live-native automation proved selection, clear, reselection, and a follow-up action on that exact candidate. A literal physical mouse/trackpad drag on the current GPUIX 0.9 line remains unverified because CUA could not attach to the Bun-launched native window. See [release-candidate.md](./docs/release-candidate.md) for the current and historical qualification records.
 
 ## Source-pinned application work
 
@@ -363,10 +363,10 @@ Where an example comes from upstream source, the repository records exact source
 
 Contributors working on source compatibility should read:
 
-- [UPSTREAM.md](./UPSTREAM.md)
-- [upstream-parity.md](./docs/upstream-parity.md)
-- [gpuix-edge.md](./docs/gpuix-edge.md)
-- [ARCHITECTURE.md](./ARCHITECTURE.md)
+- [Upstream baseline](./docs/upstream.md)
+- [Upstream parity](./docs/upstream-parity.md)
+- [Source-edge workflow](./docs/gpuix-edge.md)
+- [Architecture](./docs/architecture.md)
 
 ## Current scope
 
@@ -378,8 +378,22 @@ GPUix Solid does not currently ship the upstream `@gpuix/cli`, Hermes runtime pa
 
 There is no first-party GPUix Solid application installer or packaging CLI yet.
 
+## Repository layout
+
+GPUix Solid keeps ownership explicit rather than accumulating framework, fixture, tooling, and release concerns at the repository root:
+
+- `packages/` owns the separately versioned Solid renderers;
+- `examples/` owns runnable native fixtures and source-pinned application dogfood;
+- `templates/` owns copyable public starters;
+- `scripts/` owns repository tooling and acceptance harnesses;
+- `docs/` owns repository-wide architecture, compatibility, qualification, and release contracts;
+- `.github/` owns CI and release automation.
+
+Package-specific documentation stays with its package. Repository-wide docs belong under `docs/`. See the [documentation index](./docs/README.md) for the ownership map.
+
 ## Documentation
 
+- [Documentation index](./docs/README.md)
 - [Solid 2 getting started](./docs/getting-started.md)
 - [Solid 1 getting started](./docs/getting-started-solid1.md)
 - [Solid 2 starter](./templates/solid2-vite-bun)
@@ -389,9 +403,9 @@ There is no first-party GPUix Solid application installer or packaging CLI yet.
 - [Upstream parity](./docs/upstream-parity.md)
 - [solid-gpui parity notes](./docs/solid-gpui-parity.md)
 - [Source-edge workflow](./docs/gpuix-edge.md)
-- [Architecture](./ARCHITECTURE.md)
+- [Architecture](./docs/architecture.md)
 - [Performance](./docs/performance.md)
-- [Releasing](./RELEASING.md)
+- [Releasing](./docs/releasing.md)
 
 ## License
 
