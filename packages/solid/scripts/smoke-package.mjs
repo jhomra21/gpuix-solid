@@ -114,6 +114,31 @@ try {
     { cwd: npmConsumer },
   )
 
+  run(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `
+        const { render } = await import("gpuix-solid")
+        let failure
+        try {
+          render(() => null, { renderer: {} })
+        } catch (error) {
+          failure = error
+        }
+        if (!(failure instanceof Error)) {
+          throw new Error("Plain Node render unexpectedly accepted Solid's server runtime")
+        }
+        if (!/browser export condition.*gpuix-solid\\/vite/u.test(failure.message)) {
+          throw new Error("Unexpected Solid runtime guard error: " + failure.message)
+        }
+        console.log("npm clean-consumer Solid server-runtime guard: PASS")
+      `,
+    ],
+    { cwd: npmConsumer },
+  )
+
   const consumerSource = `
     import {
       Combobox,
