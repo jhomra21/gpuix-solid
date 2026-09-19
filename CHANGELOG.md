@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+<!-- Add user-facing changes here before preparing a release. -->
+
+## 0.2.1-beta.1 - 2026-09-19
+
 - Add the `gpuix-solid/vite` first-party Vite helper for the qualified Solid universal/compiler/runtime configuration, plus a startup guard that fails clearly when Solid resolves to its non-reactive server build.
 - Add user-facing element, styling, event, desktop, and automation API guides derived from the current GPUIX 0.9 Solid surface.
 - Move every Solid 2 example/test/benchmark Vite config onto `gpuixSolid()`, add a drift check that rejects duplicated renderer setup, expose retained-list Top/Bottom controls in Todo, and expand Desktop Integrations with native title/activation controls plus explicit GPUIX capability flags.
@@ -87,5 +91,6 @@
 - Solid-native Tooltip, Select, Combobox, and `animate.*` APIs.
 - Native TestRenderer, locator automation, live stdio transport, deterministic clock, retained-tree snapshots, and screenshot parity.
 - Keep the public automation `launch({ env })` contract structural so TypeScript consumers do not need the global `NodeJS` namespace just to use the packaged automation API.
+
 
 
