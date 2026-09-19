@@ -15,7 +15,7 @@ GPUix Solid supports two Solid generations through separate packages:
 | Solid 2 | `gpuix-solid` | `solid-js ^2.0.0-rc.8` |
 | Solid 1 | `@jhomra21/gpuix-solid1` | `solid-js >=1.9.0 <2` |
 
-Both packages target the exact `@gpuix/native@0.9.0` contract. `gpuix-solid@0.2.0` is the current stable npm `latest`, and `gpuix-solid@0.2.1-beta.0` is the current published prerelease. The repository now contains post-beta fixes that will ship in the next beta. Solid 2 uses the paired `solid-js@2.0.0-rc.8` and `@solidjs/universal@2.0.0-rc.8` runtime baseline. Solid 1 keeps its own package version and release cycle.
+Both packages target the exact `@gpuix/native@0.9.0` contract. `gpuix-solid@0.2.0` is the current stable npm `latest`; prereleases advance on the npm `beta` dist-tag after exact-package qualification. Solid 2 uses the paired `solid-js@2.0.0-rc.8` and `@solidjs/universal@2.0.0-rc.8` runtime baseline. Solid 1 keeps its own package version and release cycle.
 
 ## Quickstart
 
