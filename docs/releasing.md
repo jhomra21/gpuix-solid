@@ -61,6 +61,18 @@ For a prerelease such as `0.1.0-rc.1`, `promote-stable` produces `0.1.0`. After 
    - creates the GitHub Release last.
 10. Run the Release Control `/verify-release` check when an explicit registry-level proof is useful. It validates the current version, dist-tag, SHA-512 integrity, and npm provenance policy. Provenance is required for every release except the exact one-time `gpuix-solid@0.1.0-beta.4` bootstrap.
 
+## Current 0.2.x qualification
+
+The stable `gpuix-solid@0.2.0` line is the current npm `latest` baseline. `gpuix-solid@0.2.1-beta.0` is the current published prerelease.
+
+After that beta, PR #98 fixed production selection-subscription forwarding, nested context-menu relay, the Diffusion asset-menu overlay path, and Solid 1 DAW reconciliation coverage. The exact post-beta candidate `ab6436a0744a2907dcbf9325efbc0365e30e5517` passed the full CI and Mail Acceptance workflows. Live native automation then proved selection, clear, reselection, and a follow-up accessible action with no fatal runtime error; the focused GPUIX surface test also passed.
+
+That live-native result validates the renderer event path but is not a literal physical foreground mouse gesture. CUA could not attach to the Bun-launched native window, so physical mouse/trackpad selection on the current 0.9 line remains an explicit manual acceptance item rather than being silently marked complete.
+
+The next beta should be prepared only after release-facing docs describe this exact state. After publication, repeat a clean external-consumer check against the exact registry version before considering the beta accepted.
+
+See [release-candidate.md](./release-candidate.md) for the detailed qualification record.
+
 ## Stable 0.1.0 qualification
 
 The Solid 2 stable line had an additional foreground gate because earlier GPUIX 0.8 source analysis found a text-selection mouse-up ownership path that could reproduce a nested root-view update.

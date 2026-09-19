@@ -122,20 +122,20 @@ The package baseline is the published React/native 0.9 line. Existing behavior r
 | Virtual list | logical `getListScrollTop`, `scrollToItem(..., offsetInItem)` | parity |
 | Window | insets, `activateWindow()`, `WindowOptions` passthrough including transparent titlebar / blurred background | parity for mapped options |
 | Structured backgrounds | two-stop `linear-gradient` `StyleDesc` backgrounds | parity |
-| Images | filesystem and data-URL sources | parity; HTTP source is upstream 0.8 capability with focused Solid example pending |
+| Images | filesystem, data-URL, and HTTP sources | parity; Mail live-native and differential acceptance exercise the HTTP path |
 | Window keyboard | root-level `onKeyDown` / `onKeyUp` through `setWindowKeyEvents`; Tab remains application-owned where applicable | parity |
-| Focus traversal | `focusNext()` / `focusPrevious()` | parity; focused 0.8 control audit continues |
+| Focus traversal | `focusNext()` / `focusPrevious()` | parity; maintained native control and Solid 1 ecosystem fixtures exercise focus behavior |
 | Test renderer | availability, painted highlights and logical list anchor | parity |
 | Process lifecycle | final-window shutdown on Windows/Linux and Solid frame-loop termination | parity |
 | Windows DPI | Per-Monitor V2 awareness before native window creation | inherited directly from `@gpuix/native`; no Solid translation layer |
 | Live automation | native click, fill and key input through the renderer | parity for test/automation path |
-| Components | Select, Combobox, Tooltip, anchored floating surfaces | parity for current Solid components; 0.8 Select/asChild changes under focused audit |
+| Components | Select, Combobox, Tooltip, anchored floating surfaces | parity for the maintained Solid components; Kobalte/native fixtures cover wrapping, popup, focus, and interaction behavior |
 | Animation | React `motion.div` capability | parity via Solid `animate.div` |
-| Textarea Enter/newline | upstream 0.8 behavior | native capability present; focused Solid runnable check pending |
-| HTTP images | upstream 0.8 behavior | native capability present; focused Solid runnable check pending |
+| Textarea Enter/newline | upstream 0.8 behavior | parity; the focused GPUIX surface and live-native acceptance exercise newline handling |
+| HTTP images | upstream 0.8 behavior | parity; the Mail fixture exercises remote images in live-native and differential acceptance |
 | Native file drop | upstream 0.8 behavior | parity in Solid 1/2 host mapping; GPU-backed Solid 2 regression drives GPUI file-drop hit testing and locator automation exposes `dropFiles()` |
 | Physical primary mouse-up | upstream click delivery | parity on the 0.9 native line; 0.9 includes the native ownership fix for the earlier 0.8 click/selection panic |
-| Window text selection | 0.9 `onSelectionChange` / native selection subscription | root parity plus Solid-native `createTextSelection()` accessor primitive in Solid 1 and Solid 2 |
+| Window text selection | 0.9 `onSelectionChange` / native selection subscription | root parity plus Solid-native `createTextSelection()` in both renderers; production adapter forwarding has direct regression coverage and post-beta live-native acceptance |
 
 `animate.div` is intentionally named for the Solid package rather than copying React's component name. The native animation behavior is the capability being matched.
 
@@ -183,7 +183,7 @@ Upstream availability is not enough to label a feature Solid parity. For each ne
 4. a runnable Solid example when the capability is user-visible;
 5. platform-specific wording when behavior is not portable.
 
-The current focused audit prioritizes accessibility/accessible click, textarea newline/submission, `textDecoration`, remote HTTP images, native file drop, Select/asChild/focus behavior, and exposed window additions.
+Those 0.8/0.9 promotion targets now have maintained Solid coverage. Current stabilization focuses on preserving the production/live paths that unit-only coverage can miss: renderer capability forwarding, retained-event ownership, overlays/hit testing, semantic drag behavior, source-first application compatibility, and exact package consumers.
 
 ## Solid-specific coverage
 
