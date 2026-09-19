@@ -172,6 +172,7 @@ export { Errored, For, Loading, Match, Repeat, Reveal, Show, Switch } from "soli
 
 export type {
   AnchoredProps,
+  CanvasProps,
   CodeProps,
   CursorValue,
   DebugFrameOverlayMode,
@@ -205,6 +206,17 @@ export type {
   WindowKeyEventHandler,
   WindowKeyEventHandlers,
 } from "./host/types.js"
+
+export { CANVAS_DRAW_LIST_VERSION, createCanvas2DRecorder } from "./host/canvas.js"
+export type {
+  Canvas2DRecorder,
+  CanvasBackingSize,
+  CanvasDrawCommand,
+  CanvasDrawList,
+  CanvasDrawListVersion,
+  CanvasMatrix,
+  CanvasPathSegment,
+} from "./host/canvas.js"
 
 export { GpuixRenderer } from "@gpuix/native"
 export type { EventModifiers, WindowOptions } from "@gpuix/native"
