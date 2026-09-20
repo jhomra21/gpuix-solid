@@ -255,7 +255,7 @@ if (!hasNativeTestRenderer) {
     )
   }
 
-  eqContext.fillStyle = "oklch(0.11 0.003 286)"
+  eqContext.fillStyle = "rgb(9 9 11)"
   eqContext.fillRect(0, 0, 160, 80)
   eqContext.fillStyle = "#ffffff"
   eqContext.font = "9px ui-monospace, SFMono-Regular, Menlo, monospace"
