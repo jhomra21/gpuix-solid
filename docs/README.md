@@ -14,6 +14,7 @@ Repository-wide documentation lives here. Package-specific usage stays with the 
 - [Elements](./elements.md)
 - [Styling](./styling.md)
 - [Events](./events.md)
+- [Native Canvas2D](./canvas.md)
 - [Desktop and native integration](./desktop.md)
 - [Automation and testing](./automation.md)
 
