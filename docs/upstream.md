@@ -13,7 +13,7 @@ Recorded: **2026-09-19**
 - Solid 2 runtime: `solid-js@2.0.0-rc.8` with `@solidjs/universal@2.0.0-rc.8`
 - Solid 1 runtime exercised by CI: `solid-js@1.9.15`
 
-Both Solid packages depend on exact `@gpuix/native@0.9.0`. The same source revision is pinned in `.gpuix/edge.json`, so the published-native baseline and reproducible source-edge baseline describe the same GPUIX release.
+Both Solid packages depend on exact `@gpuix/native@0.9.0`. The same upstream source revision is pinned in `.gpuix/edge.json`. The default published-native baseline is unmodified 0.9; the Canvas development lane applies the audited patch list recorded beside that pin, so source-edge behavior may intentionally include a small native capability that is not yet in the published package.
 
 GPUIX 0.9 adds the window-level `selectionChange` contract and the native click/selection ownership fix. GPUix Solid maps the selection event into both roots and exposes the Solid-owned `createTextSelection()` primitive. The production batch adapter must forward the native selection subscription; this is covered separately from the native test-renderer path.
 
@@ -23,7 +23,7 @@ The published native package remains the default-install contract because it car
 
 Source-edge work is explicit:
 
-- **pinned edge** builds the exact source SHA in `.gpuix/edge.json`;
+- **pinned edge** builds the exact source SHA in `.gpuix/edge.json` and applies its audited patch list, if present;
 - **latest main** resolves the configured upstream branch at run time and runs the same compatibility checks without changing package manifests;
 - a fork can be supplied through the documented edge environment overrides when a native fix needs validation before it is upstreamed.
 
@@ -39,7 +39,7 @@ GPUix Solid owns Solid framework integration:
 - native capability forwarding through the renderer adapter;
 - Solid primitives, components, automation, and compatibility layers.
 
-GPUIX owns the native renderer and Rust behavior. Native defects should be fixed in GPUIX and consumed here through the published package or source-edge lane rather than copied into a downstream Rust fork.
+GPUIX owns the native renderer and Rust behavior. Native work should ultimately land in GPUIX. When this repository needs a capability before an upstream branch is available, the source-edge lane may carry a small reviewable patch against an exact GPUIX SHA; it must remain isolated from Solid behavior and be removed once upstream contains the equivalent change.
 
 ## Adoption policy
 
