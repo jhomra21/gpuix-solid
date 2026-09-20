@@ -582,7 +582,7 @@ export interface NativeRenderer {
   getWindowSize?(): { width: number; height: number }
   getWindowInsets?(): NativeWindowInsets
   /** Version of the native retained Canvas2D draw-list protocol, or undefined when unavailable. */
-  getCanvasDrawListVersion?(): number
+  getCanvasDrawListVersion?(): number | undefined
   activateWindow?(): void
   setWindowTitle?(title: string): void
   setDebugFrameOverlay?(mode: DebugFrameOverlayMode): string
