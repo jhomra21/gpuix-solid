@@ -347,10 +347,11 @@ async function inspectFixture(
 
 export async function runMediaBunnyBenchmark(backend: BenchmarkBackend): Promise<MediaBunnyBenchmarkReport> {
   const capabilityStarted = performance.now()
-  const [video, audio] = await Promise.all([
-    Promise.all(VIDEO_CODECS.map(videoCapability)),
-    Promise.all(AUDIO_CODECS.map(audioCapability)),
-  ])
+  const video: CapabilityResult[] = []
+  for (const codec of VIDEO_CODECS) video.push(await videoCapability(codec))
+  const audio: CapabilityResult[] = []
+  for (const codec of AUDIO_CODECS) audio.push(await audioCapability(codec))
+
   const measurements: Measurement[] = [{
     name: "query-codec-capabilities",
     milliseconds: performance.now() - capabilityStarted,
