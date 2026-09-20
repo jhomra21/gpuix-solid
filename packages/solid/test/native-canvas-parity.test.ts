@@ -26,6 +26,7 @@ describe("native Canvas2D source-edge parity", () => {
 
     const pointerEvents: string[] = []
     const canvas = createElement("canvas")
+    if (canvas.kind !== "element") throw new Error("canvas host did not create an element node")
     setProp(canvas, "width", 240)
     setProp(canvas, "height", 140)
     setProp(canvas, "style", {
