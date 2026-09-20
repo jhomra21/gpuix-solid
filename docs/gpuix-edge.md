@@ -43,11 +43,12 @@ bun run gpuix:edge:latest:check
 
 `gpuix:edge:latest:check` resolves the current branch tip once, exports that exact SHA for the whole run, builds and links its native package, prints the resolved status, and runs the complete edge verification. `gpuix:edge:latest:prepare` performs only the resolve/build/link/status portion.
 
-`gpuix:edge:prepare` performs three explicit steps:
+`gpuix:edge:prepare` performs four explicit steps:
 
 1. fetch the exact source commit and its submodules into `.cache/gpuix/`;
-2. install the GPUIX workspace and build `packages/native` locally;
-3. replace installed `@gpuix/native` entries with links to that source-built package.
+2. apply any audited patches listed in `.gpuix/edge.json` after verifying each patch with `git apply --check`;
+3. install the GPUIX workspace and build `packages/native` locally;
+4. replace installed `@gpuix/native` entries with links to that source-built package.
 
 The individual commands are also available:
 
@@ -75,12 +76,17 @@ When a needed native fix exists on GPUIX `main` but is not published yet, valida
 
 ## Native changes
 
-Do not copy GPUIX Rust into this repository to unblock edge work. If a required capability belongs in native:
+Native work intended for GPUIX can be carried temporarily as a small patch under `patches/gpuix/` when the connected account cannot push a GPUIX branch. The committed upstream SHA remains exact, and `git apply --check` makes an overlap with upstream fail before the native build starts.
 
-1. make the change in a GPUIX branch/fork;
-2. point the edge repository/SHA at that commit;
-3. implement and validate the Solid side against the source-built native package;
-4. upstream the native change;
-5. move the edge pin to the merged upstream commit.
+Keep patches focused on the missing native capability. Do not use this mechanism for unrelated forks or Solid-specific behavior.
+
+For a required native capability:
+
+1. pin the exact upstream GPUIX commit;
+2. add the smallest native patch needed for the capability;
+3. implement and validate the Solid side against the patched source build;
+4. keep testing the patch against the configured latest upstream branch;
+5. submit the work upstream following GPUIX's contributor guidance;
+6. remove the downstream patch once upstream contains the equivalent change and move the pin to that commit.
 
 When Solid eventually moves beside `packages/react` and `packages/native` in the GPUIX monorepo, this source-edge layer can disappear and `@gpuix/native` can become a normal workspace dependency.
