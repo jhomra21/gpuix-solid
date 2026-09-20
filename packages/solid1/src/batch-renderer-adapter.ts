@@ -23,7 +23,7 @@ export interface BatchRendererApi {
   getSelectedText?(): string | null
   clearSelection?(): void
   getWindowSize?(): { width: number; height: number }
-  getCanvasDrawListVersion?(): number
+  getCanvasDrawListVersion?(): number | undefined
   setWindowTitle?(title: string): void
   setDebugFrameOverlay?(mode: DebugFrameOverlayMode): string
   getDebugFrameOverlay?(): string
