@@ -127,6 +127,19 @@ describe("Canvas2D draw-list recorder", () => {
     expect(recorder.snapshot().commands).toEqual([])
   })
 
+  it("does not treat a rotated clear bounding box as a full backing-store clear", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
+    const ctx = recorder.context
+
+    ctx.fillStyle = "#ffffff"
+    ctx.fillRect(0, 0, 20, 20)
+    ctx.translate(50, 50)
+    ctx.rotate(Math.PI / 4)
+
+    expect(() => ctx.clearRect(-50, -50, 100, 100)).toThrow(/full backing store/u)
+    expect(recorder.snapshot().commands).toHaveLength(1)
+  })
+
 
   it("rejects fill and stroke settings the first native protocol cannot represent", () => {
     const fillRecorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
