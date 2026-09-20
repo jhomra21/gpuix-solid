@@ -210,6 +210,15 @@ export function createCanvas2DRecorder(
       changed()
     },
     fillRect(x: number, y: number, width: number, height: number) {
+      const points = rectanglePoints(x, y, width, height, state.transform)
+      if (
+        state.globalAlpha >= 1 &&
+        isOpaquePaint(state.fillStyle) &&
+        isFullBackingStoreRectangle(points, getSize())
+      ) {
+        commands = []
+        path = []
+      }
       commands.push({
         op: "fillPath",
         color: state.fillStyle,
@@ -617,6 +626,52 @@ function coversBackingStore(
     Math.min(...ys) <= epsilon &&
     Math.max(...xs) >= normalized.width - epsilon &&
     Math.max(...ys) >= normalized.height - epsilon
+}
+
+function isFullBackingStoreRectangle(
+  points: readonly (readonly [number, number])[],
+  size: CanvasBackingSize,
+): boolean {
+  if (points.length !== 4) return false
+  const normalized = normalizeSize(size)
+  const targets: readonly (readonly [number, number])[] = [
+    [0, 0],
+    [normalized.width, 0],
+    [normalized.width, normalized.height],
+    [0, normalized.height],
+  ]
+  const epsilon = 0.01
+  const near = (
+    point: readonly [number, number],
+    target: readonly [number, number],
+  ) => Math.abs(point[0] - target[0]) <= epsilon && Math.abs(point[1] - target[1]) <= epsilon
+  return targets.every((target) => points.some((point) => near(point, target))) &&
+    points.every((point) => targets.some((target) => near(point, target)))
+}
+
+function isOpaquePaint(value: string): boolean {
+  const paint = value.trim().toLowerCase()
+  if (!paint || paint === "transparent") return false
+
+  const hex = paint.match(/^#([0-9a-f]+)$/i)?.[1]
+  if (hex) {
+    if (hex.length === 3 || hex.length === 6) return true
+    if (hex.length === 4) return hex[3] === "f"
+    if (hex.length === 8) return hex.slice(6) === "ff"
+    return false
+  }
+
+  const legacyRgba = paint.match(/^rgba\([^)]*,\s*([0-9.]+)\s*\)$/)
+  if (legacyRgba) return Number(legacyRgba[1]) >= 1
+
+  const slashAlpha = paint.match(/\/\s*([0-9.]+)(%)?\s*\)$/)
+  if (slashAlpha) {
+    const alpha = Number(slashAlpha[1])
+    return slashAlpha[2] ? alpha >= 100 : alpha >= 1
+  }
+
+  if (/^(?:rgb|hsl|hwb|lab|lch|oklab|oklch|color)\(/.test(paint)) return true
+  return /^[a-z]+$/.test(paint)
 }
 
 function normalizeSize(size: CanvasBackingSize): CanvasBackingSize {
