@@ -221,6 +221,7 @@ export function createCanvas2DRecorder(
     },
     strokeRect(x: number, y: number, width: number, height: number) {
       assertSupportedStrokeState(state)
+      assertSimilarityTransform(state.transform, "strokeRect()")
       commands.push({
         op: "strokePath",
         color: state.strokeStyle,
@@ -310,6 +311,7 @@ export function createCanvas2DRecorder(
     stroke() {
       if (path.length === 0) return
       assertSupportedStrokeState(state)
+      assertSimilarityTransform(state.transform, "stroke()")
       commands.push({
         op: "strokePath",
         color: state.strokeStyle,
@@ -329,6 +331,7 @@ export function createCanvas2DRecorder(
       if (String(text).includes("\n")) {
         throw new Error("GPUix Canvas2D v1 does not support newlines in fillText()")
       }
+      assertTextTransform(state.transform)
       const point = transformPoint(x, y, state.transform)
       const font = parseFont(state.font)
       const command: Extract<CanvasDrawCommand, { op: "fillText" }> = {
@@ -371,6 +374,36 @@ export function createCanvas2DRecorder(
       stack.length = 0
       changed()
     },
+  }
+}
+
+function assertSimilarityTransform(matrix: CanvasMatrix, operation: string): void {
+  const [a, b, c, d] = matrix
+  const scaleX = Math.hypot(a, b)
+  const scaleY = Math.hypot(c, d)
+  const scaleTolerance = Math.max(1, scaleX, scaleY) * 1e-6
+  const orthogonalTolerance = Math.max(1, scaleX * scaleY) * 1e-6
+  if (
+    scaleX <= Number.EPSILON ||
+    scaleY <= Number.EPSILON ||
+    Math.abs(scaleX - scaleY) > scaleTolerance ||
+    Math.abs(a * c + b * d) > orthogonalTolerance
+  ) {
+    throw new Error(`GPUix Canvas2D v1 requires a rotation/reflection + uniform scale transform for ${operation}`)
+  }
+}
+
+function assertTextTransform(matrix: CanvasMatrix): void {
+  const [a, b, c, d] = matrix
+  const tolerance = Math.max(1, Math.abs(a), Math.abs(d)) * 1e-6
+  if (
+    a <= Number.EPSILON ||
+    d <= Number.EPSILON ||
+    Math.abs(a - d) > tolerance ||
+    Math.abs(b) > tolerance ||
+    Math.abs(c) > tolerance
+  ) {
+    throw new Error("GPUix Canvas2D v1 requires translation + positive uniform scale for fillText()")
   }
 }
 
