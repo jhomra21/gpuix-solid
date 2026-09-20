@@ -65,6 +65,21 @@ describe("batch renderer browser drag capture bridge", () => {
     ]])
   })
 
+  it("forwards the Canvas protocol capability to the Solid host", () => {
+    const renderer: BatchRendererApi = {
+      applyBatch: () => [],
+      getCanvasDrawListVersion: () => 1,
+    }
+    const adapted = adaptBatchRenderer(renderer)
+
+    expect(adapted.getCanvasDrawListVersion?.()).toBe(1)
+  })
+
+  it("leaves the Canvas protocol absent when the native renderer does not provide it", () => {
+    const adapted = adaptBatchRenderer({ applyBatch: () => [] })
+    expect(adapted.getCanvasDrawListVersion).toBeUndefined()
+  })
+
   it("forwards window selection subscriptions to the native renderer", () => {
     const calls: Array<[boolean, number]> = []
     const renderer: BatchRendererApi = {
