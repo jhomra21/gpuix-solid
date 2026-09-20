@@ -47,6 +47,7 @@ Canvas `width` and `height` are backing-store dimensions and default to the brow
 Protocol v1 rejects behavior it cannot reproduce instead of drawing an approximation. Current limits include:
 
 - gradients and Canvas patterns;
+- the `evenodd` fill rule; v1 accepts `nonzero` only;
 - partial `clearRect()`;
 - `fillText()` `maxWidth` and multiline text;
 - object-form `setTransform()`;
