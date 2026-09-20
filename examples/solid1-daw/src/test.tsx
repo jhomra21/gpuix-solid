@@ -372,29 +372,50 @@ if (!hasNativeTestRenderer) {
   }
   await Promise.resolve()
   app.renderer.flush()
-  const eqGainLabelSource = app.renderer.customPropStringContainingAll("source", [
-    'preserveAspectRatio="none"',
-    'font-size="9"',
-    '>+0 dB</text>',
-  ])
-  const eqFrequencyLabelSource = app.renderer.customPropStringContainingAll("source", [
-    'preserveAspectRatio="none"',
-    'font-size="9"',
-    '>10k</text>',
-  ])
-  requireCondition(
-    eqGainLabelSource.includes('text-anchor="start"') && eqFrequencyLabelSource.includes('text-anchor="middle"'),
-    "exact EQ Canvas bridge should retain the source grid labels in native paint layers",
-  )
-  for (let bandNumber = 1; bandNumber <= 8; bandNumber++) {
-    app.renderer.customPropStringContainingAll("source", [
-      'preserveAspectRatio="none"',
-      '<circle',
-      'font-size="9"',
-      'font-weight="700"',
-      'text-anchor="middle"',
-      `>${bandNumber}</text>`,
+  const nativeCanvasV1 = app.renderer.getCanvasDrawListVersion() === 1
+  if (nativeCanvasV1) {
+    app.renderer.customPropJsonContainingAll("drawList", [
+      '"version":1',
+      '"op":"fillText"',
+      '"text":"+0 dB"',
+      '"align":"left"',
+      '"text":"10k"',
+      '"align":"center"',
     ])
+    for (let bandNumber = 1; bandNumber <= 8; bandNumber++) {
+      app.renderer.customPropJsonContainingAll("drawList", [
+        '"op":"fillText"',
+        '"fontSize":9',
+        '"fontWeight":700',
+        '"align":"center"',
+        `"text":"${bandNumber}"`,
+      ])
+    }
+  } else {
+    const eqGainLabelSource = app.renderer.customPropStringContainingAll("source", [
+      'preserveAspectRatio="none"',
+      'font-size="9"',
+      '>+0 dB</text>',
+    ])
+    const eqFrequencyLabelSource = app.renderer.customPropStringContainingAll("source", [
+      'preserveAspectRatio="none"',
+      'font-size="9"',
+      '>10k</text>',
+    ])
+    requireCondition(
+      eqGainLabelSource.includes('text-anchor="start"') && eqFrequencyLabelSource.includes('text-anchor="middle"'),
+      "exact EQ Canvas SVG fallback should retain the source grid-label alignment",
+    )
+    for (let bandNumber = 1; bandNumber <= 8; bandNumber++) {
+      app.renderer.customPropStringContainingAll("source", [
+        'preserveAspectRatio="none"',
+        '<circle',
+        'font-size="9"',
+        'font-weight="700"',
+        'text-anchor="middle"',
+        `>${bandNumber}</text>`,
+      ])
+    }
   }
 
   const screenshotPath = "/tmp/gpuix-solid1-daw-source-structured.png"
