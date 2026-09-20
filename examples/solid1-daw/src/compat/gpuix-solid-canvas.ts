@@ -327,10 +327,12 @@ function cssUnitInterval(value: CssVariableValue): number | undefined {
 }
 
 function installCanvas2D(node: CanvasHostNode): void {
+  const getNativeContext = node.getContext.bind(node)
   Object.defineProperty(node, "getContext", {
     configurable: true,
     value(contextId: string): CanvasRenderingContext2D | null {
-      if (contextId !== "2d") return null
+      const nativeContext = getNativeContext(contextId)
+      if (nativeContext || contextId !== "2d") return nativeContext
       let state = runtimeCanvases.get(node)
       if (!state) {
         const surface = requireHostElement(createNativeElement("svg"), "svg")
