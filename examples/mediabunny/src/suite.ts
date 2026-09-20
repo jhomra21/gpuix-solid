@@ -7,7 +7,7 @@ import {
   BufferTarget,
   EncodedPacketSink,
   Input,
-  Mp4OutputFormat,
+  WebMOutputFormat,
   Output,
   Quality,
   VideoSample,
@@ -21,7 +21,7 @@ import {
   type VideoCodec,
 } from "mediabunny"
 
-export type BenchmarkBackend = "mediabunny-server" | "napi-webcodecs"
+export type BenchmarkBackend = "browser-webcodecs" | "mediabunny-server" | "napi-webcodecs"
 
 type CapabilityResult = {
   codec: string
@@ -115,7 +115,6 @@ async function videoCapability(codec: VideoCodec): Promise<CapabilityResult> {
         width: WIDTH,
         height: HEIGHT,
         frameRate: FRAME_RATE,
-        quality: new Quality({ bitrate: 750_000 }),
       }),
       canDecodeVideo(codec, {
         codedWidth: WIDTH,
@@ -141,7 +140,6 @@ async function audioCapability(codec: AudioCodec): Promise<CapabilityResult> {
       canEncodeAudio(codec, {
         numberOfChannels: AUDIO_CHANNELS,
         sampleRate: AUDIO_SAMPLE_RATE,
-        quality: new Quality({ bitrate: 128_000 }),
       }),
       canDecodeAudio(codec, {
         numberOfChannels: AUDIO_CHANNELS,
@@ -207,15 +205,15 @@ function makeAudioSample(): AudioSample {
 async function encodeFixture(measurements: Measurement[]): Promise<ArrayBuffer> {
   const target = new BufferTarget()
   const output = new Output({
-    format: new Mp4OutputFormat({ fastStart: "fragmented" }),
+    format: new WebMOutputFormat(),
     target,
   })
   const videoSource = new VideoSampleSource({
-    codec: "avc",
+    codec: "vp8",
     quality: new Quality({ bitrate: 750_000 }),
   })
   const audioSource = new AudioSampleSource({
-    codec: "aac",
+    codec: "opus",
     quality: new Quality({ bitrate: 128_000 }),
   })
 
@@ -242,10 +240,10 @@ async function encodeFixture(measurements: Measurement[]): Promise<ArrayBuffer> 
   }
 
   await output.finalize()
-  measurements.push({ name: "encode-mp4-avc-aac", milliseconds: performance.now() - started })
+  measurements.push({ name: "encode-webm-vp8-opus", milliseconds: performance.now() - started })
 
   if (!target.buffer || target.buffer.byteLength === 0) {
-    throw new Error("MediaBunny produced an empty MP4 buffer")
+    throw new Error("MediaBunny produced an empty WebM buffer")
   }
   return target.buffer
 }
@@ -261,7 +259,7 @@ async function inspectFixture(
   })
 
   try {
-    if (!(await input.canRead())) throw new Error("MediaBunny cannot read its generated MP4 fixture")
+    if (!(await input.canRead())) throw new Error("MediaBunny cannot read its generated WebM fixture")
 
     const [format, mimeType, durationSeconds, tracks, metadata, videoTrack, audioTrack] = await Promise.all([
       input.getFormat(),
@@ -310,7 +308,7 @@ async function inspectFixture(
 
     const seekStarted = performance.now()
     const seekSample = await videoSink.getSample(DURATION_SECONDS / 2)
-    if (!seekSample) throw new Error("VideoSampleSink could not seek into generated MP4")
+    if (!seekSample) throw new Error("VideoSampleSink could not seek into generated WebM")
     const seekTimestamp = seekSample.timestamp
     seekSample.close()
     measurements.push({ name: "decode-video-seek", milliseconds: performance.now() - seekStarted })
