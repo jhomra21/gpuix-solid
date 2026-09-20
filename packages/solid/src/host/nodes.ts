@@ -485,7 +485,6 @@ export function setHostProperty<T>(
   }
 
   if (name === "dragData") {
-    const previousPointerEvents = effectivePointerEvents(node)
     const previousDragNativeHandlers = new Map(
       (["mouseDown", "mouseMove", "mouseUp"] as const).map((nativeType) => [
         nativeType,
@@ -691,7 +690,7 @@ function nativeTextStyle(
   return { ...layout, pointerEvents }
 }
 
-function canvasDimension(value: unknown, fallback: number): number {
+function canvasDimension(value: MutationValue | undefined, fallback: number): number {
   const parsed = Number(value)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
 }
