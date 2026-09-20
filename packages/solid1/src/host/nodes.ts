@@ -1,3 +1,8 @@
+import {
+  CANVAS_DRAW_LIST_VERSION,
+  createCanvas2DRecorder,
+  type Canvas2DRecorder,
+} from "./canvas.js"
 import { parseDragData } from "./drag-data.js"
 import { EVENT_PROP_TO_TYPE, nativeEventTypeForDomEvent, type DomCompatTarget, type EventRegistry } from "./events.js"
 import type { MutationDriver, MutationValue } from "./mutations.js"
@@ -111,6 +116,8 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     remove: (..._tokens: string[]): void => undefined,
   }
   readonly #eventListeners = new Map<string, Set<EventListenerOrEventListenerObject>>()
+  #canvas2d: Canvas2DRecorder | undefined
+  #canvasDrawQueued = false
 
   constructor(type: ElementType, tagName: string = type) {
     this.type = type
@@ -137,9 +144,52 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     return this.parentNode
   }
 
-  getContext(_contextId: string): null {
-    // GPUIX 0.7 does not expose Canvas 2D; browser-source code can feature-detect a null context.
-    return null
+  getContext(contextId: string): CanvasRenderingContext2D | null {
+    if (this.localName !== "canvas" || contextId !== "2d") return null
+    const root = this.root
+    if (!root || !this.nativeAlive) return null
+    if (root.driver.renderer.getCanvasDrawListVersion?.() !== CANVAS_DRAW_LIST_VERSION) return null
+
+    this.#canvas2d ??= createCanvas2DRecorder(
+      () => ({ width: this.width, height: this.height }),
+      () => this.#scheduleCanvasDrawList(),
+    )
+    this.#scheduleCanvasDrawList()
+    return this.#canvas2d.context
+  }
+
+  get width(): number {
+    return canvasDimension(this.props.get("width"), 300)
+  }
+
+  set width(value: number) {
+    setHostProperty(this, "width", canvasDimension(value, 300))
+  }
+
+  get height(): number {
+    return canvasDimension(this.props.get("height"), 150)
+  }
+
+  set height(value: number) {
+    setHostProperty(this, "height", canvasDimension(value, 150))
+  }
+
+  resetCanvas2D(): void {
+    this.#canvas2d?.reset()
+  }
+
+  #scheduleCanvasDrawList(): void {
+    if (this.#canvasDrawQueued) return
+    this.#canvasDrawQueued = true
+    queueMicrotask(() => {
+      this.#canvasDrawQueued = false
+      const root = this.root
+      const recorder = this.#canvas2d
+      if (!root || !recorder || !this.nativeAlive) return
+      if (root.driver.renderer.getCanvasDrawListVersion?.() !== CANVAS_DRAW_LIST_VERSION) return
+      root.driver.enqueue("setCustomProp", this.id, "drawList", recorder.snapshot())
+      root.driver.flush()
+    })
   }
 
   get clientWidth(): number {
@@ -435,7 +485,6 @@ export function setHostProperty<T>(
   }
 
   if (name === "dragData") {
-    const previousPointerEvents = effectivePointerEvents(node)
     const previousDragNativeHandlers = new Map(
       (["mouseDown", "mouseMove", "mouseUp"] as const).map((nativeType) => [
         nativeType,
@@ -511,6 +560,10 @@ export function setHostProperty<T>(
     : undefined
   if (value === undefined) node.props.delete(name)
   else node.props.set(name, customPropValue(value))
+
+  if (node.localName === "canvas" && (name === "width" || name === "height")) {
+    node.resetCanvas2D()
+  }
 
   if (name === "type" && node.tagName === "INPUT" && !node.nativeAlive) {
     node.nativeType = String(value).toLowerCase() === "range" ? "div" : "input"
@@ -635,6 +688,11 @@ function nativeTextStyle(
   const layout = nativeTextLayoutStyle(node.text)
   if (pointerEvents === undefined) return layout
   return { ...layout, pointerEvents }
+}
+
+function canvasDimension(value: MutationValue | undefined, fallback: number): number {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
 }
 
 function dataAttributeProperty(name: string): string {
