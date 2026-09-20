@@ -13,7 +13,7 @@ diff --git a/packages/native/src/custom_elements/canvas.rs b/packages/native/src
 new file mode 100644
 --- /dev/null
 +++ b/packages/native/src/custom_elements/canvas.rs
-@@ -0,0 +1,387 @@
+@@ -0,0 +1,517 @@
 +use gpui::prelude::*;
 +use serde::Deserialize;
 +
@@ -146,10 +146,10 @@ new file mode 100644
 +            gpui::div()
 +                .id(gpui::SharedString::from(format!("__gpuix_canvas_{}", ctx.id))),
 +            &ctx,
-+        )
-+        .child(canvas);
-+
-+        surface.into_any_element()
++        );
++        wire_canvas_events(surface, &ctx)
++            .child(canvas)
++            .into_any_element()
 +    }
 +
 +    fn set_prop(&mut self, key: &str, value: serde_json::Value) {
@@ -192,10 +192,140 @@ new file mode 100644
 +    }
 +
 +    fn supported_events(&self) -> &'static [&'static str] {
-+        &["click", "mouseEnter", "mouseLeave", "fileDrop"]
++        &[
++            "click",
++            "auxClick",
++            "mouseDown",
++            "mouseUp",
++            "mouseMove",
++            "mouseEnter",
++            "mouseLeave",
++            "mouseDownOutside",
++            "fileDrop",
++            "scroll",
++        ]
 +    }
 +
 +    fn destroy(&mut self) {}
++}
++
++fn wire_canvas_events(
++    mut el: gpui::Stateful<gpui::Div>,
++    ctx: &CustomRenderContext,
++) -> gpui::Stateful<gpui::Div> {
++    let id = ctx.id;
++    for event in ctx.events {
++        let callback = ctx.event_callback.clone();
++        match event.as_str() {
++            "auxClick" => {
++                el = el.on_aux_click(move |click_event, _window, _cx| {
++                    crate::renderer::emit_event_full(&callback, id, "auxClick", |payload| {
++                        let (x, y) = crate::renderer::point_to_xy(click_event.position());
++                        payload.x = Some(x);
++                        payload.y = Some(y);
++                        payload.modifiers = Some(click_event.modifiers().into());
++                        payload.click_count = Some(click_event.click_count() as u32);
++                        payload.is_right_click = Some(click_event.is_right_click());
++                    });
++                });
++            }
++            "mouseDown" => {
++                for &button in &[
++                    gpui::MouseButton::Left,
++                    gpui::MouseButton::Middle,
++                    gpui::MouseButton::Right,
++                ] {
++                    let callback = callback.clone();
++                    el = el.on_mouse_down(button, move |mouse_event, _window, _cx| {
++                        crate::renderer::emit_event_full(&callback, id, "mouseDown", |payload| {
++                            let (x, y) = crate::renderer::point_to_xy(mouse_event.position);
++                            payload.x = Some(x);
++                            payload.y = Some(y);
++                            payload.button =
++                                Some(crate::renderer::mouse_button_to_u32(mouse_event.button));
++                            payload.click_count = Some(mouse_event.click_count as u32);
++                            payload.modifiers = Some(mouse_event.modifiers.into());
++                        });
++                    });
++                }
++            }
++            "mouseUp" => {
++                for &button in &[
++                    gpui::MouseButton::Left,
++                    gpui::MouseButton::Middle,
++                    gpui::MouseButton::Right,
++                ] {
++                    let callback = callback.clone();
++                    el = el.on_mouse_up(button, move |mouse_event, _window, _cx| {
++                        crate::renderer::emit_event_full(&callback, id, "mouseUp", |payload| {
++                            let (x, y) = crate::renderer::point_to_xy(mouse_event.position);
++                            payload.x = Some(x);
++                            payload.y = Some(y);
++                            payload.button =
++                                Some(crate::renderer::mouse_button_to_u32(mouse_event.button));
++                            payload.click_count = Some(mouse_event.click_count as u32);
++                            payload.modifiers = Some(mouse_event.modifiers.into());
++                        });
++                    });
++                }
++            }
++            "mouseMove" => {
++                el = el.on_mouse_move(move |mouse_event, _window, _cx| {
++                    crate::renderer::emit_event_full(&callback, id, "mouseMove", |payload| {
++                        let (x, y) = crate::renderer::point_to_xy(mouse_event.position);
++                        payload.x = Some(x);
++                        payload.y = Some(y);
++                        payload.modifiers = Some(mouse_event.modifiers.into());
++                        payload.pressed_button = mouse_event
++                            .pressed_button
++                            .map(crate::renderer::mouse_button_to_u32);
++                    });
++                });
++            }
++            "mouseDownOutside" => {
++                el = el.on_mouse_down_out(move |mouse_event, _window, _cx| {
++                    crate::renderer::emit_event_full(
++                        &callback,
++                        id,
++                        "mouseDownOutside",
++                        |payload| {
++                            let (x, y) = crate::renderer::point_to_xy(mouse_event.position);
++                            payload.x = Some(x);
++                            payload.y = Some(y);
++                            payload.button =
++                                Some(crate::renderer::mouse_button_to_u32(mouse_event.button));
++                            payload.modifiers = Some(mouse_event.modifiers.into());
++                        },
++                    );
++                });
++            }
++            "scroll" => {
++                el = el.on_scroll_wheel(move |scroll_event, _window, _cx| {
++                    crate::renderer::emit_event_full(&callback, id, "scroll", |payload| {
++                        let (x, y) = crate::renderer::point_to_xy(scroll_event.position);
++                        payload.x = Some(x);
++                        payload.y = Some(y);
++                        payload.modifiers = Some(scroll_event.modifiers.into());
++                        payload.precise = Some(scroll_event.delta.precise());
++                        let pixel_delta = scroll_event.delta.pixel_delta(gpui::px(20.0));
++                        payload.delta_x = Some(f64::from(f32::from(pixel_delta.x)));
++                        payload.delta_y = Some(f64::from(f32::from(pixel_delta.y)));
++                        payload.touch_phase = Some(match scroll_event.touch_phase {
++                            gpui::TouchPhase::Started => "started".to_string(),
++                            gpui::TouchPhase::Moved => "moved".to_string(),
++                            gpui::TouchPhase::Ended => "ended".to_string(),
++                            gpui::TouchPhase::Cancelled => "cancelled".to_string(),
++                        });
++                    });
++                });
++            }
++            _ => {}
++        }
++    }
++    if ctx.events.contains("mouseDown") && ctx.events.contains("mouseMove") {
++        el = el.capture_pointer();
++    }
++    el
 +}
 +
 +fn prepare_canvas(
