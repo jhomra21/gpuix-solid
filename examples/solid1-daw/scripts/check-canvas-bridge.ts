@@ -85,6 +85,7 @@ if (!hasNativeTestRenderer) {
   const app = createTestRoot(240, 100)
   let waveformCanvas: CompatCanvas | undefined
   app.render(() => {
+    // SAFETY: createElement("canvas") returns the renderer canvas node that this compatibility test exercises through CompatCanvas.
     const canvas = createElement("canvas") as CompatCanvas
     setProp(canvas, "testId", "daw-waveform-canvas")
     setProp(canvas, "style", { width: 100, height: 40, position: "relative" })
@@ -153,6 +154,7 @@ if (!hasNativeTestRenderer) {
   const eqApp = createTestRoot(260, 140)
   let eqCanvas: CompatCanvas | undefined
   eqApp.render(() => {
+    // SAFETY: createElement("canvas") returns the renderer canvas node that this compatibility test exercises through CompatCanvas.
     const canvas = createElement("canvas") as CompatCanvas
     setProp(canvas, "testId", "daw-eq-canvas")
     setProp(canvas, "style", { width: 160, height: 80, position: "relative" })
