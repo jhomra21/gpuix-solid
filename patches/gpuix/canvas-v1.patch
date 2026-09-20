@@ -13,7 +13,7 @@ diff --git a/packages/native/src/custom_elements/canvas.rs b/packages/native/src
 new file mode 100644
 --- /dev/null
 +++ b/packages/native/src/custom_elements/canvas.rs
-@@ -0,0 +1,517 @@
+@@ -0,0 +1,516 @@
 +use gpui::prelude::*;
 +use serde::Deserialize;
 +
