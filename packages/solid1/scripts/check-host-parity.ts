@@ -15,7 +15,7 @@ import { installDomEventEnvironment } from "../src/dom-environment.ts"
 
 const packageRoot = new URL("../", import.meta.url)
 const repoRoot = new URL("../../../", import.meta.url)
-const sharedFiles = ["drag-data.ts", "drag-preview.ts", "events.ts", "mutations.ts", "nodes.ts", "types.ts"] as const
+const sharedFiles = ["canvas.ts", "drag-data.ts", "drag-preview.ts", "events.ts", "mutations.ts", "nodes.ts", "types.ts"] as const
 
 for (const file of sharedFiles) {
   const solid1 = readFileSync(new URL(`src/host/${file}`, packageRoot), "utf8")
