@@ -23,6 +23,7 @@ jobs:
       fail-fast: false
       matrix:
         backend:
+          - browser
           - server
           - webcodecs
     steps:
@@ -35,6 +36,10 @@ jobs:
       - name: Install pinned media dependencies
         working-directory: examples/mediabunny
         run: bun install --no-save
+      - name: Install Chromium
+        if: matrix.backend == 'browser'
+        working-directory: examples/mediabunny
+        run: bunx playwright install chromium
       - name: Run MediaBunny ${{ matrix.backend }} workload
         working-directory: examples/mediabunny
         run: |
