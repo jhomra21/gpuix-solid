@@ -210,7 +210,7 @@ describe("Canvas2D draw-list recorder", () => {
     ctx.fillStyle = "#ffffff"
     ctx.fillText("old frame", 12, 18)
 
-    ctx.fillStyle = "oklch(0.11 0.003 286)"
+    ctx.fillStyle = "rgb(9 9 11)"
     ctx.fillRect(0, 0, 160, 80)
     ctx.fillStyle = "#ffffff"
     ctx.fillText("fresh frame", 12, 18)
@@ -232,6 +232,19 @@ describe("Canvas2D draw-list recorder", () => {
     ctx.fillRect(0, 0, 100, 50)
 
     expect(recorder.snapshot().commands).toHaveLength(2)
+  })
+
+  it("retains prior commands when full-frame paint opacity cannot be proven", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 100, height: 50 }))
+    const ctx = recorder.context
+
+    ctx.fillStyle = "#ffffff"
+    ctx.fillText("underlay", 4, 12)
+    ctx.fillStyle = "not-a-color"
+    ctx.fillRect(0, 0, 100, 50)
+
+    expect(recorder.snapshot().commands).toHaveLength(2)
+    expect(JSON.stringify(recorder.snapshot())).toContain("underlay")
   })
 
   it("returns snapshots that callers cannot mutate back into recorder state", () => {
