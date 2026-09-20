@@ -48,7 +48,7 @@ It maps the split to an intact native base plus retained warning segment and map
 
 ### DAW Canvas and exact EQ compatibility
 
-Published GPUIX 0.9 does not implement browser Canvas 2D. The Solid 1 DAW universal-renderer boundary therefore retains its deliberately narrow SVG compatibility facade for the default package path instead of editing copied components. The source-edge lane now also carries native Canvas2D protocol v1, which paints retained paths and text through GPUI and is validated independently before the DAW fallback is removed.
+Published GPUIX 0.9 does not implement browser Canvas 2D. The Solid 1 DAW universal-renderer boundary therefore retains its deliberately narrow SVG compatibility facade for the default package path instead of editing copied components. When the source-edge renderer advertises native Canvas2D protocol v1, that same boundary delegates to the host Canvas first, so the exact pinned waveform and EQ source exercise GPUI path/text painting without a parallel application rewrite. The SVG path remains the fallback until the native capability is published.
 
 The active Canvas path records the static operations exercised by the pinned waveform and EQ source and serializes their ordered draw stream into **one multicolor SVG data image**. It supports the string paints, line geometry, full rectangles, full-circle nodes and text required by that static source path. Unsupported partial clears/arcs and unsupported transforms fail closed rather than being silently approximated. Exact upstream waveform and EQ drawing code still determines visible geometry and color; deterministic fixture peak bytes and a visual-only Biquad frequency-response implementation replace only unavailable data/browser services.
 
