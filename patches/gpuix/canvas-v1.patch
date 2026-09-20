@@ -147,7 +147,7 @@ new file mode 100644
 +                .id(gpui::SharedString::from(format!("__gpuix_canvas_{}", ctx.id))),
 +            &ctx,
 +        );
-+        wire_canvas_events(surface, &ctx)
++        wire_canvas_events(surface.overflow_hidden(), &ctx)
 +            .child(canvas)
 +            .into_any_element()
 +    }
@@ -400,12 +400,11 @@ new file mode 100644
 +                let Some(color) = canvas_color(color, *alpha) else {
 +                    continue;
 +                };
-+                let options = gpui::FillOptions::default().with_fill_rule(match fill_rule.as_str() {
-+                    "evenodd" => gpui::FillRule::EvenOdd,
-+                    _ => gpui::FillRule::NonZero,
-+                });
-+                let mut builder =
-+                    gpui::PathBuilder::fill().with_style(gpui::PathStyle::Fill(options));
++                if fill_rule != "nonzero" {
++                    log::warn!("Skipping unsupported GPUIX canvas fill rule {fill_rule}");
++                    continue;
++                }
++                let mut builder = gpui::PathBuilder::fill();
 +                append_path(&mut builder, path, bounds, scale_x, scale_y);
 +                if let Ok(path) = builder.build() {
 +                    window.paint_path(path, color);
