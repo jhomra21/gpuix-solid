@@ -153,6 +153,33 @@ describe("Canvas2D draw-list recorder", () => {
     expect(() => ctx.stroke()).toThrow(/miterLimit/u)
   })
 
+  it("rejects transforms that GPUI cannot reproduce exactly for strokes and text", () => {
+    const strokeRecorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
+    const stroke = strokeRecorder.context
+    stroke.scale(2, 1)
+    stroke.beginPath()
+    stroke.moveTo(0, 0)
+    stroke.lineTo(10, 10)
+    expect(() => stroke.stroke()).toThrow(/uniform scale transform/u)
+
+    const rotatedTextRecorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
+    const rotatedText = rotatedTextRecorder.context
+    rotatedText.rotate(Math.PI / 4)
+    expect(() => rotatedText.fillText("rotated", 10, 10)).toThrow(/positive uniform scale/u)
+
+    const scaledTextRecorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
+    const scaledText = scaledTextRecorder.context
+    scaledText.translate(4, 6)
+    scaledText.scale(2, 2)
+    scaledText.fillText("scaled", 10, 12)
+    expect(scaledTextRecorder.snapshot().commands[0]).toMatchObject({
+      op: "fillText",
+      x: 24,
+      y: 30,
+      fontSize: 20,
+    })
+  })
+
   it("rejects multiline and constrained fillText instead of mispainting it", () => {
     const recorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
     const ctx = recorder.context
