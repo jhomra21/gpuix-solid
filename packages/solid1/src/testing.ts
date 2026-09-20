@@ -16,6 +16,10 @@ type NativeModule = {
   hasTestGpuixRenderer?: () => boolean
 }
 
+type CanvasProtocolNativeTestRenderer = NativeTestRendererApi & {
+  getCanvasDrawListVersion?: () => number
+}
+
 interface NativeTreeNode {
   id: number
   type: string
@@ -170,6 +174,12 @@ export class TestRenderer {
   setWindowKeyEvents(keyDown: boolean, keyUp: boolean, eventId: number): void { this.#native.setWindowKeyEvents(keyDown, keyUp, eventId) }
   setWindowSelectionChange(enabled: boolean, eventId: number): void { this.#native.setWindowSelectionChange(enabled, eventId) }
   getElementBounds(elementId: number): number[] | null { return this.#native.getElementBounds(elementId) }
+  getCanvasDrawListVersion(): number | undefined {
+    // SAFETY: source-edge GPUIX may expose this optional capability before it
+    // exists in the published @gpuix/native TypeScript surface.
+    const native = this.#native as CanvasProtocolNativeTestRenderer
+    return native.getCanvasDrawListVersion?.()
+  }
 
   flush(): void { this.#native.flush() }
 
