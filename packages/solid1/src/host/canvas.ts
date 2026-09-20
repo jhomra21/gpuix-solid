@@ -691,17 +691,43 @@ function isOpaquePaint(value: string): boolean {
     return false
   }
 
-  const legacyRgba = paint.match(/^rgba\([^)]*,\s*([0-9.]+)\s*\)$/)
-  if (legacyRgba) return Number(legacyRgba[1]) >= 1
+  const rgb = paint.match(/^rgba?\((.*)\)$/)?.[1]
+  if (rgb === undefined) return false
+  const commaSeparated = rgb.includes(",")
+  const slashParts = rgb.split("/")
+  if (slashParts.length > 2) return false
 
-  const slashAlpha = paint.match(/\/\s*([0-9.]+)(%)?\s*\)$/)
-  if (slashAlpha) {
-    const alpha = Number(slashAlpha[1])
-    return slashAlpha[2] ? alpha >= 100 : alpha >= 1
+  let channels: string[]
+  let alpha: string | undefined
+  if (commaSeparated) {
+    if (slashParts.length !== 1) return false
+    const parts = rgb.split(",").map((part) => part.trim())
+    if (parts.length !== 3 && parts.length !== 4) return false
+    channels = parts.slice(0, 3)
+    alpha = parts[3]
+  } else {
+    channels = (slashParts[0] ?? "").trim().split(/\s+/u)
+    if (channels.length !== 3) return false
+    alpha = slashParts[1]?.trim()
   }
 
-  if (/^(?:rgb|hsl|hwb|lab|lch|oklab|oklch|color)\(/.test(paint)) return true
-  return /^[a-z]+$/.test(paint)
+  if (!channels.every(isFiniteCssNumber)) return false
+  if (alpha === undefined) return true
+  const parsedAlpha = parseCssAlpha(alpha)
+  return parsedAlpha !== undefined && parsedAlpha >= 1
+}
+
+function isFiniteCssNumber(value: string): boolean {
+  const match = value.match(/^([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)(%)?$/i)
+  return match !== null && Number.isFinite(Number(match[1]))
+}
+
+function parseCssAlpha(value: string): number | undefined {
+  const match = value.match(/^([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)(%)?$/i)
+  if (!match) return undefined
+  const number = Number(match[1])
+  if (!Number.isFinite(number)) return undefined
+  return match[2] ? number / 100 : number
 }
 
 function normalizeSize(size: CanvasBackingSize): CanvasBackingSize {
