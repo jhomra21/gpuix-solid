@@ -879,6 +879,12 @@ function adopt(root: HostRootNode, node: HostNode): void {
   }
   if (node.nativeAlive) return
 
+  if (node.kind === "element" && node.localName === "canvas") {
+    node.nativeType = root.driver.renderer.getCanvasDrawListVersion?.() === CANVAS_DRAW_LIST_VERSION
+      ? "canvas"
+      : "div"
+  }
+
   node.nativeAlive = true
   root.events.activate(node.id)
   root.driver.enqueue("createElement", node.id, node.kind === "element" ? node.nativeType : node.type)
