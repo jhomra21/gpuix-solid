@@ -188,6 +188,39 @@ describe("Canvas2D draw-list recorder", () => {
     expect(() => ctx.fillText("text", 0, 0, 20)).toThrow(/maxWidth/u)
   })
 
+  it("bounds retained commands at opaque full-frame repaint boundaries", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 160, height: 80 }))
+    const ctx = recorder.context
+
+    ctx.fillStyle = "#09090b"
+    ctx.fillRect(0, 0, 160, 80)
+    ctx.fillStyle = "#ffffff"
+    ctx.fillText("old frame", 12, 18)
+
+    ctx.fillStyle = "oklch(0.11 0.003 286)"
+    ctx.fillRect(0, 0, 160, 80)
+    ctx.fillStyle = "#ffffff"
+    ctx.fillText("fresh frame", 12, 18)
+
+    const drawList = recorder.snapshot()
+    expect(drawList.commands).toHaveLength(2)
+    expect(JSON.stringify(drawList)).not.toContain("old frame")
+    expect(JSON.stringify(drawList)).toContain("fresh frame")
+  })
+
+  it("does not prune prior commands for translucent full-frame fills", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 100, height: 50 }))
+    const ctx = recorder.context
+
+    ctx.fillStyle = "#ffffff"
+    ctx.fillText("underlay", 4, 12)
+    ctx.globalAlpha = 0.5
+    ctx.fillStyle = "#000000"
+    ctx.fillRect(0, 0, 100, 50)
+
+    expect(recorder.snapshot().commands).toHaveLength(2)
+  })
+
   it("returns snapshots that callers cannot mutate back into recorder state", () => {
     const recorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
     recorder.context.fillRect(0, 0, 5, 5)
