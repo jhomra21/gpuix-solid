@@ -22,7 +22,7 @@ The wire value is one `drawList` custom prop:
 }
 ```
 
-Transforms are resolved before serialization. `save()` and `restore()` remain local state and do not add protocol commands. Multiple synchronous drawing calls are coalesced into one host update at the next microtask boundary. An opaque full-backing-store `fillRect()` is treated as an occlusion boundary, so immediate-mode redraw loops do not accumulate an unbounded retained command history.
+Transforms are resolved before serialization. `save()` and `restore()` remain local state and do not add protocol commands. Multiple synchronous drawing calls are coalesced into one host update at the next microtask boundary. A full-backing-store `fillRect()` whose hex or RGB paint can be proven opaque is treated as an occlusion boundary, so common immediate-mode redraw loops do not accumulate an unbounded retained command history. Other color syntaxes stay retained rather than risking an incorrect discard.
 
 ## Canvas2D v1
 
