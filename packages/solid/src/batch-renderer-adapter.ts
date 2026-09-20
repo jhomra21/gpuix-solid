@@ -27,7 +27,7 @@ export interface BatchRendererApi {
   clearSelection?(): void
   getPaintedHighlights?(): HighlightMatch[]
   getWindowSize?(): { width: number; height: number }
-  getCanvasDrawListVersion?(): number
+  getCanvasDrawListVersion?(): number | undefined
   getWindowInsets?(): NativeWindowInsets
   activateWindow?(): void
   setWindowTitle?(title: string): void
