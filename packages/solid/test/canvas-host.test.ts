@@ -39,6 +39,8 @@ describe("Canvas host integration", () => {
   it("keeps published GPUIX feature detection honest when Canvas is unavailable", () => {
     const { renderer, canvas } = fixture()
 
+    expect(canvas.nativeType).toBe("div")
+    expect(renderer.batches[0]).toContainEqual(["createElement", canvas.id, "div"])
     expect(canvas.getContext("2d")).toBeNull()
     expect(renderer.batches.flat()).not.toContainEqual(
       expect.arrayContaining(["setCustomProp", canvas.id, "drawList"]),
@@ -48,6 +50,8 @@ describe("Canvas host integration", () => {
   it("returns a Canvas2D context only for the matching native protocol", async () => {
     const { renderer, canvas } = fixture(CANVAS_DRAW_LIST_VERSION)
 
+    expect(canvas.nativeType).toBe("canvas")
+    expect(renderer.batches[0]).toContainEqual(["createElement", canvas.id, "canvas"])
     const context = canvas.getContext("2d")
     expect(context).not.toBeNull()
     expect(canvas.getContext("webgl")).toBeNull()
@@ -86,7 +90,9 @@ describe("Canvas host integration", () => {
   })
 
   it("rejects a native Canvas protocol version it does not understand", () => {
-    const { canvas } = fixture(CANVAS_DRAW_LIST_VERSION + 1)
+    const { renderer, canvas } = fixture(CANVAS_DRAW_LIST_VERSION + 1)
+    expect(canvas.nativeType).toBe("div")
+    expect(renderer.batches[0]).toContainEqual(["createElement", canvas.id, "div"])
     expect(canvas.getContext("2d")).toBeNull()
   })
 })
