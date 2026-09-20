@@ -128,7 +128,13 @@ describe("Canvas2D draw-list recorder", () => {
   })
 
 
-  it("rejects stroke settings the first native protocol cannot represent", () => {
+  it("rejects fill and stroke settings the first native protocol cannot represent", () => {
+    const fillRecorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
+    const fillContext = fillRecorder.context
+    fillContext.beginPath()
+    fillContext.rect(0, 0, 10, 10)
+    expect(() => fillContext.fill("evenodd")).toThrow(/nonzero fill rule/u)
+
     const recorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
     const ctx = recorder.context
 
