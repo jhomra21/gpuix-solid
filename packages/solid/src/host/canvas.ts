@@ -294,6 +294,9 @@ export function createCanvas2DRecorder(
       appendArc(path, x, y, radius, startAngle, endAngle, counterclockwise, state.transform)
     },
     fill(fillRule: CanvasFillRule = "nonzero") {
+      if (fillRule !== "nonzero") {
+        throw new Error("GPUix Canvas2D v1 supports the nonzero fill rule only")
+      }
       if (path.length === 0) return
       commands.push({
         op: "fillPath",
