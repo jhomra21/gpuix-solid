@@ -72,10 +72,10 @@ describe("Canvas2D draw-list recorder", () => {
     ctx.beginPath()
     ctx.moveTo(1, 2)
     ctx.lineTo(3, 4)
-    ctx.stroke()
+    ctx.fill()
 
     expect(recorder.snapshot().commands[0]).toMatchObject({
-      op: "strokePath",
+      op: "fillPath",
       path: [
         { op: "moveTo", x: 12, y: 26 },
         { op: "lineTo", x: 16, y: 32 },
