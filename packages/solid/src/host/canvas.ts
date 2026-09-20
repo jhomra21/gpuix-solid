@@ -175,17 +175,13 @@ export function createCanvas2DRecorder(
       state.transform = IDENTITY
     },
     setTransform(
-      a: number | DOMMatrix2DInit,
+      a: number,
       b?: number,
       c?: number,
       d?: number,
       e?: number,
       f?: number,
     ) {
-      if (typeof a === "object") {
-        state.transform = matrixFromDomInit(a)
-        return
-      }
       state.transform = finiteMatrix(a, b, c, d, e, f)
     },
     transform(a: number, b: number, c: number, d: number, e: number, f: number) {
@@ -332,7 +328,7 @@ export function createCanvas2DRecorder(
       }
       const point = transformPoint(x, y, state.transform)
       const font = parseFont(state.font)
-      commands.push({
+      const command: Extract<CanvasDrawCommand, { op: "fillText" }> = {
         op: "fillText",
         text: String(text),
         x: point[0],
@@ -341,16 +337,21 @@ export function createCanvas2DRecorder(
         alpha: state.globalAlpha,
         fontSize: font.size * textScale(state.transform),
         fontFamily: font.family,
-        ...(font.weight === undefined ? {} : { fontWeight: font.weight }),
         align: state.textAlign,
         baseline: state.textBaseline,
-      })
+      }
+      if (font.weight !== undefined) command.fontWeight = font.weight
+      commands.push(command)
       changed()
     },
-  } as unknown as CanvasRenderingContext2D
+  }
+  // SAFETY: this host object deliberately implements the Canvas2D subset supported by protocol v1.
+  // Browser-compiled source still sees the standard CanvasRenderingContext2D contract; unsupported
+  // operations are absent or fail closed rather than being serialized incorrectly.
+  const canvasContext = context as CanvasRenderingContext2D
 
   return {
-    context,
+    context: canvasContext,
     snapshot() {
       const size = normalizeSize(getSize())
       return {
@@ -399,7 +400,11 @@ function defaultState(): CanvasState {
 }
 
 function cloneState(state: CanvasState): CanvasState {
-  return { ...state, transform: [...state.transform] as CanvasMatrix }
+  return { ...state, transform: cloneMatrix(state.transform) }
+}
+
+function cloneMatrix(matrix: CanvasMatrix): CanvasMatrix {
+  return [matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]]
 }
 
 function clonePath(path: readonly CanvasPathSegment[]): CanvasPathSegment[] {
@@ -539,21 +544,17 @@ function finiteMatrix(
   e: number | undefined,
   f: number | undefined,
 ): CanvasMatrix {
-  if ([a, b, c, d, e, f].some((value) => value === undefined || !Number.isFinite(value))) {
-    throw new TypeError("Canvas transform values must be finite numbers")
+  if (
+    !Number.isFinite(a) ||
+    b === undefined || !Number.isFinite(b) ||
+    c === undefined || !Number.isFinite(c) ||
+    d === undefined || !Number.isFinite(d) ||
+    e === undefined || !Number.isFinite(e) ||
+    f === undefined || !Number.isFinite(f)
+  ) {
+    throw new TypeError("GPUix Canvas2D v1 supports only the six-number setTransform() overload")
   }
-  return [a, b!, c!, d!, e!, f!]
-}
-
-function matrixFromDomInit(value: DOMMatrix2DInit): CanvasMatrix {
-  return finiteMatrix(
-    value.a ?? value.m11 ?? 1,
-    value.b ?? value.m12 ?? 0,
-    value.c ?? value.m21 ?? 0,
-    value.d ?? value.m22 ?? 1,
-    value.e ?? value.m41 ?? 0,
-    value.f ?? value.m42 ?? 0,
-  )
+  return [a, b, c, d, e, f]
 }
 
 function transformedLineWidth(width: number, matrix: CanvasMatrix): number {
@@ -599,10 +600,11 @@ function finite(value: number): number {
 }
 
 function stringPaint(value: string | CanvasGradient | CanvasPattern, property: string): string {
-  if (typeof value !== "string") {
+  const serialized = String(value)
+  if (value !== serialized) {
     throw new TypeError(`GPUix Canvas2D v1 supports string ${property} values only`)
   }
-  return value
+  return serialized
 }
 
 function parseFont(value: string): ParsedFont {
