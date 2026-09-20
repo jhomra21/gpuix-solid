@@ -20,6 +20,14 @@ The generated report records:
 - the source-derived surface inventory, including exact conditional-state evidence;
 - a separate diff between the exact 0.9.0 Mail source and current upstream main.
 
+## CI scope
+
+The full differential harness is intentionally not a general renderer gate. It is slow because it builds and drives both the pinned React reference and the Solid application.
+
+The `Mail Acceptance` check still appears on every pull request so repositories that require that check do not get a permanently pending result. Heavy Mail work runs only when the pull request changes the Mail example, its live/parity harness, or the small set of renderer paths that directly own the automation, root, runtime, event, selection, and batch behavior exercised by that harness. Unrelated changes complete the check after the scope decision without installing dependencies or launching native applications.
+
+A manual `workflow_dispatch` always runs the complete lane. Use it when a change outside the maintained scope deserves a full Mail qualification before release.
+
 ## Manual side-by-side launch
 
 Build the Solid example and launch it from the repository:
