@@ -224,6 +224,7 @@ export function createCanvas2DRecorder(
       changed()
     },
     strokeRect(x: number, y: number, width: number, height: number) {
+      assertSupportedStrokeState(state)
       commands.push({
         op: "strokePath",
         color: state.strokeStyle,
@@ -309,6 +310,7 @@ export function createCanvas2DRecorder(
     },
     stroke() {
       if (path.length === 0) return
+      assertSupportedStrokeState(state)
       commands.push({
         op: "strokePath",
         color: state.strokeStyle,
@@ -324,6 +326,9 @@ export function createCanvas2DRecorder(
     fillText(text: string, x: number, y: number, maxWidth?: number) {
       if (maxWidth !== undefined) {
         throw new Error("GPUix Canvas2D v1 does not support fillText() maxWidth")
+      }
+      if (String(text).includes("\n")) {
+        throw new Error("GPUix Canvas2D v1 does not support newlines in fillText()")
       }
       const point = transformPoint(x, y, state.transform)
       const font = parseFont(state.font)
@@ -362,6 +367,18 @@ export function createCanvas2DRecorder(
       stack.length = 0
       changed()
     },
+  }
+}
+
+function assertSupportedStrokeState(state: CanvasState): void {
+  if (state.lineCap !== "butt") {
+    throw new Error(`GPUix Canvas2D v1 does not support lineCap=${JSON.stringify(state.lineCap)}`)
+  }
+  if (state.lineJoin !== "miter") {
+    throw new Error(`GPUix Canvas2D v1 does not support lineJoin=${JSON.stringify(state.lineJoin)}`)
+  }
+  if (state.miterLimit !== 10) {
+    throw new Error(`GPUix Canvas2D v1 does not support miterLimit=${state.miterLimit}`)
   }
 }
 
