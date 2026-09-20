@@ -6,7 +6,7 @@ The benchmark definition is shared. Backends only prepare the codec environment 
 
 - `@mediabunny/server`: MediaBunny's official server-side codec/transform extension.
 - `@napi-rs/webcodecs`: a WebCodecs-compatible napi-rs implementation installed as globals before MediaBunny loads.
-- Browser WebCodecs: the next adapter; it will run this same workload in a real Chromium process rather than maintaining a separate browser benchmark.
+- Browser WebCodecs: the same suite bundled for a real headless Chromium process, driven with Playwright.
 
 Dependencies are pinned because these measurements are only comparable when the MediaBunny and codec implementations are known exactly.
 
@@ -16,8 +16,8 @@ The first checked-in workload establishes a reproducible baseline rather than pr
 
 - video and audio encode/decode capability queries across MediaBunny's current codec vocabulary;
 - raw RGBA `VideoSample` and PCM `AudioSample` ingestion;
-- AVC + AAC MP4 encoding into a `BufferTarget`;
-- MP4 reopening, format/MIME/duration/track/metadata inspection;
+- VP8 + Opus WebM encoding into a `BufferTarget`, chosen as the common baseline across Chromium and both native backends;
+- WebM reopening, format/MIME/duration/track/metadata inspection;
 - encoded packet iteration;
 - sequential video decoding;
 - random-access video sample retrieval;
@@ -32,12 +32,16 @@ The report is JSON so the browser runner and future GPUI presentation runner can
 bun install --no-save
 bun run bench:server
 bun run bench:webcodecs
+bunx playwright install chromium
+bun run bench:browser
 ```
 
 Do not compare absolute GitHub-hosted-runner timings as framework performance claims. CI uses this workload as a correctness and compatibility gate and uploads the reports for inspection. Stable performance regression thresholds should come only after repeated measurements on a controlled runner.
 
 ## Expansion matrix
 
-The benchmark will grow by adding workload cases to the shared suite, not backend-specific scripts. The planned matrix includes container read/write and transmux, all supported codec families, packet/sample access, sparse seeking, Conversion API operations, resize/crop/rotate/flip/frame-rate transforms, audio resampling and channel mixing, transparency, processing callbacks, CanvasSource/CanvasSink, and decoded-frame presentation through GPUI.
+The benchmark grows by adding workload cases to the shared suite, not backend-specific scripts. Capability queries already include the full current MediaBunny video/audio codec vocabulary; the common executable round trip starts with VP8 + Opus WebM so every backend is measured against the same media.
+
+Next cases include container read/write and transmux, per-codec encode/decode fixtures, sparse seeking, Conversion API operations, resize/crop/rotate/flip/frame-rate transforms, audio resampling and channel mixing, transparency, processing callbacks, CanvasSource/CanvasSink, and decoded-frame presentation through GPUI.
 
 The GPUI presentation path is deliberately separate from Canvas v1. Video frames are large media resources; they should not be serialized through the retained Canvas draw-list protocol.
