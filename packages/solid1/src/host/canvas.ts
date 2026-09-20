@@ -618,14 +618,44 @@ function coversBackingStore(
   points: readonly (readonly [number, number])[],
   size: CanvasBackingSize,
 ): boolean {
+  if (points.length !== 4) return false
   const normalized = normalizeSize(size)
-  const xs = points.map(([x]) => x)
-  const ys = points.map(([, y]) => y)
-  const epsilon = 0.01
-  return Math.min(...xs) <= epsilon &&
-    Math.min(...ys) <= epsilon &&
-    Math.max(...xs) >= normalized.width - epsilon &&
-    Math.max(...ys) >= normalized.height - epsilon
+  const corners: readonly (readonly [number, number])[] = [
+    [0, 0],
+    [normalized.width, 0],
+    [normalized.width, normalized.height],
+    [0, normalized.height],
+  ]
+  return corners.every((corner) => convexPolygonContainsPoint(points, corner))
+}
+
+function convexPolygonContainsPoint(
+  polygon: readonly (readonly [number, number])[],
+  point: readonly [number, number],
+): boolean {
+  const scale = Math.max(
+    1,
+    Math.abs(point[0]),
+    Math.abs(point[1]),
+    ...polygon.flatMap(([x, y]) => [Math.abs(x), Math.abs(y)]),
+  )
+  const tolerance = scale * scale * 1e-9
+  let direction = 0
+
+  for (let index = 0; index < polygon.length; index += 1) {
+    const start = polygon[index]
+    const end = polygon[(index + 1) % polygon.length]
+    if (!start || !end) return false
+    const cross =
+      (end[0] - start[0]) * (point[1] - start[1]) -
+      (end[1] - start[1]) * (point[0] - start[0])
+    if (Math.abs(cross) <= tolerance) continue
+    const nextDirection = Math.sign(cross)
+    if (direction !== 0 && nextDirection !== direction) return false
+    direction = nextDirection
+  }
+
+  return direction !== 0
 }
 
 function isFullBackingStoreRectangle(
