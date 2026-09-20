@@ -127,6 +127,34 @@ describe("Canvas2D draw-list recorder", () => {
     expect(recorder.snapshot().commands).toEqual([])
   })
 
+
+  it("rejects stroke settings the first native protocol cannot represent", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
+    const ctx = recorder.context
+
+    ctx.lineCap = "round"
+    ctx.beginPath()
+    ctx.moveTo(0, 0)
+    ctx.lineTo(10, 10)
+    expect(() => ctx.stroke()).toThrow(/lineCap/u)
+
+    ctx.lineCap = "butt"
+    ctx.lineJoin = "round"
+    expect(() => ctx.stroke()).toThrow(/lineJoin/u)
+
+    ctx.lineJoin = "miter"
+    ctx.miterLimit = 4
+    expect(() => ctx.stroke()).toThrow(/miterLimit/u)
+  })
+
+  it("rejects multiline and constrained fillText instead of mispainting it", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
+    const ctx = recorder.context
+
+    expect(() => ctx.fillText("two\nlines", 0, 0)).toThrow(/newlines/u)
+    expect(() => ctx.fillText("text", 0, 0, 20)).toThrow(/maxWidth/u)
+  })
+
   it("returns snapshots that callers cannot mutate back into recorder state", () => {
     const recorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
     recorder.context.fillRect(0, 0, 5, 5)
