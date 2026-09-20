@@ -1,6 +1,11 @@
 import { mkdirSync, writeFileSync } from "node:fs"
 import { resolve } from "node:path"
-import { createRoot, type NativeRenderer } from "gpuix-solid"
+import {
+  createCanvas2DRecorder,
+  createRoot,
+  type CanvasDrawList,
+  type NativeRenderer,
+} from "gpuix-solid"
 import { ChatApp } from "../chat/shell"
 import { median, summarize, type BenchmarkStats } from "./stats"
 
@@ -195,6 +200,67 @@ function inlineStyleInterning(ops: readonly Op[]): string {
   return JSON.stringify(output)
 }
 
+function captureCanvasDrawList(pointCount: number): CanvasDrawList {
+  const recorder = createCanvas2DRecorder(() => ({ width: 1_280, height: 320 }))
+  const context = recorder.context
+
+  context.fillStyle = "#10141e"
+  context.fillRect(0, 0, 1_280, 320)
+
+  context.strokeStyle = "#2f81f7"
+  context.lineWidth = 1.5
+  context.beginPath()
+  context.moveTo(0, 160)
+  for (let index = 1; index < pointCount; index += 1) {
+    const x = (index / Math.max(1, pointCount - 1)) * 1_280
+    const y = 160 + Math.sin(index * 0.075) * 110
+    context.lineTo(x, y)
+  }
+  context.stroke()
+
+  context.fillStyle = "#ffffff"
+  context.font = "600 14px Inter"
+  context.fillText("Canvas draw-list serialization fixture", 16, 28)
+  return recorder.snapshot()
+}
+
+function benchCanvasDrawList(drawList: CanvasDrawList, iterations: number): void {
+  const mutation = [["setCustomProp", 1, "drawList", drawList]]
+  for (let index = 0; index < 3; index += 1) {
+    const warm = JSON.stringify(mutation)
+    JSON.parse(warm)
+  }
+
+  const encodeSamples: number[] = []
+  const decodeSamples: number[] = []
+  let bytes = 0
+  for (let index = 0; index < iterations; index += 1) {
+    let started = performance.now()
+    const payload = JSON.stringify(mutation)
+    encodeSamples.push(performance.now() - started)
+    bytes = Buffer.byteLength(payload)
+
+    started = performance.now()
+    JSON.parse(payload)
+    decodeSamples.push(performance.now() - started)
+  }
+
+  const encode = summarize(encodeSamples)
+  const decode = summarize(decodeSamples)
+  console.log("\nCanvas draw-list sample")
+  console.log("| commands | path segments | encode p50/p95/p99 | decode p50/p95/p99 | wire bytes |")
+  console.log("| ---: | ---: | ---: | ---: | ---: |")
+  const pathSegments = drawList.commands.reduce((total, command) => (
+    command.op === "fillText" ? total : total + command.path.length
+  ), 0)
+  console.log(
+    `| ${drawList.commands.length} | ${pathSegments} | ` +
+      `${encode.p50.toFixed(2)}/${encode.p95.toFixed(2)}/${encode.p99.toFixed(2)} ms | ` +
+      `${decode.p50.toFixed(2)}/${decode.p95.toFixed(2)}/${decode.p99.toFixed(2)} ms | ` +
+      `${(bytes / 1e3).toFixed(1)} KB |`,
+  )
+}
+
 function benchInlineInterning(ops: readonly Op[], iterations: number): void {
   const plainSamples: number[] = []
   const internSamples: number[] = []
@@ -259,8 +325,11 @@ function main(): void {
   }
 
   benchInlineInterning(ops, iterations)
+  const canvasPoints = Number(process.env.CANVAS_POINTS ?? 2_048)
+  benchCanvasDrawList(captureCanvasDrawList(canvasPoints), iterations)
   console.log(
     "\nThis measures Solid's applyBatch JSON path and the same style-interning question as upstream. " +
+      "The Canvas row measures the exact v1 drawList custom-prop envelope for a DAW-style waveform. " +
       "The upstream Rust serde benchmark stays upstream because this repository does not own that native decoder.",
   )
 }
