@@ -6,7 +6,8 @@
   "scripts": {
     "bench:server": "bun src/run-server.ts",
     "bench:webcodecs": "bun src/run-webcodecs.ts",
-    "bench:browser": "bun src/run-browser.ts"
+    "bench:browser": "bun src/run-browser.ts",
+    "compare": "bun src/compare.ts reports"
   },
   "dependencies": {
     "@mediabunny/server": "1.58.1",
