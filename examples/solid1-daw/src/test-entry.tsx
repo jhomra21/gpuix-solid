@@ -61,12 +61,24 @@ if (hasNativeTestRenderer) {
   // Low-level Canvas compaction is covered by check-canvas-bridge.ts. Here the
   // app-level contract is that the exact source waveform paint survives that
   // compaction and occupies the real audio clip inside its timeline lane.
-  app.renderer.customPropStringContainingAll("source", [
-    'preserveAspectRatio="none"',
-    'fill="#00a76c"',
-    "<path",
-  ])
-  const surfaceBounds = app.renderer.boundsTestId("gpuix-canvas-2d-surface")
+  const nativeCanvasV1 = app.renderer.getCanvasDrawListVersion() === 1
+  const waveformFragments = ['"color":"#00a76c"', '"op":"fillPath"'] as const
+  const surfaceBounds = nativeCanvasV1
+    ? app.renderer.boundsCustomPropJsonContainingAll("drawList", waveformFragments)
+    : app.renderer.boundsTestId("gpuix-canvas-2d-surface")
+  if (nativeCanvasV1) {
+    const waveformDrawList = app.renderer.customPropJsonContainingAll("drawList", waveformFragments)
+    requireCondition(
+      waveformDrawList.includes('"version":1'),
+      `native waveform Canvas must use draw-list protocol v1, got ${waveformDrawList}`,
+    )
+  } else {
+    app.renderer.customPropStringContainingAll("source", [
+      'preserveAspectRatio="none"',
+      'fill="#00a76c"',
+      "<path",
+    ])
+  }
   const drumsLaneBounds = app.renderer.boundsTestId("lane-drums")
   requireCondition(
     surfaceBounds.width > 100 && surfaceBounds.height > 40,
@@ -105,18 +117,30 @@ if (hasNativeTestRenderer) {
     eqBandBounds.x >= 0 && eqBandBounds.x + eqBandBounds.width <= viewportWidth,
     `EQ visual acceptance must expose the exact source band controls, got ${JSON.stringify(eqBandBounds)}`,
   )
-  const eqCanvasSource = app.renderer.customPropStringContainingAll("source", [
-    'preserveAspectRatio="none"',
-    'font-size="9"',
-    "+0 dB",
-    "10k",
-    "<circle",
-  ])
+  const eqCanvasSource = nativeCanvasV1
+    ? app.renderer.customPropJsonContainingAll("drawList", [
+        '"version":1',
+        '"op":"fillText"',
+        '"op":"bezierCurveTo"',
+        '"text":"+0 dB"',
+        '"text":"10k"',
+        '"text":"1"',
+        '"text":"8"',
+      ])
+    : app.renderer.customPropStringContainingAll("source", [
+        'preserveAspectRatio="none"',
+        'font-size="9"',
+        "+0 dB",
+        "10k",
+        "<circle",
+      ])
   requireCondition(
-    eqCanvasSource.includes(">1</text>") && eqCanvasSource.includes(">8</text>"),
-    "exact EQ Canvas source should retain all numbered band-node labels",
+    nativeCanvasV1
+      ? eqCanvasSource.includes('"text":"1"') && eqCanvasSource.includes('"text":"8"')
+      : eqCanvasSource.includes(">1</text>") && eqCanvasSource.includes(">8</text>"),
+    "exact EQ Canvas paint should retain all numbered band-node labels",
   )
-  requireCondition(eqCanvasSource.length > 1000, `exact EQ Canvas source should contain the full retained graph command stream, got ${eqCanvasSource.length} bytes`)
+  requireCondition(eqCanvasSource.length > 1000, `exact EQ Canvas paint should contain the full retained graph command stream, got ${eqCanvasSource.length} bytes`)
   app.renderer.captureScreenshot("/tmp/gpuix-solid1-daw-eq.png")
   app.renderer.scrollTestId("effects-panel", 0, 0)
 
@@ -274,5 +298,5 @@ if (hasNativeTestRenderer) {
 
   automated.unmount()
 
-  console.log("solid1 DAW visual acceptance: exact compact Canvas2D waveform paint and clip geometry passed; exact EQ full graph source and dedicated native capture passed; reactive mixer controls, hard-split, and automated interval paints passed")
+  console.log("solid1 DAW visual acceptance: exact compact Canvas2D waveform paint and clip geometry passed; exact EQ full graph native draw-list/SVG paint and dedicated native capture passed; reactive mixer controls, hard-split, and automated interval paints passed")
 }
