@@ -24,13 +24,15 @@ function fixture(canvasVersion?: number) {
 
 async function nextCanvasBatch(renderer: FakeRenderer): Promise<CanvasDrawList> {
   await Promise.resolve()
-  const operation = renderer.batches
-    .flat()
-    .findLast((entry) => entry[0] === "setCustomProp" && entry[2] === "drawList")
-  if (!operation) throw new Error("Canvas draw-list mutation was not emitted")
-  // SAFETY: this operation is selected only from the renderer's drawList custom-prop mutation,
-  // whose producer serializes CanvasDrawList snapshots from the Canvas host.
-  return operation[3] as CanvasDrawList
+  const operations = renderer.batches.flat()
+  for (let index = operations.length - 1; index >= 0; index -= 1) {
+    const operation = operations[index]
+    if (operation?.[0] !== "setCustomProp" || operation[2] !== "drawList") continue
+    // SAFETY: this operation is selected only from the renderer's drawList custom-prop mutation,
+    // whose producer serializes CanvasDrawList snapshots from the Canvas host.
+    return operation[3] as CanvasDrawList
+  }
+  throw new Error("Canvas draw-list mutation was not emitted")
 }
 
 describe("Canvas host integration", () => {
