@@ -28,8 +28,9 @@ The command prints the exact Git SHA, operating system, CPU, memory, Bun version
 | Serialization | JSON encode/decode | actual Solid `applyBatch` mutation tuples |
 | Serialization | UTF-8 buffer | JSON plus Buffer conversion |
 | Serialization | style-ref experiment | measured style-interning candidate |
+| Canvas serialization | DAW-style waveform | exact Canvas v1 `drawList` custom-prop envelope with 2,048 path points by default |
 
-Sampled interaction and serialization paths report **p50, p95, p99**, sample count where applicable, and a max for latency samples. Mounts are one-shot measurements and are labeled as such.
+Sampled interaction and serialization paths report **p50, p95, p99**, sample count where applicable, and a max for latency samples. Mounts are one-shot measurements and are labeled as such. Set `CANVAS_POINTS` to change the Canvas waveform sample size when measuring protocol growth.
 
 ## Measurement policy
 
