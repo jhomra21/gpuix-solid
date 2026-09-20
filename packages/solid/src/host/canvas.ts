@@ -403,11 +403,15 @@ function rectanglePath(
   matrix: CanvasMatrix,
 ): CanvasPathSegment[] {
   const points = rectanglePoints(x, y, width, height, matrix)
+  const first = points[0]!
+  const second = points[1]!
+  const third = points[2]!
+  const fourth = points[3]!
   return [
-    { op: "moveTo", x: points[0][0], y: points[0][1] },
-    { op: "lineTo", x: points[1][0], y: points[1][1] },
-    { op: "lineTo", x: points[2][0], y: points[2][1] },
-    { op: "lineTo", x: points[3][0], y: points[3][1] },
+    { op: "moveTo", x: first[0], y: first[1] },
+    { op: "lineTo", x: second[0], y: second[1] },
+    { op: "lineTo", x: third[0], y: third[1] },
+    { op: "lineTo", x: fourth[0], y: fourth[1] },
     { op: "closePath" },
   ]
 }
@@ -600,5 +604,5 @@ function parseFont(value: string): ParsedFont {
     : token && token !== "normal"
       ? Number(token)
       : undefined
-  return { size, family, weight }
+  return weight === undefined ? { size, family } : { size, family, weight }
 }
