@@ -137,6 +137,12 @@ The exact source/native baseline and gap tracking live in [`../docs/upstream-par
 
 These are additional renderer fixtures rather than substitutes for the upstream parity ports. When an application comes from another repository, its source snapshot is pinned and compatibility changes live beneath the application boundary.
 
+### MediaBunny native codec dogfood
+
+The standalone [MediaBunny fixture](./mediabunny/README.md) compares the same media workload through MediaBunny's official server extension and a napi-rs WebCodecs implementation. It records machine-readable codec capability and encode/demux/decode/seek measurements. A real-browser adapter and GPUI decoded-frame presentation are the next comparison targets.
+
+This fixture intentionally stays outside the main workspace because its native codec dependencies are benchmark inputs, not runtime dependencies of `gpuix-solid`.
+
 ### Desktop integrations
 
 ```bash
