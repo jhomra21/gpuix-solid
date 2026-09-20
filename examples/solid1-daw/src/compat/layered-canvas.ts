@@ -69,11 +69,10 @@ type RuntimeState = {
 const runtimeStates = new WeakMap<CanvasHost, RuntimeState>()
 
 export function installLayeredCanvas2D(node: CanvasHost): void {
-  const getNativeContext = node.getContext.bind(node)
   Object.defineProperty(node, "getContext", {
     configurable: true,
     value(contextId: string): CanvasRenderingContext2D | null {
-      const nativeContext = getNativeContext(contextId)
+      const nativeContext = base.getNativeCanvas2DContext(node, contextId)
       if (nativeContext || contextId !== "2d") return nativeContext
       let state = runtimeStates.get(node)
       if (!state) {
