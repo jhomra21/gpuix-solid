@@ -12,7 +12,7 @@ const config = JSON.parse(await readFile(configPath, "utf8"))
 const repository = process.env.GPUIX_EDGE_REPOSITORY ?? config.repository
 const sha = process.env.GPUIX_EDGE_SHA ?? config.sha
 const branch = process.env.GPUIX_EDGE_BRANCH ?? config.branch ?? "main"
-const patches = Array.isArray(config.patches) ? config.patches : []
+const patches = parsePatchList(config.patches)
 
 if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) {
   throw new Error(`Invalid GPUIX edge repository: ${JSON.stringify(repository)}`)
@@ -21,14 +21,22 @@ if (!/^[0-9a-f]{40}$/i.test(sha)) {
   throw new Error(`GPUIX edge SHA must be a full 40-character commit, got ${JSON.stringify(sha)}`)
 }
 for (const patch of patches) {
-  if (typeof patch !== "string" || patch.length === 0) {
-    throw new Error(`Invalid GPUIX edge patch: ${JSON.stringify(patch)}`)
-  }
   const absolute = resolve(repoRoot, patch)
   const relativePatch = relative(repoRoot, absolute)
   if (relativePatch.startsWith("..") || relativePatch === "" || relativePatch.includes("\\0")) {
     throw new Error(`GPUIX edge patch must stay inside the repository: ${JSON.stringify(patch)}`)
   }
+}
+
+function parsePatchList(value) {
+  if (!Array.isArray(value)) return []
+  return value.map((patch) => {
+    const serialized = String(patch)
+    if (patch !== serialized || serialized.length === 0) {
+      throw new Error(`Invalid GPUIX edge patch: ${JSON.stringify(patch)}`)
+    }
+    return serialized
+  })
 }
 
 const cacheRoot = resolve(repoRoot, process.env.GPUIX_EDGE_CACHE_DIR ?? ".cache/gpuix")
