@@ -154,6 +154,7 @@ try {
   }
 
   await step("restore Primary channel", () => app.getByTestId("channel-primary").click())
+  await expectPresent(app.getByTestId("thread-nora"), "Primary restores Nora thread")
   await step("open Nora timeline thread", () => app.getByTestId("thread-nora").click())
   await expectPresent(
     app.getByTestId("mail-reading-pane").getByText("Desk notes"),
