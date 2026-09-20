@@ -12,12 +12,23 @@ const config = JSON.parse(await readFile(configPath, "utf8"))
 const repository = process.env.GPUIX_EDGE_REPOSITORY ?? config.repository
 const sha = process.env.GPUIX_EDGE_SHA ?? config.sha
 const branch = process.env.GPUIX_EDGE_BRANCH ?? config.branch ?? "main"
+const patches = Array.isArray(config.patches) ? config.patches : []
 
 if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) {
   throw new Error(`Invalid GPUIX edge repository: ${JSON.stringify(repository)}`)
 }
 if (!/^[0-9a-f]{40}$/i.test(sha)) {
   throw new Error(`GPUIX edge SHA must be a full 40-character commit, got ${JSON.stringify(sha)}`)
+}
+for (const patch of patches) {
+  if (typeof patch !== "string" || patch.length === 0) {
+    throw new Error(`Invalid GPUIX edge patch: ${JSON.stringify(patch)}`)
+  }
+  const absolute = resolve(repoRoot, patch)
+  const relativePatch = relative(repoRoot, absolute)
+  if (relativePatch.startsWith("..") || relativePatch === "" || relativePatch.includes("\\0")) {
+    throw new Error(`GPUIX edge patch must stay inside the repository: ${JSON.stringify(patch)}`)
+  }
 }
 
 const cacheRoot = resolve(repoRoot, process.env.GPUIX_EDGE_CACHE_DIR ?? ".cache/gpuix")
@@ -64,8 +75,17 @@ async function syncSource() {
 
   run("git", ["fetch", "--depth=1", "origin", sha], checkout)
   run("git", ["checkout", "--detach", "--force", "FETCH_HEAD"], checkout)
+  run("git", ["clean", "-fd"], checkout)
   run("git", ["submodule", "sync", "--recursive"], checkout)
   run("git", ["submodule", "update", "--init", "--recursive", "--depth=1"], checkout)
+
+  for (const patch of patches) {
+    const patchPath = resolve(repoRoot, patch)
+    if (!(await exists(patchPath))) throw new Error(`GPUIX edge patch is missing: ${patch}`)
+    run("git", ["apply", "--check", patchPath], checkout)
+    run("git", ["apply", patchPath], checkout)
+    console.log(`GPUIX edge patch: ${patch}`)
+  }
 
   const head = capture("git", ["rev-parse", "HEAD"], checkout)
   if (head !== sha) throw new Error(`GPUIX edge checkout resolved ${head}; expected ${sha}`)
@@ -133,6 +153,7 @@ async function printStatus() {
     repository,
     branch,
     sha,
+    patches,
     checkout: relative(repoRoot, checkout),
     checkoutHead: head ?? null,
     sourceReady,
