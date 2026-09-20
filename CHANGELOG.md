@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add an experimental native Canvas2D source-edge path: a versioned browser-shaped draw-list recorder in both Solid hosts, bounded opaque full-frame repaint retention, an isolated GPUIX Canvas v1 patch using GPUI path/text painting, explicit capability-based native adoption that keeps published native 0.9 on its existing fallback, and GPU-backed paint/pointer acceptance. The Solid 1 DAW source-edge detector now exercises native waveform/EQ draw lists while the default npm dependency remains `@gpuix/native@0.9.0`.
 - Add the `gpuix-solid/vite` first-party Vite helper for the qualified Solid universal/compiler/runtime configuration, plus a startup guard that fails clearly when Solid resolves to its non-reactive server build.
 - Add user-facing element, styling, event, desktop, and automation API guides derived from the current GPUIX 0.9 Solid surface.
 - Move every Solid 2 example/test/benchmark Vite config onto `gpuixSolid()`, add a drift check that rejects duplicated renderer setup, expose retained-list Top/Bottom controls in Todo, and expand Desktop Integrations with native title/activation controls plus explicit GPUIX capability flags.

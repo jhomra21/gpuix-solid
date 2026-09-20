@@ -16,6 +16,10 @@ type NativeModule = {
   hasTestGpuixRenderer?: () => boolean
 }
 
+type CanvasProtocolNativeTestRenderer = NativeTestRendererApi & {
+  getCanvasDrawListVersion?: () => number
+}
+
 interface NativeTreeNode {
   id: number
   type: string
@@ -95,6 +99,24 @@ function findCustomPropStringContainingAll(
   return undefined
 }
 
+function findNodeBySerializedCustomProp(
+  node: NativeTreeNode | null,
+  name: string,
+  fragments: readonly string[],
+): NativeTreeNode | undefined {
+  if (!node) return undefined
+  const value = node.customProps?.[name]
+  if (value !== undefined && value !== null) {
+    const serialized = JSON.stringify(value)
+    if (fragments.every((fragment) => serialized.includes(fragment))) return node
+  }
+  for (const child of node.children ?? []) {
+    const found = findNodeBySerializedCustomProp(child, name, fragments)
+    if (found) return found
+  }
+  return undefined
+}
+
 function findFirstNodeOfType(node: NativeTreeNode, type: string): NativeTreeNode | undefined {
   if (node.type === type) return node
   for (const child of node.children ?? []) {
@@ -170,6 +192,12 @@ export class TestRenderer {
   setWindowKeyEvents(keyDown: boolean, keyUp: boolean, eventId: number): void { this.#native.setWindowKeyEvents(keyDown, keyUp, eventId) }
   setWindowSelectionChange(enabled: boolean, eventId: number): void { this.#native.setWindowSelectionChange(enabled, eventId) }
   getElementBounds(elementId: number): number[] | null { return this.#native.getElementBounds(elementId) }
+  getCanvasDrawListVersion(): number | undefined {
+    // SAFETY: source-edge GPUIX may expose this optional capability before it
+    // exists in the published @gpuix/native TypeScript surface.
+    const native = this.#native as CanvasProtocolNativeTestRenderer
+    return native.getCanvasDrawListVersion?.()
+  }
 
   flush(): void { this.#native.flush() }
 
@@ -376,6 +404,24 @@ export class TestRenderer {
       throw new Error(`Expected string custom prop ${JSON.stringify(name)} containing ${JSON.stringify(fragments)}`)
     }
     return value
+  }
+
+  customPropJsonContainingAll(name: string, fragments: readonly string[]): string {
+    this.#native.flush()
+    const node = findNodeBySerializedCustomProp(parseTree(this.#native.getTreeJson()), name, fragments)
+    if (!node) {
+      throw new Error(`Expected JSON custom prop ${JSON.stringify(name)} containing ${JSON.stringify(fragments)}`)
+    }
+    return JSON.stringify(node.customProps?.[name])
+  }
+
+  boundsCustomPropJsonContainingAll(name: string, fragments: readonly string[]): TestBounds {
+    this.#native.flush()
+    const node = findNodeBySerializedCustomProp(parseTree(this.#native.getTreeJson()), name, fragments)
+    if (!node) {
+      throw new Error(`Expected JSON custom prop ${JSON.stringify(name)} containing ${JSON.stringify(fragments)}`)
+    }
+    return this.boundsNode(node, `JSON custom prop ${JSON.stringify(name)} containing ${JSON.stringify(fragments)}`)
   }
 
   boundsCustomProps(query: TestCustomPropQuery): TestBounds {

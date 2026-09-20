@@ -113,6 +113,10 @@ type IntervalOverlaySurfaceState = {
 }
 
 const runtimeCanvases = new WeakMap<CanvasHostNode, RuntimeCanvasState>()
+const nativeCanvasContexts = new WeakMap<
+  CanvasHostNode,
+  (contextId: string) => CanvasRenderingContext2D | null
+>()
 const cssVariableHardSplits = new Map<`--${string}`, CssVariableHardSplitCompat>()
 const cssVariableIntervalOverlays = new Map<string, CssVariableIntervalOverlayCompat>()
 const hardSplitSurfaces = new WeakMap<NativeHostElement, HardSplitSurfaceState>()
@@ -327,10 +331,13 @@ function cssUnitInterval(value: CssVariableValue): number | undefined {
 }
 
 function installCanvas2D(node: CanvasHostNode): void {
+  const getNativeContext = node.getContext.bind(node)
+  nativeCanvasContexts.set(node, getNativeContext)
   Object.defineProperty(node, "getContext", {
     configurable: true,
     value(contextId: string): CanvasRenderingContext2D | null {
-      if (contextId !== "2d") return null
+      const nativeContext = getNativeContext(contextId)
+      if (nativeContext || contextId !== "2d") return nativeContext
       let state = runtimeCanvases.get(node)
       if (!state) {
         const surface = requireHostElement(createNativeElement("svg"), "svg")
@@ -351,6 +358,13 @@ function installCanvas2D(node: CanvasHostNode): void {
       return state.drawing.context
     },
   })
+}
+
+export function getNativeCanvas2DContext(
+  node: CanvasHostNode,
+  contextId: string,
+): CanvasRenderingContext2D | null {
+  return nativeCanvasContexts.get(node)?.(contextId) ?? null
 }
 
 function scheduleCanvasRender(node: CanvasHostNode, state: RuntimeCanvasState): void {

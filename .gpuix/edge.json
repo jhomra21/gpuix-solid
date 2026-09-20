@@ -1,5 +1,8 @@
 {
   "repository": "remorses/gpuix",
   "sha": "7ac9880abd8e91e5bf0e4feb0fa850729cf95a68",
-  "branch": "main"
+  "branch": "main",
+  "patches": [
+    "patches/gpuix/canvas-v1.patch"
+  ]
 }

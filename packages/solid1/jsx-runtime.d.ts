@@ -7,6 +7,7 @@ declare global {
 import type { JSX as SolidJSX } from "solid-js"
 import type {
   AnchoredProps,
+  CanvasProps,
   CodeProps,
   DiffProps,
   HostProps,
@@ -163,7 +164,7 @@ export namespace JSX {
     title: InlineSvgChildProps
     desc: InlineSvgChildProps
     use: InlineSvgChildProps
-    canvas: DomCompatibleProps<HostProps, SolidJSX.CanvasHTMLAttributes<HTMLCanvasElement>>
+    canvas: DomCompatibleProps<CanvasProps, SolidJSX.CanvasHTMLAttributes<HTMLCanvasElement>>
     input: DomCompatibleProps<InputProps, SolidJSX.InputHTMLAttributes<HTMLInputElement>>
     textarea: DomCompatibleProps<TextareaProps, SolidJSX.TextareaHTMLAttributes<HTMLTextAreaElement>>
     anchored: JSXProps<AnchoredProps>

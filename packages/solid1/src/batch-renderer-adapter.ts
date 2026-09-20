@@ -23,6 +23,7 @@ export interface BatchRendererApi {
   getSelectedText?(): string | null
   clearSelection?(): void
   getWindowSize?(): { width: number; height: number }
+  getCanvasDrawListVersion?(): number | undefined
   setWindowTitle?(title: string): void
   setDebugFrameOverlay?(mode: DebugFrameOverlayMode): string
   getDebugFrameOverlay?(): string
@@ -168,6 +169,9 @@ export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRen
   if (renderer.getSelectedText) adapted.getSelectedText = renderer.getSelectedText.bind(renderer)
   if (renderer.clearSelection) adapted.clearSelection = renderer.clearSelection.bind(renderer)
   if (renderer.getWindowSize) adapted.getWindowSize = renderer.getWindowSize.bind(renderer)
+  if (renderer.getCanvasDrawListVersion) {
+    adapted.getCanvasDrawListVersion = renderer.getCanvasDrawListVersion.bind(renderer)
+  }
   if (renderer.setWindowTitle) adapted.setWindowTitle = renderer.setWindowTitle.bind(renderer)
   if (renderer.setDebugFrameOverlay) adapted.setDebugFrameOverlay = renderer.setDebugFrameOverlay.bind(renderer)
   if (renderer.getDebugFrameOverlay) adapted.getDebugFrameOverlay = renderer.getDebugFrameOverlay.bind(renderer)

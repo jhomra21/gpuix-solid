@@ -1,0 +1,556 @@
+diff --git a/packages/native/src/custom_elements/mod.rs b/packages/native/src/custom_elements/mod.rs
+--- a/packages/native/src/custom_elements/mod.rs
++++ b/packages/native/src/custom_elements/mod.rs
+@@ -15,2 +15,3 @@
+ pub mod anchored;
++pub mod canvas;
+ pub mod code;
+@@ -190,2 +191,3 @@
+         registry.register(Box::new(anchored::AnchoredFactory));
++        registry.register(Box::new(canvas::CanvasFactory));
+         registry.register(Box::new(img::ImgFactory));
+diff --git a/packages/native/src/custom_elements/canvas.rs b/packages/native/src/custom_elements/canvas.rs
+new file mode 100644
+--- /dev/null
++++ b/packages/native/src/custom_elements/canvas.rs
+@@ -0,0 +1,516 @@
++use gpui::prelude::*;
++use serde::Deserialize;
++
++use super::{CustomElement, CustomElementFactory, CustomRenderContext};
++
++pub const CANVAS_DRAW_LIST_VERSION: u32 = 1;
++
++#[derive(Clone, Debug, Deserialize)]
++#[serde(rename_all = "camelCase")]
++struct CanvasDrawList {
++    version: u32,
++    width: f32,
++    height: f32,
++    commands: Vec<CanvasDrawCommand>,
++}
++
++#[derive(Clone, Debug, Deserialize)]
++#[serde(tag = "op")]
++enum CanvasDrawCommand {
++    #[serde(rename = "fillPath")]
++    FillPath {
++        color: String,
++        alpha: f32,
++        #[serde(rename = "fillRule")]
++        fill_rule: String,
++        path: Vec<CanvasPathSegment>,
++    },
++    #[serde(rename = "strokePath")]
++    StrokePath {
++        color: String,
++        alpha: f32,
++        #[serde(rename = "lineWidth")]
++        line_width: f32,
++        #[serde(rename = "lineCap")]
++        line_cap: String,
++        #[serde(rename = "lineJoin")]
++        line_join: String,
++        #[serde(rename = "miterLimit")]
++        miter_limit: f32,
++        path: Vec<CanvasPathSegment>,
++    },
++    #[serde(rename = "fillText")]
++    FillText {
++        text: String,
++        x: f32,
++        y: f32,
++        color: String,
++        alpha: f32,
++        #[serde(rename = "fontSize")]
++        font_size: f32,
++        #[serde(rename = "fontFamily")]
++        font_family: String,
++        #[serde(rename = "fontWeight")]
++        font_weight: Option<f32>,
++        align: String,
++        baseline: String,
++    },
++}
++
++#[derive(Clone, Debug, Deserialize)]
++#[serde(tag = "op")]
++enum CanvasPathSegment {
++    #[serde(rename = "moveTo")]
++    MoveTo { x: f32, y: f32 },
++    #[serde(rename = "lineTo")]
++    LineTo { x: f32, y: f32 },
++    #[serde(rename = "quadraticCurveTo")]
++    QuadraticCurveTo {
++        cpx: f32,
++        cpy: f32,
++        x: f32,
++        y: f32,
++    },
++    #[serde(rename = "bezierCurveTo")]
++    BezierCurveTo {
++        cp1x: f32,
++        cp1y: f32,
++        cp2x: f32,
++        cp2y: f32,
++        x: f32,
++        y: f32,
++    },
++    #[serde(rename = "closePath")]
++    ClosePath,
++}
++
++#[derive(Default)]
++pub struct CanvasElement {
++    draw_list: Option<CanvasDrawList>,
++}
++
++pub struct CanvasFactory;
++
++impl CustomElementFactory for CanvasFactory {
++    fn element_type(&self) -> &str {
++        "canvas"
++    }
++
++    fn create(&self, _id: u64) -> Box<dyn CustomElement> {
++        Box::new(CanvasElement::default())
++    }
++}
++
++struct PreparedCanvas {
++    text: Vec<Option<gpui::ShapedLine>>,
++}
++
++impl CustomElement for CanvasElement {
++    fn render(
++        &mut self,
++        ctx: CustomRenderContext,
++        _window: &mut gpui::Window,
++        _cx: &mut gpui::Context<crate::renderer::GpuixView>,
++    ) -> gpui::AnyElement {
++        let draw_list = self.draw_list.clone();
++        let prepaint_list = draw_list.clone();
++        let paint_list = draw_list;
++        let canvas = gpui::canvas(
++            move |bounds, window, _cx| prepare_canvas(prepaint_list.as_ref(), bounds, window),
++            move |bounds, prepared, window, cx| {
++                if let Some(draw_list) = paint_list.as_ref() {
++                    paint_canvas(draw_list, &prepared, bounds, window, cx);
++                }
++            },
++        )
++        .absolute()
++        .size_full();
++
++        let surface = super::custom_surface(
++            gpui::div()
++                .id(gpui::SharedString::from(format!("__gpuix_canvas_{}", ctx.id))),
++            &ctx,
++        );
++        wire_canvas_events(surface.overflow_hidden(), &ctx)
++            .child(canvas)
++            .into_any_element()
++    }
++
++    fn set_prop(&mut self, key: &str, value: serde_json::Value) {
++        if key != "drawList" {
++            return;
++        }
++        if value.is_null() {
++            self.draw_list = None;
++            return;
++        }
++
++        match serde_json::from_value::<CanvasDrawList>(value) {
++            Ok(draw_list)
++                if draw_list.version == CANVAS_DRAW_LIST_VERSION
++                    && draw_list.width.is_finite()
++                    && draw_list.width > 0.0
++                    && draw_list.height.is_finite()
++                    && draw_list.height > 0.0 =>
++            {
++                self.draw_list = Some(draw_list);
++            }
++            Ok(draw_list) => {
++                log::warn!(
++                    "Ignoring unsupported GPUIX canvas draw list version/size: version={} size={}x{}",
++                    draw_list.version,
++                    draw_list.width,
++                    draw_list.height
++                );
++                self.draw_list = None;
++            }
++            Err(error) => {
++                log::warn!("Ignoring invalid GPUIX canvas draw list: {error}");
++                self.draw_list = None;
++            }
++        }
++    }
++
++    fn supported_props(&self) -> &'static [&'static str] {
++        &["drawList"]
++    }
++
++    fn supported_events(&self) -> &'static [&'static str] {
++        &[
++            "click",
++            "auxClick",
++            "mouseDown",
++            "mouseUp",
++            "mouseMove",
++            "mouseEnter",
++            "mouseLeave",
++            "mouseDownOutside",
++            "fileDrop",
++            "scroll",
++        ]
++    }
++
++    fn destroy(&mut self) {}
++}
++
++fn wire_canvas_events(
++    mut el: gpui::Stateful<gpui::Div>,
++    ctx: &CustomRenderContext,
++) -> gpui::Stateful<gpui::Div> {
++    let id = ctx.id;
++    for event in ctx.events {
++        let callback = ctx.event_callback.clone();
++        match event.as_str() {
++            "auxClick" => {
++                el = el.on_aux_click(move |click_event, _window, _cx| {
++                    crate::renderer::emit_event_full(&callback, id, "auxClick", |payload| {
++                        let (x, y) = crate::renderer::point_to_xy(click_event.position());
++                        payload.x = Some(x);
++                        payload.y = Some(y);
++                        payload.modifiers = Some(click_event.modifiers().into());
++                        payload.click_count = Some(click_event.click_count() as u32);
++                        payload.is_right_click = Some(click_event.is_right_click());
++                    });
++                });
++            }
++            "mouseDown" => {
++                for &button in &[
++                    gpui::MouseButton::Left,
++                    gpui::MouseButton::Middle,
++                    gpui::MouseButton::Right,
++                ] {
++                    let callback = callback.clone();
++                    el = el.on_mouse_down(button, move |mouse_event, _window, _cx| {
++                        crate::renderer::emit_event_full(&callback, id, "mouseDown", |payload| {
++                            let (x, y) = crate::renderer::point_to_xy(mouse_event.position);
++                            payload.x = Some(x);
++                            payload.y = Some(y);
++                            payload.button =
++                                Some(crate::renderer::mouse_button_to_u32(mouse_event.button));
++                            payload.click_count = Some(mouse_event.click_count as u32);
++                            payload.modifiers = Some(mouse_event.modifiers.into());
++                        });
++                    });
++                }
++            }
++            "mouseUp" => {
++                for &button in &[
++                    gpui::MouseButton::Left,
++                    gpui::MouseButton::Middle,
++                    gpui::MouseButton::Right,
++                ] {
++                    let callback = callback.clone();
++                    el = el.on_mouse_up(button, move |mouse_event, _window, _cx| {
++                        crate::renderer::emit_event_full(&callback, id, "mouseUp", |payload| {
++                            let (x, y) = crate::renderer::point_to_xy(mouse_event.position);
++                            payload.x = Some(x);
++                            payload.y = Some(y);
++                            payload.button =
++                                Some(crate::renderer::mouse_button_to_u32(mouse_event.button));
++                            payload.click_count = Some(mouse_event.click_count as u32);
++                            payload.modifiers = Some(mouse_event.modifiers.into());
++                        });
++                    });
++                }
++            }
++            "mouseMove" => {
++                el = el.on_mouse_move(move |mouse_event, _window, _cx| {
++                    crate::renderer::emit_event_full(&callback, id, "mouseMove", |payload| {
++                        let (x, y) = crate::renderer::point_to_xy(mouse_event.position);
++                        payload.x = Some(x);
++                        payload.y = Some(y);
++                        payload.modifiers = Some(mouse_event.modifiers.into());
++                        payload.pressed_button = mouse_event
++                            .pressed_button
++                            .map(crate::renderer::mouse_button_to_u32);
++                    });
++                });
++            }
++            "mouseDownOutside" => {
++                el = el.on_mouse_down_out(move |mouse_event, _window, _cx| {
++                    crate::renderer::emit_event_full(
++                        &callback,
++                        id,
++                        "mouseDownOutside",
++                        |payload| {
++                            let (x, y) = crate::renderer::point_to_xy(mouse_event.position);
++                            payload.x = Some(x);
++                            payload.y = Some(y);
++                            payload.button =
++                                Some(crate::renderer::mouse_button_to_u32(mouse_event.button));
++                            payload.modifiers = Some(mouse_event.modifiers.into());
++                        },
++                    );
++                });
++            }
++            "scroll" => {
++                el = el.on_scroll_wheel(move |scroll_event, _window, _cx| {
++                    crate::renderer::emit_event_full(&callback, id, "scroll", |payload| {
++                        let (x, y) = crate::renderer::point_to_xy(scroll_event.position);
++                        payload.x = Some(x);
++                        payload.y = Some(y);
++                        payload.modifiers = Some(scroll_event.modifiers.into());
++                        payload.precise = Some(scroll_event.delta.precise());
++                        let pixel_delta = scroll_event.delta.pixel_delta(gpui::px(20.0));
++                        payload.delta_x = Some(f64::from(f32::from(pixel_delta.x)));
++                        payload.delta_y = Some(f64::from(f32::from(pixel_delta.y)));
++                        payload.touch_phase = Some(match scroll_event.touch_phase {
++                            gpui::TouchPhase::Started => "started".to_string(),
++                            gpui::TouchPhase::Moved => "moved".to_string(),
++                            gpui::TouchPhase::Ended => "ended".to_string(),
++                            gpui::TouchPhase::Cancelled => "cancelled".to_string(),
++                        });
++                    });
++                });
++            }
++            _ => {}
++        }
++    }
++    if ctx.events.contains("mouseDown") && ctx.events.contains("mouseMove") {
++        el = el.capture_pointer();
++    }
++    el
++}
++
++fn prepare_canvas(
++    draw_list: Option<&CanvasDrawList>,
++    bounds: gpui::Bounds<gpui::Pixels>,
++    window: &mut gpui::Window,
++) -> PreparedCanvas {
++    let Some(draw_list) = draw_list else {
++        return PreparedCanvas { text: Vec::new() };
++    };
++    let (_, _, text_scale) = canvas_scale(draw_list, bounds);
++    let mut prepared = Vec::with_capacity(draw_list.commands.len());
++
++    for command in &draw_list.commands {
++        let CanvasDrawCommand::FillText {
++            text,
++            color,
++            alpha,
++            font_size,
++            font_family,
++            font_weight,
++            ..
++        } = command
++        else {
++            prepared.push(None);
++            continue;
++        };
++
++        let Some(color) = canvas_color(color, *alpha) else {
++            prepared.push(None);
++            continue;
++        };
++        let mut font = gpui::font(font_family.clone());
++        font.weight = gpui::FontWeight(font_weight.unwrap_or(400.0).clamp(1.0, 1000.0));
++        let run = gpui::TextRun {
++            len: text.len(),
++            font,
++            color,
++            background_color: None,
++            underline: None,
++            strikethrough: None,
++        };
++        let shaped = window.text_system().shape_line(
++            gpui::SharedString::from(text.clone()),
++            gpui::px((*font_size * text_scale).max(0.01)),
++            &[run],
++            None,
++        );
++        prepared.push(Some(shaped));
++    }
++
++    PreparedCanvas { text: prepared }
++}
++
++fn paint_canvas(
++    draw_list: &CanvasDrawList,
++    prepared: &PreparedCanvas,
++    bounds: gpui::Bounds<gpui::Pixels>,
++    window: &mut gpui::Window,
++    cx: &mut gpui::App,
++) {
++    let (scale_x, scale_y, text_scale) = canvas_scale(draw_list, bounds);
++
++    for (index, command) in draw_list.commands.iter().enumerate() {
++        match command {
++            CanvasDrawCommand::FillPath {
++                color,
++                alpha,
++                fill_rule,
++                path,
++            } => {
++                let Some(color) = canvas_color(color, *alpha) else {
++                    continue;
++                };
++                if fill_rule != "nonzero" {
++                    log::warn!("Skipping unsupported GPUIX canvas fill rule {fill_rule}");
++                    continue;
++                }
++                let mut builder = gpui::PathBuilder::fill();
++                append_path(&mut builder, path, bounds, scale_x, scale_y);
++                if let Ok(path) = builder.build() {
++                    window.paint_path(path, color);
++                }
++            }
++            CanvasDrawCommand::StrokePath {
++                color,
++                alpha,
++                line_width,
++                line_cap,
++                line_join,
++                miter_limit,
++                path,
++            } => {
++                if line_cap != "butt" || line_join != "miter" || (*miter_limit - 10.0).abs() > f32::EPSILON {
++                    log::warn!(
++                        "Skipping unsupported GPUIX canvas stroke state cap={line_cap} join={line_join} miter={miter_limit}"
++                    );
++                    continue;
++                }
++                let Some(color) = canvas_color(color, *alpha) else {
++                    continue;
++                };
++                let width = (*line_width * ((scale_x.abs() + scale_y.abs()) / 2.0)).max(0.01);
++                let mut builder = gpui::PathBuilder::stroke(gpui::px(width));
++                append_path(&mut builder, path, bounds, scale_x, scale_y);
++                if let Ok(path) = builder.build() {
++                    window.paint_path(path, color);
++                }
++            }
++            CanvasDrawCommand::FillText {
++                x,
++                y,
++                font_size,
++                align,
++                baseline,
++                ..
++            } => {
++                let Some(Some(line)) = prepared.text.get(index) else {
++                    continue;
++                };
++                let width = f32::from(line.width());
++                let x = bounds.origin.x
++                    + gpui::px(*x * scale_x)
++                    - gpui::px(match align.as_str() {
++                        "center" => width / 2.0,
++                        "right" | "end" => width,
++                        _ => 0.0,
++                    });
++                let font_size = (*font_size * text_scale).max(0.01);
++                let y_offset = match baseline.as_str() {
++                    "top" | "hanging" => 0.0,
++                    "middle" => font_size * 0.5,
++                    "bottom" | "ideographic" => font_size,
++                    _ => font_size * 0.8,
++                };
++                let origin = gpui::point(
++                    x,
++                    bounds.origin.y + gpui::px(*y * scale_y - y_offset),
++                );
++                let _ = line.paint(
++                    origin,
++                    gpui::px(font_size),
++                    gpui::TextAlign::Left,
++                    None,
++                    window,
++                    cx,
++                );
++            }
++        }
++    }
++}
++
++fn append_path(
++    builder: &mut gpui::PathBuilder,
++    path: &[CanvasPathSegment],
++    bounds: gpui::Bounds<gpui::Pixels>,
++    scale_x: f32,
++    scale_y: f32,
++) {
++    let point = |x: f32, y: f32| {
++        gpui::point(
++            bounds.origin.x + gpui::px(x * scale_x),
++            bounds.origin.y + gpui::px(y * scale_y),
++        )
++    };
++    for segment in path {
++        match *segment {
++            CanvasPathSegment::MoveTo { x, y } => builder.move_to(point(x, y)),
++            CanvasPathSegment::LineTo { x, y } => builder.line_to(point(x, y)),
++            CanvasPathSegment::QuadraticCurveTo { cpx, cpy, x, y } => {
++                builder.curve_to(point(x, y), point(cpx, cpy))
++            }
++            CanvasPathSegment::BezierCurveTo {
++                cp1x,
++                cp1y,
++                cp2x,
++                cp2y,
++                x,
++                y,
++            } => builder.cubic_bezier_to(
++                point(x, y),
++                point(cp1x, cp1y),
++                point(cp2x, cp2y),
++            ),
++            CanvasPathSegment::ClosePath => builder.close(),
++        }
++    }
++}
++
++fn canvas_scale(
++    draw_list: &CanvasDrawList,
++    bounds: gpui::Bounds<gpui::Pixels>,
++) -> (f32, f32, f32) {
++    let scale_x = f32::from(bounds.size.width) / draw_list.width.max(0.01);
++    let scale_y = f32::from(bounds.size.height) / draw_list.height.max(0.01);
++    let text_scale = ((scale_x.abs() + scale_y.abs()) / 2.0).max(0.01);
++    (scale_x, scale_y, text_scale)
++}
++
++fn canvas_color(value: &str, alpha: f32) -> Option<gpui::Hsla> {
++    let mut color: gpui::Hsla = crate::color::parse_color_rgba(value)?.into();
++    color.a *= alpha.clamp(0.0, 1.0);
++    Some(color)
++}
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -2680,2 +2680,8 @@
++    /// Version of the retained Canvas2D draw-list protocol.
++    #[napi]
++    pub fn get_canvas_draw_list_version(&self) -> u32 {
++        crate::custom_elements::canvas::CANVAS_DRAW_LIST_VERSION
++    }
++
+     /// The paintable size of the window in logical pixels, excluding any
+     /// platform title bar. This used to answer a hardcoded 800x600, so anything
+diff --git a/packages/native/src/test_renderer.rs b/packages/native/src/test_renderer.rs
+--- a/packages/native/src/test_renderer.rs
++++ b/packages/native/src/test_renderer.rs
+@@ -1170,2 +1170,8 @@
++    /// Version of the retained Canvas2D draw-list protocol.
++    #[napi]
++    pub fn get_canvas_draw_list_version(&self) -> u32 {
++        crate::custom_elements::canvas::CANVAS_DRAW_LIST_VERSION
++    }
++
+     /// The offscreen window size, so `useWindowSize()` reports the same numbers
+     /// under test as in a real window instead of falling back to a default.

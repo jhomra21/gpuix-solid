@@ -7,6 +7,7 @@ declare global {
 import type { Element as SolidElement } from "solid-js"
 import type {
   AnchoredProps,
+  CanvasProps,
   CodeProps,
   DiffProps,
   HostEventHandler,
@@ -208,7 +209,7 @@ export namespace JSX {
     title: InlineSvgChildProps
     desc: InlineSvgChildProps
     use: InlineSvgChildProps
-    canvas: SourceElementProps
+    canvas: SourceElementProps<CanvasProps>
     input: SourceInputProps
     textarea: SourceElementProps<TextareaProps>
     anchored: JSXProps<AnchoredProps>

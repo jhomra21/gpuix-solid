@@ -21,6 +21,10 @@ type NativeModule = {
   hasTestGpuixRenderer?: () => boolean
 }
 
+type CanvasProtocolNativeTestRenderer = NativeTestRendererApi & {
+  getCanvasDrawListVersion?: () => number
+}
+
 function loadNativeTestRenderer(): NativeTestRendererConstructor | undefined {
   try {
     const require = createRequire(import.meta.url)
@@ -305,6 +309,13 @@ export class TestRenderer implements NativeRenderer {
   getWindowSize(): { width: number; height: number } {
     this.#native.flush()
     return this.#native.getWindowSize()
+  }
+
+  getCanvasDrawListVersion(): number | undefined {
+    // SAFETY: source-edge GPUIX may expose this optional capability before it
+    // exists in the published @gpuix/native TypeScript surface.
+    const native = this.#native as CanvasProtocolNativeTestRenderer
+    return native.getCanvasDrawListVersion?.()
   }
 
   getListScrollTop(elementId: number): [number, number, number] | null {

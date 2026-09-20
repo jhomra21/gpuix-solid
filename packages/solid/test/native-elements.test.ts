@@ -19,7 +19,7 @@ function fixture() {
 }
 
 describe("native intrinsic forwarding", () => {
-  it("forwards img, svg, and canvas contracts", () => {
+  it("forwards img, svg, and fallback canvas contracts", () => {
     const { renderer, driver, root } = fixture()
     const container = createHostElement("div")
     const image = createHostElement("img")
@@ -47,7 +47,7 @@ describe("native intrinsic forwarding", () => {
     expect(batch).toContainEqual(["createElement", 3, "svg"])
     expect(batch).toContainEqual(["setCustomProp", 3, "src", "fixture.svg"])
     expect(batch).toContainEqual(["setStyle", 3, { color: "#fff" }])
-    expect(batch).toContainEqual(["createElement", 4, "canvas"])
+    expect(batch).toContainEqual(["createElement", 4, "div"])
     expect(batch).toContainEqual(["setStyle", 4, { width: 120, height: 80 }])
   })
 

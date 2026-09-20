@@ -27,6 +27,7 @@ export interface BatchRendererApi {
   clearSelection?(): void
   getPaintedHighlights?(): HighlightMatch[]
   getWindowSize?(): { width: number; height: number }
+  getCanvasDrawListVersion?(): number | undefined
   getWindowInsets?(): NativeWindowInsets
   activateWindow?(): void
   setWindowTitle?(title: string): void
@@ -177,6 +178,9 @@ export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRen
   if (renderer.clearSelection) adapted.clearSelection = renderer.clearSelection.bind(renderer)
   if (renderer.getPaintedHighlights) adapted.getPaintedHighlights = renderer.getPaintedHighlights.bind(renderer)
   if (renderer.getWindowSize) adapted.getWindowSize = renderer.getWindowSize.bind(renderer)
+  if (renderer.getCanvasDrawListVersion) {
+    adapted.getCanvasDrawListVersion = renderer.getCanvasDrawListVersion.bind(renderer)
+  }
   if (renderer.getWindowInsets) adapted.getWindowInsets = renderer.getWindowInsets.bind(renderer)
   if (renderer.activateWindow) adapted.activateWindow = renderer.activateWindow.bind(renderer)
   if (renderer.setWindowTitle) adapted.setWindowTitle = renderer.setWindowTitle.bind(renderer)

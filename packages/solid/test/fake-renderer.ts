@@ -9,6 +9,7 @@ export class FakeRenderer implements NativeRenderer {
   readonly windowSelectionChanges: Array<[boolean, number]> = []
   focusNextCount = 0
   focusPreviousCount = 0
+  canvasDrawListVersion: number | undefined
 
   applyBatch(json: string): number[] {
     // SAFETY: MutationDriver serializes batches containing only MutationValue entries.
@@ -36,5 +37,8 @@ export class FakeRenderer implements NativeRenderer {
   }
   setWindowSelectionChange(enabled: boolean, eventId: number): void {
     this.windowSelectionChanges.push([enabled, eventId])
+  }
+  getCanvasDrawListVersion(): number | undefined {
+    return this.canvasDrawListVersion
   }
 }

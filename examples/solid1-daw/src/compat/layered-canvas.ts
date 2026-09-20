@@ -72,7 +72,8 @@ export function installLayeredCanvas2D(node: CanvasHost): void {
   Object.defineProperty(node, "getContext", {
     configurable: true,
     value(contextId: string): CanvasRenderingContext2D | null {
-      if (contextId !== "2d") return null
+      const nativeContext = base.getNativeCanvas2DContext(node, contextId)
+      if (nativeContext || contextId !== "2d") return nativeContext
       let state = runtimeStates.get(node)
       if (!state) {
         let nextState: RuntimeState | undefined
