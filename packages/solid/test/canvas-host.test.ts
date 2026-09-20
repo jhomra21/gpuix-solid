@@ -28,6 +28,8 @@ async function nextCanvasBatch(renderer: FakeRenderer): Promise<CanvasDrawList> 
     .flat()
     .findLast((entry) => entry[0] === "setCustomProp" && entry[2] === "drawList")
   if (!operation) throw new Error("Canvas draw-list mutation was not emitted")
+  // SAFETY: this operation is selected only from the renderer's drawList custom-prop mutation,
+  // whose producer serializes CanvasDrawList snapshots from the Canvas host.
   return operation[3] as CanvasDrawList
 }
 
