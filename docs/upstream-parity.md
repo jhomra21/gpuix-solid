@@ -17,7 +17,7 @@ Normal application setup lives in [`getting-started.md`](./getting-started.md). 
 - Audited source-edge commit: `7ac9880abd8e91e5bf0e4feb0fa850729cf95a68`
 - Source-fidelity snapshot commit for copied GPUIX examples: `a24b4a42eb516c7b940eb8d34ecebb077df623bd`
 
-The native dependency and source-edge lane now point at the exact published 0.9 baseline. Copied GPUIX example snapshots remain pinned to their immutable audited source commit until an example is deliberately re-audited/rebased; changing the native dependency does not silently rewrite source-fidelity fixtures.
+The native dependency remains the exact published 0.9 baseline. The source-edge lane starts from that same source commit and currently applies the audited Canvas v1 patch recorded in `.gpuix/edge.json`. Copied GPUIX example snapshots remain pinned to their immutable audited source commit until an example is deliberately re-audited/rebased; changing the native dependency does not silently rewrite source-fidelity fixtures.
 
 ## Source-fidelity contract
 
@@ -48,7 +48,7 @@ It maps the split to an intact native base plus retained warning segment and map
 
 ### DAW Canvas and exact EQ compatibility
 
-GPUIX does not implement browser Canvas 2D. The Solid 1 DAW universal-renderer boundary therefore provides a deliberately narrow, instance-scoped compatibility facade instead of editing copied components.
+Published GPUIX 0.9 does not implement browser Canvas 2D. The Solid 1 DAW universal-renderer boundary therefore retains its deliberately narrow SVG compatibility facade for the default package path instead of editing copied components. The source-edge lane now also carries native Canvas2D protocol v1, which paints retained paths and text through GPUI and is validated independently before the DAW fallback is removed.
 
 The active Canvas path records the static operations exercised by the pinned waveform and EQ source and serializes their ordered draw stream into **one multicolor SVG data image**. It supports the string paints, line geometry, full rectangles, full-circle nodes and text required by that static source path. Unsupported partial clears/arcs and unsupported transforms fail closed rather than being silently approximated. Exact upstream waveform and EQ drawing code still determines visible geometry and color; deterministic fixture peak bytes and a visual-only Biquad frequency-response implementation replace only unavailable data/browser services.
 
@@ -169,7 +169,7 @@ The serialization benchmark captures the actual mutation tuples emitted by Solid
 
 The 0.9 release keeps the 0.8 capability set and adds the window-level selection-change callback plus the native click/selection ownership fix. GPUix Solid maps that new event into both renderer roots and exposes `createTextSelection()` as the normal Solid API, while retaining root callback parity for lower-level consumers.
 
-GPUix Solid does not vendor those Rust changes. Both Solid renderers consume exact `@gpuix/native@0.9.0`, and `.gpuix/edge.json` pins the exact 0.9 source commit so the source-build lane and published package baseline agree.
+Both Solid renderers consume exact `@gpuix/native@0.9.0` for the default package path. The source-edge lane pins that exact upstream commit and may layer an audited native patch for work not yet published; Canvas v1 is the current example. That patch is development evidence, not a claim that the 0.9 npm package contains Canvas.
 
 The Solid host additionally carries source-driven compatibility proven by application fixtures: browser-shaped bounds and identity, focus/selection/scroll behavior, pointer capture and global pointer continuation, semantic SVG/event handling, native range geometry, DOM scheduling/observation compatibility and source color normalization. These are Solid binding responsibilities rather than forks of the Rust renderer.
 
