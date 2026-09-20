@@ -36,7 +36,7 @@ The first protocol supports:
 - `globalAlpha`;
 - `lineWidth`;
 - `fillText()` with font family, size, weight, alignment, and baseline;
-- `save()`, `restore()`, `translate()`, `scale()`, `rotate()`, `transform()`, and the six-number `setTransform()` overload;
+- `save()`, `restore()`, `translate()`, `scale()`, `rotate()`, `transform()`, and the six-number `setTransform()` overload; filled geometry can use arbitrary affine transforms, strokes require a rotation/reflection plus uniform scale, and text requires translation plus positive uniform scale;
 - `clearRect()` when it clears the full backing store;
 - native click, auxiliary click, mouse/pointer down, move, up, outside-down, scroll, hover, file drop, and pointer continuity for drag-style interactions.
 
@@ -52,9 +52,10 @@ Protocol v1 rejects behavior it cannot reproduce instead of drawing an approxima
 - `fillText()` `maxWidth` and multiline text;
 - object-form `setTransform()`;
 - non-default line caps, joins, and miter limits;
-- image/video drawing, pixel readback, compositing modes, filters, clipping, shadows, and `Path2D`.
+- image/video drawing, pixel readback, compositing modes, filters, clipping, shadows, and `Path2D`;
+- non-uniform/sheared stroke transforms and rotated/reflected text transforms.
 
-These are protocol-version decisions rather than permanent API exclusions. Add a command only when GPUI can paint it with a deterministic native test.
+These are protocol-version decisions rather than permanent API exclusions. Add a command only when GPUI can paint it with a deterministic native test. Diffusion Editor's upstream waveform currently depends on `roundRect()` plus path clipping, so moving that renderer onto native Canvas needs a deliberate GPUI clipping design rather than an approximate fallback.
 
 ## Validation
 
