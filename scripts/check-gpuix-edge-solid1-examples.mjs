@@ -50,9 +50,9 @@ for (const directory of [
   run("bun", ["run", "build"], directory)
 }
 run("bun", ["run", "typecheck:edge"], "examples/solid1-daw")
-run("bun", ["run", "build:edge"], "examples/solid1-daw")
+run("bun", ["run", "test:native:edge"], "examples/solid1-daw")
 
-console.log("Solid 1 source-edge consumer typecheck/build: passed")
+console.log("Solid 1 source-edge consumer typecheck/build and DAW native acceptance: passed")
 
 function run(executable, args, directory) {
   const cwd = resolve(repoRoot, directory)
