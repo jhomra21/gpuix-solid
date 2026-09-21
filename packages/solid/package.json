@@ -41,9 +41,10 @@
     "clean": "bun scripts/clean.ts",
     "build": "bun run clean && tsc -p tsconfig.build.json",
     "typecheck": "bun run build && tsc --noEmit",
-    "test": "vitest run --exclude '**/native-screenshot-parity.test.ts' --exclude '**/native-selection-layout-parity.test.ts' --exclude '**/native-canvas-parity.test.ts'",
+    "test": "vitest run --exclude '**/native-screenshot-parity.test.ts' --exclude '**/native-selection-layout-parity.test.ts' --exclude '**/native-canvas-parity.test.ts' --exclude '**/native-video-frame-parity.test.ts'",
     "test:ui:diagnostic": "vitest run test/native-screenshot-parity.test.ts test/native-selection-layout-parity.test.ts",
-    "test:canvas:native": "vitest run test/native-canvas-parity.test.ts"
+    "test:canvas:native": "vitest run test/native-canvas-parity.test.ts",
+    "test:video-frame:native": "vitest run test/native-video-frame-parity.test.ts"
   },
   "dependencies": {
     "@gpuix/native": "0.9.0",
