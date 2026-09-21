@@ -166,12 +166,68 @@ diff --git a/packages/native/src/custom_elements/video_frame.rs b/packages/nativ
 new file mode 100644
 --- /dev/null
 +++ b/packages/native/src/custom_elements/video_frame.rs
-@@ -0,0 +1,125 @@
+@@ -0,0 +1,199 @@
 +use gpui::prelude::*;
 +
 +use super::{CustomElement, CustomElementFactory, CustomRenderContext};
 +
 +pub const VIDEO_FRAME_SURFACE_VERSION: u32 = 1;
++#[cfg(target_os = "macos")]
++pub const VIDEO_FRAME_IOSURFACE_VERSION: u32 = 1;
++
++#[cfg(target_os = "macos")]
++pub(crate) fn pixel_buffer_from_iosurface_handle(
++    handle: &[u8],
++) -> Result<core_video::pixel_buffer::CVPixelBuffer, String> {
++    use core_foundation::base::{kCFAllocatorDefault, TCFType};
++    use core_foundation::dictionary::CFDictionaryRef;
++    use core_video::pixel_buffer::{CVPixelBuffer, CVPixelBufferRef};
++    use std::ffi::c_void;
++    use std::mem::size_of;
++    use std::ptr::{null, null_mut};
++
++    #[link(name = "CoreVideo", kind = "framework")]
++    unsafe extern "C" {
++        fn CVPixelBufferCreateWithIOSurface(
++            allocator: core_foundation::base::CFAllocatorRef,
++            surface: *const c_void,
++            pixel_buffer_attributes: CFDictionaryRef,
++            pixel_buffer_out: *mut CVPixelBufferRef,
++        ) -> i32;
++    }
++
++    if handle.len() < size_of::<usize>() {
++        return Err(format!(
++            "IOSurface handle is {} bytes, expected at least {}",
++            handle.len(),
++            size_of::<usize>()
++        ));
++    }
++
++    let mut raw = [0u8; size_of::<usize>()];
++    raw.copy_from_slice(&handle[..size_of::<usize>()]);
++    let surface = usize::from_ne_bytes(raw) as *const c_void;
++    if surface.is_null() {
++        return Err("IOSurface handle is null".to_string());
++    }
++
++    let mut pixel_buffer: CVPixelBufferRef = null_mut();
++    let status = unsafe {
++        CVPixelBufferCreateWithIOSurface(
++            kCFAllocatorDefault,
++            surface,
++            null(),
++            &mut pixel_buffer,
++        )
++    };
++    if status != 0 || pixel_buffer.is_null() {
++        return Err(format!(
++            "CVPixelBufferCreateWithIOSurface failed with status {status}"
++        ));
++    }
++
++    Ok(unsafe { CVPixelBuffer::wrap_under_create_rule(pixel_buffer) })
++}
 +
 +#[derive(Debug, Clone, Default)]
 +enum VideoFrameObjectFit {
@@ -231,6 +287,24 @@ new file mode 100644
 +        _cx: &mut gpui::Context<crate::renderer::GpuixView>,
 +    ) -> gpui::AnyElement {
 +        let element_id = gpui::SharedString::from(format!("__gpuix_video_frame_{}", ctx.id));
++
++        #[cfg(target_os = "macos")]
++        if let Some(surface) = ctx.video_surface.clone() {
++            let content = gpui::surface(surface)
++                .object_fit(self.object_fit.as_gpui())
++                .w_full()
++                .h_full();
++            let mut wrapper =
++                super::custom_surface(gpui::div().id(element_id.clone()).child(content), &ctx);
++            wrapper = crate::accessibility::apply_accessibility(
++                wrapper,
++                ctx.props,
++                Some(gpui::Role::Image),
++            );
++            wrapper = crate::accessibility::apply_image_label(wrapper, ctx.props, &self.alt);
++            return wrapper.into_any_element();
++        }
++
 +        let Some(frame) = ctx.video_frame.clone() else {
 +            let mut fallback = super::custom_surface(gpui::div().id(element_id), &ctx);
 +            fallback = crate::accessibility::apply_accessibility(
