@@ -4,9 +4,9 @@ This fixture measures MediaBunny through the native codec paths GPUix Solid can 
 
 The benchmark definition is shared. Backends only prepare the codec environment and then load the same suite:
 
-- `@mediabunny/server`: MediaBunny's official server-side codec/transform extension.
-- `@napi-rs/webcodecs`: a WebCodecs-compatible napi-rs implementation installed as globals before MediaBunny loads.
-- Browser WebCodecs: the same suite bundled for a real headless Chromium process, driven with Playwright.
+- `@mediabunny/server`: MediaBunny's official server-side extension. It uses NodeAV and FFmpeg's native libraries and can keep decoded samples backed by FFmpeg AVFrames.
+- `@napi-rs/webcodecs`: an FFmpeg-backed WebCodecs-compatible napi-rs implementation installed as globals before MediaBunny loads.
+- Browser WebCodecs: MediaBunny core running against Chromium's WebCodecs implementation. MediaBunny itself does not bundle FFmpeg for this browser path.
 
 Dependencies are pinned because these measurements are only comparable when the MediaBunny and codec implementations are known exactly.
 
@@ -61,6 +61,7 @@ It generates one VP8 WebM fixture, then gives the exact same encoded bytes to bo
 
 - Chromium uses MediaBunny with browser WebCodecs and `CanvasSink`.
 - GPUix uses MediaBunny with `@napi-rs/webcodecs`, copies each decoded sample to BGRA, uploads it through the binary `video-frame` API, and flushes GPUI rendering.
+- The server AVFrame experiment uses MediaBunny's official `@mediabunny/server` decoder, refs its native FFmpeg AVFrame without copying it, converts into one reusable BGRA AVFrame with libswscale, then uses the same GPUix `video-frame` surface.
 
 The benchmark reports decode-only throughput, end-to-end presentation throughput, steady-state throughput after the first frame, time to the first presented frame, and p95 frame-step latency. The native path reuses one BGRA destination buffer while the decoded resolution is unchanged, matching how a long-running editor can avoid allocating a multi-megabyte array every frame. The native report separates decoder wait, BGRA buffer allocation or resize, BGRA copy, the synchronous GPUix upload call, and the explicit native render flush. It also records the same stage breakdown for the first frame.
 
@@ -74,14 +75,18 @@ cd examples/mediabunny
 bun install --no-save
 bunx playwright install chromium
 bun run bench:presentation
+bun run bench:presentation:server
 ```
 
-The default workload is 1280×720, 60 frames at 30 fps, one warmup, and three measured runs. The command writes:
+The default workload is 1280×720, 60 frames at 30 fps, one warmup, and three measured runs. `bench:presentation` compares Chromium with the napi-WebCodecs path. `bench:presentation:server` compares Chromium with the direct MediaBunny server AVFrame path. The commands write:
 
 ```text
 reports/presentation-browser.json
 reports/presentation-gpuix.json
 reports/presentation-comparison.md
+reports/presentation-server-browser.json
+reports/presentation-server-gpuix.json
+reports/presentation-server-comparison.md
 ```
 
 You can change the workload without editing source:
@@ -96,7 +101,9 @@ bun run bench:presentation
 
 Set `MEDIABUNNY_PRESENTATION_HEADLESS=0` to run Chromium with a visible window. Use the same machine and browser mode when comparing runs. The benchmark does not set pass/fail performance thresholds.
 
-For scaling checks, rerun the same command at 1920×1080 and 3840×2160. The stage-per-frame table makes it easier to see whether BGRA copy or native upload/render cost grows with pixel count. The v1 GPUix frame upload copies the supplied bytes synchronously into native-owned image data, so the JavaScript BGRA destination can be reused on the next frame.
+For scaling checks, rerun the same command at 1920×1080 and 3840×2160. The stage-per-frame table makes it easier to see whether BGRA conversion or native upload/render cost grows with pixel count. The v1 GPUix frame upload still copies the supplied bytes synchronously into native-owned image data.
+
+The direct server experiment deliberately asks MediaBunny for software decoding first. That isolates the AVFrame-to-BGRA and GPUix costs without adding a GPU-to-CPU readback. It is not zero-copy end to end: the MediaBunny sample-to-AVFrame handoff is a ref, but libswscale still converts YUV to BGRA and GPUix still copies the BGRA bytes into native-owned image data. A later hardware path can target VideoToolbox/IOSurface-to-GPUI texture interop instead of copying through BGRA.
 
 ## Expansion matrix
 
