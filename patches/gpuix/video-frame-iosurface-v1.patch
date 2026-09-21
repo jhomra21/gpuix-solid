@@ -23,8 +23,9 @@ diff --git a/packages/native/src/retained_tree.rs b/packages/native/src/retained
 +    pub video_frame_surfaces: HashMap<u64, core_video::pixel_buffer::CVPixelBuffer>,
      /// The root element ID set by appendChildToContainer.
      pub root_id: Option<u64>,
-@@ -200,5 +205,7 @@
+@@ -201,6 +206,8 @@
              elements: ElementMap::default(),
+             motion_ids: HashSet::new(),
              styles: StyleTable::default(),
              video_frames: HashMap::new(),
 +            #[cfg(target_os = "macos")]
@@ -40,9 +41,10 @@ diff --git a/packages/native/src/retained_tree.rs b/packages/native/src/retained
          self.elements
              .insert(id, RetainedElement::new(id, element_type, revision));
      }
-@@ -271,6 +280,8 @@
+@@ -275,7 +284,9 @@
      fn destroy_element_recursive(&mut self, id: u64, destroyed: &mut Vec<u64>) {
          if let Some(element) = self.elements.remove(&id) {
+             self.motion_ids.remove(&id);
              self.video_frames.remove(&id);
 +            #[cfg(target_os = "macos")]
 +            self.video_frame_surfaces.remove(&id);
