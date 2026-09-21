@@ -94,6 +94,28 @@ for (const codec of roundTripVideoCodecs) {
 
 lines.push(
   "",
+  "## Audio codec round trips",
+  "",
+  `| Codec | ${reports.map((report) => report.backend).join(" | ")} |`,
+  `| --- | ${reports.map(() => "---").join(" | ")} |`,
+)
+
+const roundTripAudioCodecs = reports[0]?.codecRoundTrips.audio.map((entry) => entry.codec) ?? []
+for (const codec of roundTripAudioCodecs) {
+  lines.push(
+    `| ${codec} | ${reports.map((report) => {
+      const result = report.codecRoundTrips.audio.find((entry) => entry.codec === codec)
+      if (!result) return "—"
+      if (result.status === "unsupported") return "unsupported"
+      if (result.status === "error") return `error: ${result.error ?? "unknown"}`
+      const container = result.container ? ` / ${result.container}` : ""
+      return `pass (enc ${numberCell(result.encodeMs)} / dec ${numberCell(result.decodeMs)} ms${container})`
+    }).join(" | ")} |`,
+  )
+}
+
+lines.push(
+  "",
   "## MediaBunny feature cases",
   "",
   `| Feature | ${reports.map((report) => report.backend).join(" | ")} |`,
