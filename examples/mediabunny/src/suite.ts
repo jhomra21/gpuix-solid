@@ -7,9 +7,13 @@ import {
   BufferTarget,
   Conversion,
   EncodedPacketSink,
+  FlacOutputFormat,
   Input,
+  MkvOutputFormat,
   MovOutputFormat,
+  Mp3OutputFormat,
   Mp4OutputFormat,
+  OggOutputFormat,
   WebMOutputFormat,
   Output,
   Quality,
@@ -61,6 +65,8 @@ type CodecRoundTripResult = {
   decodeMs?: number
   bytes?: number
   decodedSamples?: number
+  decodedFrames?: number
+  container?: string
   error?: string
 }
 
@@ -97,6 +103,7 @@ export type MediaBunnyBenchmarkReport = {
   features: FeatureCaseResult[]
   codecRoundTrips: {
     video: CodecRoundTripResult[]
+    audio: CodecRoundTripResult[]
   }
   roundTrip: RoundTripResult
 }
@@ -675,6 +682,128 @@ async function runVideoCodecRoundTrips(
   return results
 }
 
+function makeCodecAudioSample(): AudioSample {
+  const durationSeconds = 0.2
+  const numberOfFrames = Math.round(AUDIO_SAMPLE_RATE * durationSeconds)
+  const data = new Float32Array(numberOfFrames * AUDIO_CHANNELS)
+
+  for (let frame = 0; frame < numberOfFrames; frame += 1) {
+    const value = Math.sin(2 * Math.PI * 440 * frame / AUDIO_SAMPLE_RATE) * 0.25
+    for (let channel = 0; channel < AUDIO_CHANNELS; channel += 1) {
+      data[frame * AUDIO_CHANNELS + channel] = value
+    }
+  }
+
+  return new AudioSample({
+    data,
+    format: "f32",
+    sampleRate: AUDIO_SAMPLE_RATE,
+    numberOfFrames,
+    numberOfChannels: AUDIO_CHANNELS,
+    timestamp: 0,
+  })
+}
+
+function audioCodecOutputFormat(codec: AudioCodec) {
+  const formats = [
+    new WavOutputFormat(),
+    new OggOutputFormat(),
+    new Mp3OutputFormat(),
+    new FlacOutputFormat(),
+    new Mp4OutputFormat({ fastStart: "fragmented" }),
+    new MovOutputFormat(),
+    new MkvOutputFormat(),
+  ]
+
+  return formats.find((format) => format.getSupportedAudioCodecs().includes(codec))
+}
+
+async function runAudioCodecRoundTrip(
+  capability: CapabilityResult<AudioCodec>,
+): Promise<CodecRoundTripResult> {
+  if (!capability.encode || !capability.decode) {
+    return { codec: capability.codec, status: "unsupported" }
+  }
+
+  const codec = capability.codec
+  const format = audioCodecOutputFormat(codec)
+  if (!format) {
+    return {
+      codec,
+      status: "error",
+      error: `No tested output format can contain ${codec}`,
+    }
+  }
+
+  const target = new BufferTarget()
+  try {
+    const output = new Output({ format, target })
+    const source = new AudioSampleSource({ codec })
+    output.addAudioTrack(source)
+
+    const encodeStarted = performance.now()
+    await output.start()
+    const sample = makeCodecAudioSample()
+    try {
+      await source.add(sample)
+    } finally {
+      sample.close()
+    }
+    await output.finalize()
+    const encodeMs = performance.now() - encodeStarted
+
+    if (!target.buffer || target.buffer.byteLength === 0) {
+      throw new Error(`${codec} round trip produced an empty output buffer`)
+    }
+
+    const decodeStarted = performance.now()
+    const input = createInput(target.buffer)
+    let decodedFrames = 0
+    try {
+      const track = await input.getPrimaryAudioTrack()
+      if (!track) throw new Error(`${codec} round trip output has no audio track`)
+      for await (const decoded of new AudioSampleSink(track).samples()) {
+        decodedFrames += decoded.numberOfFrames
+        decoded.close()
+      }
+    } finally {
+      input.dispose()
+    }
+    const decodeMs = performance.now() - decodeStarted
+
+    if (decodedFrames === 0) {
+      throw new Error(`${codec} round trip decoded no audio frames`)
+    }
+
+    return {
+      codec,
+      status: "pass",
+      encodeMs,
+      decodeMs,
+      bytes: target.buffer.byteLength,
+      decodedFrames,
+      container: format.constructor.name,
+    }
+  } catch (error) {
+    return {
+      codec,
+      status: "error",
+      container: format.constructor.name,
+      error: error instanceof Error ? error.message : String(error),
+    }
+  }
+}
+
+async function runAudioCodecRoundTrips(
+  capabilities: readonly CapabilityResult<AudioCodec>[],
+): Promise<CodecRoundTripResult[]> {
+  const results: CodecRoundTripResult[] = []
+  for (const capability of capabilities) {
+    results.push(await runAudioCodecRoundTrip(capability))
+  }
+  return results
+}
+
 async function runFeatureCases(buffer: ArrayBuffer): Promise<FeatureCaseResult[]> {
   return [
     await runFeatureCase("conversion-copy", async () => {
@@ -927,6 +1056,7 @@ export async function runMediaBunnyBenchmark(backend: BenchmarkBackend): Promise
   const roundTrip = await inspectFixture(buffer, measurements)
   const features = await runFeatureCases(buffer)
   const videoCodecRoundTrips = await runVideoCodecRoundTrips(video)
+  const audioCodecRoundTrips = await runAudioCodecRoundTrips(audio)
 
   return {
     schemaVersion: 1,
@@ -944,7 +1074,10 @@ export async function runMediaBunnyBenchmark(backend: BenchmarkBackend): Promise
     capabilities: { video, audio },
     measurements,
     features,
-    codecRoundTrips: { video: videoCodecRoundTrips },
+    codecRoundTrips: {
+      video: videoCodecRoundTrips,
+      audio: audioCodecRoundTrips,
+    },
     roundTrip,
   }
 }
