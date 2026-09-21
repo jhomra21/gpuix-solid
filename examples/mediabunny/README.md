@@ -18,11 +18,10 @@ The first checked-in workload establishes a reproducible baseline rather than pr
 - raw RGBA `VideoSample` and PCM `AudioSample` ingestion;
 - VP8 + Opus WebM encoding into a `BufferTarget`, chosen as the common baseline across Chromium and both native backends;
 - WebM reopening, format/MIME/duration/track/metadata inspection;
-- encoded packet iteration;
-- sequential video decoding;
-- random-access video sample retrieval;
-- sequential audio decoding;
-- elapsed time and output byte size.
+- encoded packet iteration, sequential video/audio decoding, and random-access video sample retrieval;
+- Conversion API packet-copy/remux, resizing, frame-rate conversion, rotation, cropping, horizontal flip, PCM resampling/downmixing, trimming, and video/audio processing callbacks;
+- actual encode → mux → demux → decode round trips for every advertised video codec, using WebM for VP8/VP9/AV1, MP4 for AVC/HEVC, and MOV for ProRes;
+- elapsed time, output size, and correctness details for each case.
 
 The report is JSON so the browser runner and future GPUI presentation runner can be compared field-for-field.
 
