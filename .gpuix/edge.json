@@ -5,6 +5,8 @@
   "patches": [
     "patches/gpuix/canvas-v1.patch",
     "patches/gpuix/video-frame-v1.patch",
-    "patches/gpuix/video-frame-iosurface-v1.patch"
+    "patches/gpuix/video-frame-iosurface-v1.patch",
+    "patches/gpuix/live-image-v1.patch",
+    "patches/gpuix/live-image-fixes-v1.patch"
   ]
 }

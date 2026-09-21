@@ -21,6 +21,9 @@ export interface BatchRendererApi {
   setWindowSelectionChange?(enabled: boolean, eventId: number): void
   scrollTo?(elementId: number, x: number, y: number): void
   scrollToItem?(elementId: number, index: number, offsetInItem?: number): void
+  scrollIntoView?(elementId: number): void
+  setImage?(elementId: number, bytes: Uint8Array): void
+  setImagePixels?(elementId: number, width: number, height: number, pixels: Uint8Array): void
   getScrollOffset?(elementId: number): number[] | null
   getListScrollTop?(elementId: number): number[] | null
   getSelectedText?(): string | null
@@ -177,6 +180,9 @@ export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRen
   if (renderer.setWindowSelectionChange) adapted.setWindowSelectionChange = renderer.setWindowSelectionChange.bind(renderer)
   if (renderer.scrollTo) adapted.scrollTo = renderer.scrollTo.bind(renderer)
   if (renderer.scrollToItem) adapted.scrollToItem = renderer.scrollToItem.bind(renderer)
+  if (renderer.scrollIntoView) adapted.scrollIntoView = renderer.scrollIntoView.bind(renderer)
+  if (renderer.setImage) adapted.setImage = renderer.setImage.bind(renderer)
+  if (renderer.setImagePixels) adapted.setImagePixels = renderer.setImagePixels.bind(renderer)
   if (renderer.getScrollOffset) adapted.getScrollOffset = renderer.getScrollOffset.bind(renderer)
   if (renderer.getListScrollTop) adapted.getListScrollTop = renderer.getListScrollTop.bind(renderer)
   if (renderer.getSelectedText) adapted.getSelectedText = renderer.getSelectedText.bind(renderer)

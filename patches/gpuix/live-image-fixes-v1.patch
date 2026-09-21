@@ -1,0 +1,167 @@
+diff --git a/packages/native/src/custom_elements/img.rs b/packages/native/src/custom_elements/img.rs
+--- a/packages/native/src/custom_elements/img.rs
++++ b/packages/native/src/custom_elements/img.rs
+@@ -86,6 +86,7 @@ pub struct ImgElement {
+     source: ImgSource,
+     object_fit: ImgObjectFit,
+     alt: String,
++    dropped: Option<std::sync::Arc<gpui::RenderImage>>,
+ }
+ 
+ impl ImgElement {
+@@ -177,11 +178,15 @@ impl CustomElement for ImgElement {
+     fn render(
+         &mut self,
+         ctx: CustomRenderContext,
+-        _window: &mut gpui::Window,
++        window: &mut gpui::Window,
+         _cx: &mut gpui::Context<crate::renderer::GpuixView>,
+     ) -> gpui::AnyElement {
+         use gpui::prelude::*;
+ 
++        if let Some(image) = self.dropped.take() {
++            window.drop_image(image).ok();
++        }
++
+         let el = match &self.source {
+             ImgSource::Path(path) => gpui::img(path.clone()),
+             ImgSource::Uri(uri) => gpui::img(uri.clone()),
+@@ -239,6 +244,9 @@ impl CustomElement for ImgElement {
+                 if value.is_null() && matches!(self.source, ImgSource::Render(_)) {
+                     return;
+                 }
++                if let ImgSource::Render(image) = &self.source {
++                    self.dropped = Some(image.clone());
++                }
+                 self.load_src(value.as_str().unwrap_or(""));
+             }
+             "objectFit" => {
+@@ -269,6 +277,10 @@ impl CustomElement for ImgElement {
+         }
+     }
+ 
++    fn take_dropped_image(&mut self) -> Option<std::sync::Arc<gpui::RenderImage>> {
++        self.dropped.take()
++    }
++
+     fn replace_live_image(
+         &mut self,
+         image: std::sync::Arc<gpui::RenderImage>,
+@@ -284,7 +296,11 @@ pub fn render_image_from_rgba(
+     height: u32,
+     mut bytes: Vec<u8>,
+ ) -> std::result::Result<std::sync::Arc<gpui::RenderImage>, String> {
+-    let expected = width as usize * height as usize * 4;
++    let expected = (width as u64)
++        .checked_mul(height as u64)
++        .and_then(|pixels| pixels.checked_mul(4))
++        .and_then(|bytes| usize::try_from(bytes).ok())
++        .ok_or_else(|| format!("RGBA pixel buffer {width}x{height} is too large"))?;
+     if bytes.len() != expected {
+         return Err(format!(
+             "RGBA pixel buffer length {} does not match {width}x{height} ({expected} bytes)",
+diff --git a/packages/native/src/custom_elements/mod.rs b/packages/native/src/custom_elements/mod.rs
+--- a/packages/native/src/custom_elements/mod.rs
++++ b/packages/native/src/custom_elements/mod.rs
+@@ -229,6 +229,11 @@ pub trait CustomElement: 'static {
+         None
+     }
+ 
++    /// A live image that `src` replaced, waiting for `drop_image`.
++    fn take_dropped_image(&mut self) -> Option<std::sync::Arc<gpui::RenderImage>> {
++        None
++    }
++
+     /// Replace the live GPU image on `<img>`. Returns the previous image when
+     /// this adapter already had one, so the renderer can upload in place.
+     fn replace_live_image(
+@@ -399,7 +404,7 @@ impl CustomElementRegistry {
+     }
+ 
+     /// Remove and destroy instances whose IDs no longer exist in the tree.
+-    pub fn prune_missing<F>(&mut self, mut is_live: F)
++    pub fn prune_missing<F>(&mut self, mut is_live: F, window: &mut gpui::Window)
+     where
+         F: FnMut(u64) -> bool,
+     {
+@@ -411,7 +416,20 @@ impl CustomElementRegistry {
+             .collect();
+ 
+         for id in stale_ids {
+-            self.destroy(id);
++            self.destroy_live_image(id, window);
++        }
++    }
++
++    fn destroy_live_image(&mut self, id: u64, window: &mut gpui::Window) {
++        if let Some(mut entry) = self.instances.remove(&id) {
++            if let Some(image) = entry
++                .element
++                .live_image()
++                .or_else(|| entry.element.take_dropped_image())
++            {
++                window.drop_image(image).ok();
++            }
++            entry.element.destroy();
+         }
+     }
+ 
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -3105,7 +3105,7 @@ impl WebGpuixRenderer {
+         update_web_window(move |view, window, cx| {
+             view.set_image_pixels(id, width, height, bytes, window, cx)
+                 .map_err(|error| wasm_bindgen::JsValue::from_str(&error))
+-        })??
++        })?
+     }
+ 
+     #[wasm_bindgen::prelude::wasm_bindgen(js_name = setImage)]
+@@ -3119,7 +3119,7 @@ impl WebGpuixRenderer {
+         update_web_window(move |view, window, cx| {
+             view.set_encoded_image(id, bytes, window, cx)
+                 .map_err(|error| wasm_bindgen::JsValue::from_str(&error))
+-        })??
++        })?
+     }
+ 
+     #[wasm_bindgen::prelude::wasm_bindgen(js_name = getListScrollTop)]
+@@ -3759,9 +3759,10 @@ impl GpuixView {
+             let parent_id = element.parent?;
+             let parent = tree.elements.get(&parent_id)?;
+             let index = parent.children.iter().position(|child| *child == current)?;
+-            if self.virtual_lists.contains_key(&parent_id)
+-                || self.scroll_handles.contains_key(&parent_id)
+-            {
++            if let Some(entry) = self.virtual_lists.get(&parent_id) {
++                return Some((parent_id, entry.logical_index_of(current)?));
++            }
++            if self.scroll_handles.contains_key(&parent_id) {
+                 return Some((parent_id, index));
+             }
+             current = parent_id;
+@@ -3980,12 +3981,8 @@ impl GpuixView {
+             else {
+                 break None;
+             };
+-            if self.virtual_lists.contains_key(&parent_id) {
+-                let index = tree
+-                    .elements
+-                    .get(&parent_id)
+-                    .and_then(|parent| parent.children.iter().position(|child| *child == current));
+-                break index.map(|index| (parent_id, index));
++            if let Some(entry) = self.virtual_lists.get(&parent_id) {
++                break entry.logical_index_of(current).map(|index| (parent_id, index));
+             }
+             current = parent_id;
+         };
+@@ -4688,7 +4685,7 @@ impl gpui::Render for GpuixView {
+ 
+         // Ensure custom element instances are destroyed when their IDs disappear.
+         self.custom_registry
+-            .prune_missing(|id| tree.elements.contains_key(&id));
++            .prune_missing(|id| tree.elements.contains_key(&id), window);
+ 
+         // Clean up scroll handles for destroyed elements (IDs removed from tree).
+         // Scrollability-based cleanup (element still exists but style changed

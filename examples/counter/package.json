@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "source:check": "node scripts/check-upstream-gpuix-source.mjs && node scripts/check-vite-helper.mjs",
-    "build": "bun run source:check && bun run build:counter && bun run build:native-text && bun run build:blurred-window && bun run build:gpuix-surface && bun run build:desktop-integrations && bun run build:todo && bun run build:diff && bun run build:timeline && bun run build:mail && bun run build:diffusion && bun run build:chat && bun run build:infinite-chat && bun run build:chat-perf && bun run build:timeline-perf && bun run build:serialization-bench && bun run build:dashboard && bun run build:codeimage && bun run build:tanstack-kitchen-sink",
+    "build": "bun run source:check && bun run build:counter && bun run build:native-text && bun run build:blurred-window && bun run build:gpuix-surface && bun run build:waveform && bun run build:desktop-integrations && bun run build:todo && bun run build:diff && bun run build:timeline && bun run build:mail && bun run build:diffusion && bun run build:chat && bun run build:infinite-chat && bun run build:chat-perf && bun run build:timeline-perf && bun run build:serialization-bench && bun run build:dashboard && bun run build:codeimage && bun run build:tanstack-kitchen-sink",
     "build:counter": "vite build",
     "build:native-text": "vite build --config vite.native-text.config.ts",
     "build:blurred-window": "vite build --config vite.blurred-window.config.ts",
@@ -83,7 +83,12 @@
     "run:tanstack-kitchen-sink": "bun run build:tanstack-kitchen-sink && bun run start:tanstack-kitchen-sink",
     "build:desktop-integrations": "vite build --config vite.desktop-integrations.config.ts",
     "start:desktop-integrations": "bun dist/desktop-integrations/desktop-integrations.js",
-    "run:desktop-integrations": "bun run build:desktop-integrations && bun run start:desktop-integrations"
+    "run:desktop-integrations": "bun run build:desktop-integrations && bun run start:desktop-integrations",
+    "build:waveform": "vite build --config vite.waveform.config.ts",
+    "build:waveform-test": "vite build --config vite.waveform-test.config.ts",
+    "test:waveform": "bun run build:waveform-test && bun dist/waveform-test/test.js",
+    "start:waveform": "bun dist/waveform/index.js",
+    "run:waveform": "bun run build:waveform && bun run start:waveform"
   },
   "dependencies": {
     "@gpuix/native": "0.9.0",

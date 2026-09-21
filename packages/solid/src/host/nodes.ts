@@ -280,6 +280,29 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     root.driver.renderer.blur?.()
   }
 
+  scrollIntoView(): void {
+    const root = this.root
+    if (!root || !this.nativeAlive) return
+    root.driver.flush()
+    root.driver.renderer.scrollIntoView?.(this.id)
+  }
+
+  setImage(bytes: Uint8Array): void {
+    if (this.localName !== "img") return
+    const root = this.root
+    if (!root || !this.nativeAlive) return
+    root.driver.flush()
+    root.driver.renderer.setImage?.(this.id, bytes)
+  }
+
+  setImagePixels(width: number, height: number, pixels: Uint8Array): void {
+    if (this.localName !== "img") return
+    const root = this.root
+    if (!root || !this.nativeAlive) return
+    root.driver.flush()
+    root.driver.renderer.setImagePixels?.(this.id, width, height, pixels)
+  }
+
   select(): void {
     this.focus()
   }

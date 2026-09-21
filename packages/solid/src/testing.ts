@@ -355,6 +355,29 @@ export class TestRenderer implements NativeRenderer {
     native.clearVideoFrame?.(elementId)
   }
 
+  scrollIntoView(elementId: number): void {
+    // SAFETY: source-edge GPUIX may expose host-ref scrolling before the published native typings.
+    const native = this.#native as SourceEdgeNativeTestRenderer
+    native.scrollIntoView?.(elementId)
+    this.#native.flush()
+  }
+
+  setImage(elementId: number, bytes: Uint8Array): void {
+    // SAFETY: source-edge GPUIX may expose live image uploads before the published native typings.
+    const native = this.#native as SourceEdgeNativeTestRenderer
+    if (!native.setImage) throw new Error("Native live image upload is unavailable")
+    native.setImage(elementId, bytes)
+    this.#native.flush()
+  }
+
+  setImagePixels(elementId: number, width: number, height: number, pixels: Uint8Array): void {
+    // SAFETY: source-edge GPUIX may expose live image uploads before the published native typings.
+    const native = this.#native as SourceEdgeNativeTestRenderer
+    if (!native.setImagePixels) throw new Error("Native live image pixel upload is unavailable")
+    native.setImagePixels(elementId, width, height, pixels)
+    this.#native.flush()
+  }
+
   getListScrollTop(elementId: number): [number, number, number] | null {
     this.#native.flush()
     const anchor = this.#native.getListScrollTop(elementId)
