@@ -77,6 +77,7 @@ try {
   if (status === "error") throw new Error(`Presentation browser benchmark failed:\n${output}`)
 
   const raw = JSON.parse(output)
+  // SAFETY: the browser entry in this repository emits this schema, and the version/backend checks below reject mismatched output.
   const report = raw as PresentationBenchmarkReport
   if (report.schemaVersion !== 1 || report.backend !== "browser-webcodecs-canvas") {
     throw new Error("Presentation browser benchmark returned an unsupported report")

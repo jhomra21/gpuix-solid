@@ -1,3 +1,4 @@
+import type { PresentationBenchmarkReport, PresentationRun } from "./presentation-report.ts"
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
@@ -21,11 +22,7 @@ const {
   createTestRoot,
   hasNativeTestRenderer,
 } = await import("../../../packages/solid/src/testing.ts")
-const {
-  summarizeFrameSteps,
-  type PresentationBenchmarkReport,
-  type PresentationRun,
-} = await import("./presentation-report.ts")
+const { summarizeFrameSteps } = await import("./presentation-report.ts")
 
 const fixturePath = process.argv[2]
 if (!fixturePath) throw new Error("Expected a fixture path")
