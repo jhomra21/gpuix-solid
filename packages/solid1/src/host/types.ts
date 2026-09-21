@@ -6,6 +6,7 @@ export type ElementType =
   | "img"
   | "svg"
   | "canvas"
+  | "video-frame"
   | "input"
   | "textarea"
   | "anchored"
@@ -474,6 +475,19 @@ export interface CanvasProps extends HostProps {
   height?: number
 }
 
+export interface VideoFrameSurfaceFrame {
+  /** Tightly packed BGRA pixels, matching GPUI's native RenderImage format. */
+  data: Uint8Array
+  width: number
+  height: number
+}
+
+export interface VideoFrameProps extends HostProps {
+  frame?: VideoFrameSurfaceFrame | null
+  objectFit?: "fill" | "contain" | "cover" | "scaleDown" | "none"
+  alt?: string
+}
+
 type VirtualListShared = {
   style?: Omit<StyleDesc, "hover" | "active">
   children?: unknown
@@ -583,6 +597,10 @@ export interface NativeRenderer {
   getWindowInsets?(): NativeWindowInsets
   /** Version of the native retained Canvas2D draw-list protocol, or undefined when unavailable. */
   getCanvasDrawListVersion?(): number | undefined
+  /** Version of the binary BGRA frame-surface protocol, or undefined when unavailable. */
+  getVideoFrameSurfaceVersion?(): number | undefined
+  setVideoFrameBgra?(elementId: number, width: number, height: number, data: Uint8Array): void
+  clearVideoFrame?(elementId: number): void
   activateWindow?(): void
   setWindowTitle?(title: string): void
   setDebugFrameOverlay?(mode: DebugFrameOverlayMode): string
