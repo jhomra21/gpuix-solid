@@ -63,7 +63,7 @@ try {
   if (!output) throw new Error("Browser benchmark returned an empty report")
   if (status === "error") throw new Error(`Browser benchmark failed:\n${output}`)
 
-  const report = JSON.parse(output) as unknown
+  const report: unknown = JSON.parse(output)
   console.log(JSON.stringify(report, null, 2))
 } finally {
   await browser.close()
