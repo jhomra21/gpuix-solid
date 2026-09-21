@@ -1286,6 +1286,34 @@ async function runFeatureCases(
   ]
 }
 
+function buildSummary(
+  features: readonly FeatureCaseResult[],
+  video: readonly CodecRoundTripResult[],
+  audio: readonly CodecRoundTripResult[],
+): MediaBunnyBenchmarkReport["summary"] {
+  const statuses = [
+    ...features.map((entry) => entry.status),
+    ...video.map((entry) => entry.status),
+    ...audio.map((entry) => entry.status),
+  ]
+
+  return {
+    passes: statuses.filter((status) => status === "pass").length,
+    unsupported: statuses.filter((status) => status === "unsupported").length,
+    knownGaps: statuses.filter((status) => status === "known-gap").length,
+    timeouts: statuses.filter((status) => status === "timeout").length,
+    errors: statuses.filter((status) => status === "error").length,
+  }
+}
+
+export function refreshMediaBunnyBenchmarkSummary(report: MediaBunnyBenchmarkReport): void {
+  report.summary = buildSummary(
+    report.features,
+    report.codecRoundTrips.video,
+    report.codecRoundTrips.audio,
+  )
+}
+
 export async function runMediaBunnyBenchmark(
   backend: BenchmarkBackend,
   options: MediaBunnyBenchmarkOptions = {},
@@ -1308,12 +1336,6 @@ export async function runMediaBunnyBenchmark(
   const videoCodecRoundTrips = await runVideoCodecRoundTrips(video, backend, skippedVideoCodecs)
   const audioCodecRoundTrips = await runAudioCodecRoundTrips(audio)
 
-  const statuses = [
-    ...features.map((entry) => entry.status),
-    ...videoCodecRoundTrips.map((entry) => entry.status),
-    ...audioCodecRoundTrips.map((entry) => entry.status),
-  ]
-
   return {
     schemaVersion: 2,
     backend,
@@ -1335,12 +1357,6 @@ export async function runMediaBunnyBenchmark(
       audio: audioCodecRoundTrips,
     },
     roundTrip,
-    summary: {
-      passes: statuses.filter((status) => status === "pass").length,
-      unsupported: statuses.filter((status) => status === "unsupported").length,
-      knownGaps: statuses.filter((status) => status === "known-gap").length,
-      timeouts: statuses.filter((status) => status === "timeout").length,
-      errors: statuses.filter((status) => status === "error").length,
-    },
+    summary: buildSummary(features, videoCodecRoundTrips, audioCodecRoundTrips),
   }
 }
