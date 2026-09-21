@@ -103,10 +103,6 @@ const AUDIO_SAMPLE_RATE = 48_000
 const AUDIO_CHANNELS = 2
 const DURATION_SECONDS = VIDEO_FRAMES / FRAME_RATE
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}
-
 async function videoCapability(codec: VideoCodec): Promise<CapabilityResult> {
   const started = performance.now()
   try {
@@ -128,7 +124,7 @@ async function videoCapability(codec: VideoCodec): Promise<CapabilityResult> {
       encode: false,
       decode: false,
       queryMs: performance.now() - started,
-      error: errorMessage(error),
+      error: error instanceof Error ? error.message : String(error),
     }
   }
 }
@@ -153,7 +149,7 @@ async function audioCapability(codec: AudioCodec): Promise<CapabilityResult> {
       encode: false,
       decode: false,
       queryMs: performance.now() - started,
-      error: errorMessage(error),
+      error: error instanceof Error ? error.message : String(error),
     }
   }
 }
