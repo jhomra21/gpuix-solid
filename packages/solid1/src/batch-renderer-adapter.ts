@@ -24,6 +24,9 @@ export interface BatchRendererApi {
   clearSelection?(): void
   getWindowSize?(): { width: number; height: number }
   getCanvasDrawListVersion?(): number | undefined
+  getVideoFrameSurfaceVersion?(): number | undefined
+  setVideoFrameBgra?(elementId: number, width: number, height: number, data: Uint8Array): void
+  clearVideoFrame?(elementId: number): void
   setWindowTitle?(title: string): void
   setDebugFrameOverlay?(mode: DebugFrameOverlayMode): string
   getDebugFrameOverlay?(): string
@@ -171,6 +174,15 @@ export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRen
   if (renderer.getWindowSize) adapted.getWindowSize = renderer.getWindowSize.bind(renderer)
   if (renderer.getCanvasDrawListVersion) {
     adapted.getCanvasDrawListVersion = renderer.getCanvasDrawListVersion.bind(renderer)
+  }
+  if (renderer.getVideoFrameSurfaceVersion) {
+    adapted.getVideoFrameSurfaceVersion = renderer.getVideoFrameSurfaceVersion.bind(renderer)
+  }
+  if (renderer.setVideoFrameBgra) {
+    adapted.setVideoFrameBgra = renderer.setVideoFrameBgra.bind(renderer)
+  }
+  if (renderer.clearVideoFrame) {
+    adapted.clearVideoFrame = renderer.clearVideoFrame.bind(renderer)
   }
   if (renderer.setWindowTitle) adapted.setWindowTitle = renderer.setWindowTitle.bind(renderer)
   if (renderer.setDebugFrameOverlay) adapted.setDebugFrameOverlay = renderer.setDebugFrameOverlay.bind(renderer)
