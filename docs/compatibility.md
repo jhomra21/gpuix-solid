@@ -14,13 +14,15 @@ Use [`getting-started.md`](./getting-started.md) for Solid 2 and [`getting-start
 | `@jhomra21/gpuix-solid1` | repository package version `0.1.0-beta.0` | Solid 1 renderer in `packages/solid1`; versioned separately from `gpuix-solid` |
 | `solid-js` for Solid 1 | peer `>=1.9.0 <2` | Repository CI exercises `1.9.15` |
 | `@gpuix/native` | exact `0.9.0` | Native desktop renderer contract used by both Solid packages; exact pairing follows GPUIX's pre-1.0 version policy |
-| pinned GPUIX source edge | `7ac9880abd8e91e5bf0e4feb0fa850729cf95a68` | Exact source reference for the published 0.9.0 baseline |
+| pinned GPUIX source edge | `410fb56f2e599ef49b1dabfc43872b6ff8047916` | GPUIX 0.10.0 source used by the forward-compatibility lane; the default npm dependency remains 0.9.0 |
 | Bun | `1.3.14` | Repository install, build, test, and release toolchain |
 | TypeScript | `^5.9.2` | Package type and build validation |
 
 The Solid 2 runtime pair moves together. `@solidjs/universal@2.0.0-rc.8` declares `solid-js ^2.0.0-rc.8` as its peer, so the renderer package, examples, clean consumers, and lockfile are kept on that same RC.8 line instead of mixing release candidates.
 
 The Solid 1 and Solid 2 package versions do not move together automatically. The stable `gpuix-solid` release line advances the Solid 2 package only. Solid 1 remains maintained under `@jhomra21/gpuix-solid1` with its own version and peer range.
+
+The package baseline and source edge are intentionally separate right now. Plain installs still use exact `@gpuix/native@0.9.0`, while the pinned edge builds GPUIX 0.10.0 and runs the same Solid checks against it. The 0.10 live-image and `scrollIntoView()` APIs are mapped in both Solid hosts and exercised by the source-derived Waveform example.
 
 When `@gpuix/native` changes its element, style, event, window, testing, or automation behavior, parity tests should move first. Widen dependency ranges only after those tests pass.
 

@@ -1,10 +1,10 @@
 # Upstream GPUIX parity
 
-GPUix Solid treats `remorses/gpuix` as the native capability baseline. The current repository baseline is GPUIX 0.9. This document separates three things that should not be conflated:
+GPUix Solid treats `remorses/gpuix` as the native capability baseline. The plain-install package baseline is still GPUIX 0.9, while the pinned source-edge lane now tracks GPUIX 0.10.0. This document separates three things that should not be conflated:
 
-1. the published 0.9 native/React contract GPUix Solid installs;
-2. immutable source snapshots used to preserve exact example/application fidelity;
-3. newer or broader upstream capabilities that are not called Solid parity until the Solid types/host mapping and a runnable check prove them.
+1. the published 0.9 native/React contract GPUix Solid installs by default;
+2. the pinned 0.10 source-edge contract used for forward-compatibility work;
+3. immutable source snapshots used to preserve exact example/application fidelity.
 
 Normal application setup lives in [`getting-started.md`](./getting-started.md). This document is the deeper parity/provenance audit.
 
@@ -14,10 +14,10 @@ Normal application setup lives in [`getting-started.md`](./getting-started.md). 
 - Published React baseline: `@gpuix/react@0.9.0`
 - Published/native 0.9 source commit: `7ac9880abd8e91e5bf0e4feb0fa850729cf95a68`
 - Native package used by GPUix Solid: exact `@gpuix/native@0.9.0`
-- Audited source-edge commit: `7ac9880abd8e91e5bf0e4feb0fa850729cf95a68`
+- Audited source-edge commit: `410fb56f2e599ef49b1dabfc43872b6ff8047916` (GPUIX 0.10.0)
 - Source-fidelity snapshot commit for copied GPUIX examples: `a24b4a42eb516c7b940eb8d34ecebb077df623bd`
 
-The native dependency remains the exact published 0.9 baseline. The source-edge lane starts from that same source commit and currently applies the audited Canvas v1 patch recorded in `.gpuix/edge.json`. Copied GPUIX example snapshots remain pinned to their immutable audited source commit until an example is deliberately re-audited/rebased; changing the native dependency does not silently rewrite source-fidelity fixtures.
+The native dependency remains the exact published 0.9 baseline. The source-edge lane now starts from GPUIX 0.10.0 and applies only the audited Canvas/video patches recorded in `.gpuix/edge.json`. GPUIX 0.10's live-image and `scrollIntoView()` work is upstream, so the temporary local live-image patches were removed. Copied GPUIX example snapshots remain pinned to their immutable audited source commits until an example is deliberately re-audited or rebased.
 
 ## Source-fidelity contract
 
