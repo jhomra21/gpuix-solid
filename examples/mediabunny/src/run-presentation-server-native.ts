@@ -161,6 +161,7 @@ async function runNativePresentation(): Promise<PresentationRun> {
         const refEnded = performance.now()
 
         const allocationStarted = performance.now()
+        // SAFETY: toAvFrame populated sourceFrame from a decoded video sample, so its format is an AVPixelFormat.
         const sourceFormat = sourceFrame.format as AVPixelFormat
         if (
           !bgraFrame

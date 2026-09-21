@@ -28,6 +28,7 @@ async function runJson(script: string, args: string[] = []): Promise<Presentatio
   if (exitCode !== 0) throw new Error(`${script} exited with code ${exitCode}`)
 
   const raw = JSON.parse(stdout)
+  // SAFETY: this process only reads JSON from repository benchmark children, and schemaVersion is checked next.
   const report = raw as PresentationBenchmarkReport
   if (report.schemaVersion !== 2) throw new Error(`${script} returned an unsupported report`)
   return report
