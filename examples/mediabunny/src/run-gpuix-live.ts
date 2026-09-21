@@ -153,6 +153,10 @@ function addSurface(
     flexDirection: "column",
     gap: 8,
     flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+    minWidth: 0,
+    minHeight: 0,
     height: "100%",
   })
   addText(column, label, 14)
@@ -161,7 +165,8 @@ function addSurface(
   setProp(shell, "style", {
     display: "flex",
     flexGrow: 1,
-    minHeight: 220,
+    minWidth: 0,
+    minHeight: 0,
     backgroundColor: "#20252e",
     borderRadius: 8,
     padding: 8,
@@ -172,6 +177,8 @@ function addSurface(
   setProp(surface, "style", {
     width: "100%",
     height: "100%",
+    minWidth: 0,
+    minHeight: 0,
   })
   setProp(surface, "objectFit", objectFit)
   setProp(surface, "alt", `MediaBunny ${objectFit} frame`)
@@ -191,6 +198,8 @@ setProp(root, "style", {
   gap: 14,
   width: "100%",
   height: "100%",
+  minWidth: 0,
+  minHeight: 0,
   padding: 20,
   backgroundColor: "#101318",
 })
@@ -204,6 +213,9 @@ setProp(row, "style", {
   flexDirection: "row",
   gap: 14,
   flexGrow: 1,
+  flexShrink: 1,
+  minWidth: 0,
+  minHeight: 0,
   width: "100%",
 })
 insertNode(root, row)

@@ -9,8 +9,8 @@
     "bench:browser": "bun src/run-browser.ts",
     "compare": "bun src/compare.ts reports",
     "dogfood:gpuix-surface": "bun src/run-gpuix-surface.ts",
-    "live:gpuix": "bun src/run-gpuix-live.ts",
-    "check:gpuix-live": "bun build src/run-gpuix-live.ts --target=bun --packages=external --outfile=/tmp/gpuix-mediabunny-live.js"
+    "live:gpuix": "bun --conditions=browser src/run-gpuix-live.ts",
+    "check:gpuix-live": "bun build src/run-gpuix-live.ts --conditions=browser --target=bun --packages=external --outfile=/tmp/gpuix-mediabunny-live.js"
   },
   "dependencies": {
     "@mediabunny/server": "1.58.1",

@@ -9,47 +9,57 @@ const {
   runMediaBunnyBenchmark,
 } = await import("./suite.ts")
 
+const ISOLATED_VIDEO_CODECS = ["av1", "prores"] as const
 const report = await runMediaBunnyBenchmark("mediabunny-server", {
-  skipVideoCodecRoundTrips: ["av1"],
+  skipVideoCodecRoundTrips: ISOLATED_VIDEO_CODECS,
 })
 
-const timeoutMs = Number(process.env.MEDIABUNNY_SERVER_AV1_TIMEOUT_MS ?? 30_000)
-const child = Bun.spawn([process.execPath, "src/run-server-av1.ts"], {
-  cwd: process.cwd(),
-  stdout: "pipe",
-  stderr: "pipe",
-})
+const timeoutMs = Number(process.env.MEDIABUNNY_SERVER_CODEC_TIMEOUT_MS ?? 30_000)
 
-let timedOut = false
-const timer = setTimeout(() => {
-  timedOut = true
-  child.kill("SIGKILL")
-}, timeoutMs)
+async function runIsolatedVideoCodec(codec: typeof ISOLATED_VIDEO_CODECS[number]) {
+  const child = Bun.spawn([process.execPath, "src/run-server-video-codec.ts", codec], {
+    cwd: process.cwd(),
+    stdout: "pipe",
+    stderr: "pipe",
+  })
 
-const stdoutPromise = new Response(child.stdout).text()
-const stderrPromise = new Response(child.stderr).text()
-const exitCode = await child.exited
-clearTimeout(timer)
+  let timedOut = false
+  const timer = setTimeout(() => {
+    timedOut = true
+    child.kill("SIGKILL")
+  }, timeoutMs)
 
-const stdout = await stdoutPromise
-const stderr = await stderrPromise
-const av1Index = report.codecRoundTrips.video.findIndex((entry) => entry.codec === "av1")
-if (av1Index < 0) throw new Error("MediaBunny server report is missing its AV1 slot")
+  const stdoutPromise = new Response(child.stdout).text()
+  const stderrPromise = new Response(child.stderr).text()
+  const exitCode = await child.exited
+  clearTimeout(timer)
 
-if (timedOut) {
-  report.codecRoundTrips.video[av1Index] = {
-    codec: "av1",
-    status: "timeout",
-    note: `Isolated server AV1 round trip exceeded ${timeoutMs} ms and was terminated without blocking the rest of the benchmark.`,
+  const stdout = await stdoutPromise
+  const stderr = await stderrPromise
+
+  if (timedOut) {
+    return {
+      codec,
+      status: "timeout" as const,
+      note: `Isolated server ${codec} round trip exceeded ${timeoutMs} ms and was terminated without blocking the rest of the benchmark.`,
+    }
   }
-} else if (exitCode !== 0) {
-  report.codecRoundTrips.video[av1Index] = {
-    codec: "av1",
-    status: "error",
-    error: stderr.trim() || `Isolated AV1 probe exited with code ${exitCode}`,
+
+  if (exitCode !== 0) {
+    return {
+      codec,
+      status: "error" as const,
+      error: stderr.trim() || `Isolated ${codec} probe exited with code ${exitCode}`,
+    }
   }
-} else {
-  report.codecRoundTrips.video[av1Index] = JSON.parse(stdout)
+
+  return JSON.parse(stdout)
+}
+
+for (const codec of ISOLATED_VIDEO_CODECS) {
+  const index = report.codecRoundTrips.video.findIndex((entry) => entry.codec === codec)
+  if (index < 0) throw new Error(`MediaBunny server report is missing its ${codec} slot`)
+  report.codecRoundTrips.video[index] = await runIsolatedVideoCodec(codec)
 }
 
 refreshMediaBunnyBenchmarkSummary(report)
