@@ -1,6 +1,12 @@
 import { createEffect, For } from "solid-js"
 import type { ImgInstance, PublicInstance } from "gpuix-solid"
 
+function isImgInstance(instance: PublicInstance): instance is ImgInstance {
+  return instance.type === "img"
+    && "setImagePixels" in instance
+    && typeof instance.setImagePixels === "function"
+}
+
 const WIDTH = 720
 const HEIGHT = 96
 const PIXEL_RATIO = 2
@@ -47,7 +53,8 @@ function Waveform(props: { phase: number }) {
   return (
     <img
       ref={(instance) => {
-        image = instance as ImgInstance
+        if (!isImgInstance(instance)) throw new TypeError("Expected an img host instance")
+        image = instance
       }}
       testId="waveform"
       objectFit="fill"
@@ -93,7 +100,7 @@ export function WaveformApp(props: { phase?: number } = {}) {
             <div
               ref={index() === CLIPS.length - 1
                 ? (instance) => {
-                    lastClip = instance as PublicInstance
+                    lastClip = instance
                   }
                 : undefined}
               testId={`clip-${name.toLowerCase()}`}
