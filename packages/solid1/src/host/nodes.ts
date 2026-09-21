@@ -1047,6 +1047,7 @@ function parseVideoFrameSurfaceFrame<T>(value: T): VideoFrameSurfaceFrame | null
   if (value === null || value === undefined) return null
   if (!isObjectValue(value)) throw new TypeError("video-frame frame must be an object")
 
+  // SAFETY: the object shape is validated field-by-field below before a frame is returned.
   const candidate = value as Partial<VideoFrameSurfaceFrame>
   if (!(candidate.data instanceof Uint8Array)) {
     throw new TypeError("video-frame frame.data must be a Uint8Array")
