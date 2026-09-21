@@ -20,8 +20,9 @@ The first checked-in workload establishes a reproducible baseline rather than pr
 - WebM reopening, format/MIME/duration/track/metadata inspection;
 - encoded packet iteration, sequential video/audio decoding, and random-access video sample retrieval;
 - Conversion API packet-copy/remux, resizing, frame-rate conversion, rotation, cropping, horizontal flip, PCM resampling/downmixing, trimming, and video/audio processing callbacks;
-- actual encode → mux → demux → decode round trips for every advertised video codec, using WebM for VP8/VP9/AV1, MP4 for AVC/HEVC, and MOV for ProRes;
-- elapsed time, output size, and correctness details for each case.
+- actual encode → mux → demux → decode round trips for advertised video codecs, using WebM for VP8/VP9/AV1 and MP4 for AVC/HEVC/ProRes;
+- native decoded-frame presentation through GPUix's binary BGRA `<video-frame>` surface;
+- elapsed time, output size, correctness details, documented compatibility gaps, and bounded codec timeouts.
 
 The report is JSON so the browser runner and future GPUI presentation runner can be compared field-for-field.
 
@@ -33,7 +34,19 @@ bun run bench:server
 bun run bench:webcodecs
 bunx playwright install chromium
 bun run bench:browser
+bun run dogfood:gpuix-surface
 ```
+
+`bench:server` runs the server AV1 round trip in an isolated Bun process. The default budget is 30 seconds; override it with `MEDIABUNNY_SERVER_AV1_TIMEOUT_MS` when deliberately profiling AV1. A timeout is recorded in the report and does not strand the rest of the benchmark.
+
+Reports distinguish four non-success outcomes:
+
+- `unsupported`: the backend does not advertise the capability;
+- `known-gap`: a reproduced backend-integration limitation that remains visible but is not treated as a new regression;
+- `timeout`: a bounded native probe exceeded its execution budget;
+- `error`: an unexpected failure. Benchmark commands return a failing exit code when unexpected errors remain.
+
+Current known gaps are intentionally explicit: browser-oriented `CanvasSink` cannot draw the native backends' decoded frame/resource types into `@napi-rs/canvas`, so GPUix presents decoded BGRA samples through its binary frame surface instead; the napi-WebCodecs VP9 WebM round trip also currently fails after MediaBunny's VP9 color-space packet rewrite. These cells should stay visible until the underlying integrations improve.
 
 Do not compare absolute GitHub-hosted-runner timings as framework performance claims. CI uses this workload as a correctness and compatibility gate and uploads the reports for inspection. Stable performance regression thresholds should come only after repeated measurements on a controlled runner.
 
@@ -41,6 +54,6 @@ Do not compare absolute GitHub-hosted-runner timings as framework performance cl
 
 The benchmark grows by adding workload cases to the shared suite, not backend-specific scripts. Capability queries already include the full current MediaBunny video/audio codec vocabulary; the common executable round trip starts with VP8 + Opus WebM so every backend is measured against the same media.
 
-Next cases include container read/write and transmux, per-codec encode/decode fixtures, sparse seeking, Conversion API operations, resize/crop/rotate/flip/frame-rate transforms, audio resampling and channel mixing, transparency, processing callbacks, CanvasSource/CanvasSink, and decoded-frame presentation through GPUI.
+Next cases include broader container read/write and transmux coverage, sparse seeking, transparency/alpha paths, longer-running playback/replacement loops, and controlled-runner throughput/memory measurements.
 
 The GPUI presentation path is deliberately separate from Canvas v1. Video frames are large media resources; they should not be serialized through the retained Canvas draw-list protocol.
