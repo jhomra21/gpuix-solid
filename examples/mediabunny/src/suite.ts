@@ -67,6 +67,8 @@ type CodecRoundTripResult = {
   decodedSamples?: number
   decodedFrames?: number
   container?: string
+  encoderConfigCodec?: string
+  muxPreservedPackets?: boolean
   error?: string
 }
 
@@ -571,9 +573,12 @@ async function inspectFixture(
   }
 }
 
-function makeCodecVideoSample(frameIndex: number, frameCount: number): VideoSample {
-  const width = 160
-  const height = 90
+function makeCodecVideoSample(
+  frameIndex: number,
+  frameCount: number,
+  width: number,
+  height: number,
+): VideoSample {
   const bytes = new Uint8Array(width * height * 4)
   const phase = frameIndex / Math.max(1, frameCount - 1)
 
@@ -597,7 +602,7 @@ function makeCodecVideoSample(frameIndex: number, frameCount: number): VideoSamp
 }
 
 function videoCodecOutputFormat(codec: VideoCodec): MovOutputFormat | Mp4OutputFormat | WebMOutputFormat {
-  if (codec === "prores") return new MovOutputFormat()
+  if (codec === "prores") return new Mp4OutputFormat()
   if (codec === "avc" || codec === "hevc") return new Mp4OutputFormat({ fastStart: "fragmented" })
   return new WebMOutputFormat()
 }
@@ -611,6 +616,8 @@ async function runVideoCodecRoundTrip(
 
   const codec = capability.codec
   const frameCount = 6
+  const width = codec === "prores" ? 640 : 160
+  const height = codec === "prores" ? 480 : 90
   const target = new BufferTarget()
   const format = videoCodecOutputFormat(codec)
   if (!format.getSupportedVideoCodecs().includes(codec)) {
@@ -621,18 +628,30 @@ async function runVideoCodecRoundTrip(
     }
   }
 
+  let encoderConfigCodec: string | undefined
+  const encodedVp9Packets: Uint8Array[] = []
+  let muxPreservedPackets: boolean | undefined
+
   try {
     const output = new Output({ format, target })
     const source = new VideoSampleSource({
       codec,
-      quality: new Quality("medium"),
+      quality: codec === "prores"
+        ? new Quality({ quality: 0.75, preferBitrate: true })
+        : new Quality("medium"),
+      onEncoderConfig(config) {
+        encoderConfigCodec = config.codec
+      },
+      onEncodedPacket(packet) {
+        if (codec === "vp9") encodedVp9Packets.push(packet.data.slice())
+      },
     })
     output.addVideoTrack(source, { frameRate: FRAME_RATE })
 
     const encodeStarted = performance.now()
     await output.start()
     for (let frame = 0; frame < frameCount; frame += 1) {
-      const sample = makeCodecVideoSample(frame, frameCount)
+      const sample = makeCodecVideoSample(frame, frameCount, width, height)
       try {
         await source.add(sample)
       } finally {
@@ -652,6 +671,22 @@ async function runVideoCodecRoundTrip(
     try {
       const track = await input.getPrimaryVideoTrack()
       if (!track) throw new Error(`${codec} round trip output has no video track`)
+
+      if (codec === "vp9") {
+        const demuxedPackets: Uint8Array[] = []
+        for await (const packet of new EncodedPacketSink(track).packets()) {
+          demuxedPackets.push(packet.data.slice())
+        }
+
+        muxPreservedPackets = demuxedPackets.length === encodedVp9Packets.length
+          && demuxedPackets.every((packet, index) => {
+            const encoded = encodedVp9Packets[index]
+            return encoded !== undefined
+              && packet.byteLength === encoded.byteLength
+              && packet.every((byte, byteIndex) => byte === encoded[byteIndex])
+          })
+      }
+
       for await (const sample of new VideoSampleSink(track).samples()) {
         decodedSamples += 1
         sample.close()
@@ -672,11 +707,15 @@ async function runVideoCodecRoundTrip(
       decodeMs,
       bytes: target.buffer.byteLength,
       decodedSamples,
+      encoderConfigCodec,
+      muxPreservedPackets,
     }
   } catch (error) {
     return {
       codec,
       status: "error",
+      encoderConfigCodec,
+      muxPreservedPackets,
       error: error instanceof Error ? error.message : String(error),
     }
   }
