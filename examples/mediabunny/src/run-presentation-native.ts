@@ -1,0 +1,214 @@
+import fs from "node:fs"
+import os from "node:os"
+import path from "node:path"
+
+await import("@napi-rs/webcodecs/polyfill")
+
+const { installNapiCanvasGlobals } = await import("./napi-canvas-globals.ts")
+installNapiCanvasGlobals()
+
+const { registerNapiVideoSampleTransformer } = await import("./napi-video-transformer.ts")
+registerNapiVideoSampleTransformer()
+
+const {
+  ALL_FORMATS,
+  BufferSource,
+  Input,
+  VideoSampleSink,
+} = await import("mediabunny")
+const { createElement, setProp } = await import("../../../packages/solid/src/host/universal.ts")
+const {
+  createTestRoot,
+  hasNativeTestRenderer,
+} = await import("../../../packages/solid/src/testing.ts")
+const {
+  summarizeFrameSteps,
+  type PresentationBenchmarkReport,
+  type PresentationRun,
+} = await import("./presentation-report.ts")
+
+const fixturePath = process.argv[2]
+if (!fixturePath) throw new Error("Expected a fixture path")
+if (!hasNativeTestRenderer) {
+  throw new Error("Presentation benchmark requires the source-edge GPUix TestGpuixRenderer")
+}
+
+const iterations = Number(process.env.MEDIABUNNY_PRESENTATION_ITERATIONS ?? 3)
+const warmups = Number(process.env.MEDIABUNNY_PRESENTATION_WARMUPS ?? 1)
+const fixture = await Bun.file(fixturePath).arrayBuffer()
+
+function createInput() {
+  return new Input({
+    source: new BufferSource(fixture),
+    formats: ALL_FORMATS,
+  })
+}
+
+async function runDecodeOnly(): Promise<PresentationRun> {
+  const input = createInput()
+  try {
+    const track = await input.getPrimaryVideoTrack()
+    if (!track) throw new Error("Presentation fixture has no video track")
+
+    const sink = new VideoSampleSink(track)
+    const iterator = sink.samples()[Symbol.asyncIterator]()
+    const frameSteps: number[] = []
+    const started = performance.now()
+    let firstFrameMs = 0
+    let frames = 0
+    let width = 0
+    let height = 0
+
+    for (;;) {
+      const stepStarted = performance.now()
+      const next = await iterator.next()
+      const stepEnded = performance.now()
+      if (next.done) break
+
+      frameSteps.push(stepEnded - stepStarted)
+      if (frames === 0) firstFrameMs = stepEnded - started
+      width = next.value.codedWidth
+      height = next.value.codedHeight
+      frames += 1
+      next.value.close()
+    }
+
+    return {
+      frames,
+      width,
+      height,
+      totalMs: performance.now() - started,
+      firstFrameMs,
+      ...summarizeFrameSteps(frameSteps),
+    }
+  } finally {
+    input.dispose()
+  }
+}
+
+const initialInput = createInput()
+const initialTrack = await initialInput.getPrimaryVideoTrack()
+if (!initialTrack) throw new Error("Presentation fixture has no video track")
+const surfaceWidth = await initialTrack.getCodedWidth()
+const surfaceHeight = await initialTrack.getCodedHeight()
+initialInput.dispose()
+
+const testRoot = createTestRoot(surfaceWidth, surfaceHeight)
+if (testRoot.renderer.getVideoFrameSurfaceVersion() !== 1) {
+  throw new Error("GPUix binary video-frame surface v1 is unavailable")
+}
+const surface = createElement("video-frame")
+setProp(surface, "style", { width: surfaceWidth, height: surfaceHeight })
+setProp(surface, "objectFit", "fill")
+setProp(surface, "alt", "MediaBunny presentation benchmark")
+testRoot.render(() => surface)
+
+async function runNativePresentation(): Promise<PresentationRun> {
+  const input = createInput()
+  try {
+    const track = await input.getPrimaryVideoTrack()
+    if (!track) throw new Error("Presentation fixture has no video track")
+
+    const sink = new VideoSampleSink(track)
+    const iterator = sink.samples()[Symbol.asyncIterator]()
+    const frameSteps: number[] = []
+    const started = performance.now()
+    let firstFrameMs = 0
+    let frames = 0
+    let decodeMs = 0
+    let copyBgraMs = 0
+    let uploadAndFlushMs = 0
+    let width = 0
+    let height = 0
+
+    for (;;) {
+      const frameStarted = performance.now()
+      const decodeStarted = performance.now()
+      const next = await iterator.next()
+      const decodeEnded = performance.now()
+      decodeMs += decodeEnded - decodeStarted
+      if (next.done) break
+
+      const sample = next.value
+      try {
+        width = sample.codedWidth
+        height = sample.codedHeight
+
+        const copyStarted = performance.now()
+        const options = { format: "BGRA" as const }
+        const data = new Uint8Array(sample.allocationSize(options))
+        await sample.copyTo(data, options)
+        copyBgraMs += performance.now() - copyStarted
+
+        const presentStarted = performance.now()
+        setProp(surface, "frame", { data, width, height })
+        testRoot.renderer.flush()
+        uploadAndFlushMs += performance.now() - presentStarted
+
+        const frameEnded = performance.now()
+        frameSteps.push(frameEnded - frameStarted)
+        if (frames === 0) firstFrameMs = frameEnded - started
+        frames += 1
+      } finally {
+        sample.close()
+      }
+    }
+
+    return {
+      frames,
+      width,
+      height,
+      totalMs: performance.now() - started,
+      firstFrameMs,
+      ...summarizeFrameSteps(frameSteps),
+      decodeMs,
+      copyBgraMs,
+      uploadAndFlushMs,
+    }
+  } finally {
+    input.dispose()
+  }
+}
+
+try {
+  for (let index = 0; index < warmups; index += 1) {
+    await runDecodeOnly()
+    await runNativePresentation()
+  }
+
+  const decodeOnly: PresentationRun[] = []
+  const endToEnd: PresentationRun[] = []
+  for (let index = 0; index < iterations; index += 1) {
+    decodeOnly.push(await runDecodeOnly())
+    endToEnd.push(await runNativePresentation())
+  }
+
+  const screenshotPath = path.join(os.tmpdir(), `gpuix-mediabunny-presentation-${process.pid}.png`)
+  fs.rmSync(screenshotPath, { force: true })
+  testRoot.renderer.captureScreenshot(screenshotPath)
+  const screenshotBytes = fs.statSync(screenshotPath).size
+  fs.rmSync(screenshotPath, { force: true })
+  if (screenshotBytes === 0) throw new Error("GPUix presentation benchmark screenshot was empty")
+
+  const report: PresentationBenchmarkReport = {
+    schemaVersion: 1,
+    backend: "gpuix-native-video-frame",
+    generatedAt: new Date().toISOString(),
+    workload: {
+      codec: "vp8",
+      fixtureBytes: fixture.byteLength,
+      warmups,
+      iterations,
+    },
+    decodeOnly,
+    endToEnd,
+    verification: {
+      nativeSurfaceVersion: testRoot.renderer.getVideoFrameSurfaceVersion() ?? 0,
+      screenshotBytes,
+    },
+  }
+
+  console.log(JSON.stringify(report))
+} finally {
+  testRoot.unmount()
+}

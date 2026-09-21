@@ -53,6 +53,49 @@ Current known gaps stay explicit. Browser-oriented `CanvasSink` cannot draw the 
 
 Do not compare absolute GitHub-hosted-runner timings as framework performance claims. CI uses this workload as a correctness and compatibility gate and uploads the reports for inspection. Stable performance regression thresholds need repeated measurements on a controlled runner.
 
+## Browser vs GPUix presentation benchmark
+
+The compatibility suite above answers whether a feature works. The presentation benchmark measures the path an editor would use to decode and display frames.
+
+It generates one VP8 WebM fixture, then gives the exact same encoded bytes to both implementations:
+
+- Chromium uses MediaBunny with browser WebCodecs and `CanvasSink`.
+- GPUix uses MediaBunny with `@napi-rs/webcodecs`, copies each decoded sample to BGRA, uploads it through the binary `video-frame` API, and flushes GPUI rendering.
+
+The benchmark reports decode-only throughput, end-to-end presentation throughput, time to the first presented frame, and p95 frame-step latency. The native report also separates decoder wait time, BGRA copy time, and GPUix upload plus render-flush time.
+
+Prepare the pinned native build first:
+
+```bash
+bun install --frozen-lockfile
+bun run gpuix:edge:prepare
+
+cd examples/mediabunny
+bun install --no-save
+bunx playwright install chromium
+bun run bench:presentation
+```
+
+The default workload is 1280×720, 60 frames at 30 fps, one warmup, and three measured runs. The command writes:
+
+```text
+reports/presentation-browser.json
+reports/presentation-gpuix.json
+reports/presentation-comparison.md
+```
+
+You can change the workload without editing source:
+
+```bash
+MEDIABUNNY_PRESENTATION_WIDTH=1920 \
+MEDIABUNNY_PRESENTATION_HEIGHT=1080 \
+MEDIABUNNY_PRESENTATION_FRAMES=120 \
+MEDIABUNNY_PRESENTATION_ITERATIONS=5 \
+bun run bench:presentation
+```
+
+Set `MEDIABUNNY_PRESENTATION_HEADLESS=0` to run Chromium with a visible window. Use the same machine and browser mode when comparing runs. The benchmark does not set pass/fail performance thresholds.
+
 ## Expansion matrix
 
 The benchmark grows by adding workload cases to the shared suite, not backend-specific scripts. Capability queries already include the full current MediaBunny video/audio codec vocabulary. The common executable round trip starts with VP8 + Opus WebM so every backend processes the same media.
