@@ -28,6 +28,9 @@ export interface BatchRendererApi {
   getPaintedHighlights?(): HighlightMatch[]
   getWindowSize?(): { width: number; height: number }
   getCanvasDrawListVersion?(): number | undefined
+  getVideoFrameSurfaceVersion?(): number | undefined
+  setVideoFrameBgra?(elementId: number, width: number, height: number, data: Uint8Array): void
+  clearVideoFrame?(elementId: number): void
   getWindowInsets?(): NativeWindowInsets
   activateWindow?(): void
   setWindowTitle?(title: string): void
