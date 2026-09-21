@@ -1,7 +1,7 @@
 diff --git a/packages/native/Cargo.toml b/packages/native/Cargo.toml
 --- a/packages/native/Cargo.toml
 +++ b/packages/native/Cargo.toml
-@@ -1,5 +1,7 @@
+@@ -80,5 +80,7 @@
  [target.'cfg(target_os = "macos")'.dependencies]
  core-text = "=21.0.0"
  core-graphics = "=0.24.0"
@@ -12,7 +12,7 @@ diff --git a/packages/native/Cargo.toml b/packages/native/Cargo.toml
 diff --git a/packages/native/src/retained_tree.rs b/packages/native/src/retained_tree.rs
 --- a/packages/native/src/retained_tree.rs
 +++ b/packages/native/src/retained_tree.rs
-@@ -1,5 +1,10 @@
+@@ -189,5 +189,10 @@
      ///
      /// Kept outside custom_props so frame bytes never enter the JSON mutation wire.
      pub video_frames: HashMap<u64, Arc<gpui::RenderImage>>,
@@ -23,7 +23,7 @@ diff --git a/packages/native/src/retained_tree.rs b/packages/native/src/retained
 +    pub video_frame_surfaces: HashMap<u64, core_video::pixel_buffer::CVPixelBuffer>,
      /// The root element ID set by appendChildToContainer.
      pub root_id: Option<u64>,
-@@ -1,5 +1,7 @@
+@@ -200,5 +205,7 @@
              elements: ElementMap::default(),
              styles: StyleTable::default(),
              video_frames: HashMap::new(),
@@ -31,7 +31,7 @@ diff --git a/packages/native/src/retained_tree.rs b/packages/native/src/retained
 +            video_frame_surfaces: HashMap::new(),
              root_id: None,
              next_revision: 1,
-@@ -1,6 +1,8 @@
+@@ -208,6 +215,8 @@
      pub fn create_element(&mut self, id: u64, element_type: String) {
          let revision = self.take_revision();
          self.video_frames.remove(&id);
@@ -40,7 +40,7 @@ diff --git a/packages/native/src/retained_tree.rs b/packages/native/src/retained
          self.elements
              .insert(id, RetainedElement::new(id, element_type, revision));
      }
-@@ -1,6 +1,8 @@
+@@ -271,6 +280,8 @@
      fn destroy_element_recursive(&mut self, id: u64, destroyed: &mut Vec<u64>) {
          if let Some(element) = self.elements.remove(&id) {
              self.video_frames.remove(&id);
@@ -49,7 +49,7 @@ diff --git a/packages/native/src/retained_tree.rs b/packages/native/src/retained
              destroyed.push(id);
              for child_id in element.children {
                  self.destroy_element_recursive(child_id, destroyed);
-@@ -1,12 +1,40 @@
+@@ -314,12 +325,40 @@
          let render_image = gpui::RenderImage::from_bgra(width, height, data)
              .ok_or_else(|| "Could not construct the BGRA video frame".to_string())?;
 -        self.video_frames.insert(id, Arc::new(render_image));
@@ -100,7 +100,7 @@ diff --git a/packages/native/src/retained_tree.rs b/packages/native/src/retained
 diff --git a/packages/native/src/custom_elements/mod.rs b/packages/native/src/custom_elements/mod.rs
 --- a/packages/native/src/custom_elements/mod.rs
 +++ b/packages/native/src/custom_elements/mod.rs
-@@ -1,4 +1,7 @@
+@@ -57,4 +57,7 @@
      pub props: &'a HashMap<String, serde_json::Value>,
      /// Binary video frame for this element, kept outside the JSON prop wire.
      pub video_frame: Option<std::sync::Arc<gpui::RenderImage>>,
@@ -111,7 +111,7 @@ diff --git a/packages/native/src/custom_elements/mod.rs b/packages/native/src/cu
 diff --git a/packages/native/src/custom_elements/video_frame.rs b/packages/native/src/custom_elements/video_frame.rs
 --- a/packages/native/src/custom_elements/video_frame.rs
 +++ b/packages/native/src/custom_elements/video_frame.rs
-@@ -1,3 +1,59 @@
+@@ -3,3 +3,59 @@
  use super::{CustomElement, CustomElementFactory, CustomRenderContext};
  
  pub const VIDEO_FRAME_SURFACE_VERSION: u32 = 1;
@@ -171,7 +171,7 @@ diff --git a/packages/native/src/custom_elements/video_frame.rs b/packages/nativ
 +
 +    Ok(unsafe { CVPixelBuffer::wrap_under_create_rule(pixel_buffer) })
 +}
-@@ -1,4 +1,22 @@
+@@ -64,4 +120,22 @@
          let element_id = gpui::SharedString::from(format!("__gpuix_video_frame_{}", ctx.id));
 +
 +        #[cfg(target_os = "macos")]
@@ -197,14 +197,7 @@ diff --git a/packages/native/src/custom_elements/video_frame.rs b/packages/nativ
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -1,4 +1,6 @@
-                 highlight_set: inherited.highlight.clone(),
-                 props: &element.custom_props,
-                 video_frame: ctx.tree.video_frames.get(&id).cloned(),
-+                #[cfg(target_os = "macos")]
-+                video_surface: ctx.tree.video_frame_surfaces.get(&id).cloned(),
-             };
-@@ -1,4 +1,17 @@
+@@ -1322,4 +1322,17 @@
          crate::custom_elements::video_frame::VIDEO_FRAME_SURFACE_VERSION
      }
  
@@ -222,7 +215,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +    }
 +
      /// Upload one tightly packed BGRA frame without sending pixel bytes through JSON.
-@@ -1,4 +1,28 @@
+@@ -1342,4 +1355,28 @@
      #[napi]
 +    pub fn set_video_frame_iosurface(
 +        &self,
@@ -251,10 +244,17 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
      pub fn clear_video_frame(&self, element_id: f64) -> Result<()> {
          let id = to_element_id(element_id)?;
          let mut tree = self.tree.lock().unwrap();
+@@ -4442,4 +4479,6 @@
+                 highlight_set: inherited.highlight.clone(),
+                 props: &element.custom_props,
+                 video_frame: ctx.tree.video_frames.get(&id).cloned(),
++                #[cfg(target_os = "macos")]
++                video_surface: ctx.tree.video_frame_surfaces.get(&id).cloned(),
+             };
 diff --git a/packages/native/src/test_renderer.rs b/packages/native/src/test_renderer.rs
 --- a/packages/native/src/test_renderer.rs
 +++ b/packages/native/src/test_renderer.rs
-@@ -1,4 +1,16 @@
+@@ -1153,4 +1153,16 @@
      }
  
      #[napi]
@@ -271,7 +271,7 @@ diff --git a/packages/native/src/test_renderer.rs b/packages/native/src/test_ren
 +
 +    #[napi]
      pub fn set_video_frame_bgra(
-@@ -1,4 +1,29 @@
+@@ -1171,4 +1183,29 @@
      #[napi]
 +    pub fn set_video_frame_iosurface(
 +        &self,
@@ -301,3 +301,4 @@ diff --git a/packages/native/src/test_renderer.rs b/packages/native/src/test_ren
      pub fn clear_video_frame(&self, element_id: f64) -> Result<()> {
          let id = to_element_id(element_id)?;
          self.tree.lock().unwrap().clear_video_frame(id);
+
