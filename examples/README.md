@@ -6,7 +6,7 @@ GPUix Solid keeps runnable native examples for three different reasons:
 2. **GPUIX parity:** Solid ports preserve the purpose and source structure of audited upstream GPUIX examples.
 3. **Application dogfood:** larger Solid applications exercise the renderer under realistic layouts, routing, scrolling, controls, and interaction patterns.
 
-All Solid 2 example, test, and benchmark Vite configs use the first-party `gpuixSolid()` helper, so they exercise the same universal compiler settings, live Solid runtime conditions, and native-addon externalization recommended to applications. Runnable entries call `render()`, so the Solid client-runtime guard and native runtime-error recovery path are part of every live example automatically. They execute as native Bun processes through exact `@gpuix/native@0.9.0`; they are not browser apps or Electron windows.
+All Solid 2 example, test, and benchmark Vite configs use the first-party `gpuixSolid()` helper, so they exercise the same universal compiler settings, live Solid runtime conditions, and native-addon externalization recommended to applications. Runnable entries call `render()`, so the Solid client-runtime guard and native runtime-error recovery path are part of every live example automatically. Plain installs execute as native Bun processes through exact `@gpuix/native@0.9.0`; they are not browser apps or Electron windows. The pinned source-edge lane separately builds GPUIX 0.10.0 for forward-compatibility checks and examples that exercise new native APIs before the default package dependency moves.
 
 Run commands from the repository root after:
 
@@ -25,6 +25,7 @@ If you are trying to build your own application rather than work on this reposit
 | CodeImage | `bun run example:codeimage` | Editor composition with toolbars, canvas/frame layout, sidebars, theme controls, and native compatibility boundaries |
 | Chat | `bun run example:chat` | Virtualized transcript, composer input, menus, text selection, scrolling, animation, code/diff content, and Solid-composed MDX |
 | Timeline | `bun run example:timeline` | Pan/zoom, clip move/trim, snapping, scrubbing, marquee selection, culling, frozen panes, and pointer capture |
+| Waveform | `bun run example:waveform` | Solid 2 port of GPUIX 0.10's live RGBA image example; run after `bun run gpuix:edge:prepare` |
 | Todo | `bun run example:todo` | Native input, hover controls, sidebar motion, icons, virtual-list anchoring, and public retained-list Top/Bottom commands |
 | Counter | `bun run example:counter` | Smallest signal/click/hover/update fixture |
 
@@ -100,6 +101,19 @@ bun run example:timeline
 ```
 
 Covers the audited GPUIX timeline workload with two-axis pan, clip move/trim, snapping, scrubbing, zoom, marquee selection, culling, frozen panes, and pointer capture. It also forms the basis of the repository's timeline performance workload.
+
+### Waveform
+
+The Waveform example is derived from GPUIX 0.10.0's official `examples/waveform.tsx`. It keeps the same 720×96 display, 2× RGBA backing buffer, live `setImagePixels()` update, clip list, and `scrollIntoView()` interaction.
+
+Until the default npm dependency moves from 0.9, run it against the pinned 0.10 source edge:
+
+```bash
+bun run gpuix:edge:prepare
+bun run example:waveform
+```
+
+Click the window to change the waveform phase. The Jump to outro control exercises the new host-ref scroll path.
 
 ### Mail
 
@@ -230,6 +244,7 @@ The normal deterministic contracts include:
 - Todo
 - Diff
 - Timeline
+- Waveform live-image replacement and `scrollIntoView()`
 - Mail
 - Diffusion Studio editor
 - Chat
@@ -240,6 +255,6 @@ The normal deterministic contracts include:
 - Solid 1 package and consumer builds
 - Kobalte/Tailwind/DAW native fixtures in their dedicated validation lanes
 - exact package smoke in clean consumers
-- exact pinned GPUIX 0.9 source build/link/compatibility
+- exact pinned GPUIX 0.10 source build/link/compatibility
 
 Physical foreground macOS input remains a separate acceptance category. On the current GPUIX 0.9 line, the post-`0.2.1-beta.0` candidate `ab6436a0744a2907dcbf9325efbc0365e30e5517` passed live-native selection, clear, reselection, and follow-up click acceptance, but a literal physical mouse/trackpad drag remains unverified because CUA could not attach to the Bun-launched native window. The older `0.1.0-rc.1` / GPUIX 0.8 foreground pass remains historical qualification only.
