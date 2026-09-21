@@ -65,6 +65,7 @@ try {
 
   const report: unknown = JSON.parse(output)
   console.log(JSON.stringify(report, null, 2))
+if (report.summary.errors > 0) process.exitCode = 1
 } finally {
   await browser.close()
   server.stop(true)
