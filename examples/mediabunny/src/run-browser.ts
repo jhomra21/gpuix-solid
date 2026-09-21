@@ -3,6 +3,23 @@ import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { chromium } from "playwright"
 
+function benchmarkErrorCount(value: unknown): number {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("Browser benchmark returned a non-object report")
+  }
+
+  const summary = Reflect.get(value, "summary")
+  if (typeof summary !== "object" || summary === null) {
+    throw new Error("Browser benchmark report is missing its summary")
+  }
+
+  const errors = Reflect.get(summary, "errors")
+  if (typeof errors !== "number") {
+    throw new Error("Browser benchmark report summary is missing its error count")
+  }
+  return errors
+}
+
 const sourceDirectory = dirname(fileURLToPath(import.meta.url))
 const projectDirectory = resolve(sourceDirectory, "..")
 const buildDirectory = join(projectDirectory, ".browser-benchmark")
@@ -65,7 +82,7 @@ try {
 
   const report: unknown = JSON.parse(output)
   console.log(JSON.stringify(report, null, 2))
-if (report.summary.errors > 0) process.exitCode = 1
+  if (benchmarkErrorCount(report) > 0) process.exitCode = 1
 } finally {
   await browser.close()
   server.stop(true)
