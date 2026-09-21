@@ -8,6 +8,8 @@ import {
   Conversion,
   EncodedPacketSink,
   Input,
+  MovOutputFormat,
+  Mp4OutputFormat,
   WebMOutputFormat,
   Output,
   Quality,
@@ -52,6 +54,16 @@ type FeatureExecution =
   | { status: "pass"; details?: Record<string, FeatureDetail> }
   | { status: "unsupported"; details?: Record<string, FeatureDetail> }
 
+type CodecRoundTripResult = {
+  codec: string
+  status: "pass" | "unsupported" | "error"
+  encodeMs?: number
+  decodeMs?: number
+  bytes?: number
+  decodedSamples?: number
+  error?: string
+}
+
 type RoundTripResult = {
   bytes: number
   durationSeconds: number
@@ -83,6 +95,9 @@ export type MediaBunnyBenchmarkReport = {
   }
   measurements: Measurement[]
   features: FeatureCaseResult[]
+  codecRoundTrips: {
+    video: CodecRoundTripResult[]
+  }
   roundTrip: RoundTripResult
 }
 
@@ -539,6 +554,127 @@ async function inspectFixture(
   }
 }
 
+function makeCodecVideoSample(frameIndex: number, frameCount: number): VideoSample {
+  const width = 160
+  const height = 90
+  const bytes = new Uint8Array(width * height * 4)
+  const phase = frameIndex / Math.max(1, frameCount - 1)
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const offset = (y * width + x) * 4
+      bytes[offset] = Math.round(255 * x / Math.max(1, width - 1))
+      bytes[offset + 1] = Math.round(255 * y / Math.max(1, height - 1))
+      bytes[offset + 2] = Math.round(255 * phase)
+      bytes[offset + 3] = 255
+    }
+  }
+
+  return new VideoSample(bytes, {
+    format: "RGBA",
+    codedWidth: width,
+    codedHeight: height,
+    timestamp: frameIndex / FRAME_RATE,
+    duration: 1 / FRAME_RATE,
+  })
+}
+
+function videoCodecOutputFormat(codec: VideoCodec): MovOutputFormat | Mp4OutputFormat | WebMOutputFormat {
+  if (codec === "prores") return new MovOutputFormat()
+  if (codec === "avc" || codec === "hevc") return new Mp4OutputFormat({ fastStart: "fragmented" })
+  return new WebMOutputFormat()
+}
+
+async function runVideoCodecRoundTrip(
+  capability: CapabilityResult,
+): Promise<CodecRoundTripResult> {
+  if (!capability.encode || !capability.decode) {
+    return { codec: capability.codec, status: "unsupported" }
+  }
+
+  const codec = capability.codec as VideoCodec
+  const frameCount = 6
+  const target = new BufferTarget()
+  const format = videoCodecOutputFormat(codec)
+  if (!format.getSupportedVideoCodecs().includes(codec)) {
+    return {
+      codec,
+      status: "error",
+      error: `No selected output format can contain ${codec}`,
+    }
+  }
+
+  try {
+    const output = new Output({ format, target })
+    const source = new VideoSampleSource({
+      codec,
+      quality: new Quality("medium"),
+    })
+    output.addVideoTrack(source, { frameRate: FRAME_RATE })
+
+    const encodeStarted = performance.now()
+    await output.start()
+    for (let frame = 0; frame < frameCount; frame += 1) {
+      const sample = makeCodecVideoSample(frame, frameCount)
+      try {
+        await source.add(sample)
+      } finally {
+        sample.close()
+      }
+    }
+    await output.finalize()
+    const encodeMs = performance.now() - encodeStarted
+
+    if (!target.buffer || target.buffer.byteLength === 0) {
+      throw new Error(`${codec} round trip produced an empty output buffer`)
+    }
+
+    const decodeStarted = performance.now()
+    const input = createInput(target.buffer)
+    let decodedSamples = 0
+    try {
+      const track = await input.getPrimaryVideoTrack()
+      if (!track) throw new Error(`${codec} round trip output has no video track`)
+      for await (const sample of new VideoSampleSink(track).samples()) {
+        decodedSamples += 1
+        sample.close()
+      }
+    } finally {
+      input.dispose()
+    }
+    const decodeMs = performance.now() - decodeStarted
+
+    if (decodedSamples === 0) {
+      throw new Error(`${codec} round trip decoded no video samples`)
+    }
+
+    return {
+      codec,
+      status: "pass",
+      encodeMs,
+      decodeMs,
+      bytes: target.buffer.byteLength,
+      decodedSamples,
+    }
+  } catch (error) {
+    return {
+      codec,
+      status: "error",
+      error: error instanceof Error ? error.message : String(error),
+    }
+  }
+}
+
+async function runVideoCodecRoundTrips(
+  capabilities: readonly CapabilityResult[],
+): Promise<CodecRoundTripResult[]> {
+  const results: CodecRoundTripResult[] = []
+  for (const capability of capabilities) {
+    results.push(await runVideoCodecRoundTrip(capability))
+  }
+  return results
+}
+
 async function runFeatureCases(buffer: ArrayBuffer): Promise<FeatureCaseResult[]> {
   return [
     await runFeatureCase("conversion-copy", async () => {
@@ -790,6 +926,7 @@ export async function runMediaBunnyBenchmark(backend: BenchmarkBackend): Promise
   const buffer = await encodeFixture(measurements)
   const roundTrip = await inspectFixture(buffer, measurements)
   const features = await runFeatureCases(buffer)
+  const videoCodecRoundTrips = await runVideoCodecRoundTrips(video)
 
   return {
     schemaVersion: 1,
@@ -807,6 +944,7 @@ export async function runMediaBunnyBenchmark(backend: BenchmarkBackend): Promise
     capabilities: { video, audio },
     measurements,
     features,
+    codecRoundTrips: { video: videoCodecRoundTrips },
     roundTrip,
   }
 }
