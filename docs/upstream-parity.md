@@ -68,6 +68,7 @@ The desktop examples below use the same GPUIX native renderer and preserve the u
 | Todo starter | `example-app/` | `examples/counter/src/todo/` | parity snapshot |
 | Diff | `examples/diff.tsx` | `examples/counter/src/diff/` | parity snapshot |
 | Timeline | `examples/timeline.tsx` | `examples/counter/src/timeline/` | parity snapshot |
+| Waveform | `examples/waveform.tsx` | `examples/counter/src/waveform/` | GPUIX 0.10 source port |
 | Chat | `examples/chat.tsx` | `examples/counter/src/chat/` | parity snapshot |
 | Infinite chat | `examples/infinite-chat.tsx` | `examples/counter/src/infinite-chat/` | parity snapshot |
 | Browser/WebGPU | root `web` scripts | no Solid wrapper yet | missing |
@@ -75,7 +76,7 @@ The desktop examples below use the same GPUIX native renderer and preserve the u
 | Timeline performance | `examples/timeline.perf.test.tsx` | `examples/counter/src/benchmarks/timeline.tsx` | workload parity |
 | Serialization | `examples/bench-serialization.ts` | `examples/counter/src/benchmarks/serialization.tsx` | Solid-side workload parity |
 
-“Parity snapshot” means the application/source reference is the pinned audited GPUIX snapshot. Runtime/native execution now uses the 0.9 package baseline; the snapshot is not silently rewritten to whatever happens to be on upstream `main`.
+“Parity snapshot” means the application/source reference is the pinned audited GPUIX snapshot. Plain package execution still uses the 0.9 package baseline; the source-edge lane uses GPUIX 0.10.0. The snapshot is not silently rewritten to whatever happens to be on upstream `main`.
 
 Dashboard, CodeImage, TanStack, Kobalte, Tailwind and DAW are additional Solid coverage. They do not replace an upstream example in this table. Dashboard, CodeImage, TanStack and DAW also follow the source-first rule for their own upstream applications.
 

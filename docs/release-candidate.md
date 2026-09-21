@@ -25,7 +25,7 @@ On that SHA:
 
 - CI passed on macOS, Ubuntu, and Windows;
 - package smoke passed for Solid 2 and Solid 1;
-- the pinned GPUIX 0.9 source-edge lane passed;
+- the pinned GPUIX 0.10.0 source-edge lane passed;
 - Diffusion deterministic and live-native regressions passed;
 - the Solid 1 DAW native regression passed;
 - exhaustive Mail live-native acceptance and React/Solid differential parity passed;

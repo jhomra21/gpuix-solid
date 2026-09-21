@@ -1,4 +1,4 @@
-import { createRenderEffect, For } from "solid-js"
+import { createRenderEffect } from "solid-js"
 import type { ImgInstance, PublicInstance } from "gpuix-solid"
 
 function isImgInstance(instance: PublicInstance): instance is ImgInstance {
@@ -98,26 +98,24 @@ export function WaveformApp(props: { phase?: number } = {}) {
           backgroundColor: "#1e1e2e",
         }}
       >
-        <For each={CLIPS}>
-          {(name, index) => (
-            <div
-              ref={index() === CLIPS.length - 1
-                ? (instance) => {
-                    lastClip = instance
-                  }
-                : undefined}
-              testId={`clip-${name.toLowerCase()}`}
-              style={{
-                height: 48,
-                padding: 14,
-                color: "#cdd6f4",
-                backgroundColor: index() % 2 === 0 ? "#1e1e2e" : "#181825",
-              }}
-            >
-              {name}
-            </div>
-          )}
-        </For>
+        {CLIPS.map((name, index) => (
+          <div
+            ref={index === CLIPS.length - 1
+              ? (instance) => {
+                  lastClip = instance
+                }
+              : undefined}
+            testId={`clip-${name.toLowerCase()}`}
+            style={{
+              height: 48,
+              padding: 14,
+              color: "#cdd6f4",
+              backgroundColor: index % 2 === 0 ? "#1e1e2e" : "#181825",
+            }}
+          >
+            {name}
+          </div>
+        ))}
       </div>
 
       <div
