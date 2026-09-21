@@ -600,6 +600,9 @@ export interface NativeRenderer {
   /** Version of the binary BGRA frame-surface protocol, or undefined when unavailable. */
   getVideoFrameSurfaceVersion?(): number | undefined
   setVideoFrameBgra?(elementId: number, width: number, height: number, data: Uint8Array): void
+  /** Version of direct macOS IOSurface frame presentation, or undefined when unavailable. */
+  getVideoFrameIosurfaceVersion?(): number | undefined
+  setVideoFrameIosurface?(elementId: number, handle: Uint8Array): void
   clearVideoFrame?(elementId: number): void
   activateWindow?(): void
   setWindowTitle?(title: string): void
