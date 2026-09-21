@@ -15,7 +15,7 @@ diff --git a/packages/native/Cargo.toml b/packages/native/Cargo.toml
 diff --git a/packages/native/src/retained_tree.rs b/packages/native/src/retained_tree.rs
 --- a/packages/native/src/retained_tree.rs
 +++ b/packages/native/src/retained_tree.rs
-@@ -183,11 +183,15 @@
+@@ -183,27 +183,33 @@
  }
  
 -pub struct RetainedTree {
@@ -25,6 +25,22 @@ diff --git a/packages/native/src/retained_tree.rs b/packages/native/src/retained
 -    pub root_id: Option<u64>,
 -    next_revision: u64,
 -}
+-
+-impl RetainedTree {
+-    pub fn new() -> Self {
+-        Self {
+-            elements: ElementMap::default(),
+-            styles: StyleTable::default(),
+-            root_id: None,
+-            next_revision: 1,
+-        }
+-    }
+-
+-    pub fn create_element(&mut self, id: u64, element_type: String) {
+-        let revision = self.take_revision();
+-        self.elements
+-            .insert(id, RetainedElement::new(id, element_type, revision));
+-    }
 +pub struct RetainedTree {
 +    pub elements: ElementMap,
 +    pub styles: StyleTable,
@@ -36,17 +52,9 @@ diff --git a/packages/native/src/retained_tree.rs b/packages/native/src/retained
 +    pub root_id: Option<u64>,
 +    next_revision: u64,
 +}
- 
- impl RetainedTree {
-@@ -193,10 +193,11 @@
- impl RetainedTree {
-     pub fn new() -> Self {
--        Self {
--            elements: ElementMap::default(),
--            styles: StyleTable::default(),
--            root_id: None,
--            next_revision: 1,
--        }
++
++impl RetainedTree {
++    pub fn new() -> Self {
 +        Self {
 +            elements: ElementMap::default(),
 +            styles: StyleTable::default(),
@@ -54,16 +62,8 @@ diff --git a/packages/native/src/retained_tree.rs b/packages/native/src/retained
 +            root_id: None,
 +            next_revision: 1,
 +        }
-     }
- 
-@@ -201,9 +201,10 @@
-     }
- 
--    pub fn create_element(&mut self, id: u64, element_type: String) {
--        let revision = self.take_revision();
--        self.elements
--            .insert(id, RetainedElement::new(id, element_type, revision));
--    }
++    }
++
 +    pub fn create_element(&mut self, id: u64, element_type: String) {
 +        let revision = self.take_revision();
 +        self.video_frames.remove(&id);
