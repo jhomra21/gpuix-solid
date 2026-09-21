@@ -9,3 +9,4 @@ registerNapiVideoSampleTransformer()
 const { runMediaBunnyBenchmark } = await import("./suite.ts")
 const report = await runMediaBunnyBenchmark("napi-webcodecs")
 console.log(JSON.stringify(report, null, 2))
+if (report.summary.errors > 0) process.exitCode = 1
