@@ -12,7 +12,7 @@ for (const file of files) {
   const raw = await Bun.file(join(reportsDirectory, file)).json()
   // SAFETY: benchmark reports are produced by this repository's suite; schemaVersion is checked immediately below before any fields are consumed.
   const parsed = raw as MediaBunnyBenchmarkReport
-  if (parsed.schemaVersion !== 1) throw new Error(`Unsupported report schema in ${file}`)
+  if (parsed.schemaVersion !== 2) throw new Error(`Unsupported report schema in ${file}`)
   reports.push(parsed)
 }
 
@@ -86,6 +86,14 @@ for (const codec of roundTripVideoCodecs) {
       const result = report.codecRoundTrips.video.find((entry) => entry.codec === codec)
       if (!result) return "—"
       if (result.status === "unsupported") return "unsupported"
+      if (result.status === "timeout") return `timeout: ${result.note ?? "bounded probe exceeded its budget"}`
+      if (result.status === "known-gap") {
+        const evidence = [
+          result.encoderConfigCodec ? `codec=${result.encoderConfigCodec}` : null,
+          result.muxPreservedPackets === undefined ? null : `mux-preserved=${result.muxPreservedPackets}`,
+        ].filter((value) => value !== null).join(", ")
+        return `known gap: ${result.note ?? result.error ?? "documented backend incompatibility"}${evidence ? ` (${evidence}` : ""}${evidence ? ")" : ""}`
+      }
       if (result.status === "error") {
         const evidence = [
           result.encoderConfigCodec ? `codec=${result.encoderConfigCodec}` : null,
@@ -117,6 +125,8 @@ for (const codec of roundTripAudioCodecs) {
       const result = report.codecRoundTrips.audio.find((entry) => entry.codec === codec)
       if (!result) return "—"
       if (result.status === "unsupported") return "unsupported"
+      if (result.status === "timeout") return `timeout: ${result.note ?? "bounded probe exceeded its budget"}`
+      if (result.status === "known-gap") return `known gap: ${result.note ?? result.error ?? "documented backend incompatibility"}`
       if (result.status === "error") return `error: ${result.error ?? "unknown"}`
       const container = result.container ? ` / ${result.container}` : ""
       return `pass (enc ${numberCell(result.encodeMs)} / dec ${numberCell(result.decodeMs)} ms${container})`
@@ -140,10 +150,24 @@ for (const name of featureNames) {
       if (!feature) return "—"
       if (feature.status === "pass") return `pass (${feature.milliseconds.toFixed(2)} ms)`
       if (feature.status === "unsupported") return "unsupported"
+      if (feature.status === "known-gap") return `known gap: ${feature.note ?? feature.error ?? "documented backend incompatibility"}`
       return `error: ${feature.error ?? "unknown"}`
     }).join(" | ")} |`,
   )
 }
+
+lines.push(
+  "",
+  "## Result summary",
+  "",
+  `| Status | ${reports.map((report) => report.backend).join(" | ")} |`,
+  `| --- | ${reports.map(() => "---:").join(" | ")} |`,
+  `| pass | ${reports.map((report) => report.summary.passes).join(" | ")} |`,
+  `| unsupported | ${reports.map((report) => report.summary.unsupported).join(" | ")} |`,
+  `| known gaps | ${reports.map((report) => report.summary.knownGaps).join(" | ")} |`,
+  `| bounded timeouts | ${reports.map((report) => report.summary.timeouts).join(" | ")} |`,
+  `| unexpected errors | ${reports.map((report) => report.summary.errors).join(" | ")} |`,
+)
 
 lines.push(
   "",
