@@ -2,23 +2,7 @@ import { mkdir, rm } from "node:fs/promises"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { chromium } from "playwright"
-
-function benchmarkErrorCount(value: unknown): number {
-  if (typeof value !== "object" || value === null) {
-    throw new Error("Browser benchmark returned a non-object report")
-  }
-
-  const summary = Reflect.get(value, "summary")
-  if (typeof summary !== "object" || summary === null) {
-    throw new Error("Browser benchmark report is missing its summary")
-  }
-
-  const errors = Reflect.get(summary, "errors")
-  if (typeof errors !== "number") {
-    throw new Error("Browser benchmark report summary is missing its error count")
-  }
-  return errors
-}
+import type { MediaBunnyBenchmarkReport } from "./suite.ts"
 
 const sourceDirectory = dirname(fileURLToPath(import.meta.url))
 const projectDirectory = resolve(sourceDirectory, "..")
@@ -80,9 +64,14 @@ try {
   if (!output) throw new Error("Browser benchmark returned an empty report")
   if (status === "error") throw new Error(`Browser benchmark failed:\n${output}`)
 
-  const report: unknown = JSON.parse(output)
+  const raw = JSON.parse(output)
+  // SAFETY: this JSON is produced by this repository's browser-entry suite; the schema version is checked before fields are consumed.
+  const report = raw as MediaBunnyBenchmarkReport
+  if (report.schemaVersion !== 2) {
+    throw new Error(`Unsupported browser benchmark schema: ${report.schemaVersion}`)
+  }
   console.log(JSON.stringify(report, null, 2))
-  if (benchmarkErrorCount(report) > 0) process.exitCode = 1
+  if (report.summary.errors > 0) process.exitCode = 1
 } finally {
   await browser.close()
   server.stop(true)
