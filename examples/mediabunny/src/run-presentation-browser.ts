@@ -79,7 +79,7 @@ try {
   const raw = JSON.parse(output)
   // SAFETY: the browser entry in this repository emits this schema, and the version/backend checks below reject mismatched output.
   const report = raw as PresentationBenchmarkReport
-  if (report.schemaVersion !== 1 || report.backend !== "browser-webcodecs-canvas") {
+  if (report.schemaVersion !== 2 || report.backend !== "browser-webcodecs-canvas") {
     throw new Error("Presentation browser benchmark returned an unsupported report")
   }
   console.log(JSON.stringify(report))

@@ -158,7 +158,7 @@ try {
   }
 
   const report: PresentationBenchmarkReport = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     backend: "browser-webcodecs-canvas",
     generatedAt: new Date().toISOString(),
     workload: {

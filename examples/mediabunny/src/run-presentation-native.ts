@@ -113,38 +113,68 @@ async function runNativePresentation(): Promise<PresentationRun> {
     let firstFrameMs = 0
     let frames = 0
     let decodeMs = 0
+    let allocationMs = 0
     let copyBgraMs = 0
-    let uploadAndFlushMs = 0
+    let uploadMs = 0
+    let renderFlushMs = 0
+    let firstFrameDecodeMs = 0
+    let firstFrameAllocationMs = 0
+    let firstFrameCopyBgraMs = 0
+    let firstFrameUploadMs = 0
+    let firstFrameRenderFlushMs = 0
     let width = 0
     let height = 0
 
     for (;;) {
       const frameStarted = performance.now()
+
       const decodeStarted = performance.now()
       const next = await iterator.next()
       const decodeEnded = performance.now()
-      decodeMs += decodeEnded - decodeStarted
+      const decodeDuration = decodeEnded - decodeStarted
+      decodeMs += decodeDuration
       if (next.done) break
 
       const sample = next.value
       try {
         width = sample.codedWidth
         height = sample.codedHeight
+        const options = { format: "BGRA" as const }
+
+        const allocationStarted = performance.now()
+        const data = new Uint8Array(sample.allocationSize(options))
+        const allocationEnded = performance.now()
+        const allocationDuration = allocationEnded - allocationStarted
+        allocationMs += allocationDuration
 
         const copyStarted = performance.now()
-        const options = { format: "BGRA" as const }
-        const data = new Uint8Array(sample.allocationSize(options))
         await sample.copyTo(data, options)
-        copyBgraMs += performance.now() - copyStarted
+        const copyEnded = performance.now()
+        const copyDuration = copyEnded - copyStarted
+        copyBgraMs += copyDuration
 
-        const presentStarted = performance.now()
+        const uploadStarted = performance.now()
         setProp(surface, "frame", { data, width, height })
+        const uploadEnded = performance.now()
+        const uploadDuration = uploadEnded - uploadStarted
+        uploadMs += uploadDuration
+
+        const renderStarted = performance.now()
         testRoot.renderer.flush()
-        uploadAndFlushMs += performance.now() - presentStarted
+        const renderEnded = performance.now()
+        const renderDuration = renderEnded - renderStarted
+        renderFlushMs += renderDuration
 
         const frameEnded = performance.now()
         frameSteps.push(frameEnded - frameStarted)
-        if (frames === 0) firstFrameMs = frameEnded - started
+        if (frames === 0) {
+          firstFrameMs = frameEnded - started
+          firstFrameDecodeMs = decodeDuration
+          firstFrameAllocationMs = allocationDuration
+          firstFrameCopyBgraMs = copyDuration
+          firstFrameUploadMs = uploadDuration
+          firstFrameRenderFlushMs = renderDuration
+        }
         frames += 1
       } finally {
         sample.close()
@@ -159,8 +189,15 @@ async function runNativePresentation(): Promise<PresentationRun> {
       firstFrameMs,
       ...summarizeFrameSteps(frameSteps),
       decodeMs,
+      allocationMs,
       copyBgraMs,
-      uploadAndFlushMs,
+      uploadMs,
+      renderFlushMs,
+      firstFrameDecodeMs,
+      firstFrameAllocationMs,
+      firstFrameCopyBgraMs,
+      firstFrameUploadMs,
+      firstFrameRenderFlushMs,
     }
   } finally {
     input.dispose()
@@ -188,7 +225,7 @@ try {
   if (screenshotBytes === 0) throw new Error("GPUix presentation benchmark screenshot was empty")
 
   const report: PresentationBenchmarkReport = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     backend: "gpuix-native-video-frame",
     generatedAt: new Date().toISOString(),
     workload: {

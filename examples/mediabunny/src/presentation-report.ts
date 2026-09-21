@@ -11,12 +11,19 @@ export type PresentationRun = {
   frameStepP50Ms: number
   frameStepP95Ms: number
   decodeMs?: number
+  allocationMs?: number
   copyBgraMs?: number
-  uploadAndFlushMs?: number
+  uploadMs?: number
+  renderFlushMs?: number
+  firstFrameDecodeMs?: number
+  firstFrameAllocationMs?: number
+  firstFrameCopyBgraMs?: number
+  firstFrameUploadMs?: number
+  firstFrameRenderFlushMs?: number
 }
 
 export type PresentationBenchmarkReport = {
-  schemaVersion: 1
+  schemaVersion: 2
   backend: PresentationBackend
   generatedAt: string
   workload: {
@@ -56,6 +63,12 @@ export function framesPerSecond(run: PresentationRun): number {
   return run.totalMs <= 0 ? 0 : run.frames / (run.totalMs / 1000)
 }
 
+export function steadyStateFramesPerSecond(run: PresentationRun): number {
+  const frames = Math.max(0, run.frames - 1)
+  const milliseconds = run.totalMs - run.firstFrameMs
+  return frames === 0 || milliseconds <= 0 ? 0 : frames / (milliseconds / 1000)
+}
+
 function formatNumber(value: number): string {
   return Number.isFinite(value) ? value.toFixed(2) : "n/a"
 }
@@ -65,11 +78,35 @@ function ratio(nativeValue: number, browserValue: number): string {
   return `${(nativeValue / browserValue).toFixed(2)}x`
 }
 
+function stageMedian(
+  runs: readonly PresentationRun[],
+  key:
+    | "decodeMs"
+    | "allocationMs"
+    | "copyBgraMs"
+    | "uploadMs"
+    | "renderFlushMs"
+    | "firstFrameDecodeMs"
+    | "firstFrameAllocationMs"
+    | "firstFrameCopyBgraMs"
+    | "firstFrameUploadMs"
+    | "firstFrameRenderFlushMs",
+): number {
+  return median(runs.map((run) => run[key] ?? 0))
+}
+
+function stagePerFrameMedian(
+  runs: readonly PresentationRun[],
+  key: "decodeMs" | "allocationMs" | "copyBgraMs" | "uploadMs" | "renderFlushMs",
+): number {
+  return median(runs.map((run) => run.frames > 0 ? (run[key] ?? 0) / run.frames : 0))
+}
+
 export function formatPresentationComparison(
   browser: PresentationBenchmarkReport,
   native: PresentationBenchmarkReport,
 ): string {
-  if (browser.schemaVersion !== 1 || native.schemaVersion !== 1) {
+  if (browser.schemaVersion !== 2 || native.schemaVersion !== 2) {
     throw new Error("Unsupported presentation benchmark schema")
   }
   if (browser.workload.fixtureBytes !== native.workload.fixtureBytes) {
@@ -94,18 +131,32 @@ export function formatPresentationComparison(
   const nativeDecodeFps = median(native.decodeOnly.map(framesPerSecond))
   const browserPresentFps = median(browser.endToEnd.map(framesPerSecond))
   const nativePresentFps = median(native.endToEnd.map(framesPerSecond))
+  const browserSteadyFps = median(browser.endToEnd.map(steadyStateFramesPerSecond))
+  const nativeSteadyFps = median(native.endToEnd.map(steadyStateFramesPerSecond))
   const browserFirstFrame = median(browser.endToEnd.map((run) => run.firstFrameMs))
   const nativeFirstFrame = median(native.endToEnd.map((run) => run.firstFrameMs))
   const browserP95 = median(browser.endToEnd.map((run) => run.frameStepP95Ms))
   const nativeP95 = median(native.endToEnd.map((run) => run.frameStepP95Ms))
   const browserTotal = median(browser.endToEnd.map((run) => run.totalMs))
   const nativeTotal = median(native.endToEnd.map((run) => run.totalMs))
-
-  const nativeDecodeMs = median(native.endToEnd.map((run) => run.decodeMs ?? 0))
-  const nativeCopyMs = median(native.endToEnd.map((run) => run.copyBgraMs ?? 0))
-  const nativeUploadMs = median(native.endToEnd.map((run) => run.uploadAndFlushMs ?? 0))
   const sample = browser.endToEnd[0] ?? native.endToEnd[0]
   if (!sample) throw new Error("Presentation benchmark produced no measured runs")
+
+  const nativeStages = [
+    ["decoder wait", "decodeMs"],
+    ["BGRA allocation", "allocationMs"],
+    ["BGRA copy", "copyBgraMs"],
+    ["GPUix upload", "uploadMs"],
+    ["native render flush", "renderFlushMs"],
+  ] as const
+
+  const nativeFirstFrameStages = [
+    ["decoder wait", "firstFrameDecodeMs"],
+    ["BGRA allocation", "firstFrameAllocationMs"],
+    ["BGRA copy", "firstFrameCopyBgraMs"],
+    ["GPUix upload", "firstFrameUploadMs"],
+    ["native render flush", "firstFrameRenderFlushMs"],
+  ] as const
 
   return [
     "# MediaBunny browser vs GPUix presentation benchmark",
@@ -116,16 +167,31 @@ export function formatPresentationComparison(
     "| --- | ---: | ---: | ---: |",
     `| Decode-only throughput | ${formatNumber(browserDecodeFps)} fps | ${formatNumber(nativeDecodeFps)} fps | ${ratio(nativeDecodeFps, browserDecodeFps)} |`,
     `| End-to-end presentation throughput | ${formatNumber(browserPresentFps)} fps | ${formatNumber(nativePresentFps)} fps | ${ratio(nativePresentFps, browserPresentFps)} |`,
+    `| Steady-state presentation throughput | ${formatNumber(browserSteadyFps)} fps | ${formatNumber(nativeSteadyFps)} fps | ${ratio(nativeSteadyFps, browserSteadyFps)} |`,
     `| End-to-end total | ${formatNumber(browserTotal)} ms | ${formatNumber(nativeTotal)} ms | ${ratio(nativeTotal, browserTotal)} |`,
     `| First presented frame | ${formatNumber(browserFirstFrame)} ms | ${formatNumber(nativeFirstFrame)} ms | ${ratio(nativeFirstFrame, browserFirstFrame)} |`,
     `| Per-frame step p95 | ${formatNumber(browserP95)} ms | ${formatNumber(nativeP95)} ms | ${ratio(nativeP95, browserP95)} |`,
     "",
-    "Throughput ratios above 1 mean the native path processed more frames per second. Latency ratios below 1 mean the native path took less time.",
+    "Throughput ratios above 1 mean the native path processed more frames per second. Latency ratios below 1 mean the native path took less time. Steady-state throughput excludes the first presented frame.",
     "",
-    "## Native end-to-end breakdown",
+    "## Native end-to-end stage breakdown",
     "",
-    `Median decoder wait: ${formatNumber(nativeDecodeMs)} ms. Median BGRA allocation and copy: ${formatNumber(nativeCopyMs)} ms. Median GPUix upload and render flush: ${formatNumber(nativeUploadMs)} ms.`,
+    "| Stage | Median total | Median per frame |",
+    "| --- | ---: | ---: |",
+    ...nativeStages.map(([label, key]) =>
+      `| ${label} | ${formatNumber(stageMedian(native.endToEnd, key))} ms | ${formatNumber(stagePerFrameMedian(native.endToEnd, key))} ms |`
+    ),
     "",
-    "The browser end-to-end path uses MediaBunny CanvasSink, which draws decoded browser VideoFrames directly. The GPUix path copies each decoded sample to BGRA, uploads those bytes through the binary video-frame API, and flushes GPUI rendering. The benchmark keeps that difference because it measures the paths an application can use today.",
+    "## Native first-frame breakdown",
+    "",
+    "| Stage | Median first frame |",
+    "| --- | ---: |",
+    ...nativeFirstFrameStages.map(([label, key]) =>
+      `| ${label} | ${formatNumber(stageMedian(native.endToEnd, key))} ms |`
+    ),
+    "",
+    "The browser end-to-end path uses MediaBunny CanvasSink, which draws decoded browser VideoFrames directly. The GPUix path copies each decoded sample to BGRA, hands those bytes to the binary video-frame API, and then flushes native rendering. The stage timers separate JavaScript allocation, MediaBunny copyTo, the synchronous GPUix upload call, and the explicit native render flush.",
+    "",
+    "Stage medians are calculated independently, so their sum does not have to equal the median end-to-end total.",
   ].join("\n")
 }
