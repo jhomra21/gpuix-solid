@@ -203,17 +203,20 @@ export class TestRenderer {
   }
 
   getVideoFrameSurfaceVersion(): number | undefined {
+    // SAFETY: source-edge GPUIX may expose video-frame methods before the published native typings.
     const native = this.#native as SourceEdgeNativeTestRenderer
     return native.getVideoFrameSurfaceVersion?.()
   }
 
   setVideoFrameBgra(elementId: number, width: number, height: number, data: Uint8Array): void {
+    // SAFETY: source-edge GPUIX may expose video-frame methods before the published native typings.
     const native = this.#native as SourceEdgeNativeTestRenderer
     if (!native.setVideoFrameBgra) throw new Error("Native video-frame surface is unavailable")
     native.setVideoFrameBgra(elementId, width, height, data)
   }
 
   clearVideoFrame(elementId: number): void {
+    // SAFETY: source-edge GPUIX may expose video-frame methods before the published native typings.
     const native = this.#native as SourceEdgeNativeTestRenderer
     native.clearVideoFrame?.(elementId)
   }
