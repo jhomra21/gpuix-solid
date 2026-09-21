@@ -166,7 +166,7 @@ diff --git a/packages/native/src/custom_elements/video_frame.rs b/packages/nativ
 new file mode 100644
 --- /dev/null
 +++ b/packages/native/src/custom_elements/video_frame.rs
-@@ -0,0 +1,126 @@
+@@ -0,0 +1,125 @@
 +use gpui::prelude::*;
 +
 +use super::{CustomElement, CustomElementFactory, CustomRenderContext};
@@ -292,7 +292,6 @@ new file mode 100644
 +
 +    fn destroy(&mut self) {}
 +}
-+
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
