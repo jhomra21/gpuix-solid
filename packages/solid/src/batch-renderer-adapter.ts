@@ -30,6 +30,8 @@ export interface BatchRendererApi {
   getCanvasDrawListVersion?(): number | undefined
   getVideoFrameSurfaceVersion?(): number | undefined
   setVideoFrameBgra?(elementId: number, width: number, height: number, data: Uint8Array): void
+  getVideoFrameIosurfaceVersion?(): number | undefined
+  setVideoFrameIosurface?(elementId: number, handle: Uint8Array): void
   clearVideoFrame?(elementId: number): void
   getWindowInsets?(): NativeWindowInsets
   activateWindow?(): void
@@ -189,6 +191,12 @@ export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRen
   }
   if (renderer.setVideoFrameBgra) {
     adapted.setVideoFrameBgra = renderer.setVideoFrameBgra.bind(renderer)
+  }
+  if (renderer.getVideoFrameIosurfaceVersion) {
+    adapted.getVideoFrameIosurfaceVersion = renderer.getVideoFrameIosurfaceVersion.bind(renderer)
+  }
+  if (renderer.setVideoFrameIosurface) {
+    adapted.setVideoFrameIosurface = renderer.setVideoFrameIosurface.bind(renderer)
   }
   if (renderer.clearVideoFrame) {
     adapted.clearVideoFrame = renderer.clearVideoFrame.bind(renderer)

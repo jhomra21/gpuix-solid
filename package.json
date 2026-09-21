@@ -76,7 +76,7 @@
     "perf:report": "node scripts/perf-report.mjs",
     "gpuix:edge:canvas": "bun run --filter 'gpuix-solid' test:canvas:native",
     "gpuix:edge:video-frame": "bun run --filter 'gpuix-solid' test:video-frame:native",
-    "gpuix:edge:mediabunny-surface": "cd examples/mediabunny && bun install --no-save && bun run check:gpuix-live && bun run check:presentation && bun run smoke:presentation-native && bun run smoke:presentation-server-native && bun run dogfood:gpuix-surface"
+    "gpuix:edge:mediabunny-surface": "cd examples/mediabunny && bun install --no-save && bun run check:gpuix-live && bun run check:presentation && bun run smoke:presentation-native && bun run smoke:presentation-server-native && bun run smoke:presentation-iosurface && bun run dogfood:gpuix-surface"
   },
   "devDependencies": {
     "@oxlint/plugins": "1.79.0",

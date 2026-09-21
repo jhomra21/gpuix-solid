@@ -25,6 +25,8 @@ type SourceEdgeNativeTestRenderer = NativeTestRendererApi & {
   getCanvasDrawListVersion?: () => number
   getVideoFrameSurfaceVersion?: () => number
   setVideoFrameBgra?: (elementId: number, width: number, height: number, data: Uint8Array) => void
+  getVideoFrameIosurfaceVersion?: () => number
+  setVideoFrameIosurface?: (elementId: number, handle: Uint8Array) => void
   clearVideoFrame?: (elementId: number) => void
 }
 
@@ -332,6 +334,19 @@ export class TestRenderer implements NativeRenderer {
     const native = this.#native as SourceEdgeNativeTestRenderer
     if (!native.setVideoFrameBgra) throw new Error("Native video-frame surface is unavailable")
     native.setVideoFrameBgra(elementId, width, height, data)
+  }
+
+  getVideoFrameIosurfaceVersion(): number | undefined {
+    // SAFETY: source-edge GPUIX may expose direct IOSurface methods before the published native typings.
+    const native = this.#native as SourceEdgeNativeTestRenderer
+    return native.getVideoFrameIosurfaceVersion?.()
+  }
+
+  setVideoFrameIosurface(elementId: number, handle: Uint8Array): void {
+    // SAFETY: source-edge GPUIX may expose direct IOSurface methods before the published native typings.
+    const native = this.#native as SourceEdgeNativeTestRenderer
+    if (!native.setVideoFrameIosurface) throw new Error("Native IOSurface video-frame surface is unavailable")
+    native.setVideoFrameIosurface(elementId, handle)
   }
 
   clearVideoFrame(elementId: number): void {
