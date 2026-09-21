@@ -7,7 +7,8 @@
     "bench:server": "bun src/run-server.ts",
     "bench:webcodecs": "bun src/run-webcodecs.ts",
     "bench:browser": "bun src/run-browser.ts",
-    "compare": "bun src/compare.ts reports"
+    "compare": "bun src/compare.ts reports",
+    "dogfood:gpuix-surface": "bun src/run-gpuix-surface.ts"
   },
   "dependencies": {
     "@mediabunny/server": "1.58.1",
