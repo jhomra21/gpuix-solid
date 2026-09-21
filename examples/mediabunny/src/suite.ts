@@ -14,6 +14,7 @@ import {
   VideoSample,
   VideoSampleSink,
   VideoSampleSource,
+  WavOutputFormat,
   canDecodeAudio,
   canDecodeVideo,
   canEncodeAudio,
@@ -246,6 +247,68 @@ async function convertFixture(
     }
 
     return { status: "pass", buffer: target.buffer }
+  } finally {
+    input.dispose()
+  }
+}
+
+async function convertAudioPcmFixture(
+  buffer: ArrayBuffer,
+): Promise<{ status: "pass"; buffer: ArrayBuffer } | { status: "unsupported"; discardedTracks: number }> {
+  const input = createInput(buffer)
+  const target = new BufferTarget()
+  const output = new Output({
+    format: new WavOutputFormat(),
+    target,
+  })
+
+  try {
+    const conversion = await Conversion.init({
+      input,
+      output,
+      video: { discard: true },
+      audio: {
+        codec: "pcm-s16",
+        numberOfChannels: 1,
+        sampleRate: 24_000,
+        forceTranscode: true,
+      },
+    })
+    if (!conversion.isValid) {
+      return { status: "unsupported", discardedTracks: conversion.discardedTracks.length }
+    }
+
+    await conversion.execute()
+    if (!target.buffer || target.buffer.byteLength === 0) {
+      throw new Error("PCM resample conversion produced an empty WAV buffer")
+    }
+    return { status: "pass", buffer: target.buffer }
+  } finally {
+    input.dispose()
+  }
+}
+
+async function inspectFlipSignature(buffer: ArrayBuffer): Promise<{ leftRed: number; rightRed: number }> {
+  const input = createInput(buffer)
+  try {
+    const track = await input.getPrimaryVideoTrack()
+    if (!track) throw new Error("Converted flip output has no video track")
+
+    const sample = await new VideoSampleSink(track).getSample(0)
+    if (!sample) throw new Error("Converted flip output has no first video sample")
+    try {
+      const bytes = new Uint8Array(sample.allocationSize({ format: "RGBA" }))
+      await sample.copyTo(bytes, { format: "RGBA" })
+      const row = Math.floor(sample.codedHeight / 2)
+      const leftOffset = row * sample.codedWidth * 4
+      const rightOffset = leftOffset + (sample.codedWidth - 1) * 4
+      return {
+        leftRed: bytes[leftOffset] ?? 0,
+        rightRed: bytes[rightOffset] ?? 0,
+      }
+    } finally {
+      sample.close()
+    }
   } finally {
     input.dispose()
   }
@@ -555,15 +618,7 @@ async function runFeatureCases(buffer: ArrayBuffer): Promise<FeatureCaseResult[]
     }),
 
     await runFeatureCase("audio-resample-downmix", async () => {
-      const converted = await convertFixture(buffer, {
-        video: { discard: true },
-        audio: {
-          codec: "opus",
-          numberOfChannels: 1,
-          sampleRate: 24_000,
-          forceTranscode: true,
-        },
-      })
+      const converted = await convertAudioPcmFixture(buffer)
       if (converted.status === "unsupported") {
         return {
           status: "unsupported",
@@ -576,6 +631,78 @@ async function runFeatureCases(buffer: ArrayBuffer): Promise<FeatureCaseResult[]
         throw new Error(`Unexpected resampled audio result: ${JSON.stringify(audio)}`)
       }
       return { status: "pass", details: audio }
+    }),
+
+    await runFeatureCase("video-rotate-90", async () => {
+      const converted = await convertFixture(buffer, {
+        video: {
+          codec: "vp8",
+          rotate: 90,
+          allowTransformationMetadata: false,
+          forceTranscode: true,
+        },
+        audio: { discard: true },
+      })
+      if (converted.status === "unsupported") {
+        return {
+          status: "unsupported",
+          details: { discardedTracks: converted.discardedTracks },
+        }
+      }
+
+      const video = await inspectVideoTrack(converted.buffer)
+      if (video.width !== HEIGHT || video.height !== WIDTH || video.samples === 0) {
+        throw new Error(`Unexpected rotated video result: ${JSON.stringify(video)}`)
+      }
+      return { status: "pass", details: video }
+    }),
+
+    await runFeatureCase("video-crop", async () => {
+      const converted = await convertFixture(buffer, {
+        video: {
+          codec: "vp8",
+          crop: { left: 80, top: 45, width: 160, height: 90 },
+          allowTransformationMetadata: false,
+          forceTranscode: true,
+        },
+        audio: { discard: true },
+      })
+      if (converted.status === "unsupported") {
+        return {
+          status: "unsupported",
+          details: { discardedTracks: converted.discardedTracks },
+        }
+      }
+
+      const video = await inspectVideoTrack(converted.buffer)
+      if (video.width !== 160 || video.height !== 90 || video.samples === 0) {
+        throw new Error(`Unexpected cropped video result: ${JSON.stringify(video)}`)
+      }
+      return { status: "pass", details: video }
+    }),
+
+    await runFeatureCase("video-flip", async () => {
+      const converted = await convertFixture(buffer, {
+        video: {
+          codec: "vp8",
+          flip: true,
+          allowTransformationMetadata: false,
+          forceTranscode: true,
+        },
+        audio: { discard: true },
+      })
+      if (converted.status === "unsupported") {
+        return {
+          status: "unsupported",
+          details: { discardedTracks: converted.discardedTracks },
+        }
+      }
+
+      const signature = await inspectFlipSignature(converted.buffer)
+      if (signature.leftRed <= signature.rightRed + 40) {
+        throw new Error(`Horizontal flip did not reverse the source red gradient: ${JSON.stringify(signature)}`)
+      }
+      return { status: "pass", details: signature }
     }),
 
     await runFeatureCase("trim", async () => {
