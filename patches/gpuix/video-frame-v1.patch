@@ -1,17 +1,3 @@
-diff --git a/packages/native/Cargo.toml b/packages/native/Cargo.toml
---- a/packages/native/Cargo.toml
-+++ b/packages/native/Cargo.toml
-@@ -18,6 +18,8 @@
- log = "0.4"
- env_logger = "0.11"
--parking_lot = "0.12"
--futures = "0.3"
-+parking_lot = "0.12"
-+image = "0.25.9"
-+smallvec = "1"
-+futures = "0.3"
- # The retained tree is keyed by u64 ids that JS allocates as a counter, and it
- # is probed on every `mark_changed` ancestor hop and once per child per frame in
 diff --git a/packages/native/src/retained_tree.rs b/packages/native/src/retained_tree.rs
 --- a/packages/native/src/retained_tree.rs
 +++ b/packages/native/src/retained_tree.rs
@@ -72,7 +58,7 @@ diff --git a/packages/native/src/retained_tree.rs b/packages/native/src/retained
 +    }
  
      fn take_revision(&mut self) -> u64 {
-@@ -263,14 +263,67 @@
+@@ -263,14 +263,61 @@
      }
  
 -    fn destroy_element_recursive(&mut self, id: u64, destroyed: &mut Vec<u64>) {
@@ -128,14 +114,8 @@ diff --git a/packages/native/src/retained_tree.rs b/packages/native/src/retained
 +            ));
 +        }
 +
-+        // GPUI RenderImage consumes BGRA bytes. RgbaImage is used only as the
-+        // image crate's four-byte storage container; the bytes are not converted.
-+        let image = image::RgbaImage::from_raw(width, height, data)
-+            .ok_or_else(|| "Could not construct the video frame image".to_string())?;
-+        let render_image = gpui::RenderImage::new(smallvec::SmallVec::from_elem(
-+            image::Frame::new(image),
-+            1,
-+        ));
++        let render_image = gpui::RenderImage::from_bgra(width, height, data)
++            .ok_or_else(|| "Could not construct the BGRA video frame".to_string())?;
 +        self.video_frames.insert(id, Arc::new(render_image));
 +        self.mark_render_changed(id);
 +        Ok(())
