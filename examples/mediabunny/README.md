@@ -35,7 +35,10 @@ bun run bench:webcodecs
 bunx playwright install chromium
 bun run bench:browser
 bun run dogfood:gpuix-surface
+bun run live:gpuix
 ```
+
+The live command requires the source-edge GPUIX native package to already be prepared and linked. It opens a real GPUI window with three MediaBunny-decoded frame surfaces (`contain`, `cover`, and `fill`) and replaces their frames four times per second. Resize the window to inspect fit behavior and presentation continuity.
 
 `bench:server` runs the server AV1 round trip in an isolated Bun process. The default budget is 30 seconds; override it with `MEDIABUNNY_SERVER_AV1_TIMEOUT_MS` when deliberately profiling AV1. A timeout is recorded in the report and does not strand the rest of the benchmark.
 
