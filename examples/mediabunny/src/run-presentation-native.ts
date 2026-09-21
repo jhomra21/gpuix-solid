@@ -55,7 +55,6 @@ async function runDecodeOnly(): Promise<PresentationRun> {
     let frames = 0
     let width = 0
     let height = 0
-    let bgraBuffer: Uint8Array | undefined
 
     for (;;) {
       const stepStarted = performance.now()
@@ -125,6 +124,7 @@ async function runNativePresentation(): Promise<PresentationRun> {
     let firstFrameRenderFlushMs = 0
     let width = 0
     let height = 0
+    let bgraBuffer: Uint8Array | undefined
 
     for (;;) {
       const frameStarted = performance.now()
