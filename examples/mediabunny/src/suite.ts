@@ -27,8 +27,8 @@ import {
 
 export type BenchmarkBackend = "browser-webcodecs" | "mediabunny-server" | "napi-webcodecs"
 
-type CapabilityResult = {
-  codec: string
+type CapabilityResult<TCodec extends string = string> = {
+  codec: TCodec
   encode: boolean
   decode: boolean
   queryMs: number
@@ -90,8 +90,8 @@ export type MediaBunnyBenchmarkReport = {
     durationSeconds: number
   }
   capabilities: {
-    video: CapabilityResult[]
-    audio: CapabilityResult[]
+    video: CapabilityResult<VideoCodec>[]
+    audio: CapabilityResult<AudioCodec>[]
   }
   measurements: Measurement[]
   features: FeatureCaseResult[]
@@ -135,7 +135,7 @@ const AUDIO_SAMPLE_RATE = 48_000
 const AUDIO_CHANNELS = 2
 const DURATION_SECONDS = VIDEO_FRAMES / FRAME_RATE
 
-async function videoCapability(codec: VideoCodec): Promise<CapabilityResult> {
+async function videoCapability(codec: VideoCodec): Promise<CapabilityResult<VideoCodec>> {
   const started = performance.now()
   try {
     const [encode, decode] = await Promise.all([
@@ -161,7 +161,7 @@ async function videoCapability(codec: VideoCodec): Promise<CapabilityResult> {
   }
 }
 
-async function audioCapability(codec: AudioCodec): Promise<CapabilityResult> {
+async function audioCapability(codec: AudioCodec): Promise<CapabilityResult<AudioCodec>> {
   const started = performance.now()
   try {
     const [encode, decode] = await Promise.all([
@@ -586,13 +586,13 @@ function videoCodecOutputFormat(codec: VideoCodec): MovOutputFormat | Mp4OutputF
 }
 
 async function runVideoCodecRoundTrip(
-  capability: CapabilityResult,
+  capability: CapabilityResult<VideoCodec>,
 ): Promise<CodecRoundTripResult> {
   if (!capability.encode || !capability.decode) {
     return { codec: capability.codec, status: "unsupported" }
   }
 
-  const codec = capability.codec as VideoCodec
+  const codec = capability.codec
   const frameCount = 6
   const target = new BufferTarget()
   const format = videoCodecOutputFormat(codec)
@@ -666,7 +666,7 @@ async function runVideoCodecRoundTrip(
 }
 
 async function runVideoCodecRoundTrips(
-  capabilities: readonly CapabilityResult[],
+  capabilities: readonly CapabilityResult<VideoCodec>[],
 ): Promise<CodecRoundTripResult[]> {
   const results: CodecRoundTripResult[] = []
   for (const capability of capabilities) {
@@ -913,9 +913,9 @@ async function runFeatureCases(buffer: ArrayBuffer): Promise<FeatureCaseResult[]
 
 export async function runMediaBunnyBenchmark(backend: BenchmarkBackend): Promise<MediaBunnyBenchmarkReport> {
   const capabilityStarted = performance.now()
-  const video: CapabilityResult[] = []
+  const video: CapabilityResult<VideoCodec>[] = []
   for (const codec of VIDEO_CODECS) video.push(await videoCapability(codec))
-  const audio: CapabilityResult[] = []
+  const audio: CapabilityResult<AudioCodec>[] = []
   for (const codec of AUDIO_CODECS) audio.push(await audioCapability(codec))
 
   const measurements: Measurement[] = [{
