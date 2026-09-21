@@ -23,7 +23,7 @@ const child = Bun.spawn([process.execPath, "src/run-server-av1.ts"], {
 let timedOut = false
 const timer = setTimeout(() => {
   timedOut = true
-  child.kill()
+  child.kill("SIGKILL")
 }, timeoutMs)
 
 const stdoutPromise = new Response(child.stdout).text()
