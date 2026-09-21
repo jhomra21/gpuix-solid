@@ -12,7 +12,8 @@
   "dependencies": {
     "@mediabunny/server": "1.58.1",
     "@napi-rs/webcodecs": "1.4.1",
-    "mediabunny": "1.58.1"
+    "mediabunny": "1.58.1",
+    "@napi-rs/canvas": "1.0.9"
   },
   "devDependencies": {
     "playwright": "1.63.0"
