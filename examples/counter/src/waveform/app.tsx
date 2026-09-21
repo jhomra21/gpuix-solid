@@ -1,4 +1,4 @@
-import { createEffect, For } from "solid-js"
+import { createRenderEffect, For } from "solid-js"
 import type { ImgInstance, PublicInstance } from "gpuix-solid"
 
 function isImgInstance(instance: PublicInstance): instance is ImgInstance {
@@ -43,12 +43,15 @@ function rgbaWaveform(phase: number): Uint8Array {
 function Waveform(props: { phase: number }) {
   let image: ImgInstance | undefined
 
-  createEffect(() => {
-    const pixels = rgbaWaveform(props.phase)
-    queueMicrotask(() => {
-      image?.setImagePixels(WIDTH * PIXEL_RATIO, HEIGHT * PIXEL_RATIO, pixels)
-    })
-  })
+  createRenderEffect(
+    () => props.phase,
+    (phase) => {
+      const pixels = rgbaWaveform(phase)
+      queueMicrotask(() => {
+        image?.setImagePixels(WIDTH * PIXEL_RATIO, HEIGHT * PIXEL_RATIO, pixels)
+      })
+    },
+  )
 
   return (
     <img
