@@ -28,6 +28,7 @@ const {
   createTestRoot,
   hasNativeTestRenderer,
 } = await import("../../../packages/solid/src/testing.ts")
+const { createMediaBunnyLiveLayout } = await import("./live-layout.ts")
 
 const WIDTH = 160
 const HEIGHT = 90
@@ -174,6 +175,40 @@ try {
     throw new Error("GPUix native surface did not repaint the second MediaBunny frame")
   }
 
+  const layoutRoot = createTestRoot(1180, 620)
+  try {
+    const layout = createMediaBunnyLiveLayout(firstFrame)
+    layoutRoot.render(() => layout.root)
+
+    const bounds = layout.surfaces.map((surface) => {
+      const value = layoutRoot.renderer.getElementBounds(surface.id)
+      if (!value || value.length < 4) {
+        throw new Error(`Missing live layout bounds for video-frame ${surface.id}`)
+      }
+      const [x, y, width, height] = value
+      if (x === undefined || y === undefined || width === undefined || height === undefined) {
+        throw new Error(`Incomplete live layout bounds for video-frame ${surface.id}`)
+      }
+      return { x, y, width, height }
+    })
+
+    for (const bound of bounds) {
+      if (bound.x < 0 || bound.y < 0 || bound.x + bound.width > 1181 || bound.y + bound.height > 621) {
+        throw new Error(`MediaBunny live panel escaped the 1180x620 window: ${JSON.stringify(bound)}`)
+      }
+      if (bound.height <= bound.width) {
+        throw new Error(`MediaBunny live panel stayed 16:9-like instead of exercising fit modes: ${JSON.stringify(bound)}`)
+      }
+    }
+
+    const widths = bounds.map((bound) => bound.width)
+    if (Math.max(...widths) - Math.min(...widths) > 2) {
+      throw new Error(`MediaBunny live panels did not share the row evenly: ${JSON.stringify(bounds)}`)
+    }
+  } finally {
+    layoutRoot.unmount()
+  }
+
   console.log(JSON.stringify({
     status: "pass",
     codec: "vp8",
@@ -183,6 +218,7 @@ try {
     width: firstFrame.width,
     height: firstFrame.height,
     nativeSurfaceVersion: testRoot.renderer.getVideoFrameSurfaceVersion(),
+    liveLayout: "contained",
   }, null, 2))
 } finally {
   testRoot?.unmount()
