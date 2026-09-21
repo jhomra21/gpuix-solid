@@ -1,3 +1,6 @@
+const { installNapiCanvasGlobals } = await import("./napi-canvas-globals.ts")
+installNapiCanvasGlobals()
+
 const { registerMediabunnyServer } = await import("@mediabunny/server")
 registerMediabunnyServer()
 
