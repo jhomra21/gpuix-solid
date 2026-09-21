@@ -5,6 +5,7 @@ import {
   AudioSampleSource,
   BufferSource,
   BufferTarget,
+  Conversion,
   EncodedPacketSink,
   Input,
   WebMOutputFormat,
@@ -36,6 +37,20 @@ type Measurement = {
   milliseconds: number
 }
 
+type FeatureDetail = string | number | boolean | null
+
+type FeatureCaseResult = {
+  name: string
+  status: "pass" | "unsupported" | "error"
+  milliseconds: number
+  details?: Record<string, FeatureDetail>
+  error?: string
+}
+
+type FeatureExecution =
+  | { status: "pass"; details?: Record<string, FeatureDetail> }
+  | { status: "unsupported"; details?: Record<string, FeatureDetail> }
+
 type RoundTripResult = {
   bytes: number
   durationSeconds: number
@@ -66,6 +81,7 @@ export type MediaBunnyBenchmarkReport = {
     audio: CapabilityResult[]
   }
   measurements: Measurement[]
+  features: FeatureCaseResult[]
   roundTrip: RoundTripResult
 }
 
@@ -198,6 +214,125 @@ function makeAudioSample(): AudioSample {
   })
 }
 
+function createInput(buffer: ArrayBuffer): Input {
+  return new Input({
+    source: new BufferSource(buffer),
+    formats: ALL_FORMATS,
+  })
+}
+
+type ConversionOptions = Omit<Parameters<typeof Conversion.init>[0], "input" | "output">
+
+async function convertFixture(
+  buffer: ArrayBuffer,
+  options: ConversionOptions = {},
+): Promise<{ status: "pass"; buffer: ArrayBuffer } | { status: "unsupported"; discardedTracks: number }> {
+  const input = createInput(buffer)
+  const target = new BufferTarget()
+  const output = new Output({
+    format: new WebMOutputFormat(),
+    target,
+  })
+
+  try {
+    const conversion = await Conversion.init({ input, output, ...options })
+    if (!conversion.isValid) {
+      return { status: "unsupported", discardedTracks: conversion.discardedTracks.length }
+    }
+
+    await conversion.execute()
+    if (!target.buffer || target.buffer.byteLength === 0) {
+      throw new Error("Conversion produced an empty WebM buffer")
+    }
+
+    return { status: "pass", buffer: target.buffer }
+  } finally {
+    input.dispose()
+  }
+}
+
+async function runFeatureCase(
+  name: string,
+  operation: () => Promise<FeatureExecution>,
+): Promise<FeatureCaseResult> {
+  const started = performance.now()
+  try {
+    const result = await operation()
+    return {
+      name,
+      status: result.status,
+      milliseconds: performance.now() - started,
+      details: result.details,
+    }
+  } catch (error) {
+    return {
+      name,
+      status: "error",
+      milliseconds: performance.now() - started,
+      error: error instanceof Error ? error.message : String(error),
+    }
+  }
+}
+
+async function inspectVideoTrack(buffer: ArrayBuffer): Promise<{
+  width: number
+  height: number
+  packets: number
+  samples: number
+  duration: number
+}> {
+  const input = createInput(buffer)
+  try {
+    const track = await input.getPrimaryVideoTrack()
+    if (!track) throw new Error("Converted output has no video track")
+
+    let samples = 0
+    for await (const sample of new VideoSampleSink(track).samples()) {
+      samples += 1
+      sample.close()
+    }
+
+    const stats = await track.computePacketStats()
+    return {
+      width: await track.getCodedWidth(),
+      height: await track.getCodedHeight(),
+      packets: stats.packetCount,
+      samples,
+      duration: await track.computeDuration(),
+    }
+  } finally {
+    input.dispose()
+  }
+}
+
+async function inspectAudioTrack(buffer: ArrayBuffer): Promise<{
+  numberOfChannels: number
+  sampleRate: number
+  decodedFrames: number
+  duration: number
+}> {
+  const input = createInput(buffer)
+  try {
+    const track = await input.getPrimaryAudioTrack()
+    if (!track) throw new Error("Converted output has no audio track")
+
+    let decodedFrames = 0
+    for await (const sample of new AudioSampleSink(track).samples()) {
+      decodedFrames += sample.numberOfFrames
+      sample.close()
+    }
+
+    return {
+      numberOfChannels: await track.getNumberOfChannels(),
+      sampleRate: await track.getSampleRate(),
+      decodedFrames,
+      duration: await track.computeDuration(),
+    }
+  } finally {
+    input.dispose()
+  }
+}
+
 async function encodeFixture(measurements: Measurement[]): Promise<ArrayBuffer> {
   const target = new BufferTarget()
   const output = new Output({
@@ -268,9 +403,9 @@ async function inspectFixture(
     ])
     measurements.push({ name: "open-and-metadata", milliseconds: performance.now() - openStarted })
 
-    if (!videoTrack || !audioTrack) throw new Error("Generated MP4 is missing its video or audio track")
+    if (!videoTrack || !audioTrack) throw new Error("Generated WebM is missing its video or audio track")
     if (!format || !mimeType || tracks.length < 2 || !metadata) {
-      throw new Error("Generated MP4 metadata inspection returned an incomplete result")
+      throw new Error("Generated WebM metadata inspection returned an incomplete result")
     }
 
     const packetStarted = performance.now()
@@ -341,6 +476,178 @@ async function inspectFixture(
   }
 }
 
+async function runFeatureCases(buffer: ArrayBuffer): Promise<FeatureCaseResult[]> {
+  return [
+    await runFeatureCase("conversion-copy", async () => {
+      const converted = await convertFixture(buffer, {
+        copy: { mode: "forced" },
+      })
+      if (converted.status === "unsupported") {
+        return {
+          status: "unsupported",
+          details: { discardedTracks: converted.discardedTracks },
+        }
+      }
+
+      const input = createInput(converted.buffer)
+      try {
+        const tracks = await input.getTracks()
+        if (tracks.length !== 2) throw new Error(`Expected 2 copied tracks, got ${tracks.length}`)
+        return {
+          status: "pass",
+          details: {
+            bytes: converted.buffer.byteLength,
+            tracks: tracks.length,
+            duration: await input.computeDuration(),
+          },
+        }
+      } finally {
+        input.dispose()
+      }
+    }),
+
+    await runFeatureCase("video-resize", async () => {
+      const converted = await convertFixture(buffer, {
+        video: {
+          codec: "vp8",
+          width: 160,
+          height: 90,
+          fit: "fill",
+          forceTranscode: true,
+        },
+        audio: { discard: true },
+      })
+      if (converted.status === "unsupported") {
+        return {
+          status: "unsupported",
+          details: { discardedTracks: converted.discardedTracks },
+        }
+      }
+
+      const video = await inspectVideoTrack(converted.buffer)
+      if (video.width !== 160 || video.height !== 90 || video.samples === 0) {
+        throw new Error(`Unexpected resized video result: ${JSON.stringify(video)}`)
+      }
+      return { status: "pass", details: video }
+    }),
+
+    await runFeatureCase("video-frame-rate", async () => {
+      const converted = await convertFixture(buffer, {
+        video: {
+          codec: "vp8",
+          frameRate: 15,
+          forceTranscode: true,
+        },
+        audio: { discard: true },
+      })
+      if (converted.status === "unsupported") {
+        return {
+          status: "unsupported",
+          details: { discardedTracks: converted.discardedTracks },
+        }
+      }
+
+      const video = await inspectVideoTrack(converted.buffer)
+      if (video.samples < 14 || video.samples > 16) {
+        throw new Error(`Expected about 15 frames after frame-rate conversion, got ${video.samples}`)
+      }
+      return { status: "pass", details: video }
+    }),
+
+    await runFeatureCase("audio-resample-downmix", async () => {
+      const converted = await convertFixture(buffer, {
+        video: { discard: true },
+        audio: {
+          codec: "opus",
+          numberOfChannels: 1,
+          sampleRate: 24_000,
+          forceTranscode: true,
+        },
+      })
+      if (converted.status === "unsupported") {
+        return {
+          status: "unsupported",
+          details: { discardedTracks: converted.discardedTracks },
+        }
+      }
+
+      const audio = await inspectAudioTrack(converted.buffer)
+      if (audio.numberOfChannels !== 1 || audio.sampleRate !== 24_000 || audio.decodedFrames === 0) {
+        throw new Error(`Unexpected resampled audio result: ${JSON.stringify(audio)}`)
+      }
+      return { status: "pass", details: audio }
+    }),
+
+    await runFeatureCase("trim", async () => {
+      const converted = await convertFixture(buffer, {
+        trim: { start: 0.2, end: 0.8 },
+        video: { codec: "vp8" },
+        audio: { codec: "opus" },
+      })
+      if (converted.status === "unsupported") {
+        return {
+          status: "unsupported",
+          details: { discardedTracks: converted.discardedTracks },
+        }
+      }
+
+      const input = createInput(converted.buffer)
+      try {
+        const duration = await input.computeDuration()
+        if (duration < 0.5 || duration > 0.7) {
+          throw new Error(`Expected roughly 0.6s trimmed duration, got ${duration}`)
+        }
+        return {
+          status: "pass",
+          details: { duration, bytes: converted.buffer.byteLength },
+        }
+      } finally {
+        input.dispose()
+      }
+    }),
+
+    await runFeatureCase("process-callbacks", async () => {
+      let videoCalls = 0
+      let audioCalls = 0
+      const converted = await convertFixture(buffer, {
+        video: {
+          codec: "vp8",
+          forceTranscode: true,
+          process(sample) {
+            videoCalls += 1
+            return sample
+          },
+        },
+        audio: {
+          codec: "opus",
+          forceTranscode: true,
+          process(sample) {
+            audioCalls += 1
+            return sample
+          },
+        },
+      })
+      if (converted.status === "unsupported") {
+        return {
+          status: "unsupported",
+          details: { discardedTracks: converted.discardedTracks },
+        }
+      }
+      if (videoCalls === 0 || audioCalls === 0) {
+        throw new Error(`Expected both processing callbacks to run, got video=${videoCalls}, audio=${audioCalls}`)
+      }
+      return {
+        status: "pass",
+        details: {
+          videoCalls,
+          audioCalls,
+          bytes: converted.buffer.byteLength,
+        },
+      }
+    }),
+  ]
+}
+
 export async function runMediaBunnyBenchmark(backend: BenchmarkBackend): Promise<MediaBunnyBenchmarkReport> {
   const capabilityStarted = performance.now()
   const video: CapabilityResult[] = []
@@ -355,6 +662,7 @@ export async function runMediaBunnyBenchmark(backend: BenchmarkBackend): Promise
 
   const buffer = await encodeFixture(measurements)
   const roundTrip = await inspectFixture(buffer, measurements)
+  const features = await runFeatureCases(buffer)
 
   return {
     schemaVersion: 1,
@@ -371,6 +679,7 @@ export async function runMediaBunnyBenchmark(backend: BenchmarkBackend): Promise
     },
     capabilities: { video, audio },
     measurements,
+    features,
     roundTrip,
   }
 }
