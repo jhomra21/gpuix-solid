@@ -73,6 +73,27 @@ for (const codec of audioCodecs) {
 
 lines.push(
   "",
+  "## MediaBunny feature cases",
+  "",
+  `| Feature | ${reports.map((report) => report.backend).join(" | ")} |`,
+  `| --- | ${reports.map(() => "---").join(" | ")} |`,
+)
+
+const featureNames = reports[0]?.features.map((entry) => entry.name) ?? []
+for (const name of featureNames) {
+  lines.push(
+    `| ${name} | ${reports.map((report) => {
+      const feature = report.features.find((entry) => entry.name === name)
+      if (!feature) return "—"
+      if (feature.status === "pass") return `pass (${feature.milliseconds.toFixed(2)} ms)`
+      if (feature.status === "unsupported") return "unsupported"
+      return `error: ${feature.error ?? "unknown"}`
+    }).join(" | ")} |`,
+  )
+}
+
+lines.push(
+  "",
   "## Shared VP8 + Opus WebM workload",
   "",
   `| Measurement (ms) | ${reports.map((report) => report.backend).join(" | ")} |`,
