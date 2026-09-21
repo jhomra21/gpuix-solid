@@ -5,6 +5,8 @@ import {
   AudioSampleSource,
   BufferSource,
   BufferTarget,
+  CanvasSink,
+  CanvasSource,
   Conversion,
   EncodedPacketSink,
   FlacOutputFormat,
@@ -857,8 +859,122 @@ async function runAudioCodecRoundTrips(
   return results
 }
 
+async function runCanvasSourceFeature(): Promise<FeatureExecution> {
+  if (typeof OffscreenCanvas === "undefined") {
+    return {
+      status: "unsupported",
+      details: { reason: "OffscreenCanvas is unavailable" },
+    }
+  }
+
+  const canvas = new OffscreenCanvas(160, 90)
+  const context = canvas.getContext("2d")
+  if (!context) {
+    return {
+      status: "unsupported",
+      details: { reason: "2D canvas context is unavailable" },
+    }
+  }
+
+  const target = new BufferTarget()
+  const output = new Output({
+    format: new WebMOutputFormat(),
+    target,
+  })
+  const source = new CanvasSource(canvas, {
+    codec: "vp8",
+    quality: new Quality("medium"),
+  })
+  output.addVideoTrack(source, { frameRate: FRAME_RATE })
+
+  await output.start()
+  const frameCount = 6
+  for (let frame = 0; frame < frameCount; frame += 1) {
+    const phase = frame / Math.max(1, frameCount - 1)
+    context.fillStyle = `rgb(${Math.round(255 * phase)} 32 ${Math.round(255 * (1 - phase))})`
+    context.fillRect(0, 0, canvas.width, canvas.height)
+    await source.add(frame / FRAME_RATE, 1 / FRAME_RATE)
+  }
+  await output.finalize()
+
+  if (!target.buffer || target.buffer.byteLength === 0) {
+    throw new Error("CanvasSource produced an empty WebM buffer")
+  }
+
+  const video = await inspectVideoTrack(target.buffer)
+  if (video.width !== 160 || video.height !== 90 || video.samples !== frameCount) {
+    throw new Error(`Unexpected CanvasSource output: ${JSON.stringify(video)}`)
+  }
+
+  return {
+    status: "pass",
+    details: {
+      bytes: target.buffer.byteLength,
+      width: video.width,
+      height: video.height,
+      samples: video.samples,
+    },
+  }
+}
+
+async function runCanvasSinkFeature(buffer: ArrayBuffer): Promise<FeatureExecution> {
+  if (typeof OffscreenCanvas === "undefined" && typeof document === "undefined") {
+    return {
+      status: "unsupported",
+      details: { reason: "No canvas implementation is available" },
+    }
+  }
+
+  const input = createInput(buffer)
+  try {
+    const track = await input.getPrimaryVideoTrack()
+    if (!track) throw new Error("CanvasSink input has no video track")
+
+    const sink = new CanvasSink(track, {
+      width: 160,
+      height: 90,
+      fit: "fill",
+      poolSize: 1,
+    })
+    const wrapped = await sink.getCanvas(0.5)
+    if (!wrapped) throw new Error("CanvasSink returned no canvas at 0.5 seconds")
+
+    const context = wrapped.canvas.getContext("2d")
+    if (!context) throw new Error("CanvasSink canvas has no 2D context")
+
+    const pixels = context.getImageData(0, 0, wrapped.canvas.width, wrapped.canvas.height).data
+    const row = Math.floor(wrapped.canvas.height / 2)
+    const leftOffset = row * wrapped.canvas.width * 4
+    const rightOffset = leftOffset + (wrapped.canvas.width - 1) * 4
+    const leftRed = pixels[leftOffset] ?? 0
+    const rightRed = pixels[rightOffset] ?? 0
+
+    if (rightRed <= leftRed + 40) {
+      throw new Error(
+        `CanvasSink did not preserve the source horizontal red gradient: left=${leftRed}, right=${rightRed}`,
+      )
+    }
+
+    return {
+      status: "pass",
+      details: {
+        width: wrapped.canvas.width,
+        height: wrapped.canvas.height,
+        timestamp: wrapped.timestamp,
+        leftRed,
+        rightRed,
+      },
+    }
+  } finally {
+    input.dispose()
+  }
+}
+
 async function runFeatureCases(buffer: ArrayBuffer): Promise<FeatureCaseResult[]> {
   return [
+    await runFeatureCase("canvas-source", runCanvasSourceFeature),
+    await runFeatureCase("canvas-sink", () => runCanvasSinkFeature(buffer)),
+
     await runFeatureCase("conversion-copy", async () => {
       const converted = await convertFixture(buffer, {
         copy: { mode: "forced" },
