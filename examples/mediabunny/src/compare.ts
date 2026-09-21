@@ -9,7 +9,9 @@ const files = (await readdir(reportsDirectory))
 
 const reports: MediaBunnyBenchmarkReport[] = []
 for (const file of files) {
-  const parsed = await Bun.file(join(reportsDirectory, file)).json() as MediaBunnyBenchmarkReport
+  const raw = await Bun.file(join(reportsDirectory, file)).json()
+  // SAFETY: benchmark reports are produced by this repository's suite; schemaVersion is checked immediately below before any fields are consumed.
+  const parsed = raw as MediaBunnyBenchmarkReport
   if (parsed.schemaVersion !== 1) throw new Error(`Unsupported report schema in ${file}`)
   reports.push(parsed)
 }
