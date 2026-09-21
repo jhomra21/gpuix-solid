@@ -144,7 +144,7 @@ export function formatPresentationComparison(
 
   const nativeStages = [
     ["decoder wait", "decodeMs"],
-    ["BGRA allocation", "allocationMs"],
+    ["BGRA buffer allocation/resize", "allocationMs"],
     ["BGRA copy", "copyBgraMs"],
     ["GPUix upload", "uploadMs"],
     ["native render flush", "renderFlushMs"],
@@ -152,7 +152,7 @@ export function formatPresentationComparison(
 
   const nativeFirstFrameStages = [
     ["decoder wait", "firstFrameDecodeMs"],
-    ["BGRA allocation", "firstFrameAllocationMs"],
+    ["BGRA buffer allocation/resize", "firstFrameAllocationMs"],
     ["BGRA copy", "firstFrameCopyBgraMs"],
     ["GPUix upload", "firstFrameUploadMs"],
     ["native render flush", "firstFrameRenderFlushMs"],
@@ -190,7 +190,7 @@ export function formatPresentationComparison(
       `| ${label} | ${formatNumber(stageMedian(native.endToEnd, key))} ms |`
     ),
     "",
-    "The browser end-to-end path uses MediaBunny CanvasSink, which draws decoded browser VideoFrames directly. The GPUix path copies each decoded sample to BGRA, hands those bytes to the binary video-frame API, and then flushes native rendering. The stage timers separate JavaScript allocation, MediaBunny copyTo, the synchronous GPUix upload call, and the explicit native render flush.",
+    "The browser end-to-end path uses MediaBunny CanvasSink, which draws decoded browser VideoFrames directly. The GPUix path keeps one reusable BGRA destination for fixed-resolution frames, copies each decoded sample into it, hands those bytes to the binary video-frame API, and then flushes native rendering. The stage timers separate buffer allocation or resize, MediaBunny copyTo, the synchronous GPUix upload call, and the explicit native render flush.",
     "",
     "Stage medians are calculated independently, so their sum does not have to equal the median end-to-end total.",
   ].join("\n")

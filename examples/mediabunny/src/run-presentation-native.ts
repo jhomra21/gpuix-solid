@@ -55,6 +55,7 @@ async function runDecodeOnly(): Promise<PresentationRun> {
     let frames = 0
     let width = 0
     let height = 0
+    let bgraBuffer: Uint8Array | undefined
 
     for (;;) {
       const stepStarted = performance.now()
@@ -141,20 +142,23 @@ async function runNativePresentation(): Promise<PresentationRun> {
         height = sample.codedHeight
         const options = { format: "BGRA" as const }
 
+        const requiredBytes = sample.allocationSize(options)
         const allocationStarted = performance.now()
-        const data = new Uint8Array(sample.allocationSize(options))
+        if (!bgraBuffer || bgraBuffer.byteLength !== requiredBytes) {
+          bgraBuffer = new Uint8Array(requiredBytes)
+        }
         const allocationEnded = performance.now()
         const allocationDuration = allocationEnded - allocationStarted
         allocationMs += allocationDuration
 
         const copyStarted = performance.now()
-        await sample.copyTo(data, options)
+        await sample.copyTo(bgraBuffer, options)
         const copyEnded = performance.now()
         const copyDuration = copyEnded - copyStarted
         copyBgraMs += copyDuration
 
         const uploadStarted = performance.now()
-        setProp(surface, "frame", { data, width, height })
+        setProp(surface, "frame", { data: bgraBuffer, width, height })
         const uploadEnded = performance.now()
         const uploadDuration = uploadEnded - uploadStarted
         uploadMs += uploadDuration
@@ -239,6 +243,7 @@ try {
     verification: {
       nativeSurfaceVersion: testRoot.renderer.getVideoFrameSurfaceVersion() ?? 0,
       screenshotBytes,
+      bgraBufferReuse: true,
     },
   }
 
