@@ -340,6 +340,7 @@ function nativeElementType(tagName: string): ElementType {
     case "text":
     case "img":
     case "svg":
+    case "video-frame":
     case "input":
     case "textarea":
     case "anchored":
