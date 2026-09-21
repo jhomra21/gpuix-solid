@@ -19,6 +19,9 @@ export interface BatchRendererApi {
   setWindowSelectionChange?(enabled: boolean, eventId: number): void
   scrollTo?(elementId: number, x: number, y: number): void
   scrollToItem?(elementId: number, index: number): void
+  scrollIntoView?(elementId: number): void
+  setImage?(elementId: number, bytes: Uint8Array): void
+  setImagePixels?(elementId: number, width: number, height: number, pixels: Uint8Array): void
   getScrollOffset?(elementId: number): number[] | null
   getSelectedText?(): string | null
   clearSelection?(): void
