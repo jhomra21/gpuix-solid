@@ -20,6 +20,7 @@ import type {
   PublicInstance,
   SvgProps,
   TextareaProps,
+  VideoFrameProps,
   VirtualListProps,
 } from "./dist/index.js"
 
@@ -209,6 +210,7 @@ export namespace JSX {
     title: InlineSvgChildProps
     desc: InlineSvgChildProps
     use: InlineSvgChildProps
+    "video-frame": JSXProps<VideoFrameProps>
     canvas: SourceElementProps<CanvasProps>
     input: SourceInputProps
     textarea: SourceElementProps<TextareaProps>
