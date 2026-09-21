@@ -62,7 +62,7 @@ It generates one VP8 WebM fixture, then gives the exact same encoded bytes to bo
 - Chromium uses MediaBunny with browser WebCodecs and `CanvasSink`.
 - GPUix uses MediaBunny with `@napi-rs/webcodecs`, copies each decoded sample to BGRA, uploads it through the binary `video-frame` API, and flushes GPUI rendering.
 - The server AVFrame experiment uses MediaBunny's official `@mediabunny/server` decoder, refs its native FFmpeg AVFrame without copying it, converts into one reusable BGRA AVFrame with libswscale, then uses the same GPUix `video-frame` surface.
-- The macOS IOSurface experiment uses an AVC fixture so both Chromium and MediaBunny can use hardware H.264 decode. The native path keeps the VideoToolbox frame on the GPU, exports its IOSurface, and paints it through GPUI's CoreVideo surface path without a BGRA conversion or RenderImage atlas upload.
+- The macOS IOSurface experiment uses an AVC fixture so both Chromium and the native path can use hardware H.264 decode. MediaBunny demuxes and yields encoded packets; NodeAV decodes those packets through VideoToolbox into hardware AVFrames. GPUix then paints the exported IOSurface through GPUI's CoreVideo surface path without a BGRA conversion or RenderImage atlas upload.
 
 The benchmark reports decode-only throughput, end-to-end presentation throughput, steady-state throughput after the first frame, time to the first presented frame, and p95 frame-step latency. The native path reuses one BGRA destination buffer while the decoded resolution is unchanged, matching how a long-running editor can avoid allocating a multi-megabyte array every frame. The native report separates decoder wait, BGRA buffer allocation or resize, BGRA copy, the synchronous GPUix upload call, and the explicit native render flush. It also records the same stage breakdown for the first frame.
 
@@ -110,7 +110,7 @@ For scaling checks, rerun the same command at 1920×1080 and 3840×2160. The sta
 
 The direct server experiment deliberately asks MediaBunny for software decoding first. That isolates the AVFrame-to-BGRA and GPUix costs without adding a GPU-to-CPU readback. It is not zero-copy end to end: the MediaBunny sample-to-AVFrame handoff is a ref, but libswscale still converts YUV to BGRA and GPUix still copies the BGRA bytes into native-owned image data.
 
-The IOSurface experiment is the hardware counterpart. It requires macOS and an AVC fixture. MediaBunny is asked to prefer hardware decode, the decoded FFmpeg AVFrame must expose a VideoToolbox IOSurface, and GPUix wraps that IOSurface as a retained CoreVideo pixel buffer before GPUI paints it with `paint_surface`. The benchmark fails instead of falling back to BGRA if any of those conditions are not met. This keeps the result honest: a passing run proves the measured presentation path avoided the CPU BGRA bridge.
+The IOSurface experiment is the hardware counterpart. It requires macOS and an AVC fixture. MediaBunny still owns demuxing and encoded-packet iteration, but the benchmark configures NodeAV's VideoToolbox decoder directly because MediaBunny 1.58.1's server decoder selects a hardware-capable codec without attaching the NodeAV hardware device context needed to return hardware AVFrames. The decoded AVFrame must expose an IOSurface, and GPUix wraps that IOSurface as a retained CoreVideo pixel buffer before GPUI paints it with `paint_surface`. The benchmark fails instead of falling back to software frames or BGRA.
 
 ## Expansion matrix
 

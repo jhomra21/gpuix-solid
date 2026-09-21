@@ -7,15 +7,24 @@ if (process.platform !== "darwin") {
   throw new Error("IOSurface presentation benchmark requires macOS")
 }
 
-const { registerMediabunnyServer, toAvFrame } = await import("@mediabunny/server")
-registerMediabunnyServer()
-
-const { Frame } = await import("node-av")
+const {
+  AV_CODEC_ID_H264,
+  AVERROR_EAGAIN,
+  AVERROR_EOF,
+  AVMEDIA_TYPE_VIDEO,
+  AV_NOPTS_VALUE,
+  AV_PIX_FMT_NONE,
+  CodecContext,
+  FFmpegError,
+  Frame,
+  HardwareContext,
+  Packet,
+} = await import("node-av")
 const {
   ALL_FORMATS,
   BufferSource,
+  EncodedPacketSink: MediaBunnyEncodedPacketSink,
   Input,
-  VideoSampleSink,
 } = await import("mediabunny")
 const { createElement } = await import("../../../packages/solid/src/host/universal.ts")
 const {
@@ -33,13 +42,106 @@ if (!hasNativeTestRenderer) {
 const iterations = Number(process.env.MEDIABUNNY_PRESENTATION_ITERATIONS ?? 3)
 const warmups = Number(process.env.MEDIABUNNY_PRESENTATION_WARMUPS ?? 1)
 const fixture = await Bun.file(fixturePath).arrayBuffer()
-const decoderOptions = { hardwareAcceleration: "prefer-hardware" as const }
 
 function createInput() {
   return new Input({
     source: new BufferSource(fixture),
     formats: ALL_FORMATS,
   })
+}
+
+type MediaBunnyVideoTrack = Awaited<ReturnType<Input["getPrimaryVideoTrack"]>>
+
+function bufferFromDescription(description: AllowSharedBufferSource): Buffer {
+  if (ArrayBuffer.isView(description)) {
+    return Buffer.from(
+      new Uint8Array(description.buffer, description.byteOffset, description.byteLength),
+    )
+  }
+  return Buffer.from(new Uint8Array(description))
+}
+
+async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>) {
+  const decoderConfig = await track.getDecoderConfig()
+  if (!decoderConfig) throw new Error("AVC track has no decoder configuration")
+
+  const hardware = HardwareContext.create("videotoolbox")
+  if (!hardware) {
+    throw new Error("NodeAV could not create a VideoToolbox hardware context")
+  }
+  if (hardware.deviceTypeName !== "videotoolbox") {
+    hardware.dispose()
+    throw new Error(`Expected VideoToolbox hardware, got ${hardware.deviceTypeName}`)
+  }
+
+  const codec = hardware.getDecoderCodec(AV_CODEC_ID_H264)
+  if (!codec) {
+    hardware.dispose()
+    throw new Error("VideoToolbox does not expose an H.264 decoder")
+  }
+
+  const codecContext = new CodecContext()
+  codecContext.allocContext3(codec)
+  codecContext.width = decoderConfig.codedWidth ?? await track.getCodedWidth()
+  codecContext.height = decoderConfig.codedHeight ?? await track.getCodedHeight()
+  codecContext.codecType = AVMEDIA_TYPE_VIDEO
+  codecContext.codecId = AV_CODEC_ID_H264
+  if (decoderConfig.description) {
+    codecContext.extraData = bufferFromDescription(decoderConfig.description)
+  }
+  codecContext.hwDeviceCtx = hardware.deviceContext
+  codecContext.setHardwarePixelFormat(hardware.devicePixelFormat, AV_PIX_FMT_NONE)
+
+  const openResult = await codecContext.open2(codec, null)
+  FFmpegError.throwIfError(openResult, "Open VideoToolbox H.264 decoder")
+
+  const packet = new Packet()
+  packet.alloc()
+  const frame = new Frame()
+  frame.alloc()
+
+  const drain = async function* () {
+    for (;;) {
+      frame.unref()
+      const receiveResult = await codecContext.receiveFrame(frame)
+      if (receiveResult === AVERROR_EAGAIN || receiveResult === AVERROR_EOF) return
+      FFmpegError.throwIfError(receiveResult, "Receive VideoToolbox frame")
+      if (!frame.isHwFrame()) {
+        throw new Error(
+          `VideoToolbox decoder returned a software frame with pixel format ${frame.format}`,
+        )
+      }
+      yield frame
+    }
+  }
+
+  try {
+    const sink = new MediaBunnyEncodedPacketSink(track)
+    for await (const encoded of sink.packets()) {
+      packet.unref()
+      packet.data = Buffer.from(encoded.data)
+      packet.isKeyframe = encoded.type === "key"
+      packet.timeBase = { num: 1, den: 1_000_000 }
+      packet.pts = BigInt(Math.round(encoded.microsecondTimestamp))
+      packet.dts = AV_NOPTS_VALUE
+      packet.duration = BigInt(Math.round(encoded.microsecondDuration))
+
+      const sendResult = await codecContext.sendPacket(packet)
+      packet.unref()
+      FFmpegError.throwIfError(sendResult, "Send MediaBunny packet to VideoToolbox")
+
+      for await (const decoded of drain()) yield decoded
+    }
+
+    const flushResult = await codecContext.sendPacket(null)
+    FFmpegError.throwIfError(flushResult, "Flush VideoToolbox decoder")
+    for await (const decoded of drain()) yield decoded
+  } finally {
+    frame.free()
+    packet.free()
+    codecContext.freeContext()
+    hardware.dispose()
+  }
 }
 
 async function runDecodeOnly(): Promise<PresentationRun> {
@@ -51,27 +153,22 @@ async function runDecodeOnly(): Promise<PresentationRun> {
       throw new Error("IOSurface benchmark requires an AVC fixture")
     }
 
-    const sink = new VideoSampleSink(track, decoderOptions)
-    const iterator = sink.samples()[Symbol.asyncIterator]()
     const frameSteps: number[] = []
     const started = performance.now()
+    let previousFrameAt = started
     let firstFrameMs = 0
     let frames = 0
     let width = 0
     let height = 0
 
-    for (;;) {
-      const stepStarted = performance.now()
-      const next = await iterator.next()
-      const stepEnded = performance.now()
-      if (next.done) break
-
-      frameSteps.push(stepEnded - stepStarted)
-      if (frames === 0) firstFrameMs = stepEnded - started
-      width = next.value.codedWidth
-      height = next.value.codedHeight
+    for await (const frame of hardwareFrames(track)) {
+      const frameAt = performance.now()
+      frameSteps.push(frameAt - previousFrameAt)
+      previousFrameAt = frameAt
+      if (frames === 0) firstFrameMs = frameAt - started
+      width = frame.width
+      height = frame.height
       frames += 1
-      next.value.close()
     }
 
     return {
@@ -108,16 +205,13 @@ if (surface.id <= 0) throw new Error("GPUix video-frame element did not receive 
 
 async function runIosurfacePresentation(): Promise<PresentationRun> {
   const input = createInput()
-  const sourceFrame = new Frame()
-  sourceFrame.alloc()
   let sourcePixelFormat = 0
 
   try {
     const track = await input.getPrimaryVideoTrack()
     if (!track) throw new Error("Presentation fixture has no video track")
 
-    const sink = new VideoSampleSink(track, decoderOptions)
-    const iterator = sink.samples()[Symbol.asyncIterator]()
+    const iterator = hardwareFrames(track)[Symbol.asyncIterator]()
     const frameSteps: number[] = []
     const started = performance.now()
     let firstFrameMs = 0
@@ -143,54 +237,44 @@ async function runIosurfacePresentation(): Promise<PresentationRun> {
       decodeMs += decodeDuration
       if (next.done) break
 
-      const sample = next.value
-      try {
-        width = sample.codedWidth
-        height = sample.codedHeight
+      const decodedFrame = next.value
+      width = decodedFrame.width
+      height = decodedFrame.height
 
-        const prepStarted = performance.now()
-        await toAvFrame(sample, sourceFrame)
-        if (!sourceFrame.isHwFrame()) {
-          throw new Error(
-            `MediaBunny did not produce a hardware AVFrame for AVC; pixel format was ${sourceFrame.format}`,
-          )
-        }
-        sourcePixelFormat = sourceFrame.format
-        const handle = sourceFrame.exportIOSurface()
-        if (!handle) {
-          throw new Error(
-            `Decoded hardware AVFrame did not expose a VideoToolbox IOSurface; pixel format was ${sourceFrame.format}`,
-          )
-        }
-        const prepEnded = performance.now()
-        const prepDuration = prepEnded - prepStarted
-        handoffPrepMs += prepDuration
-
-        const handoffStarted = performance.now()
-        testRoot.renderer.setVideoFrameIosurface(surface.id, handle)
-        const handoffEnded = performance.now()
-        const handoffDuration = handoffEnded - handoffStarted
-        iosurfaceHandoffMs += handoffDuration
-
-        const renderStarted = performance.now()
-        testRoot.renderer.flush()
-        const renderEnded = performance.now()
-        const renderDuration = renderEnded - renderStarted
-        renderFlushMs += renderDuration
-
-        const frameEnded = performance.now()
-        frameSteps.push(frameEnded - frameStarted)
-        if (frames === 0) {
-          firstFrameMs = frameEnded - started
-          firstFrameDecodeMs = decodeDuration
-          firstFramePrepMs = prepDuration
-          firstFrameHandoffMs = handoffDuration
-          firstFrameRenderFlushMs = renderDuration
-        }
-        frames += 1
-      } finally {
-        sample.close()
+      const prepStarted = performance.now()
+      sourcePixelFormat = decodedFrame.format
+      const handle = decodedFrame.exportIOSurface()
+      if (!handle) {
+        throw new Error(
+          `VideoToolbox AVFrame did not expose an IOSurface; pixel format was ${decodedFrame.format}`,
+        )
       }
+      const prepEnded = performance.now()
+      const prepDuration = prepEnded - prepStarted
+      handoffPrepMs += prepDuration
+
+      const handoffStarted = performance.now()
+      testRoot.renderer.setVideoFrameIosurface(surface.id, handle)
+      const handoffEnded = performance.now()
+      const handoffDuration = handoffEnded - handoffStarted
+      iosurfaceHandoffMs += handoffDuration
+
+      const renderStarted = performance.now()
+      testRoot.renderer.flush()
+      const renderEnded = performance.now()
+      const renderDuration = renderEnded - renderStarted
+      renderFlushMs += renderDuration
+
+      const frameEnded = performance.now()
+      frameSteps.push(frameEnded - frameStarted)
+      if (frames === 0) {
+        firstFrameMs = frameEnded - started
+        firstFrameDecodeMs = decodeDuration
+        firstFramePrepMs = prepDuration
+        firstFrameHandoffMs = handoffDuration
+        firstFrameRenderFlushMs = renderDuration
+      }
+      frames += 1
     }
 
     return {
@@ -213,7 +297,6 @@ async function runIosurfacePresentation(): Promise<PresentationRun> {
       nativeSourcePixelFormat: sourcePixelFormat,
     }
   } finally {
-    sourceFrame.free()
     input.dispose()
   }
 }
@@ -241,7 +324,7 @@ try {
   const finalRun = endToEnd[endToEnd.length - 1]
   const report: PresentationBenchmarkReport = {
     schemaVersion: 2,
-    backend: "mediabunny-server-iosurface-gpuix-video-frame",
+    backend: "mediabunny-videotoolbox-iosurface-gpuix-video-frame",
     generatedAt: new Date().toISOString(),
     workload: {
       codec: "avc",
@@ -254,7 +337,8 @@ try {
     verification: {
       nativeSurfaceVersion: testRoot.renderer.getVideoFrameIosurfaceVersion() ?? 0,
       screenshotBytes,
-      decoderHardwareAcceleration: "prefer-hardware",
+      decoderHardwareAcceleration: "videotoolbox",
+      mediaBunnyPacketSink: true,
       hardwareFrame: true,
       iosurfaceExport: true,
       sourcePixelFormat: finalRun?.nativeSourcePixelFormat ?? 0,
