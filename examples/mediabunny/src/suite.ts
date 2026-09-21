@@ -109,6 +109,16 @@ export type MediaBunnyBenchmarkReport = {
 }
 
 const VIDEO_CODECS: readonly VideoCodec[] = ["avc", "hevc", "vp8", "vp9", "av1", "prores"]
+const LOSSY_AUDIO_CODECS: readonly AudioCodec[] = [
+  "aac",
+  "opus",
+  "mp3",
+  "vorbis",
+  "ac3",
+  "eac3",
+  "dts",
+]
+
 const AUDIO_CODECS: readonly AudioCodec[] = [
   "aac",
   "opus",
@@ -738,7 +748,11 @@ async function runAudioCodecRoundTrip(
   const target = new BufferTarget()
   try {
     const output = new Output({ format, target })
-    const source = new AudioSampleSource({ codec })
+    const source = new AudioSampleSource(
+      LOSSY_AUDIO_CODECS.includes(codec)
+        ? { codec, quality: new Quality("medium") }
+        : { codec },
+    )
     output.addAudioTrack(source)
 
     const encodeStarted = performance.now()
