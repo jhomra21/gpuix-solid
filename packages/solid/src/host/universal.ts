@@ -242,6 +242,7 @@ function nativeElementType(tagName: string): ElementType {
     case "img":
     case "svg":
     case "canvas":
+    case "video-frame":
     case "input":
     case "textarea":
     case "anchored":

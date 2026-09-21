@@ -3,6 +3,7 @@
   "sha": "7ac9880abd8e91e5bf0e4feb0fa850729cf95a68",
   "branch": "main",
   "patches": [
-    "patches/gpuix/canvas-v1.patch"
+    "patches/gpuix/canvas-v1.patch",
+    "patches/gpuix/video-frame-v1.patch"
   ]
 }

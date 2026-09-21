@@ -21,8 +21,11 @@ type NativeModule = {
   hasTestGpuixRenderer?: () => boolean
 }
 
-type CanvasProtocolNativeTestRenderer = NativeTestRendererApi & {
+type SourceEdgeNativeTestRenderer = NativeTestRendererApi & {
   getCanvasDrawListVersion?: () => number
+  getVideoFrameSurfaceVersion?: () => number
+  setVideoFrameBgra?: (elementId: number, width: number, height: number, data: Uint8Array) => void
+  clearVideoFrame?: (elementId: number) => void
 }
 
 function loadNativeTestRenderer(): NativeTestRendererConstructor | undefined {
@@ -314,8 +317,27 @@ export class TestRenderer implements NativeRenderer {
   getCanvasDrawListVersion(): number | undefined {
     // SAFETY: source-edge GPUIX may expose this optional capability before it
     // exists in the published @gpuix/native TypeScript surface.
-    const native = this.#native as CanvasProtocolNativeTestRenderer
+    const native = this.#native as SourceEdgeNativeTestRenderer
     return native.getCanvasDrawListVersion?.()
+  }
+
+  getVideoFrameSurfaceVersion(): number | undefined {
+    // SAFETY: source-edge GPUIX may expose video-frame methods before the published native typings.
+    const native = this.#native as SourceEdgeNativeTestRenderer
+    return native.getVideoFrameSurfaceVersion?.()
+  }
+
+  setVideoFrameBgra(elementId: number, width: number, height: number, data: Uint8Array): void {
+    // SAFETY: source-edge GPUIX may expose video-frame methods before the published native typings.
+    const native = this.#native as SourceEdgeNativeTestRenderer
+    if (!native.setVideoFrameBgra) throw new Error("Native video-frame surface is unavailable")
+    native.setVideoFrameBgra(elementId, width, height, data)
+  }
+
+  clearVideoFrame(elementId: number): void {
+    // SAFETY: source-edge GPUIX may expose video-frame methods before the published native typings.
+    const native = this.#native as SourceEdgeNativeTestRenderer
+    native.clearVideoFrame?.(elementId)
   }
 
   getListScrollTop(elementId: number): [number, number, number] | null {

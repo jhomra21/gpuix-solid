@@ -28,6 +28,9 @@ export interface BatchRendererApi {
   getPaintedHighlights?(): HighlightMatch[]
   getWindowSize?(): { width: number; height: number }
   getCanvasDrawListVersion?(): number | undefined
+  getVideoFrameSurfaceVersion?(): number | undefined
+  setVideoFrameBgra?(elementId: number, width: number, height: number, data: Uint8Array): void
+  clearVideoFrame?(elementId: number): void
   getWindowInsets?(): NativeWindowInsets
   activateWindow?(): void
   setWindowTitle?(title: string): void
@@ -180,6 +183,15 @@ export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRen
   if (renderer.getWindowSize) adapted.getWindowSize = renderer.getWindowSize.bind(renderer)
   if (renderer.getCanvasDrawListVersion) {
     adapted.getCanvasDrawListVersion = renderer.getCanvasDrawListVersion.bind(renderer)
+  }
+  if (renderer.getVideoFrameSurfaceVersion) {
+    adapted.getVideoFrameSurfaceVersion = renderer.getVideoFrameSurfaceVersion.bind(renderer)
+  }
+  if (renderer.setVideoFrameBgra) {
+    adapted.setVideoFrameBgra = renderer.setVideoFrameBgra.bind(renderer)
+  }
+  if (renderer.clearVideoFrame) {
+    adapted.clearVideoFrame = renderer.clearVideoFrame.bind(renderer)
   }
   if (renderer.getWindowInsets) adapted.getWindowInsets = renderer.getWindowInsets.bind(renderer)
   if (renderer.activateWindow) adapted.activateWindow = renderer.activateWindow.bind(renderer)

@@ -96,6 +96,8 @@ export type {
   SvgProps,
   SyntaxTheme,
   TextareaProps,
+  VideoFrameProps,
+  VideoFrameSurfaceFrame,
   VirtualListProps,
   WindowKeyEventHandler,
   WindowKeyEventHandlers,

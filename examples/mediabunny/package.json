@@ -1,0 +1,24 @@
+{
+  "name": "gpuix-solid-mediabunny-dogfood",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.3.14",
+  "scripts": {
+    "bench:server": "bun src/run-server.ts",
+    "bench:webcodecs": "bun src/run-webcodecs.ts",
+    "bench:browser": "bun src/run-browser.ts",
+    "compare": "bun src/compare.ts reports",
+    "dogfood:gpuix-surface": "bun src/run-gpuix-surface.ts",
+    "live:gpuix": "bun --conditions=browser src/run-gpuix-live.ts",
+    "check:gpuix-live": "bun build src/run-gpuix-live.ts --conditions=browser --target=bun --packages=external --outfile=/tmp/gpuix-mediabunny-live.js"
+  },
+  "dependencies": {
+    "@mediabunny/server": "1.58.1",
+    "@napi-rs/webcodecs": "1.4.1",
+    "mediabunny": "1.58.1",
+    "@napi-rs/canvas": "1.0.9"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}

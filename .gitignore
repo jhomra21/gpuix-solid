@@ -8,3 +8,5 @@ coverage/
 pack.json
 .cache/gpuix/
 artifacts/mail-parity/
+examples/mediabunny/reports/
+examples/mediabunny/.browser-benchmark/

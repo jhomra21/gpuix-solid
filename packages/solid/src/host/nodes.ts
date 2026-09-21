@@ -13,9 +13,10 @@ import type {
   NativeRenderer,
   PublicInstance,
   StyleDesc,
+  VideoFrameSurfaceFrame,
 } from "./types.js"
 
-const RESERVED_PROPS = new Set(["children", "ref", "style", "className", "key", "dragData"])
+const RESERVED_PROPS = new Set(["children", "ref", "style", "className", "key", "dragData", "frame"])
 const BUILT_IN_TYPES = new Set<ElementType>(["div", "text"])
 const UNIVERSAL_PROPS = new Set(["autoFocus", "tabIndex", "motion", "testId", "highlight", "title"])
 
@@ -118,6 +119,7 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   readonly #eventListeners = new Map<string, Set<EventListenerOrEventListenerObject>>()
   #canvas2d: Canvas2DRecorder | undefined
   #canvasDrawQueued = false
+  #videoFrame: VideoFrameSurfaceFrame | null | undefined
 
   constructor(type: ElementType, tagName: string = type) {
     this.type = type
@@ -176,6 +178,27 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
 
   resetCanvas2D(): void {
     this.#canvas2d?.reset()
+  }
+
+  setVideoFrame(frame: VideoFrameSurfaceFrame | null): void {
+    this.#videoFrame = frame
+    this.syncVideoFrameSurface()
+  }
+
+  syncVideoFrameSurface(): void {
+    if (this.localName !== "video-frame" || this.#videoFrame === undefined) return
+    const root = this.root
+    if (!root || !this.nativeAlive) return
+    const renderer = root.driver.renderer
+    if (renderer.getVideoFrameSurfaceVersion?.() !== 1) return
+
+    root.driver.flush()
+    const frame = this.#videoFrame
+    if (frame === null) {
+      renderer.clearVideoFrame?.(this.id)
+      return
+    }
+    renderer.setVideoFrameBgra?.(this.id, frame.width, frame.height, frame.data)
   }
 
   #scheduleCanvasDrawList(): void {
@@ -481,6 +504,11 @@ export function setHostProperty<T>(
         for (const child of node.children) refreshInheritedPointerEvents(child)
       }
     }
+    return
+  }
+
+  if (node.localName === "video-frame" && name === "frame") {
+    node.setVideoFrame(parseVideoFrameSurfaceFrame(value))
     return
   }
 
@@ -884,6 +912,11 @@ function adopt(root: HostRootNode, node: HostNode): void {
       ? "canvas"
       : "div"
   }
+  if (node.kind === "element" && node.localName === "video-frame") {
+    node.nativeType = root.driver.renderer.getVideoFrameSurfaceVersion?.() === 1
+      ? "video-frame"
+      : "div"
+  }
 
   node.nativeAlive = true
   root.events.activate(node.id)
@@ -930,6 +963,7 @@ function adopt(root: HostRootNode, node: HostNode): void {
       if (BUILT_IN_TYPES.has(node.nativeType) && !isForwardedBuiltInProp(node, name)) continue
       root.driver.enqueue("setCustomProp", node.id, name, customPropValue(value))
     }
+    node.syncVideoFrameSurface()
   }
 
   for (const child of node.children) {
@@ -1009,6 +1043,33 @@ function isStyle<T>(value: T): value is T & StyleDesc {
   return isObjectValue(value) && !Array.isArray(value)
 }
 
+function parseVideoFrameSurfaceFrame<T>(value: T): VideoFrameSurfaceFrame | null {
+  if (value === null || value === undefined) return null
+  if (!isObjectValue(value)) throw new TypeError("video-frame frame must be an object")
+
+  // SAFETY: the object shape is validated field-by-field below before a frame is returned.
+  const candidate = value as Partial<VideoFrameSurfaceFrame>
+  if (!(candidate.data instanceof Uint8Array)) {
+    throw new TypeError("video-frame frame.data must be a Uint8Array")
+  }
+  if (!Number.isInteger(candidate.width) || Number(candidate.width) <= 0) {
+    throw new TypeError("video-frame frame.width must be a positive integer")
+  }
+  if (!Number.isInteger(candidate.height) || Number(candidate.height) <= 0) {
+    throw new TypeError("video-frame frame.height must be a positive integer")
+  }
+
+  const width = Number(candidate.width)
+  const height = Number(candidate.height)
+  const expectedBytes = width * height * 4
+  if (!Number.isSafeInteger(expectedBytes) || candidate.data.byteLength !== expectedBytes) {
+    throw new TypeError(
+      `video-frame BGRA byte length mismatch: got ${candidate.data.byteLength}, expected ${expectedBytes}`,
+    )
+  }
+  return { data: candidate.data, width, height }
+}
+
 function domBounds(x: number, y: number, width: number, height: number) {
   const right = x + width
   const bottom = y + height
@@ -1062,6 +1123,7 @@ function isElementType(value: string): value is ElementType {
     "img",
     "svg",
     "canvas",
+    "video-frame",
     "input",
     "textarea",
     "anchored",
