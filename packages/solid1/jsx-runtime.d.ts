@@ -17,6 +17,7 @@ import type {
   NativeClassList,
   SvgProps,
   TextareaProps,
+  VideoFrameProps,
   VirtualListProps,
 } from "./dist/index.js"
 
@@ -164,6 +165,7 @@ export namespace JSX {
     title: InlineSvgChildProps
     desc: InlineSvgChildProps
     use: InlineSvgChildProps
+    "video-frame": JSXProps<VideoFrameProps>
     canvas: DomCompatibleProps<CanvasProps, SolidJSX.CanvasHTMLAttributes<HTMLCanvasElement>>
     input: DomCompatibleProps<InputProps, SolidJSX.InputHTMLAttributes<HTMLInputElement>>
     textarea: DomCompatibleProps<TextareaProps, SolidJSX.TextareaHTMLAttributes<HTMLTextAreaElement>>
