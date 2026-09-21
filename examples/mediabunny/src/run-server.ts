@@ -1,5 +1,7 @@
-import { registerMediabunnyServer } from "@mediabunny/server"
+const { installNapiCanvasGlobals } = await import("./napi-canvas-globals.ts")
+installNapiCanvasGlobals()
 
+const { registerMediabunnyServer } = await import("@mediabunny/server")
 registerMediabunnyServer()
 
 const { runMediaBunnyBenchmark } = await import("./suite.ts")
