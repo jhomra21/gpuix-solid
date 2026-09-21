@@ -51,3 +51,4 @@ if (timedOut) {
 
 refreshMediaBunnyBenchmarkSummary(report)
 console.log(JSON.stringify(report, null, 2))
+if (report.summary.errors > 0) process.exitCode = 1
