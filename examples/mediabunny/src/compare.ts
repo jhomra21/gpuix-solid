@@ -86,8 +86,18 @@ for (const codec of roundTripVideoCodecs) {
       const result = report.codecRoundTrips.video.find((entry) => entry.codec === codec)
       if (!result) return "—"
       if (result.status === "unsupported") return "unsupported"
-      if (result.status === "error") return `error: ${result.error ?? "unknown"}`
-      return `pass (enc ${numberCell(result.encodeMs)} / dec ${numberCell(result.decodeMs)} ms)`
+      if (result.status === "error") {
+        const evidence = [
+          result.encoderConfigCodec ? `codec=${result.encoderConfigCodec}` : null,
+          result.muxPreservedPackets === undefined ? null : `mux-preserved=${result.muxPreservedPackets}`,
+        ].filter((value) => value !== null).join(", ")
+        return `error: ${result.error ?? "unknown"}${evidence ? ` (${evidence})` : ""}`
+      }
+      const evidence = [
+        result.encoderConfigCodec ? `codec=${result.encoderConfigCodec}` : null,
+        result.muxPreservedPackets === undefined ? null : `mux-preserved=${result.muxPreservedPackets}`,
+      ].filter((value) => value !== null).join(", ")
+      return `pass (enc ${numberCell(result.encodeMs)} / dec ${numberCell(result.decodeMs)} ms${evidence ? ` / ${evidence}` : ""})`
     }).join(" | ")} |`,
   )
 }
