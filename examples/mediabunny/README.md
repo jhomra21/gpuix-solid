@@ -62,7 +62,7 @@ It generates one VP8 WebM fixture, then gives the exact same encoded bytes to bo
 - Chromium uses MediaBunny with browser WebCodecs and `CanvasSink`.
 - GPUix uses MediaBunny with `@napi-rs/webcodecs`, copies each decoded sample to BGRA, uploads it through the binary `video-frame` API, and flushes GPUI rendering.
 
-The benchmark reports decode-only throughput, end-to-end presentation throughput, steady-state throughput after the first frame, time to the first presented frame, and p95 frame-step latency. The native report separates decoder wait, BGRA allocation, BGRA copy, the synchronous GPUix upload call, and the explicit native render flush. It also records the same stage breakdown for the first frame.
+The benchmark reports decode-only throughput, end-to-end presentation throughput, steady-state throughput after the first frame, time to the first presented frame, and p95 frame-step latency. The native path reuses one BGRA destination buffer while the decoded resolution is unchanged, matching how a long-running editor can avoid allocating a multi-megabyte array every frame. The native report separates decoder wait, BGRA buffer allocation or resize, BGRA copy, the synchronous GPUix upload call, and the explicit native render flush. It also records the same stage breakdown for the first frame.
 
 Prepare the pinned native build first:
 
@@ -96,7 +96,7 @@ bun run bench:presentation
 
 Set `MEDIABUNNY_PRESENTATION_HEADLESS=0` to run Chromium with a visible window. Use the same machine and browser mode when comparing runs. The benchmark does not set pass/fail performance thresholds.
 
-For scaling checks, rerun the same command at 1920×1080 and 3840×2160. The stage-per-frame table makes it easier to see whether BGRA copy or native upload/render cost grows with pixel count.
+For scaling checks, rerun the same command at 1920×1080 and 3840×2160. The stage-per-frame table makes it easier to see whether BGRA copy or native upload/render cost grows with pixel count. The v1 GPUix frame upload copies the supplied bytes synchronously into native-owned image data, so the JavaScript BGRA destination can be reused on the next frame.
 
 ## Expansion matrix
 
