@@ -1,11 +1,22 @@
+import { fileURLToPath } from "node:url"
 import { defineConfig } from "vitest/config"
 
+const nativeEntry = fileURLToPath(new URL("./node_modules/@gpuix/native/index.js", import.meta.url))
+
 export default defineConfig({
+  resolve: {
+    alias: [
+      {
+        find: /^@gpuix\/native$/,
+        replacement: nativeEntry,
+      },
+    ],
+  },
   ssr: {
     resolve: {
-      // GPUIX is a client renderer even though tests execute in Node. Solid's
-      // `node` export is the SSR runtime and intentionally does not provide
-      // the live client reactivity this renderer owns.
+      // Solid needs its client runtime even though tests execute in Node.
+      // @gpuix/native is aliased above to its native ESM entry so GPUIX 0.10's
+      // new browser export does not turn native tests into WebAssembly tests.
       conditions: ["browser", "development", "import", "default"],
     },
   },
