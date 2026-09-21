@@ -181,6 +181,15 @@ export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRen
   if (renderer.getCanvasDrawListVersion) {
     adapted.getCanvasDrawListVersion = renderer.getCanvasDrawListVersion.bind(renderer)
   }
+  if (renderer.getVideoFrameSurfaceVersion) {
+    adapted.getVideoFrameSurfaceVersion = renderer.getVideoFrameSurfaceVersion.bind(renderer)
+  }
+  if (renderer.setVideoFrameBgra) {
+    adapted.setVideoFrameBgra = renderer.setVideoFrameBgra.bind(renderer)
+  }
+  if (renderer.clearVideoFrame) {
+    adapted.clearVideoFrame = renderer.clearVideoFrame.bind(renderer)
+  }
   if (renderer.getWindowInsets) adapted.getWindowInsets = renderer.getWindowInsets.bind(renderer)
   if (renderer.activateWindow) adapted.activateWindow = renderer.activateWindow.bind(renderer)
   if (renderer.setWindowTitle) adapted.setWindowTitle = renderer.setWindowTitle.bind(renderer)
