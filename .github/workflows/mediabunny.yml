@@ -86,3 +86,40 @@ jobs:
           path: examples/mediabunny/reports/comparison.md
           if-no-files-found: error
           retention-days: 14
+
+  presentation:
+    name: browser vs GPUix presentation
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - name: Build and link pinned GPUIX source
+        run: bun run gpuix:edge:prepare
+      - name: Install pinned media dependencies
+        working-directory: examples/mediabunny
+        run: bun install --no-save
+      - name: Install Chromium
+        working-directory: examples/mediabunny
+        run: bunx playwright install chromium
+      - name: Run browser vs GPUix presentation benchmark
+        working-directory: examples/mediabunny
+        run: |
+          bun run bench:presentation
+          cat reports/presentation-comparison.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload presentation benchmark
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: mediabunny-presentation-macos
+          path: |
+            examples/mediabunny/reports/presentation-browser.json
+            examples/mediabunny/reports/presentation-gpuix.json
+            examples/mediabunny/reports/presentation-comparison.md
+          if-no-files-found: error
+          retention-days: 14
