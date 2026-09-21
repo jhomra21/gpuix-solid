@@ -860,7 +860,7 @@ async function runAudioCodecRoundTrips(
 }
 
 async function runCanvasSourceFeature(): Promise<FeatureExecution> {
-  if (typeof OffscreenCanvas === "undefined") {
+  if (!Reflect.has(globalThis, "OffscreenCanvas")) {
     return {
       status: "unsupported",
       details: { reason: "OffscreenCanvas is unavailable" },
@@ -918,7 +918,7 @@ async function runCanvasSourceFeature(): Promise<FeatureExecution> {
 }
 
 async function runCanvasSinkFeature(buffer: ArrayBuffer): Promise<FeatureExecution> {
-  if (typeof OffscreenCanvas === "undefined" && typeof document === "undefined") {
+  if (!Reflect.has(globalThis, "OffscreenCanvas") && !Reflect.has(globalThis, "document")) {
     return {
       status: "unsupported",
       details: { reason: "No canvas implementation is available" },
