@@ -1,6 +1,7 @@
 export type PresentationBackend =
   | "browser-webcodecs-canvas"
   | "gpuix-native-video-frame"
+  | "mediabunny-server-avframe-gpuix-video-frame"
 
 export type PresentationRun = {
   frames: number
@@ -20,6 +21,8 @@ export type PresentationRun = {
   firstFrameCopyBgraMs?: number
   firstFrameUploadMs?: number
   firstFrameRenderFlushMs?: number
+  nativeBgraStride?: number
+  nativePackedFallback?: boolean
 }
 
 export type PresentationBenchmarkReport = {
@@ -142,28 +145,43 @@ export function formatPresentationComparison(
   const sample = browser.endToEnd[0] ?? native.endToEnd[0]
   if (!sample) throw new Error("Presentation benchmark produced no measured runs")
 
+  const usesServerAvFrame = native.backend === "mediabunny-server-avframe-gpuix-video-frame"
+  const nativeLabel = usesServerAvFrame
+    ? "MediaBunny server AVFrame + GPUix video-frame"
+    : "napi-WebCodecs + GPUix video-frame"
+  const allocationLabel = usesServerAvFrame
+    ? "AVFrame/BGRA setup"
+    : "BGRA buffer allocation/resize"
+  const copyLabel = usesServerAvFrame
+    ? "AVFrame ref + BGRA conversion"
+    : "BGRA copy"
+
   const nativeStages = [
     ["decoder wait", "decodeMs"],
-    ["BGRA buffer allocation/resize", "allocationMs"],
-    ["BGRA copy", "copyBgraMs"],
+    [allocationLabel, "allocationMs"],
+    [copyLabel, "copyBgraMs"],
     ["GPUix upload", "uploadMs"],
     ["native render flush", "renderFlushMs"],
   ] as const
 
   const nativeFirstFrameStages = [
     ["decoder wait", "firstFrameDecodeMs"],
-    ["BGRA buffer allocation/resize", "firstFrameAllocationMs"],
-    ["BGRA copy", "firstFrameCopyBgraMs"],
+    [allocationLabel, "firstFrameAllocationMs"],
+    [copyLabel, "firstFrameCopyBgraMs"],
     ["GPUix upload", "firstFrameUploadMs"],
     ["native render flush", "firstFrameRenderFlushMs"],
   ] as const
+
+  const pathDescription = usesServerAvFrame
+    ? "The browser end-to-end path uses MediaBunny CanvasSink, which draws decoded browser VideoFrames directly. The native path uses MediaBunny's official server decoder, keeps decoded frames as FFmpeg AVFrames, refs each sample without copying it, converts into one reusable BGRA AVFrame with libswscale, hands those bytes to GPUix, and then flushes native rendering. The stage timers separate reusable AVFrame/scaler setup, AVFrame ref plus BGRA conversion, the synchronous GPUix upload call, and the explicit native render flush."
+    : "The browser end-to-end path uses MediaBunny CanvasSink, which draws decoded browser VideoFrames directly. The GPUix path keeps one reusable BGRA destination for fixed-resolution frames, copies each decoded sample into it, hands those bytes to the binary video-frame API, and then flushes native rendering. The stage timers separate buffer allocation or resize, MediaBunny copyTo, the synchronous GPUix upload call, and the explicit native render flush."
 
   return [
     "# MediaBunny browser vs GPUix presentation benchmark",
     "",
     `Same VP8 fixture for both paths: ${sample.width}×${sample.height}, ${sample.frames} frames, ${browser.workload.fixtureBytes} encoded bytes. Results are medians across ${browser.workload.iterations} measured runs after ${browser.workload.warmups} warmup run(s).`,
     "",
-    "| Metric | Browser WebCodecs + CanvasSink | napi-WebCodecs + GPUix video-frame | Native / browser |",
+    `| Metric | Browser WebCodecs + CanvasSink | ${nativeLabel} | Native / browser |`,
     "| --- | ---: | ---: | ---: |",
     `| Decode-only throughput | ${formatNumber(browserDecodeFps)} fps | ${formatNumber(nativeDecodeFps)} fps | ${ratio(nativeDecodeFps, browserDecodeFps)} |`,
     `| End-to-end presentation throughput | ${formatNumber(browserPresentFps)} fps | ${formatNumber(nativePresentFps)} fps | ${ratio(nativePresentFps, browserPresentFps)} |`,
@@ -190,7 +208,7 @@ export function formatPresentationComparison(
       `| ${label} | ${formatNumber(stageMedian(native.endToEnd, key))} ms |`
     ),
     "",
-    "The browser end-to-end path uses MediaBunny CanvasSink, which draws decoded browser VideoFrames directly. The GPUix path keeps one reusable BGRA destination for fixed-resolution frames, copies each decoded sample into it, hands those bytes to the binary video-frame API, and then flushes native rendering. The stage timers separate buffer allocation or resize, MediaBunny copyTo, the synchronous GPUix upload call, and the explicit native render flush.",
+    pathDescription,
     "",
     "Stage medians are calculated independently, so their sum does not have to equal the median end-to-end total.",
   ].join("\n")
