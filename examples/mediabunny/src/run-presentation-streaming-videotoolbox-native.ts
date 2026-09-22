@@ -50,11 +50,16 @@ type StreamResult = {
   maxPendingFrames: number
 }
 
+type NativeFrame = {
+  readonly iosurfaceHandle: Buffer
+  close(): void
+}
+
 type NativeDecoder = {
   readonly hardwareAccelerated: boolean
   decodeStream(
     packets: NativePacket[],
-    onFrame: (handle: Buffer, timestampUs: number) => void,
+    onFrame: (frame: NativeFrame, timestampUs: number) => void,
   ): Promise<StreamResult>
   dispose(): void
 }
@@ -198,12 +203,16 @@ async function runDecodeOnly(): Promise<PresentationRun> {
 
     const result = await decoder.decodeStream(
       packets,
-      () => {
-        const now = performance.now()
-        frameSteps.push(now - previousFrameAt)
-        previousFrameAt = now
-        if (callbacks === 0) firstFrameMs = now - started
-        callbacks += 1
+      (frame) => {
+        try {
+          const now = performance.now()
+          frameSteps.push(now - previousFrameAt)
+          previousFrameAt = now
+          if (callbacks === 0) firstFrameMs = now - started
+          callbacks += 1
+        } finally {
+          frame.close()
+        }
       },
     )
 
@@ -268,32 +277,39 @@ async function runPresentation(): Promise<PresentationRun> {
     const streamStarted = performance.now()
     const result = await decoder.decodeStream(
       packets,
-      (handle) => {
-        const callbackStarted = performance.now()
+      (frame) => {
+        try {
+          const callbackStarted = performance.now()
 
-        const handoffStarted = performance.now()
-        testRoot.renderer.setVideoFrameIosurface(surface.id, handle)
-        const handoffEnded = performance.now()
-        const handoffDuration = handoffEnded - handoffStarted
-        handoffMs += handoffDuration
+          const handoffStarted = performance.now()
+          testRoot.renderer.setVideoFrameIosurface(
+            surface.id,
+            frame.iosurfaceHandle,
+          )
+          const handoffEnded = performance.now()
+          const handoffDuration = handoffEnded - handoffStarted
+          handoffMs += handoffDuration
 
-        const renderStarted = performance.now()
-        testRoot.renderer.flush()
-        const renderEnded = performance.now()
-        const renderDuration = renderEnded - renderStarted
-        renderFlushMs += renderDuration
+          const renderStarted = performance.now()
+          testRoot.renderer.flush()
+          const renderEnded = performance.now()
+          const renderDuration = renderEnded - renderStarted
+          renderFlushMs += renderDuration
 
-        const presentedAt = performance.now()
-        frameSteps.push(presentedAt - previousPresentedAt)
-        previousPresentedAt = presentedAt
+          const presentedAt = performance.now()
+          frameSteps.push(presentedAt - previousPresentedAt)
+          previousPresentedAt = presentedAt
 
-        if (callbacks === 0) {
-          firstFrameMs = presentedAt - started
-          firstFrameDecodeMs = callbackStarted - streamStarted + packetPreparationMs
-          firstFrameHandoffMs = handoffDuration
-          firstFrameRenderFlushMs = renderDuration
+          if (callbacks === 0) {
+            firstFrameMs = presentedAt - started
+            firstFrameDecodeMs = callbackStarted - streamStarted + packetPreparationMs
+            firstFrameHandoffMs = handoffDuration
+            firstFrameRenderFlushMs = renderDuration
+          }
+          callbacks += 1
+        } finally {
+          frame.close()
         }
-        callbacks += 1
       },
     )
 
