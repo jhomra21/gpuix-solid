@@ -32,6 +32,10 @@ type NativeBatchResult = {
   width: number
   height: number
   totalMs: number
+  packetParseMs: number
+  sampleBuildMs: number
+  submitMs: number
+  waitMs: number
   firstFrameMs: number
   lastFrameMs: number
   frameArrivalMs: number[]
@@ -152,6 +156,10 @@ function runDecode(): DirectDecodeRun {
       totalMs,
       firstFrameMs: result.firstFrameMs,
       ...summarizeArrivals(result.frameArrivalMs),
+      nativePacketParseMs: result.packetParseMs,
+      nativeSampleBuildMs: result.sampleBuildMs,
+      nativeSubmitMs: result.submitMs,
+      nativeWaitMs: result.waitMs,
     }
   } finally {
     decoder.dispose()
