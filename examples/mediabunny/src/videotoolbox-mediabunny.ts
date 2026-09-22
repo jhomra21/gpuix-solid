@@ -211,12 +211,17 @@ export class VideoToolboxVideoSampleResource extends VideoSampleResource {
   }
 }
 
-const sampleResources = new WeakMap<VideoSample, VideoToolboxVideoSampleResource>()
+type VideoSampleInternals = VideoSample & {
+  _data: unknown
+}
 
 export function getVideoToolboxVideoSampleResource(
   sample: VideoSample,
 ): VideoToolboxVideoSampleResource | null {
-  return sampleResources.get(sample) ?? null
+  // SAFETY: MediaBunny 1.59 stores a custom VideoSampleResource directly in _data,
+  // and clone() preserves that resource. We only inspect it with instanceof.
+  const data = (sample as VideoSampleInternals)._data
+  return data instanceof VideoToolboxVideoSampleResource ? data : null
 }
 
 type PacketTiming = {
@@ -379,8 +384,6 @@ export class VideoToolboxMediaDecoder extends CustomVideoDecoder {
       timestamp,
       duration,
     })
-    sampleResources.set(sample, resource)
-
     try {
       this.onSample(sample)
     } catch (error) {
