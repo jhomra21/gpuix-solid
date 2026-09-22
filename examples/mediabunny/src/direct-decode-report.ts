@@ -6,6 +6,10 @@ export type DirectDecodeRun = {
   firstFrameMs: number
   frameStepP50Ms: number
   frameStepP95Ms: number
+  nativePacketParseMs?: number
+  nativeSampleBuildMs?: number
+  nativeSubmitMs?: number
+  nativeWaitMs?: number
 }
 
 export type DirectDecodeReport = {
