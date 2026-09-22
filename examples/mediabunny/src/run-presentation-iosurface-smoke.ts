@@ -13,7 +13,7 @@ const env = {
   MEDIABUNNY_PRESENTATION_CODEC: "avc",
   MEDIABUNNY_PRESENTATION_WIDTH: "128",
   MEDIABUNNY_PRESENTATION_HEIGHT: "72",
-  MEDIABUNNY_PRESENTATION_FRAMES: "2",
+  MEDIABUNNY_PRESENTATION_FRAMES: "4",
   MEDIABUNNY_PRESENTATION_ITERATIONS: "1",
   MEDIABUNNY_PRESENTATION_WARMUPS: "0",
 }
@@ -31,7 +31,7 @@ async function run(script: string, args: string[] = []) {
 
 try {
   await run("src/create-presentation-fixture.ts", [fixturePath])
-  await run("src/run-presentation-iosurface-native.ts", [fixturePath])
+  await run("src/run-presentation-streaming-videotoolbox-native.ts", [fixturePath])
 } finally {
   await rm(fixturePath, { force: true })
 }

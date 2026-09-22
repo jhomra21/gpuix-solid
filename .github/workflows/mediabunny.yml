@@ -46,6 +46,24 @@ jobs:
           mkdir -p reports
           bun run bench:${{ matrix.backend }} > reports/${{ matrix.backend }}.json
           cat reports/${{ matrix.backend }}.json
+      - name: Build VideoToolbox addon
+        if: matrix.backend == 'webcodecs'
+        working-directory: examples/mediabunny
+        run: bun run build:videotoolbox
+      - name: Smoke direct VideoToolbox decoder
+        if: matrix.backend == 'webcodecs'
+        working-directory: examples/mediabunny
+        run: bun run smoke:videotoolbox-direct
+      - name: Smoke async VideoToolbox stream
+        if: matrix.backend == 'webcodecs'
+        working-directory: examples/mediabunny
+        run: bun run smoke:videotoolbox-stream
+      - name: Build streaming VideoToolbox presentation harness
+        if: matrix.backend == 'webcodecs'
+        working-directory: examples/mediabunny
+        run: |
+          bun build src/run-presentation-streaming-videotoolbox-native.ts --conditions=browser --target=bun --packages=external --outfile=/tmp/gpuix-mediabunny-streaming-presentation.js
+          bun build src/run-presentation-streaming-iosurface-scaling.ts --conditions=browser --target=bun --packages=external --outfile=/tmp/gpuix-mediabunny-streaming-presentation-scaling.js
       - name: Upload benchmark report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -108,18 +126,18 @@ jobs:
       - name: Install Chromium
         working-directory: examples/mediabunny
         run: bunx playwright install chromium
-      - name: Run browser vs GPUix presentation benchmark
+      - name: Run browser vs streaming IOSurface benchmark
         working-directory: examples/mediabunny
         run: |
-          bun run bench:presentation
-          cat reports/presentation-comparison.md >> "$GITHUB_STEP_SUMMARY"
+          bun run bench:presentation:iosurface
+          cat reports/presentation-iosurface-comparison.md >> "$GITHUB_STEP_SUMMARY"
       - name: Upload presentation benchmark
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: mediabunny-presentation-macos
           path: |
-            examples/mediabunny/reports/presentation-browser.json
-            examples/mediabunny/reports/presentation-gpuix.json
-            examples/mediabunny/reports/presentation-comparison.md
+            examples/mediabunny/reports/presentation-iosurface-browser.json
+            examples/mediabunny/reports/presentation-iosurface-gpuix.json
+            examples/mediabunny/reports/presentation-iosurface-comparison.md
           if-no-files-found: error
           retention-days: 14

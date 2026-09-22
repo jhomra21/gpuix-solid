@@ -20,6 +20,7 @@ const parameters = new URLSearchParams(location.search)
 const iterations = Number(parameters.get("iterations") ?? 3)
 const warmups = Number(parameters.get("warmups") ?? 1)
 const codec = parameters.get("codec") === "avc" ? "avc" : "vp8"
+const reportEndpoint = parameters.get("reportEndpoint")
 
 function createInput(buffer: ArrayBuffer) {
   return new Input({
@@ -176,7 +177,18 @@ try {
     },
   }
 
-  reportNode.textContent = JSON.stringify(report)
+  const serializedReport = JSON.stringify(report)
+  reportNode.textContent = serializedReport
+  if (reportEndpoint) {
+    const response = await fetch(reportEndpoint, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: serializedReport,
+    })
+    if (!response.ok) {
+      throw new Error(`Could not submit presentation report: ${response.status}`)
+    }
+  }
   document.body.dataset.status = "ready"
 } catch (error) {
   reportNode.textContent = error instanceof Error ? (error.stack ?? error.message) : String(error)

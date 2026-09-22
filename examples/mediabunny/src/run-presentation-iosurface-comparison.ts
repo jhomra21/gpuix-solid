@@ -55,7 +55,7 @@ try {
   if (fixtureExitCode !== 0) throw new Error(`AVC fixture generator exited with code ${fixtureExitCode}`)
 
   const browser = await runJson("src/run-presentation-browser.ts", [fixturePath])
-  const native = await runJson("src/run-presentation-iosurface-native.ts", [fixturePath])
+  const native = await runJson("src/run-presentation-streaming-videotoolbox-native.ts", [fixturePath])
   const comparison = formatPresentationComparison(browser, native)
 
   await Bun.write(
