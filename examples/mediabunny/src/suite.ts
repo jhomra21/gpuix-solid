@@ -41,6 +41,7 @@ import {
   canEncodeAudio,
   canEncodeVideo,
   type AudioCodec,
+  type OutputFormat,
   type StreamTargetChunk,
   type VideoCodec,
 } from "mediabunny"
@@ -1103,6 +1104,144 @@ async function encodeShortAudio(
   await output.finalize()
 }
 
+async function roundTripVideoContainer(
+  format: OutputFormat,
+  codec: VideoCodec,
+): Promise<number> {
+  const target = new BufferTarget()
+  const output = new Output({ format, target })
+  await encodeShortVideo(output, codec, 6)
+
+  if (!target.buffer || target.buffer.byteLength === 0) {
+    throw new Error(format.constructor.name + " produced no video bytes")
+  }
+
+  const input = createInput(target.buffer)
+  try {
+    if (!await input.canRead()) {
+      throw new Error(format.constructor.name + " could not be read back")
+    }
+
+    const track = await input.getPrimaryVideoTrack()
+    if (!track) {
+      throw new Error(format.constructor.name + " read-back has no video track")
+    }
+    if (await track.getCodec() !== codec) {
+      throw new Error(
+        format.constructor.name
+        + " changed video codec from "
+        + codec
+        + " to "
+        + await track.getCodec(),
+      )
+    }
+
+    const sample = await new VideoSampleSink(track).getSample(
+      await track.getFirstTimestamp(),
+    )
+    if (!sample) {
+      throw new Error(format.constructor.name + " read-back produced no video sample")
+    }
+    sample.close()
+
+    return target.buffer.byteLength
+  } finally {
+    input.dispose()
+  }
+}
+
+async function roundTripAudioContainer(
+  format: OutputFormat,
+  codec: AudioCodec,
+): Promise<number> {
+  const target = new BufferTarget()
+  const output = new Output({ format, target })
+  await encodeShortAudio(output, codec)
+
+  if (!target.buffer || target.buffer.byteLength === 0) {
+    throw new Error(format.constructor.name + " produced no audio bytes")
+  }
+
+  const input = createInput(target.buffer)
+  try {
+    if (!await input.canRead()) {
+      throw new Error(format.constructor.name + " could not be read back")
+    }
+
+    const track = await input.getPrimaryAudioTrack()
+    if (!track) {
+      throw new Error(format.constructor.name + " read-back has no audio track")
+    }
+
+    let decodedFrames = 0
+    for await (const sample of new AudioSampleSink(track).samples()) {
+      decodedFrames += sample.numberOfFrames
+      sample.close()
+    }
+    if (decodedFrames === 0) {
+      throw new Error(format.constructor.name + " read-back decoded no audio")
+    }
+
+    return target.buffer.byteLength
+  } finally {
+    input.dispose()
+  }
+}
+
+async function runContainerRoundTripMatrixFeature(): Promise<FeatureExecution> {
+  const results: [string, number][] = []
+
+  results.push([
+    "mp4",
+    await roundTripVideoContainer(new Mp4OutputFormat(), "avc"),
+  ])
+  results.push([
+    "mov",
+    await roundTripVideoContainer(new MovOutputFormat(), "avc"),
+  ])
+  results.push([
+    "mkv",
+    await roundTripVideoContainer(new MkvOutputFormat(), "avc"),
+  ])
+  results.push([
+    "webm",
+    await roundTripVideoContainer(new WebMOutputFormat(), "vp8"),
+  ])
+  results.push([
+    "ogg",
+    await roundTripAudioContainer(new OggOutputFormat(), "opus"),
+  ])
+  results.push([
+    "mp3",
+    await roundTripAudioContainer(new Mp3OutputFormat(), "mp3"),
+  ])
+  results.push([
+    "wav",
+    await roundTripAudioContainer(new WavOutputFormat(), "pcm-s16"),
+  ])
+  results.push([
+    "adts",
+    await roundTripAudioContainer(new AdtsOutputFormat(), "aac"),
+  ])
+  results.push([
+    "flac",
+    await roundTripAudioContainer(new FlacOutputFormat(), "flac"),
+  ])
+  results.push([
+    "mpeg-ts",
+    await roundTripVideoContainer(new MpegTsOutputFormat(), "avc"),
+  ])
+
+  return {
+    status: "pass",
+    details: {
+      containers: results.length,
+      names: results.map(([name]) => name).join(","),
+      totalBytes: results.reduce((sum, [, bytes]) => sum + bytes, 0),
+    },
+  }
+}
+
 async function runCmafOutputFeature(): Promise<FeatureExecution> {
   const target = new BufferTarget()
   const initTarget = new BufferTarget()
@@ -1839,6 +1978,8 @@ async function runFeatureCases(
       "ranged-source",
       () => runRangedSourceFeature(buffer),
     ),
+
+    await runFeatureCase("container-roundtrip-matrix", runContainerRoundTripMatrixFeature),
 
     await runFeatureCase("cmaf-output", runCmafOutputFeature),
     await runFeatureCase("mpeg-ts-output", runMpegTsOutputFeature),
