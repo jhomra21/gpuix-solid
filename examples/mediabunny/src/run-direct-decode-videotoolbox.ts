@@ -67,6 +67,10 @@ const sourceDirectory = dirname(fileURLToPath(import.meta.url))
 const addonPath = join(
   sourceDirectory,
   "..",
+  "..",
+  "..",
+  "packages",
+  "mediabunny",
   "native",
   "videotoolbox",
   "build",
