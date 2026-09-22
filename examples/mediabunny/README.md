@@ -94,13 +94,23 @@ For the direct decoder experiment:
 bun run bench:direct-decode
 ```
 
+For the promoted end-to-end direct IOSurface path:
+
+```bash
+bun run bench:presentation:iosurface:direct-scaling
+```
+
 The command prints one localhost URL per resolution. Open each URL in Codex's in-app browser; the page posts its browser WebCodecs report back to the waiting CLI, which then runs the native worker measurement and advances to the next resolution. No Playwright or separate Chromium install is required for this command.
 
 `bench:presentation:iosurface:decode-matrix` keeps the browser path fixed and reruns the native VideoToolbox path with isolated decoder variables: an extra JavaScript packet copy versus a Buffer view, async versus synchronous NodeAV codec calls, packet queue depths from 1 through 40, low-latency first-frame scheduling, and extra hardware-frame pool capacity. It defaults to two warmups and five measured runs so small timing changes are less likely to be mistaken for improvements. The matrix also reports decoder receive calls per frame and send-side `EAGAIN` counts so a throughput change can be tied back to queue pressure instead of timing noise. The regular IOSurface benchmark remains unchanged by default. `bench:presentation:iosurface:decode-scaling` runs that matrix at 1280×720, 1920×1080, and 3840×2160, preserves every raw report with its resolution in the filename, and writes `reports/presentation-iosurface-decode-scaling.md`.
 
 `bench:presentation:napi-webcodecs:decode-scaling` is a completed negative scheduling experiment. On the controlled 720p/1080p/4K run, the persistent napi-WebCodecs worker reached only 0.21x, 0.17x, and 0.28x browser decode throughput, with first-frame latency roughly 10x-19x browser. Current napi-WebCodecs downloads VideoToolbox hardware frames to CPU memory before exposing `VideoFrame`, so its worker architecture does not justify carrying that path forward. Its reported callback-spacing p95 is diagnostic only and must not be interpreted as per-frame decode latency because frames can arrive in a burst after a long first-frame wait.
 
-The follow-up is `bench:direct-decode`. It builds a small macOS-only N-API addon and compares the same pre-collected MediaBunny AVC packets across two decoder-only boundaries: browser `VideoDecoder` directly, and VideoToolbox directly with one native batch call per measured run. Packet preparation is excluded on both sides; the native hot loop contains neither NodeAV nor FFmpeg. Hardware VideoToolbox is required rather than silently falling back. The command uses Codex's in-app browser for the browser half and writes `reports/direct-decode-scaling.md`. Output-spacing p95 remains diagnostic; decode throughput and first-frame latency are the primary metrics.
+`bench:direct-decode` established the decoder architecture. With packet preparation excluded on both sides, direct hardware VideoToolbox beat direct browser WebCodecs at every tested resolution: 1.68x throughput at 720p, 1.25x at 1080p, and 1.24x at 4K. First-frame latency fell from 9.00 to 1.41 ms, 9.20 to 2.18 ms, and 32.90 to 5.77 ms. N-API packet parsing and CoreMedia sample construction were negligible compared with VideoToolbox submission. This makes the direct VideoToolbox path the native baseline; NodeAV queue variants and the napi-WebCodecs worker remain diagnostic references rather than candidate production paths.
+
+The promoted presentation path keeps the same direct decoder but captures only a bounded batch of decoded CVPixelBuffers at a time. The addon retains those hardware frames until JavaScript has handed each IOSurface to GPUix and flushed GPUI, then `releaseFrames()` releases the batch. The first packet is decoded as its own batch to preserve first-frame latency; steady state defaults to eight packets per batch. FFmpeg, NodeAV, CPU frame download, BGRA conversion, and RenderImage atlas upload are absent from this path.
+
+Use `bench:presentation:iosurface:direct-scaling` for the 720p/1080p/4K acceptance run. It compares MediaBunny `CanvasSink` + browser WebCodecs against direct VideoToolbox + IOSurface + GPUix, using Codex's in-app browser for the browser half. It reports decode throughput, end-to-end and steady-state presentation throughput, first-presented-frame latency, presentation-step p95, and native decode/handoff/flush stages in `reports/presentation-direct-iosurface-scaling.md`.
 
 The default workload is 1280×720, 60 frames at 30 fps, one warmup, and three measured runs. `bench:presentation` compares Chromium with the napi-WebCodecs path. `bench:presentation:server` compares Chromium with the direct MediaBunny server AVFrame path. On macOS, `bench:presentation:iosurface` switches the shared fixture to AVC and compares Chromium with the VideoToolbox/IOSurface GPUix path. The commands write:
 
