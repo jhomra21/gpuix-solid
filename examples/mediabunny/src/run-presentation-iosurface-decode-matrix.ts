@@ -30,13 +30,30 @@ type Variant = {
 const variants: Variant[] = [
   { key: "baseline", label: "baseline", env: {} },
   { key: "packet-view", label: "packet Buffer view", env: { GPUIX_MEDIA_PACKET_VIEW: "1" } },
+  { key: "sync", label: "sync codec calls", env: { GPUIX_MEDIA_SYNC_CODEC_CALLS: "1" } },
   { key: "extra-2", label: "+2 hardware frames", env: { GPUIX_MEDIA_EXTRA_HW_FRAMES: "2" } },
   { key: "extra-4", label: "+4 hardware frames", env: { GPUIX_MEDIA_EXTRA_HW_FRAMES: "4" } },
+  {
+    key: "sync-packet-view",
+    label: "sync calls + packet view",
+    env: {
+      GPUIX_MEDIA_SYNC_CODEC_CALLS: "1",
+      GPUIX_MEDIA_PACKET_VIEW: "1",
+    },
+  },
   {
     key: "packet-view-extra-2",
     label: "packet view +2 hardware frames",
     env: {
       GPUIX_MEDIA_PACKET_VIEW: "1",
+      GPUIX_MEDIA_EXTRA_HW_FRAMES: "2",
+    },
+  },
+  {
+    key: "sync-extra-2",
+    label: "sync calls +2 hardware frames",
+    env: {
+      GPUIX_MEDIA_SYNC_CODEC_CALLS: "1",
       GPUIX_MEDIA_EXTRA_HW_FRAMES: "2",
     },
   },
