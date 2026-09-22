@@ -5,7 +5,6 @@ import {
   ALL_FORMATS,
   AUDIO_CODECS,
   BufferSource,
-  CustomPathedSource,
   FilePathSource,
   FilePathTarget,
   HlsOutputFormat,
@@ -27,6 +26,7 @@ import {
 } from "mediabunny"
 import {
   MediaBunnyGpuixPresenter,
+  createGpuixFilePathSource,
   registerGpuixMediaBunny,
   type GpuixVideoFrameRenderer,
 } from "@jhomra21/gpuix-mediabunny"
@@ -386,19 +386,12 @@ async function runFilePathAndHlsSmoke() {
     await output.finalize()
 
     const rootPath = join(directory, "master.m3u8")
-    const hlsSource = new CustomPathedSource(
-      rootPath,
-      async ({ path }) => (
-        new BufferSource(await Bun.file(path).arrayBuffer())
-      ),
-    )
-
     const hls = await verifyVideoInput(
       new Input({
-        source: hlsSource,
+        source: createGpuixFilePathSource(rootPath),
         formats: ALL_FORMATS,
       }),
-      "CustomPathedSource HLS",
+      "GPUix file-path HLS",
     )
 
     return {
@@ -447,7 +440,6 @@ console.log(JSON.stringify({
   filePathSourceSupport: true,
   filePathTargetSupport: true,
   hlsInputSupport: true,
-  filePathHlsDirectKnownGap:
-    "MediaBunny 1.59 FilePathSource child HLS reads may bypass getSize() before read(); CustomPathedSource file readback is used instead.",
+  filePathHlsSupport: true,
   fullCodecCapabilitySurface: true,
 }))
