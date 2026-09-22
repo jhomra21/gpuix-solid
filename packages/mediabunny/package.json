@@ -1,0 +1,59 @@
+{
+  "name": "@jhomra21/gpuix-mediabunny",
+  "version": "0.1.0-beta.0",
+  "description": "MediaBunny integration for GPUix with VideoToolbox IOSurface acceleration and server fallbacks.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "native/videotoolbox"
+  ],
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "bun run clean && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "build:native": "node-gyp rebuild --directory native/videotoolbox"
+  },
+  "peerDependencies": {
+    "mediabunny": "^1.59.0",
+    "@mediabunny/server": "^1.59.0",
+    "@mediabunny/prores": "^1.59.0"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "1.0.9",
+    "node-addon-api": "8.9.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.3",
+    "typescript": "^5.9.2",
+    "node-gyp": "13.0.2",
+    "mediabunny": "1.59.0",
+    "@mediabunny/server": "1.59.0",
+    "@mediabunny/prores": "1.59.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jhomra21/gpuix-solid.git",
+    "directory": "packages/mediabunny"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "provenance": true
+  },
+  "keywords": [
+    "gpuix",
+    "mediabunny",
+    "videotoolbox",
+    "iosurface",
+    "webcodecs",
+    "media"
+  ]
+}
