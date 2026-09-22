@@ -76,12 +76,7 @@ function formatRange(values: readonly number[]): string {
   ].map((value) => value.toFixed(2)).join(" / ")
 }
 
-function formatRunSpread(run: PresentationRun): {
-  fps: number
-  totalMs: number
-  firstFrameMs: number
-  p95Ms: number
-} {
+function formatRunSpread(run: PresentationRun) {
   return {
     fps: framesPerSecond(run),
     totalMs: run.totalMs,
@@ -256,6 +251,7 @@ try {
 
   let gpuixEdgeSha = "unknown"
   try {
+    // SAFETY: .gpuix/edge.json is a repository-owned config and only the optional string sha field is read.
     const edge = await Bun.file(join(repositoryDirectory, ".gpuix", "edge.json")).json() as {
       sha?: string
     }
