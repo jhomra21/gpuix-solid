@@ -1,11 +1,9 @@
 import {
-  BufferSource,
   CustomPathedSource,
   CustomSource,
 } from "mediabunny"
 import {
   open,
-  readFile,
   type FileHandle,
 } from "node:fs/promises"
 
@@ -64,10 +62,6 @@ export function createGpuixFilePathSource(
 ): CustomPathedSource {
   return new CustomPathedSource(
     rootPath,
-    async ({ path, isRoot }) => (
-      isRoot
-        ? createFileSource(path).ref()
-        : new BufferSource(await readFile(path)).ref()
-    ),
+    async ({ path }) => createFileSource(path).ref(),
   )
 }
