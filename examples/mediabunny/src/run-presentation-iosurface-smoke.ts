@@ -18,16 +18,12 @@ const env = {
   MEDIABUNNY_PRESENTATION_WARMUPS: "0",
 }
 
-async function run(
-  script: string,
-  args: string[] = [],
-  overrides: Record<string, string> = {},
-) {
+async function run(script: string, args: string[] = []) {
   const child = Bun.spawn([process.execPath, script, ...args], {
     cwd: path.resolve(import.meta.dir, ".."),
     stdout: "inherit",
     stderr: "inherit",
-    env: { ...env, ...overrides },
+    env,
   })
   const exitCode = await child.exited
   if (exitCode !== 0) throw new Error(`${script} exited with code ${exitCode}`)
