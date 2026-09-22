@@ -36,29 +36,31 @@ const variants: Variant[] = [
   { key: "batch-2", label: "packet batch 2", env: { GPUIX_MEDIA_PACKET_BATCH: "2" } },
   { key: "batch-4", label: "packet batch 4", env: { GPUIX_MEDIA_PACKET_BATCH: "4" } },
   { key: "batch-8", label: "packet batch 8", env: { GPUIX_MEDIA_PACKET_BATCH: "8" } },
+  { key: "batch-16", label: "packet batch 16", env: { GPUIX_MEDIA_PACKET_BATCH: "16" } },
+  { key: "batch-40", label: "packet batch 40", env: { GPUIX_MEDIA_PACKET_BATCH: "40" } },
+  {
+    key: "batch-8-fast-first",
+    label: "batch 8, fast first frame",
+    env: {
+      GPUIX_MEDIA_PACKET_BATCH: "8",
+      GPUIX_MEDIA_FAST_FIRST_FRAME: "1",
+    },
+  },
+  {
+    key: "batch-40-fast-first",
+    label: "batch 40, fast first frame",
+    env: {
+      GPUIX_MEDIA_PACKET_BATCH: "40",
+      GPUIX_MEDIA_FAST_FIRST_FRAME: "1",
+    },
+  },
   { key: "extra-2", label: "+2 hardware frames", env: { GPUIX_MEDIA_EXTRA_HW_FRAMES: "2" } },
   {
-    key: "batch-4-packet-view",
-    label: "batch 4 + packet view",
+    key: "batch-8-extra-2",
+    label: "batch 8 +2 hardware frames",
     env: {
-      GPUIX_MEDIA_PACKET_BATCH: "4",
-      GPUIX_MEDIA_PACKET_VIEW: "1",
-    },
-  },
-  {
-    key: "batch-4-extra-2",
-    label: "batch 4 +2 hardware frames",
-    env: {
-      GPUIX_MEDIA_PACKET_BATCH: "4",
+      GPUIX_MEDIA_PACKET_BATCH: "8",
       GPUIX_MEDIA_EXTRA_HW_FRAMES: "2",
-    },
-  },
-  {
-    key: "sync-batch-4",
-    label: "sync calls + batch 4",
-    env: {
-      GPUIX_MEDIA_SYNC_CODEC_CALLS: "1",
-      GPUIX_MEDIA_PACKET_BATCH: "4",
     },
   },
 ]
@@ -166,7 +168,7 @@ try {
 
   lines.push(
     "",
-    "The baseline keeps the current one-packet-at-a-time decode loop. The matrix isolates packet-copy removal, synchronous codec calls, VideoToolbox queue depth, and hardware-frame pool capacity before testing a few targeted combinations.",
+    "The baseline keeps the current one-packet-at-a-time decode loop. Queue-depth rows extend through 40 packets because MediaBunny's browser pump permits up to 40 queued packets while no decoded samples are waiting. Fast-first-frame rows drain until the first decoded frame before switching to the deeper steady-state queue.",
     "",
   )
 
