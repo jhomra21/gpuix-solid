@@ -1,3 +1,4 @@
+import { registerMediabunnyServer } from "@mediabunny/server"
 import {
   ALL_FORMATS,
   BufferSource,
@@ -20,6 +21,7 @@ if (!fixturePath) throw new Error("Expected a fixture path")
 if (!registerVideoToolboxMediaDecoder()) {
   throw new Error("Could not register the VideoToolbox MediaBunny decoder")
 }
+registerMediabunnyServer()
 
 const fixture = await Bun.file(fixturePath).arrayBuffer()
 const input = new Input({
@@ -45,6 +47,8 @@ try {
   let copiedBytes = 0
   let iosurfaceHandleBytes = 0
   let previousTimestamp = -Infinity
+  let cloneIosurface = false
+  let transformBytes = 0
 
   for await (const sample of sink.samples()) {
     try {
@@ -72,6 +76,43 @@ try {
           throw new Error("MediaBunny native sample copyTo() produced no pixel data")
         }
         copiedBytes = pixels.byteLength
+
+        const clone = sample.clone()
+        try {
+          const cloneResource = getVideoToolboxVideoSampleResource(clone)
+          if (!cloneResource || cloneResource.iosurfaceHandle.byteLength === 0) {
+            throw new Error("Cloned native VideoSample lost its IOSurface resource")
+          }
+          cloneIosurface = true
+        } finally {
+          clone.close()
+        }
+
+        const transformed = await sample.transform({
+          width: 32,
+          height: 18,
+          fit: "fill",
+        })
+        try {
+          if (transformed.codedWidth !== 32 || transformed.codedHeight !== 18) {
+            throw new Error(
+              "Native VideoSample transform returned unexpected dimensions "
+              + transformed.codedWidth
+              + "x"
+              + transformed.codedHeight,
+            )
+          }
+          const transformedPixels = new Uint8Array(
+            transformed.allocationSize({ format: "RGBA" }),
+          )
+          await transformed.copyTo(transformedPixels, { format: "RGBA" })
+          if (!transformedPixels.some((value) => value !== 0)) {
+            throw new Error("Native VideoSample transform produced no pixel data")
+          }
+          transformBytes = transformedPixels.byteLength
+        } finally {
+          transformed.close()
+        }
       }
 
       frames += 1
@@ -116,6 +157,9 @@ try {
       nativeMediaBunnyDecoder: true,
       videoSampleSink: true,
       copyTo: true,
+      cloneIosurface,
+      transformBytes,
+      transform: transformBytes > 0,
       randomAccess: true,
     }),
   )
