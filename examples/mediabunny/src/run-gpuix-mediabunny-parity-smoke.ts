@@ -29,7 +29,7 @@ import {
   MediaBunnyGpuixPresenter,
   registerGpuixMediaBunny,
   type GpuixVideoFrameRenderer,
-} from "./gpuix-mediabunny.ts"
+} from "../../../packages/mediabunny/src/index.ts"
 
 if (process.platform !== "darwin") {
   console.log("GPUix MediaBunny parity smoke skipped: macOS only")
