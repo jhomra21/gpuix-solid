@@ -110,6 +110,12 @@ Napi::Value VideoToolboxFrame::PixelFormat(const Napi::CallbackInfo& info) {
   ) {
     return Napi::String::New(env, "NV12");
   }
+  if (
+    format == kCVPixelFormatType_420YpCbCr8Planar
+    || format == kCVPixelFormatType_420YpCbCr8PlanarFullRange
+  ) {
+    return Napi::String::New(env, "I420");
+  }
   if (format == kCVPixelFormatType_32BGRA) {
     return Napi::String::New(env, "BGRA");
   }
@@ -123,10 +129,16 @@ Napi::Value VideoToolboxFrame::FullRange(const Napi::CallbackInfo& info) {
   if (!frame) return env.Undefined();
 
   const OSType format = CVPixelBufferGetPixelFormatType(frame);
-  if (format == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange) {
+  if (
+    format == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
+    || format == kCVPixelFormatType_420YpCbCr8PlanarFullRange
+  ) {
     return Napi::Boolean::New(env, true);
   }
-  if (format == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange) {
+  if (
+    format == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+    || format == kCVPixelFormatType_420YpCbCr8Planar
+  ) {
     return Napi::Boolean::New(env, false);
   }
 
