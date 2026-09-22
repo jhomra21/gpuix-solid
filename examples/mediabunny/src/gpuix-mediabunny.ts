@@ -1,3 +1,4 @@
+import { registerProresDecoder } from "@mediabunny/prores"
 import { registerMediabunnyServer, type MediabunnyServerOptions } from "@mediabunny/server"
 import { VideoSample } from "mediabunny"
 import {
@@ -30,6 +31,7 @@ export function registerGpuixMediaBunny(
   if (registered && registration) return registration
 
   const videoToolbox = registerVideoToolboxMediaDecoder()
+  registerProresDecoder()
   registerMediabunnyServer(serverOptions)
 
   registration = {
