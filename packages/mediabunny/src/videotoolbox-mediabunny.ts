@@ -130,10 +130,11 @@ export class VideoToolboxVideoSampleResource extends VideoSampleResource {
     super()
     this.#frame = frame
     const fullRange = config.colorSpace?.fullRange ?? frame.fullRange
-    this.#colorSpace = new VideoSampleColorSpace({
-      ...config.colorSpace,
-      ...(fullRange === null || fullRange === undefined ? {} : { fullRange }),
-    })
+    const colorSpace = { ...config.colorSpace }
+    if (fullRange !== null && fullRange !== undefined) {
+      colorSpace.fullRange = fullRange
+    }
+    this.#colorSpace = new VideoSampleColorSpace(colorSpace)
     this.#squarePixelWidth = config.displayAspectWidth ?? frame.width
     this.#squarePixelHeight = config.displayAspectHeight ?? frame.height
   }
