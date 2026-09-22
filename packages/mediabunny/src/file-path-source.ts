@@ -7,8 +7,19 @@ import {
   type FileHandle,
 } from "node:fs/promises"
 
+type InternalCustomSource = CustomSource & {
+  _read(
+    start: number,
+    end: number,
+    minReadPosition: number,
+    maxReadPosition: number,
+  ): unknown
+  _getFileSize(): number | null | undefined
+  _dispose(): void
+}
+
 class GpuixFilePathSource extends PathedSource {
-  #source: CustomSource
+  #source: InternalCustomSource
 
   constructor(filePath: string) {
     super(filePath, ({ path }) => new GpuixFilePathSource(path))
@@ -59,10 +70,10 @@ class GpuixFilePathSource extends PathedSource {
         }
       },
       prefetchProfile: "fileSystem",
-    })
+    }) as InternalCustomSource
   }
 
-  override _read(
+  _read(
     start: number,
     end: number,
     minReadPosition: number,
@@ -76,11 +87,11 @@ class GpuixFilePathSource extends PathedSource {
     )
   }
 
-  override _getFileSize() {
+  _getFileSize() {
     return this.#source._getFileSize()
   }
 
-  override _dispose() {
+  _dispose() {
     this.#source._dispose()
   }
 }
