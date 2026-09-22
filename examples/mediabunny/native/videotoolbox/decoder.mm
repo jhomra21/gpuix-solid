@@ -7,10 +7,14 @@
 #include <VideoToolbox/VideoToolbox.h>
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <cstdint>
+#include <deque>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -23,6 +27,66 @@ struct PacketInput {
   bool keyframe;
 };
 
+class VideoToolboxH264Decoder;
+
+struct StreamFrame {
+  CVPixelBufferRef pixel_buffer;
+  CMTime presentation_time;
+  size_t sequence;
+};
+
+struct StreamTask {
+  VideoToolboxH264Decoder* decoder;
+  Napi::Promise::Deferred deferred;
+  Napi::Reference<Napi::Array> packets_ref;
+  Napi::ThreadSafeFunction tsfn;
+  std::vector<PacketInput> packets;
+  std::mutex mutex;
+  std::condition_variable cv;
+  std::deque<StreamFrame> pending_frames;
+  std::thread decode_thread;
+  std::thread delivery_thread;
+  std::chrono::steady_clock::time_point started;
+  std::string error;
+  bool decode_done = false;
+  bool presentation_order_monotonic = true;
+  bool has_last_presentation_time = false;
+  CMTime last_presentation_time = kCMTimeInvalid;
+  size_t callback_sequence = 0;
+  size_t submitted = 0;
+  size_t decoded = 0;
+  size_t delivered = 0;
+  uint32_t dropped = 0;
+  double decode_ms = 0;
+  const size_t max_pending_frames = 2;
+
+  StreamTask(
+    VideoToolboxH264Decoder* decoder_value,
+    Napi::Env env,
+    const Napi::Array& packet_values
+  )
+      : decoder(decoder_value),
+        deferred(Napi::Promise::Deferred::New(env)),
+        packets_ref(Napi::Persistent(packet_values)) {}
+
+  void SetError(const std::string& message) {
+    std::lock_guard<std::mutex> lock(mutex);
+    if (error.empty()) error = message;
+    cv.notify_all();
+  }
+
+  bool HasError() {
+    std::lock_guard<std::mutex> lock(mutex);
+    return !error.empty();
+  }
+};
+
+struct StreamDelivery {
+  StreamTask* task;
+  CVPixelBufferRef pixel_buffer;
+  CMTime presentation_time;
+};
+
 class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264Decoder> {
  public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports) {
@@ -31,6 +95,7 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       "VideoToolboxH264Decoder",
       {
         InstanceMethod<&VideoToolboxH264Decoder::DecodeBatch>("decodeBatch"),
+        InstanceMethod<&VideoToolboxH264Decoder::DecodeStream>("decodeStream"),
         InstanceMethod<&VideoToolboxH264Decoder::ReleaseFrames>("releaseFrames"),
         InstanceMethod<&VideoToolboxH264Decoder::Dispose>("dispose"),
         InstanceAccessor<&VideoToolboxH264Decoder::HardwareAccelerated>("hardwareAccelerated"),
@@ -98,6 +163,7 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
   CMVideoFormatDescriptionRef format_description_ = nullptr;
   VTDecompressionSessionRef session_ = nullptr;
   OutputState output_;
+  std::atomic<StreamTask*> active_stream_{nullptr};
 
   static uint16_t ReadBE16(const uint8_t* data) {
     return static_cast<uint16_t>((static_cast<uint16_t>(data[0]) << 8) | data[1]);
