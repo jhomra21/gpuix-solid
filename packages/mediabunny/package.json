@@ -14,27 +14,29 @@
   },
   "files": [
     "dist",
-    "native/videotoolbox"
+    "native/videotoolbox",
+    "scripts"
   ],
   "scripts": {
     "clean": "rm -rf dist",
     "build": "bun run clean && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "build:native": "node-gyp rebuild --directory native/videotoolbox"
+    "build:native": "node ./scripts/build-native.mjs",
+    "install": "node ./scripts/build-native.mjs --optional"
   },
   "peerDependencies": {
-    "mediabunny": "^1.59.0",
-    "@mediabunny/server": "^1.59.0",
-    "@mediabunny/prores": "^1.59.0"
+    "mediabunny": ">=1.59.0 <1.60.0",
+    "@mediabunny/server": ">=1.59.0 <1.60.0",
+    "@mediabunny/prores": ">=1.59.0 <1.60.0"
   },
   "dependencies": {
     "@napi-rs/canvas": "1.0.9",
-    "node-addon-api": "8.9.2"
+    "node-addon-api": "8.9.2",
+    "node-gyp": "13.0.2"
   },
   "devDependencies": {
     "@types/node": "^25.3.3",
     "typescript": "^5.9.2",
-    "node-gyp": "13.0.2",
     "mediabunny": "1.59.0",
     "@mediabunny/server": "1.59.0",
     "@mediabunny/prores": "1.59.0"
