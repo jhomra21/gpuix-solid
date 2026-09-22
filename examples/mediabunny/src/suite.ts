@@ -1834,6 +1834,7 @@ async function runMetadataTagsFeature(): Promise<FeatureExecution> {
     title: "GPUix MediaBunny parity",
     artist: "gpuix-solid",
     comment: "metadata round trip",
+    beatsPerMinute: 128,
   })
 
   await encodeShortVideo(output, "avc", 4)
@@ -1846,6 +1847,7 @@ async function runMetadataTagsFeature(): Promise<FeatureExecution> {
       tags.title !== "GPUix MediaBunny parity"
       || tags.artist !== "gpuix-solid"
       || tags.comment !== "metadata round trip"
+      || tags.beatsPerMinute !== 128
     ) {
       throw new Error("Metadata tags did not survive MP4 round trip")
     }
@@ -1856,6 +1858,7 @@ async function runMetadataTagsFeature(): Promise<FeatureExecution> {
         bytes: target.buffer.byteLength,
         title: tags.title ?? null,
         artist: tags.artist ?? null,
+        beatsPerMinute: tags.beatsPerMinute ?? null,
       },
     }
   } finally {
