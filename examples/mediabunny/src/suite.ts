@@ -656,8 +656,8 @@ async function runVideoCodecRoundTrip(
 
   const codec = capability.codec
   const frameCount = 6
-  const width = codec === "prores" ? 640 : 160
-  const height = codec === "prores" ? 480 : 90
+  const width = codec === "prores" ? 1280 : 160
+  const height = codec === "prores" ? 720 : 90
   const target = new BufferTarget()
   const format = videoCodecOutputFormat(codec)
   if (!format.getSupportedVideoCodecs().includes(codec)) {
@@ -676,9 +676,9 @@ async function runVideoCodecRoundTrip(
     const output = new Output({ format, target })
     const source = new VideoSampleSource({
       codec,
-      quality: codec === "prores"
-        ? new Quality({ quality: 0.75, preferBitrate: true })
-        : new Quality("medium"),
+      ...(codec === "prores"
+        ? { bitrate: 1_000_000 }
+        : { quality: new Quality("medium") }),
       onEncoderConfig(config) {
         encoderConfigCodec = config.codec
       },
