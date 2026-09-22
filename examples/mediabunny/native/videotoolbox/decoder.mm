@@ -626,8 +626,11 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
     if (decode_status == noErr && !task->HasError()) {
       decode_status = VTDecompressionSessionFinishDelayedFrames(session_);
     }
-    if (decode_status == noErr && !task->HasError()) {
-      decode_status = VTDecompressionSessionWaitForAsynchronousFrames(session_);
+
+    const OSStatus wait_status =
+      VTDecompressionSessionWaitForAsynchronousFrames(session_);
+    if (decode_status == noErr && wait_status != noErr) {
+      decode_status = wait_status;
     }
 
     for (CMSampleBufferRef sample : samples) {
