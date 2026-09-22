@@ -641,7 +641,7 @@ function makeCodecVideoSample(
 }
 
 function videoCodecOutputFormat(codec: VideoCodec): MovOutputFormat | Mp4OutputFormat | WebMOutputFormat {
-  if (codec === "prores") return new Mp4OutputFormat()
+  if (codec === "prores") return new MovOutputFormat()
   if (codec === "avc" || codec === "hevc") return new Mp4OutputFormat({ fastStart: "fragmented" })
   return new WebMOutputFormat()
 }
