@@ -79,10 +79,19 @@ async function runIsolatedVideoCodec(codec: typeof ISOLATED_VIDEO_CODECS[number]
 
     return result
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (message.includes("exceeded " + timeoutMs + " ms")) {
+      return {
+        codec,
+        status: "timeout" as const,
+        note: message,
+      }
+    }
+
     return {
       codec,
-      status: "timeout" as const,
-      note: error instanceof Error ? error.message : String(error),
+      status: "error" as const,
+      error: message,
     }
   } finally {
     if (timer) clearTimeout(timer)
@@ -103,4 +112,11 @@ for (const codec of ISOLATED_VIDEO_CODECS) {
 
 refreshMediaBunnyBenchmarkSummary(report)
 console.log(JSON.stringify(report, null, 2))
-if (report.summary.errors > 0) process.exitCode = 1
+if (
+  report.summary.unsupported > 0
+  || report.summary.knownGaps > 0
+  || report.summary.timeouts > 0
+  || report.summary.errors > 0
+) {
+  process.exitCode = 1
+}
