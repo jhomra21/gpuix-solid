@@ -629,6 +629,12 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
   }
 
   void Destroy() {
+    if (session_) {
+      VTDecompressionSessionWaitForAsynchronousFrames(session_);
+      VTDecompressionSessionInvalidate(session_);
+      CFRelease(session_);
+      session_ = nullptr;
+    }
     {
       std::lock_guard<std::mutex> lock(output_.mutex);
       for (const CapturedFrame& frame : output_.captured_frames) {
@@ -636,12 +642,6 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       }
       output_.captured_frames.clear();
       output_.capture_frames = false;
-    }
-    if (session_) {
-      VTDecompressionSessionWaitForAsynchronousFrames(session_);
-      VTDecompressionSessionInvalidate(session_);
-      CFRelease(session_);
-      session_ = nullptr;
     }
     if (format_description_) {
       CFRelease(format_description_);
