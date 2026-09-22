@@ -67,11 +67,11 @@ const server = Bun.serve({
         ) {
           throw new Error("Browser benchmark submitted an unsupported report")
         }
-        resolveReport?.(report)
+        setTimeout(() => resolveReport?.(report), 50)
         return new Response("ok")
       } catch (error) {
         const parsed = error instanceof Error ? error : new Error(String(error))
-        rejectReport?.(parsed)
+        setTimeout(() => rejectReport?.(parsed), 50)
         return new Response(parsed.message, { status: 400 })
       }
     }
@@ -107,6 +107,7 @@ process.stderr.write(
 try {
   const report = await reportPromise
   process.stdout.write(JSON.stringify(report))
+  await Bun.sleep(75)
 } finally {
   server.stop(true)
   await rm(buildDirectory, { recursive: true, force: true })
