@@ -1,5 +1,6 @@
 #include <napi.h>
 
+#include "frame.h"
 #include "videotoolbox_support.h"
 
 #include <CoreFoundation/CoreFoundation.h>
@@ -320,21 +321,13 @@ class VideoToolboxVideoDecoder final : public Napi::ObjectWrap<VideoToolboxVideo
       const napi_status call_status = task->tsfn.BlockingCall(
         delivery,
         [](Napi::Env env, Napi::Function callback, StreamDelivery* value) {
-          IOSurfaceRef surface = CVPixelBufferGetIOSurface(value->pixel_buffer);
-          if (!surface) {
-            value->task->SetError(
-              "Streaming VideoToolbox frame did not expose an IOSurface"
-            );
+          Napi::Object frame =
+            VideoToolboxFrame::NewInstance(env, value->pixel_buffer);
+          if (env.IsExceptionPending()) {
             CVPixelBufferRelease(value->pixel_buffer);
             delete value;
             return;
           }
-
-          Napi::Buffer<uint8_t> handle = Napi::Buffer<uint8_t>::Copy(
-            env,
-            reinterpret_cast<const uint8_t*>(&surface),
-            sizeof(surface)
-          );
 
           double timestamp_us = 0;
           if (CMTIME_IS_NUMERIC(value->presentation_time)) {
@@ -342,7 +335,7 @@ class VideoToolboxVideoDecoder final : public Napi::ObjectWrap<VideoToolboxVideo
           }
 
           callback.Call({
-            handle,
+            frame,
             Napi::Number::New(env, timestamp_us),
           });
 
@@ -356,7 +349,6 @@ class VideoToolboxVideoDecoder final : public Napi::ObjectWrap<VideoToolboxVideo
             value->task->delivered += 1;
           }
 
-          CVPixelBufferRelease(value->pixel_buffer);
           delete value;
         }
       );
@@ -840,6 +832,7 @@ class VideoToolboxVideoDecoder final : public Napi::ObjectWrap<VideoToolboxVideo
 Napi::FunctionReference VideoToolboxVideoDecoder::constructor;
 
 Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
+  VideoToolboxFrame::Init(env, exports);
   return VideoToolboxVideoDecoder::Init(env, exports);
 }
 
