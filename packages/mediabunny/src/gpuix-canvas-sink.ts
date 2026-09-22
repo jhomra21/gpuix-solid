@@ -58,7 +58,7 @@ async function renderSample(
       width: sink._width,
       height: sink._height,
       fit: sink._fit,
-      rotation: sink._rotation,
+      rotate: sink._rotation,
       flip: sink._flip,
       crop: sink._crop,
       alpha: sink._alpha ? "keep" : "discard",
