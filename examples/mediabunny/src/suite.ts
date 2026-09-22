@@ -31,7 +31,11 @@ import {
   type VideoCodec,
 } from "mediabunny"
 
-export type BenchmarkBackend = "browser-webcodecs" | "mediabunny-server" | "napi-webcodecs"
+export type BenchmarkBackend =
+  | "browser-webcodecs"
+  | "mediabunny-server"
+  | "napi-webcodecs"
+  | "gpuix-mediabunny"
 
 type CapabilityResult<TCodec extends string = string> = {
   codec: TCodec
@@ -750,7 +754,10 @@ async function runVideoCodecRoundTrip(
         note: "MediaBunny's WebM VP9 color-space rewrite changes napi-WebCodecs packet bytes; the rewritten stream currently fails FFmpeg decode.",
       }
     }
-    if (backend === "mediabunny-server" && codec === "prores") {
+    if (
+      (backend === "mediabunny-server" || backend === "gpuix-mediabunny")
+      && codec === "prores"
+    ) {
       return {
         codec,
         status: "known-gap",
