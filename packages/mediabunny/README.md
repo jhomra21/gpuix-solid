@@ -60,13 +60,13 @@ The repository acceptance suite currently passes real encode → mux → demux �
 
 AVC and HEVC use the custom VideoToolbox decoder on supported macOS hardware. The wider codec surface comes from MediaBunny's server extension. Capability registration does not replace MediaBunny's own codec/container rules.
 
-The same suite covers CanvasSource/CanvasSink, metadata, conversion progress, remuxing, resize/frame-rate/rotate/crop/flip/trim/process transforms, audio resampling/downmixing, fragmented MP4, streams, blobs, ranged sources, CMAF, MPEG-TS, ADTS, HLS, WebVTT subtitles, URL sources, file-path I/O, and GPUix video presentation.
+The same suite covers CanvasSource/CanvasSink, metadata, conversion progress, remuxing, resize/frame-rate/rotate/crop/flip/trim/process transforms, audio resampling/downmixing, fragmented MP4, streams, blobs, ranged sources, CMAF, MPEG-TS, ADTS, HLS, WebVTT subtitles, URL sources, file-path I/O, multi-file filesystem HLS, and GPUix video presentation.
 
 The current GPUix backend scorecard is **50 passes, 0 unsupported, 0 known gaps, 0 timeouts, 0 errors**.
 
 ## Native addon
 
-The VideoToolbox addon is macOS-only. In this repository it is built with:
+The VideoToolbox addon is macOS-only. Published installs attempt to build it during the package install step; other operating systems skip that step. In this repository it can also be built explicitly with:
 
 ```bash
 cd packages/mediabunny
@@ -74,7 +74,9 @@ bun install --no-save
 bun run build:native
 ```
 
-If the addon is absent or the supplied AVC/HEVC configuration cannot open a hardware VideoToolbox decoder, the custom decoder declines the configuration and MediaBunny can use its registered server fallback instead.
+If native compilation is unavailable or the supplied AVC/HEVC configuration cannot open a hardware VideoToolbox decoder, the custom decoder declines the configuration and MediaBunny uses the registered server fallback instead. The package remains functional without the addon.
+
+For filesystem-backed multi-file media such as HLS, use `createGpuixFilePathSource(rootPath)`. It preserves MediaBunny's public PathedSource behavior while avoiding MediaBunny 1.59's child `FilePathSource` open-order edge case.
 
 The native path intentionally requires hardware decoding; it does not silently turn a native-performance benchmark into a software decode.
 
@@ -83,7 +85,6 @@ The native path intentionally requires hardware decoding; it does not silently t
 A few boundaries are intentionally outside the parity claim:
 
 - browser device APIs such as live `MediaStreamTrack` capture are not emulated in a headless/native Bun process;
-- MediaBunny 1.59 can issue a direct child HLS `FilePathSource` read before the child source has been sized/opened; repository HLS file readback uses MediaBunny's `CustomPathedSource` around file bytes instead;
 - VideoToolbox acceleration is currently implemented for AVC and HEVC. Other codecs are functional through MediaBunny Server rather than a GPUix-specific native decoder.
 
 These are kept separate from the tested MediaBunny file/conversion/codec surface so unsupported environment APIs are not counted as successful parity.
