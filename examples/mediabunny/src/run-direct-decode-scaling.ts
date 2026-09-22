@@ -21,9 +21,11 @@ const resolutions = [
   { label: "4K", width: 3840, height: 2160 },
 ] as const
 
+const codec = process.env.MEDIABUNNY_PRESENTATION_CODEC === "hevc" ? "hevc" : "avc"
+
 const baseEnv = {
   ...process.env,
-  MEDIABUNNY_PRESENTATION_CODEC: "avc",
+  MEDIABUNNY_PRESENTATION_CODEC: codec,
   MEDIABUNNY_PRESENTATION_ITERATIONS: process.env.MEDIABUNNY_PRESENTATION_ITERATIONS ?? "5",
   MEDIABUNNY_PRESENTATION_WARMUPS: process.env.MEDIABUNNY_PRESENTATION_WARMUPS ?? "2",
 }
@@ -67,7 +69,7 @@ async function runJson(
   const report = JSON.parse(stdout) as DirectDecodeReport
   if (
     report.schemaVersion !== 1
-    || report.workload.codec !== "avc"
+    || report.workload.codec !== codec
     || !["browser-webcodecs-direct", "videotoolbox-direct"].includes(report.backend)
   ) {
     throw new Error(`${script} returned an unsupported direct decode report`)
@@ -105,7 +107,7 @@ try {
     )
     const fixtureExitCode = await fixture.exited
     if (fixtureExitCode !== 0) {
-      throw new Error(`${resolution.label} AVC fixture generator exited with code ${fixtureExitCode}`)
+      throw new Error(`${resolution.label} ${codec.toUpperCase()} fixture generator exited with code ${fixtureExitCode}`)
     }
 
     const browser = await runJson(
@@ -168,9 +170,9 @@ try {
   const winsPrimaryMetrics = worstDecode > 1 && worstFirstFrame < 1
 
   const report = [
-    "# Direct AVC decoder scaling",
+    `# Direct ${codec.toUpperCase()} decoder scaling`,
     "",
-    "Both sides exclude MediaBunny packet preparation from timing. Browser packets feed WebCodecs directly; native packets cross N-API once per run and feed VideoToolbox directly without FFmpeg or NodeAV in the decode hot loop.",
+    `Both sides exclude MediaBunny packet preparation from timing. Browser ${codec.toUpperCase()} packets feed WebCodecs directly; native packets cross N-API once per run and feed VideoToolbox directly without FFmpeg or NodeAV in the decode hot loop.`,
     "",
     "| Resolution | Browser WebCodecs | Direct VideoToolbox | Native / browser | Browser first frame | Native first frame | Native / browser | Browser output-spacing p95 | Native output-spacing p95 |",
     "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
@@ -193,12 +195,12 @@ try {
   ].join("\n")
 
   await Bun.write(
-    join(reportsDirectory, "direct-decode-scaling.md"),
+    join(reportsDirectory, `direct-decode-${codec}-scaling.md`),
     report + "\n",
   )
 
   console.log(report)
-  console.log("Reports written to examples/mediabunny/reports/direct-decode-*")
+  console.log(`Reports written to examples/mediabunny/reports/direct-decode-${codec}-*`)
 } finally {
   await rm(workDirectory, { recursive: true, force: true })
 }
