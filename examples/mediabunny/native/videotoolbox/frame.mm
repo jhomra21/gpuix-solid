@@ -238,10 +238,38 @@ Napi::Value VideoToolboxFrame::CopyRgba(const Napi::CallbackInfo& info) {
   Napi::Buffer<uint8_t> output =
     Napi::Buffer<uint8_t>::New(env, row_bytes * height);
 
+  std::string color_space_name = "srgb";
+  if (info.Length() > 0) {
+    if (!info[0].IsString()) {
+      Napi::TypeError::New(env, "copyRgba color space must be a string")
+        .ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+    color_space_name = info[0].As<Napi::String>().Utf8Value();
+    if (color_space_name != "srgb" && color_space_name != "display-p3") {
+      Napi::RangeError::New(
+        env,
+        "copyRgba color space must be srgb or display-p3"
+      ).ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+  }
+
   @autoreleasepool {
     static CIContext* context = [[CIContext alloc] initWithOptions:nil];
     CIImage* image = [CIImage imageWithCVPixelBuffer:frame];
-    CGColorSpaceRef color_space = CGColorSpaceCreateDeviceRGB();
+    const CFStringRef color_space_constant =
+      color_space_name == "display-p3"
+        ? kCGColorSpaceDisplayP3
+        : kCGColorSpaceSRGB;
+    CGColorSpaceRef color_space =
+      CGColorSpaceCreateWithName(color_space_constant);
+
+    if (!color_space) {
+      Napi::Error::New(env, "Could not create RGB color space")
+        .ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
 
     [context
       render:image
