@@ -55,18 +55,23 @@ Do not compare absolute GitHub-hosted-runner timings as framework performance cl
 
 ## Browser vs GPUix presentation benchmark
 
-The compatibility suite above answers whether a feature works. The presentation benchmark measures the path an editor would use to decode and display frames.
+The compatibility suite above answers whether a media feature works. The presentation benchmarks measure the paths an editor would use to decode and display frames.
 
-It generates one VP8 WebM fixture, then gives the exact same encoded bytes to both implementations:
+The macOS IOSurface path is the native performance path:
 
-- Chromium uses MediaBunny with browser WebCodecs and `CanvasSink`.
-- GPUix uses MediaBunny with `@napi-rs/webcodecs`, copies each decoded sample to BGRA, uploads it through the binary `video-frame` API, and flushes GPUI rendering.
-- The server AVFrame experiment uses MediaBunny's official `@mediabunny/server` decoder, refs its native FFmpeg AVFrame without copying it, converts into one reusable BGRA AVFrame with libswscale, then uses the same GPUix `video-frame` surface.
-- The macOS IOSurface experiment uses an AVC fixture so both Chromium and the native path can use hardware H.264 decode. MediaBunny demuxes and yields encoded packets; NodeAV decodes those packets through VideoToolbox into hardware AVFrames. GPUix then paints the exported IOSurface through GPUI's CoreVideo surface path without a BGRA conversion or RenderImage atlas upload.
+- MediaBunny owns container parsing and encoded-packet iteration.
+- A small N-API addon submits AVC packets directly to hardware VideoToolbox. FFmpeg and NodeAV are not in this decode hot loop.
+- VideoToolbox runs on a native worker instead of blocking the JavaScript presentation thread.
+- Decoded `CVPixelBuffer` frames cross a bounded delivery queue with at most two frames waiting for JavaScript.
+- The JavaScript callback hands each IOSurface to GPUix and flushes GPUI synchronously.
+- The `CVPixelBuffer` stays retained through that callback and is released immediately afterward.
+- The path never downloads the hardware frame to CPU pixels and does not use BGRA conversion or the RenderImage atlas.
 
-The benchmark reports decode-only throughput, end-to-end presentation throughput, steady-state throughput after the first frame, time to the first presented frame, and p95 frame-step latency. The BGRA backends reuse one destination buffer while the decoded resolution is unchanged, matching how a long-running editor can avoid allocating a multi-megabyte array every frame. Reports separate decoder wait from presentation work. BGRA runs measure allocation or resize, conversion/copy, GPUix upload, and native render flush. The IOSurface run measures AVFrame ref + IOSurface export, GPUix IOSurface handoff, and native render flush. Each backend records the same stage breakdown for the first frame.
+This scheduling matters. Synchronous VideoToolbox batches already beat browser WebCodecs on decode throughput, presentation throughput, and first-frame latency, but their inter-batch stalls lost presentation-step p95. Smaller batches traded away throughput without eliminating that regression. Streaming delivery lets decode and presentation overlap while keeping frame retention bounded.
 
-Prepare the pinned native build first:
+### Run
+
+Prepare the pinned GPUIX source build first:
 
 ```bash
 bun install --frozen-lockfile
@@ -74,91 +79,68 @@ bun run gpuix:edge:prepare
 
 cd examples/mediabunny
 bun install --no-save
+```
+
+The regular presentation commands use Playwright for their browser half:
+
+```bash
 bunx playwright install chromium
 bun run bench:presentation
 bun run bench:presentation:server
 bun run bench:presentation:iosurface
-bun run bench:presentation:iosurface:decode-matrix
-bun run bench:presentation:iosurface:decode-scaling
 ```
 
-For the decoder-worker comparison in a Codex session, use the in-app browser instead of Playwright:
-
-```bash
-bun run bench:presentation:napi-webcodecs:decode-scaling
-```
-
-For the direct decoder experiment:
-
-```bash
-bun run bench:direct-decode
-```
-
-For the promoted end-to-end direct IOSurface path:
-
-```bash
-bun run bench:presentation:iosurface:direct-scaling
-```
-
-To tune the retained steady-state batch against presentation p95:
-
-```bash
-bun run bench:presentation:iosurface:batch-matrix
-```
-
-To test asynchronous frame delivery:
-
-```bash
-bun run bench:presentation:iosurface:stream-scaling
-```
-
-The in-app-browser comparison commands print one localhost URL per resolution. Open each URL in Codex's in-app browser; the page posts its browser report back to the waiting CLI, which then runs that command's native half and advances to the next resolution. No Playwright or separate Chromium install is required for these local comparison commands.
-
-`bench:presentation:iosurface:decode-matrix` keeps the browser path fixed and reruns the native VideoToolbox path with isolated decoder variables: an extra JavaScript packet copy versus a Buffer view, async versus synchronous NodeAV codec calls, packet queue depths from 1 through 40, low-latency first-frame scheduling, and extra hardware-frame pool capacity. It defaults to two warmups and five measured runs so small timing changes are less likely to be mistaken for improvements. The matrix also reports decoder receive calls per frame and send-side `EAGAIN` counts so a throughput change can be tied back to queue pressure instead of timing noise. The regular IOSurface benchmark remains unchanged by default. `bench:presentation:iosurface:decode-scaling` runs that matrix at 1280×720, 1920×1080, and 3840×2160, preserves every raw report with its resolution in the filename, and writes `reports/presentation-iosurface-decode-scaling.md`.
-
-`bench:presentation:napi-webcodecs:decode-scaling` is a completed negative scheduling experiment. On the controlled 720p/1080p/4K run, the persistent napi-WebCodecs worker reached only 0.21x, 0.17x, and 0.28x browser decode throughput, with first-frame latency roughly 10x-19x browser. Current napi-WebCodecs downloads VideoToolbox hardware frames to CPU memory before exposing `VideoFrame`, so its worker architecture does not justify carrying that path forward. Its reported callback-spacing p95 is diagnostic only and must not be interpreted as per-frame decode latency because frames can arrive in a burst after a long first-frame wait.
-
-`bench:direct-decode` established the decoder architecture. With packet preparation excluded on both sides, direct hardware VideoToolbox beat direct browser WebCodecs at every tested resolution: 1.68x throughput at 720p, 1.25x at 1080p, and 1.24x at 4K. First-frame latency fell from 9.00 to 1.41 ms, 9.20 to 2.18 ms, and 32.90 to 5.77 ms. N-API packet parsing and CoreMedia sample construction were negligible compared with VideoToolbox submission. This makes the direct VideoToolbox path the native baseline; NodeAV queue variants and the napi-WebCodecs worker remain diagnostic references rather than candidate production paths.
-
-The promoted presentation path keeps the same direct decoder but captures only a bounded batch of decoded CVPixelBuffers at a time. The addon retains those hardware frames until JavaScript has handed each IOSurface to GPUix and flushed GPUI, then `releaseFrames()` releases the batch. The first packet is decoded as its own batch to preserve first-frame latency; steady state defaults to eight packets per batch. FFmpeg, NodeAV, CPU frame download, BGRA conversion, and RenderImage atlas upload are absent from this path.
-
-The first 720p/1080p/4K acceptance run showed the direct path winning decode throughput, presentation throughput, and first-presented-frame latency at every resolution, but losing presentation-step p95. With the default eight-packet steady batch, p95 was 2.05 ms vs 0.80 ms at 720p, 3.96 ms vs 1.20 ms at 1080p, and 14.12 ms vs 8.60 ms at 4K. Native decode batches dominated measured native time while IOSurface handoff and GPUI flush were small, which points to the synchronous steady-batch boundary as the source of the presentation-step stalls.
-
-`bench:presentation:iosurface:batch-matrix` confirmed that batch-size tuning alone cannot produce a clean win. Batches 1 and 2 reduce p95 at 1080p and 4K but lose presentation throughput there, while batch 4 is the smallest size that beats browser presentation throughput at all three resolutions and still loses p95 everywhere. The worst cross-resolution presentation/p95 ratios were 0.53x/1.44x for batch 1, 0.81x/1.54x for batch 2, 1.08x/2.19x for batch 4, and 1.11x/3.29x for batch 8. This isolates the remaining issue to synchronous delivery scheduling rather than GPUix handoff/render cost.
-
-The next comparison is `bench:presentation:iosurface:stream-scaling`. It keeps MediaBunny packet iteration in the native end-to-end timer, moves VideoToolbox submission and waiting to a native worker, and streams each decoded IOSurface back through a bounded thread-safe queue instead of returning frame batches synchronously. At most two decoded frames may wait for JavaScript; each CVPixelBuffer remains retained through the synchronous GPUix handoff/flush callback and is released immediately afterward. A macOS smoke verifies 4/4 streamed frames, 8-byte IOSurface handles, monotonic presentation order, hardware acceleration, and the two-frame pending bound.
-
-The default workload is 1280×720, 60 frames at 30 fps, one warmup, and three measured runs. `bench:presentation` compares Chromium with the napi-WebCodecs path. `bench:presentation:server` compares Chromium with the direct MediaBunny server AVFrame path. On macOS, `bench:presentation:iosurface` switches the shared fixture to AVC and compares Chromium with the VideoToolbox/IOSurface GPUix path. The commands write:
+`bench:presentation:iosurface` is the canonical macOS hardware comparison. It uses the same AVC fixture for browser MediaBunny `CanvasSink` + WebCodecs and streaming VideoToolbox + IOSurface + GPUix, then writes:
 
 ```text
-reports/presentation-browser.json
-reports/presentation-gpuix.json
-reports/presentation-comparison.md
-reports/presentation-server-browser.json
-reports/presentation-server-gpuix.json
-reports/presentation-server-comparison.md
 reports/presentation-iosurface-browser.json
 reports/presentation-iosurface-gpuix.json
 reports/presentation-iosurface-comparison.md
 ```
 
-You can change the workload without editing source:
+For the controlled 720p/1080p/4K comparison in a Codex session, use the in-app browser instead of Playwright:
+
+```bash
+bun run bench:presentation:iosurface:scaling
+```
+
+The command prints one localhost URL per resolution. Open each URL in Codex's in-app browser; the page posts its browser report back to the waiting CLI, which then runs the native half and advances to the next resolution. The consolidated report is written to `reports/presentation-streaming-iosurface-scaling.md`.
+
+For a decoder-only regression check, use:
+
+```bash
+bun run bench:direct-decode
+```
+
+That benchmark intentionally prepares the packet set before timing so it can compare browser `VideoDecoder` against direct VideoToolbox without container/demux cost. The presentation benchmarks include the MediaBunny packet path in their end-to-end measurement.
+
+### Accepted scaling result
+
+On the September 22, 2026 controlled run at gpuix-solid `50a240b07e8a79a9e8b5348dbe6d1f3a26c194ee` with GPUIX source-edge `410fb56f2e599ef49b1dabfc43872b6ff8047916`, the streaming path beat the browser baseline on all four acceptance metrics at every tested resolution:
+
+| Resolution | Decode throughput | Presentation throughput | First presented frame | Presentation-step p95 |
+| --- | ---: | ---: | ---: | ---: |
+| 720p | 1.73x | 2.38x | 1.85 ms vs 9.00 ms | 0.25 ms vs 0.70 ms |
+| 1080p | 1.25x | 1.57x | 2.49 ms vs 9.30 ms | 0.42 ms vs 2.00 ms |
+| 4K | 1.21x | 1.38x | 7.30 ms vs 33.50 ms | 1.93 ms vs 7.50 ms |
+
+The workload was AVC, 60 frames, two warmups, and five measured runs per backend and resolution on an Apple M3 Pro. Native verification confirmed hardware VideoToolbox decode, IOSurface export, monotonic presentation order, and a maximum of two pending decoded frames. GPUix edge verification passed across the installed consumers used by the repository.
+
+These numbers are benchmark results for this controlled workload, not a claim about sustained real-time playback performance on every machine or codec. GitHub-hosted-runner timings remain correctness/compatibility signals rather than stable performance thresholds.
+
+The default one-resolution presentation workload is 1280×720, 60 frames at 30 fps, one warmup, and three measured runs. You can change it without editing source:
 
 ```bash
 MEDIABUNNY_PRESENTATION_WIDTH=1920 \
 MEDIABUNNY_PRESENTATION_HEIGHT=1080 \
 MEDIABUNNY_PRESENTATION_FRAMES=120 \
 MEDIABUNNY_PRESENTATION_ITERATIONS=5 \
-bun run bench:presentation
+bun run bench:presentation:iosurface
 ```
 
-Set `MEDIABUNNY_PRESENTATION_HEADLESS=0` to run Chromium with a visible window. Use the same machine and browser mode when comparing runs. The benchmark does not set pass/fail performance thresholds.
+Set `MEDIABUNNY_PRESENTATION_HEADLESS=0` when you want the Playwright browser window visible. Use the same machine and browser mode when comparing performance runs.
 
-For scaling checks, rerun the same command at 1920×1080 and 3840×2160. Keep decode-only and presentation throughput separate: the IOSurface path can reduce display cost even when the native decoder is slower than browser WebCodecs. The stage-per-frame table shows whether time is being spent in decode, BGRA conversion/upload, or the IOSurface handoff and native render flush. The v1 BGRA GPUix frame upload still copies supplied bytes synchronously into native-owned image data; the macOS IOSurface path bypasses that upload.
-
-The direct server experiment deliberately asks MediaBunny for software decoding first. That isolates the AVFrame-to-BGRA and GPUix costs without adding a GPU-to-CPU readback. It is not zero-copy end to end: the MediaBunny sample-to-AVFrame handoff is a ref, but libswscale still converts YUV to BGRA and GPUix still copies the BGRA bytes into native-owned image data.
-
-The IOSurface experiment is the hardware counterpart. It requires macOS and an AVC fixture. MediaBunny still owns demuxing and encoded-packet iteration, but the benchmark configures NodeAV's VideoToolbox decoder directly because MediaBunny 1.58.1's server decoder selects a hardware-capable codec without attaching the NodeAV hardware device context needed to return hardware AVFrames. The decoded AVFrame must expose an IOSurface, and GPUix wraps that IOSurface as a retained CoreVideo pixel buffer before GPUI paints it with `paint_surface`. The benchmark fails instead of falling back to software frames or BGRA.
+The server AVFrame experiment remains useful as the software-decoding counterpart. It refs MediaBunny's FFmpeg-backed AVFrame, converts into reusable BGRA with libswscale, and hands those bytes to GPUix. That path is intentionally not zero-copy. The macOS IOSurface path is the hardware counterpart and bypasses both the YUV→BGRA conversion and the BGRA upload.
 
 ## Expansion matrix
 
