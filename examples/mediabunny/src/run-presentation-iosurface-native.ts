@@ -61,10 +61,6 @@ function bufferFromDescription(description: AllowSharedBufferSource): Buffer {
   return Buffer.from(new Uint8Array(description))
 }
 
-function bufferView(bytes: Uint8Array): Buffer {
-  return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength)
-}
-
 async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>) {
   const decoderConfig = await track.getDecoderConfig()
   if (!decoderConfig) throw new Error("AVC track has no decoder configuration")
@@ -96,7 +92,7 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>) {
   codecContext.hwDeviceCtx = hardware.deviceContext
   codecContext.setHardwarePixelFormat(hardware.devicePixelFormat, AV_PIX_FMT_NONE)
 
-  const openResult = codecContext.open2Sync(codec, null)
+  const openResult = await codecContext.open2(codec, null)
   FFmpegError.throwIfError(openResult, "Open VideoToolbox H.264 decoder")
 
   const packet = new Packet()
@@ -104,10 +100,10 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>) {
   const frame = new Frame()
   frame.alloc()
 
-  const drain = function* () {
+  const drain = async function* () {
     for (;;) {
       frame.unref()
-      const receiveResult = codecContext.receiveFrameSync(frame)
+      const receiveResult = await codecContext.receiveFrame(frame)
       if (receiveResult === AVERROR_EAGAIN || receiveResult === AVERROR_EOF) return
       FFmpegError.throwIfError(receiveResult, "Receive VideoToolbox frame")
       if (!frame.isHwFrame()) {
@@ -123,45 +119,23 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>) {
     const sink = new MediaBunnyEncodedPacketSink(track)
     for await (const encoded of sink.packets()) {
       packet.unref()
-      packet.data = bufferView(encoded.data)
+      packet.data = Buffer.from(encoded.data)
       packet.isKeyframe = encoded.type === "key"
       packet.timeBase = { num: 1, den: 1_000_000 }
       packet.pts = BigInt(Math.round(encoded.microsecondTimestamp))
       packet.dts = AV_NOPTS_VALUE
       packet.duration = BigInt(Math.round(encoded.microsecondDuration))
 
-      let sendResult = codecContext.sendPacketSync(packet)
-      while (sendResult === AVERROR_EAGAIN) {
-        let drained = false
-        for (const decoded of drain()) {
-          drained = true
-          yield decoded
-        }
-        if (!drained) {
-          throw new Error("VideoToolbox returned EAGAIN from both send and receive")
-        }
-        sendResult = codecContext.sendPacketSync(packet)
-      }
+      const sendResult = await codecContext.sendPacket(packet)
       packet.unref()
       FFmpegError.throwIfError(sendResult, "Send MediaBunny packet to VideoToolbox")
 
-      for (const decoded of drain()) yield decoded
+      for await (const decoded of drain()) yield decoded
     }
 
-    let flushResult = codecContext.sendPacketSync(null)
-    while (flushResult === AVERROR_EAGAIN) {
-      let drained = false
-      for (const decoded of drain()) {
-        drained = true
-        yield decoded
-      }
-      if (!drained) {
-        throw new Error("VideoToolbox returned EAGAIN while flushing with no frame available")
-      }
-      flushResult = codecContext.sendPacketSync(null)
-    }
+    const flushResult = await codecContext.sendPacket(null)
     FFmpegError.throwIfError(flushResult, "Flush VideoToolbox decoder")
-    for (const decoded of drain()) yield decoded
+    for await (const decoded of drain()) yield decoded
   } finally {
     frame.free()
     packet.free()
@@ -364,7 +338,6 @@ try {
       nativeSurfaceVersion: testRoot.renderer.getVideoFrameIosurfaceVersion() ?? 0,
       screenshotBytes,
       decoderHardwareAcceleration: "videotoolbox",
-      nodeAvDecodeCalls: "sync",
       mediaBunnyPacketSink: true,
       hardwareFrame: true,
       iosurfaceExport: true,
