@@ -15,7 +15,8 @@
 namespace {
 
 struct PacketInput {
-  Napi::Buffer<uint8_t> data;
+  uint8_t* data;
+  size_t size;
   int64_t timestamp_us;
   int64_t duration_us;
   bool keyframe;
@@ -306,7 +307,9 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       return false;
     }
 
-    out.data = data_value.As<Napi::Buffer<uint8_t>>();
+    Napi::Buffer<uint8_t> buffer = data_value.As<Napi::Buffer<uint8_t>>();
+    out.data = buffer.Data();
+    out.size = buffer.Length();
     out.timestamp_us = object.Get("timestamp").ToNumber().Int64Value();
 
     Napi::Value duration_value = object.Get("duration");
@@ -335,7 +338,8 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
     packets.reserve(values.Length());
     for (uint32_t index = 0; index < values.Length(); ++index) {
       PacketInput packet{
-        Napi::Buffer<uint8_t>(),
+        nullptr,
+        0,
         0,
         0,
         false,
@@ -367,17 +371,17 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
     size_t submitted = 0;
 
     for (const PacketInput& packet : packets) {
-      if (packet.data.Length() == 0) continue;
+      if (packet.size == 0) continue;
 
       CMBlockBufferRef block = nullptr;
       OSStatus status = CMBlockBufferCreateWithMemoryBlock(
         kCFAllocatorDefault,
-        packet.data.Data(),
-        packet.data.Length(),
+        packet.data,
+        packet.size,
         kCFAllocatorNull,
         nullptr,
         0,
-        packet.data.Length(),
+        packet.size,
         0,
         &block
       );
@@ -391,7 +395,7 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
         CMTimeMake(packet.timestamp_us, 1'000'000),
         kCMTimeInvalid,
       };
-      const size_t sample_size = packet.data.Length();
+      const size_t sample_size = packet.size;
       CMSampleBufferRef sample = nullptr;
       status = CMSampleBufferCreateReady(
         kCFAllocatorDefault,
@@ -413,9 +417,8 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
 
       CFArrayRef attachments = CMSampleBufferGetSampleAttachmentsArray(sample, true);
       if (attachments && CFArrayGetCount(attachments) > 0 && !packet.keyframe) {
-        auto* attachment = const_cast<CFMutableDictionaryRef>(
-          static_cast<CFDictionaryRef>(CFArrayGetValueAtIndex(attachments, 0))
-        );
+        CFMutableDictionaryRef attachment =
+          (CFMutableDictionaryRef)CFArrayGetValueAtIndex(attachments, 0);
         CFDictionarySetValue(attachment, kCMSampleAttachmentKey_NotSync, kCFBooleanTrue);
       }
 
