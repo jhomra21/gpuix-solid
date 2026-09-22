@@ -147,7 +147,7 @@ The compatibility suite above answers whether a media feature works. The present
 The macOS IOSurface path is the native performance path:
 
 - MediaBunny owns container parsing and encoded-packet iteration.
-- A small N-API addon submits AVC packets directly to hardware VideoToolbox. FFmpeg and NodeAV are not in this decode hot loop.
+- A small N-API addon submits AVC or HEVC packets directly to hardware VideoToolbox. FFmpeg and NodeAV are not in this decode hot loop.
 - VideoToolbox runs on a native worker instead of blocking the JavaScript presentation thread.
 - Decoded `CVPixelBuffer` frames cross a bounded delivery queue with at most two frames waiting for JavaScript.
 - The JavaScript callback hands each IOSurface to GPUix and flushes GPUI synchronously.
@@ -189,6 +189,9 @@ For the controlled 720p/1080p/4K comparison in a Codex session, use the in-app b
 
 ```bash
 bun run bench:presentation:iosurface:scaling
+
+# Run the same scaling harness with HEVC.
+bun run bench:presentation:iosurface:hevc:scaling
 ```
 
 The command prints one localhost URL per resolution. Open each URL in Codex's in-app browser; the page posts its browser report back to the waiting CLI, which then runs the native half and advances to the next resolution. The consolidated report is written to `reports/presentation-streaming-iosurface-scaling.md`.
@@ -203,13 +206,13 @@ That benchmark intentionally prepares the packet set before timing so it can com
 
 ### Accepted scaling result
 
-On the September 22, 2026 controlled run at gpuix-solid `50a240b07e8a79a9e8b5348dbe6d1f3a26c194ee` with GPUIX source-edge `410fb56f2e599ef49b1dabfc43872b6ff8047916`, the streaming path beat the browser baseline on all four acceptance metrics at every tested resolution:
+The post-Thermos September 22, 2026 acceptance run on merged `main` at gpuix-solid `b80dff83dca18a6f13b2655f4976bbfd9cd7c1c2`, with GPUIX source-edge `410fb56f2e599ef49b1dabfc43872b6ff8047916`, beat browser WebCodecs on all four AVC acceptance metrics at every tested resolution:
 
-| Resolution | Decode throughput | Presentation throughput | First presented frame | Presentation-step p95 |
+| Resolution | Decode speedup | Presentation speedup | First frame native / browser | Presentation p95 native / browser |
 | --- | ---: | ---: | ---: | ---: |
-| 720p | 1.73x | 2.38x | 1.85 ms vs 9.00 ms | 0.25 ms vs 0.70 ms |
-| 1080p | 1.25x | 1.57x | 2.49 ms vs 9.30 ms | 0.42 ms vs 2.00 ms |
-| 4K | 1.21x | 1.38x | 7.30 ms vs 33.50 ms | 1.93 ms vs 7.50 ms |
+| 720p | 1.69x | 2.51x | 2.38 / 9.00 ms | 0.34 / 1.10 ms |
+| 1080p | 1.33x | 1.97x | 3.40 / 11.10 ms | 0.73 / 1.60 ms |
+| 4K | 1.22x | 1.53x | 7.95 / 30.30 ms | 2.01 / 9.20 ms |
 
 The workload was AVC, 60 frames, two warmups, and five measured runs per backend and resolution on an Apple M3 Pro. Native verification confirmed hardware VideoToolbox decode, IOSurface export, monotonic presentation order, and a maximum of two pending decoded frames. GPUix edge verification passed across the installed consumers used by the repository.
 
