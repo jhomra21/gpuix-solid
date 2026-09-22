@@ -126,7 +126,10 @@ export class VideoToolboxVideoSampleResource extends VideoSampleResource {
   ) {
     super()
     this.#frame = frame
-    this.#colorSpace = new VideoSampleColorSpace(config.colorSpace ?? {})
+    this.#colorSpace = new VideoSampleColorSpace({
+      ...config.colorSpace,
+      fullRange: config.colorSpace?.fullRange ?? frame.fullRange ?? undefined,
+    })
     this.#squarePixelWidth = config.displayAspectWidth ?? frame.width
     this.#squarePixelHeight = config.displayAspectHeight ?? frame.height
   }
@@ -233,10 +236,14 @@ export class VideoToolboxMediaDecoder extends CustomVideoDecoder {
       return false
     }
 
-    return getNativeModule().isVideoToolboxDecoderSupported(
-      codec,
-      toBuffer(config.description),
-    )
+    try {
+      return getNativeModule().isVideoToolboxDecoderSupported(
+        codec,
+        toBuffer(config.description),
+      )
+    } catch {
+      return false
+    }
   }
 
   #decoder: NativeDecoder | null = null
