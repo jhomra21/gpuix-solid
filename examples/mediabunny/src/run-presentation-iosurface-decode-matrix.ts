@@ -135,6 +135,8 @@ try {
   const browser = await runJson("src/run-presentation-browser.ts", [fixturePath])
   const browserDecodeFps = reportDecodeFps(browser)
   const browserPresentationFps = reportPresentationFps(browser)
+  const browserFirstFrameMs = reportFirstFrameMs(browser)
+  const browserP95Ms = reportP95Ms(browser)
 
   const results: Array<{ variant: Variant; report: PresentationBenchmarkReport }> = []
   for (const variant of variants) {
@@ -154,19 +156,23 @@ try {
     "",
     `AVC fixture: ${sample.width}×${sample.height}, ${sample.frames} frames. Browser decode: ${browserDecodeFps.toFixed(2)} fps. Browser presentation: ${browserPresentationFps.toFixed(2)} fps.`,
     "",
-    "| Variant | Native decode | vs browser | Native presentation | vs browser | recv calls/frame | send EAGAIN | First frame | p95 step |",
-    "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    "| Variant | Native decode | vs browser | Native presentation | vs browser | recv calls/frame | send EAGAIN | First frame | vs browser | p95 step | vs browser |",
+    "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
   ]
 
   for (const { variant, report } of results) {
     const decodeFps = reportDecodeFps(report)
     const presentationFps = reportPresentationFps(report)
+    const firstFrameMs = reportFirstFrameMs(report)
+    const p95Ms = reportP95Ms(report)
     lines.push(
-      `| ${variant.label} | ${decodeFps.toFixed(2)} fps | ${ratio(decodeFps, browserDecodeFps)} | ${presentationFps.toFixed(2)} fps | ${ratio(presentationFps, browserPresentationFps)} | ${receiveCallsPerFrame(report).toFixed(2)} | ${sendEagain(report).toFixed(0)} | ${reportFirstFrameMs(report).toFixed(2)} ms | ${reportP95Ms(report).toFixed(2)} ms |`,
+      `| ${variant.label} | ${decodeFps.toFixed(2)} fps | ${ratio(decodeFps, browserDecodeFps)} | ${presentationFps.toFixed(2)} fps | ${ratio(presentationFps, browserPresentationFps)} | ${receiveCallsPerFrame(report).toFixed(2)} | ${sendEagain(report).toFixed(0)} | ${firstFrameMs.toFixed(2)} ms | ${ratio(firstFrameMs, browserFirstFrameMs)} | ${p95Ms.toFixed(2)} ms | ${ratio(p95Ms, browserP95Ms)} |`,
     )
   }
 
   lines.push(
+    "",
+    "Throughput ratios above 1 beat the browser. First-frame and p95 ratios below 1 beat the browser.",
     "",
     "The baseline keeps the current one-packet-at-a-time decode loop. Queue-depth rows extend through 40 packets because MediaBunny's browser pump permits up to 40 queued packets while no decoded samples are waiting. Fast-first-frame rows drain until the first decoded frame before switching to the deeper steady-state queue.",
     "",
