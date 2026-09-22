@@ -84,6 +84,7 @@ jobs:
           ./node_modules/.bin/gpuix-mediabunny-build-native
           node --input-type=module - <<'NODE'
           import {
+            VideoToolboxMediaDecoder,
             getVideoToolboxVideoSampleResource,
             registerGpuixMediaBunny,
           } from "@jhomra21/gpuix-mediabunny"
@@ -152,6 +153,26 @@ jobs:
             const track = await input.getPrimaryVideoTrack()
             if (!track) throw new Error("Packed consumer AVC fixture has no video track")
 
+            const codec = await track.getCodec()
+            const decoderConfig = await track.getDecoderConfig()
+            if (!decoderConfig || (codec !== "avc" && codec !== "hevc")) {
+              throw new Error("Packed consumer AVC fixture has no native decoder configuration")
+            }
+            if (!VideoToolboxMediaDecoder.supports(codec, decoderConfig)) {
+              const description = decoderConfig.description
+              const descriptionBytes = description
+                ? ArrayBuffer.isView(description)
+                  ? description.byteLength
+                  : description.byteLength
+                : 0
+              throw new Error(
+                "Packed consumer fixture is not VideoToolbox hardware-decodable"
+                + " (codec=" + codec
+                + ", descriptionBytes=" + descriptionBytes
+                + ")",
+              )
+            }
+
             const sample = await new VideoSampleSink(track).getSample(0)
             if (!sample) throw new Error("Packed consumer native decode returned no sample")
             try {
@@ -168,7 +189,7 @@ jobs:
 
               console.log(JSON.stringify({
                 ...registration,
-                codec: await track.getCodec(),
+                codec,
                 iosurfaceHandleBytes: native.iosurfaceHandle.byteLength,
                 copiedBytes: pixels.byteLength,
               }))
