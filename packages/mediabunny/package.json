@@ -23,8 +23,7 @@
     "clean": "rm -rf dist",
     "build": "bun run clean && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "build:native": "node ./scripts/build-native.mjs",
-    "install": "node ./scripts/build-native.mjs --optional"
+    "build:native": "node ./scripts/build-native.mjs"
   },
   "peerDependencies": {
     "mediabunny": ">=1.59.0 <1.60.0",
@@ -59,5 +58,8 @@
     "iosurface",
     "webcodecs",
     "media"
-  ]
+  ],
+  "bin": {
+    "gpuix-mediabunny-build-native": "./scripts/build-native.mjs"
+  }
 }
