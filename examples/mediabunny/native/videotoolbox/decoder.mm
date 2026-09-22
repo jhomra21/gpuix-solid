@@ -93,6 +93,7 @@ class VideoToolboxVideoDecoder final : public Napi::ObjectWrap<VideoToolboxVideo
       {
         InstanceMethod<&VideoToolboxVideoDecoder::DecodeBatch>("decodeBatch"),
         InstanceMethod<&VideoToolboxVideoDecoder::DecodeStream>("decodeStream"),
+        InstanceMethod<&VideoToolboxVideoDecoder::Reset>("reset"),
         InstanceMethod<&VideoToolboxVideoDecoder::Dispose>("dispose"),
         InstanceAccessor<&VideoToolboxVideoDecoder::HardwareAccelerated>("hardwareAccelerated"),
       }
@@ -803,6 +804,43 @@ class VideoToolboxVideoDecoder final : public Napi::ObjectWrap<VideoToolboxVideo
     return result;
   }
 
+  Napi::Value Reset(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    if (active_stream_.load(std::memory_order_acquire) != nullptr) {
+      Napi::Error::New(
+        env,
+        "Cannot reset VideoToolbox decoder while decodeStream is active"
+      ).ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+    if (!format_description_) {
+      Napi::Error::New(env, "VideoToolbox decoder is disposed")
+        .ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+
+    if (session_) {
+      VTDecompressionSessionWaitForAsynchronousFrames(session_);
+      VTDecompressionSessionInvalidate(session_);
+      CFRelease(session_);
+      session_ = nullptr;
+    }
+
+    std::string error;
+    if (!CreateHardwareDecodeSession(
+      format_description_,
+      this,
+      &VideoToolboxVideoDecoder::OutputCallback,
+      &session_,
+      error
+    )) {
+      Napi::Error::New(env, error).ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+
+    return env.Undefined();
+  }
+
   Napi::Value Dispose(const Napi::CallbackInfo& info) {
     if (active_stream_.load(std::memory_order_acquire) != nullptr) {
       Napi::Error::New(
@@ -831,9 +869,74 @@ class VideoToolboxVideoDecoder final : public Napi::ObjectWrap<VideoToolboxVideo
 
 Napi::FunctionReference VideoToolboxVideoDecoder::constructor;
 
+void CapabilityOutputCallback(
+  void*,
+  void*,
+  OSStatus,
+  VTDecodeInfoFlags,
+  CVImageBufferRef,
+  CMTime,
+  CMTime
+) {}
+
+Napi::Value IsVideoToolboxDecoderSupported(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  if (
+    info.Length() < 2
+    || !info[0].IsString()
+    || !info[1].IsBuffer()
+  ) {
+    Napi::TypeError::New(
+      env,
+      "Expected codec string and decoder configuration Buffer"
+    ).ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  const std::string codec = info[0].As<Napi::String>().Utf8Value();
+  Napi::Buffer<uint8_t> description = info[1].As<Napi::Buffer<uint8_t>>();
+  std::vector<uint8_t> config(
+    description.Data(),
+    description.Data() + description.Length()
+  );
+
+  CMVideoFormatDescriptionRef format_description = nullptr;
+  std::string error;
+  if (!CreateVideoFormatDescription(
+    codec,
+    config,
+    &format_description,
+    error
+  )) {
+    return Napi::Boolean::New(env, false);
+  }
+
+  VTDecompressionSessionRef session = nullptr;
+  const bool supported = CreateHardwareDecodeSession(
+    format_description,
+    nullptr,
+    &CapabilityOutputCallback,
+    &session,
+    error
+  );
+
+  if (session) {
+    VTDecompressionSessionInvalidate(session);
+    CFRelease(session);
+  }
+  CFRelease(format_description);
+
+  return Napi::Boolean::New(env, supported);
+}
+
 Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
   VideoToolboxFrame::Init(env, exports);
-  return VideoToolboxVideoDecoder::Init(env, exports);
+  VideoToolboxVideoDecoder::Init(env, exports);
+  exports.Set(
+    "isVideoToolboxDecoderSupported",
+    Napi::Function::New(env, IsVideoToolboxDecoderSupported)
+  );
+  return exports;
 }
 
 NODE_API_MODULE(gpuix_videotoolbox, InitAll)
