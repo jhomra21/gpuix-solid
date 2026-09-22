@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add an experimental macOS source-edge `<video-frame>` IOSurface path for hardware-decoded VideoToolbox frames. MediaBunny presentation benchmarks now separate decode time from AVFrame/IOSurface export, GPUix handoff, and native render flush, while the published `@gpuix/native@0.9.0` BGRA path remains unchanged.
 - Rebase the pinned source-edge lane onto GPUIX 0.10.0, consume upstream live `<img>` buffer uploads and `scrollIntoView()` directly, remove the temporary live-image backport, and add a Solid 2 port of the official GPUIX Waveform example with native screenshot/scroll acceptance.
 - Add an experimental native Canvas2D source-edge path: a versioned browser-shaped draw-list recorder in both Solid hosts, bounded opaque full-frame repaint retention, an isolated GPUIX Canvas v1 patch using GPUI path/text painting, explicit capability-based native adoption that keeps published native 0.9 on its existing fallback, and GPU-backed paint/pointer acceptance. The Solid 1 DAW source-edge detector now exercises native waveform/EQ draw lists while the default npm dependency remains `@gpuix/native@0.9.0`.
 - Add the `gpuix-solid/vite` first-party Vite helper for the qualified Solid universal/compiler/runtime configuration, plus a startup guard that fails clearly when Solid resolves to its non-reactive server build.
