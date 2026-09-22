@@ -233,6 +233,13 @@ type PacketTiming = {
   duration: number
 }
 
+type PendingOutput = {
+  frame: NativeVideoToolboxFrame
+  timestampUs: number
+}
+
+const MAX_VIDEO_REORDER_FRAMES = 16
+
 export class VideoToolboxMediaDecoder extends CustomVideoDecoder {
   static override supports(
     codec: VideoCodec,
@@ -258,6 +265,7 @@ export class VideoToolboxMediaDecoder extends CustomVideoDecoder {
 
   #decoder: NativeDecoder | null = null
   #packetBuffer: NativePacket[] = []
+  #pendingOutputs: PendingOutput[] = []
   #timings = new Map<number, PacketTiming[]>()
   #lastTimestampUs = -Infinity
   #closed = false
@@ -315,6 +323,7 @@ export class VideoToolboxMediaDecoder extends CustomVideoDecoder {
     if (this.#closed) return
     this.#closed = true
     this.#packetBuffer.length = 0
+    this.#closePendingOutputs()
     this.#timings.clear()
     this.#decoder?.dispose()
     this.#decoder = null
@@ -329,7 +338,7 @@ export class VideoToolboxMediaDecoder extends CustomVideoDecoder {
     }
 
     const packets = this.#packetBuffer.splice(0)
-    const outputs: { frame: NativeVideoToolboxFrame; timestampUs: number }[] = []
+    const outputs: PendingOutput[] = []
     const result = await decoder.decodeStream(
       packets,
       (frame, timestampUs) => {
@@ -340,24 +349,30 @@ export class VideoToolboxMediaDecoder extends CustomVideoDecoder {
 
     if (!result.hardwareAccelerated) {
       for (const output of outputs) output.frame.close()
+      this.#closePendingOutputs()
       throw new Error("VideoToolbox stream lost hardware acceleration")
     }
     if (result.dropped !== 0) {
       for (const output of outputs) output.frame.close()
+      this.#closePendingOutputs()
       throw new Error("VideoToolbox stream dropped " + result.dropped + " frame(s)")
     }
-    outputs.sort((left, right) => left.timestampUs - right.timestampUs)
 
-    for (let index = 0; index < outputs.length; index += 1) {
-      const output = outputs[index]
+    this.#pendingOutputs.push(...outputs)
+    this.#pendingOutputs.sort((left, right) => left.timestampUs - right.timestampUs)
+
+    const emitCount = finish
+      ? this.#pendingOutputs.length
+      : Math.max(0, this.#pendingOutputs.length - MAX_VIDEO_REORDER_FRAMES)
+
+    for (let index = 0; index < emitCount; index += 1) {
+      const output = this.#pendingOutputs[index]
       if (!output) continue
 
       if (output.timestampUs < this.#lastTimestampUs) {
-        for (let closeIndex = index; closeIndex < outputs.length; closeIndex += 1) {
-          outputs[closeIndex]?.frame.close()
-        }
+        this.#closePendingOutputs(index)
         throw new Error(
-          "VideoToolbox stream crossed a MediaBunny batch boundary out of presentation order",
+          "VideoToolbox exceeded the bounded MediaBunny presentation reorder window",
         )
       }
 
@@ -365,12 +380,21 @@ export class VideoToolboxMediaDecoder extends CustomVideoDecoder {
       try {
         this.#emitFrame(output.frame, output.timestampUs)
       } catch (error) {
-        for (let closeIndex = index + 1; closeIndex < outputs.length; closeIndex += 1) {
-          outputs[closeIndex]?.frame.close()
-        }
+        this.#closePendingOutputs(index + 1)
         throw error
       }
     }
+
+    if (emitCount > 0) {
+      this.#pendingOutputs.splice(0, emitCount)
+    }
+  }
+
+  #closePendingOutputs(startIndex = 0): void {
+    for (let index = startIndex; index < this.#pendingOutputs.length; index += 1) {
+      this.#pendingOutputs[index]?.frame.close()
+    }
+    this.#pendingOutputs.length = 0
   }
 
   #emitFrame(frame: NativeVideoToolboxFrame, timestampUs: number): void {
