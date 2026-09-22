@@ -68,7 +68,7 @@ async function runBrowser(
   env: Record<string, string>,
 ): Promise<PresentationBenchmarkReport> {
   const child = Bun.spawn(
-    [process.execPath, "src/run-presentation-browser.ts", fixturePath],
+    [process.execPath, "src/run-presentation-browser-external.ts", fixturePath],
     {
       cwd: projectDirectory,
       stdout: "pipe",
@@ -79,7 +79,7 @@ async function runBrowser(
   const stdout = await new Response(child.stdout).text()
   const exitCode = await child.exited
   if (exitCode !== 0) {
-    throw new Error(`Browser decode benchmark exited with code ${exitCode}`)
+    throw new Error(`External browser decode benchmark exited with code ${exitCode}`)
   }
 
   // SAFETY: this child runs the repository browser benchmark; the schema/backend checks below reject mismatched output.
