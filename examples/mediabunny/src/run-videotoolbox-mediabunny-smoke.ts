@@ -1,4 +1,3 @@
-import path from "node:path"
 import {
   ALL_FORMATS,
   BufferSource,
