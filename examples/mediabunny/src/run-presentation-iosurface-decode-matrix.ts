@@ -19,6 +19,8 @@ const fixturePath = join(workDirectory, "fixture.mp4")
 const baseEnv = {
   ...process.env,
   MEDIABUNNY_PRESENTATION_CODEC: "avc",
+  MEDIABUNNY_PRESENTATION_ITERATIONS: process.env.MEDIABUNNY_PRESENTATION_ITERATIONS ?? "5",
+  MEDIABUNNY_PRESENTATION_WARMUPS: process.env.MEDIABUNNY_PRESENTATION_WARMUPS ?? "2",
 }
 
 type Variant = {
@@ -78,6 +80,7 @@ async function runJson(
   const exitCode = await child.exited
   if (exitCode !== 0) throw new Error(`${script} exited with code ${exitCode}`)
 
+  // SAFETY: repository benchmark children emit PresentationBenchmarkReport JSON, validated below.
   const report = JSON.parse(stdout) as PresentationBenchmarkReport
   if (report.schemaVersion !== 2 || report.workload.codec !== "avc") {
     throw new Error(`${script} returned an unsupported report`)
