@@ -4,10 +4,6 @@ import {
   type FileHandle,
 } from "node:fs/promises"
 
-type InternalPathedSource = PathedSource & {
-  _dispatchRead(start: number, end: number): void
-}
-
 class GpuixFilePathSource extends PathedSource {
   #handlePromise: Promise<FileHandle> | null = null
   #size: number | undefined
@@ -65,8 +61,6 @@ class GpuixFilePathSource extends PathedSource {
       }
       offset += bytesRead
     }
-
-    ;(this as unknown as InternalPathedSource)._dispatchRead(start, readEnd)
 
     return {
       bytes,
