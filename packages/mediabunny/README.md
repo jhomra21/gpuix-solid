@@ -17,7 +17,7 @@ const registration = registerGpuixMediaBunny()
 Registration installs:
 
 - the VideoToolbox custom decoder when the macOS addon is available;
-- `@mediabunny/prores` and `@mediabunny/server` as the broad codec fallback;
+- `@mediabunny/server` as the broad codec fallback; its upstream registration keeps NodeAV ahead of the bundled ProRes decoder;
 - `@napi-rs/canvas` globals needed by MediaBunny Canvas APIs in Bun/Node;
 - the GPUix-compatible CanvasSink bridge.
 
@@ -49,7 +49,7 @@ if (sample) {
 
 For a VideoToolbox-backed AVC/HEVC sample, `MediaBunnyGpuixPresenter` hands the IOSurface directly to GPUix. Other sample resources use MediaBunny's `copyTo(..., { format: "BGRA" })` path and GPUix's BGRA video-frame surface.
 
-The same native sample remains a normal MediaBunny `VideoSample`: cloning, random access, transforms, `copyTo`, and conversion all work. If VideoToolbox returns a hardware pixel format that does not have a direct MediaBunny plane mapping, RGB requests fall back through CoreImage instead of disabling native presentation.
+The same native sample remains a normal MediaBunny `VideoSample`: cloning, random access, transforms, `copyTo`, and conversion all work. CoreVideo NV12 and planar 8-bit 4:2:0 frames map directly to MediaBunny formats. If VideoToolbox returns another hardware layout that MediaBunny does not model directly, CPU reads fall back lazily through CoreImage as RGBA instead of disabling native presentation.
 
 ## Codec coverage
 
