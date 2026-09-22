@@ -35,12 +35,7 @@ async function run(
 
 try {
   await run("src/create-presentation-fixture.ts", [fixturePath])
-  await run("src/run-presentation-iosurface-native.ts", [fixturePath])
-  await run(
-    "src/run-presentation-iosurface-native.ts",
-    [fixturePath],
-    { GPUIX_MEDIA_PACKET_BATCH: "2" },
-  )
+  await run("src/run-presentation-streaming-videotoolbox-native.ts", [fixturePath])
 } finally {
   await rm(fixturePath, { force: true })
 }
