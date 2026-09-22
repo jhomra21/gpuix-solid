@@ -266,9 +266,7 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       {
         std::unique_lock<std::mutex> lock(task->mutex);
         task->cv.wait(lock, [&] {
-          return !task->pending_frames.empty()
-            || task->decode_done
-            || !task->error.empty();
+          return !task->pending_frames.empty() || task->decode_done;
         });
 
         if (task->pending_frames.empty()) {
