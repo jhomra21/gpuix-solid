@@ -588,6 +588,9 @@ export interface NativeRenderer {
   setWindowSelectionChange?(enabled: boolean, eventId: number): void
   scrollTo?(elementId: number, x: number, y: number): void
   scrollToItem?(elementId: number, index: number, offsetInItem?: number): void
+  scrollIntoView?(elementId: number): void
+  setImage?(elementId: number, bytes: Uint8Array): void
+  setImagePixels?(elementId: number, width: number, height: number, pixels: Uint8Array): void
   getScrollOffset?(elementId: number): number[] | null
   getListScrollTop?(elementId: number): number[] | null
   getSelectedText?(): string | null
@@ -600,6 +603,9 @@ export interface NativeRenderer {
   /** Version of the binary BGRA frame-surface protocol, or undefined when unavailable. */
   getVideoFrameSurfaceVersion?(): number | undefined
   setVideoFrameBgra?(elementId: number, width: number, height: number, data: Uint8Array): void
+  /** Version of direct macOS IOSurface frame presentation, or undefined when unavailable. */
+  getVideoFrameIosurfaceVersion?(): number | undefined
+  setVideoFrameIosurface?(elementId: number, handle: Uint8Array): void
   clearVideoFrame?(elementId: number): void
   activateWindow?(): void
   setWindowTitle?(title: string): void
@@ -622,4 +628,11 @@ export interface WindowKeyEventHandlers {
 export interface PublicInstance {
   readonly id: number
   readonly type: ElementType
+  scrollIntoView?(): void
+}
+
+export interface ImgInstance extends PublicInstance {
+  readonly type: "img"
+  setImage(bytes: Uint8Array): void
+  setImagePixels(width: number, height: number, pixels: Uint8Array): void
 }

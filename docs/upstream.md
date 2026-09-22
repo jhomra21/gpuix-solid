@@ -2,20 +2,21 @@
 
 GPUix Solid treats `remorses/gpuix` as the canonical behavioral and native-protocol reference.
 
-## Current released baseline
+## Current package and source-edge baselines
 
-Recorded: **2026-09-19**
+Recorded: **2026-09-21**
 
 - Repository: https://github.com/remorses/gpuix
-- Source baseline: `7ac9880abd8e91e5bf0e4feb0fa850729cf95a68`
-- `@gpuix/native`: exact `0.9.0`
-- `@gpuix/react`: `0.9.0` at the same source baseline
+- Published package baseline source: `7ac9880abd8e91e5bf0e4feb0fa850729cf95a68`
+- Pinned source-edge baseline: `410fb56f2e599ef49b1dabfc43872b6ff8047916` (GPUIX 0.10.0)
+- `@gpuix/native`: exact `0.9.0` for the plain npm-installed path
+- `@gpuix/react`: published `0.9.0` remains the default-package comparison line
 - Solid 2 runtime: `solid-js@2.0.0-rc.8` with `@solidjs/universal@2.0.0-rc.8`
 - Solid 1 runtime exercised by CI: `solid-js@1.9.15`
 
-Both Solid packages depend on exact `@gpuix/native@0.9.0`. The same upstream source revision is pinned in `.gpuix/edge.json`. The default published-native baseline is unmodified 0.9; the Canvas development lane applies the audited patch list recorded beside that pin, so source-edge behavior may intentionally include a small native capability that is not yet in the published package.
+Both Solid packages still depend on exact `@gpuix/native@0.9.0` by default. The pinned source-edge lane now starts from GPUIX 0.10.0 so forward compatibility is exercised against the current upstream release before the published dependency moves. GPUIX 0.10's live `<img>` buffer uploads and `scrollIntoView()` are consumed directly there; the old local live-image backport was removed. The remaining edge patches are limited to native Canvas and video-frame work that is not upstream.
 
-GPUIX 0.9 adds the window-level `selectionChange` contract and the native click/selection ownership fix. GPUix Solid maps the selection event into both roots and exposes the Solid-owned `createTextSelection()` primitive. The production batch adapter must forward the native selection subscription; this is covered separately from the native test-renderer path.
+GPUIX 0.9 remains the published dependency contract and includes the window-level `selectionChange` contract plus the native click/selection ownership fix. GPUix Solid maps the selection event into both roots and exposes the Solid-owned `createTextSelection()` primitive.
 
 ## Published package versus source edge
 

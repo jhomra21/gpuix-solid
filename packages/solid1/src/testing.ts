@@ -20,6 +20,9 @@ type SourceEdgeNativeTestRenderer = NativeTestRendererApi & {
   getCanvasDrawListVersion?: () => number
   getVideoFrameSurfaceVersion?: () => number
   setVideoFrameBgra?: (elementId: number, width: number, height: number, data: Uint8Array) => void
+  scrollIntoView?: (elementId: number) => void
+  setImage?: (elementId: number, bytes: Uint8Array) => void
+  setImagePixels?: (elementId: number, width: number, height: number, pixels: Uint8Array) => void
   clearVideoFrame?: (elementId: number) => void
 }
 

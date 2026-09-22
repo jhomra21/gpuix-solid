@@ -171,6 +171,7 @@ The repository includes source-pinned GPUIX ports and larger native application 
 | Mail | 2 | `bun run example:mail` | three-pane mail UI, HTTP images, navigation, reader modes, text selection |
 | Chat | 2 | `bun run example:chat` | virtualized history, menus, composer input, selection, scrolling, Markdown/MDX |
 | Timeline | 2 | `bun run example:timeline` | pan and zoom, clip editing, snapping, pointer capture |
+| Waveform | 2 | `bun run example:waveform` | GPUIX 0.10 live RGBA image updates and `scrollIntoView()` |
 | Todo | 2 | `bun run example:todo` | native input, virtual lists, hover controls, sidebar motion |
 | GPUIX 0.9 surface | 2 | `bun run example:gpuix-surface` | accessibility metadata, textarea input, text decoration, reactive window selection |
 | Dashboard | 2 | `bun run example:dashboard` | routes, controlled input, lists, dialogs, scrolling |
@@ -211,7 +212,7 @@ Solid 1 and Solid 2 use different framework runtimes, but they share the framewo
 
 ## GPUIX 0.9 baseline
 
-Both renderer packages consume the exact published GPUIX 0.9 native contract. GPUIX 0.9 adds window-level selection-change events and includes the upstream native click/selection ownership fix; GPUix Solid exposes the event at the root boundary and as the Solid-native `createTextSelection()` primitive.
+Both renderer packages consume the exact published GPUIX 0.9 native contract by default. The pinned source-edge lane is already on GPUIX 0.10.0, where it exercises the new live image-buffer and `scrollIntoView()` APIs plus this repository's Canvas/video patches. GPUIX 0.9 adds window-level selection-change events and includes the upstream native click/selection ownership fix; GPUix Solid exposes the event at the root boundary and as the Solid-native `createTextSelection()` primitive.
 
 The maintained Solid paths test accessibility metadata, focus and tab metadata, text decoration, controlled text input, pointer input, native images, and the event and window behavior used by the current examples.
 
@@ -322,7 +323,7 @@ Run the complete local showcase with `bun run example:desktop`.
 
 ## Testing
 
-Repository CI validates macOS, Ubuntu, Windows, the Solid 1 package and consumers, the Solid 2 package tarball, source-pinned examples, and the exact GPUIX 0.9 source compatibility lane. The Solid 2 package and clean consumers run against the paired `solid-js@2.0.0-rc.8` and `@solidjs/universal@2.0.0-rc.8` baseline.
+Repository CI validates macOS, Ubuntu, Windows, the Solid 1 package and consumers, the Solid 2 package tarball, source-pinned examples, and the pinned GPUIX 0.10 source-edge compatibility lane. The Solid 2 package and clean consumers run against the paired `solid-js@2.0.0-rc.8` and `@solidjs/universal@2.0.0-rc.8` baseline.
 
 The Solid 2 package also exports Playwright-like native automation:
 

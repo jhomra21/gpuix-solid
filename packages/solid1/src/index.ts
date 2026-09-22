@@ -84,6 +84,7 @@ export type {
   HostEventHandler,
   HostProps,
   HostRef,
+  ImgInstance,
   ImgProps,
   LinearGradientBackground,
   LinearGradientStop,

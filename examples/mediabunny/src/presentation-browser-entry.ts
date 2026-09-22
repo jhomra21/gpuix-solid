@@ -19,6 +19,7 @@ if (!(reportNode instanceof HTMLElement)) {
 const parameters = new URLSearchParams(location.search)
 const iterations = Number(parameters.get("iterations") ?? 3)
 const warmups = Number(parameters.get("warmups") ?? 1)
+const codec = parameters.get("codec") === "avc" ? "avc" : "vp8"
 
 function createInput(buffer: ArrayBuffer) {
   return new Input({
@@ -162,7 +163,7 @@ try {
     backend: "browser-webcodecs-canvas",
     generatedAt: new Date().toISOString(),
     workload: {
-      codec: "vp8",
+      codec,
       fixtureBytes: fixture.byteLength,
       warmups,
       iterations,

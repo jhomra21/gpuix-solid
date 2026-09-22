@@ -116,6 +116,6 @@ function SelectionStatus() {
 
 The package exports the renderer and JSX runtime, native host components, Solid primitives, animation helpers, test renderer helpers, and `gpuix-solid/automation` for live native-process automation.
 
-The `0.2.x` repository baseline uses exact `@gpuix/native@0.9.0` plus the paired Solid 2 RC.8 runtime. CI exercises macOS arm64, Linux x64 GNU, Windows x64 MSVC, the exact pinned GPUIX 0.9 source lane, the Solid 2 package tarball, clean RC.8 consumers, and native interaction/parity fixtures. The 0.1 release records remain historical qualification evidence for the earlier GPUIX 0.8 line.
+The `0.2.x` package baseline uses exact `@gpuix/native@0.9.0` plus the paired Solid 2 RC.8 runtime. CI exercises macOS arm64, Linux x64 GNU, Windows x64 MSVC, the pinned GPUIX 0.10.0 source-edge lane, the Solid 2 package tarball, clean RC.8 consumers, and native interaction/parity fixtures. The 0.1 release records remain historical qualification evidence for the earlier GPUIX 0.8 line.
 
 For the complete Vite configuration, Solid 1 setup, examples, compatibility notes, source-pinned GPUIX parity work, and release history, see the [GPUix Solid repository](https://github.com/jhomra21/gpuix-solid).

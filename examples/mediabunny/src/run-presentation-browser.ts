@@ -13,6 +13,7 @@ const buildDirectory = join(projectDirectory, ".browser-presentation-benchmark")
 const iterations = Number(process.env.MEDIABUNNY_PRESENTATION_ITERATIONS ?? 3)
 const warmups = Number(process.env.MEDIABUNNY_PRESENTATION_WARMUPS ?? 1)
 const headless = process.env.MEDIABUNNY_PRESENTATION_HEADLESS !== "0"
+const codec = process.env.MEDIABUNNY_PRESENTATION_CODEC === "avc" ? "avc" : "vp8"
 
 await rm(buildDirectory, { recursive: true, force: true })
 await mkdir(buildDirectory, { recursive: true })
@@ -64,7 +65,7 @@ const browser = await chromium.launch({ headless })
 try {
   const page = await browser.newPage()
   await page.goto(
-    `http://127.0.0.1:${server.port}/?iterations=${iterations}&warmups=${warmups}`,
+    `http://127.0.0.1:${server.port}/?iterations=${iterations}&warmups=${warmups}&codec=${codec}`,
   )
   await page.waitForFunction(() => {
     const status = document.body.dataset.status

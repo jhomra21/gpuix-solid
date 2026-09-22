@@ -25,6 +25,11 @@ type SourceEdgeNativeTestRenderer = NativeTestRendererApi & {
   getCanvasDrawListVersion?: () => number
   getVideoFrameSurfaceVersion?: () => number
   setVideoFrameBgra?: (elementId: number, width: number, height: number, data: Uint8Array) => void
+  getVideoFrameIosurfaceVersion?: () => number
+  setVideoFrameIosurface?: (elementId: number, handle: Uint8Array) => void
+  scrollIntoView?: (elementId: number) => void
+  setImage?: (elementId: number, bytes: Uint8Array) => void
+  setImagePixels?: (elementId: number, width: number, height: number, pixels: Uint8Array) => void
   clearVideoFrame?: (elementId: number) => void
 }
 
@@ -334,10 +339,46 @@ export class TestRenderer implements NativeRenderer {
     native.setVideoFrameBgra(elementId, width, height, data)
   }
 
+  getVideoFrameIosurfaceVersion(): number | undefined {
+    // SAFETY: source-edge GPUIX may expose direct IOSurface methods before the published native typings.
+    const native = this.#native as SourceEdgeNativeTestRenderer
+    return native.getVideoFrameIosurfaceVersion?.()
+  }
+
+  setVideoFrameIosurface(elementId: number, handle: Uint8Array): void {
+    // SAFETY: source-edge GPUIX may expose direct IOSurface methods before the published native typings.
+    const native = this.#native as SourceEdgeNativeTestRenderer
+    if (!native.setVideoFrameIosurface) throw new Error("Native IOSurface video-frame surface is unavailable")
+    native.setVideoFrameIosurface(elementId, handle)
+  }
+
   clearVideoFrame(elementId: number): void {
     // SAFETY: source-edge GPUIX may expose video-frame methods before the published native typings.
     const native = this.#native as SourceEdgeNativeTestRenderer
     native.clearVideoFrame?.(elementId)
+  }
+
+  scrollIntoView(elementId: number): void {
+    // SAFETY: source-edge GPUIX may expose host-ref scrolling before the published native typings.
+    const native = this.#native as SourceEdgeNativeTestRenderer
+    native.scrollIntoView?.(elementId)
+    this.#native.flush()
+  }
+
+  setImage(elementId: number, bytes: Uint8Array): void {
+    // SAFETY: source-edge GPUIX may expose live image uploads before the published native typings.
+    const native = this.#native as SourceEdgeNativeTestRenderer
+    if (!native.setImage) throw new Error("Native live image upload is unavailable")
+    native.setImage(elementId, bytes)
+    this.#native.flush()
+  }
+
+  setImagePixels(elementId: number, width: number, height: number, pixels: Uint8Array): void {
+    // SAFETY: source-edge GPUIX may expose live image uploads before the published native typings.
+    const native = this.#native as SourceEdgeNativeTestRenderer
+    if (!native.setImagePixels) throw new Error("Native live image pixel upload is unavailable")
+    native.setImagePixels(elementId, width, height, pixels)
+    this.#native.flush()
   }
 
   getListScrollTop(elementId: number): [number, number, number] | null {

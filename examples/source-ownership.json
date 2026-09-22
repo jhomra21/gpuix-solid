@@ -117,6 +117,12 @@
     "example:desktop": {
       "classification": "original",
       "note": "Repository-owned diagnostic showcase for desktop dialogs, shell integration, native file drops, semantic internal drag/drop, and the GPUIX default application menu."
+    },
+    "example:waveform": {
+      "classification": "official-gpuix-solid-derived",
+      "repository": "remorses/gpuix",
+      "revision": "410fb56f2e599ef49b1dabfc43872b6ff8047916",
+      "contract": "examples/counter/src/waveform/UPSTREAM.md"
     }
   }
 }

@@ -30,7 +30,7 @@
     "gpuix:edge:live-automation": "bun run examples:live",
     "gpuix:edge:solid1": "cd packages/solid1 && bun install --no-save && cd ../.. && node scripts/gpuix-edge.mjs link && cd packages/solid1 && bun run test && bun run typecheck",
     "gpuix:edge:solid1-examples": "node scripts/check-gpuix-edge-solid1-examples.mjs",
-    "gpuix:edge:check": "bun run gpuix:edge:verify && bun run lint:code && bun run gpuix:edge:native-capabilities && bun run gpuix:edge:canvas && bun run gpuix:edge:video-frame && bun run gpuix:edge:mediabunny-surface && bun run typecheck && bun run test:logic && bun run build && bun run gpuix:edge:solid1 && bun run gpuix:edge:solid1-examples",
+    "gpuix:edge:check": "bun run gpuix:edge:verify && bun run lint:code && bun run gpuix:edge:native-capabilities && bun run gpuix:edge:canvas && bun run gpuix:edge:video-frame && bun run gpuix:edge:mediabunny-surface && bun run gpuix:edge:waveform && bun run typecheck && bun run test:logic && bun run build && bun run gpuix:edge:solid1 && bun run gpuix:edge:solid1-examples",
     "gpuix:edge:ui:diagnostic": "bun run gpuix:edge:live-automation",
     "gpuix:edge:example:diffusion": "bun run gpuix:edge:verify && bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' build:diffusion && bun run gpuix:edge:verify && bun run --filter 'gpuix-solid-counter' start:diffusion",
     "lint:code": "oxlint .",
@@ -76,7 +76,9 @@
     "perf:report": "node scripts/perf-report.mjs",
     "gpuix:edge:canvas": "bun run --filter 'gpuix-solid' test:canvas:native",
     "gpuix:edge:video-frame": "bun run --filter 'gpuix-solid' test:video-frame:native",
-    "gpuix:edge:mediabunny-surface": "cd examples/mediabunny && bun install --no-save && bun run check:gpuix-live && bun run check:presentation && bun run smoke:presentation-native && bun run smoke:presentation-server-native && bun run dogfood:gpuix-surface"
+    "gpuix:edge:mediabunny-surface": "cd examples/mediabunny && bun install --no-save && bun run check:gpuix-live && bun run check:presentation && bun run smoke:presentation-native && bun run smoke:presentation-server-native && bun run smoke:presentation-iosurface && bun run dogfood:gpuix-surface",
+    "gpuix:edge:waveform": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' test:waveform",
+    "example:waveform": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:waveform"
   },
   "devDependencies": {
     "@oxlint/plugins": "1.79.0",

@@ -8,6 +8,7 @@ const {
   Output,
   Quality,
   VideoSample,
+  Mp4OutputFormat,
   VideoSampleSource,
   WebMOutputFormat,
 } = await import("mediabunny")
@@ -19,6 +20,7 @@ const width = Number(process.env.MEDIABUNNY_PRESENTATION_WIDTH ?? 1280)
 const height = Number(process.env.MEDIABUNNY_PRESENTATION_HEIGHT ?? 720)
 const frameRate = Number(process.env.MEDIABUNNY_PRESENTATION_FPS ?? 30)
 const frameCount = Number(process.env.MEDIABUNNY_PRESENTATION_FRAMES ?? 60)
+const codec = process.env.MEDIABUNNY_PRESENTATION_CODEC === "avc" ? "avc" : "vp8"
 
 if (![width, height, frameRate, frameCount].every((value) => Number.isInteger(value) && value > 0)) {
   throw new Error("Presentation fixture dimensions, frame rate, and frame count must be positive integers")
@@ -57,11 +59,11 @@ function makeFrame(index: number) {
 
 const target = new BufferTarget()
 const output = new Output({
-  format: new WebMOutputFormat(),
+  format: codec === "avc" ? new Mp4OutputFormat() : new WebMOutputFormat(),
   target,
 })
 const source = new VideoSampleSource({
-  codec: "vp8",
+  codec,
   quality: new Quality({ bitrate: 4_000_000 }),
 })
 output.addVideoTrack(source, { frameRate })
