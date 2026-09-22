@@ -104,11 +104,7 @@ async function prepareInput() {
     const sink = new EncodedPacketSink(track)
     for await (const packet of sink.packets()) {
       packets.push({
-        data: Buffer.from(
-          packet.data.buffer,
-          packet.data.byteOffset,
-          packet.data.byteLength,
-        ),
+        data: Buffer.from(packet.data),
         timestamp: Math.round(packet.microsecondTimestamp),
         duration: Math.round(packet.microsecondDuration),
         keyframe: packet.type === "key",
