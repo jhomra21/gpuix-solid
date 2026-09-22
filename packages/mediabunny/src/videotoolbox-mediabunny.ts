@@ -1,5 +1,6 @@
 import { createRequire } from "node:module"
 import path from "node:path"
+import { fileURLToPath } from "node:url"
 import {
   CustomVideoDecoder,
   EncodedPacket,
@@ -75,8 +76,9 @@ type NativeModule = {
 }
 
 const require = createRequire(import.meta.url)
+const sourceDirectory = path.dirname(fileURLToPath(import.meta.url))
 const addonPath = path.join(
-  import.meta.dir,
+  sourceDirectory,
   "..",
   "native",
   "videotoolbox",
@@ -127,9 +129,10 @@ export class VideoToolboxVideoSampleResource extends VideoSampleResource {
   ) {
     super()
     this.#frame = frame
+    const fullRange = config.colorSpace?.fullRange ?? frame.fullRange
     this.#colorSpace = new VideoSampleColorSpace({
       ...config.colorSpace,
-      fullRange: config.colorSpace?.fullRange ?? frame.fullRange ?? undefined,
+      ...(fullRange === null || fullRange === undefined ? {} : { fullRange }),
     })
     this.#squarePixelWidth = config.displayAspectWidth ?? frame.width
     this.#squarePixelHeight = config.displayAspectHeight ?? frame.height
