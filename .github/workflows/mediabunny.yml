@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "examples/mediabunny/**"
+      - "packages/mediabunny/**"
       - ".github/workflows/mediabunny.yml"
   workflow_dispatch:
 
