@@ -80,15 +80,14 @@ jobs:
           mkdir -p /tmp/gpuix-mediabunny-package-smoke
           cd /tmp/gpuix-mediabunny-package-smoke
           npm init -y >/dev/null
-          node - <<'NODE'
-          const fs = require("node:fs")
-          const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"))
-          packageJson.allowScripts = {
-            "@jhomra21/gpuix-mediabunny": true,
-          }
-          fs.writeFileSync("package.json", JSON.stringify(packageJson, null, 2) + "\n")
-          NODE
           npm install "$GITHUB_WORKSPACE/packages/mediabunny/$package_file" mediabunny@1.59.0 @mediabunny/server@1.59.0 @mediabunny/prores@1.59.0 >/dev/null
+          npm install-scripts approve @jhomra21/gpuix-mediabunny
+          npm rebuild @jhomra21/gpuix-mediabunny
+          pending=$(npm install-scripts ls || true)
+          if echo "$pending" | grep -q '@jhomra21/gpuix-mediabunny'; then
+            echo "gpuix-mediabunny install script is still pending after explicit approval"
+            exit 1
+          fi
           node --input-type=module - <<'NODE'
           import {
             getVideoToolboxVideoSampleResource,
