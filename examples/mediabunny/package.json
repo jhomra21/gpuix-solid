@@ -36,7 +36,8 @@
     "@napi-rs/webcodecs": "1.4.1",
     "mediabunny": "1.59.0",
     "@napi-rs/canvas": "1.0.9",
-    "node-av": "6.0.0"
+    "node-av": "6.0.0",
+    "@mediabunny/prores": "1.59.0"
   },
   "devDependencies": {
     "playwright": "1.63.0",
