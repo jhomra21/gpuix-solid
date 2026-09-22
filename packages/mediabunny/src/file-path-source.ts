@@ -1,67 +1,92 @@
 import {
-  CustomPathedSource,
   CustomSource,
+  PathedSource,
 } from "mediabunny"
 import {
   open,
   type FileHandle,
 } from "node:fs/promises"
 
-function createFileSource(filePath: string): CustomSource {
-  let handlePromise: Promise<FileHandle> | null = null
-  let closed = false
+class GpuixFilePathSource extends PathedSource {
+  #source: CustomSource
 
-  const getHandle = () => {
-    if (closed) {
-      throw new Error("GPUix file-path source is closed")
+  constructor(filePath: string) {
+    super(filePath, ({ path }) => new GpuixFilePathSource(path))
+
+    let handlePromise: Promise<FileHandle> | null = null
+    let closed = false
+
+    const getHandle = () => {
+      if (closed) {
+        throw new Error("GPUix file-path source is closed")
+      }
+      handlePromise ??= open(filePath, "r")
+      return handlePromise
     }
-    handlePromise ??= open(filePath, "r")
-    return handlePromise
+
+    this.#source = new CustomSource({
+      async getSize() {
+        return (await (await getHandle()).stat()).size
+      },
+      async read(start, end) {
+        const handle = await getHandle()
+        const bytes = new Uint8Array(end - start)
+        let offset = 0
+
+        while (offset < bytes.byteLength) {
+          const { bytesRead } = await handle.read(
+            bytes,
+            offset,
+            bytes.byteLength - offset,
+            start + offset,
+          )
+          if (bytesRead === 0) {
+            throw new Error(
+              "GPUix file-path source reached EOF before completing the requested range",
+            )
+          }
+          offset += bytesRead
+        }
+
+        return bytes
+      },
+      dispose() {
+        closed = true
+        const pending = handlePromise
+        handlePromise = null
+        if (pending) {
+          void pending.then((handle) => handle.close()).catch(() => {})
+        }
+      },
+      prefetchProfile: "fileSystem",
+    })
   }
 
-  return new CustomSource({
-    async getSize() {
-      return (await (await getHandle()).stat()).size
-    },
-    async read(start, end) {
-      const handle = await getHandle()
-      const bytes = new Uint8Array(end - start)
-      let offset = 0
+  override _read(
+    start: number,
+    end: number,
+    minReadPosition: number,
+    maxReadPosition: number,
+  ) {
+    return this.#source._read(
+      start,
+      end,
+      minReadPosition,
+      maxReadPosition,
+    )
+  }
 
-      while (offset < bytes.byteLength) {
-        const { bytesRead } = await handle.read(
-          bytes,
-          offset,
-          bytes.byteLength - offset,
-          start + offset,
-        )
-        if (bytesRead === 0) {
-          throw new Error(
-            "GPUix file-path source reached EOF before completing the requested range",
-          )
-        }
-        offset += bytesRead
-      }
+  override _getFileSize() {
+    return this.#source._getFileSize()
+  }
 
-      return bytes
-    },
-    dispose() {
-      closed = true
-      const pending = handlePromise
-      handlePromise = null
-      if (pending) {
-        void pending.then((handle) => handle.close()).catch(() => {})
-      }
-    },
-    prefetchProfile: "none",
-  })
+  override _dispose() {
+    this.#source._dispose()
+  }
 }
 
 export function createGpuixFilePathSource(
   rootPath: string,
-): CustomPathedSource {
-  return new CustomPathedSource(
-    rootPath,
-    async ({ path }) => createFileSource(path).ref(),
-  )
+): PathedSource {
+  return new GpuixFilePathSource(rootPath)
 }
