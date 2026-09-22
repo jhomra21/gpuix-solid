@@ -106,7 +106,7 @@ To tune the retained steady-state batch against presentation p95:
 bun run bench:presentation:iosurface:batch-matrix
 ```
 
-The command prints one localhost URL per resolution. Open each URL in Codex's in-app browser; the page posts its browser WebCodecs report back to the waiting CLI, which then runs the native worker measurement and advances to the next resolution. No Playwright or separate Chromium install is required for this command.
+The in-app-browser comparison commands print one localhost URL per resolution. Open each URL in Codex's in-app browser; the page posts its browser report back to the waiting CLI, which then runs that command's native half and advances to the next resolution. No Playwright or separate Chromium install is required for these local comparison commands.
 
 `bench:presentation:iosurface:decode-matrix` keeps the browser path fixed and reruns the native VideoToolbox path with isolated decoder variables: an extra JavaScript packet copy versus a Buffer view, async versus synchronous NodeAV codec calls, packet queue depths from 1 through 40, low-latency first-frame scheduling, and extra hardware-frame pool capacity. It defaults to two warmups and five measured runs so small timing changes are less likely to be mistaken for improvements. The matrix also reports decoder receive calls per frame and send-side `EAGAIN` counts so a throughput change can be tied back to queue pressure instead of timing noise. The regular IOSurface benchmark remains unchanged by default. `bench:presentation:iosurface:decode-scaling` runs that matrix at 1280×720, 1920×1080, and 3840×2160, preserves every raw report with its resolution in the filename, and writes `reports/presentation-iosurface-decode-scaling.md`.
 
