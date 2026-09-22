@@ -100,6 +100,12 @@ For the promoted end-to-end direct IOSurface path:
 bun run bench:presentation:iosurface:direct-scaling
 ```
 
+To tune the retained steady-state batch against presentation p95:
+
+```bash
+bun run bench:presentation:iosurface:batch-matrix
+```
+
 The command prints one localhost URL per resolution. Open each URL in Codex's in-app browser; the page posts its browser WebCodecs report back to the waiting CLI, which then runs the native worker measurement and advances to the next resolution. No Playwright or separate Chromium install is required for this command.
 
 `bench:presentation:iosurface:decode-matrix` keeps the browser path fixed and reruns the native VideoToolbox path with isolated decoder variables: an extra JavaScript packet copy versus a Buffer view, async versus synchronous NodeAV codec calls, packet queue depths from 1 through 40, low-latency first-frame scheduling, and extra hardware-frame pool capacity. It defaults to two warmups and five measured runs so small timing changes are less likely to be mistaken for improvements. The matrix also reports decoder receive calls per frame and send-side `EAGAIN` counts so a throughput change can be tied back to queue pressure instead of timing noise. The regular IOSurface benchmark remains unchanged by default. `bench:presentation:iosurface:decode-scaling` runs that matrix at 1280×720, 1920×1080, and 3840×2160, preserves every raw report with its resolution in the filename, and writes `reports/presentation-iosurface-decode-scaling.md`.
@@ -110,7 +116,9 @@ The command prints one localhost URL per resolution. Open each URL in Codex's in
 
 The promoted presentation path keeps the same direct decoder but captures only a bounded batch of decoded CVPixelBuffers at a time. The addon retains those hardware frames until JavaScript has handed each IOSurface to GPUix and flushed GPUI, then `releaseFrames()` releases the batch. The first packet is decoded as its own batch to preserve first-frame latency; steady state defaults to eight packets per batch. FFmpeg, NodeAV, CPU frame download, BGRA conversion, and RenderImage atlas upload are absent from this path.
 
-Use `bench:presentation:iosurface:direct-scaling` for the 720p/1080p/4K acceptance run. It compares MediaBunny `CanvasSink` + browser WebCodecs against direct VideoToolbox + IOSurface + GPUix, using Codex's in-app browser for the browser half. It reports decode throughput, end-to-end and steady-state presentation throughput, first-presented-frame latency, presentation-step p95, and native decode/handoff/flush stages in `reports/presentation-direct-iosurface-scaling.md`.
+The first 720p/1080p/4K acceptance run showed the direct path winning decode throughput, presentation throughput, and first-presented-frame latency at every resolution, but losing presentation-step p95. With the default eight-packet steady batch, p95 was 2.05 ms vs 0.80 ms at 720p, 3.96 ms vs 1.20 ms at 1080p, and 14.12 ms vs 8.60 ms at 4K. Native decode batches dominated measured native time while IOSurface handoff and GPUI flush were small, which points to the synchronous steady-batch boundary as the source of the presentation-step stalls.
+
+Use `bench:presentation:iosurface:batch-matrix` to isolate that tradeoff. It measures the browser baseline once per resolution, then reruns the direct native presentation path with steady batches of 1, 2, 4, and 8 packets while keeping the first packet as its own low-latency batch. The scorecard requires native decode and presentation throughput above 1x, plus first-frame and presentation-step p95 below 1x, at 720p, 1080p, and 4K. Results are written to `reports/presentation-direct-iosurface-batch-matrix.md`.
 
 The default workload is 1280×720, 60 frames at 30 fps, one warmup, and three measured runs. `bench:presentation` compares Chromium with the napi-WebCodecs path. `bench:presentation:server` compares Chromium with the direct MediaBunny server AVFrame path. On macOS, `bench:presentation:iosurface` switches the shared fixture to AVC and compares Chromium with the VideoToolbox/IOSurface GPUix path. The commands write:
 
