@@ -66,7 +66,19 @@ The current GPUix backend scorecard is **50 passes, 0 unsupported, 0 known gaps,
 
 ## Native addon
 
-The VideoToolbox addon is macOS-only. Published installs attempt to build it during the package install step; other operating systems skip that step. In this repository it can also be built explicitly with:
+The VideoToolbox addon is macOS-only. In npm 12+, dependency lifecycle scripts are opt-in, so an npm consumer that wants VideoToolbox acceleration must explicitly approve this package's reviewed install script before installing it:
+
+```json
+{
+  "allowScripts": {
+    "@jhomra21/gpuix-mediabunny": true
+  }
+}
+```
+
+This is the configuration the future `diffusion-editor-gpuix` npm workspace should carry. If the install script is not approved, the package still works through MediaBunny Server, but `registration.videoToolbox` is false and AVC/HEVC use the fallback path.
+
+In this repository the addon can also be built explicitly with:
 
 ```bash
 cd packages/mediabunny
