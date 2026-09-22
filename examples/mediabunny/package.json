@@ -22,7 +22,10 @@
     "smoke:videotoolbox-direct": "rm -f /tmp/gpuix-mediabunny-vt-direct-smoke.mp4 && MEDIABUNNY_PRESENTATION_CODEC=avc MEDIABUNNY_PRESENTATION_WIDTH=64 MEDIABUNNY_PRESENTATION_HEIGHT=36 MEDIABUNNY_PRESENTATION_FRAMES=4 bun src/create-presentation-fixture.ts /tmp/gpuix-mediabunny-vt-direct-smoke.mp4 && MEDIABUNNY_PRESENTATION_ITERATIONS=1 MEDIABUNNY_PRESENTATION_WARMUPS=0 bun src/run-direct-decode-videotoolbox.ts /tmp/gpuix-mediabunny-vt-direct-smoke.mp4 && rm -f /tmp/gpuix-mediabunny-vt-direct-smoke.mp4",
     "smoke:videotoolbox-stream": "rm -f /tmp/gpuix-mediabunny-vt-stream-smoke.mp4 && MEDIABUNNY_PRESENTATION_CODEC=avc MEDIABUNNY_PRESENTATION_WIDTH=64 MEDIABUNNY_PRESENTATION_HEIGHT=36 MEDIABUNNY_PRESENTATION_FRAMES=4 bun src/create-presentation-fixture.ts /tmp/gpuix-mediabunny-vt-stream-smoke.mp4 && bun src/run-direct-videotoolbox-stream-smoke.ts /tmp/gpuix-mediabunny-vt-stream-smoke.mp4 && rm -f /tmp/gpuix-mediabunny-vt-stream-smoke.mp4",
     "build:videotoolbox": "node-gyp rebuild --directory native/videotoolbox",
-    "bench:presentation:iosurface:scaling": "bun run build:videotoolbox && bun src/run-presentation-streaming-iosurface-scaling.ts"
+    "bench:presentation:iosurface:scaling": "bun run build:videotoolbox && bun src/run-presentation-streaming-iosurface-scaling.ts",
+    "smoke:videotoolbox-hevc": "rm -f /tmp/gpuix-mediabunny-vt-hevc-smoke.mp4 && MEDIABUNNY_PRESENTATION_CODEC=hevc MEDIABUNNY_PRESENTATION_WIDTH=64 MEDIABUNNY_PRESENTATION_HEIGHT=36 MEDIABUNNY_PRESENTATION_FRAMES=4 bun src/create-presentation-fixture.ts /tmp/gpuix-mediabunny-vt-hevc-smoke.mp4 && MEDIABUNNY_PRESENTATION_CODEC=hevc MEDIABUNNY_PRESENTATION_ITERATIONS=1 MEDIABUNNY_PRESENTATION_WARMUPS=0 bun src/run-direct-decode-videotoolbox.ts /tmp/gpuix-mediabunny-vt-hevc-smoke.mp4 && MEDIABUNNY_PRESENTATION_CODEC=hevc bun src/run-direct-videotoolbox-stream-smoke.ts /tmp/gpuix-mediabunny-vt-hevc-smoke.mp4 && rm -f /tmp/gpuix-mediabunny-vt-hevc-smoke.mp4",
+    "bench:direct-decode:hevc": "MEDIABUNNY_PRESENTATION_CODEC=hevc bun run bench:direct-decode",
+    "bench:presentation:iosurface:hevc:scaling": "MEDIABUNNY_PRESENTATION_CODEC=hevc bun run bench:presentation:iosurface:scaling"
   },
   "dependencies": {
     "@mediabunny/server": "1.58.1",
