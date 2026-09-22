@@ -116,6 +116,83 @@ describe("Canvas2D draw-list recorder", () => {
     expect(command.path.filter((segment) => segment.op === "bezierCurveTo")).toHaveLength(4)
   })
 
+  it("lowers roundRect into the existing path protocol", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 120, height: 80 }))
+    const ctx = recorder.context
+
+    ctx.beginPath()
+    ctx.roundRect(10, 20, 80, 40, 8)
+    ctx.fill()
+
+    const command = recorder.snapshot().commands[0]
+    expect(command?.op).toBe("fillPath")
+    if (command?.op !== "fillPath") throw new Error("expected fill path")
+
+    expect(command.path[0]).toMatchObject({ op: "moveTo", x: 18, y: 20 })
+    expect(command.path.filter((segment) => segment.op === "bezierCurveTo")).toHaveLength(4)
+    expect(command.path.at(-1)).toEqual({ op: "closePath" })
+  })
+
+  it("scales oversized roundRect radii and supports negative dimensions", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
+    const ctx = recorder.context
+
+    ctx.beginPath()
+    ctx.roundRect(80, 60, -40, -20, [20, 10])
+    ctx.fill()
+
+    const command = recorder.snapshot().commands[0]
+    expect(command?.op).toBe("fillPath")
+    if (command?.op !== "fillPath") throw new Error("expected fill path")
+
+    const first = command.path[0]
+    expect(first?.op).toBe("moveTo")
+    if (first?.op !== "moveTo") throw new Error("expected moveTo")
+    expect(first.x).toBeGreaterThanOrEqual(40)
+    expect(first.x).toBeLessThanOrEqual(80)
+    expect(first.y).toBe(40)
+  })
+
+  it("lowers arcTo tangent geometry into line and cubic segments", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
+    const ctx = recorder.context
+
+    ctx.beginPath()
+    ctx.moveTo(0, 0)
+    ctx.arcTo(10, 0, 10, 10, 5)
+    ctx.stroke()
+
+    const command = recorder.snapshot().commands[0]
+    expect(command?.op).toBe("strokePath")
+    if (command?.op !== "strokePath") throw new Error("expected stroke path")
+
+    expect(command.path[0]).toEqual({ op: "moveTo", x: 0, y: 0 })
+    expect(command.path[1]).toMatchObject({ op: "lineTo", x: 5, y: 0 })
+    const curve = command.path[2]
+    expect(curve?.op).toBe("bezierCurveTo")
+    if (curve?.op !== "bezierCurveTo") throw new Error("expected cubic arc")
+    expect(curve.x).toBeCloseTo(10)
+    expect(curve.y).toBeCloseTo(5)
+  })
+
+  it("starts an arcTo subpath at its first control point and rejects negative radii", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
+    const ctx = recorder.context
+
+    ctx.beginPath()
+    ctx.arcTo(10, 20, 30, 40, 5)
+    ctx.stroke()
+
+    const command = recorder.snapshot().commands[0]
+    expect(command?.op).toBe("strokePath")
+    if (command?.op !== "strokePath") throw new Error("expected stroke path")
+    expect(command.path).toEqual([{ op: "moveTo", x: 10, y: 20 }])
+
+    ctx.beginPath()
+    ctx.moveTo(0, 0)
+    expect(() => ctx.arcTo(1, 0, 1, 1, -1)).toThrow(/negative/u)
+  })
+
   it("clears the retained command list only for a full backing-store clear", () => {
     const recorder = createCanvas2DRecorder(() => ({ width: 100, height: 50 }))
     const ctx = recorder.context
