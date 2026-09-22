@@ -657,8 +657,8 @@ async function runVideoCodecRoundTrip(
 
   const codec = capability.codec
   const frameCount = 6
-  const width = codec === "prores" ? 1280 : 160
-  const height = codec === "prores" ? 720 : 90
+  const width = codec === "prores" ? 640 : 160
+  const height = codec === "prores" ? 360 : 90
   const target = new BufferTarget()
   const format = videoCodecOutputFormat(codec)
   if (!format.getSupportedVideoCodecs().includes(codec)) {
