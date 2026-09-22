@@ -150,8 +150,8 @@ export class VideoToolboxVideoSampleResource extends VideoSampleResource {
     return this.frame.iosurfaceHandle
   }
 
-  getFormat(): VideoSamplePixelFormat | null {
-    return this.frame.pixelFormat
+  getFormat(): VideoSamplePixelFormat {
+    return this.frame.pixelFormat ?? "RGBA"
   }
 
   getCodedWidth(): number {
@@ -181,9 +181,10 @@ export class VideoToolboxVideoSampleResource extends VideoSampleResource {
 
   getDataPlanes(): VideoDataPlane[] {
     if (!this.frame.pixelFormat) {
-      throw new Error(
-        "This VideoToolbox pixel format has no direct MediaBunny plane mapping; convert the sample to RGB instead",
-      )
+      return [{
+        data: this.frame.copyRgba("srgb"),
+        stride: this.frame.width * 4,
+      }]
     }
 
     const planes: VideoDataPlane[] = []
