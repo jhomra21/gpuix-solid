@@ -23,6 +23,8 @@ import {
   Output,
   PathedTarget,
   Quality,
+  ReadableStreamSource,
+  StreamTarget,
   TextSubtitleSource,
   AdtsOutputFormat,
   VideoSample,
@@ -34,6 +36,7 @@ import {
   canEncodeAudio,
   canEncodeVideo,
   type AudioCodec,
+  type StreamTargetChunk,
   type VideoCodec,
 } from "mediabunny"
 
@@ -1237,6 +1240,124 @@ async function runAdtsOutputFeature(): Promise<FeatureExecution> {
   }
 }
 
+async function runStreamTargetFeature(): Promise<FeatureExecution> {
+  const chunks: Uint8Array[] = []
+  let nextPosition = 0
+  const writable = new WritableStream<StreamTargetChunk>({
+    write(chunk) {
+      if (chunk.position !== nextPosition) {
+        throw new Error(
+          "Fragmented MP4 StreamTarget write was not append-only: expected "
+          + nextPosition
+          + ", got "
+          + chunk.position,
+        )
+      }
+      chunks.push(chunk.data.slice())
+      nextPosition += chunk.data.byteLength
+    },
+  })
+
+  const output = new Output({
+    format: new Mp4OutputFormat({ fastStart: "fragmented" }),
+    target: new StreamTarget(writable, { chunked: true }),
+  })
+  await encodeShortVideo(output, "avc", 12)
+
+  const bytes = new Uint8Array(nextPosition)
+  let offset = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  if (bytes.byteLength === 0 || chunks.length === 0) {
+    throw new Error("StreamTarget produced no MP4 bytes")
+  }
+
+  const input = createInput(bytes.buffer)
+  try {
+    const track = await input.getPrimaryVideoTrack()
+    if (!track) throw new Error("StreamTarget MP4 read-back has no video track")
+    const sample = await new VideoSampleSink(track).getSample(0)
+    if (!sample) throw new Error("StreamTarget MP4 read-back did not decode")
+    sample.close()
+  } finally {
+    input.dispose()
+  }
+
+  return {
+    status: "pass",
+    details: {
+      chunks: chunks.length,
+      bytes: bytes.byteLength,
+    },
+  }
+}
+
+async function runReadableStreamSourceFeature(
+  buffer: ArrayBuffer,
+): Promise<FeatureExecution> {
+  const bytes = new Uint8Array(buffer)
+  const chunkSize = 1024
+  let offset = 0
+  const stream = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (offset >= bytes.byteLength) {
+        controller.close()
+        return
+      }
+
+      const end = Math.min(bytes.byteLength, offset + chunkSize)
+      controller.enqueue(bytes.slice(offset, end))
+      offset = end
+    },
+  })
+
+  const input = new Input({
+    source: new ReadableStreamSource(stream),
+    formats: ALL_FORMATS,
+  })
+  try {
+    if (!await input.canRead()) {
+      throw new Error("ReadableStreamSource could not read the generated WebM")
+    }
+
+    const [videoTrack, audioTrack] = await Promise.all([
+      input.getPrimaryVideoTrack(),
+      input.getPrimaryAudioTrack(),
+    ])
+    if (!videoTrack || !audioTrack) {
+      throw new Error("ReadableStreamSource lost video or audio tracks")
+    }
+
+    let videoSamples = 0
+    for await (const sample of new VideoSampleSink(videoTrack).samples()) {
+      videoSamples += 1
+      sample.close()
+    }
+    let audioFrames = 0
+    for await (const sample of new AudioSampleSink(audioTrack).samples()) {
+      audioFrames += sample.numberOfFrames
+      sample.close()
+    }
+
+    if (videoSamples === 0 || audioFrames === 0) {
+      throw new Error("ReadableStreamSource decoded no media")
+    }
+
+    return {
+      status: "pass",
+      details: {
+        chunks: Math.ceil(bytes.byteLength / chunkSize),
+        videoSamples,
+        audioFrames,
+      },
+    }
+  } finally {
+    input.dispose()
+  }
+}
+
 async function runHlsOutputFeature(): Promise<FeatureExecution> {
   const files = new Map<string, ArrayBuffer>()
   let playlist = ""
@@ -1329,6 +1450,12 @@ async function runFeatureCases(
   return [
     await runFeatureCase("canvas-source", runCanvasSourceFeature),
     canvasSink,
+
+    await runFeatureCase("stream-target-fragmented-mp4", runStreamTargetFeature),
+    await runFeatureCase(
+      "readable-stream-source",
+      () => runReadableStreamSourceFeature(buffer),
+    ),
 
     await runFeatureCase("cmaf-output", runCmafOutputFeature),
     await runFeatureCase("mpeg-ts-output", runMpegTsOutputFeature),
