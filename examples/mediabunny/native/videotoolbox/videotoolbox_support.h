@@ -18,7 +18,8 @@ struct PacketInput {
   bool keyframe;
 };
 
-bool CreateH264FormatDescription(
+bool CreateVideoFormatDescription(
+  const std::string& codec,
   const std::vector<uint8_t>& config,
   CMVideoFormatDescriptionRef* output,
   std::string& error
