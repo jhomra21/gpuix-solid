@@ -27,6 +27,7 @@ const resolutions = [
 const baseEnv = {
   ...process.env,
   MEDIABUNNY_PRESENTATION_CODEC: "avc",
+  MEDIABUNNY_PRESENTATION_FRAMES: process.env.MEDIABUNNY_PRESENTATION_FRAMES ?? "60",
   MEDIABUNNY_PRESENTATION_ITERATIONS: process.env.MEDIABUNNY_PRESENTATION_ITERATIONS ?? "5",
   MEDIABUNNY_PRESENTATION_WARMUPS: process.env.MEDIABUNNY_PRESENTATION_WARMUPS ?? "2",
 }
@@ -291,7 +292,7 @@ try {
     `- GPUIX source edge: \`${gpuixEdgeSha}\`.`,
     `- Host: macOS ${macOSVersion}, ${cpuBrand}, ${process.arch}.`,
     `- Runtime: Node \`${process.version}\`, Bun \`${Bun.version}\`.`,
-    `- Workload: AVC, 60 frames per resolution, ${baseEnv.MEDIABUNNY_PRESENTATION_WARMUPS} warmups and ${baseEnv.MEDIABUNNY_PRESENTATION_ITERATIONS} measured iterations per backend and resolution.`,
+    `- Workload: AVC, ${baseEnv.MEDIABUNNY_PRESENTATION_FRAMES} frames per resolution, ${baseEnv.MEDIABUNNY_PRESENTATION_WARMUPS} warmups and ${baseEnv.MEDIABUNNY_PRESENTATION_ITERATIONS} measured iterations per backend and resolution.`,
     "- Native verification requires VideoToolbox hardware acceleration, IOSurface export, monotonic presentation order, a maximum of two pending decoded frames, and no FFmpeg or NodeAV in the decode hot loop.",
     `- Outcome: **${winsEverywhere ? "PASS" : "FAIL"}** — native ${winsEverywhere ? "beats" : "does not beat"} the browser on all four acceptance metrics at all three resolutions.`,
     "",
