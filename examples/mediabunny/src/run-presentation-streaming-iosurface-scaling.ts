@@ -24,9 +24,11 @@ const resolutions = [
   { label: "4K", width: 3840, height: 2160 },
 ] as const
 
+const codec = process.env.MEDIABUNNY_PRESENTATION_CODEC === "hevc" ? "hevc" : "avc"
+
 const baseEnv = {
   ...process.env,
-  MEDIABUNNY_PRESENTATION_CODEC: "avc",
+  MEDIABUNNY_PRESENTATION_CODEC: codec,
   MEDIABUNNY_PRESENTATION_FRAMES: process.env.MEDIABUNNY_PRESENTATION_FRAMES ?? "60",
   MEDIABUNNY_PRESENTATION_ITERATIONS: process.env.MEDIABUNNY_PRESENTATION_ITERATIONS ?? "5",
   MEDIABUNNY_PRESENTATION_WARMUPS: process.env.MEDIABUNNY_PRESENTATION_WARMUPS ?? "2",
@@ -114,7 +116,7 @@ async function runJson(
 
   // SAFETY: repository benchmark children emit PresentationBenchmarkReport JSON; the checks below reject unrelated output.
   const report = JSON.parse(stdout) as PresentationBenchmarkReport
-  if (report.schemaVersion !== 2 || report.workload.codec !== "avc") {
+  if (report.schemaVersion !== 2 || report.workload.codec !== codec) {
     throw new Error(`${script} returned an unsupported presentation report`)
   }
   return report
@@ -154,7 +156,7 @@ try {
     )
     const fixtureExitCode = await fixture.exited
     if (fixtureExitCode !== 0) {
-      throw new Error(`${resolution.label} AVC fixture generator exited with code ${fixtureExitCode}`)
+      throw new Error(`${resolution.label} ${codec.toUpperCase()} fixture generator exited with code ${fixtureExitCode}`)
     }
 
     const browser = await runJson(
@@ -261,7 +263,7 @@ try {
   }
 
   const report = [
-    "# Streaming VideoToolbox IOSurface presentation scaling",
+    `# Streaming VideoToolbox IOSurface ${codec.toUpperCase()} presentation scaling`,
     "",
     "Browser uses MediaBunny CanvasSink with browser WebCodecs. Native includes MediaBunny encoded-packet iteration in its timer, then submits the packet set to a native VideoToolbox worker. Decoded CVPixelBuffers are retained only until a bounded thread-safe callback presents each IOSurface through GPUix/GPUI, allowing decode submission and JS presentation to overlap instead of blocking JS on synchronous packet batches.",
     "",
@@ -288,7 +290,7 @@ try {
     `- GPUIX source edge: \`${gpuixEdgeSha}\`.`,
     `- Host: macOS ${macOSVersion}, ${cpuBrand}, ${process.arch}.`,
     `- Runtime: Node \`${process.version}\`, Bun \`${Bun.version}\`.`,
-    `- Workload: AVC, ${baseEnv.MEDIABUNNY_PRESENTATION_FRAMES} frames per resolution, ${baseEnv.MEDIABUNNY_PRESENTATION_WARMUPS} warmups and ${baseEnv.MEDIABUNNY_PRESENTATION_ITERATIONS} measured iterations per backend and resolution.`,
+    `- Workload: ${codec.toUpperCase()}, ${baseEnv.MEDIABUNNY_PRESENTATION_FRAMES} frames per resolution, ${baseEnv.MEDIABUNNY_PRESENTATION_WARMUPS} warmups and ${baseEnv.MEDIABUNNY_PRESENTATION_ITERATIONS} measured iterations per backend and resolution.`,
     "- Native verification requires VideoToolbox hardware acceleration, IOSurface export, monotonic presentation order, a maximum of two pending decoded frames, and no FFmpeg or NodeAV in the decode hot loop.",
     `- Outcome: **${winsEverywhere ? "PASS" : "FAIL"}** — native ${winsEverywhere ? "beats" : "does not beat"} the browser on all four acceptance metrics at all three resolutions.`,
     "",
@@ -315,20 +317,25 @@ try {
     "bun run gpuix:edge:verify",
     "cd examples/mediabunny",
     "bun install --no-save",
-    "bun run bench:presentation:iosurface:scaling",
+    codec === "avc"
+      ? "bun run bench:presentation:iosurface:scaling"
+      : "MEDIABUNNY_PRESENTATION_CODEC=hevc bun run bench:presentation:iosurface:scaling",
     "```",
     "",
     "Open each printed localhost URL in Codex's in-app browser. The command writes this consolidated Markdown report and removes its temporary fixtures when it exits.",
     "",
   ].join("\n")
 
+  const reportName = codec === "avc"
+    ? "presentation-streaming-iosurface-scaling.md"
+    : `presentation-streaming-iosurface-${codec}-scaling.md`
   await Bun.write(
-    join(reportsDirectory, "presentation-streaming-iosurface-scaling.md"),
+    join(reportsDirectory, reportName),
     report + "\n",
   )
 
   console.log(report)
-  console.log("Report written to examples/mediabunny/reports/presentation-streaming-iosurface-scaling.md")
+  console.log(`Report written to examples/mediabunny/reports/${reportName}`)
 } finally {
   await rm(workDirectory, { recursive: true, force: true })
 }
