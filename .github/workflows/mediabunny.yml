@@ -50,6 +50,14 @@ jobs:
         if: matrix.backend == 'webcodecs'
         working-directory: examples/mediabunny
         run: bun run smoke:presentation:napi-webcodecs
+      - name: Build direct VideoToolbox decoder
+        if: matrix.backend == 'webcodecs'
+        working-directory: examples/mediabunny
+        run: bun run build:videotoolbox-direct
+      - name: Smoke direct VideoToolbox decoder
+        if: matrix.backend == 'webcodecs'
+        working-directory: examples/mediabunny
+        run: bun run smoke:videotoolbox-direct
       - name: Upload benchmark report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
