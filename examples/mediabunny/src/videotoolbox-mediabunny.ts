@@ -223,6 +223,11 @@ type PacketTiming = {
   duration: number
 }
 
+type PendingFrame = {
+  frame: NativeVideoToolboxFrame
+  timestampUs: number
+}
+
 export class VideoToolboxMediaDecoder extends CustomVideoDecoder {
   static override supports(
     codec: VideoCodec,
@@ -249,6 +254,7 @@ export class VideoToolboxMediaDecoder extends CustomVideoDecoder {
   #decoder: NativeDecoder | null = null
   #packetBuffer: NativePacket[] = []
   #timings = new Map<number, PacketTiming[]>()
+  #reorderQueue: PendingFrame[] = []
   #closed = false
   readonly #packetBatchSize = 8
 
@@ -295,6 +301,7 @@ export class VideoToolboxMediaDecoder extends CustomVideoDecoder {
   async flush(): Promise<void> {
     this.#assertOpen()
     await this.#drain()
+    this.#emitQueuedFrames()
     this.#decoder?.reset()
     this.#timings.clear()
   }
@@ -304,6 +311,8 @@ export class VideoToolboxMediaDecoder extends CustomVideoDecoder {
     this.#closed = true
     this.#packetBuffer.length = 0
     this.#timings.clear()
+    for (const pending of this.#reorderQueue) pending.frame.close()
+    this.#reorderQueue.length = 0
     this.#decoder?.dispose()
     this.#decoder = null
   }
@@ -320,23 +329,7 @@ export class VideoToolboxMediaDecoder extends CustomVideoDecoder {
     const result = await decoder.decodeStream(
       packets,
       (frame, timestampUs) => {
-        const timings = this.#timings.get(timestampUs)
-        const timing = timings?.shift()
-        if (timings?.length === 0) this.#timings.delete(timestampUs)
-
-        const timestamp = timing?.timestamp ?? timestampUs / 1_000_000
-        const duration = timing?.duration ?? 0
-
-        const resource = new VideoToolboxVideoSampleResource(
-          frame,
-          this.config,
-        )
-        const sample = new VideoSample(resource, {
-          timestamp,
-          duration,
-        })
-        sampleResources.set(sample, resource)
-        this.onSample(sample)
+        this.#queueFrame(frame, timestampUs)
       },
     )
 
@@ -346,8 +339,56 @@ export class VideoToolboxMediaDecoder extends CustomVideoDecoder {
     if (result.dropped !== 0) {
       throw new Error("VideoToolbox stream dropped " + result.dropped + " frame(s)")
     }
-    if (!result.presentationOrderMonotonic) {
-      throw new Error("VideoToolbox stream did not deliver frames in presentation order")
+    // VideoToolbox callbacks are not guaranteed to arrive in presentation
+    // order. The durable frame objects are reordered before MediaBunny sees
+    // them; result.presentationOrderMonotonic remains diagnostic only.
+  }
+
+  #queueFrame(
+    frame: NativeVideoToolboxFrame,
+    timestampUs: number,
+  ): void {
+    const highestQueued = this.#reorderQueue.at(-1)?.timestampUs
+    if (highestQueued !== undefined && timestampUs >= highestQueued) {
+      this.#emitQueuedFrames()
+    }
+
+    let index = this.#reorderQueue.length
+    while (
+      index > 0
+      && (this.#reorderQueue[index - 1]?.timestampUs ?? -Infinity) > timestampUs
+    ) {
+      index -= 1
+    }
+    this.#reorderQueue.splice(index, 0, { frame, timestampUs })
+  }
+
+  #emitQueuedFrames(): void {
+    const queued = this.#reorderQueue.splice(0)
+    for (const pending of queued) {
+      this.#emitFrame(pending)
+    }
+  }
+
+  #emitFrame({ frame, timestampUs }: PendingFrame): void {
+    const timings = this.#timings.get(timestampUs)
+    const timing = timings?.shift()
+    if (timings?.length === 0) this.#timings.delete(timestampUs)
+
+    const timestamp = timing?.timestamp ?? timestampUs / 1_000_000
+    const duration = timing?.duration ?? 0
+    const resource = new VideoToolboxVideoSampleResource(frame, this.config)
+    const sample = new VideoSample(resource, {
+      timestamp,
+      duration,
+    })
+    sampleResources.set(sample, resource)
+
+    try {
+      this.onSample(sample)
+    } catch (error) {
+      sample.close()
+      throw error
     }
   }
 
