@@ -207,6 +207,14 @@ export class VideoToolboxVideoSampleResource extends VideoSampleResource {
   }
 }
 
+const sampleResources = new WeakMap<VideoSample, VideoToolboxVideoSampleResource>()
+
+export function getVideoToolboxVideoSampleResource(
+  sample: VideoSample,
+): VideoToolboxVideoSampleResource | null {
+  return sampleResources.get(sample) ?? null
+}
+
 type PacketTiming = {
   timestamp: number
   duration: number
@@ -312,15 +320,16 @@ export class VideoToolboxMediaDecoder extends CustomVideoDecoder {
         const timestamp = timing?.timestamp ?? timestampUs / 1_000_000
         const duration = timing?.duration ?? 0
 
-        this.onSample(
-          new VideoSample(
-            new VideoToolboxVideoSampleResource(frame, this.config),
-            {
-              timestamp,
-              duration,
-            },
-          ),
+        const resource = new VideoToolboxVideoSampleResource(
+          frame,
+          this.config,
         )
+        const sample = new VideoSample(resource, {
+          timestamp,
+          duration,
+        })
+        sampleResources.set(sample, resource)
+        this.onSample(sample)
       },
     )
 
