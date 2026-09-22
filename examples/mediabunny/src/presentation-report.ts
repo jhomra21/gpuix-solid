@@ -33,7 +33,7 @@ export type PresentationBenchmarkReport = {
   backend: PresentationBackend
   generatedAt: string
   workload: {
-    codec: "vp8" | "avc"
+    codec: "vp8" | "avc" | "hevc"
     fixtureBytes: number
     warmups: number
     iterations: number
