@@ -15,6 +15,7 @@ if (process.platform !== "darwin") {
 
 const sourceDirectory = dirname(fileURLToPath(import.meta.url))
 const projectDirectory = resolve(sourceDirectory, "..")
+const repositoryDirectory = resolve(projectDirectory, "../..")
 const reportsDirectory = join(projectDirectory, "reports")
 const workDirectory = join(projectDirectory, ".presentation-streaming-iosurface-scaling")
 const resolutions = [
@@ -65,6 +66,39 @@ function stageMs(
   return median(runs.map((run) => run[key] ?? 0))
 }
 
+function formatRange(values: readonly number[]): string {
+  if (values.length === 0) return "n/a"
+  return [
+    Math.min(...values),
+    median(values),
+    Math.max(...values),
+  ].map((value) => value.toFixed(2)).join(" / ")
+}
+
+function formatRunSpread(run: PresentationRun): {
+  fps: number
+  totalMs: number
+  firstFrameMs: number
+  p95Ms: number
+} {
+  return {
+    fps: framesPerSecond(run),
+    totalMs: run.totalMs,
+    firstFrameMs: run.firstFrameMs,
+    p95Ms: run.frameStepP95Ms,
+  }
+}
+
+async function commandOutput(command: string[]): Promise<string> {
+  const child = Bun.spawn(command, {
+    cwd: repositoryDirectory,
+    stdout: "pipe",
+    stderr: "ignore",
+  })
+  const stdout = (await new Response(child.stdout).text()).trim()
+  return await child.exited === 0 && stdout ? stdout : "unknown"
+}
+
 async function runJson(
   script: string,
   fixturePath: string,
@@ -96,6 +130,8 @@ await mkdir(reportsDirectory, { recursive: true })
 
 const rows: string[] = []
 const stageRows: string[] = []
+const spreadRows: string[] = []
+const verificationRows: string[] = []
 const decodeRatios: number[] = []
 const presentationRatios: number[] = []
 const firstFrameRatios: number[] = []
@@ -155,15 +191,6 @@ try {
       )
     }
 
-    await Bun.write(
-      join(reportsDirectory, `presentation-streaming-iosurface-${key}-browser.json`),
-      JSON.stringify(browser, null, 2) + "\n",
-    )
-    await Bun.write(
-      join(reportsDirectory, `presentation-streaming-iosurface-${key}-gpuix.json`),
-      JSON.stringify(native, null, 2) + "\n",
-    )
-
     const browserDecode = decodeFps(browser)
     const nativeDecode = decodeFps(native)
     const browserPresentation = presentationFps(browser)
@@ -192,6 +219,22 @@ try {
     stageRows.push(
       `| ${resolution.label} | ${stageMs(native.endToEnd, "decodeMs").toFixed(2)} ms | ${stageMs(native.endToEnd, "uploadMs").toFixed(2)} ms | ${stageMs(native.endToEnd, "renderFlushMs").toFixed(2)} ms |`,
     )
+
+    for (const [backend, measurement, runs] of [
+      ["Browser WebCodecs", "Decode only", browser.decodeOnly],
+      ["VideoToolbox + GPUix", "Decode only", native.decodeOnly],
+      ["Browser WebCodecs", "Presentation", browser.endToEnd],
+      ["VideoToolbox + GPUix", "Presentation", native.endToEnd],
+    ] as const) {
+      const spread = runs.map(formatRunSpread)
+      spreadRows.push(
+        `| ${resolution.label} | ${backend} | ${measurement} | ${formatRange(spread.map((run) => run.fps))} | ${formatRange(spread.map((run) => run.totalMs))} | ${formatRange(spread.map((run) => run.firstFrameMs))} | ${formatRange(spread.map((run) => run.p95Ms))} |`,
+      )
+    }
+
+    verificationRows.push(
+      `| ${resolution.label} | ${browser.workload.fixtureBytes} | ${String(browser.verification.finalTimestamp ?? "n/a")} | ${String(browser.verification.finalPixel ?? "n/a")} | ${String(native.verification.screenshotBytes ?? "n/a")} |`,
+    )
   }
 
   const worstDecode = Math.min(...decodeRatios)
@@ -203,6 +246,22 @@ try {
     && worstPresentation > 1
     && worstFirstFrame < 1
     && worstP95 < 1
+
+  const [commitSha, macOSVersion, cpuBrand] = await Promise.all([
+    commandOutput(["git", "rev-parse", "HEAD"]),
+    commandOutput(["sw_vers", "-productVersion"]),
+    commandOutput(["sysctl", "-n", "machdep.cpu.brand_string"]),
+  ])
+
+  let gpuixEdgeSha = "unknown"
+  try {
+    const edge = await Bun.file(join(repositoryDirectory, ".gpuix", "edge.json")).json() as {
+      sha?: string
+    }
+    gpuixEdgeSha = edge.sha ?? "unknown"
+  } catch {
+    gpuixEdgeSha = "unknown"
+  }
 
   const report = [
     "# Streaming VideoToolbox IOSurface presentation scaling",
@@ -225,6 +284,45 @@ try {
     "",
     "Native decode includes MediaBunny packet iteration plus the off-thread VideoToolbox decode worker. IOSurface handoff and GPUI render flush execute synchronously inside each streamed JS frame callback and are measured separately. The stream keeps at most two decoded frames pending before applying native backpressure.",
     "",
+    "## Run record",
+    "",
+    `- Generated: ${new Date().toISOString()}.`,
+    `- Candidate: \`${commitSha}\`.`,
+    `- GPUIX source edge: \`${gpuixEdgeSha}\`.`,
+    `- Host: macOS ${macOSVersion}, ${cpuBrand}, ${process.arch}.`,
+    `- Runtime: Node \`${process.version}\`, Bun \`${Bun.version}\`.`,
+    `- Workload: AVC, 60 frames per resolution, ${baseEnv.MEDIABUNNY_PRESENTATION_WARMUPS} warmups and ${baseEnv.MEDIABUNNY_PRESENTATION_ITERATIONS} measured iterations per backend and resolution.`,
+    "- Native verification requires VideoToolbox hardware acceleration, IOSurface export, monotonic presentation order, a maximum of two pending decoded frames, and no FFmpeg or NodeAV in the decode hot loop.",
+    `- Outcome: **${winsEverywhere ? "PASS" : "FAIL"}** — native ${winsEverywhere ? "beats" : "does not beat"} the browser on all four acceptance metrics at all three resolutions.`,
+    "",
+    "## Verification",
+    "",
+    "| Resolution | Fixture bytes | Browser final timestamp | Browser final pixel | Native screenshot bytes |",
+    "| --- | ---: | ---: | --- | ---: |",
+    ...verificationRows,
+    "",
+    "## Measured-run spread",
+    "",
+    "Each cell is minimum / median / maximum across the measured iterations. FPS is calculated per run from frame count and elapsed time.",
+    "",
+    "| Resolution | Backend | Measurement | FPS min / median / max | Total ms min / median / max | First-frame ms min / median / max | Frame-step p95 ms min / median / max |",
+    "| --- | --- | --- | ---: | ---: | ---: | ---: |",
+    ...spreadRows,
+    "",
+    "## Reproduction",
+    "",
+    "From the repository root, with the pinned GPUIX source-edge package prepared and linked:",
+    "",
+    "```bash",
+    "bun install --frozen-lockfile",
+    "bun run gpuix:edge:verify",
+    "cd examples/mediabunny",
+    "bun install --no-save",
+    "bun run bench:presentation:iosurface:scaling",
+    "```",
+    "",
+    "Open each printed localhost URL in Codex's in-app browser. The command writes this consolidated Markdown report and removes its temporary fixtures when it exits.",
+    "",
   ].join("\n")
 
   await Bun.write(
@@ -233,7 +331,7 @@ try {
   )
 
   console.log(report)
-  console.log("Reports written to examples/mediabunny/reports/presentation-streaming-iosurface-*")
+  console.log("Report written to examples/mediabunny/reports/presentation-streaming-iosurface-scaling.md")
 } finally {
   await rm(workDirectory, { recursive: true, force: true })
 }
