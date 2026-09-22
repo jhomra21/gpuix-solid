@@ -1,3 +1,10 @@
+import {
+  appendArcTo,
+  arcEndpoints,
+  point2D,
+  roundedRectanglePath,
+} from "./canvas-path.js"
+
 export const CANVAS_DRAW_LIST_VERSION = 1 as const
 
 export type CanvasDrawListVersion = typeof CANVAS_DRAW_LIST_VERSION
@@ -358,7 +365,15 @@ export function createCanvas2DRecorder(
       endAngle: number,
       counterclockwise = false,
     ) {
-      const result = appendArc(
+      const endpoints = arcEndpoints(
+        x,
+        y,
+        radius,
+        startAngle,
+        endAngle,
+        counterclockwise,
+      )
+      appendArc(
         path,
         x,
         y,
@@ -368,8 +383,10 @@ export function createCanvas2DRecorder(
         counterclockwise,
         state.transform,
       )
-      if (subpathStart === null) subpathStart = result.start
-      currentPoint = result.end
+      if (endpoints) {
+        if (subpathStart === null) subpathStart = endpoints.start
+        currentPoint = endpoints.end
+      }
     },
     fill(fillRule: CanvasFillRule = "nonzero") {
       if (fillRule !== "nonzero") {
