@@ -62,16 +62,16 @@ AVC and HEVC use the custom VideoToolbox decoder on supported macOS hardware. Th
 
 The same suite covers CanvasSource/CanvasSink, metadata, conversion progress, remuxing, resize/frame-rate/rotate/crop/flip/trim/process transforms, audio resampling/downmixing, fragmented MP4, streams, blobs, ranged sources, CMAF, MPEG-TS, ADTS, HLS, WebVTT subtitles, URL sources, file-path I/O, multi-file filesystem HLS, and GPUix video presentation.
 
-The current GPUix backend scorecard is **50 passes, 0 unsupported, 0 known gaps, 0 timeouts, 0 errors**.
+The current GPUix backend scorecard is **54 passes, 0 unsupported, 0 known gaps, 0 timeouts, 0 errors**.
 
 ## Native addon
 
-The VideoToolbox addon is macOS-only and is built explicitly rather than through a dependency lifecycle hook. This keeps ordinary npm installation side-effect free and avoids requiring broad install-script approval.
+The VideoToolbox addon is macOS-only. The package does not build it from an install hook, so a normal package install does not run native build scripts.
 
 For an installed consumer:
 
 ```bash
-npm install
+bun install
 ./node_modules/.bin/gpuix-mediabunny-build-native
 ```
 
@@ -87,7 +87,7 @@ bun run build:native
 
 If native compilation is unavailable or the supplied AVC/HEVC configuration cannot open a hardware VideoToolbox decoder, the custom decoder declines the configuration and MediaBunny uses the registered server fallback instead. The package remains functional without the addon.
 
-For filesystem-backed multi-file media such as HLS, use `createGpuixFilePathSource(rootPath)`. It preserves MediaBunny's public PathedSource behavior while avoiding MediaBunny 1.59's child `FilePathSource` open-order edge case.
+For filesystem-backed multi-file media such as HLS, use `createGpuixFilePathSource(rootPath)`. The helper implements MediaBunny's public `PathedSource` contract and reads child file ranges directly. This avoids the MediaBunny 1.59 child `FilePathSource` open-order assertion without loading whole segment files into memory.
 
 The native path intentionally requires hardware decoding; it does not silently turn a native-performance benchmark into a software decode.
 
