@@ -84,11 +84,11 @@ The native resource is still a regular MediaBunny `VideoSample`. Repository smok
 - transforms producing valid pixels;
 - random-access seeking.
 
-For hardware pixel formats without a direct MediaBunny plane mapping, RGB copy/transform requests fall back through CoreImage while IOSurface presentation remains native.
+CoreVideo NV12 and planar 8-bit 4:2:0 frames map directly to MediaBunny sample formats. For other hardware layouts without a direct MediaBunny mapping, CPU copy/transform requests fall back lazily through CoreImage while IOSurface presentation remains native.
 
 ## Broad fallback
 
-`registerGpuixMediaBunny()` registers VideoToolbox first, then MediaBunny's ProRes and server extensions. Codecs not handled by the macOS custom decoder therefore stay on MediaBunny's standard server path instead of requiring GPUix-specific codec implementations.
+`registerGpuixMediaBunny()` registers VideoToolbox first, then MediaBunny's server extension. The server extension keeps its own upstream decoder order: NodeAV first, then its bundled ProRes fallback. Codecs not handled by the macOS custom decoder therefore stay on MediaBunny's standard server path instead of requiring GPUix-specific codec implementations.
 
 This is intentional: parity means normal MediaBunny operations work. A codec only needs a GPUix-specific implementation when it provides a concrete native-performance or resource-sharing benefit.
 
