@@ -185,13 +185,18 @@ try {
 
 async function verifyVideoInput(input: Input, label: string) {
   try {
+    console.error("[gpuix-mediabunny-input] " + label + " canRead")
     if (!await input.canRead()) {
       throw new Error(label + " could not read media")
     }
+    console.error("[gpuix-mediabunny-input] " + label + " getPrimaryVideoTrack")
     const track = await input.getPrimaryVideoTrack()
     if (!track) throw new Error(label + " has no video track")
+    console.error("[gpuix-mediabunny-input] " + label + " getFirstTimestamp")
+    const firstTimestamp = await track.getFirstTimestamp()
+    console.error("[gpuix-mediabunny-input] " + label + " getSample")
     const sample = await new VideoSampleSink(track).getSample(
-      await track.getFirstTimestamp(),
+      firstTimestamp,
     )
     if (!sample) throw new Error(label + " decoded no sample")
     const result = {
@@ -394,6 +399,7 @@ async function runFilePathAndHlsSmoke() {
       await output.finalize()
 
       const rootPath = join(directory, "master.m3u8")
+      console.error("[gpuix-mediabunny-hls] verify input")
       const hls = await verifyVideoInput(
         new Input({
           source: createGpuixFilePathSource(rootPath),
