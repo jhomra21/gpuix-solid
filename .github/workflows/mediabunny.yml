@@ -76,8 +76,12 @@ jobs:
         if: matrix.backend == 'webcodecs'
         working-directory: examples/mediabunny
         run: |
+          set +e
           bun run bench:gpuix-mediabunny > reports/gpuix-mediabunny.json
+          status=$?
+          set -e
           cat reports/gpuix-mediabunny.json
+          exit "$status"
       - name: Build streaming VideoToolbox presentation harness
         if: matrix.backend == 'webcodecs'
         working-directory: examples/mediabunny
