@@ -25,6 +25,10 @@ export type PresentationRun = {
   nativeBgraStride?: number
   nativePackedFallback?: boolean
   nativeSourcePixelFormat?: number
+  nativeCodecSendCalls?: number
+  nativeCodecReceiveCalls?: number
+  nativeCodecSendEagain?: number
+  nativeCodecReceiveEagain?: number
 }
 
 export type PresentationBenchmarkReport = {
