@@ -26,6 +26,10 @@ if (!hasNativeTestRenderer) {
   throw new Error("Streaming VideoToolbox presentation requires source-edge GPUix")
 }
 
+type MediaBunnyVideoTrack = NonNullable<
+  Awaited<ReturnType<Input["getPrimaryVideoTrack"]>>
+>
+
 type NativePacket = {
   data: Buffer
   timestamp: number
@@ -129,7 +133,7 @@ async function createTrackState() {
 }
 
 async function collectPackets(
-  track: Awaited<ReturnType<Input["getPrimaryVideoTrack"]>> & {},
+  track: MediaBunnyVideoTrack,
 ): Promise<NativePacket[]> {
   const packets: NativePacket[] = []
   const sink = new EncodedPacketSink(track)
