@@ -72,6 +72,12 @@ jobs:
         if: matrix.backend == 'webcodecs'
         working-directory: examples/mediabunny
         run: bun run smoke:mediabunny-parity
+      - name: Run full GPUix MediaBunny parity suite
+        if: matrix.backend == 'webcodecs'
+        working-directory: examples/mediabunny
+        run: |
+          bun run bench:gpuix-mediabunny > reports/gpuix-mediabunny.json
+          cat reports/gpuix-mediabunny.json
       - name: Build streaming VideoToolbox presentation harness
         if: matrix.backend == 'webcodecs'
         working-directory: examples/mediabunny
@@ -83,7 +89,9 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: mediabunny-${{ matrix.backend }}-macos
-          path: examples/mediabunny/reports/${{ matrix.backend }}.json
+          path: |
+            examples/mediabunny/reports/${{ matrix.backend }}.json
+            examples/mediabunny/reports/gpuix-mediabunny.json
           if-no-files-found: warn
           retention-days: 14
 
