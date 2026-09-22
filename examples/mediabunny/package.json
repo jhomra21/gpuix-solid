@@ -20,7 +20,8 @@
     "smoke:presentation-iosurface": "bun src/run-presentation-iosurface-smoke.ts",
     "bench:presentation:iosurface:decode-matrix": "bun src/run-presentation-iosurface-decode-matrix.ts",
     "bench:presentation:iosurface:decode-scaling": "bun src/run-presentation-iosurface-decode-scaling.ts",
-    "bench:presentation:napi-webcodecs:decode-scaling": "bun src/run-presentation-napi-webcodecs-decode-scaling.ts"
+    "bench:presentation:napi-webcodecs:decode-scaling": "bun src/run-presentation-napi-webcodecs-decode-scaling.ts",
+    "smoke:presentation:napi-webcodecs": "rm -f /tmp/gpuix-mediabunny-presentation-napi-webcodecs-smoke.mp4 && MEDIABUNNY_PRESENTATION_CODEC=avc MEDIABUNNY_PRESENTATION_WIDTH=64 MEDIABUNNY_PRESENTATION_HEIGHT=36 MEDIABUNNY_PRESENTATION_FRAMES=4 bun src/create-presentation-fixture.ts /tmp/gpuix-mediabunny-presentation-napi-webcodecs-smoke.mp4 && MEDIABUNNY_PRESENTATION_ITERATIONS=1 MEDIABUNNY_PRESENTATION_WARMUPS=0 bun src/run-presentation-napi-webcodecs-decode.ts /tmp/gpuix-mediabunny-presentation-napi-webcodecs-smoke.mp4 && rm -f /tmp/gpuix-mediabunny-presentation-napi-webcodecs-smoke.mp4"
   },
   "dependencies": {
     "@mediabunny/server": "1.58.1",
