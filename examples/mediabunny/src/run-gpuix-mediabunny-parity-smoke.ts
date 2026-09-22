@@ -1,4 +1,4 @@
-import { mkdir, readdir, rm } from "node:fs/promises"
+import { mkdir, readFile, readdir, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
@@ -400,6 +400,23 @@ async function runFilePathAndHlsSmoke() {
       await output.finalize()
 
       const generatedFiles = await readdir(directory)
+      const playlists = await Promise.all(
+        generatedFiles
+          .filter((name) => name.endsWith(".m3u8"))
+          .sort()
+          .map(async (name) => ({
+            name,
+            text: await readFile(join(directory, name), "utf8"),
+          })),
+      )
+      console.error(
+        "[gpuix-mediabunny-hls] output "
+        + JSON.stringify({
+          files: generatedFiles.slice().sort(),
+          playlists,
+        }),
+      )
+
       const firstSegmentName = generatedFiles.find((name) => name.endsWith(".ts"))
       if (!firstSegmentName) {
         throw new Error(
