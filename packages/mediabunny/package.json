@@ -14,8 +14,10 @@
   },
   "files": [
     "dist",
-    "native/videotoolbox",
-    "scripts"
+    "native/videotoolbox/binding.gyp",
+    "native/videotoolbox/*.h",
+    "native/videotoolbox/*.mm",
+    "scripts/build-native.mjs"
   ],
   "scripts": {
     "clean": "rm -rf dist",
