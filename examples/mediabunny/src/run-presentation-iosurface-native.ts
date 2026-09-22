@@ -41,6 +41,11 @@ if (!hasNativeTestRenderer) {
 
 const iterations = Number(process.env.MEDIABUNNY_PRESENTATION_ITERATIONS ?? 3)
 const warmups = Number(process.env.MEDIABUNNY_PRESENTATION_WARMUPS ?? 1)
+const packetView = process.env.GPUIX_MEDIA_PACKET_VIEW === "1"
+const extraHardwareFrames = Number(process.env.GPUIX_MEDIA_EXTRA_HW_FRAMES ?? 0)
+if (!Number.isInteger(extraHardwareFrames) || extraHardwareFrames < 0) {
+  throw new Error("GPUIX_MEDIA_EXTRA_HW_FRAMES must be a non-negative integer")
+}
 const fixture = await Bun.file(fixturePath).arrayBuffer()
 
 function createInput() {
@@ -94,6 +99,12 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>) {
 
   const openResult = await codecContext.open2(codec, null)
   FFmpegError.throwIfError(openResult, "Open VideoToolbox H.264 decoder")
+  if (extraHardwareFrames > 0) {
+    const currentExtraFrames = codecContext.extraHWFrames
+    codecContext.extraHWFrames = currentExtraFrames >= 0
+      ? currentExtraFrames + extraHardwareFrames
+      : extraHardwareFrames
+  }
 
   const packet = new Packet()
   packet.alloc()
@@ -119,7 +130,9 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>) {
     const sink = new MediaBunnyEncodedPacketSink(track)
     for await (const encoded of sink.packets()) {
       packet.unref()
-      packet.data = Buffer.from(encoded.data)
+      packet.data = packetView
+        ? Buffer.from(encoded.data.buffer, encoded.data.byteOffset, encoded.data.byteLength)
+        : Buffer.from(encoded.data)
       packet.isKeyframe = encoded.type === "key"
       packet.timeBase = { num: 1, den: 1_000_000 }
       packet.pts = BigInt(Math.round(encoded.microsecondTimestamp))
@@ -338,6 +351,8 @@ try {
       nativeSurfaceVersion: testRoot.renderer.getVideoFrameIosurfaceVersion() ?? 0,
       screenshotBytes,
       decoderHardwareAcceleration: "videotoolbox",
+      nodeAvPacketBuffer: packetView ? "view" : "copy",
+      nodeAvExtraHwFrames: extraHardwareFrames,
       mediaBunnyPacketSink: true,
       hardwareFrame: true,
       iosurfaceExport: true,
