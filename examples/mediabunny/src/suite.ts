@@ -7,19 +7,24 @@ import {
   BufferTarget,
   CanvasSink,
   CanvasSource,
+  CmafOutputFormat,
   Conversion,
   EncodedPacketSink,
   FlacOutputFormat,
+  HlsOutputFormat,
   Input,
   MkvOutputFormat,
   MovOutputFormat,
   Mp3OutputFormat,
   Mp4OutputFormat,
+  MpegTsOutputFormat,
   OggOutputFormat,
   WebMOutputFormat,
   Output,
+  PathedTarget,
   Quality,
   TextSubtitleSource,
+  AdtsOutputFormat,
   VideoSample,
   VideoSampleSink,
   VideoSampleSource,
@@ -1042,6 +1047,248 @@ async function runCanvasSinkFeature(buffer: ArrayBuffer): Promise<FeatureExecuti
   }
 }
 
+async function encodeShortVideo(
+  output: Output,
+  codec: VideoCodec = "avc",
+  frames = 12,
+): Promise<void> {
+  const source = new VideoSampleSource({
+    codec,
+    quality: new Quality("medium"),
+  })
+  output.addVideoTrack(source, { frameRate: FRAME_RATE })
+
+  await output.start()
+  for (let frame = 0; frame < frames; frame += 1) {
+    const sample = makeCodecVideoSample(frame, frames, 160, 90)
+    try {
+      await source.add(sample)
+    } finally {
+      sample.close()
+    }
+  }
+  source.close()
+  await output.finalize()
+}
+
+async function encodeShortAudio(
+  output: Output,
+  codec: AudioCodec = "aac",
+): Promise<void> {
+  const source = new AudioSampleSource({
+    codec,
+    quality: new Quality("medium"),
+  })
+  output.addAudioTrack(source)
+
+  await output.start()
+  const sample = makeCodecAudioSample()
+  try {
+    await source.add(sample)
+  } finally {
+    sample.close()
+  }
+  source.close()
+  await output.finalize()
+}
+
+async function runCmafOutputFeature(): Promise<FeatureExecution> {
+  const target = new BufferTarget()
+  const initTarget = new BufferTarget()
+  const output = new Output({
+    format: new CmafOutputFormat(),
+    target,
+    initTarget,
+  })
+  await encodeShortVideo(output)
+
+  if (!target.buffer || !initTarget.buffer) {
+    throw new Error("CMAF output did not produce both init and media segments")
+  }
+
+  const initInput = createInput(initTarget.buffer)
+  const segmentInput = new Input({
+    source: new BufferSource(target.buffer),
+    formats: ALL_FORMATS,
+    initInput,
+  })
+  try {
+    const track = await segmentInput.getPrimaryVideoTrack()
+    if (!track) throw new Error("CMAF read-back has no video track")
+    const sample = await new VideoSampleSink(track).getSample(0)
+    if (!sample) throw new Error("CMAF read-back produced no video sample")
+    sample.close()
+
+    return {
+      status: "pass",
+      details: {
+        initBytes: initTarget.buffer.byteLength,
+        mediaBytes: target.buffer.byteLength,
+      },
+    }
+  } finally {
+    segmentInput.dispose()
+    initInput.dispose()
+  }
+}
+
+async function runMpegTsOutputFeature(): Promise<FeatureExecution> {
+  const target = new BufferTarget()
+  const output = new Output({
+    format: new MpegTsOutputFormat(),
+    target,
+  })
+
+  const video = new VideoSampleSource({
+    codec: "avc",
+    quality: new Quality("medium"),
+  })
+  const audio = new AudioSampleSource({
+    codec: "aac",
+    quality: new Quality("medium"),
+  })
+  output.addVideoTrack(video, { frameRate: FRAME_RATE })
+  output.addAudioTrack(audio)
+
+  await output.start()
+  const frames = 12
+  for (let frame = 0; frame < frames; frame += 1) {
+    const sample = makeCodecVideoSample(frame, frames, 160, 90)
+    try {
+      await video.add(sample)
+    } finally {
+      sample.close()
+    }
+  }
+  const audioSample = makeCodecAudioSample()
+  try {
+    await audio.add(audioSample)
+  } finally {
+    audioSample.close()
+  }
+  video.close()
+  audio.close()
+  await output.finalize()
+
+  if (!target.buffer) throw new Error("MPEG-TS output was empty")
+  const input = createInput(target.buffer)
+  try {
+    const [videoTrack, audioTrack] = await Promise.all([
+      input.getPrimaryVideoTrack(),
+      input.getPrimaryAudioTrack(),
+    ])
+    if (!videoTrack || !audioTrack) {
+      throw new Error("MPEG-TS read-back is missing video or audio")
+    }
+
+    const videoSample = await new VideoSampleSink(videoTrack).getSample(0)
+    if (!videoSample) throw new Error("MPEG-TS video did not decode")
+    videoSample.close()
+
+    let audioFrames = 0
+    for await (const sample of new AudioSampleSink(audioTrack).samples()) {
+      audioFrames += sample.numberOfFrames
+      sample.close()
+    }
+    if (audioFrames === 0) throw new Error("MPEG-TS audio did not decode")
+
+    return {
+      status: "pass",
+      details: {
+        bytes: target.buffer.byteLength,
+        audioFrames,
+      },
+    }
+  } finally {
+    input.dispose()
+  }
+}
+
+async function runAdtsOutputFeature(): Promise<FeatureExecution> {
+  const target = new BufferTarget()
+  const output = new Output({
+    format: new AdtsOutputFormat(),
+    target,
+  })
+  await encodeShortAudio(output, "aac")
+
+  if (!target.buffer) throw new Error("ADTS output was empty")
+  const input = createInput(target.buffer)
+  try {
+    const track = await input.getPrimaryAudioTrack()
+    if (!track) throw new Error("ADTS read-back has no audio track")
+
+    let decodedFrames = 0
+    for await (const sample of new AudioSampleSink(track).samples()) {
+      decodedFrames += sample.numberOfFrames
+      sample.close()
+    }
+    if (decodedFrames === 0) throw new Error("ADTS read-back decoded no audio")
+
+    return {
+      status: "pass",
+      details: {
+        bytes: target.buffer.byteLength,
+        decodedFrames,
+      },
+    }
+  } finally {
+    input.dispose()
+  }
+}
+
+async function runHlsOutputFeature(): Promise<FeatureExecution> {
+  const files = new Map<string, ArrayBuffer>()
+  let playlist = ""
+  const target = new PathedTarget("", ({ path }) => {
+    const bufferTarget = new BufferTarget()
+    bufferTarget.on("finalized", () => {
+      if (bufferTarget.buffer) files.set(path, bufferTarget.buffer)
+    })
+    return bufferTarget
+  })
+  const output = new Output({
+    format: new HlsOutputFormat({
+      segmentFormat: new MpegTsOutputFormat(),
+      onPlaylist(text) {
+        playlist = text
+      },
+    }),
+    target,
+  })
+
+  await encodeShortVideo(output, "avc", 30)
+
+  if (!playlist.includes("#EXTM3U") || !playlist.includes("#EXT-X-ENDLIST")) {
+    throw new Error("HLS output did not produce a finalized playlist")
+  }
+
+  const segment = [...files.entries()].find(([path]) => path.endsWith(".ts"))
+  if (!segment) {
+    throw new Error("HLS output did not produce an MPEG-TS segment")
+  }
+
+  const input = createInput(segment[1])
+  try {
+    const track = await input.getPrimaryVideoTrack()
+    if (!track) throw new Error("HLS MPEG-TS segment has no video track")
+    const sample = await new VideoSampleSink(track).getSample(0)
+    if (!sample) throw new Error("HLS MPEG-TS segment did not decode")
+    sample.close()
+  } finally {
+    input.dispose()
+  }
+
+  return {
+    status: "pass",
+    details: {
+      files: files.size,
+      segmentBytes: segment[1].byteLength,
+      playlistBytes: new TextEncoder().encode(playlist).byteLength,
+    },
+  }
+}
+
 async function writeSubtitleFixture(
   format: Mp4OutputFormat | MkvOutputFormat,
 ): Promise<number> {
@@ -1082,6 +1329,11 @@ async function runFeatureCases(
   return [
     await runFeatureCase("canvas-source", runCanvasSourceFeature),
     canvasSink,
+
+    await runFeatureCase("cmaf-output", runCmafOutputFeature),
+    await runFeatureCase("mpeg-ts-output", runMpegTsOutputFeature),
+    await runFeatureCase("adts-output", runAdtsOutputFeature),
+    await runFeatureCase("hls-output", runHlsOutputFeature),
 
     await runFeatureCase("webvtt-output", async () => {
       const [mp4Bytes, mkvBytes] = await Promise.all([
