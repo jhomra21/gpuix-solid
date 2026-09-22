@@ -133,8 +133,11 @@ try {
   if (fixtureExitCode !== 0) throw new Error(`AVC fixture generator exited with code ${fixtureExitCode}`)
 
   const browser = await runJson("src/run-presentation-browser.ts", [fixturePath])
+  const browserSample = browser.endToEnd[0]
+  if (!browserSample) throw new Error("Browser decode matrix produced no measured runs")
+  const resolutionKey = `${browserSample.width}x${browserSample.height}`
   await Bun.write(
-    join(reportsDirectory, "presentation-iosurface-decode-browser.json"),
+    join(reportsDirectory, `presentation-iosurface-decode-${resolutionKey}-browser.json`),
     JSON.stringify(browser, null, 2) + "\n",
   )
   const browserDecodeFps = reportDecodeFps(browser)
@@ -147,7 +150,7 @@ try {
     const report = await runJson("src/run-presentation-iosurface-native.ts", [fixturePath], variant.env)
     results.push({ variant, report })
     await Bun.write(
-      join(reportsDirectory, `presentation-iosurface-decode-${variant.key}.json`),
+      join(reportsDirectory, `presentation-iosurface-decode-${resolutionKey}-${variant.key}.json`),
       JSON.stringify(report, null, 2) + "\n",
     )
   }
@@ -184,12 +187,12 @@ try {
 
   const summary = lines.join("\n")
   await Bun.write(
-    join(reportsDirectory, "presentation-iosurface-decode-matrix.md"),
+    join(reportsDirectory, `presentation-iosurface-decode-${resolutionKey}-matrix.md`),
     summary + "\n",
   )
   console.log(summary)
   console.log("")
-  console.log("Reports written to examples/mediabunny/reports/presentation-iosurface-decode-*")
+  console.log(`Reports written to examples/mediabunny/reports/presentation-iosurface-decode-${resolutionKey}-*`)
 } finally {
   await rm(workDirectory, { recursive: true, force: true })
 }
