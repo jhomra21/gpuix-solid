@@ -1,57 +1,144 @@
 # MediaBunny dogfood
 
-This fixture measures MediaBunny through the native codec paths GPUix Solid can realistically use.
+This fixture validates MediaBunny through the codec, I/O, conversion, Canvas, and GPUix presentation paths a native editor can use.
 
-The benchmark definition is shared. Backends only prepare the codec environment and then load the same suite:
+There are four useful execution modes:
 
-- `@mediabunny/server`: MediaBunny's official server-side extension. It uses NodeAV and FFmpeg's native libraries and can keep decoded samples backed by FFmpeg AVFrames.
-- `@napi-rs/webcodecs`: an FFmpeg-backed WebCodecs-compatible napi-rs implementation installed as globals before MediaBunny loads.
-- Browser WebCodecs: MediaBunny core running against Chromium's WebCodecs implementation. MediaBunny itself does not bundle FFmpeg for this browser path.
+- Browser WebCodecs: Chromium's native WebCodecs implementation.
+- `@napi-rs/webcodecs`: a WebCodecs-compatible native implementation used as a compatibility reference.
+- `@mediabunny/server`: MediaBunny's official NodeAV/FFmpeg server extension.
+- GPUix MediaBunny: `@jhomra21/gpuix-mediabunny`, which adds macOS VideoToolbox + IOSurface decoding for AVC/HEVC and keeps MediaBunny Server as the broad codec fallback.
 
-Dependencies are pinned because these measurements are only comparable when the MediaBunny and codec implementations are known exactly.
+MediaBunny is pinned to 1.59.0 so capability and benchmark results are reproducible.
 
-## Current workload
+## GPUix parity result
 
-The first checked-in workload establishes a reproducible baseline rather than pretending to cover every MediaBunny API at once. It records:
+The GPUix backend runs the same MediaBunny APIs rather than a parallel media abstraction. The current full suite reports:
 
-- video and audio encode/decode capability queries across MediaBunny's current codec vocabulary;
-- raw RGBA `VideoSample` and PCM `AudioSample` ingestion;
-- VP8 + Opus WebM encoding into a `BufferTarget`, chosen as the common baseline across Chromium and both native backends;
-- WebM reopening, format/MIME/duration/track/metadata inspection;
-- encoded packet iteration, sequential video/audio decoding, and random-access video sample retrieval;
-- Conversion API packet-copy/remux, resizing, frame-rate conversion, rotation, cropping, horizontal flip, PCM resampling/downmixing, trimming, and video/audio processing callbacks;
-- actual encode → mux → demux → decode round trips for advertised video codecs, using WebM for VP8/VP9/AV1 and MP4 for AVC/HEVC/ProRes;
-- native decoded-frame presentation through GPUix's binary BGRA `<video-frame>` element;
-- elapsed time, output size, correctness details, documented compatibility gaps, and bounded codec timeouts.
+```text
+passes:      50
+unsupported: 0
+known gaps:  0
+timeouts:    0
+errors:      0
+```
 
-The report is JSON so the browser runner and GPUI presentation runner can be compared field-for-field.
+Real encode → mux → demux → decode round trips pass for all tested video codecs:
+
+- AVC
+- HEVC
+- VP8
+- VP9
+- AV1
+- ProRes
+
+The audio round-trip matrix passes AAC, Opus, MP3, Vorbis, FLAC, AC-3, E-AC-3, DTS, PCM variants, μ-law, and A-law.
+
+The feature suite also covers:
+
+- sequential and random-access video/audio decoding;
+- `VideoSample.clone()`, `copyTo()`, transforms, and MediaBunny custom sample resources;
+- CanvasSource and CanvasSink under Bun/Node through `@napi-rs/canvas`;
+- metadata tags and conversion progress;
+- remux/copy conversion;
+- resize, frame-rate conversion, rotation, crop, flip, trim, and processing callbacks;
+- audio resampling and downmixing;
+- StreamTarget fragmented MP4;
+- ReadableStreamSource, BlobSource, and ranged sources;
+- CMAF, MPEG-TS, ADTS, HLS, and WebVTT subtitle output;
+- UrlSource with HTTP range requests;
+- FilePathSource and FilePathTarget;
+- HLS file readback through CustomPathedSource;
+- zero-copy IOSurface GPUix presentation for native AVC/HEVC samples;
+- BGRA GPUix presentation for fallback-decoded samples.
+
+AV1 and ProRes round trips run in isolated child processes with a bounded timeout because native codec implementations can stall independently of the rest of the suite. Both currently pass.
+
+## Native AVC/HEVC path
+
+On supported macOS hardware, MediaBunny's normal `VideoSampleSink` selects the registered VideoToolbox custom decoder for AVC and HEVC configurations that can open a hardware session.
+
+The path is:
+
+```text
+MediaBunny Input / VideoSampleSink
+        ↓
+encoded AVC or HEVC packets
+        ↓
+native VideoToolbox worker
+        ↓
+CVPixelBuffer-backed VideoSampleResource
+        ↓
+IOSurface → GPUix → GPUI
+```
+
+Decoded frame delivery is asynchronous and bounded to two pending native frames. The JavaScript presentation thread does not wait on synchronous packet batches.
+
+The native resource is still a regular MediaBunny `VideoSample`. Repository smokes verify:
+
+- sequential sample iteration;
+- presentation timestamps remain ordered;
+- IOSurface access;
+- `copyTo()`;
+- clones preserving the native resource;
+- transforms producing valid pixels;
+- random-access seeking.
+
+For hardware pixel formats without a direct MediaBunny plane mapping, RGB copy/transform requests fall back through CoreImage while IOSurface presentation remains native.
+
+## Broad fallback
+
+`registerGpuixMediaBunny()` registers VideoToolbox first, then MediaBunny's ProRes and server extensions. Codecs not handled by the macOS custom decoder therefore stay on MediaBunny's standard server path instead of requiring GPUix-specific codec implementations.
+
+This is intentional: parity means normal MediaBunny operations work. A codec only needs a GPUix-specific implementation when it provides a concrete native-performance or resource-sharing benefit.
 
 ## Run
 
+Install the dogfood dependencies:
+
 ```bash
+cd examples/mediabunny
 bun install --no-save
+```
+
+Prepare the reusable integration package and native addon:
+
+```bash
+bun run prepare:gpuix-mediabunny
+```
+
+Then run the focused and full checks:
+
+```bash
+bun run smoke:videotoolbox-direct
+bun run smoke:videotoolbox-stream
+bun run smoke:videotoolbox-hevc
+bun run smoke:mediabunny-videotoolbox:avc
+bun run smoke:mediabunny-videotoolbox:hevc
+bun run smoke:mediabunny-parity
+bun run bench:gpuix-mediabunny
+```
+
+The regular comparison backends remain available:
+
+```bash
 bun run bench:server
 bun run bench:webcodecs
 bunx playwright install chromium
 bun run bench:browser
-bun run dogfood:gpuix-surface
-bun run live:gpuix
 ```
 
-The live command requires the source-edge GPUIX native package to already be prepared and linked. It opens a real GPUI window with three MediaBunny-decoded frame elements using `contain`, `cover`, and `fill`. The decoded frame changes four times per second. Resize the window to inspect fit behavior and repeated frame replacement.
+The integration tests stage `@jhomra21/gpuix-mediabunny` into the dogfood consumer's `node_modules`. This deliberately gives the package and the consumer one shared MediaBunny/server dependency graph, matching a normal installed-package topology and preventing duplicate custom-decoder registries or duplicate NodeAV native libraries.
 
-`bench:server` runs the AV1 and ProRes round trips in separate Bun processes because those native codecs can stall on some machines. Each process has a 30-second budget. Set `MEDIABUNNY_SERVER_CODEC_TIMEOUT_MS` to change that budget. A timeout stays visible in the report and does not block the rest of the benchmark.
+## Boundaries
 
-Reports distinguish four non-success outcomes:
+The clean parity score applies to the tested file, codec, conversion, Canvas, and native presentation surfaces. A few environment/upstream boundaries remain outside that score:
 
-- `unsupported`: the backend does not advertise the capability;
-- `known-gap`: a reproduced backend-integration limitation that remains visible but is not treated as a new regression;
-- `timeout`: a bounded native probe exceeded its execution budget;
-- `error`: an unexpected failure. Benchmark commands return a failing exit code when unexpected errors remain.
+- live browser-device APIs such as `MediaStreamTrack` capture are not emulated in a headless Bun/GPUI process;
+- MediaBunny 1.59 can issue a direct HLS child `FilePathSource` read before that child has been sized/opened, so file-backed HLS readback uses `CustomPathedSource` around the child bytes;
+- VideoToolbox acceleration is currently AVC/HEVC-specific. Other codecs pass through MediaBunny Server.
 
-Current known gaps stay explicit. Browser-oriented `CanvasSink` cannot draw the native backends' decoded frame/resource types into `@napi-rs/canvas`, so GPUix presents decoded BGRA samples through its binary video-frame element. The napi-WebCodecs VP9 WebM round trip currently fails after MediaBunny's VP9 color-space packet rewrite. The server ProRes path is isolated because its generic round trip can fail or stall.
-
-Do not compare absolute GitHub-hosted-runner timings as framework performance claims. CI uses this workload as a correctness and compatibility gate and uploads the reports for inspection. Stable performance regression thresholds need repeated measurements on a controlled runner.
+CI treats any new unsupported case, known gap, timeout, or error in the GPUix backend as a failing parity run.
 
 ## Browser vs GPUix presentation benchmark
 
