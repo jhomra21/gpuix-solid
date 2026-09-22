@@ -33,10 +33,11 @@ export function percentile(values: readonly number[], fraction: number): number 
 }
 
 export function summarizeArrivals(arrivalMs: readonly number[]) {
+  const ordered = [...arrivalMs].sort((a, b) => a - b)
   const steps: number[] = []
-  for (let index = 1; index < arrivalMs.length; index += 1) {
-    const previous = arrivalMs[index - 1] ?? 0
-    const current = arrivalMs[index] ?? previous
+  for (let index = 1; index < ordered.length; index += 1) {
+    const previous = ordered[index - 1] ?? 0
+    const current = ordered[index] ?? previous
     steps.push(current - previous)
   }
   return {
