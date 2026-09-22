@@ -28,37 +28,69 @@ async function runIsolatedVideoCodec(codec: typeof ISOLATED_VIDEO_CODECS[number]
     },
   )
 
-  let timedOut = false
-  const timer = setTimeout(() => {
-    timedOut = true
-    child.kill("SIGKILL")
-  }, timeoutMs)
-
-  const stdoutPromise = new Response(child.stdout).text()
   const stderrPromise = new Response(child.stderr).text()
-  const exitCode = await child.exited
-  clearTimeout(timer)
+  const reader = child.stdout.getReader()
+  const decoder = new TextDecoder()
+  let stdout = ""
+  let timer: ReturnType<typeof setTimeout> | undefined
 
-  const stdout = await stdoutPromise
-  const stderr = await stderrPromise
+  try {
+    const result = await Promise.race([
+      (async () => {
+        while (true) {
+          const { value, done } = await reader.read()
+          if (done) break
+          stdout += decoder.decode(value, { stream: true })
 
-  if (timedOut) {
+          const newline = stdout.indexOf("\n")
+          if (newline >= 0) {
+            const line = stdout.slice(0, newline).trim()
+            if (line) return JSON.parse(line)
+            stdout = stdout.slice(newline + 1)
+          }
+        }
+
+        stdout += decoder.decode()
+        const line = stdout.trim()
+        if (!line) {
+          const exitCode = await child.exited
+          const stderr = await stderrPromise
+          throw new Error(
+            stderr.trim()
+            || ("Isolated " + codec + " probe exited with code " + exitCode + " without a result"),
+          )
+        }
+        return JSON.parse(line)
+      })(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          reject(
+            new Error(
+              "Isolated GPUix MediaBunny "
+              + codec
+              + " round trip exceeded "
+              + timeoutMs
+              + " ms",
+            ),
+          )
+        }, timeoutMs)
+      }),
+    ])
+
+    return result
+  } catch (error) {
     return {
       codec,
       status: "timeout" as const,
-      note: "Isolated GPUix MediaBunny " + codec + " round trip exceeded " + timeoutMs + " ms and was terminated.",
+      note: error instanceof Error ? error.message : String(error),
     }
+  } finally {
+    if (timer) clearTimeout(timer)
+    reader.releaseLock()
+    if (child.exitCode === null) child.kill("SIGKILL")
+    await child.exited
+    await stderrPromise
   }
-
-  if (exitCode !== 0) {
-    return {
-      codec,
-      status: "error" as const,
-      error: stderr.trim() || ("Isolated " + codec + " probe exited with code " + exitCode),
-    }
-  }
-
-  return JSON.parse(stdout)
 }
 
 for (const codec of ISOLATED_VIDEO_CODECS) {
