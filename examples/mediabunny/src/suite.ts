@@ -1,5 +1,6 @@
 import {
   ALL_FORMATS,
+  AppendOnlyStreamTarget,
   AudioSample,
   AudioSampleSink,
   AudioSampleSource,
@@ -10,7 +11,9 @@ import {
   CanvasSource,
   CmafOutputFormat,
   Conversion,
+  EncodedAudioPacketSource,
   EncodedPacketSink,
+  EncodedVideoPacketSource,
   FlacOutputFormat,
   HlsOutputFormat,
   Input,
@@ -19,6 +22,7 @@ import {
   Mp3OutputFormat,
   Mp4OutputFormat,
   MpegTsOutputFormat,
+  NullTarget,
   OggOutputFormat,
   WebMOutputFormat,
   Output,
@@ -1478,6 +1482,193 @@ async function runHlsOutputFeature(): Promise<FeatureExecution> {
   }
 }
 
+async function runEncodedPacketSourcesFeature(
+  buffer: ArrayBuffer,
+): Promise<FeatureExecution> {
+  const input = createInput(buffer)
+  const target = new BufferTarget()
+  const output = new Output({
+    format: new WebMOutputFormat(),
+    target,
+  })
+
+  try {
+    const [videoTrack, audioTrack] = await Promise.all([
+      input.getPrimaryVideoTrack(),
+      input.getPrimaryAudioTrack(),
+    ])
+    if (!videoTrack || !audioTrack) {
+      throw new Error("Encoded packet remux fixture is missing video or audio")
+    }
+
+    const videoSource = new EncodedVideoPacketSource(await videoTrack.getCodec())
+    const audioSource = new EncodedAudioPacketSource(await audioTrack.getCodec())
+    output.addVideoTrack(videoSource)
+    output.addAudioTrack(audioSource)
+
+    const [videoConfig, audioConfig] = await Promise.all([
+      videoTrack.getDecoderConfig(),
+      audioTrack.getDecoderConfig(),
+    ])
+
+    await output.start()
+
+    let videoPackets = 0
+    for await (const packet of new EncodedPacketSink(videoTrack).packets()) {
+      await videoSource.add(
+        packet,
+        videoPackets === 0 && videoConfig
+          ? { decoderConfig: videoConfig }
+          : undefined,
+      )
+      videoPackets += 1
+    }
+
+    let audioPackets = 0
+    for await (const packet of new EncodedPacketSink(audioTrack).packets()) {
+      await audioSource.add(
+        packet,
+        audioPackets === 0 && audioConfig
+          ? { decoderConfig: audioConfig }
+          : undefined,
+      )
+      audioPackets += 1
+    }
+
+    videoSource.close()
+    audioSource.close()
+    await output.finalize()
+
+    if (!target.buffer || target.buffer.byteLength === 0) {
+      throw new Error("Encoded packet sources produced no WebM output")
+    }
+
+    const remuxed = createInput(target.buffer)
+    try {
+      const [remuxedVideo, remuxedAudio] = await Promise.all([
+        remuxed.getPrimaryVideoTrack(),
+        remuxed.getPrimaryAudioTrack(),
+      ])
+      if (!remuxedVideo || !remuxedAudio) {
+        throw new Error("Encoded packet remux lost video or audio")
+      }
+
+      const firstVideo = await new VideoSampleSink(remuxedVideo).getSample(0)
+      if (!firstVideo) {
+        throw new Error("Encoded packet remux video did not decode")
+      }
+      firstVideo.close()
+
+      let decodedAudioFrames = 0
+      for await (const sample of new AudioSampleSink(remuxedAudio).samples()) {
+        decodedAudioFrames += sample.numberOfFrames
+        sample.close()
+      }
+      if (decodedAudioFrames === 0) {
+        throw new Error("Encoded packet remux audio did not decode")
+      }
+
+      return {
+        status: "pass",
+        details: {
+          bytes: target.buffer.byteLength,
+          videoPackets,
+          audioPackets,
+          decodedAudioFrames,
+        },
+      }
+    } finally {
+      remuxed.dispose()
+    }
+  } finally {
+    input.dispose()
+  }
+}
+
+async function runAppendOnlyTargetFeature(): Promise<FeatureExecution> {
+  const chunks: Uint8Array[] = []
+  const writable = new WritableStream<Uint8Array>({
+    write(chunk) {
+      chunks.push(chunk.slice())
+    },
+  })
+
+  const output = new Output({
+    format: new Mp4OutputFormat({ fastStart: "fragmented" }),
+    target: new AppendOnlyStreamTarget(writable),
+  })
+  await encodeShortVideo(output, "avc", 12)
+
+  const size = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0)
+  const bytes = new Uint8Array(size)
+  let offset = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+
+  if (bytes.byteLength === 0 || chunks.length === 0) {
+    throw new Error("AppendOnlyStreamTarget produced no MP4 bytes")
+  }
+
+  const video = await inspectVideoTrack(bytes.buffer)
+  if (video.samples === 0) {
+    throw new Error("AppendOnlyStreamTarget MP4 decoded no samples")
+  }
+
+  return {
+    status: "pass",
+    details: {
+      chunks: chunks.length,
+      bytes: bytes.byteLength,
+      samples: video.samples,
+    },
+  }
+}
+
+async function runNullTargetFeature(): Promise<FeatureExecution> {
+  let encodedPackets = 0
+  let encodedBytes = 0
+  const output = new Output({
+    format: new Mp4OutputFormat({ fastStart: "fragmented" }),
+    target: new NullTarget(),
+  })
+  const source = new VideoSampleSource({
+    codec: "avc",
+    quality: new Quality("medium"),
+    onEncodedPacket(packet) {
+      encodedPackets += 1
+      encodedBytes += packet.byteLength
+    },
+  })
+  output.addVideoTrack(source, { frameRate: FRAME_RATE })
+
+  await output.start()
+  const frameCount = 6
+  for (let frame = 0; frame < frameCount; frame += 1) {
+    const sample = makeCodecVideoSample(frame, frameCount, 160, 90)
+    try {
+      await source.add(sample)
+    } finally {
+      sample.close()
+    }
+  }
+  source.close()
+  await output.finalize()
+
+  if (encodedPackets === 0 || encodedBytes === 0) {
+    throw new Error("NullTarget path emitted no encoded packets")
+  }
+
+  return {
+    status: "pass",
+    details: {
+      encodedPackets,
+      encodedBytes,
+    },
+  }
+}
+
 async function runMetadataTagsFeature(): Promise<FeatureExecution> {
   const target = new BufferTarget()
   const output = new Output({
@@ -1621,6 +1812,15 @@ async function runFeatureCases(
     canvasSink,
 
     await runFeatureCase("metadata-tags", runMetadataTagsFeature),
+    await runFeatureCase(
+      "encoded-packet-sources",
+      () => runEncodedPacketSourcesFeature(buffer),
+    ),
+    await runFeatureCase(
+      "append-only-stream-target",
+      runAppendOnlyTargetFeature,
+    ),
+    await runFeatureCase("null-target", runNullTargetFeature),
     await runFeatureCase(
       "conversion-progress",
       () => runConversionProgressFeature(buffer),
