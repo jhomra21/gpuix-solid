@@ -106,6 +106,16 @@ function reportP95Ms(report: PresentationBenchmarkReport): number {
   return median(report.endToEnd.map((run) => run.frameStepP95Ms))
 }
 
+function receiveCallsPerFrame(report: PresentationBenchmarkReport): number {
+  return median(report.decodeOnly.map((run) =>
+    run.frames > 0 ? (run.nativeCodecReceiveCalls ?? 0) / run.frames : 0
+  ))
+}
+
+function sendEagain(report: PresentationBenchmarkReport): number {
+  return median(report.decodeOnly.map((run) => run.nativeCodecSendEagain ?? 0))
+}
+
 function ratio(value: number, baseline: number): string {
   return baseline <= 0 ? "n/a" : `${(value / baseline).toFixed(2)}x`
 }
@@ -142,15 +152,15 @@ try {
     "",
     `AVC fixture: ${sample.width}×${sample.height}, ${sample.frames} frames. Browser decode: ${browserDecodeFps.toFixed(2)} fps. Browser presentation: ${browserPresentationFps.toFixed(2)} fps.`,
     "",
-    "| Variant | Native decode | vs browser | Native presentation | vs browser | First frame | p95 step |",
-    "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+    "| Variant | Native decode | vs browser | Native presentation | vs browser | recv calls/frame | send EAGAIN | First frame | p95 step |",
+    "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
   ]
 
   for (const { variant, report } of results) {
     const decodeFps = reportDecodeFps(report)
     const presentationFps = reportPresentationFps(report)
     lines.push(
-      `| ${variant.label} | ${decodeFps.toFixed(2)} fps | ${ratio(decodeFps, browserDecodeFps)} | ${presentationFps.toFixed(2)} fps | ${ratio(presentationFps, browserPresentationFps)} | ${reportFirstFrameMs(report).toFixed(2)} ms | ${reportP95Ms(report).toFixed(2)} ms |`,
+      `| ${variant.label} | ${decodeFps.toFixed(2)} fps | ${ratio(decodeFps, browserDecodeFps)} | ${presentationFps.toFixed(2)} fps | ${ratio(presentationFps, browserPresentationFps)} | ${receiveCallsPerFrame(report).toFixed(2)} | ${sendEagain(report).toFixed(0)} | ${reportFirstFrameMs(report).toFixed(2)} ms | ${reportP95Ms(report).toFixed(2)} ms |`,
     )
   }
 
