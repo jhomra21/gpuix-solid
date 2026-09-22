@@ -1,4 +1,4 @@
-import { mkdir, rm } from "node:fs/promises"
+import { mkdir, readdir, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
@@ -399,6 +399,23 @@ async function runFilePathAndHlsSmoke() {
       source.close()
       await output.finalize()
 
+      const generatedFiles = await readdir(directory)
+      const firstSegmentName = generatedFiles.find((name) => name.endsWith(".ts"))
+      if (!firstSegmentName) {
+        throw new Error(
+          "HLS output produced no MPEG-TS segment: " + generatedFiles.join(","),
+        )
+      }
+
+      console.error("[gpuix-mediabunny-hls] verify first MPEG-TS segment")
+      const firstSegment = await verifyVideoInput(
+        new Input({
+          source: createGpuixFilePathSource(join(directory, firstSegmentName)),
+          formats: ALL_FORMATS,
+        }),
+        "GPUix file-path HLS MPEG-TS segment",
+      )
+
       const rootPath = join(directory, "master.m3u8")
       console.error("[gpuix-mediabunny-hls] verify input")
       const hls = await verifyVideoInput(
@@ -411,12 +428,14 @@ async function runFilePathAndHlsSmoke() {
 
       return {
         filePath: filePath.result,
+        firstSegment,
         hls,
       }
     } catch (error) {
       throw new Error(
         "HLS filesystem path failed: "
         + (error instanceof Error ? error.message : String(error)),
+        { cause: error },
       )
     }
   } finally {
