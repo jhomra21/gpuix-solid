@@ -147,6 +147,43 @@ try {
       )
     }
 
+    let failureCallbacks = 0
+    let rejectedAsExpected = false
+    try {
+      await decoder.decodeStream(
+        packets,
+        () => {
+          failureCallbacks += 1
+          if (failureCallbacks === 2) {
+            throw new Error("intentional stream smoke callback failure")
+          }
+        },
+      )
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      rejectedAsExpected = message.includes("intentional stream smoke callback failure")
+    }
+    if (!rejectedAsExpected) {
+      throw new Error("Stream smoke callback failure did not reject as expected")
+    }
+
+    let recoveryCallbacks = 0
+    const recovery = await decoder.decodeStream(
+      packets,
+      () => {
+        recoveryCallbacks += 1
+      },
+    )
+    if (
+      recoveryCallbacks !== packets.length
+      || recovery.delivered !== packets.length
+      || recovery.dropped !== 0
+    ) {
+      throw new Error(
+        `Stream smoke did not recover after callback failure callbacks=${recoveryCallbacks} delivered=${recovery.delivered} dropped=${recovery.dropped}`,
+      )
+    }
+
     console.log(
       JSON.stringify({
         packets: packets.length,
@@ -156,6 +193,8 @@ try {
         hardwareAccelerated: result.hardwareAccelerated,
         maxPendingFrames: result.maxPendingFrames,
         presentationOrderMonotonic: result.presentationOrderMonotonic,
+        callbackFailureRejected: rejectedAsExpected,
+        recoveryCallbacks,
       }),
     )
   } finally {
