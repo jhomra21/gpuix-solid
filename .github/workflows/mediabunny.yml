@@ -80,6 +80,14 @@ jobs:
           mkdir -p /tmp/gpuix-mediabunny-package-smoke
           cd /tmp/gpuix-mediabunny-package-smoke
           npm init -y >/dev/null
+          node - <<'NODE'
+          const fs = require("node:fs")
+          const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"))
+          packageJson.allowScripts = {
+            "@jhomra21/gpuix-mediabunny": true,
+          }
+          fs.writeFileSync("package.json", JSON.stringify(packageJson, null, 2) + "\n")
+          NODE
           npm install "$GITHUB_WORKSPACE/packages/mediabunny/$package_file" mediabunny@1.59.0 @mediabunny/server@1.59.0 @mediabunny/prores@1.59.0 >/dev/null
           node --input-type=module - <<'NODE'
           import {
