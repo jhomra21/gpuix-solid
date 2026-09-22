@@ -73,6 +73,10 @@ const fixture = await Bun.file(fixturePath).arrayBuffer()
 const addonPath = path.join(
   import.meta.dir,
   "..",
+  "..",
+  "..",
+  "packages",
+  "mediabunny",
   "native",
   "videotoolbox",
   "build",
