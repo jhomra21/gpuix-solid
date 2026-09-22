@@ -32,7 +32,6 @@ class VideoToolboxH264Decoder;
 struct StreamFrame {
   CVPixelBufferRef pixel_buffer;
   CMTime presentation_time;
-  size_t sequence;
 };
 
 struct StreamTask {
@@ -46,13 +45,11 @@ struct StreamTask {
   std::deque<StreamFrame> pending_frames;
   std::thread decode_thread;
   std::thread delivery_thread;
-  std::chrono::steady_clock::time_point started;
   std::string error;
   bool decode_done = false;
   bool presentation_order_monotonic = true;
   bool has_last_presentation_time = false;
   CMTime last_presentation_time = kCMTimeInvalid;
-  size_t callback_sequence = 0;
   size_t submitted = 0;
   size_t decoded = 0;
   size_t delivered = 0;
@@ -272,7 +269,6 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
     task->pending_frames.push_back({
       image_buffer,
       presentation_time_stamp,
-      task->callback_sequence++,
     });
     task->decoded += 1;
     lock.unlock();
@@ -284,7 +280,6 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       StreamFrame frame{
         nullptr,
         kCMTimeInvalid,
-        0,
       };
 
       {
@@ -567,7 +562,6 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
     }
 
     this->Ref();
-    task->started = std::chrono::steady_clock::now();
     task->tsfn = Napi::ThreadSafeFunction::New(
       env,
       info[1].As<Napi::Function>(),
@@ -596,28 +590,45 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
     PacketInput& out
   ) {
     if (!value.IsObject()) {
-      Napi::TypeError::New(env, "decodeBatch entries must be objects").ThrowAsJavaScriptException();
+      Napi::TypeError::New(env, "packet entries must be objects").ThrowAsJavaScriptException();
       return false;
     }
 
     Napi::Object object = value.As<Napi::Object>();
     Napi::Value data_value = object.Get("data");
     if (!data_value.IsBuffer()) {
-      Napi::TypeError::New(env, "decodeBatch packet.data must be a Buffer").ThrowAsJavaScriptException();
+      Napi::TypeError::New(env, "packet.data must be a Buffer").ThrowAsJavaScriptException();
+      return false;
+    }
+
+    Napi::Value timestamp_value = object.Get("timestamp");
+    if (!timestamp_value.IsNumber()) {
+      Napi::TypeError::New(env, "packet.timestamp must be a number")
+        .ThrowAsJavaScriptException();
+      return false;
+    }
+
+    Napi::Value duration_value = object.Get("duration");
+    if (!duration_value.IsUndefined() && !duration_value.IsNumber()) {
+      Napi::TypeError::New(env, "packet.duration must be a number when provided")
+        .ThrowAsJavaScriptException();
+      return false;
+    }
+
+    Napi::Value key_value = object.Get("keyframe");
+    if (!key_value.IsUndefined() && !key_value.IsBoolean()) {
+      Napi::TypeError::New(env, "packet.keyframe must be a boolean when provided")
+        .ThrowAsJavaScriptException();
       return false;
     }
 
     Napi::Buffer<uint8_t> buffer = data_value.As<Napi::Buffer<uint8_t>>();
     out.data = buffer.Data();
     out.size = buffer.Length();
-    out.timestamp_us = object.Get("timestamp").ToNumber().Int64Value();
-
-    Napi::Value duration_value = object.Get("duration");
+    out.timestamp_us = timestamp_value.As<Napi::Number>().Int64Value();
     out.duration_us = duration_value.IsNumber()
       ? duration_value.As<Napi::Number>().Int64Value()
       : 0;
-
-    Napi::Value key_value = object.Get("keyframe");
     out.keyframe = key_value.IsBoolean() && key_value.As<Napi::Boolean>().Value();
     return true;
   }
@@ -800,6 +811,7 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
     }
 
     if (submit_status != noErr) {
+      ReleaseCapturedFrames();
       Napi::Error::New(
         env,
         "VideoToolbox batch decode failed: " + std::to_string(submit_status)
@@ -807,6 +819,7 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       return env.Undefined();
     }
     if (callback_status != noErr) {
+      ReleaseCapturedFrames();
       Napi::Error::New(
         env,
         "VideoToolbox output callback failed: " + std::to_string(callback_status)
@@ -839,6 +852,7 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
         IOSurfaceRef surface =
           CVPixelBufferGetIOSurface(captured_frames[index].pixel_buffer);
         if (!surface) {
+          ReleaseCapturedFrames();
           Napi::Error::New(
             env,
             "VideoToolbox returned a captured frame without an IOSurface"
@@ -860,6 +874,19 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
     return result;
   }
 
+  size_t ReleaseCapturedFrames() {
+    std::lock_guard<std::mutex> lock(output_.mutex);
+    size_t released = 0;
+    for (const CapturedFrame& frame : output_.captured_frames) {
+      if (frame.pixel_buffer) CVPixelBufferRelease(frame.pixel_buffer);
+      released += 1;
+    }
+    output_.captured_frames.clear();
+    output_.capture_frames = false;
+    output_.capture_sequence = 0;
+    return released;
+  }
+
   Napi::Value ReleaseFrames(const Napi::CallbackInfo& info) {
     if (active_stream_.load(std::memory_order_acquire) != nullptr) {
       Napi::Error::New(
@@ -868,18 +895,7 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       ).ThrowAsJavaScriptException();
       return info.Env().Undefined();
     }
-    size_t released = 0;
-    {
-      std::lock_guard<std::mutex> lock(output_.mutex);
-      for (const CapturedFrame& frame : output_.captured_frames) {
-        if (frame.pixel_buffer) CVPixelBufferRelease(frame.pixel_buffer);
-        released += 1;
-      }
-      output_.captured_frames.clear();
-      output_.capture_frames = false;
-      output_.capture_sequence = 0;
-    }
-    return Napi::Number::New(info.Env(), released);
+    return Napi::Number::New(info.Env(), ReleaseCapturedFrames());
   }
 
   Napi::Value Dispose(const Napi::CallbackInfo& info) {
@@ -901,14 +917,7 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       CFRelease(session_);
       session_ = nullptr;
     }
-    {
-      std::lock_guard<std::mutex> lock(output_.mutex);
-      for (const CapturedFrame& frame : output_.captured_frames) {
-        if (frame.pixel_buffer) CVPixelBufferRelease(frame.pixel_buffer);
-      }
-      output_.captured_frames.clear();
-      output_.capture_frames = false;
-    }
+    ReleaseCapturedFrames();
     if (format_description_) {
       CFRelease(format_description_);
       format_description_ = nullptr;
