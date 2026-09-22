@@ -118,7 +118,7 @@ jobs:
 
           await output.start()
           for (let index = 0; index < 2; index += 1) {
-            const pixels = new Uint8Array(64 * 36 * 4)
+            const pixels = new Uint8Array(640 * 360 * 4)
             for (let offset = 0; offset < pixels.length; offset += 4) {
               pixels[offset] = index === 0 ? 32 : 224
               pixels[offset + 1] = 96
@@ -127,8 +127,8 @@ jobs:
             }
             const sample = new VideoSample(pixels, {
               format: "RGBA",
-              codedWidth: 64,
-              codedHeight: 36,
+              codedWidth: 640,
+              codedHeight: 360,
               timestamp: index / 30,
               duration: 1 / 30,
             })
