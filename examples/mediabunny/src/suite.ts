@@ -19,6 +19,7 @@ import {
   WebMOutputFormat,
   Output,
   Quality,
+  TextSubtitleSource,
   VideoSample,
   VideoSampleSink,
   VideoSampleSource,
@@ -1041,6 +1042,31 @@ async function runCanvasSinkFeature(buffer: ArrayBuffer): Promise<FeatureExecuti
   }
 }
 
+async function writeSubtitleFixture(
+  format: Mp4OutputFormat | MkvOutputFormat,
+): Promise<number> {
+  const target = new BufferTarget()
+  const output = new Output({ format, target })
+  const source = new TextSubtitleSource("webvtt")
+  output.addSubtitleTrack(source)
+
+  await output.start()
+  await source.add(`WEBVTT
+
+00:00.000 --> 00:00.500
+GPUix MediaBunny parity
+
+00:00.500 --> 00:01.000
+WebVTT output works
+`)
+  await output.finalize()
+
+  if (!target.buffer || target.buffer.byteLength === 0) {
+    throw new Error(format.constructor.name + " WebVTT output was empty")
+  }
+  return target.buffer.byteLength
+}
+
 async function runFeatureCases(
   backend: BenchmarkBackend,
   buffer: ArrayBuffer,
@@ -1056,6 +1082,21 @@ async function runFeatureCases(
   return [
     await runFeatureCase("canvas-source", runCanvasSourceFeature),
     canvasSink,
+
+    await runFeatureCase("webvtt-output", async () => {
+      const [mp4Bytes, mkvBytes] = await Promise.all([
+        writeSubtitleFixture(new Mp4OutputFormat()),
+        writeSubtitleFixture(new MkvOutputFormat()),
+      ])
+      return {
+        status: "pass",
+        details: {
+          mp4Bytes,
+          mkvBytes,
+          subtitleReadSupport: false,
+        },
+      }
+    }),
 
     await runFeatureCase("conversion-copy", async () => {
       const converted = await convertFixture(buffer, {
