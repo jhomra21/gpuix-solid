@@ -130,14 +130,36 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>) {
       packet.dts = AV_NOPTS_VALUE
       packet.duration = BigInt(Math.round(encoded.microsecondDuration))
 
-      const sendResult = codecContext.sendPacketSync(packet)
+      let sendResult = codecContext.sendPacketSync(packet)
+      while (sendResult === AVERROR_EAGAIN) {
+        let drained = false
+        for (const decoded of drain()) {
+          drained = true
+          yield decoded
+        }
+        if (!drained) {
+          throw new Error("VideoToolbox returned EAGAIN from both send and receive")
+        }
+        sendResult = codecContext.sendPacketSync(packet)
+      }
       packet.unref()
       FFmpegError.throwIfError(sendResult, "Send MediaBunny packet to VideoToolbox")
 
       for (const decoded of drain()) yield decoded
     }
 
-    const flushResult = codecContext.sendPacketSync(null)
+    let flushResult = codecContext.sendPacketSync(null)
+    while (flushResult === AVERROR_EAGAIN) {
+      let drained = false
+      for (const decoded of drain()) {
+        drained = true
+        yield decoded
+      }
+      if (!drained) {
+        throw new Error("VideoToolbox returned EAGAIN while flushing with no frame available")
+      }
+      flushResult = codecContext.sendPacketSync(null)
+    }
     FFmpegError.throwIfError(flushResult, "Flush VideoToolbox decoder")
     for (const decoded of drain()) yield decoded
   } finally {
