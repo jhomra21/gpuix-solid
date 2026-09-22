@@ -95,9 +95,14 @@ async function runIsolatedVideoCodec(codec: typeof ISOLATED_VIDEO_CODECS[number]
     }
   } finally {
     if (timer) clearTimeout(timer)
-    reader.releaseLock()
     if (child.exitCode === null) child.kill("SIGKILL")
     await child.exited
+    try {
+      await reader.cancel()
+    } catch {
+      // The stream may already be closed after the child exits.
+    }
+    reader.releaseLock()
     await stderrPromise
   }
 }
