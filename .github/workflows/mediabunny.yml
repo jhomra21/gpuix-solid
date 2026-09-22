@@ -58,6 +58,12 @@ jobs:
         if: matrix.backend == 'webcodecs'
         working-directory: examples/mediabunny
         run: bun run smoke:videotoolbox-direct
+      - name: Build direct VideoToolbox presentation harness
+        if: matrix.backend == 'webcodecs'
+        working-directory: examples/mediabunny
+        run: |
+          bun build src/run-presentation-direct-videotoolbox-native.ts --conditions=browser --target=bun --packages=external --outfile=/tmp/gpuix-mediabunny-direct-presentation.js
+          bun build src/run-presentation-direct-iosurface-scaling.ts --conditions=browser --target=bun --packages=external --outfile=/tmp/gpuix-mediabunny-direct-presentation-scaling.js
       - name: Upload benchmark report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
