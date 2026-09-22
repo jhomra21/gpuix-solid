@@ -1,9 +1,9 @@
 await import("@napi-rs/webcodecs/polyfill")
 
-const { installNapiCanvasGlobals } = await import("../../../packages/mediabunny/src/index.ts")
+const { installNapiCanvasGlobals } = await import("@jhomra21/gpuix-mediabunny")
 installNapiCanvasGlobals()
 
-const { registerGpuixMediaBunny } = await import("../../../packages/mediabunny/src/index.ts")
+const { registerGpuixMediaBunny } = await import("@jhomra21/gpuix-mediabunny")
 registerGpuixMediaBunny()
 
 const {
