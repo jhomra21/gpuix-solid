@@ -106,6 +106,12 @@ To tune the retained steady-state batch against presentation p95:
 bun run bench:presentation:iosurface:batch-matrix
 ```
 
+To test asynchronous frame delivery:
+
+```bash
+bun run bench:presentation:iosurface:stream-scaling
+```
+
 The in-app-browser comparison commands print one localhost URL per resolution. Open each URL in Codex's in-app browser; the page posts its browser report back to the waiting CLI, which then runs that command's native half and advances to the next resolution. No Playwright or separate Chromium install is required for these local comparison commands.
 
 `bench:presentation:iosurface:decode-matrix` keeps the browser path fixed and reruns the native VideoToolbox path with isolated decoder variables: an extra JavaScript packet copy versus a Buffer view, async versus synchronous NodeAV codec calls, packet queue depths from 1 through 40, low-latency first-frame scheduling, and extra hardware-frame pool capacity. It defaults to two warmups and five measured runs so small timing changes are less likely to be mistaken for improvements. The matrix also reports decoder receive calls per frame and send-side `EAGAIN` counts so a throughput change can be tied back to queue pressure instead of timing noise. The regular IOSurface benchmark remains unchanged by default. `bench:presentation:iosurface:decode-scaling` runs that matrix at 1280×720, 1920×1080, and 3840×2160, preserves every raw report with its resolution in the filename, and writes `reports/presentation-iosurface-decode-scaling.md`.
@@ -118,7 +124,9 @@ The promoted presentation path keeps the same direct decoder but captures only a
 
 The first 720p/1080p/4K acceptance run showed the direct path winning decode throughput, presentation throughput, and first-presented-frame latency at every resolution, but losing presentation-step p95. With the default eight-packet steady batch, p95 was 2.05 ms vs 0.80 ms at 720p, 3.96 ms vs 1.20 ms at 1080p, and 14.12 ms vs 8.60 ms at 4K. Native decode batches dominated measured native time while IOSurface handoff and GPUI flush were small, which points to the synchronous steady-batch boundary as the source of the presentation-step stalls.
 
-Use `bench:presentation:iosurface:batch-matrix` to isolate that tradeoff. It measures the browser baseline once per resolution, then reruns the direct native presentation path with steady batches of 1, 2, 4, and 8 packets while keeping the first packet as its own low-latency batch. The scorecard requires native decode and presentation throughput above 1x, plus first-frame and presentation-step p95 below 1x, at 720p, 1080p, and 4K. Results are written to `reports/presentation-direct-iosurface-batch-matrix.md`.
+`bench:presentation:iosurface:batch-matrix` confirmed that batch-size tuning alone cannot produce a clean win. Batches 1 and 2 reduce p95 at 1080p and 4K but lose presentation throughput there, while batch 4 is the smallest size that beats browser presentation throughput at all three resolutions and still loses p95 everywhere. The worst cross-resolution presentation/p95 ratios were 0.53x/1.44x for batch 1, 0.81x/1.54x for batch 2, 1.08x/2.19x for batch 4, and 1.11x/3.29x for batch 8. This isolates the remaining issue to synchronous delivery scheduling rather than GPUix handoff/render cost.
+
+The next comparison is `bench:presentation:iosurface:stream-scaling`. It keeps MediaBunny packet iteration in the native end-to-end timer, moves VideoToolbox submission and waiting to a native worker, and streams each decoded IOSurface back through a bounded thread-safe queue instead of returning frame batches synchronously. At most two decoded frames may wait for JavaScript; each CVPixelBuffer remains retained through the synchronous GPUix handoff/flush callback and is released immediately afterward. A macOS smoke verifies 4/4 streamed frames, 8-byte IOSurface handles, monotonic presentation order, hardware acceleration, and the two-frame pending bound.
 
 The default workload is 1280×720, 60 frames at 30 fps, one warmup, and three measured runs. `bench:presentation` compares Chromium with the napi-WebCodecs path. `bench:presentation:server` compares Chromium with the direct MediaBunny server AVFrame path. On macOS, `bench:presentation:iosurface` switches the shared fixture to AVC and compares Chromium with the VideoToolbox/IOSurface GPUix path. The commands write:
 
