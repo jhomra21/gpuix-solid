@@ -58,6 +58,10 @@ jobs:
         if: matrix.backend == 'webcodecs'
         working-directory: examples/mediabunny
         run: bun run smoke:videotoolbox-stream
+      - name: Smoke HEVC VideoToolbox paths
+        if: matrix.backend == 'webcodecs'
+        working-directory: examples/mediabunny
+        run: bun run smoke:videotoolbox-hevc
       - name: Build streaming VideoToolbox presentation harness
         if: matrix.backend == 'webcodecs'
         working-directory: examples/mediabunny
