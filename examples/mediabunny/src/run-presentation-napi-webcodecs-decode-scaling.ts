@@ -82,7 +82,8 @@ async function runBrowser(
     throw new Error(`Browser decode benchmark exited with code ${exitCode}`)
   }
 
-  // SAFETY: this child runs the repository browser benchmark; the schema/backend checks below reject mismatched output.\n  const report = JSON.parse(stdout) as PresentationBenchmarkReport
+  // SAFETY: this child runs the repository browser benchmark; the schema/backend checks below reject mismatched output.
+  const report = JSON.parse(stdout) as PresentationBenchmarkReport
   if (
     report.schemaVersion !== 2
     || report.backend !== "browser-webcodecs-canvas"
@@ -112,7 +113,8 @@ async function runWorker(
     throw new Error(`napi-WebCodecs worker benchmark exited with code ${exitCode}`)
   }
 
-  // SAFETY: this child runs the repository worker benchmark; the schema/backend checks below reject mismatched output.\n  const report = JSON.parse(stdout) as DecodeWorkerReport
+  // SAFETY: this child runs the repository worker benchmark; the schema/backend checks below reject mismatched output.
+  const report = JSON.parse(stdout) as DecodeWorkerReport
   if (
     report.schemaVersion !== 1
     || report.backend !== "napi-webcodecs-worker"
