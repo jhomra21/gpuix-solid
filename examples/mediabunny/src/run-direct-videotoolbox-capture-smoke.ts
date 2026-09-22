@@ -31,7 +31,6 @@ type Decoder = {
   decodeBatch(
     packets: PacketInput[],
     captureFrames?: boolean,
-    finish?: boolean,
   ): BatchResult
   releaseFrames(): number
   dispose(): void
@@ -102,7 +101,7 @@ try {
       throw new Error("Capture smoke decoder is not hardware accelerated")
     }
 
-    const result = decoder.decodeBatch(packets, true, true)
+    const result = decoder.decodeBatch(packets, true)
     if (!result.hardwareAccelerated) {
       throw new Error("Capture smoke batch lost hardware acceleration")
     }
