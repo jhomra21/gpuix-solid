@@ -1,4 +1,3 @@
-import { registerProresDecoder } from "@mediabunny/prores"
 import { registerMediabunnyServer, type MediabunnyServerOptions } from "@mediabunny/server"
 import { VideoSample } from "mediabunny"
 import { installNapiCanvasGlobals } from "./napi-canvas-globals.js"
@@ -36,7 +35,6 @@ export function registerGpuixMediaBunny(
   installGpuixCanvasSinkBridge()
 
   const videoToolbox = registerVideoToolboxMediaDecoder()
-  registerProresDecoder()
   registerMediabunnyServer(serverOptions)
 
   registration = {
