@@ -754,10 +754,7 @@ async function runVideoCodecRoundTrip(
         note: "MediaBunny's WebM VP9 color-space rewrite changes napi-WebCodecs packet bytes; the rewritten stream currently fails FFmpeg decode.",
       }
     }
-    if (
-      (backend === "mediabunny-server" || backend === "gpuix-mediabunny")
-      && codec === "prores"
-    ) {
+    if (backend === "mediabunny-server" && codec === "prores") {
       return {
         codec,
         status: "known-gap",
@@ -1048,12 +1045,13 @@ async function runFeatureCases(
   backend: BenchmarkBackend,
   buffer: ArrayBuffer,
 ): Promise<FeatureCaseResult[]> {
-  const canvasSink = backend === "browser-webcodecs"
-    ? await runFeatureCase("canvas-sink", () => runCanvasSinkFeature(buffer))
-    : knownGapFeature(
-        "canvas-sink",
-        "Native canvas implementations do not accept the backend's decoded VideoFrame/resource in drawImage; GPUix uses the binary video-frame surface instead.",
-      )
+  const canvasSink =
+    backend === "browser-webcodecs" || backend === "gpuix-mediabunny"
+      ? await runFeatureCase("canvas-sink", () => runCanvasSinkFeature(buffer))
+      : knownGapFeature(
+          "canvas-sink",
+          "The generic native backend does not install a Canvas implementation. The GPUix MediaBunny backend does and exercises CanvasSink directly.",
+        )
 
   return [
     await runFeatureCase("canvas-source", runCanvasSourceFeature),
