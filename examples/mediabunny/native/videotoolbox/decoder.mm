@@ -397,59 +397,15 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       if (task->HasError()) break;
       if (packet.size == 0) continue;
 
-      CMBlockBufferRef block = nullptr;
-      OSStatus status = CMBlockBufferCreateWithMemoryBlock(
-        kCFAllocatorDefault,
-        packet.data,
-        packet.size,
-        kCFAllocatorNull,
-        nullptr,
-        0,
-        packet.size,
-        0,
-        &block
-      );
-      if (status != noErr || !block) {
-        decode_status = status;
-        break;
-      }
-
-      CMSampleTimingInfo timing{
-        packet.duration_us > 0
-          ? CMTimeMake(packet.duration_us, 1'000'000)
-          : kCMTimeInvalid,
-        CMTimeMake(packet.timestamp_us, 1'000'000),
-        kCMTimeInvalid,
-      };
-      const size_t sample_size = packet.size;
       CMSampleBufferRef sample = nullptr;
-      status = CMSampleBufferCreateReady(
-        kCFAllocatorDefault,
-        block,
+      OSStatus status = CreateSampleBuffer(
         format_description_,
-        1,
-        1,
-        &timing,
-        1,
-        &sample_size,
+        packet,
         &sample
       );
-      CFRelease(block);
-
       if (status != noErr || !sample) {
         decode_status = status;
         break;
-      }
-
-      CFArrayRef attachments = CMSampleBufferGetSampleAttachmentsArray(sample, true);
-      if (attachments && CFArrayGetCount(attachments) > 0 && !packet.keyframe) {
-        CFMutableDictionaryRef attachment =
-          (CFMutableDictionaryRef)CFArrayGetValueAtIndex(attachments, 0);
-        CFDictionarySetValue(
-          attachment,
-          kCMSampleAttachmentKey_NotSync,
-          kCFBooleanTrue
-        );
       }
 
       VTDecodeInfoFlags info_flags = 0;
@@ -470,8 +426,10 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       task->submitted += 1;
     }
 
-    if (decode_status == noErr && !task->HasError()) {
-      decode_status = VTDecompressionSessionFinishDelayedFrames(session_);
+    const OSStatus finish_status =
+      VTDecompressionSessionFinishDelayedFrames(session_);
+    if (decode_status == noErr && finish_status != noErr) {
+      decode_status = finish_status;
     }
 
     const OSStatus wait_status =
@@ -683,8 +641,6 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
 
     const bool capture_frames =
       info.Length() > 1 && info[1].IsBoolean() && info[1].As<Napi::Boolean>().Value();
-    const bool finish =
-      info.Length() < 3 || !info[2].IsBoolean() || info[2].As<Napi::Boolean>().Value();
 
     Napi::Array values = info[0].As<Napi::Array>();
     std::vector<PacketInput> packets;
@@ -738,53 +694,15 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       if (packet.size == 0) continue;
 
       const auto sample_build_started = std::chrono::steady_clock::now();
-      CMBlockBufferRef block = nullptr;
-      OSStatus status = CMBlockBufferCreateWithMemoryBlock(
-        kCFAllocatorDefault,
-        packet.data,
-        packet.size,
-        kCFAllocatorNull,
-        nullptr,
-        0,
-        packet.size,
-        0,
-        &block
-      );
-      if (status != noErr || !block) {
-        submit_status = status;
-        break;
-      }
-
-      CMSampleTimingInfo timing{
-        packet.duration_us > 0 ? CMTimeMake(packet.duration_us, 1'000'000) : kCMTimeInvalid,
-        CMTimeMake(packet.timestamp_us, 1'000'000),
-        kCMTimeInvalid,
-      };
-      const size_t sample_size = packet.size;
       CMSampleBufferRef sample = nullptr;
-      status = CMSampleBufferCreateReady(
-        kCFAllocatorDefault,
-        block,
+      OSStatus status = CreateSampleBuffer(
         format_description_,
-        1,
-        1,
-        &timing,
-        1,
-        &sample_size,
+        packet,
         &sample
       );
-      CFRelease(block);
-
       if (status != noErr || !sample) {
         submit_status = status;
         break;
-      }
-
-      CFArrayRef attachments = CMSampleBufferGetSampleAttachmentsArray(sample, true);
-      if (attachments && CFArrayGetCount(attachments) > 0 && !packet.keyframe) {
-        CFMutableDictionaryRef attachment =
-          (CFMutableDictionaryRef)CFArrayGetValueAtIndex(attachments, 0);
-        CFDictionarySetValue(attachment, kCMSampleAttachmentKey_NotSync, kCFBooleanTrue);
       }
 
       const auto sample_build_ended = std::chrono::steady_clock::now();
@@ -815,11 +733,16 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
     }
 
     const auto wait_started = std::chrono::steady_clock::now();
-    if (submit_status == noErr && finish) {
-      submit_status = VTDecompressionSessionFinishDelayedFrames(session_);
+    const OSStatus finish_status =
+      VTDecompressionSessionFinishDelayedFrames(session_);
+    if (submit_status == noErr && finish_status != noErr) {
+      submit_status = finish_status;
     }
-    if (submit_status == noErr) {
-      submit_status = VTDecompressionSessionWaitForAsynchronousFrames(session_);
+
+    const OSStatus wait_status =
+      VTDecompressionSessionWaitForAsynchronousFrames(session_);
+    if (submit_status == noErr && wait_status != noErr) {
+      submit_status = wait_status;
     }
     const auto wait_ended = std::chrono::steady_clock::now();
     const double wait_ms = std::chrono::duration<double, std::milli>(
