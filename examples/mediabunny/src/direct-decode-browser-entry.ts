@@ -62,7 +62,16 @@ async function prepareInput(buffer: ArrayBuffer) {
         codec: config.codec,
         codedWidth: config.codedWidth ?? await track.getCodedWidth(),
         codedHeight: config.codedHeight ?? await track.getCodedHeight(),
-        description: config.description,
+        description: config.description
+          ? new Uint8Array(
+              ArrayBuffer.isView(config.description)
+                ? config.description.buffer.slice(
+                    config.description.byteOffset,
+                    config.description.byteOffset + config.description.byteLength,
+                  )
+                : config.description.slice(0),
+            )
+          : undefined,
         hardwareAcceleration: "prefer-hardware" as const,
       },
       packets,
