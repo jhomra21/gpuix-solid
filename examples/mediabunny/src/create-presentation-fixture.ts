@@ -20,7 +20,10 @@ const width = Number(process.env.MEDIABUNNY_PRESENTATION_WIDTH ?? 1280)
 const height = Number(process.env.MEDIABUNNY_PRESENTATION_HEIGHT ?? 720)
 const frameRate = Number(process.env.MEDIABUNNY_PRESENTATION_FPS ?? 30)
 const frameCount = Number(process.env.MEDIABUNNY_PRESENTATION_FRAMES ?? 60)
-const codec = process.env.MEDIABUNNY_PRESENTATION_CODEC === "avc" ? "avc" : "vp8"
+const requestedCodec = process.env.MEDIABUNNY_PRESENTATION_CODEC ?? "vp8"
+const codec = requestedCodec === "avc" || requestedCodec === "hevc"
+  ? requestedCodec
+  : "vp8"
 
 if (![width, height, frameRate, frameCount].every((value) => Number.isInteger(value) && value > 0)) {
   throw new Error("Presentation fixture dimensions, frame rate, and frame count must be positive integers")
@@ -59,7 +62,7 @@ function makeFrame(index: number) {
 
 const target = new BufferTarget()
 const output = new Output({
-  format: codec === "avc" ? new Mp4OutputFormat() : new WebMOutputFormat(),
+  format: codec === "vp8" ? new WebMOutputFormat() : new Mp4OutputFormat(),
   target,
 })
 const source = new VideoSampleSource({
