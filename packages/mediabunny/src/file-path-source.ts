@@ -5,6 +5,20 @@ import {
   type FilePathSourceOptions,
 } from "mediabunny"
 
+function parseRootPath(value: unknown): string {
+  if (Object.prototype.toString.call(value) !== "[object String]") {
+    throw new TypeError("rootPath must be a string")
+  }
+  return value as string
+}
+
+function parseOptions(value: unknown): FilePathSourceOptions {
+  if (Object.prototype.toString.call(value) !== "[object Object]") {
+    throw new TypeError("options must be an object")
+  }
+  return value as FilePathSourceOptions
+}
+
 function createFileSource(
   filePath: string,
   options: FilePathSourceOptions,
@@ -46,9 +60,13 @@ function createFileSource(
         void pending.then((handle) => handle.close()).catch(() => {})
       }
     },
-    maxCacheSize: options.maxCacheSize,
     prefetchProfile: "fileSystem",
-    handleUnhandledError: options.handleUnhandledError,
+    ...(options.maxCacheSize === undefined
+      ? {}
+      : { maxCacheSize: options.maxCacheSize }),
+    ...(options.handleUnhandledError === undefined
+      ? {}
+      : { handleUnhandledError: options.handleUnhandledError }),
   })
 }
 
@@ -56,15 +74,11 @@ export function createGpuixFilePathSource(
   rootPath: string,
   options: FilePathSourceOptions = {},
 ): CustomPathedSource {
-  if (typeof rootPath !== "string") {
-    throw new TypeError("rootPath must be a string")
-  }
-  if (!options || typeof options !== "object") {
-    throw new TypeError("options must be an object")
-  }
+  const parsedRootPath = parseRootPath(rootPath)
+  const parsedOptions = parseOptions(options)
 
   return new CustomPathedSource(
-    rootPath,
-    ({ path }) => createFileSource(path, options),
+    parsedRootPath,
+    ({ path }) => createFileSource(path, parsedOptions),
   )
 }
