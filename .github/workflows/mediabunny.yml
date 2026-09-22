@@ -82,13 +82,101 @@ jobs:
           npm init -y >/dev/null
           npm install "$GITHUB_WORKSPACE/packages/mediabunny/$package_file" mediabunny@1.59.0 @mediabunny/server@1.59.0 @mediabunny/prores@1.59.0 >/dev/null
           node --input-type=module - <<'NODE'
-          import { registerGpuixMediaBunny } from "@jhomra21/gpuix-mediabunny"
+          import {
+            getVideoToolboxVideoSampleResource,
+            registerGpuixMediaBunny,
+          } from "@jhomra21/gpuix-mediabunny"
+          import {
+            ALL_FORMATS,
+            BufferSource,
+            BufferTarget,
+            Input,
+            Mp4OutputFormat,
+            Output,
+            Quality,
+            VideoSample,
+            VideoSampleSink,
+            VideoSampleSource,
+          } from "mediabunny"
 
           const registration = registerGpuixMediaBunny()
           if (!registration.videoToolbox || !registration.serverFallback) {
             throw new Error("Packed gpuix-mediabunny did not register native + fallback paths")
           }
-          console.log(JSON.stringify(registration))
+
+          const target = new BufferTarget()
+          const output = new Output({
+            format: new Mp4OutputFormat(),
+            target,
+          })
+          const source = new VideoSampleSource({
+            codec: "avc",
+            quality: new Quality("medium"),
+          })
+          output.addVideoTrack(source, { frameRate: 30 })
+
+          await output.start()
+          for (let index = 0; index < 2; index += 1) {
+            const pixels = new Uint8Array(64 * 36 * 4)
+            for (let offset = 0; offset < pixels.length; offset += 4) {
+              pixels[offset] = index === 0 ? 32 : 224
+              pixels[offset + 1] = 96
+              pixels[offset + 2] = 160
+              pixels[offset + 3] = 255
+            }
+            const sample = new VideoSample(pixels, {
+              format: "RGBA",
+              codedWidth: 64,
+              codedHeight: 36,
+              timestamp: index / 30,
+              duration: 1 / 30,
+            })
+            try {
+              await source.add(sample)
+            } finally {
+              sample.close()
+            }
+          }
+          source.close()
+          await output.finalize()
+          if (!target.buffer) {
+            throw new Error("Packed consumer AVC fixture produced no bytes")
+          }
+
+          const input = new Input({
+            source: new BufferSource(target.buffer),
+            formats: ALL_FORMATS,
+          })
+          try {
+            const track = await input.getPrimaryVideoTrack()
+            if (!track) throw new Error("Packed consumer AVC fixture has no video track")
+
+            const sample = await new VideoSampleSink(track).getSample(0)
+            if (!sample) throw new Error("Packed consumer native decode returned no sample")
+            try {
+              const native = getVideoToolboxVideoSampleResource(sample)
+              if (!native || native.iosurfaceHandle.byteLength === 0) {
+                throw new Error("Packed consumer did not use VideoToolbox IOSurface decode")
+              }
+
+              const pixels = new Uint8Array(sample.allocationSize())
+              await sample.copyTo(pixels)
+              if (!pixels.some((value) => value !== 0)) {
+                throw new Error("Packed consumer native sample copyTo produced no pixels")
+              }
+
+              console.log(JSON.stringify({
+                ...registration,
+                codec: await track.getCodec(),
+                iosurfaceHandleBytes: native.iosurfaceHandle.byteLength,
+                copiedBytes: pixels.byteLength,
+              }))
+            } finally {
+              sample.close()
+            }
+          } finally {
+            input.dispose()
+          }
           NODE
           rm -f "$GITHUB_WORKSPACE/packages/mediabunny/$package_file"
       - name: Smoke direct VideoToolbox decoder
