@@ -5,7 +5,7 @@ if (codec !== "av1" && codec !== "prores") {
   throw new Error("Unsupported isolated GPUix MediaBunny video codec: " + (codec ?? "<missing>"))
 }
 
-const { registerGpuixMediaBunny } = await import("./gpuix-mediabunny.ts")
+const { registerGpuixMediaBunny } = await import("../../../packages/mediabunny/src/index.ts")
 registerGpuixMediaBunny()
 
 const { runVideoCodecRoundTripForCodec } = await import("./suite.ts")
