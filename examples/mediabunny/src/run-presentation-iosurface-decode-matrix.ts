@@ -133,6 +133,10 @@ try {
   if (fixtureExitCode !== 0) throw new Error(`AVC fixture generator exited with code ${fixtureExitCode}`)
 
   const browser = await runJson("src/run-presentation-browser.ts", [fixturePath])
+  await Bun.write(
+    join(reportsDirectory, "presentation-iosurface-decode-browser.json"),
+    JSON.stringify(browser, null, 2) + "\n",
+  )
   const browserDecodeFps = reportDecodeFps(browser)
   const browserPresentationFps = reportPresentationFps(browser)
   const browserFirstFrameMs = reportFirstFrameMs(browser)
@@ -154,7 +158,7 @@ try {
   const lines = [
     "# Native decode experiment matrix",
     "",
-    `AVC fixture: ${sample.width}×${sample.height}, ${sample.frames} frames. Browser decode: ${browserDecodeFps.toFixed(2)} fps. Browser presentation: ${browserPresentationFps.toFixed(2)} fps.`,
+    `AVC fixture: ${sample.width}×${sample.height}, ${sample.frames} frames. ${browser.workload.warmups} warmups, ${browser.workload.iterations} measured runs. Browser decode: ${browserDecodeFps.toFixed(2)} fps. Browser presentation: ${browserPresentationFps.toFixed(2)} fps.`,
     "",
     "| Variant | Native decode | vs browser | Native presentation | vs browser | recv calls/frame | send EAGAIN | First frame | vs browser | p95 step | vs browser |",
     "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
