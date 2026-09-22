@@ -79,8 +79,8 @@ jobs:
           rm -rf /tmp/gpuix-mediabunny-package-smoke
           mkdir -p /tmp/gpuix-mediabunny-package-smoke
           cd /tmp/gpuix-mediabunny-package-smoke
-          npm init -y >/dev/null
-          npm install "$GITHUB_WORKSPACE/packages/mediabunny/$package_file" mediabunny@1.59.0 @mediabunny/server@1.59.0 @mediabunny/prores@1.59.0 >/dev/null
+          bun init -y >/dev/null
+          bun add "$GITHUB_WORKSPACE/packages/mediabunny/$package_file" mediabunny@1.59.0 @mediabunny/server@1.59.0 @mediabunny/prores@1.59.0 >/dev/null
           ./node_modules/.bin/gpuix-mediabunny-build-native
           node --input-type=module - <<'NODE'
           import {
