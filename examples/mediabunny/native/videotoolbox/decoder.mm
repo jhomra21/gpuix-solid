@@ -75,6 +75,8 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
     int height = 0;
     double first_frame_ms = 0;
     double last_frame_ms = 0;
+    std::vector<double> arrival_ms;
+    std::vector<double> arrival_ms;
     OSStatus callback_status = noErr;
     uint32_t dropped = 0;
   };
@@ -187,6 +189,7 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       self->output_.first_frame_ms = elapsed_ms;
     }
     self->output_.last_frame_ms = elapsed_ms;
+    self->output_.arrival_ms.push_back(elapsed_ms);
     self->output_.frames += 1;
     self->output_.width = static_cast<int>(CVPixelBufferGetWidth(image_buffer));
     self->output_.height = static_cast<int>(CVPixelBufferGetHeight(image_buffer));
@@ -351,6 +354,7 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       output_.height = 0;
       output_.first_frame_ms = 0;
       output_.last_frame_ms = 0;
+      output_.arrival_ms.clear();
       output_.callback_status = noErr;
       output_.dropped = 0;
     }
@@ -461,6 +465,7 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       height = output_.height;
       first_frame_ms = output_.first_frame_ms;
       last_frame_ms = output_.last_frame_ms;
+      arrival_ms = output_.arrival_ms;
       callback_status = output_.callback_status;
       dropped = output_.dropped;
     }
@@ -490,6 +495,11 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
     result.Set("totalMs", Napi::Number::New(env, total_ms));
     result.Set("firstFrameMs", Napi::Number::New(env, first_frame_ms));
     result.Set("lastFrameMs", Napi::Number::New(env, last_frame_ms));
+    Napi::Array arrivals = Napi::Array::New(env, arrival_ms.size());
+    for (size_t index = 0; index < arrival_ms.size(); ++index) {
+      arrivals.Set(index, Napi::Number::New(env, arrival_ms[index]));
+    }
+    result.Set("frameArrivalMs", arrivals);
     result.Set("hardwareAccelerated", Napi::Boolean::New(env, IsHardwareAccelerated()));
     return result;
   }
