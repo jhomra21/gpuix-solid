@@ -382,11 +382,12 @@ async function runFilePathAndHlsSmoke() {
       const source = new VideoSampleSource({
         codec: "avc",
         quality: new Quality("medium"),
+        keyFrameInterval: 1,
       })
       output.addVideoTrack(source, { frameRate: 30 })
 
       await output.start()
-      const frameCount = 12
+      const frameCount = 90
       for (let index = 0; index < frameCount; index += 1) {
         const sample = makeHlsSample(index, frameCount)
         try {
