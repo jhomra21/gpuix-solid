@@ -349,6 +349,7 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       }
       packets.push_back(packet);
     }
+    const auto packets_parsed = std::chrono::steady_clock::now();
 
     {
       std::lock_guard<std::mutex> lock(output_.mutex);
@@ -363,16 +364,18 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       output_.dropped = 0;
     }
 
-    const auto native_started = std::chrono::steady_clock::now();
     std::vector<CMSampleBufferRef> samples;
     samples.reserve(packets.size());
 
     OSStatus submit_status = noErr;
     size_t submitted = 0;
+    double sample_build_ms = 0;
+    double submit_ms = 0;
 
     for (const PacketInput& packet : packets) {
       if (packet.size == 0) continue;
 
+      const auto sample_build_started = std::chrono::steady_clock::now();
       CMBlockBufferRef block = nullptr;
       OSStatus status = CMBlockBufferCreateWithMemoryBlock(
         kCFAllocatorDefault,
@@ -422,7 +425,13 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
         CFDictionarySetValue(attachment, kCMSampleAttachmentKey_NotSync, kCFBooleanTrue);
       }
 
+      const auto sample_build_ended = std::chrono::steady_clock::now();
+      sample_build_ms += std::chrono::duration<double, std::milli>(
+        sample_build_ended - sample_build_started
+      ).count();
+
       VTDecodeInfoFlags info_flags = 0;
+      const auto submit_started = std::chrono::steady_clock::now();
       status = VTDecompressionSessionDecodeFrame(
         session_,
         sample,
@@ -430,6 +439,10 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
         nullptr,
         &info_flags
       );
+      const auto submit_ended = std::chrono::steady_clock::now();
+      submit_ms += std::chrono::duration<double, std::milli>(
+        submit_ended - submit_started
+      ).count();
       samples.push_back(sample);
 
       if (status != noErr) {
@@ -439,12 +452,17 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       submitted += 1;
     }
 
+    const auto wait_started = std::chrono::steady_clock::now();
     if (submit_status == noErr) {
       submit_status = VTDecompressionSessionFinishDelayedFrames(session_);
     }
     if (submit_status == noErr) {
       submit_status = VTDecompressionSessionWaitForAsynchronousFrames(session_);
     }
+    const auto wait_ended = std::chrono::steady_clock::now();
+    const double wait_ms = std::chrono::duration<double, std::milli>(
+      wait_ended - wait_started
+    ).count();
 
     for (CMSampleBufferRef sample : samples) {
       CFRelease(sample);
@@ -452,7 +470,9 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
 
     const auto native_ended = std::chrono::steady_clock::now();
     const double total_ms =
-      std::chrono::duration<double, std::milli>(native_ended - native_started).count();
+      std::chrono::duration<double, std::milli>(native_ended - batch_started).count();
+    const double packet_parse_ms =
+      std::chrono::duration<double, std::milli>(packets_parsed - batch_started).count();
 
     size_t frames = 0;
     int width = 0;
@@ -497,6 +517,10 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
     result.Set("width", Napi::Number::New(env, width));
     result.Set("height", Napi::Number::New(env, height));
     result.Set("totalMs", Napi::Number::New(env, total_ms));
+    result.Set("packetParseMs", Napi::Number::New(env, packet_parse_ms));
+    result.Set("sampleBuildMs", Napi::Number::New(env, sample_build_ms));
+    result.Set("submitMs", Napi::Number::New(env, submit_ms));
+    result.Set("waitMs", Napi::Number::New(env, wait_ms));
     result.Set("firstFrameMs", Napi::Number::New(env, first_frame_ms));
     result.Set("lastFrameMs", Napi::Number::New(env, last_frame_ms));
     Napi::Array arrivals = Napi::Array::New(env, arrival_ms.size());
