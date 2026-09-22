@@ -5,12 +5,11 @@
   "packageManager": "bun@1.3.14",
   "workspaces": [
     "packages/solid",
-    "examples/counter",
-    "packages/mediabunny"
+    "examples/counter"
   ],
   "scripts": {
-    "build": "bun run --filter 'gpuix-solid' build && bun run --filter '@jhomra21/gpuix-mediabunny' build && bun run --filter 'gpuix-solid-counter' build",
-    "typecheck": "bun run --filter 'gpuix-solid' typecheck && bun run --filter '@jhomra21/gpuix-mediabunny' typecheck && bun run --filter 'gpuix-solid-counter' typecheck",
+    "build": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' build",
+    "typecheck": "bun run --filter 'gpuix-solid' typecheck && bun run --filter 'gpuix-solid-counter' typecheck",
     "test": "bun run test:logic",
     "test:logic": "bun run --filter 'gpuix-solid' test && bun run --filter 'gpuix-solid-counter' test:gpuix-surface",
     "test:ui:diagnostic": "bun run --filter 'gpuix-solid' test:ui:diagnostic && bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' test:gpuix-surface && bun run --filter 'gpuix-solid-counter' test:todo && bun run --filter 'gpuix-solid-counter' test:diff && bun run --filter 'gpuix-solid-counter' test:timeline && bun run --filter 'gpuix-solid-counter' test:mail && bun run --filter 'gpuix-solid-counter' test:diffusion && bun run --filter 'gpuix-solid-counter' test:chat && bun run --filter 'gpuix-solid-counter' test:infinite-chat && bun run --filter 'gpuix-solid-counter' test:dashboard && bun run --filter 'gpuix-solid-counter' test:codeimage && bun run --filter 'gpuix-solid-counter' test:tanstack-kitchen-sink",
