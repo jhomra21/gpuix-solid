@@ -57,6 +57,7 @@ type NativeDecoder = {
   decodeStream(
     packets: NativePacket[],
     onFrame: (frame: NativeVideoToolboxFrame, timestampUs: number) => void,
+    finish?: boolean,
   ): Promise<StreamResult>
   reset(): void
   dispose(): void
@@ -223,11 +224,6 @@ type PacketTiming = {
   duration: number
 }
 
-type PendingFrame = {
-  frame: NativeVideoToolboxFrame
-  timestampUs: number
-}
-
 export class VideoToolboxMediaDecoder extends CustomVideoDecoder {
   static override supports(
     codec: VideoCodec,
@@ -254,7 +250,7 @@ export class VideoToolboxMediaDecoder extends CustomVideoDecoder {
   #decoder: NativeDecoder | null = null
   #packetBuffer: NativePacket[] = []
   #timings = new Map<number, PacketTiming[]>()
-  #reorderQueue: PendingFrame[] = []
+  #lastTimestampUs = -Infinity
   #closed = false
   readonly #packetBatchSize = 8
 
@@ -294,16 +290,16 @@ export class VideoToolboxMediaDecoder extends CustomVideoDecoder {
     })
 
     if (this.#packetBuffer.length >= this.#packetBatchSize) {
-      await this.#drain()
+      await this.#drain(false)
     }
   }
 
   async flush(): Promise<void> {
     this.#assertOpen()
-    await this.#drain()
-    this.#emitQueuedFrames()
+    await this.#drain(true)
     this.#decoder?.reset()
     this.#timings.clear()
+    this.#lastTimestampUs = -Infinity
   }
 
   close(): void {
@@ -311,14 +307,12 @@ export class VideoToolboxMediaDecoder extends CustomVideoDecoder {
     this.#closed = true
     this.#packetBuffer.length = 0
     this.#timings.clear()
-    for (const pending of this.#reorderQueue) pending.frame.close()
-    this.#reorderQueue.length = 0
     this.#decoder?.dispose()
     this.#decoder = null
   }
 
-  async #drain(): Promise<void> {
-    if (this.#packetBuffer.length === 0) return
+  async #drain(finish: boolean): Promise<void> {
+    if (this.#packetBuffer.length === 0 && !finish) return
 
     const decoder = this.#decoder
     if (!decoder) {
@@ -326,51 +320,54 @@ export class VideoToolboxMediaDecoder extends CustomVideoDecoder {
     }
 
     const packets = this.#packetBuffer.splice(0)
+    const outputs: { frame: NativeVideoToolboxFrame; timestampUs: number }[] = []
     const result = await decoder.decodeStream(
       packets,
       (frame, timestampUs) => {
-        this.#queueFrame(frame, timestampUs)
+        outputs.push({ frame, timestampUs })
       },
+      finish,
     )
 
     if (!result.hardwareAccelerated) {
+      for (const output of outputs) output.frame.close()
       throw new Error("VideoToolbox stream lost hardware acceleration")
     }
     if (result.dropped !== 0) {
+      for (const output of outputs) output.frame.close()
       throw new Error("VideoToolbox stream dropped " + result.dropped + " frame(s)")
     }
-    // VideoToolbox callbacks are not guaranteed to arrive in presentation
-    // order. The durable frame objects are reordered before MediaBunny sees
-    // them; result.presentationOrderMonotonic remains diagnostic only.
-  }
-
-  #queueFrame(
-    frame: NativeVideoToolboxFrame,
-    timestampUs: number,
-  ): void {
-    const highestQueued = this.#reorderQueue.at(-1)?.timestampUs
-    if (highestQueued !== undefined && timestampUs >= highestQueued) {
-      this.#emitQueuedFrames()
+    if (!result.presentationOrderMonotonic) {
+      for (const output of outputs) output.frame.close()
+      throw new Error("VideoToolbox stream did not deliver frames in presentation order")
     }
 
-    let index = this.#reorderQueue.length
-    while (
-      index > 0
-      && (this.#reorderQueue[index - 1]?.timestampUs ?? -Infinity) > timestampUs
-    ) {
-      index -= 1
+    for (let index = 0; index < outputs.length; index += 1) {
+      const output = outputs[index]
+      if (!output) continue
+
+      if (output.timestampUs < this.#lastTimestampUs) {
+        for (let closeIndex = index; closeIndex < outputs.length; closeIndex += 1) {
+          outputs[closeIndex]?.frame.close()
+        }
+        throw new Error(
+          "VideoToolbox stream crossed a MediaBunny batch boundary out of presentation order",
+        )
+      }
+
+      this.#lastTimestampUs = output.timestampUs
+      try {
+        this.#emitFrame(output.frame, output.timestampUs)
+      } catch (error) {
+        for (let closeIndex = index + 1; closeIndex < outputs.length; closeIndex += 1) {
+          outputs[closeIndex]?.frame.close()
+        }
+        throw error
+      }
     }
-    this.#reorderQueue.splice(index, 0, { frame, timestampUs })
   }
 
-  #emitQueuedFrames(): void {
-    const queued = this.#reorderQueue.splice(0)
-    for (const pending of queued) {
-      this.#emitFrame(pending)
-    }
-  }
-
-  #emitFrame({ frame, timestampUs }: PendingFrame): void {
+  #emitFrame(frame: NativeVideoToolboxFrame, timestampUs: number): void {
     const timings = this.#timings.get(timestampUs)
     const timing = timings?.shift()
     if (timings?.length === 0) this.#timings.delete(timestampUs)
