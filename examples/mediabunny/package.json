@@ -33,10 +33,10 @@
   },
   "dependencies": {
     "@mediabunny/server": "1.59.0",
-    "@napi-rs/webcodecs": "1.4.1",
+    "@napi-rs/webcodecs": "1.4.2",
     "mediabunny": "1.59.0",
     "@napi-rs/canvas": "1.0.9",
-    "node-av": "6.0.0",
+    "node-av": "6.1.1",
     "@mediabunny/prores": "1.59.0"
   },
   "devDependencies": {
