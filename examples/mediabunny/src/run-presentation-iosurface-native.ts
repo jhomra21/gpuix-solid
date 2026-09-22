@@ -62,6 +62,22 @@ function createInput() {
 
 type MediaBunnyVideoTrack = Awaited<ReturnType<Input["getPrimaryVideoTrack"]>>
 
+type DecodeStats = {
+  sendCalls: number
+  receiveCalls: number
+  sendEagain: number
+  receiveEagain: number
+}
+
+function createDecodeStats(): DecodeStats {
+  return {
+    sendCalls: 0,
+    receiveCalls: 0,
+    sendEagain: 0,
+    receiveEagain: 0,
+  }
+}
+
 function bufferFromDescription(description: AllowSharedBufferSource): Buffer {
   if (ArrayBuffer.isView(description)) {
     return Buffer.from(
@@ -71,7 +87,7 @@ function bufferFromDescription(description: AllowSharedBufferSource): Buffer {
   return Buffer.from(new Uint8Array(description))
 }
 
-async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>) {
+async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>, stats: DecodeStats) {
   const decoderConfig = await track.getDecoderConfig()
   if (!decoderConfig) throw new Error("AVC track has no decoder configuration")
 
@@ -116,6 +132,20 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>) {
   const frame = new Frame()
   frame.alloc()
 
+  const sendAsync = async (value: typeof packet | null) => {
+    stats.sendCalls += 1
+    const result = await codecContext.sendPacket(value)
+    if (result === AVERROR_EAGAIN) stats.sendEagain += 1
+    return result
+  }
+
+  const sendSync = (value: typeof packet | null) => {
+    stats.sendCalls += 1
+    const result = codecContext.sendPacketSync(value)
+    if (result === AVERROR_EAGAIN) stats.sendEagain += 1
+    return result
+  }
+
   const validateFrame = () => {
     if (!frame.isHwFrame()) {
       throw new Error(
@@ -127,7 +157,9 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>) {
   const drainAsync = async function* () {
     for (;;) {
       frame.unref()
+      stats.receiveCalls += 1
       const receiveResult = await codecContext.receiveFrame(frame)
+      if (receiveResult === AVERROR_EAGAIN) stats.receiveEagain += 1
       if (receiveResult === AVERROR_EAGAIN || receiveResult === AVERROR_EOF) return
       FFmpegError.throwIfError(receiveResult, "Receive VideoToolbox frame")
       validateFrame()
@@ -138,7 +170,9 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>) {
   const drainSync = function* () {
     for (;;) {
       frame.unref()
+      stats.receiveCalls += 1
       const receiveResult = codecContext.receiveFrameSync(frame)
+      if (receiveResult === AVERROR_EAGAIN) stats.receiveEagain += 1
       if (receiveResult === AVERROR_EAGAIN || receiveResult === AVERROR_EOF) return
       FFmpegError.throwIfError(receiveResult, "Receive VideoToolbox frame")
       validateFrame()
@@ -162,7 +196,7 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>) {
       packet.duration = BigInt(Math.round(encoded.microsecondDuration))
 
       if (syncCodecCalls) {
-        let sendResult = codecContext.sendPacketSync(packet)
+        let sendResult = sendSync(packet)
         while (sendResult === AVERROR_EAGAIN) {
           let drained = false
           for (const decoded of drainSync()) {
@@ -173,7 +207,7 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>) {
           if (!drained) {
             throw new Error("VideoToolbox returned EAGAIN from both send and receive")
           }
-          sendResult = codecContext.sendPacketSync(packet)
+          sendResult = sendSync(packet)
         }
         packet.unref()
         FFmpegError.throwIfError(sendResult, "Send MediaBunny packet to VideoToolbox")
@@ -183,7 +217,7 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>) {
           packetsSinceDrain = 0
         }
       } else {
-        let sendResult = await codecContext.sendPacket(packet)
+        let sendResult = await sendAsync(packet)
         while (sendResult === AVERROR_EAGAIN) {
           let drained = false
           for await (const decoded of drainAsync()) {
@@ -194,7 +228,7 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>) {
           if (!drained) {
             throw new Error("VideoToolbox returned EAGAIN from both send and receive")
           }
-          sendResult = await codecContext.sendPacket(packet)
+          sendResult = await sendAsync(packet)
         }
         packet.unref()
         FFmpegError.throwIfError(sendResult, "Send MediaBunny packet to VideoToolbox")
@@ -215,7 +249,7 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>) {
     }
 
     if (syncCodecCalls) {
-      let flushResult = codecContext.sendPacketSync(null)
+      let flushResult = sendSync(null)
       while (flushResult === AVERROR_EAGAIN) {
         let drained = false
         for (const decoded of drainSync()) {
@@ -225,12 +259,12 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>) {
         if (!drained) {
           throw new Error("VideoToolbox returned EAGAIN while flushing with no frame available")
         }
-        flushResult = codecContext.sendPacketSync(null)
+        flushResult = sendSync(null)
       }
       FFmpegError.throwIfError(flushResult, "Flush VideoToolbox decoder")
       for (const decoded of drainSync()) yield decoded
     } else {
-      let flushResult = await codecContext.sendPacket(null)
+      let flushResult = await sendAsync(null)
       while (flushResult === AVERROR_EAGAIN) {
         let drained = false
         for await (const decoded of drainAsync()) {
@@ -240,7 +274,7 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>) {
         if (!drained) {
           throw new Error("VideoToolbox returned EAGAIN while flushing with no frame available")
         }
-        flushResult = await codecContext.sendPacket(null)
+        flushResult = await sendAsync(null)
       }
       FFmpegError.throwIfError(flushResult, "Flush VideoToolbox decoder")
       for await (const decoded of drainAsync()) yield decoded
@@ -263,6 +297,7 @@ async function runDecodeOnly(): Promise<PresentationRun> {
     }
 
     const frameSteps: number[] = []
+    const decodeStats = createDecodeStats()
     const started = performance.now()
     let previousFrameAt = started
     let firstFrameMs = 0
@@ -270,7 +305,7 @@ async function runDecodeOnly(): Promise<PresentationRun> {
     let width = 0
     let height = 0
 
-    for await (const frame of hardwareFrames(track)) {
+    for await (const frame of hardwareFrames(track, decodeStats)) {
       const frameAt = performance.now()
       frameSteps.push(frameAt - previousFrameAt)
       previousFrameAt = frameAt
@@ -287,6 +322,10 @@ async function runDecodeOnly(): Promise<PresentationRun> {
       totalMs: performance.now() - started,
       firstFrameMs,
       ...summarizeFrameSteps(frameSteps),
+      nativeCodecSendCalls: decodeStats.sendCalls,
+      nativeCodecReceiveCalls: decodeStats.receiveCalls,
+      nativeCodecSendEagain: decodeStats.sendEagain,
+      nativeCodecReceiveEagain: decodeStats.receiveEagain,
     }
   } finally {
     input.dispose()
@@ -320,7 +359,8 @@ async function runIosurfacePresentation(): Promise<PresentationRun> {
     const track = await input.getPrimaryVideoTrack()
     if (!track) throw new Error("Presentation fixture has no video track")
 
-    const iterator = hardwareFrames(track)[Symbol.asyncIterator]()
+    const decodeStats = createDecodeStats()
+    const iterator = hardwareFrames(track, decodeStats)[Symbol.asyncIterator]()
     const frameSteps: number[] = []
     const started = performance.now()
     let firstFrameMs = 0
@@ -404,6 +444,10 @@ async function runIosurfacePresentation(): Promise<PresentationRun> {
       firstFrameUploadMs: firstFrameHandoffMs,
       firstFrameRenderFlushMs,
       nativeSourcePixelFormat: sourcePixelFormat,
+      nativeCodecSendCalls: decodeStats.sendCalls,
+      nativeCodecReceiveCalls: decodeStats.receiveCalls,
+      nativeCodecSendEagain: decodeStats.sendEagain,
+      nativeCodecReceiveEagain: decodeStats.receiveEagain,
     }
   } finally {
     input.dispose()
