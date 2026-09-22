@@ -77,7 +77,6 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
     double first_frame_ms = 0;
     double last_frame_ms = 0;
     std::vector<double> arrival_ms;
-    std::vector<double> arrival_ms;
     OSStatus callback_status = noErr;
     uint32_t dropped = 0;
   };
@@ -459,6 +458,7 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
     int height = 0;
     double first_frame_ms = 0;
     double last_frame_ms = 0;
+    std::vector<double> arrival_ms;
     OSStatus callback_status = noErr;
     uint32_t dropped = 0;
     {
