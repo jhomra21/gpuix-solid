@@ -28,9 +28,9 @@
     "bench:presentation:iosurface:hevc:scaling": "MEDIABUNNY_PRESENTATION_CODEC=hevc bun run bench:presentation:iosurface:scaling"
   },
   "dependencies": {
-    "@mediabunny/server": "1.58.1",
+    "@mediabunny/server": "1.59.0",
     "@napi-rs/webcodecs": "1.4.1",
-    "mediabunny": "1.58.1",
+    "mediabunny": "1.59.0",
     "@napi-rs/canvas": "1.0.9",
     "node-av": "6.0.0"
   },
