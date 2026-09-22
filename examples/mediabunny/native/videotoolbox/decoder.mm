@@ -47,6 +47,7 @@ struct StreamTask {
   std::thread delivery_thread;
   std::string error;
   bool decode_done = false;
+  bool finish_delayed_frames = true;
   bool presentation_order_monotonic = true;
   bool has_last_presentation_time = false;
   CMTime last_presentation_time = kCMTimeInvalid;
@@ -408,10 +409,12 @@ class VideoToolboxVideoDecoder final : public Napi::ObjectWrap<VideoToolboxVideo
       task->submitted += 1;
     }
 
-    const OSStatus finish_status =
-      VTDecompressionSessionFinishDelayedFrames(session_);
-    if (decode_status == noErr && finish_status != noErr) {
-      decode_status = finish_status;
+    if (task->finish_delayed_frames) {
+      const OSStatus finish_status =
+        VTDecompressionSessionFinishDelayedFrames(session_);
+      if (decode_status == noErr && finish_status != noErr) {
+        decode_status = finish_status;
+      }
     }
 
     const OSStatus wait_status =
@@ -518,6 +521,19 @@ class VideoToolboxVideoDecoder final : public Napi::ObjectWrap<VideoToolboxVideo
     Napi::Array values = info[0].As<Napi::Array>();
     auto* task = new StreamTask(this, env, values);
     task->packets.reserve(values.Length());
+
+    if (info.Length() > 2) {
+      if (!info[2].IsBoolean()) {
+        task->packets_ref.Reset();
+        delete task;
+        Napi::TypeError::New(
+          env,
+          "decodeStream finish flag must be a boolean when provided"
+        ).ThrowAsJavaScriptException();
+        return env.Undefined();
+      }
+      task->finish_delayed_frames = info[2].As<Napi::Boolean>().Value();
+    }
 
     for (uint32_t index = 0; index < values.Length(); ++index) {
       PacketInput packet{
