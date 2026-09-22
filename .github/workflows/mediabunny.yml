@@ -46,6 +46,10 @@ jobs:
           mkdir -p reports
           bun run bench:${{ matrix.backend }} > reports/${{ matrix.backend }}.json
           cat reports/${{ matrix.backend }}.json
+      - name: Smoke napi WebCodecs worker decode
+        if: matrix.backend == 'webcodecs'
+        working-directory: examples/mediabunny
+        run: bun run smoke:presentation:napi-webcodecs
       - name: Upload benchmark report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
