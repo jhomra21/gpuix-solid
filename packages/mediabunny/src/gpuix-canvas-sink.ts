@@ -54,15 +54,16 @@ async function renderSample(
 ): Promise<WrappedNapiCanvas> {
   let transformed: VideoSample | null = null
   try {
-    transformed = await sample.transform({
+    const transformOptions: Parameters<VideoSample["transform"]>[0] = {
       width: sink._width,
       height: sink._height,
       fit: sink._fit,
       rotate: sink._rotation,
       flip: sink._flip,
-      crop: sink._crop,
       alpha: sink._alpha ? "keep" : "discard",
-    })
+    }
+    if (sink._crop) transformOptions.crop = sink._crop
+    transformed = await sample.transform(transformOptions)
   } finally {
     sample.close()
   }
