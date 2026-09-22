@@ -5,7 +5,6 @@ import {
   ALL_FORMATS,
   AUDIO_CODECS,
   BufferSource,
-  FilePathSource,
   FilePathTarget,
   HlsOutputFormat,
   Input,
@@ -339,10 +338,10 @@ async function writeFilePathVideo(directory: string) {
     filePath,
     result: await verifyVideoInput(
       new Input({
-        source: new FilePathSource(filePath),
+        source: createGpuixFilePathSource(filePath),
         formats: ALL_FORMATS,
       }),
-      "FilePathSource",
+      "GPUix file-path source",
     ),
   }
 }
