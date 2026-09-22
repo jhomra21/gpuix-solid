@@ -8,7 +8,7 @@ import {
 import {
   getVideoToolboxVideoSampleResource,
   registerVideoToolboxMediaDecoder,
-} from "../../../packages/mediabunny/src/index.ts"
+} from "@jhomra21/gpuix-mediabunny"
 
 if (process.platform !== "darwin") {
   console.log("MediaBunny VideoToolbox integration smoke skipped: macOS only")
