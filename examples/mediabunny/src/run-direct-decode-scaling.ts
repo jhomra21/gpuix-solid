@@ -80,6 +80,7 @@ await mkdir(workDirectory, { recursive: true })
 await mkdir(reportsDirectory, { recursive: true })
 
 const rows: string[] = []
+const stageRows: string[] = []
 const decodeRatios: number[] = []
 const firstFrameRatios: number[] = []
 
@@ -152,6 +153,14 @@ try {
     rows.push(
       `| ${resolution.label} | ${browserFps.toFixed(2)} fps | ${nativeFps.toFixed(2)} fps | ${formatRatio(decodeRatio)} | ${browserFirst.toFixed(2)} ms | ${nativeFirst.toFixed(2)} ms | ${formatRatio(firstRatio)} | ${browserP95.toFixed(2)} ms | ${nativeP95.toFixed(2)} ms |`,
     )
+
+    const packetParseMs = median(native.runs.map((run) => run.nativePacketParseMs ?? 0))
+    const sampleBuildMs = median(native.runs.map((run) => run.nativeSampleBuildMs ?? 0))
+    const submitMs = median(native.runs.map((run) => run.nativeSubmitMs ?? 0))
+    const waitMs = median(native.runs.map((run) => run.nativeWaitMs ?? 0))
+    stageRows.push(
+      `| ${resolution.label} | ${packetParseMs.toFixed(2)} ms | ${sampleBuildMs.toFixed(2)} ms | ${submitMs.toFixed(2)} ms | ${waitMs.toFixed(2)} ms |`,
+    )
   }
 
   const worstDecode = Math.min(...decodeRatios)
@@ -172,6 +181,14 @@ try {
     "Throughput above 1x is faster natively. First-frame latency below 1x is faster natively.",
     "",
     "Output-spacing p95 is diagnostic only. It measures spacing between asynchronous output callbacks and is not per-frame decode latency; queued decoders may deliver frames in bursts.",
+    "",
+    "## Direct VideoToolbox native stage medians",
+    "",
+    "| Resolution | N-API packet parse | CoreMedia sample build | VT submit calls | Finish + async wait |",
+    "| --- | ---: | ---: | ---: | ---: |",
+    ...stageRows,
+    "",
+    "The outer throughput timer includes the complete N-API call. Stage timers are diagnostic and omit small return-object and cleanup costs, so they do not need to sum exactly to total time.",
     "",
   ].join("\n")
 
