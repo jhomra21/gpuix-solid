@@ -33,30 +33,32 @@ const variants: Variant[] = [
   { key: "baseline", label: "baseline", env: {} },
   { key: "packet-view", label: "packet Buffer view", env: { GPUIX_MEDIA_PACKET_VIEW: "1" } },
   { key: "sync", label: "sync codec calls", env: { GPUIX_MEDIA_SYNC_CODEC_CALLS: "1" } },
+  { key: "batch-2", label: "packet batch 2", env: { GPUIX_MEDIA_PACKET_BATCH: "2" } },
+  { key: "batch-4", label: "packet batch 4", env: { GPUIX_MEDIA_PACKET_BATCH: "4" } },
+  { key: "batch-8", label: "packet batch 8", env: { GPUIX_MEDIA_PACKET_BATCH: "8" } },
   { key: "extra-2", label: "+2 hardware frames", env: { GPUIX_MEDIA_EXTRA_HW_FRAMES: "2" } },
-  { key: "extra-4", label: "+4 hardware frames", env: { GPUIX_MEDIA_EXTRA_HW_FRAMES: "4" } },
   {
-    key: "sync-packet-view",
-    label: "sync calls + packet view",
+    key: "batch-4-packet-view",
+    label: "batch 4 + packet view",
     env: {
-      GPUIX_MEDIA_SYNC_CODEC_CALLS: "1",
+      GPUIX_MEDIA_PACKET_BATCH: "4",
       GPUIX_MEDIA_PACKET_VIEW: "1",
     },
   },
   {
-    key: "packet-view-extra-2",
-    label: "packet view +2 hardware frames",
+    key: "batch-4-extra-2",
+    label: "batch 4 +2 hardware frames",
     env: {
-      GPUIX_MEDIA_PACKET_VIEW: "1",
+      GPUIX_MEDIA_PACKET_BATCH: "4",
       GPUIX_MEDIA_EXTRA_HW_FRAMES: "2",
     },
   },
   {
-    key: "sync-extra-2",
-    label: "sync calls +2 hardware frames",
+    key: "sync-batch-4",
+    label: "sync calls + batch 4",
     env: {
       GPUIX_MEDIA_SYNC_CODEC_CALLS: "1",
-      GPUIX_MEDIA_EXTRA_HW_FRAMES: "2",
+      GPUIX_MEDIA_PACKET_BATCH: "4",
     },
   },
 ]
@@ -154,7 +156,7 @@ try {
 
   lines.push(
     "",
-    "The baseline keeps the current packet copy and VideoToolbox frame-pool behavior. Each other row changes only the named decode input variable.",
+    "The baseline keeps the current one-packet-at-a-time decode loop. The matrix isolates packet-copy removal, synchronous codec calls, VideoToolbox queue depth, and hardware-frame pool capacity before testing a few targeted combinations.",
     "",
   )
 
