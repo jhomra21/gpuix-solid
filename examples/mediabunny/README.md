@@ -78,7 +78,10 @@ bunx playwright install chromium
 bun run bench:presentation
 bun run bench:presentation:server
 bun run bench:presentation:iosurface
+bun run bench:presentation:iosurface:decode-matrix
 ```
+
+`bench:presentation:iosurface:decode-matrix` keeps the browser path fixed and reruns the native VideoToolbox path with isolated decoder variables: packet-copy versus Buffer view, async versus synchronous NodeAV codec calls, and extra hardware-frame pool capacity. It defaults to two warmups and five measured runs so small timing changes are less likely to be mistaken for improvements. The regular IOSurface benchmark remains unchanged by default.
 
 The default workload is 1280×720, 60 frames at 30 fps, one warmup, and three measured runs. `bench:presentation` compares Chromium with the napi-WebCodecs path. `bench:presentation:server` compares Chromium with the direct MediaBunny server AVFrame path. On macOS, `bench:presentation:iosurface` switches the shared fixture to AVC and compares Chromium with the VideoToolbox/IOSurface GPUix path. The commands write:
 
