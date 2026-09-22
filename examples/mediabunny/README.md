@@ -16,7 +16,7 @@ MediaBunny is pinned to 1.59.0 so capability and benchmark results are reproduci
 The GPUix backend runs the same MediaBunny APIs rather than a parallel media abstraction. The current full suite reports:
 
 ```text
-passes:      50
+passes:      54
 unsupported: 0
 known gaps:  0
 timeouts:    0
@@ -39,7 +39,7 @@ The feature suite also covers:
 - sequential and random-access video/audio decoding;
 - `VideoSample.clone()`, `copyTo()`, transforms, and MediaBunny custom sample resources;
 - CanvasSource and CanvasSink under Bun/Node through `@napi-rs/canvas`;
-- metadata tags and conversion progress;
+- metadata tags, including MediaBunny 1.59 BPM metadata, and conversion progress;
 - remux/copy conversion;
 - resize, frame-rate conversion, rotation, crop, flip, trim, and processing callbacks;
 - audio resampling and downmixing;
@@ -48,7 +48,7 @@ The feature suite also covers:
 - CMAF, MPEG-TS, ADTS, HLS, and WebVTT subtitle output;
 - UrlSource with HTTP range requests;
 - FilePathSource and FilePathTarget;
-- HLS file readback through CustomPathedSource;
+- HLS file readback through `createGpuixFilePathSource()`;
 - zero-copy IOSurface GPUix presentation for native AVC/HEVC samples;
 - BGRA GPUix presentation for fallback-decoded samples.
 
@@ -135,7 +135,6 @@ The integration tests stage `@jhomra21/gpuix-mediabunny` into the dogfood consum
 The clean parity score applies to the tested file, codec, conversion, Canvas, and native presentation surfaces. A few environment/upstream boundaries remain outside that score:
 
 - live browser-device APIs such as `MediaStreamTrack` capture are not emulated in a headless Bun/GPUI process;
-- MediaBunny 1.59 can issue a direct HLS child `FilePathSource` read before that child has been sized/opened, so file-backed HLS readback uses `CustomPathedSource` around the child bytes;
 - VideoToolbox acceleration is currently AVC/HEVC-specific. Other codecs pass through MediaBunny Server.
 
 CI treats any new unsupported case, known gap, timeout, or error in the GPUix backend as a failing parity run.
