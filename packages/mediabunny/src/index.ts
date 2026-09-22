@@ -110,4 +110,5 @@ export {
   type NativeVideoToolboxFrame,
 } from "./videotoolbox-mediabunny.js"
 export { installGpuixCanvasSinkBridge } from "./gpuix-canvas-sink.js"
+export { createGpuixFilePathSource } from "./file-path-source.js"
 export { installNapiCanvasGlobals } from "./napi-canvas-globals.js"
