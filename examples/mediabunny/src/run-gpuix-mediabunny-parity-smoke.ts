@@ -354,48 +354,63 @@ async function runFilePathAndHlsSmoke() {
   await mkdir(directory, { recursive: true })
 
   try {
-    const filePath = await writeFilePathVideo(directory)
-
-    const target = new PathedTarget("master.m3u8", ({ path }) => (
-      new FilePathTarget(join(directory, path))
-    ))
-    const output = new Output({
-      format: new HlsOutputFormat({
-        segmentFormat: new MpegTsOutputFormat(),
-      }),
-      target,
-    })
-    const source = new VideoSampleSource({
-      codec: "avc",
-      quality: new Quality("medium"),
-    })
-    output.addVideoTrack(source, { frameRate: 30 })
-
-    await output.start()
-    const frameCount = 12
-    for (let index = 0; index < frameCount; index += 1) {
-      const sample = makeHlsSample(index, frameCount)
-      try {
-        await source.add(sample)
-      } finally {
-        sample.close()
-      }
+    let filePath
+    try {
+      filePath = await writeFilePathVideo(directory)
+    } catch (error) {
+      throw new Error(
+        "single-file source failed: "
+        + (error instanceof Error ? error.message : String(error)),
+      )
     }
-    source.close()
-    await output.finalize()
 
-    const rootPath = join(directory, "master.m3u8")
-    const hls = await verifyVideoInput(
-      new Input({
-        source: createGpuixFilePathSource(rootPath),
-        formats: ALL_FORMATS,
-      }),
-      "GPUix file-path HLS",
-    )
+    try {
+      const target = new PathedTarget("master.m3u8", ({ path }) => (
+        new FilePathTarget(join(directory, path))
+      ))
+      const output = new Output({
+        format: new HlsOutputFormat({
+          segmentFormat: new MpegTsOutputFormat(),
+        }),
+        target,
+      })
+      const source = new VideoSampleSource({
+        codec: "avc",
+        quality: new Quality("medium"),
+      })
+      output.addVideoTrack(source, { frameRate: 30 })
 
-    return {
-      filePath: filePath.result,
-      hls,
+      await output.start()
+      const frameCount = 12
+      for (let index = 0; index < frameCount; index += 1) {
+        const sample = makeHlsSample(index, frameCount)
+        try {
+          await source.add(sample)
+        } finally {
+          sample.close()
+        }
+      }
+      source.close()
+      await output.finalize()
+
+      const rootPath = join(directory, "master.m3u8")
+      const hls = await verifyVideoInput(
+        new Input({
+          source: createGpuixFilePathSource(rootPath),
+          formats: ALL_FORMATS,
+        }),
+        "GPUix file-path HLS",
+      )
+
+      return {
+        filePath: filePath.result,
+        hls,
+      }
+    } catch (error) {
+      throw new Error(
+        "HLS filesystem path failed: "
+        + (error instanceof Error ? error.message : String(error)),
+      )
     }
   } finally {
     await rm(directory, { recursive: true, force: true })
