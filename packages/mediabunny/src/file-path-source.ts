@@ -29,15 +29,24 @@ function createFileSource(
     async read(start, end) {
       const handle = await getHandle()
       const bytes = new Uint8Array(end - start)
-      const { bytesRead } = await handle.read(
-        bytes,
-        0,
-        bytes.byteLength,
-        start,
-      )
-      return bytesRead === bytes.byteLength
-        ? bytes
-        : bytes.subarray(0, bytesRead)
+      let offset = 0
+
+      while (offset < bytes.byteLength) {
+        const { bytesRead } = await handle.read(
+          bytes,
+          offset,
+          bytes.byteLength - offset,
+          start + offset,
+        )
+        if (bytesRead === 0) {
+          throw new Error(
+            "GPUix file-path source reached EOF before completing the requested range",
+          )
+        }
+        offset += bytesRead
+      }
+
+      return bytes
     },
     dispose() {
       closed = true
@@ -66,6 +75,6 @@ export function createGpuixFilePathSource(
 ): CustomPathedSource {
   return new CustomPathedSource(
     rootPath,
-    ({ path }) => createFileSource(path, options),
+    ({ path }) => createFileSource(path, options).ref(),
   )
 }
