@@ -246,6 +246,18 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
     auto* self = static_cast<VideoToolboxH264Decoder*>(decompression_output_refcon);
     if (!self) return;
 
+    StreamTask* stream = self->active_stream_.load(std::memory_order_acquire);
+    if (stream) {
+      self->HandleStreamOutput(
+        stream,
+        status,
+        info_flags,
+        image_buffer,
+        presentation_time_stamp
+      );
+      return;
+    }
+
     const auto now = std::chrono::steady_clock::now();
     std::lock_guard<std::mutex> lock(self->output_.mutex);
 
@@ -805,6 +817,11 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
   Napi::Value DecodeBatch(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
     const auto batch_started = std::chrono::steady_clock::now();
+    if (active_stream_.load(std::memory_order_acquire) != nullptr) {
+      Napi::Error::New(env, "Cannot run decodeBatch while decodeStream is active")
+        .ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
     if (!session_) {
       Napi::Error::New(env, "VideoToolbox decoder is disposed").ThrowAsJavaScriptException();
       return env.Undefined();
@@ -1071,6 +1088,13 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
   }
 
   Napi::Value ReleaseFrames(const Napi::CallbackInfo& info) {
+    if (active_stream_.load(std::memory_order_acquire) != nullptr) {
+      Napi::Error::New(
+        info.Env(),
+        "decodeStream owns frame lifetimes while streaming is active"
+      ).ThrowAsJavaScriptException();
+      return info.Env().Undefined();
+    }
     size_t released = 0;
     {
       std::lock_guard<std::mutex> lock(output_.mutex);
@@ -1086,6 +1110,13 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
   }
 
   Napi::Value Dispose(const Napi::CallbackInfo& info) {
+    if (active_stream_.load(std::memory_order_acquire) != nullptr) {
+      Napi::Error::New(
+        info.Env(),
+        "Cannot dispose VideoToolbox decoder while decodeStream is active"
+      ).ThrowAsJavaScriptException();
+      return info.Env().Undefined();
+    }
     Destroy();
     return info.Env().Undefined();
   }
