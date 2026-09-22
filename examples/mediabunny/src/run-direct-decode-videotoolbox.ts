@@ -78,12 +78,14 @@ function createInput() {
 function toBuffer(description: AllowSharedBufferSource): Buffer {
   if (ArrayBuffer.isView(description)) {
     return Buffer.from(
-      description.buffer,
-      description.byteOffset,
-      description.byteLength,
+      new Uint8Array(
+        description.buffer,
+        description.byteOffset,
+        description.byteLength,
+      ),
     )
   }
-  return Buffer.from(description)
+  return Buffer.from(new Uint8Array(description))
 }
 
 async function prepareInput() {
