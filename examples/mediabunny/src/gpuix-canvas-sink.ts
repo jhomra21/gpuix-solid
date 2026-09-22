@@ -7,7 +7,7 @@ import {
 
 type CanvasLike = InstanceType<typeof Canvas>
 
-type CanvasSinkInternals = {
+type CanvasSinkInternals = CanvasSink & {
   _alpha: boolean
   _width: number
   _height: number
@@ -112,7 +112,8 @@ export function installGpuixCanvasSinkBridge(): void {
       timestamp: number,
       options?: Parameters<CanvasSink["getCanvas"]>[1],
     ) {
-      const sink = this as unknown as CanvasSinkInternals
+      // SAFETY: this method is installed on CanvasSink.prototype and only reads MediaBunny's current CanvasSink internals.
+      const sink = this as CanvasSinkInternals
       await sink._ensureInit()
       const sample = await sink._videoSampleSink.getSample(timestamp, options)
       return sample ? renderSample(sink, sample) : null
@@ -128,7 +129,8 @@ export function installGpuixCanvasSinkBridge(): void {
       endTimestamp?: number,
       options?: Parameters<CanvasSink["canvases"]>[2],
     ) {
-      const sink = this as unknown as CanvasSinkInternals
+      // SAFETY: this method is installed on CanvasSink.prototype and only reads MediaBunny's current CanvasSink internals.
+      const sink = this as CanvasSinkInternals
       await sink._ensureInit()
       for await (
         const sample of sink._videoSampleSink.samples(
@@ -150,7 +152,8 @@ export function installGpuixCanvasSinkBridge(): void {
       timestamps: Parameters<CanvasSink["canvasesAtTimestamps"]>[0],
       options?: Parameters<CanvasSink["canvasesAtTimestamps"]>[1],
     ) {
-      const sink = this as unknown as CanvasSinkInternals
+      // SAFETY: this method is installed on CanvasSink.prototype and only reads MediaBunny's current CanvasSink internals.
+      const sink = this as CanvasSinkInternals
       await sink._ensureInit()
       for await (
         const sample of sink._videoSampleSink.samplesAtTimestamps(
