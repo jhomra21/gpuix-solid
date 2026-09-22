@@ -1410,6 +1410,107 @@ async function runHlsOutputFeature(): Promise<FeatureExecution> {
   }
 }
 
+async function runMetadataTagsFeature(): Promise<FeatureExecution> {
+  const target = new BufferTarget()
+  const output = new Output({
+    format: new Mp4OutputFormat(),
+    target,
+  })
+  output.setMetadataTags({
+    title: "GPUix MediaBunny parity",
+    artist: "gpuix-solid",
+    comment: "metadata round trip",
+  })
+
+  await encodeShortVideo(output, "avc", 4)
+  if (!target.buffer) throw new Error("Metadata fixture was empty")
+
+  const input = createInput(target.buffer)
+  try {
+    const tags = await input.getMetadataTags()
+    if (
+      tags.title !== "GPUix MediaBunny parity"
+      || tags.artist !== "gpuix-solid"
+      || tags.comment !== "metadata round trip"
+    ) {
+      throw new Error("Metadata tags did not survive MP4 round trip")
+    }
+
+    return {
+      status: "pass",
+      details: {
+        bytes: target.buffer.byteLength,
+        title: tags.title ?? null,
+        artist: tags.artist ?? null,
+      },
+    }
+  } finally {
+    input.dispose()
+  }
+}
+
+async function runConversionProgressFeature(
+  buffer: ArrayBuffer,
+): Promise<FeatureExecution> {
+  const input = createInput(buffer)
+  const target = new BufferTarget()
+  const output = new Output({
+    format: new WebMOutputFormat(),
+    target,
+  })
+
+  try {
+    const conversion = await Conversion.init({
+      input,
+      output,
+      video: {
+        codec: "vp8",
+        forceTranscode: true,
+      },
+      audio: {
+        codec: "opus",
+        forceTranscode: true,
+      },
+    })
+    if (!conversion.isValid) {
+      return {
+        status: "unsupported",
+        details: { discardedTracks: conversion.discardedTracks.length },
+      }
+    }
+
+    let callbacks = 0
+    let lastProgress = 0
+    let lastProcessedTime = 0
+    conversion.onProgress = (progress, processedTime) => {
+      callbacks += 1
+      lastProgress = progress
+      lastProcessedTime = processedTime
+    }
+
+    await conversion.execute()
+    if (callbacks === 0 || lastProgress < 0.99) {
+      throw new Error(
+        "Conversion progress did not reach completion: callbacks="
+        + callbacks
+        + ", progress="
+        + lastProgress,
+      )
+    }
+
+    return {
+      status: "pass",
+      details: {
+        callbacks,
+        progress: lastProgress,
+        processedTime: lastProcessedTime,
+      },
+    }
+  } finally {
+    input.dispose()
+  }
+}
+
 async function writeSubtitleFixture(
   format: Mp4OutputFormat | MkvOutputFormat,
 ): Promise<number> {
@@ -1450,6 +1551,12 @@ async function runFeatureCases(
   return [
     await runFeatureCase("canvas-source", runCanvasSourceFeature),
     canvasSink,
+
+    await runFeatureCase("metadata-tags", runMetadataTagsFeature),
+    await runFeatureCase(
+      "conversion-progress",
+      () => runConversionProgressFeature(buffer),
+    ),
 
     await runFeatureCase("stream-target-fragmented-mp4", runStreamTargetFeature),
     await runFeatureCase(
