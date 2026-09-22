@@ -1190,53 +1190,69 @@ async function roundTripAudioContainer(
 
 async function runContainerRoundTripMatrixFeature(): Promise<FeatureExecution> {
   const results: [string, number][] = []
+  const skipped: string[] = []
 
-  results.push([
-    "mp4",
-    await roundTripVideoContainer(new Mp4OutputFormat(), "avc"),
-  ])
-  results.push([
-    "mov",
-    await roundTripVideoContainer(new MovOutputFormat(), "avc"),
-  ])
-  results.push([
-    "mkv",
-    await roundTripVideoContainer(new MkvOutputFormat(), "avc"),
-  ])
-  results.push([
-    "webm",
-    await roundTripVideoContainer(new WebMOutputFormat(), "vp8"),
-  ])
-  results.push([
-    "ogg",
-    await roundTripAudioContainer(new OggOutputFormat(), "opus"),
-  ])
-  results.push([
-    "mp3",
-    await roundTripAudioContainer(new Mp3OutputFormat(), "mp3"),
-  ])
-  results.push([
-    "wav",
-    await roundTripAudioContainer(new WavOutputFormat(), "pcm-s16"),
-  ])
-  results.push([
-    "adts",
-    await roundTripAudioContainer(new AdtsOutputFormat(), "aac"),
-  ])
-  results.push([
-    "flac",
-    await roundTripAudioContainer(new FlacOutputFormat(), "flac"),
-  ])
-  results.push([
-    "mpeg-ts",
-    await roundTripVideoContainer(new MpegTsOutputFormat(), "avc"),
-  ])
+  const addVideo = async (
+    name: string,
+    format: OutputFormat,
+    codec: VideoCodec,
+  ) => {
+    const supported = await canEncodeVideo(codec, {
+      width: 160,
+      height: 90,
+      frameRate: FRAME_RATE,
+    })
+    if (!supported) {
+      skipped.push(name)
+      return
+    }
+    results.push([name, await roundTripVideoContainer(format, codec)])
+  }
+
+  const addAudio = async (
+    name: string,
+    format: OutputFormat,
+    codec: AudioCodec,
+  ) => {
+    const supported = await canEncodeAudio(codec, {
+      numberOfChannels: AUDIO_CHANNELS,
+      sampleRate: AUDIO_SAMPLE_RATE,
+    })
+    if (!supported) {
+      skipped.push(name)
+      return
+    }
+    results.push([name, await roundTripAudioContainer(format, codec)])
+  }
+
+  await addVideo("mp4", new Mp4OutputFormat(), "avc")
+  await addVideo("mov", new MovOutputFormat(), "avc")
+  await addVideo("mkv", new MkvOutputFormat(), "avc")
+  await addVideo("webm", new WebMOutputFormat(), "vp8")
+  await addAudio("ogg", new OggOutputFormat(), "opus")
+  await addAudio("mp3", new Mp3OutputFormat(), "mp3")
+  await addAudio("wav", new WavOutputFormat(), "pcm-s16")
+  await addAudio("adts", new AdtsOutputFormat(), "aac")
+  await addAudio("flac", new FlacOutputFormat(), "flac")
+  await addVideo("mpeg-ts", new MpegTsOutputFormat(), "avc")
+
+  if (results.length === 0) {
+    return {
+      status: "unsupported",
+      details: {
+        tested: 0,
+        skipped: skipped.length,
+      },
+    }
+  }
 
   return {
     status: "pass",
     details: {
-      containers: results.length,
+      tested: results.length,
+      skipped: skipped.length,
       names: results.map(([name]) => name).join(","),
+      skippedNames: skipped.join(","),
       totalBytes: results.reduce((sum, [, bytes]) => sum + bytes, 0),
     },
   }
