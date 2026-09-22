@@ -4,6 +4,7 @@ export type PresentationBackend =
   | "mediabunny-server-avframe-gpuix-video-frame"
   | "mediabunny-videotoolbox-iosurface-gpuix-video-frame"
   | "direct-videotoolbox-iosurface-gpuix-video-frame"
+  | "streaming-videotoolbox-iosurface-gpuix-video-frame"
 
 export type PresentationRun = {
   frames: number
@@ -156,14 +157,19 @@ export function formatPresentationComparison(
   if (!sample) throw new Error("Presentation benchmark produced no measured runs")
 
   const usesServerAvFrame = native.backend === "mediabunny-server-avframe-gpuix-video-frame"
+  const usesStreamingIosurface =
+    native.backend === "streaming-videotoolbox-iosurface-gpuix-video-frame"
   const usesDirectIosurface =
     native.backend === "direct-videotoolbox-iosurface-gpuix-video-frame"
   const usesIosurface =
-    usesDirectIosurface
+    usesStreamingIosurface
+    || usesDirectIosurface
     || native.backend === "mediabunny-videotoolbox-iosurface-gpuix-video-frame"
-  const nativeLabel = usesDirectIosurface
-    ? "Direct VideoToolbox IOSurface + GPUix surface"
-    : usesIosurface
+  const nativeLabel = usesStreamingIosurface
+    ? "Streaming VideoToolbox IOSurface + GPUix surface"
+    : usesDirectIosurface
+      ? "Direct VideoToolbox IOSurface + GPUix surface"
+      : usesIosurface
       ? "MediaBunny VideoToolbox IOSurface + GPUix surface"
     : usesServerAvFrame
       ? "MediaBunny server AVFrame + GPUix video-frame"
@@ -196,9 +202,11 @@ export function formatPresentationComparison(
     ["native render flush", "firstFrameRenderFlushMs"],
   ] as const
 
-  const pathDescription = usesDirectIosurface
-    ? "The browser end-to-end path uses MediaBunny CanvasSink and browser WebCodecs. The native path uses MediaBunny for demuxing and encoded-packet iteration, submits bounded packet batches directly to VideoToolbox through one N-API call per batch, retains only the decoded CVPixelBuffers needed for that batch, hands their IOSurfaces to GPUix, flushes GPUI rendering, and then releases the decoder's retained frame batch. FFmpeg, NodeAV, BGRA conversion, and RenderImage atlas upload are not part of this path."
-    : usesIosurface
+  const pathDescription = usesStreamingIosurface
+    ? "The browser end-to-end path uses MediaBunny CanvasSink and browser WebCodecs. The native path uses MediaBunny for demuxing and encoded-packet iteration, hands the packet set to a native VideoToolbox worker, and delivers each retained IOSurface back through a bounded thread-safe frame queue while the JS thread remains free to hand the surface to GPUix and flush GPUI. Each CVPixelBuffer remains retained through the synchronous GPUix callback and is released immediately afterward. FFmpeg, NodeAV, CPU frame download, BGRA conversion, and RenderImage atlas upload are not part of this path."
+    : usesDirectIosurface
+      ? "The browser end-to-end path uses MediaBunny CanvasSink and browser WebCodecs. The native path uses MediaBunny for demuxing and encoded-packet iteration, submits bounded packet batches directly to VideoToolbox through one N-API call per batch, retains only the decoded CVPixelBuffers needed for that batch, hands their IOSurfaces to GPUix, flushes GPUI rendering, and then releases the decoder's retained frame batch. FFmpeg, NodeAV, BGRA conversion, and RenderImage atlas upload are not part of this path."
+      : usesIosurface
       ? "The browser end-to-end path uses MediaBunny CanvasSink and browser WebCodecs. The native path uses MediaBunny for demuxing and encoded-packet iteration, feeds those packets to a NodeAV VideoToolbox decoder configured for hardware frames, exports each decoded IOSurface, hands that surface to GPUix, and paints it through GPUI's CoreVideo surface path. No BGRA conversion or RenderImage atlas upload is part of this path."
       : usesServerAvFrame
       ? "The browser end-to-end path uses MediaBunny CanvasSink, which draws decoded browser VideoFrames directly. The native path uses MediaBunny's official server decoder, keeps decoded frames as FFmpeg AVFrames, refs each sample without copying it, converts into one reusable BGRA AVFrame with libswscale, hands those bytes to GPUix, and then flushes native rendering. The stage timers separate reusable AVFrame/scaler setup, AVFrame ref plus BGRA conversion, the synchronous GPUix frame handoff, and the explicit native render flush."
