@@ -232,6 +232,12 @@ The Solid 1 renderer. It keeps the Solid 1 runtime boundary separate and include
 
 The upstream GPUIX native package. GPUix Solid consumes it rather than carrying a Rust fork.
 
+### `@jhomra21/gpuix-mediabunny`
+
+The MediaBunny integration package. It registers macOS hardware VideoToolbox decoders for AVC/HEVC, exposes IOSurface-backed `VideoSample` resources to GPUix, installs native Canvas support for MediaBunny Canvas APIs, and keeps MediaBunny's ProRes/server extensions as the broad codec fallback.
+
+The maintained parity suite passes six video codec round trips, the current tested audio codec matrix, conversion/transforms, stream/blob/ranged/file/URL sources, CMAF/MPEG-TS/HLS/ADTS, subtitles, CanvasSource/CanvasSink, and GPUix presentation with zero unsupported cases, known gaps, timeouts, or errors in the GPUix backend. See [MediaBunny dogfood](./examples/mediabunny/README.md) and [the package README](./packages/mediabunny/README.md).
+
 ## JSX-free authoring
 
 For runtime-authored UI that does not pass through the Solid JSX compiler, GPUix Solid now exposes a small hyperscript helper:
