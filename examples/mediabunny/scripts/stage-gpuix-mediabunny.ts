@@ -2,9 +2,7 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
-  readFileSync,
   rmSync,
-  writeFileSync,
 } from "node:fs"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -43,18 +41,9 @@ if (process.platform === "darwin" && !existsSync(addonPath)) {
 rmSync(targetDirectory, { recursive: true, force: true })
 mkdirSync(targetDirectory, { recursive: true })
 
-const sourcePackage = JSON.parse(
-  readFileSync(join(packageDirectory, "package.json"), "utf8"),
-) as Record<string, unknown>
-
-const stagedPackage = {
-  ...sourcePackage,
-  scripts: undefined,
-  devDependencies: undefined,
-}
-writeFileSync(
+cpSync(
+  join(packageDirectory, "package.json"),
   join(targetDirectory, "package.json"),
-  JSON.stringify(stagedPackage, null, 2) + "\n",
 )
 
 cpSync(distDirectory, join(targetDirectory, "dist"), {
