@@ -5,6 +5,7 @@ import {
   ALL_FORMATS,
   AUDIO_CODECS,
   BufferSource,
+  CustomPathedSource,
   FilePathSource,
   FilePathTarget,
   HlsOutputFormat,
@@ -308,14 +309,53 @@ function makeHlsSample(index: number, frameCount: number) {
   })
 }
 
-async function runFilePathHlsSmoke() {
+async function writeFilePathVideo(directory: string) {
+  const filePath = join(directory, "round-trip.mp4")
+  const output = new Output({
+    format: new (await import("mediabunny")).Mp4OutputFormat(),
+    target: new FilePathTarget(filePath),
+  })
+  const source = new VideoSampleSource({
+    codec: "avc",
+    quality: new Quality("medium"),
+  })
+  output.addVideoTrack(source, { frameRate: 30 })
+
+  await output.start()
+  const frameCount = 6
+  for (let index = 0; index < frameCount; index += 1) {
+    const sample = makeHlsSample(index, frameCount)
+    try {
+      await source.add(sample)
+    } finally {
+      sample.close()
+    }
+  }
+  source.close()
+  await output.finalize()
+
+  return {
+    filePath,
+    result: await verifyVideoInput(
+      new Input({
+        source: new FilePathSource(filePath),
+        formats: ALL_FORMATS,
+      }),
+      "FilePathSource",
+    ),
+  }
+}
+
+async function runFilePathAndHlsSmoke() {
   const directory = join(
     tmpdir(),
-    "gpuix-mediabunny-hls-" + process.pid + "-" + Date.now(),
+    "gpuix-mediabunny-io-" + process.pid + "-" + Date.now(),
   )
   await mkdir(directory, { recursive: true })
 
   try {
+    const filePath = await writeFilePathVideo(directory)
+
     const target = new PathedTarget("master.m3u8", ({ path }) => (
       new FilePathTarget(join(directory, path))
     ))
@@ -344,22 +384,50 @@ async function runFilePathHlsSmoke() {
     source.close()
     await output.finalize()
 
-    return await verifyVideoInput(
+    const rootPath = join(directory, "master.m3u8")
+    const hlsSource = new CustomPathedSource(
+      rootPath,
+      async ({ path }) => (
+        new BufferSource(await Bun.file(path).arrayBuffer())
+      ),
+    )
+
+    const hls = await verifyVideoInput(
       new Input({
-        source: new FilePathSource(join(directory, "master.m3u8")),
+        source: hlsSource,
         formats: ALL_FORMATS,
       }),
-      "FilePathSource HLS",
+      "CustomPathedSource HLS",
     )
+
+    return {
+      filePath: filePath.result,
+      hls,
+    }
   } finally {
     await rm(directory, { recursive: true, force: true })
   }
 }
 
-const [urlSource, filePathHls] = await Promise.all([
-  runUrlSourceSmoke(nativeFixturePath),
-  runFilePathHlsSmoke(),
-])
+let urlSource
+try {
+  urlSource = await runUrlSourceSmoke(nativeFixturePath)
+} catch (error) {
+  throw new Error(
+    "UrlSource smoke failed: " + (error instanceof Error ? error.message : String(error)),
+    { cause: error },
+  )
+}
+
+let fileIo
+try {
+  fileIo = await runFilePathAndHlsSmoke()
+} catch (error) {
+  throw new Error(
+    "File-path/HLS smoke failed: " + (error instanceof Error ? error.message : String(error)),
+    { cause: error },
+  )
+}
 
 console.log(JSON.stringify({
   registration,
@@ -372,10 +440,13 @@ console.log(JSON.stringify({
   fallbackCodec,
   fallbackPath,
   urlSource,
-  filePathHls,
+  filePathSource: fileIo.filePath,
+  filePathHls: fileIo.hls,
   urlSourceSupport: true,
   filePathSourceSupport: true,
   filePathTargetSupport: true,
   hlsInputSupport: true,
+  filePathHlsDirectKnownGap:
+    "MediaBunny 1.59 FilePathSource child HLS reads may bypass getSize() before read(); CustomPathedSource file readback is used instead.",
   fullCodecCapabilitySurface: true,
 }))
