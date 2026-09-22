@@ -1,5 +1,7 @@
 #include <napi.h>
 
+#include "videotoolbox_support.h"
+
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreMedia/CoreMedia.h>
 #include <CoreVideo/CoreVideo.h>
@@ -19,13 +21,11 @@
 
 namespace {
 
-struct PacketInput {
-  uint8_t* data;
-  size_t size;
-  int64_t timestamp_us;
-  int64_t duration_us;
-  bool keyframe;
-};
+using gpuix::media::CreateH264FormatDescription;
+using gpuix::media::CreateHardwareDecodeSession;
+using gpuix::media::CreateSampleBuffer;
+using gpuix::media::IsHardwareAccelerated;
+using gpuix::media::PacketInput;
 
 class VideoToolboxH264Decoder;
 
@@ -120,11 +120,17 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
     config_.assign(description.Data(), description.Data() + description.Length());
 
     std::string error;
-    if (!CreateFormatDescription(error)) {
+    if (!CreateH264FormatDescription(config_, &format_description_, error)) {
       Napi::Error::New(env, error).ThrowAsJavaScriptException();
       return;
     }
-    if (!CreateSession(error)) {
+    if (!CreateHardwareDecodeSession(
+      format_description_,
+      this,
+      &VideoToolboxH264Decoder::OutputCallback,
+      &session_,
+      error
+    )) {
       Napi::Error::New(env, error).ThrowAsJavaScriptException();
       return;
     }
@@ -164,75 +170,6 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
   VTDecompressionSessionRef session_ = nullptr;
   OutputState output_;
   std::atomic<StreamTask*> active_stream_{nullptr};
-
-  static uint16_t ReadBE16(const uint8_t* data) {
-    return static_cast<uint16_t>((static_cast<uint16_t>(data[0]) << 8) | data[1]);
-  }
-
-  bool CreateFormatDescription(std::string& error) {
-    if (config_.size() < 7 || config_[0] != 1) {
-      error = "Invalid AVCDecoderConfigurationRecord";
-      return false;
-    }
-
-    const size_t nal_length_size = static_cast<size_t>((config_[4] & 0x03) + 1);
-    size_t offset = 5;
-    const uint8_t sps_count = config_[offset++] & 0x1f;
-
-    std::vector<const uint8_t*> parameter_sets;
-    std::vector<size_t> parameter_sizes;
-
-    auto append_set = [&](const char* label) -> bool {
-      if (offset + 2 > config_.size()) {
-        error = std::string("Truncated AVC ") + label + " length";
-        return false;
-      }
-      const size_t size = ReadBE16(config_.data() + offset);
-      offset += 2;
-      if (size == 0 || offset + size > config_.size()) {
-        error = std::string("Invalid AVC ") + label + " payload";
-        return false;
-      }
-      parameter_sets.push_back(config_.data() + offset);
-      parameter_sizes.push_back(size);
-      offset += size;
-      return true;
-    };
-
-    for (uint8_t index = 0; index < sps_count; ++index) {
-      if (!append_set("SPS")) return false;
-    }
-
-    if (offset >= config_.size()) {
-      error = "AVC configuration has no PPS count";
-      return false;
-    }
-    const uint8_t pps_count = config_[offset++];
-    for (uint8_t index = 0; index < pps_count; ++index) {
-      if (!append_set("PPS")) return false;
-    }
-
-    if (parameter_sets.empty() || sps_count == 0 || pps_count == 0) {
-      error = "AVC configuration must contain SPS and PPS";
-      return false;
-    }
-
-    OSStatus status = CMVideoFormatDescriptionCreateFromH264ParameterSets(
-      kCFAllocatorDefault,
-      parameter_sets.size(),
-      parameter_sets.data(),
-      parameter_sizes.data(),
-      static_cast<int>(nal_length_size),
-      &format_description_
-    );
-
-    if (status != noErr || !format_description_) {
-      error = "CMVideoFormatDescriptionCreateFromH264ParameterSets failed: " + std::to_string(status);
-      return false;
-    }
-
-    return true;
-  }
 
   static void OutputCallback(
     void* decompression_output_refcon,
@@ -292,98 +229,8 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
     }
   }
 
-  bool CreateSession(std::string& error) {
-    CFMutableDictionaryRef decoder_spec = CFDictionaryCreateMutable(
-      kCFAllocatorDefault,
-      2,
-      &kCFTypeDictionaryKeyCallBacks,
-      &kCFTypeDictionaryValueCallBacks
-    );
-    CFDictionarySetValue(
-      decoder_spec,
-      kVTVideoDecoderSpecification_EnableHardwareAcceleratedVideoDecoder,
-      kCFBooleanTrue
-    );
-    CFDictionarySetValue(
-      decoder_spec,
-      kVTVideoDecoderSpecification_RequireHardwareAcceleratedVideoDecoder,
-      kCFBooleanTrue
-    );
-
-    CFMutableDictionaryRef attributes = CFDictionaryCreateMutable(
-      kCFAllocatorDefault,
-      3,
-      &kCFTypeDictionaryKeyCallBacks,
-      &kCFTypeDictionaryValueCallBacks
-    );
-    CFDictionarySetValue(attributes, kCVPixelBufferMetalCompatibilityKey, kCFBooleanTrue);
-
-    CFDictionaryRef iosurface_properties = CFDictionaryCreate(
-      kCFAllocatorDefault,
-      nullptr,
-      nullptr,
-      0,
-      &kCFTypeDictionaryKeyCallBacks,
-      &kCFTypeDictionaryValueCallBacks
-    );
-    CFDictionarySetValue(
-      attributes,
-      kCVPixelBufferIOSurfacePropertiesKey,
-      iosurface_properties
-    );
-    CFRelease(iosurface_properties);
-
-    VTDecompressionOutputCallbackRecord callback = {
-      &VideoToolboxH264Decoder::OutputCallback,
-      this,
-    };
-
-    const OSStatus status = VTDecompressionSessionCreate(
-      kCFAllocatorDefault,
-      format_description_,
-      decoder_spec,
-      attributes,
-      &callback,
-      &session_
-    );
-
-    CFRelease(attributes);
-    CFRelease(decoder_spec);
-
-    if (status != noErr || !session_) {
-      error = "VTDecompressionSessionCreate failed: " + std::to_string(status);
-      return false;
-    }
-
-    if (!IsHardwareAccelerated()) {
-      error = "VideoToolbox created a non-hardware decoder despite RequireHardwareAcceleratedVideoDecoder";
-      return false;
-    }
-
-    return true;
-  }
-
-  bool IsHardwareAccelerated() const {
-    if (!session_) return false;
-
-    CFTypeRef value = nullptr;
-    const OSStatus status = VTSessionCopyProperty(
-      session_,
-      kVTDecompressionPropertyKey_UsingHardwareAcceleratedVideoDecoder,
-      kCFAllocatorDefault,
-      &value
-    );
-    if (status != noErr || !value) return false;
-
-    const bool result =
-      CFGetTypeID(value) == CFBooleanGetTypeID()
-      && CFBooleanGetValue(static_cast<CFBooleanRef>(value));
-    CFRelease(value);
-    return result;
-  }
-
   Napi::Value HardwareAccelerated(const Napi::CallbackInfo& info) {
-    return Napi::Boolean::New(info.Env(), IsHardwareAccelerated());
+    return Napi::Boolean::New(info.Env(), IsHardwareAccelerated(session_));
   }
 
   void HandleStreamOutput(
@@ -695,7 +542,7 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       );
       result.Set(
         "hardwareAccelerated",
-        Napi::Boolean::New(env, IsHardwareAccelerated())
+        Napi::Boolean::New(env, IsHardwareAccelerated(session_))
       );
       result.Set(
         "maxPendingFrames",
@@ -1086,7 +933,7 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       }
       result.Set("frameHandles", handles);
     }
-    result.Set("hardwareAccelerated", Napi::Boolean::New(env, IsHardwareAccelerated()));
+    result.Set("hardwareAccelerated", Napi::Boolean::New(env, IsHardwareAccelerated(session_)));
     return result;
   }
 
