@@ -2,7 +2,7 @@
   "targets": [
     {
       "target_name": "gpuix_videotoolbox",
-      "sources": ["decoder.mm"],
+      "sources": ["decoder.mm", "videotoolbox_support.mm"],
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")"
       ],
