@@ -342,10 +342,7 @@ export class VideoToolboxMediaDecoder extends CustomVideoDecoder {
       for (const output of outputs) output.frame.close()
       throw new Error("VideoToolbox stream dropped " + result.dropped + " frame(s)")
     }
-    if (!result.presentationOrderMonotonic) {
-      for (const output of outputs) output.frame.close()
-      throw new Error("VideoToolbox stream did not deliver frames in presentation order")
-    }
+    outputs.sort((left, right) => left.timestampUs - right.timestampUs)
 
     for (let index = 0; index < outputs.length; index += 1) {
       const output = outputs[index]
