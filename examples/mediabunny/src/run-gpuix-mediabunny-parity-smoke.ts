@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, rm } from "node:fs/promises"
+import { mkdir, readdir, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
@@ -185,16 +185,12 @@ try {
 
 async function verifyVideoInput(input: Input, label: string) {
   try {
-    console.error("[gpuix-mediabunny-input] " + label + " canRead")
     if (!await input.canRead()) {
       throw new Error(label + " could not read media")
     }
-    console.error("[gpuix-mediabunny-input] " + label + " getPrimaryVideoTrack")
     const track = await input.getPrimaryVideoTrack()
     if (!track) throw new Error(label + " has no video track")
-    console.error("[gpuix-mediabunny-input] " + label + " getFirstTimestamp")
     const firstTimestamp = await track.getFirstTimestamp()
-    console.error("[gpuix-mediabunny-input] " + label + " getSample")
     const sample = await new VideoSampleSink(track).getSample(
       firstTimestamp,
     )
@@ -400,23 +396,6 @@ async function runFilePathAndHlsSmoke() {
       await output.finalize()
 
       const generatedFiles = await readdir(directory)
-      const playlists = await Promise.all(
-        generatedFiles
-          .filter((name) => name.endsWith(".m3u8"))
-          .sort()
-          .map(async (name) => ({
-            name,
-            text: await readFile(join(directory, name), "utf8"),
-          })),
-      )
-      console.error(
-        "[gpuix-mediabunny-hls] output "
-        + JSON.stringify({
-          files: generatedFiles.slice().sort(),
-          playlists,
-        }),
-      )
-
       const firstSegmentName = generatedFiles.find((name) => name.endsWith(".ts"))
       if (!firstSegmentName) {
         throw new Error(
@@ -424,7 +403,6 @@ async function runFilePathAndHlsSmoke() {
         )
       }
 
-      console.error("[gpuix-mediabunny-hls] verify first MPEG-TS segment")
       const firstSegment = await verifyVideoInput(
         new Input({
           source: createGpuixFilePathSource(join(directory, firstSegmentName)),
@@ -434,7 +412,6 @@ async function runFilePathAndHlsSmoke() {
       )
 
       const rootPath = join(directory, "master.m3u8")
-      console.error("[gpuix-mediabunny-hls] verify input")
       const hls = await verifyVideoInput(
         new Input({
           source: createGpuixFilePathSource(rootPath),
