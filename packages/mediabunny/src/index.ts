@@ -1,12 +1,12 @@
 import { registerProresDecoder } from "@mediabunny/prores"
 import { registerMediabunnyServer, type MediabunnyServerOptions } from "@mediabunny/server"
 import { VideoSample } from "mediabunny"
-import { installNapiCanvasGlobals } from "./napi-canvas-globals.ts"
-import { installGpuixCanvasSinkBridge } from "./gpuix-canvas-sink.ts"
+import { installNapiCanvasGlobals } from "./napi-canvas-globals.js"
+import { installGpuixCanvasSinkBridge } from "./gpuix-canvas-sink.js"
 import {
   getVideoToolboxVideoSampleResource,
   registerVideoToolboxMediaDecoder,
-} from "./videotoolbox-mediabunny.ts"
+} from "./videotoolbox-mediabunny.js"
 
 export type GpuixVideoFrameRenderer = {
   getVideoFrameIosurfaceVersion(): number | null
@@ -108,6 +108,6 @@ export {
   getVideoToolboxVideoSampleResource,
   registerVideoToolboxMediaDecoder,
   type NativeVideoToolboxFrame,
-} from "./videotoolbox-mediabunny.ts"
-export { installGpuixCanvasSinkBridge } from "./gpuix-canvas-sink.ts"
-export { installNapiCanvasGlobals } from "./napi-canvas-globals.ts"
+} from "./videotoolbox-mediabunny.js"
+export { installGpuixCanvasSinkBridge } from "./gpuix-canvas-sink.js"
+export { installNapiCanvasGlobals } from "./napi-canvas-globals.js"
