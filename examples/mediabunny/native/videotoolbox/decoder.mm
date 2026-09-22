@@ -323,6 +323,7 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
 
   Napi::Value DecodeBatch(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
+    const auto batch_started = std::chrono::steady_clock::now();
     if (!session_) {
       Napi::Error::New(env, "VideoToolbox decoder is disposed").ThrowAsJavaScriptException();
       return env.Undefined();
@@ -351,7 +352,7 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
 
     {
       std::lock_guard<std::mutex> lock(output_.mutex);
-      output_.started = std::chrono::steady_clock::now();
+      output_.started = batch_started;
       output_.frames = 0;
       output_.width = 0;
       output_.height = 0;
