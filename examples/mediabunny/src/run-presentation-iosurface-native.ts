@@ -42,6 +42,7 @@ if (!hasNativeTestRenderer) {
 const iterations = Number(process.env.MEDIABUNNY_PRESENTATION_ITERATIONS ?? 3)
 const warmups = Number(process.env.MEDIABUNNY_PRESENTATION_WARMUPS ?? 1)
 const packetView = process.env.GPUIX_MEDIA_PACKET_VIEW === "1"
+const syncCodecCalls = process.env.GPUIX_MEDIA_SYNC_CODEC_CALLS === "1"
 const extraHardwareFrames = Number(process.env.GPUIX_MEDIA_EXTRA_HW_FRAMES ?? 0)
 if (!Number.isInteger(extraHardwareFrames) || extraHardwareFrames < 0) {
   throw new Error("GPUIX_MEDIA_EXTRA_HW_FRAMES must be a non-negative integer")
@@ -111,17 +112,32 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>) {
   const frame = new Frame()
   frame.alloc()
 
-  const drain = async function* () {
+  const validateFrame = () => {
+    if (!frame.isHwFrame()) {
+      throw new Error(
+        `VideoToolbox decoder returned a software frame with pixel format ${frame.format}`,
+      )
+    }
+  }
+
+  const drainAsync = async function* () {
     for (;;) {
       frame.unref()
       const receiveResult = await codecContext.receiveFrame(frame)
       if (receiveResult === AVERROR_EAGAIN || receiveResult === AVERROR_EOF) return
       FFmpegError.throwIfError(receiveResult, "Receive VideoToolbox frame")
-      if (!frame.isHwFrame()) {
-        throw new Error(
-          `VideoToolbox decoder returned a software frame with pixel format ${frame.format}`,
-        )
-      }
+      validateFrame()
+      yield frame
+    }
+  }
+
+  const drainSync = function* () {
+    for (;;) {
+      frame.unref()
+      const receiveResult = codecContext.receiveFrameSync(frame)
+      if (receiveResult === AVERROR_EAGAIN || receiveResult === AVERROR_EOF) return
+      FFmpegError.throwIfError(receiveResult, "Receive VideoToolbox frame")
+      validateFrame()
       yield frame
     }
   }
@@ -139,16 +155,50 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>) {
       packet.dts = AV_NOPTS_VALUE
       packet.duration = BigInt(Math.round(encoded.microsecondDuration))
 
-      const sendResult = await codecContext.sendPacket(packet)
-      packet.unref()
-      FFmpegError.throwIfError(sendResult, "Send MediaBunny packet to VideoToolbox")
-
-      for await (const decoded of drain()) yield decoded
+      if (syncCodecCalls) {
+        let sendResult = codecContext.sendPacketSync(packet)
+        while (sendResult === AVERROR_EAGAIN) {
+          let drained = false
+          for (const decoded of drainSync()) {
+            drained = true
+            yield decoded
+          }
+          if (!drained) {
+            throw new Error("VideoToolbox returned EAGAIN from both send and receive")
+          }
+          sendResult = codecContext.sendPacketSync(packet)
+        }
+        packet.unref()
+        FFmpegError.throwIfError(sendResult, "Send MediaBunny packet to VideoToolbox")
+        for (const decoded of drainSync()) yield decoded
+      } else {
+        const sendResult = await codecContext.sendPacket(packet)
+        packet.unref()
+        FFmpegError.throwIfError(sendResult, "Send MediaBunny packet to VideoToolbox")
+        for await (const decoded of drainAsync()) yield decoded
+      }
     }
 
-    const flushResult = await codecContext.sendPacket(null)
-    FFmpegError.throwIfError(flushResult, "Flush VideoToolbox decoder")
-    for await (const decoded of drain()) yield decoded
+    if (syncCodecCalls) {
+      let flushResult = codecContext.sendPacketSync(null)
+      while (flushResult === AVERROR_EAGAIN) {
+        let drained = false
+        for (const decoded of drainSync()) {
+          drained = true
+          yield decoded
+        }
+        if (!drained) {
+          throw new Error("VideoToolbox returned EAGAIN while flushing with no frame available")
+        }
+        flushResult = codecContext.sendPacketSync(null)
+      }
+      FFmpegError.throwIfError(flushResult, "Flush VideoToolbox decoder")
+      for (const decoded of drainSync()) yield decoded
+    } else {
+      const flushResult = await codecContext.sendPacket(null)
+      FFmpegError.throwIfError(flushResult, "Flush VideoToolbox decoder")
+      for await (const decoded of drainAsync()) yield decoded
+    }
   } finally {
     frame.free()
     packet.free()
@@ -352,6 +402,7 @@ try {
       screenshotBytes,
       decoderHardwareAcceleration: "videotoolbox",
       nodeAvPacketBuffer: packetView ? "view" : "copy",
+      nodeAvCodecCalls: syncCodecCalls ? "sync" : "async",
       nodeAvExtraHwFrames: extraHardwareFrames,
       mediaBunnyPacketSink: true,
       hardwareFrame: true,
