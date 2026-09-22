@@ -59,6 +59,13 @@ jobs:
         if: matrix.backend == 'webcodecs'
         working-directory: examples/mediabunny
         run: bun run build:videotoolbox
+      - name: Build and stage reusable MediaBunny package
+        if: matrix.backend == 'webcodecs'
+        run: |
+          cd packages/mediabunny
+          bun run build
+          cd ../../examples/mediabunny
+          bun run stage:gpuix-mediabunny
       - name: Smoke direct VideoToolbox decoder
         if: matrix.backend == 'webcodecs'
         working-directory: examples/mediabunny
