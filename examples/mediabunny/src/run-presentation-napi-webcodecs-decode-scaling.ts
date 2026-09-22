@@ -51,7 +51,7 @@ function firstFrameMs(runs: readonly PresentationRun[]): number {
   return median(runs.map((run) => run.firstFrameMs))
 }
 
-function p95Ms(runs: readonly PresentationRun[]): number {
+function outputSpacingP95Ms(runs: readonly PresentationRun[]): number {
   return median(runs.map((run) => run.frameStepP95Ms))
 }
 
@@ -132,7 +132,6 @@ await mkdir(reportsDirectory, { recursive: true })
 const rows: string[] = []
 const decodeRatios: number[] = []
 const firstFrameRatios: number[] = []
-const p95Ratios: number[] = []
 
 try {
   for (const resolution of resolutions) {
@@ -182,40 +181,39 @@ try {
     const workerDecode = decodeFps(worker.decodeOnly)
     const browserFirst = firstFrameMs(browser.decodeOnly)
     const workerFirst = firstFrameMs(worker.decodeOnly)
-    const browserP95 = p95Ms(browser.decodeOnly)
-    const workerP95 = p95Ms(worker.decodeOnly)
+    const browserP95 = outputSpacingP95Ms(browser.decodeOnly)
+    const workerP95 = outputSpacingP95Ms(worker.decodeOnly)
     const decodeRatio = ratio(workerDecode, browserDecode)
     const firstRatio = ratio(workerFirst, browserFirst)
-    const p95Ratio = ratio(workerP95, browserP95)
 
     decodeRatios.push(decodeRatio)
     firstFrameRatios.push(firstRatio)
-    p95Ratios.push(p95Ratio)
 
     rows.push(
-      `| ${resolution.label} | ${browserDecode.toFixed(2)} fps | ${workerDecode.toFixed(2)} fps | ${formatRatio(decodeRatio)} | ${browserFirst.toFixed(2)} ms | ${workerFirst.toFixed(2)} ms | ${formatRatio(firstRatio)} | ${browserP95.toFixed(2)} ms | ${workerP95.toFixed(2)} ms | ${formatRatio(p95Ratio)} |`,
+      `| ${resolution.label} | ${browserDecode.toFixed(2)} fps | ${workerDecode.toFixed(2)} fps | ${formatRatio(decodeRatio)} | ${browserFirst.toFixed(2)} ms | ${workerFirst.toFixed(2)} ms | ${formatRatio(firstRatio)} | ${browserP95.toFixed(2)} ms | ${workerP95.toFixed(2)} ms |`,
     )
   }
 
   const worstDecode = Math.min(...decodeRatios)
   const worstFirstFrame = Math.max(...firstFrameRatios)
-  const worstP95 = Math.max(...p95Ratios)
-  const beatsBrowserEverywhere = worstDecode > 1 && worstFirstFrame < 1 && worstP95 < 1
+  const winsPrimaryMetrics = worstDecode > 1 && worstFirstFrame < 1
 
   const report = [
     "# napi-WebCodecs worker decode scaling",
     "",
-    "This isolates decoder scheduling. Chromium uses MediaBunny with browser WebCodecs. The native path feeds the same MediaBunny AVC packets into @napi-rs/webcodecs, whose VideoDecoder owns a persistent decoder worker thread.",
+    "Chromium uses MediaBunny with browser WebCodecs. The native path feeds the same MediaBunny AVC packets into @napi-rs/webcodecs, whose VideoDecoder owns a persistent decoder worker thread.",
     "",
-    "| Resolution | Browser decode | Native worker decode | Native / browser | Browser first frame | Native first frame | Native / browser | Browser p95 | Native p95 | Native / browser |",
-    "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    "| Resolution | Browser decode | Native worker decode | Worker / browser | Browser first frame | Native first frame | Worker / browser | Browser output-spacing p95 | Worker output-spacing p95 |",
+    "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ...rows,
     "",
-    `Worst decode ratio: ${formatRatio(worstDecode)}. Worst first-frame ratio: ${formatRatio(worstFirstFrame)}. Worst p95 ratio: ${formatRatio(worstP95)}. Beats browser on all three metrics at every resolution: ${beatsBrowserEverywhere ? "yes" : "no"}.`,
+    `Worst decode ratio: ${formatRatio(worstDecode)}. Worst first-frame ratio: ${formatRatio(worstFirstFrame)}. Worker wins both primary decoder metrics at every resolution: ${winsPrimaryMetrics ? "yes" : "no"}.`,
     "",
-    "Throughput ratios above 1 beat the browser. Latency ratios below 1 beat the browser.",
+    "Throughput ratios above 1 beat the browser. First-frame latency ratios below 1 beat the browser.",
     "",
-    "This is deliberately a lower-bound architecture probe, not the final presentation path. The current @napi-rs/webcodecs implementation downloads hardware-decoded frames to CPU memory before exposing VideoFrame. If the worker closes the decode gap despite that download, the next experiment is to preserve the VideoToolbox AVFrame/CVPixelBuffer and export its IOSurface directly to GPUix.",
+    "Output-spacing p95 is diagnostic only. It measures spacing between asynchronous output callbacks, not per-frame decode time. The worker can deliver frames in a burst after a long first-frame wait, so this value must not be used as a decoder-latency win condition.",
+    "",
+    "This experiment is a negative architecture result for the current @napi-rs/webcodecs path: it downloads hardware-decoded frames to CPU memory before exposing VideoFrame, and the persistent worker did not close the browser throughput or first-frame gap. The next experiment bypasses that download and the NodeAV/FFmpeg hot loop by feeding the same pre-collected AVC packets directly to VideoToolbox.",
     "",
   ].join("\n")
 
