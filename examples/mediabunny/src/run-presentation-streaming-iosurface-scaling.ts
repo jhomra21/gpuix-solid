@@ -219,7 +219,7 @@ try {
     "",
     "## Native stage medians",
     "",
-    "| Resolution | Direct decode batches | GPUix IOSurface handoff | GPUI render flush |",
+    "| Resolution | Streaming decode worker | GPUix IOSurface handoff | GPUI render flush |",
     "| --- | ---: | ---: | ---: |",
     ...stageRows,
     "",
