@@ -3,6 +3,7 @@ import {
   AudioSample,
   AudioSampleSink,
   AudioSampleSource,
+  BlobSource,
   BufferSource,
   BufferTarget,
   CanvasSink,
@@ -1358,6 +1359,70 @@ async function runReadableStreamSourceFeature(
   }
 }
 
+async function inspectSourceFeature(
+  name: string,
+  source: BlobSource | ReturnType<BufferSource["slice"]>,
+): Promise<FeatureExecution> {
+  const input = new Input({
+    source,
+    formats: ALL_FORMATS,
+  })
+  try {
+    if (!await input.canRead()) {
+      throw new Error(name + " could not read the generated fixture")
+    }
+
+    const [videoTrack, audioTrack] = await Promise.all([
+      input.getPrimaryVideoTrack(),
+      input.getPrimaryAudioTrack(),
+    ])
+    if (!videoTrack || !audioTrack) {
+      throw new Error(name + " lost video or audio tracks")
+    }
+
+    const videoSample = await new VideoSampleSink(videoTrack).getSample(
+      await videoTrack.getFirstTimestamp(),
+    )
+    if (!videoSample) {
+      throw new Error(name + " produced no video sample")
+    }
+    videoSample.close()
+
+    return {
+      status: "pass",
+      details: {
+        bytes: await source.getSize(),
+        videoCodec: await videoTrack.getCodec(),
+        audioCodec: await audioTrack.getCodec(),
+      },
+    }
+  } finally {
+    input.dispose()
+  }
+}
+
+async function runBlobSourceFeature(
+  buffer: ArrayBuffer,
+): Promise<FeatureExecution> {
+  return inspectSourceFeature(
+    "BlobSource",
+    new BlobSource(new Blob([buffer])),
+  )
+}
+
+async function runRangedSourceFeature(
+  buffer: ArrayBuffer,
+): Promise<FeatureExecution> {
+  const prefixBytes = 37
+  const bytes = new Uint8Array(prefixBytes + buffer.byteLength)
+  bytes.fill(0xa5, 0, prefixBytes)
+  bytes.set(new Uint8Array(buffer), prefixBytes)
+
+  const source = new BufferSource(bytes).slice(prefixBytes, buffer.byteLength)
+  return inspectSourceFeature("RangedSource", source)
+}
+
+
 async function runHlsOutputFeature(): Promise<FeatureExecution> {
   const files = new Map<string, ArrayBuffer>()
   let playlist = ""
@@ -1562,6 +1627,14 @@ async function runFeatureCases(
     await runFeatureCase(
       "readable-stream-source",
       () => runReadableStreamSourceFeature(buffer),
+    ),
+    await runFeatureCase(
+      "blob-source",
+      () => runBlobSourceFeature(buffer),
+    ),
+    await runFeatureCase(
+      "ranged-source",
+      () => runRangedSourceFeature(buffer),
     ),
 
     await runFeatureCase("cmaf-output", runCmafOutputFeature),
