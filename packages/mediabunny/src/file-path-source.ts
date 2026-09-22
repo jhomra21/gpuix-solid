@@ -66,7 +66,7 @@ class GpuixFilePathSource extends PathedSource {
       offset += bytesRead
     }
 
-    ;(this as InternalPathedSource)._dispatchRead(start, readEnd)
+    ;(this as unknown as InternalPathedSource)._dispatchRead(start, readEnd)
 
     return {
       bytes,
