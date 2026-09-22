@@ -43,6 +43,7 @@ const iterations = Number(process.env.MEDIABUNNY_PRESENTATION_ITERATIONS ?? 3)
 const warmups = Number(process.env.MEDIABUNNY_PRESENTATION_WARMUPS ?? 1)
 const packetView = process.env.GPUIX_MEDIA_PACKET_VIEW === "1"
 const syncCodecCalls = process.env.GPUIX_MEDIA_SYNC_CODEC_CALLS === "1"
+const fastFirstFrame = process.env.GPUIX_MEDIA_FAST_FIRST_FRAME === "1"
 const extraHardwareFrames = Number(process.env.GPUIX_MEDIA_EXTRA_HW_FRAMES ?? 0)
 const packetBatch = Number(process.env.GPUIX_MEDIA_PACKET_BATCH ?? 1)
 if (!Number.isInteger(extraHardwareFrames) || extraHardwareFrames < 0) {
@@ -183,6 +184,7 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>, stats: 
   try {
     const sink = new MediaBunnyEncodedPacketSink(track)
     let packetsSinceDrain = 0
+    let decodedFrames = 0
 
     for await (const encoded of sink.packets()) {
       packet.unref()
@@ -201,6 +203,7 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>, stats: 
           let drained = false
           for (const decoded of drainSync()) {
             drained = true
+            decodedFrames += 1
             yield decoded
           }
           packetsSinceDrain = 0
@@ -212,8 +215,11 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>, stats: 
         packet.unref()
         FFmpegError.throwIfError(sendResult, "Send MediaBunny packet to VideoToolbox")
         packetsSinceDrain += 1
-        if (packetsSinceDrain >= packetBatch) {
-          for (const decoded of drainSync()) yield decoded
+        if ((fastFirstFrame && decodedFrames === 0) || packetsSinceDrain >= packetBatch) {
+          for (const decoded of drainSync()) {
+            decodedFrames += 1
+            yield decoded
+          }
           packetsSinceDrain = 0
         }
       } else {
@@ -222,6 +228,7 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>, stats: 
           let drained = false
           for await (const decoded of drainAsync()) {
             drained = true
+            decodedFrames += 1
             yield decoded
           }
           packetsSinceDrain = 0
@@ -233,8 +240,11 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>, stats: 
         packet.unref()
         FFmpegError.throwIfError(sendResult, "Send MediaBunny packet to VideoToolbox")
         packetsSinceDrain += 1
-        if (packetsSinceDrain >= packetBatch) {
-          for await (const decoded of drainAsync()) yield decoded
+        if ((fastFirstFrame && decodedFrames === 0) || packetsSinceDrain >= packetBatch) {
+          for await (const decoded of drainAsync()) {
+            decodedFrames += 1
+            yield decoded
+          }
           packetsSinceDrain = 0
         }
       }
@@ -242,9 +252,15 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>, stats: 
 
     if (packetsSinceDrain > 0) {
       if (syncCodecCalls) {
-        for (const decoded of drainSync()) yield decoded
+        for (const decoded of drainSync()) {
+          decodedFrames += 1
+          yield decoded
+        }
       } else {
-        for await (const decoded of drainAsync()) yield decoded
+        for await (const decoded of drainAsync()) {
+          decodedFrames += 1
+          yield decoded
+        }
       }
     }
 
@@ -262,7 +278,10 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>, stats: 
         flushResult = sendSync(null)
       }
       FFmpegError.throwIfError(flushResult, "Flush VideoToolbox decoder")
-      for (const decoded of drainSync()) yield decoded
+      for (const decoded of drainSync()) {
+        decodedFrames += 1
+        yield decoded
+      }
     } else {
       let flushResult = await sendAsync(null)
       while (flushResult === AVERROR_EAGAIN) {
@@ -277,7 +296,10 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>, stats: 
         flushResult = await sendAsync(null)
       }
       FFmpegError.throwIfError(flushResult, "Flush VideoToolbox decoder")
-      for await (const decoded of drainAsync()) yield decoded
+      for await (const decoded of drainAsync()) {
+        decodedFrames += 1
+        yield decoded
+      }
     }
   } finally {
     frame.free()
@@ -493,6 +515,7 @@ try {
       decoderHardwareAcceleration: "videotoolbox",
       nodeAvPacketBuffer: packetView ? "view" : "copy",
       nodeAvCodecCalls: syncCodecCalls ? "sync" : "async",
+      nodeAvFastFirstFrame: fastFirstFrame,
       nodeAvExtraHwFrames: extraHardwareFrames,
       nodeAvPacketBatch: packetBatch,
       mediaBunnyPacketSink: true,
