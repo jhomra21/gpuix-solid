@@ -17,7 +17,7 @@ export type DirectDecodeReport = {
   backend: "browser-webcodecs-direct" | "videotoolbox-direct"
   generatedAt: string
   workload: {
-    codec: "avc"
+    codec: "avc" | "hevc"
     fixtureBytes: number
     warmups: number
     iterations: number
