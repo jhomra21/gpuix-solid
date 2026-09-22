@@ -66,6 +66,31 @@ jobs:
           bun run build
           cd ../../examples/mediabunny
           bun run stage:gpuix-mediabunny
+      - name: Smoke packed MediaBunny package
+        if: matrix.backend == 'webcodecs'
+        working-directory: packages/mediabunny
+        run: |
+          set -euo pipefail
+          package_file=$(npm pack --json | node -e 'let data=""; process.stdin.on("data", chunk => data += chunk); process.stdin.on("end", () => process.stdout.write(JSON.parse(data)[0].filename))')
+          if tar -tzf "$package_file" | grep -q '^package/native/videotoolbox/build/'; then
+            echo "Generated native build artifacts leaked into npm package"
+            exit 1
+          fi
+          rm -rf /tmp/gpuix-mediabunny-package-smoke
+          mkdir -p /tmp/gpuix-mediabunny-package-smoke
+          cd /tmp/gpuix-mediabunny-package-smoke
+          npm init -y >/dev/null
+          npm install "$GITHUB_WORKSPACE/packages/mediabunny/$package_file" mediabunny@1.59.0 @mediabunny/server@1.59.0 @mediabunny/prores@1.59.0 >/dev/null
+          node --input-type=module - <<'NODE'
+          import { registerGpuixMediaBunny } from "@jhomra21/gpuix-mediabunny"
+
+          const registration = registerGpuixMediaBunny()
+          if (!registration.videoToolbox || !registration.serverFallback) {
+            throw new Error("Packed gpuix-mediabunny did not register native + fallback paths")
+          }
+          console.log(JSON.stringify(registration))
+          NODE
+          rm -f "$GITHUB_WORKSPACE/packages/mediabunny/$package_file"
       - name: Smoke direct VideoToolbox decoder
         if: matrix.backend == 'webcodecs'
         working-directory: examples/mediabunny
