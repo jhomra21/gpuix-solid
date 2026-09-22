@@ -30,6 +30,8 @@ type MediaBunnyVideoTrack = NonNullable<
   Awaited<ReturnType<Input["getPrimaryVideoTrack"]>>
 >
 
+type NativeVideoCodec = "avc" | "hevc"
+
 type NativePacket = {
   data: Buffer
   timestamp: number
@@ -58,7 +60,10 @@ type NativeDecoder = {
 }
 
 type NativeModule = {
-  VideoToolboxH264Decoder: new (description: Buffer) => NativeDecoder
+  VideoToolboxVideoDecoder: new (
+    codec: NativeVideoCodec,
+    description: Buffer,
+  ) => NativeDecoder
 }
 
 const fixturePath = process.argv[2]
@@ -112,20 +117,22 @@ async function createTrackState() {
     input.dispose()
     throw new Error("Presentation fixture has no video track")
   }
-  if (await track.getCodec() !== "avc") {
+  const codec = await track.getCodec()
+  if (codec !== "avc" && codec !== "hevc") {
     input.dispose()
-    throw new Error("Streaming VideoToolbox presentation requires AVC")
+    throw new Error(`Streaming VideoToolbox presentation does not support ${codec}`)
   }
 
   const config = await track.getDecoderConfig()
   if (!config?.description) {
     input.dispose()
-    throw new Error("AVC track has no decoder configuration")
+    throw new Error(`${codec.toUpperCase()} track has no decoder configuration`)
   }
 
   return {
     input,
     track,
+    codec,
     description: copyDescription(config.description),
     width: config.codedWidth ?? await track.getCodedWidth(),
     height: config.codedHeight ?? await track.getCodedHeight(),
@@ -176,7 +183,7 @@ function validateStream(
 
 async function runDecodeOnly(): Promise<PresentationRun> {
   const state = await createTrackState()
-  const decoder = new native.VideoToolboxH264Decoder(state.description)
+  const decoder = new native.VideoToolboxVideoDecoder(state.codec, state.description)
   try {
     if (!decoder.hardwareAccelerated) {
       throw new Error("Streaming VideoToolbox decoder is not hardware accelerated")
@@ -237,7 +244,7 @@ if (surface.id <= 0) {
 
 async function runPresentation(): Promise<PresentationRun> {
   const state = await createTrackState()
-  const decoder = new native.VideoToolboxH264Decoder(state.description)
+  const decoder = new native.VideoToolboxVideoDecoder(state.codec, state.description)
 
   try {
     if (!decoder.hardwareAccelerated) {
@@ -346,7 +353,7 @@ try {
     backend: "streaming-videotoolbox-iosurface-gpuix-video-frame",
     generatedAt: new Date().toISOString(),
     workload: {
-      codec: "avc",
+      codec: initial.codec,
       fixtureBytes: fixture.byteLength,
       warmups,
       iterations,
@@ -357,6 +364,7 @@ try {
       nativeSurfaceVersion: testRoot.renderer.getVideoFrameIosurfaceVersion() ?? 0,
       screenshotBytes,
       decoderHardwareAcceleration: "videotoolbox",
+      codec: initial.codec,
       streamingDelivery: true,
       maxPendingFrames: 2,
       mediaBunnyPacketSink: true,
