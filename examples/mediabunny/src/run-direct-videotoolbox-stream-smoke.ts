@@ -12,6 +12,8 @@ if (process.platform !== "darwin") {
   process.exit(0)
 }
 
+type NativeVideoCodec = "avc" | "hevc"
+
 type PacketInput = {
   data: Buffer
   timestamp: number
@@ -40,7 +42,10 @@ type Decoder = {
 }
 
 type NativeModule = {
-  VideoToolboxH264Decoder: new (description: Buffer) => Decoder
+  VideoToolboxVideoDecoder: new (
+    codec: NativeVideoCodec,
+    description: Buffer,
+  ) => Decoder
 }
 
 const fixturePath = process.argv[2]
@@ -68,13 +73,14 @@ const input = new Input({
 try {
   const track = await input.getPrimaryVideoTrack()
   if (!track) throw new Error("Stream smoke fixture has no video track")
-  if (await track.getCodec() !== "avc") {
-    throw new Error("Stream smoke requires AVC")
+  const codec = await track.getCodec()
+  if (codec !== "avc" && codec !== "hevc") {
+    throw new Error(`Stream smoke does not support ${codec}`)
   }
 
   const config = await track.getDecoderConfig()
   if (!config?.description) {
-    throw new Error("Stream smoke AVC track has no decoder configuration")
+    throw new Error(`Stream smoke ${codec.toUpperCase()} track has no decoder configuration`)
   }
 
   const description = ArrayBuffer.isView(config.description)
@@ -98,7 +104,7 @@ try {
     })
   }
 
-  const decoder = new native.VideoToolboxH264Decoder(description)
+  const decoder = new native.VideoToolboxVideoDecoder(codec, description)
   try {
     if (!decoder.hardwareAccelerated) {
       throw new Error("Stream smoke decoder is not hardware accelerated")
@@ -186,6 +192,7 @@ try {
 
     console.log(
       JSON.stringify({
+        codec,
         packets: packets.length,
         callbacks,
         handleBytes,
