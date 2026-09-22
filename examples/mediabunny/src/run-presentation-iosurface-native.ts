@@ -44,8 +44,12 @@ const warmups = Number(process.env.MEDIABUNNY_PRESENTATION_WARMUPS ?? 1)
 const packetView = process.env.GPUIX_MEDIA_PACKET_VIEW === "1"
 const syncCodecCalls = process.env.GPUIX_MEDIA_SYNC_CODEC_CALLS === "1"
 const extraHardwareFrames = Number(process.env.GPUIX_MEDIA_EXTRA_HW_FRAMES ?? 0)
+const packetBatch = Number(process.env.GPUIX_MEDIA_PACKET_BATCH ?? 1)
 if (!Number.isInteger(extraHardwareFrames) || extraHardwareFrames < 0) {
   throw new Error("GPUIX_MEDIA_EXTRA_HW_FRAMES must be a non-negative integer")
+}
+if (!Number.isInteger(packetBatch) || packetBatch < 1) {
+  throw new Error("GPUIX_MEDIA_PACKET_BATCH must be a positive integer")
 }
 const fixture = await Bun.file(fixturePath).arrayBuffer()
 
@@ -144,6 +148,8 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>) {
 
   try {
     const sink = new MediaBunnyEncodedPacketSink(track)
+    let packetsSinceDrain = 0
+
     for await (const encoded of sink.packets()) {
       packet.unref()
       packet.data = packetView
@@ -163,6 +169,7 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>) {
             drained = true
             yield decoded
           }
+          packetsSinceDrain = 0
           if (!drained) {
             throw new Error("VideoToolbox returned EAGAIN from both send and receive")
           }
@@ -170,11 +177,39 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>) {
         }
         packet.unref()
         FFmpegError.throwIfError(sendResult, "Send MediaBunny packet to VideoToolbox")
-        for (const decoded of drainSync()) yield decoded
+        packetsSinceDrain += 1
+        if (packetsSinceDrain >= packetBatch) {
+          for (const decoded of drainSync()) yield decoded
+          packetsSinceDrain = 0
+        }
       } else {
-        const sendResult = await codecContext.sendPacket(packet)
+        let sendResult = await codecContext.sendPacket(packet)
+        while (sendResult === AVERROR_EAGAIN) {
+          let drained = false
+          for await (const decoded of drainAsync()) {
+            drained = true
+            yield decoded
+          }
+          packetsSinceDrain = 0
+          if (!drained) {
+            throw new Error("VideoToolbox returned EAGAIN from both send and receive")
+          }
+          sendResult = await codecContext.sendPacket(packet)
+        }
         packet.unref()
         FFmpegError.throwIfError(sendResult, "Send MediaBunny packet to VideoToolbox")
+        packetsSinceDrain += 1
+        if (packetsSinceDrain >= packetBatch) {
+          for await (const decoded of drainAsync()) yield decoded
+          packetsSinceDrain = 0
+        }
+      }
+    }
+
+    if (packetsSinceDrain > 0) {
+      if (syncCodecCalls) {
+        for (const decoded of drainSync()) yield decoded
+      } else {
         for await (const decoded of drainAsync()) yield decoded
       }
     }
@@ -195,7 +230,18 @@ async function* hardwareFrames(track: NonNullable<MediaBunnyVideoTrack>) {
       FFmpegError.throwIfError(flushResult, "Flush VideoToolbox decoder")
       for (const decoded of drainSync()) yield decoded
     } else {
-      const flushResult = await codecContext.sendPacket(null)
+      let flushResult = await codecContext.sendPacket(null)
+      while (flushResult === AVERROR_EAGAIN) {
+        let drained = false
+        for await (const decoded of drainAsync()) {
+          drained = true
+          yield decoded
+        }
+        if (!drained) {
+          throw new Error("VideoToolbox returned EAGAIN while flushing with no frame available")
+        }
+        flushResult = await codecContext.sendPacket(null)
+      }
       FFmpegError.throwIfError(flushResult, "Flush VideoToolbox decoder")
       for await (const decoded of drainAsync()) yield decoded
     }
@@ -404,6 +450,7 @@ try {
       nodeAvPacketBuffer: packetView ? "view" : "copy",
       nodeAvCodecCalls: syncCodecCalls ? "sync" : "async",
       nodeAvExtraHwFrames: extraHardwareFrames,
+      nodeAvPacketBatch: packetBatch,
       mediaBunnyPacketSink: true,
       hardwareFrame: true,
       iosurfaceExport: true,
