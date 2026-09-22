@@ -374,6 +374,402 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
     return Napi::Boolean::New(info.Env(), IsHardwareAccelerated());
   }
 
+  void HandleStreamOutput(
+    StreamTask* task,
+    OSStatus status,
+    VTDecodeInfoFlags info_flags,
+    CVImageBufferRef image_buffer,
+    CMTime presentation_time_stamp
+  ) {
+    if (status != noErr) {
+      task->SetError(
+        "VideoToolbox streaming output callback failed: " + std::to_string(status)
+      );
+      return;
+    }
+
+    if ((info_flags & kVTDecodeInfo_FrameDropped) != 0) {
+      std::lock_guard<std::mutex> lock(task->mutex);
+      task->dropped += 1;
+      task->cv.notify_all();
+      return;
+    }
+
+    if (!image_buffer) return;
+
+    CVPixelBufferRetain(image_buffer);
+    std::unique_lock<std::mutex> lock(task->mutex);
+    task->cv.wait(lock, [&] {
+      return task->pending_frames.size() < task->max_pending_frames
+        || !task->error.empty();
+    });
+
+    if (!task->error.empty()) {
+      lock.unlock();
+      CVPixelBufferRelease(image_buffer);
+      return;
+    }
+
+    task->pending_frames.push_back({
+      image_buffer,
+      presentation_time_stamp,
+      task->callback_sequence++,
+    });
+    task->decoded += 1;
+    lock.unlock();
+    task->cv.notify_all();
+  }
+
+  void RunStreamDelivery(StreamTask* task) {
+    for (;;) {
+      StreamFrame frame{
+        nullptr,
+        kCMTimeInvalid,
+        0,
+      };
+
+      {
+        std::unique_lock<std::mutex> lock(task->mutex);
+        task->cv.wait(lock, [&] {
+          return !task->pending_frames.empty()
+            || task->decode_done
+            || !task->error.empty();
+        });
+
+        if (task->pending_frames.empty()) {
+          if (task->decode_done) break;
+          continue;
+        }
+
+        frame = task->pending_frames.front();
+        task->pending_frames.pop_front();
+        task->cv.notify_all();
+      }
+
+      if (task->HasError()) {
+        if (frame.pixel_buffer) CVPixelBufferRelease(frame.pixel_buffer);
+        continue;
+      }
+
+      if (
+        task->has_last_presentation_time
+        && CMTIME_IS_NUMERIC(task->last_presentation_time)
+        && CMTIME_IS_NUMERIC(frame.presentation_time)
+        && CMTimeCompare(frame.presentation_time, task->last_presentation_time) < 0
+      ) {
+        task->presentation_order_monotonic = false;
+      }
+      if (CMTIME_IS_NUMERIC(frame.presentation_time)) {
+        task->last_presentation_time = frame.presentation_time;
+        task->has_last_presentation_time = true;
+      }
+
+      auto* delivery = new StreamDelivery{
+        task,
+        frame.pixel_buffer,
+        frame.presentation_time,
+      };
+
+      const napi_status call_status = task->tsfn.BlockingCall(
+        delivery,
+        [](Napi::Env env, Napi::Function callback, StreamDelivery* value) {
+          IOSurfaceRef surface = CVPixelBufferGetIOSurface(value->pixel_buffer);
+          if (!surface) {
+            value->task->SetError(
+              "Streaming VideoToolbox frame did not expose an IOSurface"
+            );
+            CVPixelBufferRelease(value->pixel_buffer);
+            delete value;
+            return;
+          }
+
+          Napi::Buffer<uint8_t> handle = Napi::Buffer<uint8_t>::Copy(
+            env,
+            reinterpret_cast<const uint8_t*>(&surface),
+            sizeof(surface)
+          );
+
+          double timestamp_us = 0;
+          if (CMTIME_IS_NUMERIC(value->presentation_time)) {
+            timestamp_us = CMTimeGetSeconds(value->presentation_time) * 1'000'000.0;
+          }
+
+          callback.Call({
+            handle,
+            Napi::Number::New(env, timestamp_us),
+          });
+
+          if (env.IsExceptionPending()) {
+            Napi::Error error = env.GetAndClearPendingException();
+            value->task->SetError(
+              "Streaming frame callback failed: " + error.Message()
+            );
+          } else {
+            std::lock_guard<std::mutex> lock(value->task->mutex);
+            value->task->delivered += 1;
+          }
+
+          CVPixelBufferRelease(value->pixel_buffer);
+          delete value;
+        }
+      );
+
+      if (call_status != napi_ok) {
+        CVPixelBufferRelease(frame.pixel_buffer);
+        delete delivery;
+        task->SetError(
+          "Could not queue streaming VideoToolbox frame callback: "
+          + std::to_string(call_status)
+        );
+      }
+    }
+
+    task->tsfn.Release();
+  }
+
+  void RunStreamDecode(StreamTask* task) {
+    const auto started = std::chrono::steady_clock::now();
+    std::vector<CMSampleBufferRef> samples;
+    samples.reserve(task->packets.size());
+
+    OSStatus decode_status = noErr;
+
+    for (const PacketInput& packet : task->packets) {
+      if (task->HasError()) break;
+      if (packet.size == 0) continue;
+
+      CMBlockBufferRef block = nullptr;
+      OSStatus status = CMBlockBufferCreateWithMemoryBlock(
+        kCFAllocatorDefault,
+        packet.data,
+        packet.size,
+        kCFAllocatorNull,
+        nullptr,
+        0,
+        packet.size,
+        0,
+        &block
+      );
+      if (status != noErr || !block) {
+        decode_status = status;
+        break;
+      }
+
+      CMSampleTimingInfo timing{
+        packet.duration_us > 0
+          ? CMTimeMake(packet.duration_us, 1'000'000)
+          : kCMTimeInvalid,
+        CMTimeMake(packet.timestamp_us, 1'000'000),
+        kCMTimeInvalid,
+      };
+      const size_t sample_size = packet.size;
+      CMSampleBufferRef sample = nullptr;
+      status = CMSampleBufferCreateReady(
+        kCFAllocatorDefault,
+        block,
+        format_description_,
+        1,
+        1,
+        &timing,
+        1,
+        &sample_size,
+        &sample
+      );
+      CFRelease(block);
+
+      if (status != noErr || !sample) {
+        decode_status = status;
+        break;
+      }
+
+      CFArrayRef attachments = CMSampleBufferGetSampleAttachmentsArray(sample, true);
+      if (attachments && CFArrayGetCount(attachments) > 0 && !packet.keyframe) {
+        CFMutableDictionaryRef attachment =
+          (CFMutableDictionaryRef)CFArrayGetValueAtIndex(attachments, 0);
+        CFDictionarySetValue(
+          attachment,
+          kCMSampleAttachmentKey_NotSync,
+          kCFBooleanTrue
+        );
+      }
+
+      VTDecodeInfoFlags info_flags = 0;
+      status = VTDecompressionSessionDecodeFrame(
+        session_,
+        sample,
+        kVTDecodeFrame_EnableAsynchronousDecompression,
+        nullptr,
+        &info_flags
+      );
+      samples.push_back(sample);
+
+      if (status != noErr) {
+        decode_status = status;
+        break;
+      }
+
+      task->submitted += 1;
+    }
+
+    if (decode_status == noErr && !task->HasError()) {
+      decode_status = VTDecompressionSessionFinishDelayedFrames(session_);
+    }
+    if (decode_status == noErr && !task->HasError()) {
+      decode_status = VTDecompressionSessionWaitForAsynchronousFrames(session_);
+    }
+
+    for (CMSampleBufferRef sample : samples) {
+      CFRelease(sample);
+    }
+
+    if (decode_status != noErr) {
+      task->SetError(
+        "Streaming VideoToolbox decode failed: " + std::to_string(decode_status)
+      );
+    }
+
+    {
+      std::lock_guard<std::mutex> lock(task->mutex);
+      task->decode_ms = std::chrono::duration<double, std::milli>(
+        std::chrono::steady_clock::now() - started
+      ).count();
+      task->decode_done = true;
+    }
+    task->cv.notify_all();
+  }
+
+  void FinalizeStream(Napi::Env env, StreamTask* task) {
+    if (task->decode_thread.joinable()) task->decode_thread.join();
+    if (task->delivery_thread.joinable()) task->delivery_thread.join();
+
+    active_stream_.store(nullptr, std::memory_order_release);
+
+    std::string error;
+    size_t submitted = 0;
+    size_t decoded = 0;
+    size_t delivered = 0;
+    uint32_t dropped = 0;
+    double decode_ms = 0;
+    bool presentation_order_monotonic = true;
+
+    {
+      std::lock_guard<std::mutex> lock(task->mutex);
+      error = task->error;
+      submitted = task->submitted;
+      decoded = task->decoded;
+      delivered = task->delivered;
+      dropped = task->dropped;
+      decode_ms = task->decode_ms;
+      presentation_order_monotonic = task->presentation_order_monotonic;
+    }
+
+    task->packets_ref.Reset();
+
+    if (!error.empty()) {
+      task->deferred.Reject(Napi::Error::New(env, error).Value());
+    } else {
+      Napi::Object result = Napi::Object::New(env);
+      result.Set("submitted", Napi::Number::New(env, submitted));
+      result.Set("decoded", Napi::Number::New(env, decoded));
+      result.Set("delivered", Napi::Number::New(env, delivered));
+      result.Set("dropped", Napi::Number::New(env, dropped));
+      result.Set("decodeMs", Napi::Number::New(env, decode_ms));
+      result.Set(
+        "presentationOrderMonotonic",
+        Napi::Boolean::New(env, presentation_order_monotonic)
+      );
+      result.Set(
+        "hardwareAccelerated",
+        Napi::Boolean::New(env, IsHardwareAccelerated())
+      );
+      result.Set(
+        "maxPendingFrames",
+        Napi::Number::New(env, task->max_pending_frames)
+      );
+      task->deferred.Resolve(result);
+    }
+
+    this->Unref();
+    delete task;
+  }
+
+  Napi::Value DecodeStream(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    if (!session_) {
+      Napi::Error::New(env, "VideoToolbox decoder is disposed")
+        .ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+    if (info.Length() < 2 || !info[0].IsArray() || !info[1].IsFunction()) {
+      Napi::TypeError::New(
+        env,
+        "Expected encoded packet array and synchronous frame callback"
+      ).ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+    if (active_stream_.load(std::memory_order_acquire) != nullptr) {
+      Napi::Error::New(env, "VideoToolbox streaming decode is already active")
+        .ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+
+    Napi::Array values = info[0].As<Napi::Array>();
+    auto* task = new StreamTask(this, env, values);
+    task->packets.reserve(values.Length());
+
+    for (uint32_t index = 0; index < values.Length(); ++index) {
+      PacketInput packet{
+        nullptr,
+        0,
+        0,
+        0,
+        false,
+      };
+      if (!ReadPacketInput(env, values.Get(index), packet)) {
+        task->packets_ref.Reset();
+        delete task;
+        return env.Undefined();
+      }
+      task->packets.push_back(packet);
+    }
+
+    StreamTask* expected = nullptr;
+    if (!active_stream_.compare_exchange_strong(
+      expected,
+      task,
+      std::memory_order_acq_rel
+    )) {
+      task->packets_ref.Reset();
+      delete task;
+      Napi::Error::New(env, "VideoToolbox streaming decode is already active")
+        .ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+
+    this->Ref();
+    task->started = std::chrono::steady_clock::now();
+    task->tsfn = Napi::ThreadSafeFunction::New(
+      env,
+      info[1].As<Napi::Function>(),
+      "gpuix-videotoolbox-frame-stream",
+      1,
+      1,
+      [](Napi::Env finalize_env, StreamTask* finalize_task) {
+        finalize_task->decoder->FinalizeStream(finalize_env, finalize_task);
+      },
+      task
+    );
+
+    task->delivery_thread = std::thread([this, task] {
+      RunStreamDelivery(task);
+    });
+    task->decode_thread = std::thread([this, task] {
+      RunStreamDecode(task);
+    });
+
+    return task->deferred.Promise();
+  }
+
   static bool ReadPacketInput(
     Napi::Env env,
     const Napi::Value& value,
