@@ -11,6 +11,7 @@ import {
   HlsOutputFormat,
   Input,
   MpegTsOutputFormat,
+  Mp4OutputFormat,
   Output,
   PathedTarget,
   Quality,
@@ -312,7 +313,7 @@ function makeHlsSample(index: number, frameCount: number) {
 async function writeFilePathVideo(directory: string) {
   const filePath = join(directory, "round-trip.mp4")
   const output = new Output({
-    format: new (await import("mediabunny")).Mp4OutputFormat(),
+    format: new Mp4OutputFormat(),
     target: new FilePathTarget(filePath),
   })
   const source = new VideoSampleSource({
