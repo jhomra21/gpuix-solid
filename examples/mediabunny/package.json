@@ -17,7 +17,8 @@
     "bench:presentation:server": "bun src/run-presentation-server-comparison.ts",
     "smoke:presentation-server-native": "rm -f /tmp/gpuix-mediabunny-presentation-server-smoke.webm && MEDIABUNNY_PRESENTATION_WIDTH=64 MEDIABUNNY_PRESENTATION_HEIGHT=36 MEDIABUNNY_PRESENTATION_FRAMES=2 bun src/create-presentation-fixture.ts /tmp/gpuix-mediabunny-presentation-server-smoke.webm && MEDIABUNNY_PRESENTATION_ITERATIONS=1 MEDIABUNNY_PRESENTATION_WARMUPS=0 bun src/run-presentation-server-native.ts /tmp/gpuix-mediabunny-presentation-server-smoke.webm && rm -f /tmp/gpuix-mediabunny-presentation-server-smoke.webm",
     "bench:presentation:iosurface": "bun src/run-presentation-iosurface-comparison.ts",
-    "smoke:presentation-iosurface": "bun src/run-presentation-iosurface-smoke.ts"
+    "smoke:presentation-iosurface": "bun src/run-presentation-iosurface-smoke.ts",
+    "bench:presentation:iosurface:decode-matrix": "bun src/run-presentation-iosurface-decode-matrix.ts"
   },
   "dependencies": {
     "@mediabunny/server": "1.58.1",
