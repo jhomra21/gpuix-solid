@@ -1,3 +1,10 @@
+import {
+  appendArcTo,
+  arcEndpoints,
+  point2D,
+  roundedRectanglePath,
+} from "./canvas-path.js"
+
 export const CANVAS_DRAW_LIST_VERSION = 1 as const
 
 export type CanvasDrawListVersion = typeof CANVAS_DRAW_LIST_VERSION
@@ -96,6 +103,8 @@ export function createCanvas2DRecorder(
 ): Canvas2DRecorder {
   let commands: CanvasDrawCommand[] = []
   let path: CanvasPathSegment[] = []
+  let currentPoint: readonly [number, number] | null = null
+  let subpathStart: readonly [number, number] | null = null
   let state = defaultState()
   const stack: CanvasState[] = []
 
@@ -246,21 +255,40 @@ export function createCanvas2DRecorder(
 
     beginPath() {
       path = []
+      currentPoint = null
+      subpathStart = null
     },
     closePath() {
+      if (subpathStart === null) return
       path.push({ op: "closePath" })
+      currentPoint = subpathStart
     },
     moveTo(x: number, y: number) {
-      const point = transformPoint(x, y, state.transform)
+      const userPoint = point2D(x, y)
+      const point = transformPoint(userPoint[0], userPoint[1], state.transform)
       path.push({ op: "moveTo", x: point[0], y: point[1] })
+      currentPoint = userPoint
+      subpathStart = userPoint
     },
     lineTo(x: number, y: number) {
-      const point = transformPoint(x, y, state.transform)
-      path.push({ op: "lineTo", x: point[0], y: point[1] })
+      const userPoint = point2D(x, y)
+      const point = transformPoint(userPoint[0], userPoint[1], state.transform)
+      if (currentPoint === null) {
+        path.push({ op: "moveTo", x: point[0], y: point[1] })
+        subpathStart = userPoint
+      } else {
+        path.push({ op: "lineTo", x: point[0], y: point[1] })
+      }
+      currentPoint = userPoint
     },
     quadraticCurveTo(cpx: number, cpy: number, x: number, y: number) {
       const control = transformPoint(cpx, cpy, state.transform)
       const point = transformPoint(x, y, state.transform)
+      if (currentPoint === null) {
+        const start = transformPoint(cpx, cpy, state.transform)
+        path.push({ op: "moveTo", x: start[0], y: start[1] })
+        subpathStart = point2D(cpx, cpy)
+      }
       path.push({
         op: "quadraticCurveTo",
         cpx: control[0],
@@ -268,6 +296,7 @@ export function createCanvas2DRecorder(
         x: point[0],
         y: point[1],
       })
+      currentPoint = point2D(x, y)
     },
     bezierCurveTo(
       cp1x: number,
@@ -280,6 +309,11 @@ export function createCanvas2DRecorder(
       const control1 = transformPoint(cp1x, cp1y, state.transform)
       const control2 = transformPoint(cp2x, cp2y, state.transform)
       const point = transformPoint(x, y, state.transform)
+      if (currentPoint === null) {
+        const start = transformPoint(cp1x, cp1y, state.transform)
+        path.push({ op: "moveTo", x: start[0], y: start[1] })
+        subpathStart = point2D(cp1x, cp1y)
+      }
       path.push({
         op: "bezierCurveTo",
         cp1x: control1[0],
@@ -289,9 +323,39 @@ export function createCanvas2DRecorder(
         x: point[0],
         y: point[1],
       })
+      currentPoint = point2D(x, y)
     },
     rect(x: number, y: number, width: number, height: number) {
+      const start = point2D(x, y)
       path.push(...rectanglePath(x, y, width, height, state.transform))
+      currentPoint = start
+      subpathStart = start
+    },
+    roundRect(
+      x: number,
+      y: number,
+      width: number,
+      height: number,
+      radii: number | DOMPointInit | Iterable<number | DOMPointInit> = 0,
+    ) {
+      const rounded = roundedRectanglePath(x, y, width, height, radii, state.transform)
+      path.push(...rounded.path)
+      currentPoint = rounded.start
+      subpathStart = rounded.start
+    },
+    arcTo(x1: number, y1: number, x2: number, y2: number, radius: number) {
+      const result = appendArcTo(
+        path,
+        currentPoint,
+        x1,
+        y1,
+        x2,
+        y2,
+        radius,
+        state.transform,
+      )
+      currentPoint = result.currentPoint
+      if (subpathStart === null) subpathStart = result.subpathStart
     },
     arc(
       x: number,
@@ -301,7 +365,28 @@ export function createCanvas2DRecorder(
       endAngle: number,
       counterclockwise = false,
     ) {
-      appendArc(path, x, y, radius, startAngle, endAngle, counterclockwise, state.transform)
+      const endpoints = arcEndpoints(
+        x,
+        y,
+        radius,
+        startAngle,
+        endAngle,
+        counterclockwise,
+      )
+      appendArc(
+        path,
+        x,
+        y,
+        radius,
+        startAngle,
+        endAngle,
+        counterclockwise,
+        state.transform,
+      )
+      if (endpoints) {
+        if (subpathStart === null) subpathStart = endpoints.start
+        currentPoint = endpoints.end
+      }
     },
     fill(fillRule: CanvasFillRule = "nonzero") {
       if (fillRule !== "nonzero") {
@@ -379,6 +464,8 @@ export function createCanvas2DRecorder(
     reset() {
       commands = []
       path = []
+      currentPoint = null
+      subpathStart = null
       state = defaultState()
       stack.length = 0
       changed()
