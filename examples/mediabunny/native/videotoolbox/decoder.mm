@@ -8,7 +8,6 @@
 #include <IOSurface/IOSurface.h>
 #include <VideoToolbox/VideoToolbox.h>
 
-#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -93,7 +92,6 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       {
         InstanceMethod<&VideoToolboxH264Decoder::DecodeBatch>("decodeBatch"),
         InstanceMethod<&VideoToolboxH264Decoder::DecodeStream>("decodeStream"),
-        InstanceMethod<&VideoToolboxH264Decoder::ReleaseFrames>("releaseFrames"),
         InstanceMethod<&VideoToolboxH264Decoder::Dispose>("dispose"),
         InstanceAccessor<&VideoToolboxH264Decoder::HardwareAccelerated>("hardwareAccelerated"),
       }
@@ -138,12 +136,6 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
   }
 
  private:
-  struct CapturedFrame {
-    CVPixelBufferRef pixel_buffer;
-    CMTime presentation_time;
-    size_t sequence;
-  };
-
   struct OutputState {
     std::mutex mutex;
     std::chrono::steady_clock::time_point started;
@@ -153,9 +145,6 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
     double first_frame_ms = 0;
     double last_frame_ms = 0;
     std::vector<double> arrival_ms;
-    std::vector<CapturedFrame> captured_frames;
-    bool capture_frames = false;
-    size_t capture_sequence = 0;
     OSStatus callback_status = noErr;
     uint32_t dropped = 0;
   };
@@ -216,14 +205,6 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
     self->output_.frames += 1;
     self->output_.width = static_cast<int>(CVPixelBufferGetWidth(image_buffer));
     self->output_.height = static_cast<int>(CVPixelBufferGetHeight(image_buffer));
-    if (self->output_.capture_frames) {
-      CVPixelBufferRetain(image_buffer);
-      self->output_.captured_frames.push_back({
-        image_buffer,
-        presentation_time_stamp,
-        self->output_.capture_sequence++,
-      });
-    }
   }
 
   Napi::Value HardwareAccelerated(const Napi::CallbackInfo& info) {
@@ -650,9 +631,6 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       return env.Undefined();
     }
 
-    const bool capture_frames =
-      info.Length() > 1 && info[1].IsBoolean() && info[1].As<Napi::Boolean>().Value();
-
     Napi::Array values = info[0].As<Napi::Array>();
     std::vector<PacketInput> packets;
     packets.reserve(values.Length());
@@ -673,15 +651,6 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
 
     {
       std::lock_guard<std::mutex> lock(output_.mutex);
-      if (!output_.captured_frames.empty()) {
-        Napi::Error::New(
-          env,
-          "releaseFrames() must be called before decoding another captured batch"
-        ).ThrowAsJavaScriptException();
-        return env.Undefined();
-      }
-      output_.capture_frames = capture_frames;
-      output_.capture_sequence = 0;
       output_.started = batch_started;
       output_.frames = 0;
       output_.width = 0;
@@ -776,7 +745,6 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
     double first_frame_ms = 0;
     double last_frame_ms = 0;
     std::vector<double> arrival_ms;
-    std::vector<CapturedFrame> captured_frames;
     OSStatus callback_status = noErr;
     uint32_t dropped = 0;
     {
@@ -787,31 +755,11 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       first_frame_ms = output_.first_frame_ms;
       last_frame_ms = output_.last_frame_ms;
       arrival_ms = output_.arrival_ms;
-      if (capture_frames) {
-        std::stable_sort(
-          output_.captured_frames.begin(),
-          output_.captured_frames.end(),
-          [](const CapturedFrame& left, const CapturedFrame& right) {
-            const bool left_numeric = CMTIME_IS_NUMERIC(left.presentation_time);
-            const bool right_numeric = CMTIME_IS_NUMERIC(right.presentation_time);
-            if (left_numeric && right_numeric) {
-              const int comparison = CMTimeCompare(
-                left.presentation_time,
-                right.presentation_time
-              );
-              if (comparison != 0) return comparison < 0;
-            }
-            return left.sequence < right.sequence;
-          }
-        );
-        captured_frames = output_.captured_frames;
-      }
       callback_status = output_.callback_status;
       dropped = output_.dropped;
     }
 
     if (submit_status != noErr) {
-      ReleaseCapturedFrames();
       Napi::Error::New(
         env,
         "VideoToolbox batch decode failed: " + std::to_string(submit_status)
@@ -819,7 +767,6 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       return env.Undefined();
     }
     if (callback_status != noErr) {
-      ReleaseCapturedFrames();
       Napi::Error::New(
         env,
         "VideoToolbox output callback failed: " + std::to_string(callback_status)
@@ -846,56 +793,8 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       arrivals.Set(index, Napi::Number::New(env, arrival_ms[index]));
     }
     result.Set("frameArrivalMs", arrivals);
-    if (capture_frames) {
-      Napi::Array handles = Napi::Array::New(env, captured_frames.size());
-      for (size_t index = 0; index < captured_frames.size(); ++index) {
-        IOSurfaceRef surface =
-          CVPixelBufferGetIOSurface(captured_frames[index].pixel_buffer);
-        if (!surface) {
-          ReleaseCapturedFrames();
-          Napi::Error::New(
-            env,
-            "VideoToolbox returned a captured frame without an IOSurface"
-          ).ThrowAsJavaScriptException();
-          return env.Undefined();
-        }
-        handles.Set(
-          index,
-          Napi::Buffer<uint8_t>::Copy(
-            env,
-            reinterpret_cast<const uint8_t*>(&surface),
-            sizeof(surface)
-          )
-        );
-      }
-      result.Set("frameHandles", handles);
-    }
     result.Set("hardwareAccelerated", Napi::Boolean::New(env, IsHardwareAccelerated(session_)));
     return result;
-  }
-
-  size_t ReleaseCapturedFrames() {
-    std::lock_guard<std::mutex> lock(output_.mutex);
-    size_t released = 0;
-    for (const CapturedFrame& frame : output_.captured_frames) {
-      if (frame.pixel_buffer) CVPixelBufferRelease(frame.pixel_buffer);
-      released += 1;
-    }
-    output_.captured_frames.clear();
-    output_.capture_frames = false;
-    output_.capture_sequence = 0;
-    return released;
-  }
-
-  Napi::Value ReleaseFrames(const Napi::CallbackInfo& info) {
-    if (active_stream_.load(std::memory_order_acquire) != nullptr) {
-      Napi::Error::New(
-        info.Env(),
-        "decodeStream owns frame lifetimes while streaming is active"
-      ).ThrowAsJavaScriptException();
-      return info.Env().Undefined();
-    }
-    return Napi::Number::New(info.Env(), ReleaseCapturedFrames());
   }
 
   Napi::Value Dispose(const Napi::CallbackInfo& info) {
@@ -917,7 +816,6 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       CFRelease(session_);
       session_ = nullptr;
     }
-    ReleaseCapturedFrames();
     if (format_description_) {
       CFRelease(format_description_);
       format_description_ = nullptr;
