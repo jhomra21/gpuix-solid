@@ -1475,20 +1475,25 @@ function stringPaint(value: string | CanvasGradient | CanvasPattern, property: s
 }
 
 function parseFont(value: string): ParsedFont {
-  const match = value.trim().match(/^(?:(normal|bold|[1-9]00)\s+)?(\d+(?:\.\d+)?)px\s+(.+)$/)
+  const match = value.trim().match(/^(?:(normal|bold|\d{1,4})\s+)?(\d+(?:\.\d+)?)px\s+(.+)$/)
   if (!match) {
     throw new TypeError(`GPUix Canvas2D v3 cannot represent font ${JSON.stringify(value)}`)
   }
   const size = Number(match[2])
   const family = match[3]?.trim()
-  if (!Number.isFinite(size) || size <= 0 || !family) {
-    throw new TypeError(`GPUix Canvas2D v3 cannot represent font ${JSON.stringify(value)}`)
-  }
   const token = match[1]
   const weight = token === "bold"
     ? 700
     : token && token !== "normal"
       ? Number(token)
       : undefined
+  if (
+    !Number.isFinite(size) ||
+    size <= 0 ||
+    !family ||
+    (weight !== undefined && (!Number.isInteger(weight) || weight < 1 || weight > 1000))
+  ) {
+    throw new TypeError(`GPUix Canvas2D v3 cannot represent font ${JSON.stringify(value)}`)
+  }
   return weight === undefined ? { size, family } : { size, family, weight }
 }
