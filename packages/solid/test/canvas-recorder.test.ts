@@ -237,6 +237,29 @@ describe("Canvas2D draw-list recorder", () => {
     })
   })
 
+  it("delegates measureText to native text shaping without applying the canvas transform", () => {
+    const calls: Array<[string, number, string, number]> = []
+    const recorder = createCanvas2DRecorder(
+      () => ({ width: 100, height: 100 }),
+      () => undefined,
+      (text, fontSize, fontFamily, fontWeight) => {
+        calls.push([text, fontSize, fontFamily, fontWeight])
+        return 37.5
+      },
+    )
+    const ctx = recorder.context
+
+    ctx.font = "600 14px Inter"
+    ctx.scale(3, 3)
+    expect(ctx.measureText("GPUix").width).toBe(37.5)
+    expect(calls).toEqual([["GPUix", 14, "Inter", 600]])
+  })
+
+  it("fails clearly when native text measurement is unavailable", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
+    expect(() => recorder.context.measureText("GPUix")).toThrow(/native text measurement/u)
+  })
+
   it("rejects multiline and constrained fillText instead of mispainting it", () => {
     const recorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
     const ctx = recorder.context
