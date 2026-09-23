@@ -1,3 +1,4 @@
+import { GpuixPath2D } from "./host/path2d.js"
 import {
   HostElementNode,
   createHostElement,
@@ -165,6 +166,7 @@ type CompatWindow = CompatEventTarget & {
   Element?: typeof Element
   HTMLElement?: typeof HTMLElement
   Node?: typeof Node
+  Path2D?: typeof GpuixPath2D
   getComputedStyle?: CompatGetComputedStyle
   innerWidth?: number
   innerHeight?: number
@@ -228,6 +230,7 @@ export function installDomEventEnvironment(): void {
   windowTarget.ResizeObserver = CompatResizeObserver
   windowTarget.NodeFilter = NODE_FILTER
   windowTarget.Image = CompatImageLoader
+  windowTarget.Path2D = GpuixPath2D
   windowTarget.getComputedStyle = defaultComputedStyle
   Object.defineProperty(windowTarget, "Element", {
     configurable: true,
@@ -271,6 +274,11 @@ export function installDomEventEnvironment(): void {
     configurable: true,
     writable: true,
     value: CompatResizeObserver,
+  })
+  Object.defineProperty(globalThis, "Path2D", {
+    configurable: true,
+    writable: true,
+    value: GpuixPath2D,
   })
   Object.defineProperty(globalThis, "requestAnimationFrame", {
     configurable: true,

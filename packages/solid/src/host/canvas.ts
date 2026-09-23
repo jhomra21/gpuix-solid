@@ -1,3 +1,5 @@
+import { GpuixPath2D } from "./path2d.js"
+
 export const CANVAS_DRAW_LIST_VERSION = 3 as const
 
 export type CanvasDrawListVersion = typeof CANVAS_DRAW_LIST_VERSION
@@ -50,8 +52,15 @@ export type CanvasPixelSource = {
 
 type CanvasRecorderImageSource = CanvasImageSource | CanvasPixelSource
 
-export type GpuixCanvasRenderingContext2D = Omit<CanvasRenderingContext2D, "drawImage"> & {
+export type GpuixCanvasRenderingContext2D = Omit<
+  CanvasRenderingContext2D,
+  "drawImage" | "fill" | "stroke"
+> & {
   drawImage(image: CanvasRecorderImageSource, ...args: number[]): void
+  fill(fillRule?: CanvasFillRule): void
+  fill(path: GpuixPath2D, fillRule?: CanvasFillRule): void
+  stroke(): void
+  stroke(path: GpuixPath2D): void
 }
 
 type CanvasCommandClip = {
@@ -386,22 +395,32 @@ export function createCanvas2DRecorder(
       }
       state.clip = intersectClipRects(state.clip, nextClip)
     },
-    fill(fillRule: CanvasFillRule = "nonzero") {
+    fill(
+      pathOrRule: GpuixPath2D | CanvasFillRule = "nonzero",
+      pathFillRule: CanvasFillRule = "nonzero",
+    ) {
+      const fillRule = pathOrRule instanceof GpuixPath2D ? pathFillRule : pathOrRule
       if (fillRule !== "nonzero") {
         throw new Error("GPUix Canvas2D v3 supports the nonzero fill rule only")
       }
-      if (path.length === 0) return
+      const fillPath = pathOrRule instanceof GpuixPath2D
+        ? transformStoredPath(pathOrRule.segments, state.transform)
+        : clonePath(path)
+      if (fillPath.length === 0) return
       commands.push(withCanvasClip({
         op: "fillPath",
         color: state.fillStyle,
         alpha: state.globalAlpha,
         fillRule,
-        path: clonePath(path),
+        path: fillPath,
       }, state.clip))
       changed()
     },
-    stroke() {
-      if (path.length === 0) return
+    stroke(strokePath?: GpuixPath2D) {
+      const resolvedPath = strokePath
+        ? transformStoredPath(strokePath.segments, state.transform)
+        : clonePath(path)
+      if (resolvedPath.length === 0) return
       assertSupportedStrokeState(state)
       assertSimilarityTransform(state.transform, "stroke()")
       commands.push(withCanvasClip({
@@ -412,7 +431,7 @@ export function createCanvas2DRecorder(
         lineCap: state.lineCap,
         lineJoin: state.lineJoin,
         miterLimit: state.miterLimit,
-        path: clonePath(path),
+        path: resolvedPath,
       }, state.clip))
       changed()
     },
@@ -586,6 +605,54 @@ function cloneMatrix(matrix: CanvasMatrix): CanvasMatrix {
 
 function clonePath(path: readonly CanvasPathSegment[]): CanvasPathSegment[] {
   return path.map((segment) => ({ ...segment }))
+}
+
+function transformStoredPath(
+  path: readonly CanvasPathSegment[],
+  matrix: CanvasMatrix,
+): CanvasPathSegment[] {
+  const transformed: CanvasPathSegment[] = []
+  for (const segment of path) {
+    switch (segment.op) {
+      case "moveTo":
+      case "lineTo": {
+        const point = transformPoint(segment.x, segment.y, matrix)
+        transformed.push({ op: segment.op, x: point[0], y: point[1] })
+        break
+      }
+      case "quadraticCurveTo": {
+        const control = transformPoint(segment.cpx, segment.cpy, matrix)
+        const point = transformPoint(segment.x, segment.y, matrix)
+        transformed.push({
+          op: "quadraticCurveTo",
+          cpx: control[0],
+          cpy: control[1],
+          x: point[0],
+          y: point[1],
+        })
+        break
+      }
+      case "bezierCurveTo": {
+        const control1 = transformPoint(segment.cp1x, segment.cp1y, matrix)
+        const control2 = transformPoint(segment.cp2x, segment.cp2y, matrix)
+        const point = transformPoint(segment.x, segment.y, matrix)
+        transformed.push({
+          op: "bezierCurveTo",
+          cp1x: control1[0],
+          cp1y: control1[1],
+          cp2x: control2[0],
+          cp2y: control2[1],
+          x: point[0],
+          y: point[1],
+        })
+        break
+      }
+      case "closePath":
+        transformed.push({ op: "closePath" })
+        break
+    }
+  }
+  return transformed
 }
 
 function cloneCommand(command: CanvasDrawCommand): CanvasDrawCommand {
