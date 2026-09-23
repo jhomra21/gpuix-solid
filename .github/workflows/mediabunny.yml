@@ -219,6 +219,10 @@ jobs:
         run: |
           bun run smoke:mediabunny-videotoolbox:avc
           bun run smoke:mediabunny-videotoolbox:hevc
+      - name: Smoke native ProRes MediaBunny round trip
+        if: matrix.backend == 'webcodecs'
+        working-directory: examples/mediabunny
+        run: bun run smoke:mediabunny-videotoolbox:prores
       - name: Smoke broad MediaBunny parity surface
         if: matrix.backend == 'webcodecs'
         working-directory: examples/mediabunny
