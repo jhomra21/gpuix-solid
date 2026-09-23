@@ -1,5 +1,6 @@
 import { onCleanup, onMount, type JSX } from "solid-js"
 import { configureNativeStyleManifest } from "@jhomra21/gpuix-solid1"
+import { DrawOverlay } from "@/components/canvas/draw-overlay"
 import { EngineCanvas } from "@/engine/canvas"
 import { CameraController } from "@/engine/camera-controller"
 import { EngineProvider, useEngineContext } from "@/engine/context"
@@ -8,7 +9,11 @@ import {
   getActiveEntity,
   getCamera,
   Name,
+  Position,
   RenderSurface,
+  Selected,
+  setCamera,
+  Size,
   Tool,
   ToolType,
   type RuntimeWorld,
@@ -90,6 +95,7 @@ function ProjectMount(): JSX.Element {
     <>
       <EngineCanvas />
       <CameraController />
+      <DrawOverlay />
     </>
   )
 }
@@ -128,10 +134,37 @@ export function DiffusionSourceEngine(): JSX.Element {
   )
 }
 
-export function armDiffusionSourceHandTool(): void {
+function requireWorld(): RuntimeWorld {
   const world = diffusionSourceProbe.world
   if (!world) throw new Error("Diffusion source world is not mounted")
-  world.set(Tool, { value: ToolType.HAND })
+  return world
+}
+
+export function armDiffusionSourceHandTool(): void {
+  requireWorld().set(Tool, { value: ToolType.HAND })
+}
+
+export function armDiffusionSourceRectTool(): void {
+  requireWorld().set(Tool, { value: ToolType.RECT })
+}
+
+export function resetDiffusionSourceCamera(): void {
+  setCamera(requireWorld(), { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 })
+}
+
+export function readDiffusionSourceSelection() {
+  const world = requireWorld()
+  return [...world.query(Selected)].map((entity) => {
+    const position = entity.get(Position)
+    const size = entity.get(Size)
+    return {
+      name: entity.get(Name)?.value ?? null,
+      x: position?.x ?? null,
+      y: position?.y ?? null,
+      width: size?.width ?? null,
+      height: size?.height ?? null,
+    }
+  })
 }
 
 export function readDiffusionSourceState() {
