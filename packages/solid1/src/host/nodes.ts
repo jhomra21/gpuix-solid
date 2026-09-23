@@ -155,6 +155,14 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     this.#canvas2d ??= createCanvas2DRecorder(
       () => ({ width: this.width, height: this.height }),
       () => this.#scheduleCanvasDrawList(),
+      (text, fontSize, fontFamily, fontWeight) => {
+        const renderer = this.root?.driver.renderer
+        const measure = renderer?.measureCanvasText
+        if (!measure) {
+          throw new Error("GPUix Canvas2D measureText() requires native text measurement support")
+        }
+        return measure(text, fontSize, fontFamily, fontWeight)
+      },
     )
     this.#scheduleCanvasDrawList()
     return this.#canvas2d.context
