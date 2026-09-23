@@ -31,7 +31,8 @@
     "smoke:mediabunny-parity": "rm -f /tmp/gpuix-mediabunny-parity-avc.mp4 /tmp/gpuix-mediabunny-parity-vp8.webm && MEDIABUNNY_PRESENTATION_CODEC=avc MEDIABUNNY_PRESENTATION_WIDTH=64 MEDIABUNNY_PRESENTATION_HEIGHT=36 MEDIABUNNY_PRESENTATION_FRAMES=12 bun src/create-presentation-fixture.ts /tmp/gpuix-mediabunny-parity-avc.mp4 && MEDIABUNNY_PRESENTATION_CODEC=vp8 MEDIABUNNY_PRESENTATION_WIDTH=64 MEDIABUNNY_PRESENTATION_HEIGHT=36 MEDIABUNNY_PRESENTATION_FRAMES=12 bun src/create-presentation-fixture.ts /tmp/gpuix-mediabunny-parity-vp8.webm && bun src/run-gpuix-mediabunny-parity-smoke.ts /tmp/gpuix-mediabunny-parity-avc.mp4 /tmp/gpuix-mediabunny-parity-vp8.webm && rm -f /tmp/gpuix-mediabunny-parity-avc.mp4 /tmp/gpuix-mediabunny-parity-vp8.webm",
     "bench:gpuix-mediabunny": "bun src/run-gpuix-mediabunny.ts",
     "stage:gpuix-mediabunny": "bun scripts/stage-gpuix-mediabunny.ts",
-    "prepare:gpuix-mediabunny": "cd ../../packages/mediabunny && bun install --no-save && bun run typecheck && bun run build && bun run build:native && cd ../../examples/mediabunny && bun run stage:gpuix-mediabunny"
+    "prepare:gpuix-mediabunny": "cd ../../packages/mediabunny && bun install --no-save && bun run typecheck && bun run build && bun run build:native && cd ../../examples/mediabunny && bun run stage:gpuix-mediabunny",
+    "smoke:mediabunny-videotoolbox:prores": "bun src/run-gpuix-mediabunny-video-codec.ts prores"
   },
   "dependencies": {
     "@mediabunny/server": "1.59.0",
