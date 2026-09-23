@@ -87,6 +87,28 @@ function parseSvgPath(source: string): CanvasPathSegment[] {
         if (!consumed) throw new TypeError("GPUix Path2D line command requires coordinates")
         break
       }
+      case "H": {
+        let consumed = false
+        while (hasNumber()) {
+          const rawX = number()
+          currentX = relative ? currentX + rawX : rawX
+          segments.push({ op: "lineTo", x: currentX, y: currentY })
+          consumed = true
+        }
+        if (!consumed) throw new TypeError("GPUix Path2D horizontal line command requires coordinates")
+        break
+      }
+      case "V": {
+        let consumed = false
+        while (hasNumber()) {
+          const rawY = number()
+          currentY = relative ? currentY + rawY : rawY
+          segments.push({ op: "lineTo", x: currentX, y: currentY })
+          consumed = true
+        }
+        if (!consumed) throw new TypeError("GPUix Path2D vertical line command requires coordinates")
+        break
+      }
       case "Q": {
         let consumed = false
         while (hasNumber()) {
