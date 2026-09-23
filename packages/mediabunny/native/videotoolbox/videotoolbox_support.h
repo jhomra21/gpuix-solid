@@ -21,6 +21,8 @@ struct PacketInput {
 bool CreateVideoFormatDescription(
   const std::string& codec,
   const std::vector<uint8_t>& config,
+  int coded_width,
+  int coded_height,
   CMVideoFormatDescriptionRef* output,
   std::string& error
 );
