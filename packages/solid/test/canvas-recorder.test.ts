@@ -148,14 +148,13 @@ describe("Canvas2D draw-list recorder", () => {
       id: 1,
       width: 2,
       height: 1,
-      bytes: [255, 0, 0, 255, 0, 255, 0, 255],
+      bytes: [255, 0, 0, 191, 0, 255, 0, 191],
     }])
     expect(recorder.snapshot().commands).toEqual([{
       op: "drawImage",
       imageId: 1,
       source: { x: 0, y: 0, width: 2, height: 1 },
       destination: { x: 10, y: 12, width: 40, height: 20 },
-      alpha: 0.75,
     }])
     expect(JSON.stringify(recorder.snapshot())).not.toContain("255,0,0,255")
   })
@@ -178,9 +177,10 @@ describe("Canvas2D draw-list recorder", () => {
     const ctx = recorder.context
 
     ctx.drawImage(source, -10, 0, 40, 20, 0, 0, 80, 40)
+    ctx.globalAlpha = 0.5
     ctx.drawImage(source, 100, 60)
 
-    expect(uploadedIds).toEqual([1, 1])
+    expect(uploadedIds).toEqual([1, 2])
     expect(recorder.snapshot().commands[0]).toMatchObject({
       op: "drawImage",
       imageId: 1,
@@ -189,7 +189,7 @@ describe("Canvas2D draw-list recorder", () => {
     })
     expect(recorder.snapshot().commands[1]).toMatchObject({
       op: "drawImage",
-      imageId: 1,
+      imageId: 2,
       destination: { x: 100, y: 60, width: 100, height: 50 },
     })
   })
