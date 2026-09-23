@@ -533,11 +533,60 @@ new file mode 100644
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -2680,2 +2680,8 @@
+@@ -2680,2 +2680,55 @@
 +    /// Version of the retained Canvas2D draw-list protocol.
 +    #[napi]
 +    pub fn get_canvas_draw_list_version(&self) -> u32 {
 +        crate::custom_elements::canvas::CANVAS_DRAW_LIST_VERSION
++    }
++
++    /// Measure one line of Canvas text with GPUI's native text system.
++    #[napi]
++    pub fn measure_canvas_text(
++        &self,
++        text: String,
++        font_size: f64,
++        font_family: String,
++        font_weight: f64,
++    ) -> Result<f64> {
++        if !font_size.is_finite() || font_size <= 0.0 {
++            return Err(Error::from_reason(format!(
++                "measureCanvasText fontSize must be finite and positive, got {font_size}"
++            )));
++        }
++        if !font_weight.is_finite() {
++            return Err(Error::from_reason(format!(
++                "measureCanvasText fontWeight must be finite, got {font_weight}"
++            )));
++        }
++
++        #[cfg(target_os = "macos")]
++        return update_window(move |_view, window, _cx| {
++            let mut font = gpui::font(font_family);
++            font.weight = gpui::FontWeight(font_weight.clamp(1.0, 1000.0) as f32);
++            let text = gpui::SharedString::from(text);
++            let run = gpui::TextRun {
++                len: text.len(),
++                font,
++                color: gpui::transparent_black(),
++                background_color: None,
++                underline: None,
++                strikethrough: None,
++            };
++            let line =
++                window
++                    .text_system()
++                    .shape_line(text, gpui::px(font_size as f32), &[run], None);
++            f64::from(f32::from(line.width()))
++        });
++
++        #[cfg(not(target_os = "macos"))]
++        {
++            let _ = (text, font_family);
++            Err(Error::from_reason(
++                "measureCanvasText is currently supported on macOS source-edge builds",
++            ))
++        }
 +    }
 +
      /// The paintable size of the window in logical pixels, excluding any
@@ -545,11 +594,57 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 diff --git a/packages/native/src/test_renderer.rs b/packages/native/src/test_renderer.rs
 --- a/packages/native/src/test_renderer.rs
 +++ b/packages/native/src/test_renderer.rs
-@@ -1170,2 +1170,8 @@
+@@ -1170,2 +1170,51 @@
 +    /// Version of the retained Canvas2D draw-list protocol.
 +    #[napi]
 +    pub fn get_canvas_draw_list_version(&self) -> u32 {
 +        crate::custom_elements::canvas::CANVAS_DRAW_LIST_VERSION
++    }
++
++    /// Measure one line of Canvas text with GPUI's native text system.
++    #[napi]
++    pub fn measure_canvas_text(
++        &self,
++        text: String,
++        font_size: f64,
++        font_family: String,
++        font_weight: f64,
++    ) -> Result<f64> {
++        if !font_size.is_finite() || font_size <= 0.0 {
++            return Err(Error::from_reason(format!(
++                "measureCanvasText fontSize must be finite and positive, got {font_size}"
++            )));
++        }
++        if !font_weight.is_finite() {
++            return Err(Error::from_reason(format!(
++                "measureCanvasText fontWeight must be finite, got {font_weight}"
++            )));
++        }
++        with_test_state(|cx, window, _view| {
++            let width = cx
++                .update_window(window, |_, window, _| {
++                    let mut font = gpui::font(font_family);
++                    font.weight = gpui::FontWeight(font_weight.clamp(1.0, 1000.0) as f32);
++                    let text = gpui::SharedString::from(text);
++                    let run = gpui::TextRun {
++                        len: text.len(),
++                        font,
++                        color: gpui::transparent_black(),
++                        background_color: None,
++                        underline: None,
++                        strikethrough: None,
++                    };
++                    let line = window.text_system().shape_line(
++                        text,
++                        gpui::px(font_size as f32),
++                        &[run],
++                        None,
++                    );
++                    f64::from(f32::from(line.width()))
++                })
++                .map_err(|error| Error::from_reason(error.to_string()))?;
++            Ok(width)
++        })
 +    }
 +
      /// The offscreen window size, so `useWindowSize()` reports the same numbers
