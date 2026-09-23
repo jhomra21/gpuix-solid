@@ -71,15 +71,15 @@ function localModule(relativePath) {
 
 ensureSource()
 
-if (typeof globalThis.HTMLElement === "undefined") {
-  globalThis.HTMLElement = class HTMLElement {}
-}
-if (typeof globalThis.HTMLCanvasElement === "undefined") {
-  globalThis.HTMLCanvasElement = class HTMLCanvasElement extends globalThis.HTMLElement {}
-}
-if (typeof globalThis.HTMLImageElement === "undefined") {
-  globalThis.HTMLImageElement = class HTMLImageElement extends globalThis.HTMLElement {}
-}
+class HeadlessElement {}
+class HeadlessHTMLElement extends HeadlessElement {}
+class HeadlessHTMLCanvasElement extends HeadlessHTMLElement {}
+class HeadlessHTMLImageElement extends HeadlessHTMLElement {}
+
+globalThis.Element = HeadlessElement
+globalThis.HTMLElement = HeadlessHTMLElement
+globalThis.HTMLCanvasElement = HeadlessHTMLCanvasElement
+globalThis.HTMLImageElement = HeadlessHTMLImageElement
 
 const runtime = await import(sourceModule("packages/runtime/src/index.ts"))
 const { createRuntimeDocument } = await import(sourceModule("packages/reconciler/src/document.ts"))
