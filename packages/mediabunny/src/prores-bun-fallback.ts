@@ -42,10 +42,6 @@ function parseColorPrimaries(value: string | undefined): VideoColorPrimaries | u
       return "bt470bg"
     case "smpte170m":
       return "smpte170m"
-    case "bt2020":
-      return "bt2020"
-    case "smpte432":
-      return "smpte432"
     default:
       return undefined
   }
@@ -63,8 +59,6 @@ function parseMatrixCoefficients(
       return "bt470bg"
     case "smpte170m":
       return "smpte170m"
-    case "bt2020-ncl":
-      return "bt2020-ncl"
     default:
       return undefined
   }
@@ -78,14 +72,8 @@ function parseTransferCharacteristics(
       return "bt709"
     case "smpte170m":
       return "smpte170m"
-    case "linear":
-      return "linear"
     case "iec61966-2-1":
       return "iec61966-2-1"
-    case "pq":
-      return "pq"
-    case "hlg":
-      return "hlg"
     default:
       return undefined
   }
