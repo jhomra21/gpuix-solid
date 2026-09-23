@@ -17,7 +17,12 @@ if (!hasNativeTestRenderer) {
   app.render(() => <DiffusionSourceEngine />)
 
   try {
-    await new Promise((resolve) => setTimeout(resolve, 100))
+    for (let frame = 0; frame < 3; frame++) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+    }
+    await Promise.resolve()
+    app.root.flush()
+    app.renderer.flush()
 
     const state = readDiffusionSourceState()
     requireCondition(state.sceneName === "GPUix Diffusion source", "Diffusion source project should mount an active scene")
@@ -28,13 +33,14 @@ if (!hasNativeTestRenderer) {
       "Diffusion EngineCanvas should retain HTMLCanvasElement identity on GPUIX",
     )
 
+    app.renderer.captureScreenshot(screenshotPath)
+    requireCondition(existsSync(screenshotPath), "Diffusion source screenshot should be written")
+    requireCondition(statSync(screenshotPath).size > 0, "Diffusion source screenshot should not be empty")
+
     app.renderer.customPropJsonContainingAll("drawList", [
       "\"version\":3",
       "\"color\":\"#22C55E\"",
     ])
-    app.renderer.captureScreenshot(screenshotPath)
-    requireCondition(existsSync(screenshotPath), "Diffusion source screenshot should be written")
-    requireCondition(statSync(screenshotPath).size > 0, "Diffusion source screenshot should not be empty")
 
     console.log("solid1 Diffusion source EngineProvider + EngineCanvas: passed")
   } finally {
