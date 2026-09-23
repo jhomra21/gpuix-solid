@@ -112,6 +112,14 @@ jobs:
       - name: Run Diffusion source engine acceptance
         working-directory: examples/solid1-diffusion
         run: bun run test:native
+      - name: Upload Diffusion source screenshot
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: solid1-diffusion-source-macos
+          path: /tmp/gpuix-solid1-diffusion-source.png
+          if-no-files-found: ignore
+          retention-days: 7
 
   package:
     name: package smoke

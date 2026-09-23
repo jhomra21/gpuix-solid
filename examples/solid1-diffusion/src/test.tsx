@@ -1,5 +1,8 @@
 import { createTestRoot, hasNativeTestRenderer } from "@jhomra21/gpuix-solid1"
+import { existsSync, statSync, unlinkSync } from "node:fs"
 import { DiffusionSourceEngine, readDiffusionSourceState } from "./app"
+
+const screenshotPath = "/tmp/gpuix-solid1-diffusion-source.png"
 
 function requireCondition(condition: boolean, message: string): void {
   if (!condition) throw new Error(message)
@@ -8,6 +11,8 @@ function requireCondition(condition: boolean, message: string): void {
 if (!hasNativeTestRenderer) {
   console.log("solid1 Diffusion source engine: native TestGpuixRenderer unavailable; skipped")
 } else {
+  if (existsSync(screenshotPath)) unlinkSync(screenshotPath)
+
   const app = createTestRoot(1280, 800)
   app.render(() => <DiffusionSourceEngine />)
 
@@ -22,6 +27,14 @@ if (!hasNativeTestRenderer) {
       state.canvas instanceof HTMLCanvasElement,
       "Diffusion EngineCanvas should retain HTMLCanvasElement identity on GPUIX",
     )
+
+    app.renderer.customPropJsonContainingAll("drawList", [
+      "\"version\":3",
+      "\"color\":\"#22C55E\"",
+    ])
+    app.renderer.captureScreenshot(screenshotPath)
+    requireCondition(existsSync(screenshotPath), "Diffusion source screenshot should be written")
+    requireCondition(statSync(screenshotPath).size > 0, "Diffusion source screenshot should not be empty")
 
     console.log("solid1 Diffusion source EngineProvider + EngineCanvas: passed")
   } finally {
