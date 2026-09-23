@@ -1,9 +1,7 @@
 import "./dom-environment.js"
 import { HostElementNode } from "./host/nodes.js"
 
-type BrowserElementCandidate = HostElementNode | HTMLElement | null
-
-function isBrowserElement(value: BrowserElementCandidate): boolean {
+function isBrowserElement(value: unknown): boolean {
   return value instanceof HostElementNode
     || value === globalThis.document.body
     || value === globalThis.document.documentElement
