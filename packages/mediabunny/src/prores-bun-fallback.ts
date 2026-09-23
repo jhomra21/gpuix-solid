@@ -71,9 +71,7 @@ export class BunSafeProResDecoder extends CustomVideoDecoder {
       if (result instanceof Error) throw result
 
       const display = displaySize(result)
-      const bytes = new Uint8Array(result.frameData.byteLength)
-      bytes.set(result.frameData)
-      const sample = new VideoSample(bytes, {
+      const sample = new VideoSample(result.frameData, {
         format: result.pixelFormat,
         codedWidth: result.codedWidth,
         codedHeight: result.codedHeight,
