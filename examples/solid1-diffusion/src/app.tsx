@@ -77,15 +77,30 @@ function ProjectMount(): JSX.Element {
   return <EngineCanvas />
 }
 
-const audioContext = {
-  currentTime: 0,
-  state: "running",
-  destination: {},
-} as unknown as AudioContext
+class DiffusionAudioContext {
+  currentTime = 0
+  state = "running"
+  destination = {}
+
+  close(): Promise<void> {
+    return Promise.resolve()
+  }
+}
+
+Object.defineProperty(globalThis, "AudioContext", {
+  configurable: true,
+  writable: true,
+  value: DiffusionAudioContext,
+})
+Object.defineProperty(globalThis.window, "AudioContext", {
+  configurable: true,
+  writable: true,
+  value: DiffusionAudioContext,
+})
 
 export function DiffusionSourceEngine(): JSX.Element {
   return (
-    <EngineProvider projectId="gpuix-diffusion-source" options={{ audioContext }}>
+    <EngineProvider projectId="gpuix-diffusion-source">
       <div
         testId="diffusion-source-engine"
         style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column" }}

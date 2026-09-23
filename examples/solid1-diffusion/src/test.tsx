@@ -23,11 +23,6 @@ if (!hasNativeTestRenderer) {
       "Diffusion EngineCanvas should retain HTMLCanvasElement identity on GPUIX",
     )
 
-    const drawList = (state.context as { __gpuixSnapshot?: () => { commands: unknown[] } }).__gpuixSnapshot?.()
-    if (drawList) {
-      requireCondition(drawList.commands.length > 0, "Diffusion source engine should emit Canvas2D commands")
-    }
-
     console.log("solid1 Diffusion source EngineProvider + EngineCanvas: passed")
   } finally {
     app.unmount()

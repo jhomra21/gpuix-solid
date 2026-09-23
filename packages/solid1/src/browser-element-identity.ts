@@ -1,64 +1,58 @@
 import "./dom-environment.js"
 import { HostElementNode } from "./host/nodes.js"
 
-function isBrowserElement(value: unknown): boolean {
-  return value instanceof HostElementNode
-    || value === globalThis.document.body
-    || value === globalThis.document.documentElement
+class BrowserElement {
+  static [Symbol.hasInstance](value: HTMLElement): boolean {
+    return value instanceof HostElementNode
+      || value === globalThis.document.body
+      || value === globalThis.document.documentElement
+  }
 }
 
-function isSemanticElement(value: unknown, localName: string): boolean {
-  return value instanceof HostElementNode && value.localName === localName
+class BrowserCanvasElement {
+  static [Symbol.hasInstance](value: HTMLElement): boolean {
+    return value instanceof HostElementNode && value.localName === "canvas"
+  }
 }
 
-function browserElementConstructor(
-  predicate: (value: unknown) => boolean,
-): typeof HTMLElement {
-  class BrowserElement {}
-
-  Object.defineProperty(BrowserElement, Symbol.hasInstance, {
-    configurable: false,
-    value: predicate,
-  })
-
-  return BrowserElement as typeof HTMLElement
+class BrowserImageElement {
+  static [Symbol.hasInstance](value: HTMLElement): boolean {
+    return value instanceof HostElementNode && value.localName === "img"
+  }
 }
 
-function installConstructor(name: string, constructor: typeof HTMLElement): void {
-  Object.defineProperty(globalThis, name, {
-    configurable: true,
-    writable: true,
-    value: constructor,
-  })
+class BrowserInputElement {
+  static [Symbol.hasInstance](value: HTMLElement): boolean {
+    return value instanceof HostElementNode && value.localName === "input"
+  }
+}
 
-  const browserWindow = globalThis.window as unknown as Record<string, unknown> | undefined
-  if (browserWindow) {
-    Object.defineProperty(browserWindow, name, {
-      configurable: true,
-      writable: true,
-      value: constructor,
-    })
+class BrowserTextAreaElement {
+  static [Symbol.hasInstance](value: HTMLElement): boolean {
+    return value instanceof HostElementNode && value.localName === "textarea"
   }
 }
 
 export function installBrowserElementIdentity(): void {
-  const BrowserElement = browserElementConstructor(isBrowserElement)
+  const constructors = [
+    ["Element", BrowserElement],
+    ["HTMLElement", BrowserElement],
+    ["HTMLCanvasElement", BrowserCanvasElement],
+    ["HTMLImageElement", BrowserImageElement],
+    ["HTMLInputElement", BrowserInputElement],
+    ["HTMLTextAreaElement", BrowserTextAreaElement],
+  ] as const
 
-  for (const name of ["Element", "HTMLElement"] as const) {
-    installConstructor(name, BrowserElement)
-  }
-
-  const semanticConstructors = {
-    HTMLCanvasElement: "canvas",
-    HTMLImageElement: "img",
-    HTMLInputElement: "input",
-    HTMLTextAreaElement: "textarea",
-  } as const
-
-  for (const [name, localName] of Object.entries(semanticConstructors)) {
-    installConstructor(
-      name,
-      browserElementConstructor((value) => isSemanticElement(value, localName)),
-    )
+  for (const [name, constructor] of constructors) {
+    Object.defineProperty(globalThis, name, {
+      configurable: true,
+      writable: true,
+      value: constructor,
+    })
+    Object.defineProperty(globalThis.window, name, {
+      configurable: true,
+      writable: true,
+      value: constructor,
+    })
   }
 }
