@@ -167,6 +167,7 @@ type CompatWindow = CompatEventTarget & {
   HTMLElement?: typeof HTMLElement
   Node?: typeof Node
   Path2D?: typeof GpuixPath2D
+  DOMMatrix?: typeof CompatDOMMatrix
   getComputedStyle?: CompatGetComputedStyle
   innerWidth?: number
   innerHeight?: number
@@ -175,6 +176,49 @@ type CompatWindow = CompatEventTarget & {
   pageXOffset?: number
   pageYOffset?: number
   devicePixelRatio?: number
+}
+
+
+class CompatDOMMatrix {
+  a = 1
+  b = 0
+  c = 0
+  d = 1
+  e = 0
+  f = 0
+
+  translate(tx = 0, ty = 0): CompatDOMMatrix {
+    return this.clone().translateSelf(tx, ty)
+  }
+
+  translateSelf(tx = 0, ty = 0): this {
+    const x = Number(tx)
+    const y = Number(ty)
+    this.e += this.a * x + this.c * y
+    this.f += this.b * x + this.d * y
+    return this
+  }
+
+  scaleSelf(scaleX = 1, scaleY = scaleX): this {
+    const x = Number(scaleX)
+    const y = Number(scaleY)
+    this.a *= x
+    this.b *= x
+    this.c *= y
+    this.d *= y
+    return this
+  }
+
+  private clone(): CompatDOMMatrix {
+    const matrix = new CompatDOMMatrix()
+    matrix.a = this.a
+    matrix.b = this.b
+    matrix.c = this.c
+    matrix.d = this.d
+    matrix.e = this.e
+    matrix.f = this.f
+    return matrix
+  }
 }
 
 type CompatMutationSnapshot = Map<HostElementNode, CompatTreeElement>
@@ -231,6 +275,7 @@ export function installDomEventEnvironment(): void {
   windowTarget.NodeFilter = NODE_FILTER
   windowTarget.Image = CompatImageLoader
   windowTarget.Path2D = GpuixPath2D
+  windowTarget.DOMMatrix = CompatDOMMatrix
   windowTarget.getComputedStyle = defaultComputedStyle
   Object.defineProperty(windowTarget, "Element", {
     configurable: true,
@@ -279,6 +324,11 @@ export function installDomEventEnvironment(): void {
     configurable: true,
     writable: true,
     value: GpuixPath2D,
+  })
+  Object.defineProperty(globalThis, "DOMMatrix", {
+    configurable: true,
+    writable: true,
+    value: CompatDOMMatrix,
   })
   Object.defineProperty(globalThis, "requestAnimationFrame", {
     configurable: true,

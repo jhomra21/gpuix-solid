@@ -5,6 +5,15 @@ export const CANVAS_DRAW_LIST_VERSION = 3 as const
 export type CanvasDrawListVersion = typeof CANVAS_DRAW_LIST_VERSION
 export type CanvasMatrix = readonly [number, number, number, number, number, number]
 
+type CanvasTransformInit = {
+  a: number
+  b: number
+  c: number
+  d: number
+  e: number
+  f: number
+}
+
 export type CanvasPathSegment =
   | { op: "moveTo"; x: number; y: number }
   | { op: "lineTo"; x: number; y: number }
@@ -244,14 +253,16 @@ export function createCanvas2DRecorder(
       state.transform = IDENTITY
     },
     setTransform(
-      a: number,
+      a: number | CanvasTransformInit,
       b?: number,
       c?: number,
       d?: number,
       e?: number,
       f?: number,
     ) {
-      state.transform = finiteMatrix(a, b, c, d, e, f)
+      state.transform = typeof a === "number"
+        ? finiteMatrix(a, b, c, d, e, f)
+        : finiteMatrix(a.a, a.b, a.c, a.d, a.e, a.f)
     },
     transform(a: number, b: number, c: number, d: number, e: number, f: number) {
       state.transform = multiplyMatrices(state.transform, finiteMatrix(a, b, c, d, e, f))
