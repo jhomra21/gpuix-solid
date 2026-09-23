@@ -13,13 +13,13 @@ diff --git a/packages/native/src/custom_elements/canvas.rs b/packages/native/src
 new file mode 100644
 --- /dev/null
 +++ b/packages/native/src/custom_elements/canvas.rs
-@@ -0,0 +1,516 @@
+@@ -0,0 +1,574 @@
 +use gpui::prelude::*;
 +use serde::Deserialize;
 +
 +use super::{CustomElement, CustomElementFactory, CustomRenderContext};
 +
-+pub const CANVAS_DRAW_LIST_VERSION: u32 = 1;
++pub const CANVAS_DRAW_LIST_VERSION: u32 = 2;
 +
 +#[derive(Clone, Debug, Deserialize)]
 +#[serde(rename_all = "camelCase")]
@@ -28,6 +28,15 @@ new file mode 100644
 +    width: f32,
 +    height: f32,
 +    commands: Vec<CanvasDrawCommand>,
++}
++
++#[derive(Clone, Debug, Deserialize)]
++#[serde(rename_all = "camelCase")]
++struct CanvasClipRect {
++    x: f32,
++    y: f32,
++    width: f32,
++    height: f32,
 +}
 +
 +#[derive(Clone, Debug, Deserialize)]
@@ -40,6 +49,8 @@ new file mode 100644
 +        #[serde(rename = "fillRule")]
 +        fill_rule: String,
 +        path: Vec<CanvasPathSegment>,
++        #[serde(default)]
++        clip: Option<CanvasClipRect>,
 +    },
 +    #[serde(rename = "strokePath")]
 +    StrokePath {
@@ -54,6 +65,8 @@ new file mode 100644
 +        #[serde(rename = "miterLimit")]
 +        miter_limit: f32,
 +        path: Vec<CanvasPathSegment>,
++        #[serde(default)]
++        clip: Option<CanvasClipRect>,
 +    },
 +    #[serde(rename = "fillText")]
 +    FillText {
@@ -70,7 +83,19 @@ new file mode 100644
 +        font_weight: Option<f32>,
 +        align: String,
 +        baseline: String,
++        #[serde(default)]
++        clip: Option<CanvasClipRect>,
 +    },
++}
++
++impl CanvasDrawCommand {
++    fn clip(&self) -> Option<&CanvasClipRect> {
++        match self {
++            Self::FillPath { clip, .. }
++            | Self::StrokePath { clip, .. }
++            | Self::FillText { clip, .. } => clip.as_ref(),
++        }
++    }
 +}
 +
 +#[derive(Clone, Debug, Deserialize)]
@@ -396,6 +421,7 @@ new file mode 100644
 +                alpha,
 +                fill_rule,
 +                path,
++                ..
 +            } => {
 +                let Some(color) = canvas_color(color, *alpha) else {
 +                    continue;
@@ -407,7 +433,9 @@ new file mode 100644
 +                let mut builder = gpui::PathBuilder::fill();
 +                append_path(&mut builder, path, bounds, scale_x, scale_y);
 +                if let Ok(path) = builder.build() {
-+                    window.paint_path(path, color);
++                    paint_with_clip(command.clip(), draw_list, bounds, window, |window| {
++                        window.paint_path(path, color);
++                    });
 +                }
 +            }
 +            CanvasDrawCommand::StrokePath {
@@ -418,6 +446,7 @@ new file mode 100644
 +                line_join,
 +                miter_limit,
 +                path,
++                ..
 +            } => {
 +                if line_cap != "butt" || line_join != "miter" || (*miter_limit - 10.0).abs() > f32::EPSILON {
 +                    log::warn!(
@@ -432,7 +461,9 @@ new file mode 100644
 +                let mut builder = gpui::PathBuilder::stroke(gpui::px(width));
 +                append_path(&mut builder, path, bounds, scale_x, scale_y);
 +                if let Ok(path) = builder.build() {
-+                    window.paint_path(path, color);
++                    paint_with_clip(command.clip(), draw_list, bounds, window, |window| {
++                        window.paint_path(path, color);
++                    });
 +                }
 +            }
 +            CanvasDrawCommand::FillText {
@@ -465,17 +496,44 @@ new file mode 100644
 +                    x,
 +                    bounds.origin.y + gpui::px(*y * scale_y - y_offset),
 +                );
-+                let _ = line.paint(
-+                    origin,
-+                    gpui::px(font_size),
-+                    gpui::TextAlign::Left,
-+                    None,
-+                    window,
-+                    cx,
-+                );
++                paint_with_clip(command.clip(), draw_list, bounds, window, |window| {
++                    let _ = line.paint(
++                        origin,
++                        gpui::px(font_size),
++                        gpui::TextAlign::Left,
++                        None,
++                        window,
++                        cx,
++                    );
++                });
 +            }
 +        }
 +    }
++}
++
++fn paint_with_clip(
++    clip: Option<&CanvasClipRect>,
++    draw_list: &CanvasDrawList,
++    bounds: gpui::Bounds<gpui::Pixels>,
++    window: &mut gpui::Window,
++    paint: impl FnOnce(&mut gpui::Window),
++) {
++    let Some(clip) = clip else {
++        paint(window);
++        return;
++    };
++    let (scale_x, scale_y, _) = canvas_scale(draw_list, bounds);
++    let clip_bounds = gpui::Bounds::new(
++        gpui::point(
++            bounds.origin.x + gpui::px(clip.x * scale_x),
++            bounds.origin.y + gpui::px(clip.y * scale_y),
++        ),
++        gpui::size(
++            gpui::px((clip.width * scale_x).max(0.0)),
++            gpui::px((clip.height * scale_y).max(0.0)),
++        ),
++    );
++    window.with_content_mask(Some(gpui::ContentMask { bounds: clip_bounds }), paint);
 +}
 +
 +fn append_path(
