@@ -160,6 +160,62 @@ describe("Canvas2D draw-list recorder", () => {
     expect(() => ctx.roundRect(0, 0, 10, 10, [1, 2, 3, 4, 5])).toThrow(/between one and four/u)
   })
 
+  it("records exact rectangular clips on following draw commands", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 200, height: 100 }))
+    const ctx = recorder.context
+
+    ctx.beginPath()
+    ctx.rect(10, 20, 80, 40)
+    ctx.clip()
+    ctx.fillStyle = "#ffffff"
+    ctx.fillRect(0, 0, 200, 100)
+
+    expect(recorder.snapshot().commands[0]).toMatchObject({
+      op: "fillPath",
+      clip: { x: 10, y: 20, width: 80, height: 40 },
+    })
+  })
+
+  it("intersects rectangular clips and restores the previous clip", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 200, height: 100 }))
+    const ctx = recorder.context
+
+    ctx.beginPath()
+    ctx.rect(0, 0, 100, 80)
+    ctx.clip()
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(40, 20, 100, 40)
+    ctx.clip()
+    ctx.fillRect(0, 0, 10, 10)
+    ctx.restore()
+    ctx.fillRect(10, 0, 10, 10)
+
+    expect(recorder.snapshot().commands).toMatchObject([
+      { clip: { x: 40, y: 20, width: 60, height: 40 } },
+      { clip: { x: 0, y: 0, width: 100, height: 80 } },
+    ])
+  })
+
+  it("rejects rounded, rotated, and compound clip paths instead of approximating them", () => {
+    const rounded = createCanvas2DRecorder(() => ({ width: 100, height: 100 })).context
+    rounded.beginPath()
+    rounded.roundRect(0, 0, 20, 20, 4)
+    expect(() => rounded.clip()).toThrow(/axis-aligned rectangular path/u)
+
+    const rotated = createCanvas2DRecorder(() => ({ width: 100, height: 100 })).context
+    rotated.rotate(Math.PI / 4)
+    rotated.beginPath()
+    rotated.rect(0, 0, 20, 20)
+    expect(() => rotated.clip()).toThrow(/axis-aligned rectangular path/u)
+
+    const compound = createCanvas2DRecorder(() => ({ width: 100, height: 100 })).context
+    compound.beginPath()
+    compound.rect(0, 0, 20, 20)
+    compound.rect(30, 30, 10, 10)
+    expect(() => compound.clip()).toThrow(/axis-aligned rectangular path/u)
+  })
+
   it("clears the retained command list only for a full backing-store clear", () => {
     const recorder = createCanvas2DRecorder(() => ({ width: 100, height: 50 }))
     const ctx = recorder.context
