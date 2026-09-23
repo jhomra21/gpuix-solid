@@ -32,7 +32,8 @@
   "dependencies": {
     "@napi-rs/canvas": "1.0.9",
     "node-addon-api": "8.9.2",
-    "node-gyp": "13.0.2"
+    "node-gyp": "13.0.2",
+    "turbores": "1.2.2"
   },
   "devDependencies": {
     "@types/node": "^25.3.3",
