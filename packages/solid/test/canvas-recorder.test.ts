@@ -116,6 +116,103 @@ describe("Canvas2D draw-list recorder", () => {
     expect(command.path.filter((segment) => segment.op === "bezierCurveTo")).toHaveLength(4)
   })
 
+  it("records drawImage through binary image resources instead of JSON pixels", () => {
+    const uploads: Array<{ id: number; width: number; height: number; bytes: number[] }> = []
+    const source = {
+      width: 2,
+      height: 1,
+      getContext: () => ({
+        getImageData: () => ({
+          data: new Uint8ClampedArray([255, 0, 0, 255, 0, 255, 0, 255]),
+        }),
+      }),
+    } as unknown as CanvasImageSource
+    const recorder = createCanvas2DRecorder(
+      () => ({ width: 160, height: 90 }),
+      undefined,
+      undefined,
+      (id, image) => uploads.push({
+        id,
+        width: image.width,
+        height: image.height,
+        bytes: [...image.pixels],
+      }),
+    )
+    const ctx = recorder.context
+
+    ctx.globalAlpha = 0.75
+    ctx.drawImage(source, 10, 12, 40, 20)
+
+    expect(uploads).toEqual([{
+      id: 1,
+      width: 2,
+      height: 1,
+      bytes: [255, 0, 0, 255, 0, 255, 0, 255],
+    }])
+    expect(recorder.snapshot().commands).toEqual([{
+      op: "drawImage",
+      imageId: 1,
+      source: { x: 0, y: 0, width: 2, height: 1 },
+      destination: { x: 10, y: 12, width: 40, height: 20 },
+      alpha: 0.75,
+    }])
+    expect(JSON.stringify(recorder.snapshot())).not.toContain("255,0,0,255")
+  })
+
+  it("clips drawImage source rectangles and reuses the source resource id", () => {
+    const uploadedIds: number[] = []
+    const source = {
+      width: 100,
+      height: 50,
+      getContext: () => ({
+        getImageData: () => ({ data: new Uint8ClampedArray(100 * 50 * 4) }),
+      }),
+    } as unknown as CanvasImageSource
+    const recorder = createCanvas2DRecorder(
+      () => ({ width: 300, height: 200 }),
+      undefined,
+      undefined,
+      (id) => uploadedIds.push(id),
+    )
+    const ctx = recorder.context
+
+    ctx.drawImage(source, -10, 0, 40, 20, 0, 0, 80, 40)
+    ctx.drawImage(source, 100, 60)
+
+    expect(uploadedIds).toEqual([1, 1])
+    expect(recorder.snapshot().commands[0]).toMatchObject({
+      op: "drawImage",
+      imageId: 1,
+      source: { x: 0, y: 0, width: 30, height: 20 },
+      destination: { x: 20, y: 0, width: 60, height: 40 },
+    })
+    expect(recorder.snapshot().commands[1]).toMatchObject({
+      op: "drawImage",
+      imageId: 1,
+      destination: { x: 100, y: 60, width: 100, height: 50 },
+    })
+  })
+
+  it("fails closed for drawImage transforms GPUI cannot reproduce yet", () => {
+    const source = {
+      width: 2,
+      height: 2,
+      getContext: () => ({
+        getImageData: () => ({ data: new Uint8ClampedArray(16) }),
+      }),
+    } as unknown as CanvasImageSource
+    const recorder = createCanvas2DRecorder(
+      () => ({ width: 100, height: 100 }),
+      undefined,
+      undefined,
+      () => undefined,
+    )
+    const ctx = recorder.context
+
+    ctx.rotate(Math.PI / 4)
+    expect(() => ctx.drawImage(source, 0, 0)).toThrow(/axis-aligned scale/u)
+  })
+
   it("lowers arcTo into the existing cubic path protocol", () => {
     const recorder = createCanvas2DRecorder(() => ({ width: 120, height: 80 }))
     const ctx = recorder.context
