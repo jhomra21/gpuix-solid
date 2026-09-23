@@ -12,16 +12,86 @@ import type {
 } from "turbores"
 
 type TurboResModule = typeof import("turbores")
+type BunProcessVersions = NodeJS.ProcessVersions & { bun?: string }
 
 function isBunRuntime(): boolean {
-  return typeof process !== "undefined"
-    && typeof (process.versions as NodeJS.ProcessVersions & { bun?: string }).bun === "string"
+  // SAFETY: Bun exposes process.versions.bun, while the Node type omits the optional Bun-owned field.
+  const versions = process.versions as BunProcessVersions
+  return versions.bun !== undefined
 }
 
-function displaySize(result: FilledFrame): {
-  width: number
-  height: number
-} {
+function parseProResFourCc(codec: string): DecoderOptions["proresFourCc"] | null {
+  switch (codec) {
+    case "ap4x":
+    case "ap4h":
+    case "apch":
+    case "apcn":
+    case "apcs":
+    case "apco":
+      return codec
+    default:
+      return null
+  }
+}
+
+function parseColorPrimaries(value: string | undefined): VideoColorPrimaries | undefined {
+  switch (value) {
+    case "bt709":
+      return "bt709"
+    case "bt470bg":
+      return "bt470bg"
+    case "smpte170m":
+      return "smpte170m"
+    case "bt2020":
+      return "bt2020"
+    case "smpte432":
+      return "smpte432"
+    default:
+      return undefined
+  }
+}
+
+function parseMatrixCoefficients(
+  value: string | undefined,
+): VideoMatrixCoefficients | undefined {
+  switch (value) {
+    case "rgb":
+      return "rgb"
+    case "bt709":
+      return "bt709"
+    case "bt470bg":
+      return "bt470bg"
+    case "smpte170m":
+      return "smpte170m"
+    case "bt2020-ncl":
+      return "bt2020-ncl"
+    default:
+      return undefined
+  }
+}
+
+function parseTransferCharacteristics(
+  value: string | undefined,
+): VideoTransferCharacteristics | undefined {
+  switch (value) {
+    case "bt709":
+      return "bt709"
+    case "smpte170m":
+      return "smpte170m"
+    case "linear":
+      return "linear"
+    case "iec61966-2-1":
+      return "iec61966-2-1"
+    case "pq":
+      return "pq"
+    case "hlg":
+      return "hlg"
+    default:
+      return undefined
+  }
+}
+
+function displaySize(result: FilledFrame) {
   const ratio = result.pixelAspectRatio
   if (ratio.num > ratio.den) {
     return {
@@ -48,9 +118,14 @@ export class BunSafeProResDecoder extends CustomVideoDecoder {
   #decoder: TurboResDecoder | null = null
 
   async init(): Promise<void> {
+    const proresFourCc = parseProResFourCc(this.config.codec)
+    if (!proresFourCc) {
+      throw new Error("BunSafeProResDecoder requires a supported ProRes sample entry")
+    }
+
     const module = await import("turbores")
     const decoder = await module.Decoder.create({
-      proresFourCc: this.config.codec as DecoderOptions["proresFourCc"],
+      proresFourCc,
       useSharedMemory: false,
       concurrency: 0,
     })
@@ -71,6 +146,16 @@ export class BunSafeProResDecoder extends CustomVideoDecoder {
       if (result instanceof Error) throw result
 
       const display = displaySize(result)
+      const colorSpace: VideoColorSpaceInit = {
+        fullRange: result.colorRangeFull,
+      }
+      const primaries = parseColorPrimaries(result.colorPrimariesString)
+      const matrix = parseMatrixCoefficients(result.colorMatrixString)
+      const transfer = parseTransferCharacteristics(result.colorTransferString)
+      if (primaries) colorSpace.primaries = primaries
+      if (matrix) colorSpace.matrix = matrix
+      if (transfer) colorSpace.transfer = transfer
+
       const sample = new VideoSample(result.frameData, {
         format: result.pixelFormat,
         codedWidth: result.codedWidth,
@@ -85,18 +170,7 @@ export class BunSafeProResDecoder extends CustomVideoDecoder {
         },
         timestamp: packet.timestamp,
         duration: packet.duration,
-        colorSpace: {
-          ...(result.colorPrimariesString
-            ? { primaries: result.colorPrimariesString as VideoColorPrimaries }
-            : {}),
-          ...(result.colorMatrixString
-            ? { matrix: result.colorMatrixString as VideoMatrixCoefficients }
-            : {}),
-          ...(result.colorTransferString
-            ? { transfer: result.colorTransferString as VideoTransferCharacteristics }
-            : {}),
-          fullRange: result.colorRangeFull,
-        },
+        colorSpace,
       })
 
       try {
