@@ -28,6 +28,13 @@ export interface BatchRendererApi {
   getWindowSize?(): { width: number; height: number }
   getCanvasDrawListVersion?(): number | undefined
   measureCanvasText?(text: string, fontSize: number, fontFamily: string, fontWeight: number): number
+  setCanvasImagePixels?(
+    elementId: number,
+    imageId: number,
+    width: number,
+    height: number,
+    pixels: Uint8Array,
+  ): void
   getVideoFrameSurfaceVersion?(): number | undefined
   setVideoFrameBgra?(elementId: number, width: number, height: number, data: Uint8Array): void
   clearVideoFrame?(elementId: number): void
@@ -184,6 +191,9 @@ export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRen
   }
   if (renderer.measureCanvasText) {
     adapted.measureCanvasText = renderer.measureCanvasText.bind(renderer)
+  }
+  if (renderer.setCanvasImagePixels) {
+    adapted.setCanvasImagePixels = renderer.setCanvasImagePixels.bind(renderer)
   }
   if (renderer.getVideoFrameSurfaceVersion) {
     adapted.getVideoFrameSurfaceVersion = renderer.getVideoFrameSurfaceVersion.bind(renderer)
