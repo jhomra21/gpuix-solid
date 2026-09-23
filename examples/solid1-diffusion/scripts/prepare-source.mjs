@@ -38,32 +38,35 @@ function patchKootaOrAcrossGenerations(file) {
   if (!existsSync(file)) return
 
   const source = readFileSync(file, "utf8")
-  if (source.includes("gpuix-koota-or-cross-generation")) return
+  const namedFunction = /function\s+checkQuery\d*\s*\(/.exec(source)
+  const guardHint = source.indexOf("traitInstances.all.length")
+  const start =
+    namedFunction?.index ??
+    (guardHint >= 0 ? source.lastIndexOf("function ", guardHint) : -1)
+  if (start < 0) throw new Error(`Could not locate Koota checkQuery semantics in ${file}`)
 
-  const brokenOr = /if\s*\(\s*or\s*!==\s*0\s*&&\s*\(entityMask\s*&\s*or\)\s*===\s*0\s*\)\s*return false;/
-  const brokenMatch = brokenOr.exec(source)
-  if (!brokenMatch) {
-    throw new Error(`Could not find Koota cross-generation Or check in ${file}`)
-  }
-
-  const start = source.lastIndexOf("function ", brokenMatch.index)
-  if (start < 0) throw new Error(`Could not find Koota query function around Or check in ${file}`)
   const end = functionEnd(source, start)
   let checkQuery = source.slice(start, end)
+  if (checkQuery.includes("gpuix-koota-or-cross-generation")) return
 
-  const emptyGuard = /if\s*\(\s*query\.traitInstances\.all\.length\s*===\s*0\s*\)\s*return false;/
-  const emptyMatch = emptyGuard.exec(checkQuery)
-  if (!emptyMatch) {
-    throw new Error(`Koota query guard changed in ${file}`)
+  const emptyGuard =
+    /if\s*\(\s*query\.traitInstances\.all\.length\s*===\s*0\s*\)\s*return false;/
+  if (!emptyGuard.test(checkQuery)) {
+    throw new Error(`Koota checkQuery guard changed in ${file}`)
   }
   checkQuery = checkQuery.replace(
     emptyGuard,
-    `${emptyMatch[0]}
+    (match) => `${match}
   // gpuix-koota-or-cross-generation: Or(...) is one union across every trait generation.
   let hasOr = false;
   let orMatched = false;`,
   )
 
+  const brokenOr =
+    /if\s*\(\s*or\s*!==\s*0\s*&&\s*\(entityMask\s*&\s*or\)\s*===\s*0\s*\)\s*return false;/
+  if (!brokenOr.test(checkQuery)) {
+    throw new Error(`Koota cross-generation Or check changed in ${file}`)
+  }
   checkQuery = checkQuery.replace(
     brokenOr,
     `if (or !== 0) {
