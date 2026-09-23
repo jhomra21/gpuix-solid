@@ -9,6 +9,119 @@ diff --git a/packages/native/src/custom_elements/mod.rs b/packages/native/src/cu
          registry.register(Box::new(anchored::AnchoredFactory));
 +        registry.register(Box::new(canvas::CanvasFactory));
          registry.register(Box::new(img::ImgFactory));
+@@ -236,12 +238,28 @@
+ 
+     /// Replace the live GPU image on `<img>`. Returns the previous image when
+     /// this adapter already had one, so the renderer can upload in place.
+-    fn replace_live_image(
+-        &mut self,
+-        _image: std::sync::Arc<gpui::RenderImage>,
+-    ) -> Option<std::sync::Arc<gpui::RenderImage>> {
+-        None
+-    }
++    fn replace_live_image(
++        &mut self,
++        _image: std::sync::Arc<gpui::RenderImage>,
++    ) -> Option<std::sync::Arc<gpui::RenderImage>> {
++        None
++    }
++
++    /// Replace one uploaded image owned by a native Canvas element.
++    fn replace_canvas_image(
++        &mut self,
++        _image_id: u64,
++        _width: u32,
++        _height: u32,
++        _image: std::sync::Arc<gpui::RenderImage>,
++    ) -> std::result::Result<Option<std::sync::Arc<gpui::RenderImage>>, String> {
++        Err("element does not accept Canvas image resources".to_string())
++    }
++
++    /// Drain Canvas-owned images before the native element is removed.
++    fn take_canvas_images(&mut self) -> Vec<std::sync::Arc<gpui::RenderImage>> {
++        Vec::new()
++    }
+ }
+ 
+ /// Factory for creating CustomElement instances.
+@@ -385,16 +403,33 @@
+     }
+ 
+     /// Store a decoded image on an `<img>` host node, creating the adapter if needed.
+-    pub fn set_live_image(
+-        &mut self,
+-        id: u64,
+-        image: std::sync::Arc<gpui::RenderImage>,
+-    ) -> std::result::Result<Option<std::sync::Arc<gpui::RenderImage>>, String> {
+-        let entry = self
+-            .get_or_create(id, "img")
+-            .ok_or_else(|| "img factory is not registered".to_string())?;
+-        Ok(entry.element.replace_live_image(image))
+-    }
++    pub fn set_live_image(
++        &mut self,
++        id: u64,
++        image: std::sync::Arc<gpui::RenderImage>,
++    ) -> std::result::Result<Option<std::sync::Arc<gpui::RenderImage>>, String> {
++        let entry = self
++            .get_or_create(id, "img")
++            .ok_or_else(|| "img factory is not registered".to_string())?;
++        Ok(entry.element.replace_live_image(image))
++    }
++
++    /// Store one decoded image resource on a native Canvas element.
++    pub fn set_canvas_image(
++        &mut self,
++        id: u64,
++        image_id: u64,
++        width: u32,
++        height: u32,
++        image: std::sync::Arc<gpui::RenderImage>,
++    ) -> std::result::Result<Option<std::sync::Arc<gpui::RenderImage>>, String> {
++        let entry = self
++            .get_or_create(id, "canvas")
++            .ok_or_else(|| "canvas factory is not registered".to_string())?;
++        entry
++            .element
++            .replace_canvas_image(image_id, width, height, image)
++    }
+ 
+     /// Called when React destroys an element.
+     pub fn destroy(&mut self, id: u64) {
+@@ -420,18 +455,21 @@
+         }
+     }
+ 
+-    fn destroy_live_image(&mut self, id: u64, window: &mut gpui::Window) {
+-        if let Some(mut entry) = self.instances.remove(&id) {
+-            if let Some(image) = entry
+-                .element
+-                .live_image()
+-                .or_else(|| entry.element.take_dropped_image())
+-            {
+-                window.drop_image(image).ok();
+-            }
+-            entry.element.destroy();
+-        }
+-    }
++    fn destroy_live_image(&mut self, id: u64, window: &mut gpui::Window) {
++        if let Some(mut entry) = self.instances.remove(&id) {
++            if let Some(image) = entry
++                .element
++                .live_image()
++                .or_else(|| entry.element.take_dropped_image())
++            {
++                window.drop_image(image).ok();
++            }
++            for image in entry.element.take_canvas_images() {
++                window.drop_image(image).ok();
++            }
++            entry.element.destroy();
++        }
++    }
+ 
+     /// Destroy every live instance. Only for app teardown.
+     ///
 diff --git a/packages/native/src/custom_elements/canvas.rs b/packages/native/src/custom_elements/canvas.rs
 new file mode 100644
 --- /dev/null
@@ -705,7 +818,48 @@ new file mode 100644
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -2680,2 +2680,57 @@
+@@ -2205,8 +2205,38 @@
+         Err(Error::from_reason("Unsupported operating system"))
+     }
+ 
+-    /// Decode PNG, JPEG, WebP, GIF, SVG, BMP, TIFF, ICO, or Netpbm bytes onto
+-    /// an `<img>` host node. Prefer `setImagePixels` for live waveforms.
++    /// Upload packed RGBA pixels as one image resource owned by a Canvas element.
++    #[napi]
++    pub fn set_canvas_image_pixels(
++        &self,
++        element_id: f64,
++        image_id: f64,
++        width: f64,
++        height: f64,
++        pixels: Buffer,
++    ) -> Result<()> {
++        let id = to_element_id(element_id)?;
++        let image_id = to_element_id(image_id)?;
++        let width = dimension_u32(width, "width")?;
++        let height = dimension_u32(height, "height")?;
++        let bytes = pixels.to_vec();
++
++        #[cfg(target_os = "macos")]
++        {
++            return update_window(move |view, window, cx| {
++                view.set_canvas_image_pixels(id, image_id, width, height, bytes, window, cx)
++            })?
++            .map_err(Error::from_reason);
++        }
++
++        #[cfg(not(target_os = "macos"))]
++        Err(Error::from_reason(
++            "setCanvasImagePixels is currently supported on macOS source-edge builds",
++        ))
++    }
++
++    /// Decode PNG, JPEG, WebP, GIF, SVG, BMP, TIFF, ICO, or Netpbm bytes onto
++    /// an `<img>` host node. Prefer `setImagePixels` for live waveforms.
+     #[napi]
+     pub fn set_image(&self, element_id: f64, bytes: Buffer) -> Result<()> {
+         let id = to_element_id(element_id)?;
+@@ -2680,2 +2710,57 @@
 +    /// Version of the retained Canvas2D draw-list protocol.
 +    #[napi]
 +    pub fn get_canvas_draw_list_version(&self) -> u32 {
@@ -763,10 +917,106 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +
      /// The paintable size of the window in logical pixels, excluding any
      /// platform title bar. This used to answer a hardcoded 800x600, so anything
+@@ -3723,13 +3808,48 @@
+         self.set_live_image(id, image, window, cx)
+     }
+ 
+-    pub(crate) fn set_encoded_image(
+-        &mut self,
+-        id: u64,
+-        bytes: Vec<u8>,
+-        window: &mut gpui::Window,
+-        cx: &mut gpui::Context<Self>,
+-    ) -> std::result::Result<(), String> {
++    pub(crate) fn set_canvas_image_pixels(
++        &mut self,
++        id: u64,
++        image_id: u64,
++        width: u32,
++        height: u32,
++        bytes: Vec<u8>,
++        window: &mut gpui::Window,
++        cx: &mut gpui::Context<Self>,
++    ) -> std::result::Result<(), String> {
++        {
++            let tree = self.tree.lock().unwrap();
++            let element = tree
++                .elements
++                .get(&id)
++                .ok_or_else(|| format!("Unknown element id {id}"))?;
++            if element.element_type != "canvas" {
++                return Err(format!(
++                    "setCanvasImagePixels is only valid on <canvas>, got <{}>",
++                    element.element_type
++                ));
++            }
++        }
++        let image = crate::custom_elements::img::render_image_from_rgba(width, height, bytes)?;
++        let previous = self
++            .custom_registry
++            .set_canvas_image(id, image_id, width, height, image)?;
++        if let Some(previous) = previous {
++            window.drop_image(previous).ok();
++        }
++        cx.notify();
++        window.refresh();
++        Ok(())
++    }
++
++    pub(crate) fn set_encoded_image(
++        &mut self,
++        id: u64,
++        bytes: Vec<u8>,
++        window: &mut gpui::Window,
++        cx: &mut gpui::Context<Self>,
++    ) -> std::result::Result<(), String> {
+         let image = crate::custom_elements::img::render_image_from_encoded(
+             bytes,
+             cx.svg_renderer(),
 diff --git a/packages/native/src/test_renderer.rs b/packages/native/src/test_renderer.rs
 --- a/packages/native/src/test_renderer.rs
 +++ b/packages/native/src/test_renderer.rs
-@@ -1170,2 +1170,54 @@
+@@ -864,9 +864,36 @@
+         })
+     }
+ 
+-    /// Encoded image bytes onto an `<img>` host node.
+-    #[napi]
+-    pub fn set_image(&self, element_id: f64, bytes: Buffer) -> Result<()> {
++    /// Packed RGBA pixels as one image resource owned by a Canvas element.
++    #[napi]
++    pub fn set_canvas_image_pixels(
++        &self,
++        element_id: f64,
++        image_id: f64,
++        width: f64,
++        height: f64,
++        pixels: Buffer,
++    ) -> Result<()> {
++        let id = to_element_id(element_id)?;
++        let image_id = to_element_id(image_id)?;
++        let width = crate::renderer::dimension_u32(width, "width")?;
++        let height = crate::renderer::dimension_u32(height, "height")?;
++        let bytes = pixels.to_vec();
++        with_test_state(|cx, window, view| {
++            let view = view.clone();
++            cx.update_window(window, |_, window, app| {
++                view.update(app, |view, cx| {
++                    view.set_canvas_image_pixels(id, image_id, width, height, bytes, window, cx)
++                })
++            })
++            .map_err(|e| Error::from_reason(e.to_string()))?
++            .map_err(Error::from_reason)
++        })
++    }
++
++    /// Encoded image bytes onto an `<img>` host node.
++    #[napi]
++    pub fn set_image(&self, element_id: f64, bytes: Buffer) -> Result<()> {
+         let id = to_element_id(element_id)?;
+         let bytes = bytes.to_vec();
+         with_test_state(|cx, window, view| {
+@@ -1170,3 +1197,55 @@
 +    /// Version of the retained Canvas2D draw-list protocol.
 +    #[napi]
 +    pub fn get_canvas_draw_list_version(&self) -> u32 {
