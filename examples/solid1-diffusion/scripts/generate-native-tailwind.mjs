@@ -19,7 +19,7 @@ const themeCss = await readFile(themePath, "utf8")
 const candidates = JSON.parse(await readFile(candidatesPath, "utf8"))
 
 const compiler = await compile(themeCss, {
-  base: projectRoot,
+  base: path.dirname(themePath),
   from: themePath,
   onDependency() {},
 })
