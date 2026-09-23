@@ -31,7 +31,7 @@ export interface BatchRendererApi {
   getPaintedHighlights?(): HighlightMatch[]
   getWindowSize?(): { width: number; height: number }
   getCanvasDrawListVersion?(): number | undefined
-  measureCanvasText?(text: string, fontSize: number, fontFamily: string, fontWeight?: number): number
+  measureCanvasText?(text: string, fontSize: number, fontFamily: string, fontWeight: number): number
   getVideoFrameSurfaceVersion?(): number | undefined
   setVideoFrameBgra?(elementId: number, width: number, height: number, data: Uint8Array): void
   getVideoFrameIosurfaceVersion?(): number | undefined
