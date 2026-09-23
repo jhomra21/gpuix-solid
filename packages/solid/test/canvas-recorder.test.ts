@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest"
 import {
   CANVAS_DRAW_LIST_VERSION,
   createCanvas2DRecorder,
+  type CanvasPixelSource,
 } from "../src/host/canvas.js"
 
 describe("Canvas2D draw-list recorder", () => {
@@ -118,7 +119,7 @@ describe("Canvas2D draw-list recorder", () => {
 
   it("records drawImage through binary image resources instead of JSON pixels", () => {
     const uploads: Array<{ id: number; width: number; height: number; bytes: number[] }> = []
-    const source = {
+    const source: CanvasPixelSource = {
       width: 2,
       height: 1,
       getContext: () => ({
@@ -127,8 +128,6 @@ describe("Canvas2D draw-list recorder", () => {
         }),
       }),
     }
-    // SAFETY: the recorder intentionally accepts a Canvas2D-readable source; this fixture supplies the exact width/height/getContext contract used by drawImage.
-    const imageSource = source as CanvasImageSource
     const recorder = createCanvas2DRecorder(
       () => ({ width: 160, height: 90 }),
       undefined,
@@ -143,7 +142,7 @@ describe("Canvas2D draw-list recorder", () => {
     const ctx = recorder.context
 
     ctx.globalAlpha = 0.75
-    ctx.drawImage(imageSource, 10, 12, 40, 20)
+    ctx.drawImage(source, 10, 12, 40, 20)
 
     expect(uploads).toEqual([{
       id: 1,
@@ -163,15 +162,13 @@ describe("Canvas2D draw-list recorder", () => {
 
   it("clips drawImage source rectangles and reuses the source resource id", () => {
     const uploadedIds: number[] = []
-    const source = {
+    const source: CanvasPixelSource = {
       width: 100,
       height: 50,
       getContext: () => ({
         getImageData: () => ({ data: new Uint8ClampedArray(100 * 50 * 4) }),
       }),
     }
-    // SAFETY: the recorder intentionally accepts a Canvas2D-readable source; this fixture supplies the exact width/height/getContext contract used by drawImage.
-    const imageSource = source as CanvasImageSource
     const recorder = createCanvas2DRecorder(
       () => ({ width: 300, height: 200 }),
       undefined,
@@ -180,8 +177,8 @@ describe("Canvas2D draw-list recorder", () => {
     )
     const ctx = recorder.context
 
-    ctx.drawImage(imageSource, -10, 0, 40, 20, 0, 0, 80, 40)
-    ctx.drawImage(imageSource, 100, 60)
+    ctx.drawImage(source, -10, 0, 40, 20, 0, 0, 80, 40)
+    ctx.drawImage(source, 100, 60)
 
     expect(uploadedIds).toEqual([1, 1])
     expect(recorder.snapshot().commands[0]).toMatchObject({
@@ -198,15 +195,13 @@ describe("Canvas2D draw-list recorder", () => {
   })
 
   it("fails closed for drawImage transforms GPUI cannot reproduce yet", () => {
-    const source = {
+    const source: CanvasPixelSource = {
       width: 2,
       height: 2,
       getContext: () => ({
         getImageData: () => ({ data: new Uint8ClampedArray(16) }),
       }),
     }
-    // SAFETY: the recorder intentionally accepts a Canvas2D-readable source; this fixture supplies the exact width/height/getContext contract used by drawImage.
-    const imageSource = source as CanvasImageSource
     const recorder = createCanvas2DRecorder(
       () => ({ width: 100, height: 100 }),
       undefined,
@@ -216,7 +211,7 @@ describe("Canvas2D draw-list recorder", () => {
     const ctx = recorder.context
 
     ctx.rotate(Math.PI / 4)
-    expect(() => ctx.drawImage(imageSource, 0, 0)).toThrow(/axis-aligned scale/u)
+    expect(() => ctx.drawImage(source, 0, 0)).toThrow(/axis-aligned scale/u)
   })
 
   it("lowers arcTo into the existing cubic path protocol", () => {
