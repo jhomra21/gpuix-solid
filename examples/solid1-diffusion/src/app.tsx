@@ -5,6 +5,7 @@ import "fake-indexeddb/auto"
 // until durable native project metadata storage gets its own host boundary.
 import { onCleanup, onMount, type JSX } from "solid-js"
 import { configureNativeStyleManifest } from "@jhomra21/gpuix-solid1"
+import { nativeTailwindManifest } from "./native-tailwind.generated"
 import { DrawOverlay } from "@/components/canvas/draw-overlay"
 import { EngineCanvas } from "@/engine/canvas"
 import { CameraController } from "@/engine/camera-controller"
@@ -26,17 +27,7 @@ import {
   type RuntimeWorld,
 } from "@diffusionstudio/runtime"
 
-configureNativeStyleManifest({
-  classes: {
-    relative: { base: { position: "relative" } },
-    "size-full": { base: { width: "100%", height: "100%" } },
-    absolute: { base: { position: "absolute" } },
-    "inset-0": { base: { top: 0, right: 0, bottom: 0, left: 0 } },
-    "z-5": { base: {} },
-    "cursor-crosshair": { base: { cursor: "crosshair" } },
-    "pointer-events-none": { base: { pointerEvents: "none" } },
-  },
-})
+configureNativeStyleManifest(nativeTailwindManifest)
 
 const projectBundle = `
 const {
