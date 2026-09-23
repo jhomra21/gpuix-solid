@@ -7,7 +7,7 @@ There are four useful execution modes:
 - Browser WebCodecs: Chromium's native WebCodecs implementation.
 - `@napi-rs/webcodecs`: a WebCodecs-compatible native implementation used as a compatibility reference.
 - `@mediabunny/server`: MediaBunny's official NodeAV/FFmpeg server extension.
-- GPUix MediaBunny: `@jhomra21/gpuix-mediabunny`, which adds macOS VideoToolbox + IOSurface decoding for AVC/HEVC and keeps MediaBunny Server as the broad codec fallback.
+- GPUix MediaBunny: `@jhomra21/gpuix-mediabunny`, which adds macOS VideoToolbox and IOSurface decoding for AVC, HEVC, and supported ProRes sample entries. It also adds a Bun-safe ProRes fallback and keeps MediaBunny Server for the remaining codecs.
 
 MediaBunny is pinned to 1.59.0 so capability and benchmark results are reproducible.
 
@@ -49,21 +49,21 @@ The feature suite also covers:
 - UrlSource with HTTP range requests;
 - FilePathSource and FilePathTarget;
 - HLS file readback through `createGpuixFilePathSource()`;
-- zero-copy IOSurface GPUix presentation for native AVC/HEVC samples;
+- zero-copy IOSurface GPUix presentation for native AVC, HEVC, and supported ProRes samples;
 - BGRA GPUix presentation for fallback-decoded samples.
 
-AV1 and ProRes round trips run in isolated child processes with a bounded timeout because native codec implementations can stall independently of the rest of the suite. Both currently pass.
+AV1 and ProRes round trips run in isolated child processes with a bounded timeout because codec implementations can stall independently of the rest of the suite. Both currently pass. CI also runs the full GPUix MediaBunny matrix on macOS with Bun 1.4.2 because that runtime reproduced the earlier local ProRes timeout.
 
-## Native AVC/HEVC path
+## Native AVC, HEVC, and ProRes path
 
-On supported macOS hardware, MediaBunny's normal `VideoSampleSink` selects the registered VideoToolbox custom decoder for AVC and HEVC configurations that can open a hardware session.
+On supported macOS hardware, MediaBunny's normal `VideoSampleSink` selects the registered VideoToolbox custom decoder for AVC, HEVC, and ProRes sample entries that can open a hardware session. ProRes currently recognizes `apco`, `apcs`, `apcn`, `apch`, `ap4h`, and `ap4x`.
 
 The path is:
 
 ```text
 MediaBunny Input / VideoSampleSink
         ↓
-encoded AVC or HEVC packets
+encoded AVC, HEVC, or ProRes packets
         ↓
 native VideoToolbox worker
         ↓
@@ -88,9 +88,9 @@ CoreVideo NV12 and planar 8-bit 4:2:0 frames map directly to MediaBunny sample f
 
 ## Broad fallback
 
-`registerGpuixMediaBunny()` registers VideoToolbox first, then MediaBunny's server extension. The server extension keeps its own upstream decoder order: NodeAV first, then its bundled ProRes fallback. Codecs not handled by the macOS custom decoder therefore stay on MediaBunny's standard server path instead of requiring GPUix-specific codec implementations.
+`registerGpuixMediaBunny()` registers VideoToolbox first. Under Bun it then registers a ProRes decoder backed by TurboRes with shared memory disabled and `concurrency: 0`, which avoids the worker and shared-memory path that stalled in the Bun 1.4.2 local acceptance run. MediaBunny Server is registered after those decoders for the remaining codec coverage.
 
-This is intentional: parity means normal MediaBunny operations work. A codec only needs a GPUix-specific implementation when it provides a concrete native-performance or resource-sharing benefit.
+The ProRes parity case keeps software `prores_ks` encoding because automatic macOS hardware ProRes encoding was not reliable in CI. The decode side can still use VideoToolbox when a hardware session is available, then the Bun-safe TurboRes decoder, then the remaining MediaBunny Server fallback behavior.
 
 ## Run
 
@@ -115,6 +115,7 @@ bun run smoke:videotoolbox-stream
 bun run smoke:videotoolbox-hevc
 bun run smoke:mediabunny-videotoolbox:avc
 bun run smoke:mediabunny-videotoolbox:hevc
+bun run smoke:mediabunny-videotoolbox:prores
 bun run smoke:mediabunny-parity
 bun run bench:gpuix-mediabunny
 ```
@@ -135,7 +136,7 @@ The integration tests stage `@jhomra21/gpuix-mediabunny` into the dogfood consum
 The clean parity score applies to the tested file, codec, conversion, Canvas, and native presentation surfaces. A few environment/upstream boundaries remain outside that score:
 
 - live browser-device APIs such as `MediaStreamTrack` capture are not emulated in a headless Bun/GPUI process;
-- VideoToolbox acceleration is currently AVC/HEVC-specific. Other codecs pass through MediaBunny Server.
+- VideoToolbox acceleration covers AVC, HEVC, and supported ProRes sample entries when macOS exposes a hardware decoder. Bun also has the dedicated TurboRes ProRes fallback. Other codecs pass through MediaBunny Server.
 
 CI treats any new unsupported case, known gap, timeout, or error in the GPUix backend as a failing parity run.
 
