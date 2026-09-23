@@ -173,9 +173,57 @@ bool CreateHevcFormatDescription(
   return true;
 }
 
+CMVideoCodecType ProResCodecType(const std::string& codec) {
+  if (codec == "apco") return kCMVideoCodecType_AppleProRes422Proxy;
+  if (codec == "apcs") return kCMVideoCodecType_AppleProRes422LT;
+  if (codec == "apcn") return kCMVideoCodecType_AppleProRes422;
+  if (codec == "apch") return kCMVideoCodecType_AppleProRes422HQ;
+  if (codec == "ap4h") return kCMVideoCodecType_AppleProRes4444;
+  if (codec == "ap4x") return kCMVideoCodecType_AppleProRes4444XQ;
+  return 0;
+}
+
+bool CreateProResFormatDescription(
+  const std::string& codec,
+  int coded_width,
+  int coded_height,
+  CMVideoFormatDescriptionRef* output,
+  std::string& error
+) {
+  const CMVideoCodecType codec_type = ProResCodecType(codec);
+  if (codec_type == 0) {
+    error = "Unsupported ProRes sample entry: " + codec;
+    return false;
+  }
+  if (coded_width <= 0 || coded_height <= 0) {
+    error = "ProRes format description requires coded dimensions";
+    return false;
+  }
+
+  const OSStatus status = CMVideoFormatDescriptionCreate(
+    kCFAllocatorDefault,
+    codec_type,
+    coded_width,
+    coded_height,
+    nullptr,
+    output
+  );
+  if (status != noErr || !*output) {
+    error =
+      "CMVideoFormatDescriptionCreate for ProRes failed: "
+      + std::to_string(status);
+    *output = nullptr;
+    return false;
+  }
+
+  return true;
+}
+
 bool CreateVideoFormatDescription(
   const std::string& codec,
   const std::vector<uint8_t>& config,
+  int coded_width,
+  int coded_height,
   CMVideoFormatDescriptionRef* output,
   std::string& error
 ) {
@@ -190,6 +238,15 @@ bool CreateVideoFormatDescription(
   }
   if (codec == "hevc") {
     return CreateHevcFormatDescription(config, output, error);
+  }
+  if (ProResCodecType(codec) != 0) {
+    return CreateProResFormatDescription(
+      codec,
+      coded_width,
+      coded_height,
+      output,
+      error
+    );
   }
 
   error = "Unsupported VideoToolbox codec: " + codec;
