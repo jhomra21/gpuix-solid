@@ -10,3 +10,4 @@ pack.json
 artifacts/mail-parity/
 examples/mediabunny/reports/
 examples/mediabunny/.browser-benchmark/
+.cache/diffusion-editor/
