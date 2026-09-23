@@ -78,7 +78,8 @@
     "gpuix:edge:video-frame": "bun run --filter 'gpuix-solid' test:video-frame:native",
     "gpuix:edge:mediabunny-surface": "cd examples/mediabunny && bun install --no-save && bun run check:gpuix-live && bun run check:presentation && bun run smoke:presentation-native && bun run smoke:presentation-server-native && bun run smoke:presentation-iosurface && bun run dogfood:gpuix-surface",
     "gpuix:edge:waveform": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' test:waveform",
-    "example:waveform": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:waveform"
+    "example:waveform": "bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' run:waveform",
+    "diffusion:runtime:source": "bun examples/counter/scripts/check-diffusion-runtime-source.mjs"
   },
   "devDependencies": {
     "@oxlint/plugins": "1.79.0",
