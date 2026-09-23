@@ -303,6 +303,15 @@ export function createCanvas2DRecorder(
     ) {
       appendArc(path, x, y, radius, startAngle, endAngle, counterclockwise, state.transform)
     },
+    roundRect(
+      x: number,
+      y: number,
+      width: number,
+      height: number,
+      radii: number | readonly number[] = 0,
+    ) {
+      path.push(...roundedRectanglePath(x, y, width, height, radii, state.transform))
+    },
     fill(fillRule: CanvasFillRule = "nonzero") {
       if (fillRule !== "nonzero") {
         throw new Error("GPUix Canvas2D v1 supports the nonzero fill rule only")
@@ -496,6 +505,178 @@ function rectanglePoints(
     transformPoint(x + width, y + height, matrix),
     transformPoint(x, y + height, matrix),
   ]
+}
+
+function roundedRectanglePath(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radii: number | readonly number[],
+  matrix: CanvasMatrix,
+): CanvasPathSegment[] {
+  const rawX = finite(x)
+  const rawY = finite(y)
+  const rawWidth = finite(width)
+  const rawHeight = finite(height)
+  const left = rawWidth >= 0 ? rawX : rawX + rawWidth
+  const top = rawHeight >= 0 ? rawY : rawY + rawHeight
+  const boxWidth = Math.abs(rawWidth)
+  const boxHeight = Math.abs(rawHeight)
+
+  let [topLeft, topRight, bottomRight, bottomLeft] = normalizeRoundRectRadii(radii)
+
+  if (rawWidth < 0) {
+    ;[topLeft, topRight, bottomRight, bottomLeft] = [topRight, topLeft, bottomLeft, bottomRight]
+  }
+  if (rawHeight < 0) {
+    ;[topLeft, topRight, bottomRight, bottomLeft] = [bottomLeft, bottomRight, topRight, topLeft]
+  }
+
+  const scale = Math.min(
+    1,
+    cornerScale(boxWidth, topLeft + topRight),
+    cornerScale(boxHeight, topRight + bottomRight),
+    cornerScale(boxWidth, bottomRight + bottomLeft),
+    cornerScale(boxHeight, bottomLeft + topLeft),
+  )
+  topLeft *= scale
+  topRight *= scale
+  bottomRight *= scale
+  bottomLeft *= scale
+
+  const right = left + boxWidth
+  const bottom = top + boxHeight
+  const path: CanvasPathSegment[] = []
+
+  const move = (px: number, py: number) => {
+    const point = transformPoint(px, py, matrix)
+    path.push({ op: "moveTo", x: point[0], y: point[1] })
+  }
+  const line = (px: number, py: number) => {
+    const point = transformPoint(px, py, matrix)
+    path.push({ op: "lineTo", x: point[0], y: point[1] })
+  }
+  const curve = (
+    cp1x: number,
+    cp1y: number,
+    cp2x: number,
+    cp2y: number,
+    px: number,
+    py: number,
+  ) => {
+    const control1 = transformPoint(cp1x, cp1y, matrix)
+    const control2 = transformPoint(cp2x, cp2y, matrix)
+    const point = transformPoint(px, py, matrix)
+    path.push({
+      op: "bezierCurveTo",
+      cp1x: control1[0],
+      cp1y: control1[1],
+      cp2x: control2[0],
+      cp2y: control2[1],
+      x: point[0],
+      y: point[1],
+    })
+  }
+
+  const kappa = 0.5522847498307936
+  move(left + topLeft, top)
+  line(right - topRight, top)
+  if (topRight > 0) {
+    curve(
+      right - topRight + topRight * kappa,
+      top,
+      right,
+      top + topRight - topRight * kappa,
+      right,
+      top + topRight,
+    )
+  } else {
+    line(right, top)
+  }
+
+  line(right, bottom - bottomRight)
+  if (bottomRight > 0) {
+    curve(
+      right,
+      bottom - bottomRight + bottomRight * kappa,
+      right - bottomRight + bottomRight * kappa,
+      bottom,
+      right - bottomRight,
+      bottom,
+    )
+  } else {
+    line(right, bottom)
+  }
+
+  line(left + bottomLeft, bottom)
+  if (bottomLeft > 0) {
+    curve(
+      left + bottomLeft - bottomLeft * kappa,
+      bottom,
+      left,
+      bottom - bottomLeft + bottomLeft * kappa,
+      left,
+      bottom - bottomLeft,
+    )
+  } else {
+    line(left, bottom)
+  }
+
+  line(left, top + topLeft)
+  if (topLeft > 0) {
+    curve(
+      left,
+      top + topLeft - topLeft * kappa,
+      left + topLeft - topLeft * kappa,
+      top,
+      left + topLeft,
+      top,
+    )
+  } else {
+    line(left, top)
+  }
+
+  path.push({ op: "closePath" })
+  return path
+}
+
+function normalizeRoundRectRadii(
+  radii: number | readonly number[],
+): [number, number, number, number] {
+  const values = typeof radii === "number"
+    ? [radii]
+    : Array.isArray(radii)
+      ? [...radii]
+      : (() => {
+          throw new TypeError("GPUix Canvas2D roundRect() currently supports numeric radii only")
+        })()
+
+  if (values.length < 1 || values.length > 4) {
+    throw new RangeError("Canvas roundRect() radii must contain between one and four values")
+  }
+
+  const normalized = values.map((value) => {
+    const radius = finite(value)
+    if (radius < 0) throw new RangeError("Canvas roundRect() radii cannot be negative")
+    return radius
+  })
+
+  if (normalized.length === 1) {
+    const value = normalized[0]!
+    return [value, value, value, value]
+  }
+  if (normalized.length === 2) {
+    return [normalized[0]!, normalized[1]!, normalized[0]!, normalized[1]!]
+  }
+  if (normalized.length === 3) {
+    return [normalized[0]!, normalized[1]!, normalized[2]!, normalized[1]!]
+  }
+  return [normalized[0]!, normalized[1]!, normalized[2]!, normalized[3]!]
+}
+
+function cornerScale(edge: number, radii: number): number {
+  return radii > 0 ? edge / radii : 1
 }
 
 function appendArc(
