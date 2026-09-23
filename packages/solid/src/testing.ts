@@ -23,7 +23,7 @@ type NativeModule = {
 
 type SourceEdgeNativeTestRenderer = NativeTestRendererApi & {
   getCanvasDrawListVersion?: () => number
-  measureCanvasText?: (text: string, fontSize: number, fontFamily: string, fontWeight?: number) => number
+  measureCanvasText?: (text: string, fontSize: number, fontFamily: string, fontWeight: number) => number
   getVideoFrameSurfaceVersion?: () => number
   setVideoFrameBgra?: (elementId: number, width: number, height: number, data: Uint8Array) => void
   getVideoFrameIosurfaceVersion?: () => number
@@ -327,7 +327,7 @@ export class TestRenderer implements NativeRenderer {
     return native.getCanvasDrawListVersion?.()
   }
 
-  measureCanvasText(text: string, fontSize: number, fontFamily: string, fontWeight?: number): number {
+  measureCanvasText(text: string, fontSize: number, fontFamily: string, fontWeight: number): number {
     // SAFETY: the source-edge native renderer adds synchronous GPUI text shaping before published typings expose it.
     const native = this.#native as SourceEdgeNativeTestRenderer
     if (!native.measureCanvasText) throw new Error("Native Canvas text measurement is unavailable")
