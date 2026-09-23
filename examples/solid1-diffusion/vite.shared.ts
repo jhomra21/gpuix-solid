@@ -5,7 +5,7 @@ import { defineConfig } from "vite"
 const diffusionCommit = "666cdced1f6b97a792b63e551f45797649efb27a"
 const fromHere = (relativePath: string) => fileURLToPath(new URL(relativePath, import.meta.url))
 const sourceRoot = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/`)
-const solid1Entry = fromHere("../../packages/solid1/dist/index.js")
+const solid1Entry = fromHere("../../packages/solid1/dist/index.js")\nconst runtimeBridge = fromHere("./src/runtime-bridge.ts")
 const webSource = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/apps/web/src/`)
 
 const packageSource = (name: string) =>
@@ -32,7 +32,7 @@ export function diffusionConfig(entry: string, outDir: string) {
         { find: "@diffusionstudio/jsx", replacement: packageSource("jsx") },
         { find: "@diffusionstudio/koota-solid", replacement: packageSource("koota-solid") },
         { find: "@diffusionstudio/reconciler", replacement: packageSource("reconciler") },
-        { find: "@diffusionstudio/runtime", replacement: packageSource("runtime") },
+        { find: "@diffusionstudio/runtime-source", replacement: packageSource("runtime") },\n        { find: /^@diffusionstudio\\/runtime$/, replacement: runtimeBridge },
       ],
       conditions: ["browser", "development"],
       dedupe: ["solid-js", "koota"],

@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process"
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -15,75 +15,6 @@ function run(command, args, cwd = repoRoot, capture = false) {
     encoding: capture ? "utf8" : undefined,
     stdio: capture ? ["ignore", "pipe", "inherit"] : "inherit",
   })
-}
-
-function functionEnd(source, start) {
-  const bodyStart = source.indexOf("{", start)
-  if (bodyStart < 0) throw new Error("Could not find Koota checkQuery body")
-
-  let depth = 0
-  for (let index = bodyStart; index < source.length; index++) {
-    const char = source[index]
-    if (char === "{") depth += 1
-    if (char === "}") {
-      depth -= 1
-      if (depth === 0) return index + 1
-    }
-  }
-
-  throw new Error("Could not find end of Koota checkQuery")
-}
-
-function patchKootaOrAcrossGenerations(file) {
-  if (!existsSync(file)) return
-
-  const source = readFileSync(file, "utf8")
-  const namedFunction = /function\s+checkQuery\d*\s*\(/.exec(source)
-  const guardHint = source.indexOf("traitInstances.all.length")
-  const start =
-    namedFunction?.index ??
-    (guardHint >= 0 ? source.lastIndexOf("function ", guardHint) : -1)
-  if (start < 0) throw new Error(`Could not locate Koota checkQuery semantics in ${file}`)
-
-  const end = functionEnd(source, start)
-  let checkQuery = source.slice(start, end)
-  if (checkQuery.includes("gpuix-koota-or-cross-generation")) return
-
-  const emptyGuard =
-    /if\s*\(\s*query\.traitInstances\.all\.length\s*===\s*0\s*\)\s*return false;/
-  if (!emptyGuard.test(checkQuery)) {
-    throw new Error(`Koota checkQuery guard changed in ${file}`)
-  }
-  checkQuery = checkQuery.replace(
-    emptyGuard,
-    (match) => `${match}
-  // gpuix-koota-or-cross-generation: Or(...) is one union across every trait generation.
-  let hasOr = false;
-  let orMatched = false;`,
-  )
-
-  const brokenOr =
-    /if\s*\(\s*or\s*!==\s*0\s*&&\s*\(entityMask\s*&\s*or\)\s*===\s*0\s*\)\s*return false;/
-  if (!brokenOr.test(checkQuery)) {
-    throw new Error(`Koota cross-generation Or check changed in ${file}`)
-  }
-  checkQuery = checkQuery.replace(
-    brokenOr,
-    `if (or !== 0) {
-      hasOr = true;
-      if ((entityMask & or) !== 0) orMatched = true;
-    }`,
-  )
-
-  const finalReturn = checkQuery.lastIndexOf("return true;")
-  if (finalReturn < 0) throw new Error(`Could not find Koota checkQuery return in ${file}`)
-  checkQuery =
-    checkQuery.slice(0, finalReturn) +
-    "if (hasOr && !orMatched) return false;\n  " +
-    checkQuery.slice(finalReturn)
-
-  writeFileSync(file, source.slice(0, start) + checkQuery + source.slice(end))
-  console.log(`Patched Koota 0.6.6 cross-generation Or semantics: ${file}`)
 }
 
 if (!existsSync(join(sourceRoot, ".git"))) {
@@ -129,13 +60,6 @@ if (markers.some((marker) => !existsSync(join(sourceRoot, marker)))) {
     "--filter",
     "@diffusionstudio/koota-solid",
   ], sourceRoot)
-}
-
-for (const file of [
-  join(sourceRoot, "node_modules", "koota", "dist", "index.js"),
-  join(sourceRoot, "node_modules", "koota", "dist", "index.cjs"),
-]) {
-  patchKootaOrAcrossGenerations(file)
 }
 
 console.log(sourceRoot)
