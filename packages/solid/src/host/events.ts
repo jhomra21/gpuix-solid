@@ -53,6 +53,7 @@ const DOM_EVENT_TO_NATIVE = new Map<string, NativeEventType>()
 const DOM_EVENTS_BY_NATIVE = new Map<string, DomEventType[]>()
 for (const [propName, domEventType, nativeEventType] of EVENT_PROPS) {
   EVENT_PROP_TO_TYPE.set(propName, domEventType)
+  EVENT_PROP_TO_TYPE.set(`on:${browserEventName(domEventType)}`, domEventType)
   if (nativeEventType === null) continue
   DOM_EVENT_TO_NATIVE.set(domEventType, nativeEventType)
   const domEvents = DOM_EVENTS_BY_NATIVE.get(nativeEventType) ?? []
