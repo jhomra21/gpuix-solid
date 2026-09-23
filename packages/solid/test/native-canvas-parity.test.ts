@@ -2,7 +2,10 @@ import { existsSync, statSync, unlinkSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
-import { CANVAS_DRAW_LIST_VERSION } from "../src/host/canvas.js"
+import {
+  CANVAS_DRAW_LIST_VERSION,
+  type CanvasPixelSource,
+} from "../src/host/canvas.js"
 import {
   createElement,
   setProp,
@@ -66,7 +69,7 @@ describe("native Canvas2D source-edge parity", () => {
     context.fill()
     context.restore()
 
-    const imageSource = {
+    const imageSource: CanvasPixelSource = {
       width: 2,
       height: 2,
       getContext: () => ({
@@ -80,9 +83,7 @@ describe("native Canvas2D source-edge parity", () => {
         }),
       }),
     }
-    // SAFETY: the native Canvas bridge reads only width, height, and the 2D getImageData contract supplied above.
-    const readableImageSource = imageSource as CanvasImageSource
-    context.drawImage(readableImageSource, 202, 18, 28, 28)
+    context.drawImage(imageSource, 202, 18, 28, 28)
 
     context.fillStyle = "#ffffff"
     context.font = "600 16px Arial"
