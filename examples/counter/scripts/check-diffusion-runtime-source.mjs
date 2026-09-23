@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process"
 import { existsSync, mkdirSync } from "node:fs"
+import { createRequire } from "node:module"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 
@@ -81,9 +82,11 @@ globalThis.HTMLElement = HeadlessHTMLElement
 globalThis.HTMLCanvasElement = HeadlessHTMLCanvasElement
 globalThis.HTMLImageElement = HeadlessHTMLImageElement
 
-const runtime = await import(sourceModule("packages/runtime/src/index.ts"))
-const { createRuntimeDocument } = await import(sourceModule("packages/reconciler/src/document.ts"))
-const { mount } = await import(sourceModule("packages/reconciler/src/mount.ts"))
+const sourceRequire = createRequire(join(sourceRoot, "package.json"))
+const runtimeEntry = sourceRequire.resolve("@diffusionstudio/runtime")
+const reconcilerEntry = sourceRequire.resolve("@diffusionstudio/reconciler")
+const runtime = await import(pathToFileURL(runtimeEntry).href)
+const { createRuntimeDocument, mount } = await import(pathToFileURL(reconcilerEntry).href)
 const {
   CANVAS_DRAW_LIST_VERSION,
   createCanvas2DRecorder,
