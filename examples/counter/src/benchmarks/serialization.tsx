@@ -250,9 +250,10 @@ function benchCanvasDrawList(drawList: CanvasDrawList, iterations: number): void
   console.log("\nCanvas draw-list sample")
   console.log("| commands | path segments | encode p50/p95/p99 | decode p50/p95/p99 | wire bytes |")
   console.log("| ---: | ---: | ---: | ---: | ---: |")
-  const pathSegments = drawList.commands.reduce((total, command) => (
-    command.op === "fillText" ? total : total + command.path.length
-  ), 0)
+  const pathSegments = drawList.commands.reduce((total, command) => {
+    if (command.op !== "fillPath" && command.op !== "strokePath") return total
+    return total + command.path.length
+  }, 0)
   console.log(
     `| ${drawList.commands.length} | ${pathSegments} | ` +
       `${encode.p50.toFixed(2)}/${encode.p95.toFixed(2)}/${encode.p99.toFixed(2)} ms | ` +
