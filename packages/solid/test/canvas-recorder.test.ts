@@ -116,6 +116,50 @@ describe("Canvas2D draw-list recorder", () => {
     expect(command.path.filter((segment) => segment.op === "bezierCurveTo")).toHaveLength(4)
   })
 
+  it("lowers roundRect into the existing path protocol", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 120, height: 80 }))
+    const ctx = recorder.context
+
+    ctx.translate(2, 3)
+    ctx.beginPath()
+    ctx.roundRect(10, 20, 80, 40, 8)
+    ctx.fill()
+
+    const command = recorder.snapshot().commands[0]
+    expect(command?.op).toBe("fillPath")
+    if (command?.op !== "fillPath") throw new Error("expected fill path")
+    expect(command.path).toHaveLength(10)
+    expect(command.path[0]).toEqual({ op: "moveTo", x: 20, y: 23 })
+    expect(command.path[1]).toEqual({ op: "lineTo", x: 84, y: 23 })
+    expect(command.path[2]).toMatchObject({ op: "bezierCurveTo", x: 92, y: 31 })
+    expect(command.path[8]).toMatchObject({ op: "bezierCurveTo", x: 20, y: 23 })
+    expect(command.path[9]).toEqual({ op: "closePath" })
+  })
+
+  it("matches Canvas roundRect corner assignment for negative dimensions", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 120, height: 80 }))
+    const ctx = recorder.context
+
+    ctx.beginPath()
+    ctx.roundRect(90, 60, -80, -40, [2, 4, 6, 8])
+    ctx.stroke()
+
+    const command = recorder.snapshot().commands[0]
+    expect(command?.op).toBe("strokePath")
+    if (command?.op !== "strokePath") throw new Error("expected stroke path")
+    expect(command.path[0]).toEqual({ op: "moveTo", x: 16, y: 20 })
+    expect(command.path[1]).toEqual({ op: "lineTo", x: 86, y: 20 })
+  })
+
+  it("rejects invalid roundRect radii instead of approximating them", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
+    const ctx = recorder.context
+
+    expect(() => ctx.roundRect(0, 0, 10, 10, -1)).toThrow(/cannot be negative/u)
+    expect(() => ctx.roundRect(0, 0, 10, 10, [])).toThrow(/between one and four/u)
+    expect(() => ctx.roundRect(0, 0, 10, 10, [1, 2, 3, 4, 5])).toThrow(/between one and four/u)
+  })
+
   it("clears the retained command list only for a full backing-store clear", () => {
     const recorder = createCanvas2DRecorder(() => ({ width: 100, height: 50 }))
     const ctx = recorder.context
