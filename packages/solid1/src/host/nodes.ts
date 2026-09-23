@@ -163,6 +163,18 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
         }
         return measure(text, fontSize, fontFamily, fontWeight)
       },
+      (imageId, source) => {
+        const root = this.root
+        if (!root || !this.nativeAlive) {
+          throw new Error("GPUix Canvas2D drawImage() target is not connected")
+        }
+        const upload = root.driver.renderer.setCanvasImagePixels
+        if (!upload) {
+          throw new Error("GPUix Canvas2D drawImage() requires native image upload support")
+        }
+        root.driver.flush()
+        upload(this.id, imageId, source.width, source.height, source.pixels)
+      },
     )
     this.#scheduleCanvasDrawList()
     return this.#canvas2d.context
