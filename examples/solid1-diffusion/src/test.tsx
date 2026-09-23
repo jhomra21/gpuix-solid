@@ -4,6 +4,7 @@ import {
   armDiffusionSourceHandTool,
   armDiffusionSourceRectTool,
   DiffusionSourceEngine,
+  readDiffusionSourceEditorState,
   readDiffusionSourceSelection,
   readDiffusionSourceState,
   resetDiffusionSourceCamera,
@@ -104,10 +105,26 @@ if (!hasNativeTestRenderer) {
     app.root.flush()
     app.renderer.flush()
 
+    const overlay = Array.from(document.body.querySelectorAll("div"))
+      .find((element) => element.style.cursor === "crosshair")
+    let overlayPointerDowns = 0
+    overlay?.addEventListener("pointerdown", () => {
+      overlayPointerDowns += 1
+    })
+    console.log("solid1 Diffusion source DrawOverlay before:", JSON.stringify({
+      overlayBounds: overlay?.getBoundingClientRect() ?? null,
+      editor: readDiffusionSourceEditorState(),
+    }))
+
     app.renderer.dragTestId("diffusion-source-engine", 120, 80)
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
     app.root.flush()
     app.renderer.flush()
+
+    console.log("solid1 Diffusion source DrawOverlay after:", JSON.stringify({
+      overlayPointerDowns,
+      editor: readDiffusionSourceEditorState(),
+    }))
 
     const selection = readDiffusionSourceSelection()
     requireCondition(selection.length === 1, `Diffusion DrawOverlay should select one inserted rectangle, got ${selection.length}`)
