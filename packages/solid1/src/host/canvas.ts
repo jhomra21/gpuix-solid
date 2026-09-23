@@ -322,6 +322,9 @@ export function createCanvas2DRecorder(
     ) {
       appendArc(path, x, y, radius, startAngle, endAngle, counterclockwise, state.transform)
     },
+    arcTo(x1: number, y1: number, x2: number, y2: number, radius: number) {
+      appendArcTo(path, x1, y1, x2, y2, radius, state.transform)
+    },
     roundRect(
       x: number,
       y: number,
@@ -785,6 +788,148 @@ function normalizeRoundRectRadii(
 
 function cornerScale(edge: number, radii: number): number {
   return radii > 0 ? edge / radii : 1
+}
+
+function appendArcTo(
+  path: CanvasPathSegment[],
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  radius: number,
+  matrix: CanvasMatrix,
+): void {
+  const r = finite(radius)
+  if (r < 0) {
+    throw new DOMException("The radius provided is negative.", "IndexSizeError")
+  }
+
+  const corner: readonly [number, number] = [finite(x1), finite(y1)]
+  const next: readonly [number, number] = [finite(x2), finite(y2)]
+  const currentCanvas = currentPathPoint(path)
+  if (!currentCanvas) {
+    const point = transformPoint(corner[0], corner[1], matrix)
+    path.push({ op: "moveTo", x: point[0], y: point[1] })
+    return
+  }
+
+  const inverse = invertMatrix(matrix)
+  const current = transformPoint(currentCanvas[0], currentCanvas[1], inverse)
+  const incomingX = current[0] - corner[0]
+  const incomingY = current[1] - corner[1]
+  const outgoingX = next[0] - corner[0]
+  const outgoingY = next[1] - corner[1]
+  const incomingLength = Math.hypot(incomingX, incomingY)
+  const outgoingLength = Math.hypot(outgoingX, outgoingY)
+
+  if (
+    r === 0 ||
+    incomingLength <= Number.EPSILON ||
+    outgoingLength <= Number.EPSILON
+  ) {
+    appendLineTo(path, corner[0], corner[1], matrix)
+    return
+  }
+
+  const incoming: readonly [number, number] = [
+    incomingX / incomingLength,
+    incomingY / incomingLength,
+  ]
+  const outgoing: readonly [number, number] = [
+    outgoingX / outgoingLength,
+    outgoingY / outgoingLength,
+  ]
+  const cross = incoming[0] * outgoing[1] - incoming[1] * outgoing[0]
+  const dot = Math.max(-1, Math.min(1, incoming[0] * outgoing[0] + incoming[1] * outgoing[1]))
+
+  if (Math.abs(cross) <= 1e-12 || Math.abs(1 - Math.abs(dot)) <= 1e-12) {
+    appendLineTo(path, corner[0], corner[1], matrix)
+    return
+  }
+
+  const angle = Math.acos(dot)
+  const tangentDistance = r / Math.tan(angle / 2)
+  if (!Number.isFinite(tangentDistance)) {
+    appendLineTo(path, corner[0], corner[1], matrix)
+    return
+  }
+
+  const tangent1: readonly [number, number] = [
+    corner[0] + incoming[0] * tangentDistance,
+    corner[1] + incoming[1] * tangentDistance,
+  ]
+  const tangent2: readonly [number, number] = [
+    corner[0] + outgoing[0] * tangentDistance,
+    corner[1] + outgoing[1] * tangentDistance,
+  ]
+  const turn = Math.sign(cross)
+  const center: readonly [number, number] = [
+    tangent1[0] + (-incoming[1]) * turn * r,
+    tangent1[1] + incoming[0] * turn * r,
+  ]
+  const startAngle = Math.atan2(tangent1[1] - center[1], tangent1[0] - center[0])
+  const endAngle = Math.atan2(tangent2[1] - center[1], tangent2[0] - center[0])
+
+  appendArc(
+    path,
+    center[0],
+    center[1],
+    r,
+    startAngle,
+    endAngle,
+    cross > 0,
+    matrix,
+  )
+}
+
+function appendLineTo(
+  path: CanvasPathSegment[],
+  x: number,
+  y: number,
+  matrix: CanvasMatrix,
+): void {
+  const point = transformPoint(x, y, matrix)
+  path.push({ op: "lineTo", x: point[0], y: point[1] })
+}
+
+function currentPathPoint(path: readonly CanvasPathSegment[]): readonly [number, number] | null {
+  let subpathStart: readonly [number, number] | null = null
+  let current: readonly [number, number] | null = null
+  for (const segment of path) {
+    switch (segment.op) {
+      case "moveTo":
+        subpathStart = [segment.x, segment.y]
+        current = subpathStart
+        break
+      case "lineTo":
+      case "quadraticCurveTo":
+      case "bezierCurveTo":
+        current = [segment.x, segment.y]
+        break
+      case "closePath":
+        current = subpathStart
+        break
+    }
+  }
+  return current
+}
+
+function invertMatrix(matrix: CanvasMatrix): CanvasMatrix {
+  const [a, b, c, d, e, f] = matrix
+  const determinant = a * d - b * c
+  const tolerance = Math.max(1, Math.abs(a), Math.abs(b), Math.abs(c), Math.abs(d)) * 1e-12
+  if (!Number.isFinite(determinant) || Math.abs(determinant) <= tolerance) {
+    throw new TypeError("GPUix Canvas2D cannot apply arcTo() with a non-invertible transform")
+  }
+  const inverse = 1 / determinant
+  return [
+    d * inverse,
+    -b * inverse,
+    -c * inverse,
+    a * inverse,
+    (c * f - d * e) * inverse,
+    (b * e - a * f) * inverse,
+  ]
 }
 
 function appendArc(
