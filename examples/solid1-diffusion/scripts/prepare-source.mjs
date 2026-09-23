@@ -38,29 +38,32 @@ function patchKootaOrAcrossGenerations(file) {
   if (!existsSync(file)) return
 
   const source = readFileSync(file, "utf8")
-  const start = source.indexOf("function checkQuery(")
-  if (start < 0) throw new Error(`Could not find Koota checkQuery in ${file}`)
+  if (source.includes("gpuix-koota-or-cross-generation")) return
 
+  const brokenOr = /if\s*\(\s*or\s*!==\s*0\s*&&\s*\(entityMask\s*&\s*or\)\s*===\s*0\s*\)\s*return false;/
+  const brokenMatch = brokenOr.exec(source)
+  if (!brokenMatch) {
+    throw new Error(`Could not find Koota cross-generation Or check in ${file}`)
+  }
+
+  const start = source.lastIndexOf("function ", brokenMatch.index)
+  if (start < 0) throw new Error(`Could not find Koota query function around Or check in ${file}`)
   const end = functionEnd(source, start)
   let checkQuery = source.slice(start, end)
-  if (checkQuery.includes("gpuix-koota-or-cross-generation")) return
 
-  const emptyGuard = "if (query.traitInstances.all.length === 0) return false;"
-  if (!checkQuery.includes(emptyGuard)) {
-    throw new Error(`Koota checkQuery guard changed in ${file}`)
+  const emptyGuard = /if\s*\(\s*query\.traitInstances\.all\.length\s*===\s*0\s*\)\s*return false;/
+  const emptyMatch = emptyGuard.exec(checkQuery)
+  if (!emptyMatch) {
+    throw new Error(`Koota query guard changed in ${file}`)
   }
   checkQuery = checkQuery.replace(
     emptyGuard,
-    `${emptyGuard}
+    `${emptyMatch[0]}
   // gpuix-koota-or-cross-generation: Or(...) is one union across every trait generation.
   let hasOr = false;
   let orMatched = false;`,
   )
 
-  const brokenOr = /if\s*\(\s*or\s*!==\s*0\s*&&\s*\(entityMask\s*&\s*or\)\s*===\s*0\s*\)\s*return false;/
-  if (!brokenOr.test(checkQuery)) {
-    throw new Error(`Koota cross-generation Or check changed in ${file}`)
-  }
   checkQuery = checkQuery.replace(
     brokenOr,
     `if (or !== 0) {
