@@ -355,7 +355,7 @@ export function createCanvas2DRecorder(
       const font = parseFont(state.font)
       const width = measureTextNative(
         String(text),
-        font.size * textScale(state.transform),
+        font.size,
         font.family,
         font.weight ?? 400,
       )
