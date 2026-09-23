@@ -314,7 +314,7 @@ export function createCanvas2DRecorder(
       y: number,
       width: number,
       height: number,
-      radii: number | readonly number[] = 0,
+      radii: number | number[] = 0,
     ) {
       path.push(...roundedRectanglePath(x, y, width, height, radii, state.transform))
     },
@@ -534,7 +534,7 @@ function roundedRectanglePath(
   y: number,
   width: number,
   height: number,
-  radii: number | readonly number[],
+  radii: number | number[],
   matrix: CanvasMatrix,
 ): CanvasPathSegment[] {
   const rawX = finite(x)
@@ -664,15 +664,9 @@ function roundedRectanglePath(
 }
 
 function normalizeRoundRectRadii(
-  radii: number | readonly number[],
+  radii: number | number[],
 ): [number, number, number, number] {
-  const values = typeof radii === "number"
-    ? [radii]
-    : Array.isArray(radii)
-      ? [...radii]
-      : (() => {
-          throw new TypeError("GPUix Canvas2D roundRect() currently supports numeric radii only")
-        })()
+  const values = Array.isArray(radii) ? [...radii] : [radii]
 
   if (values.length < 1 || values.length > 4) {
     throw new RangeError("Canvas roundRect() radii must contain between one and four values")
