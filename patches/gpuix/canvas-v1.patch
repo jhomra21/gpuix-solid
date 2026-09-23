@@ -533,7 +533,7 @@ new file mode 100644
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -2680,2 +2680,55 @@
+@@ -2680,2 +2680,57 @@
 +    /// Version of the retained Canvas2D draw-list protocol.
 +    #[napi]
 +    pub fn get_canvas_draw_list_version(&self) -> u32 {
@@ -594,7 +594,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 diff --git a/packages/native/src/test_renderer.rs b/packages/native/src/test_renderer.rs
 --- a/packages/native/src/test_renderer.rs
 +++ b/packages/native/src/test_renderer.rs
-@@ -1170,2 +1170,51 @@
+@@ -1170,2 +1170,54 @@
 +    /// Version of the retained Canvas2D draw-list protocol.
 +    #[napi]
 +    pub fn get_canvas_draw_list_version(&self) -> u32 {
