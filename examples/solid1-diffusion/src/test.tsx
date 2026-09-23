@@ -2,8 +2,11 @@ import { createTestRoot, hasNativeTestRenderer } from "@jhomra21/gpuix-solid1"
 import { existsSync, statSync, unlinkSync } from "node:fs"
 import {
   armDiffusionSourceHandTool,
+  armDiffusionSourceRectTool,
   DiffusionSourceEngine,
+  readDiffusionSourceSelection,
   readDiffusionSourceState,
+  resetDiffusionSourceCamera,
 } from "./app"
 
 const screenshotPath = "/tmp/gpuix-solid1-diffusion-source.png"
@@ -86,9 +89,6 @@ if (!hasNativeTestRenderer) {
       pannedDrawList.includes("\"color\":\"#22C55E\""),
       "Diffusion project rectangle should still render after CameraController pan",
     )
-
-    app.renderer.captureScreenshot(screenshotPath)
-    requireCondition(statSync(screenshotPath).size > 0, "Panned Diffusion source screenshot should not be empty")
     console.log("solid1 Diffusion source camera pan:", JSON.stringify({
       before: beforeCamera,
       after: panned.camera,
@@ -98,7 +98,36 @@ if (!hasNativeTestRenderer) {
       },
     }))
 
-    console.log("solid1 Diffusion source EngineProvider + EngineCanvas + CameraController: passed")
+    resetDiffusionSourceCamera()
+    armDiffusionSourceRectTool()
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+    app.root.flush()
+    app.renderer.flush()
+
+    app.renderer.dragTestId("diffusion-source-engine", 120, 80)
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+    app.root.flush()
+    app.renderer.flush()
+
+    const selection = readDiffusionSourceSelection()
+    requireCondition(selection.length === 1, `Diffusion DrawOverlay should select one inserted rectangle, got ${selection.length}`)
+    const [inserted] = selection
+    requireCondition(inserted !== undefined, "Diffusion DrawOverlay should return the inserted rectangle")
+    requireCondition(inserted.name?.startsWith("Rect") === true, `Expected inserted Rect name, got ${inserted.name}`)
+    requireCondition(inserted.width === 120, `Expected inserted Rect width 120, got ${inserted.width}`)
+    requireCondition(inserted.height === 80, `Expected inserted Rect height 80, got ${inserted.height}`)
+
+    const editedDrawList = app.renderer.customPropJsonContainingAll("drawList", ["\"version\":3"])
+    requireCondition(
+      editedDrawList.includes("\"color\":\"#E0E0E0\""),
+      "Diffusion draw list should contain the rectangle inserted by the real DrawOverlay",
+    )
+
+    app.renderer.captureScreenshot(screenshotPath)
+    requireCondition(statSync(screenshotPath).size > 0, "Edited Diffusion source screenshot should not be empty")
+    console.log("solid1 Diffusion source DrawOverlay insert:", JSON.stringify(inserted))
+
+    console.log("solid1 Diffusion source EngineCanvas + CameraController + DrawOverlay: passed")
   } finally {
     app.unmount()
   }
