@@ -97,7 +97,7 @@ export function createCanvas2DRecorder(
     text: string,
     fontSize: number,
     fontFamily: string,
-    fontWeight?: number,
+    fontWeight: number,
   ) => number,
 ): Canvas2DRecorder {
   let commands: CanvasDrawCommand[] = []
@@ -357,7 +357,7 @@ export function createCanvas2DRecorder(
         String(text),
         font.size * textScale(state.transform),
         font.family,
-        font.weight,
+        font.weight ?? 400,
       )
       if (!Number.isFinite(width) || width < 0) {
         throw new Error(`GPUix native text measurement returned invalid width ${width}`)
