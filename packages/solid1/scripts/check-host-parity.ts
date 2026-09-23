@@ -67,6 +67,18 @@ if (sourceClip?.backgroundColor !== "rgba(0, 167, 108, 0.2)") {
 
 installDomEventEnvironment()
 
+const injectedStyle = document.createElement("style")
+injectedStyle.appendChild(document.createTextNode(".gpuix-style-inject-check { display: block; }"))
+document.head.appendChild(injectedStyle)
+if (document.getElementsByTagName("head")[0] !== document.head) {
+  throw new Error("document.getElementsByTagName must expose the compatibility head")
+}
+if (document.head.firstChild !== injectedStyle) {
+  throw new Error("document.head must support browser-style appendChild ordering")
+}
+document.head.removeChild(injectedStyle)
+if (document.head.firstChild !== null) throw new Error("document.head removeChild must detach injected styles")
+
 const selectorRoot = createHostElement("div", "section")
 const selectorButton = createHostElement("div", "button")
 const selectorLabel = createHostElement("text", "span")
