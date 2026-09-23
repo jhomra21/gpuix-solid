@@ -88,9 +88,15 @@ export class BunSafeProResDecoder extends CustomVideoDecoder {
         timestamp: packet.timestamp,
         duration: packet.duration,
         colorSpace: {
-          primaries: result.colorPrimariesString as VideoColorPrimaries | undefined,
-          matrix: result.colorMatrixString as VideoMatrixCoefficients | undefined,
-          transfer: result.colorTransferString as VideoTransferCharacteristics | undefined,
+          ...(result.colorPrimariesString
+            ? { primaries: result.colorPrimariesString as VideoColorPrimaries }
+            : {}),
+          ...(result.colorMatrixString
+            ? { matrix: result.colorMatrixString as VideoMatrixCoefficients }
+            : {}),
+          ...(result.colorTransferString
+            ? { transfer: result.colorTransferString as VideoTransferCharacteristics }
+            : {}),
           fullRange: result.colorRangeFull,
         },
       })
