@@ -149,9 +149,6 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
 
   getContext(contextId: string): GpuixCanvasRenderingContext2D | null {
     if (this.localName !== "canvas" || contextId !== "2d") return null
-    const root = this.root
-    if (!root || !this.nativeAlive) return null
-    if (root.driver.renderer.getCanvasDrawListVersion?.() !== CANVAS_DRAW_LIST_VERSION) return null
 
     this.#canvas2d ??= createCanvas2DRecorder(
       () => ({ width: this.width, height: this.height }),
@@ -199,6 +196,11 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
 
   resetCanvas2D(): void {
     this.#canvas2d?.reset()
+  }
+
+  syncCanvas2D(): void {
+    if (this.localName !== "canvas" || !this.#canvas2d) return
+    this.#scheduleCanvasDrawList()
   }
 
   setVideoFrame(frame: VideoFrameSurfaceFrame | null): void {
@@ -1007,6 +1009,7 @@ function adopt(root: HostRootNode, node: HostNode): void {
       if (BUILT_IN_TYPES.has(node.nativeType) && !isForwardedBuiltInProp(node, name)) continue
       root.driver.enqueue("setCustomProp", node.id, name, customPropValue(value))
     }
+    node.syncCanvas2D()
     node.syncVideoFrameSurface()
   }
 
