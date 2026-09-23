@@ -11,7 +11,7 @@ import {
 
 const screenshotPath = "/tmp/gpuix-solid1-diffusion-source.png"
 
-function requireCondition(condition: unknown, message: string): asserts condition {
+function requireCondition(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
 
