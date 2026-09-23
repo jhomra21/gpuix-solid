@@ -308,6 +308,7 @@ export function createCanvas2DRecorder(
       path = []
     },
     closePath() {
+      if (path.at(-1)?.op === "closePath") return
       path.push({ op: "closePath" })
     },
     moveTo(x: number, y: number) {
