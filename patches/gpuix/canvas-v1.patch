@@ -126,7 +126,7 @@ diff --git a/packages/native/src/custom_elements/canvas.rs b/packages/native/src
 new file mode 100644
 --- /dev/null
 +++ b/packages/native/src/custom_elements/canvas.rs
-@@ -0,0 +1,688 @@
+@@ -0,0 +1,684 @@
 +use gpui::prelude::*;
 +use serde::Deserialize;
 +use std::collections::HashMap;
@@ -215,7 +215,6 @@ new file mode 100644
 +        image_id: u64,
 +        source: CanvasImageRect,
 +        destination: CanvasImageRect,
-+        alpha: f32,
 +        #[serde(default)]
 +        clip: Option<CanvasClipRect>,
 +    },
@@ -679,7 +678,6 @@ new file mode 100644
 +                image_id,
 +                source,
 +                destination,
-+                alpha,
 +                ..
 +            } => {
 +                let Some(resource) = images.get(image_id) else {
@@ -704,16 +702,14 @@ new file mode 100644
 +                };
 +                let full = canvas_image_bounds(&full, bounds, scale_x, scale_y);
 +                paint_with_clip(command.clip(), draw_list, bounds, window, |window| {
-+                    window.with_element_opacity(Some(alpha.clamp(0.0, 1.0)), |window| {
-+                        let _ = window.paint_image(
-+                            visible,
-+                            full,
-+                            gpui::Corners::default(),
-+                            resource.image.clone(),
-+                            0,
-+                            false,
-+                        );
-+                    });
++                    let _ = window.paint_image(
++                        visible,
++                        full,
++                        gpui::Corners::default(),
++                        resource.image.clone(),
++                        0,
++                        false,
++                    );
 +                });
 +            }
 +        }
