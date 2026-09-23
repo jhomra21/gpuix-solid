@@ -141,7 +141,7 @@ export function createCanvas2DRecorder(
   let path: CanvasPathSegment[] = []
   let state = defaultState()
   const stack: CanvasState[] = []
-  const imageIds = new WeakMap<object, number>()
+  const imageIds = new WeakMap<CanvasImageSource, number>()
   let nextImageId = 1
 
   const changed = () => onChange()
@@ -248,7 +248,7 @@ export function createCanvas2DRecorder(
     clearRect(x: number, y: number, width: number, height: number) {
       const points = rectanglePoints(x, y, width, height, state.transform)
       if (!coversBackingStore(points, getSize())) {
-        throw new Error("GPUix Canvas2D v2 supports clearRect() only when it clears the full backing store")
+        throw new Error("GPUix Canvas2D v3 supports clearRect() only when it clears the full backing store")
       }
       commands = []
       path = []
@@ -362,17 +362,17 @@ export function createCanvas2DRecorder(
     },
     clip(fillRule: CanvasFillRule = "nonzero") {
       if (fillRule !== "nonzero") {
-        throw new Error("GPUix Canvas2D v2 supports the nonzero clip rule only")
+        throw new Error("GPUix Canvas2D v3 supports the nonzero clip rule only")
       }
       const nextClip = rectangularClipFromPath(path)
       if (!nextClip) {
-        throw new Error("GPUix Canvas2D v2 supports clip() only for one axis-aligned rectangular path")
+        throw new Error("GPUix Canvas2D v3 supports clip() only for one axis-aligned rectangular path")
       }
       state.clip = intersectClipRects(state.clip, nextClip)
     },
     fill(fillRule: CanvasFillRule = "nonzero") {
       if (fillRule !== "nonzero") {
-        throw new Error("GPUix Canvas2D v2 supports the nonzero fill rule only")
+        throw new Error("GPUix Canvas2D v3 supports the nonzero fill rule only")
       }
       if (path.length === 0) return
       commands.push(withCanvasClip({
@@ -424,11 +424,11 @@ export function createCanvas2DRecorder(
       const rectangles = resolveDrawImageRectangles(pixels.width, pixels.height, args)
       if (!rectangles) return
       const destination = transformImageRect(rectangles.destination, state.transform)
-      let imageId = imageIds.get(image as object)
+      let imageId = imageIds.get(image)
       if (imageId === undefined) {
         imageId = nextImageId
         nextImageId += 1
-        imageIds.set(image as object, imageId)
+        imageIds.set(image, imageId)
       }
       uploadImageNative(imageId, pixels)
       commands.push(withCanvasClip({
@@ -442,10 +442,10 @@ export function createCanvas2DRecorder(
     },
     fillText(text: string, x: number, y: number, maxWidth?: number) {
       if (maxWidth !== undefined) {
-        throw new Error("GPUix Canvas2D v2 does not support fillText() maxWidth")
+        throw new Error("GPUix Canvas2D v3 does not support fillText() maxWidth")
       }
       if (String(text).includes("\n")) {
-        throw new Error("GPUix Canvas2D v2 does not support newlines in fillText()")
+        throw new Error("GPUix Canvas2D v3 does not support newlines in fillText()")
       }
       assertTextTransform(state.transform)
       const point = transformPoint(x, y, state.transform)
@@ -467,7 +467,7 @@ export function createCanvas2DRecorder(
       changed()
     },
   }
-  // SAFETY: this host object deliberately implements the Canvas2D subset supported by protocol v1.
+  // SAFETY: this host object deliberately implements the Canvas2D subset supported by protocol v3.
   // Browser-compiled source still sees the standard CanvasRenderingContext2D contract; unsupported
   // operations are absent or fail closed rather than being serialized incorrectly.
   const canvasContext = context as CanvasRenderingContext2D
@@ -505,7 +505,7 @@ function assertSimilarityTransform(matrix: CanvasMatrix, operation: string): voi
     Math.abs(scaleX - scaleY) > scaleTolerance ||
     Math.abs(a * c + b * d) > orthogonalTolerance
   ) {
-    throw new Error(`GPUix Canvas2D v2 requires a rotation/reflection + uniform scale transform for ${operation}`)
+    throw new Error(`GPUix Canvas2D v3 requires a rotation/reflection + uniform scale transform for ${operation}`)
   }
 }
 
@@ -519,19 +519,19 @@ function assertTextTransform(matrix: CanvasMatrix): void {
     Math.abs(b) > tolerance ||
     Math.abs(c) > tolerance
   ) {
-    throw new Error("GPUix Canvas2D v2 requires translation + positive uniform scale for fillText()")
+    throw new Error("GPUix Canvas2D v3 requires translation + positive uniform scale for fillText()")
   }
 }
 
 function assertSupportedStrokeState(state: CanvasState): void {
   if (state.lineCap !== "butt") {
-    throw new Error(`GPUix Canvas2D v2 does not support lineCap=${JSON.stringify(state.lineCap)}`)
+    throw new Error(`GPUix Canvas2D v3 does not support lineCap=${JSON.stringify(state.lineCap)}`)
   }
   if (state.lineJoin !== "miter") {
-    throw new Error(`GPUix Canvas2D v2 does not support lineJoin=${JSON.stringify(state.lineJoin)}`)
+    throw new Error(`GPUix Canvas2D v3 does not support lineJoin=${JSON.stringify(state.lineJoin)}`)
   }
   if (state.miterLimit !== 10) {
-    throw new Error(`GPUix Canvas2D v2 does not support miterLimit=${state.miterLimit}`)
+    throw new Error(`GPUix Canvas2D v3 does not support miterLimit=${state.miterLimit}`)
   }
 }
 
@@ -586,32 +586,23 @@ function cloneCommand(command: CanvasDrawCommand): CanvasDrawCommand {
 }
 
 function readCanvasImagePixels(image: CanvasImageSource): CanvasImagePixels {
-  if (typeof image !== "object" || image === null) {
-    throw new TypeError("GPUix Canvas2D drawImage() requires an object image source")
+  if (!("getContext" in image)) {
+    throw new TypeError(
+      "GPUix Canvas2D drawImage() currently supports canvas-like sources with readable RGBA pixels",
+    )
   }
-  const candidate = image as unknown as {
-    width?: unknown
-    height?: unknown
-    getContext?: (contextId: string) => {
-      getImageData?: (x: number, y: number, width: number, height: number) => {
-        data: Uint8ClampedArray
-      }
-    } | null
-  }
-  const width = Number(candidate.width)
-  const height = Number(candidate.height)
+  const width = Number(image.width)
+  const height = Number(image.height)
   if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
     throw new DOMException("The image source has no usable dimensions.", "InvalidStateError")
   }
   const integerWidth = Math.floor(width)
   const integerHeight = Math.floor(height)
-  const context = candidate.getContext?.("2d")
-  const data = context?.getImageData?.(0, 0, integerWidth, integerHeight).data
-  if (!data) {
-    throw new TypeError(
-      "GPUix Canvas2D drawImage() currently supports canvas-like sources with readable RGBA pixels",
-    )
+  const context = image.getContext("2d")
+  if (!context) {
+    throw new TypeError("GPUix Canvas2D drawImage() could not read the source Canvas2D context")
   }
+  const data = context.getImageData(0, 0, integerWidth, integerHeight).data
   return {
     width: integerWidth,
     height: integerHeight,
@@ -1210,7 +1201,7 @@ function finiteMatrix(
     e === undefined || !Number.isFinite(e) ||
     f === undefined || !Number.isFinite(f)
   ) {
-    throw new TypeError("GPUix Canvas2D v2 supports only the six-number setTransform() overload")
+    throw new TypeError("GPUix Canvas2D v3 supports only the six-number setTransform() overload")
   }
   return [a, b, c, d, e, f]
 }
@@ -1362,7 +1353,7 @@ function finite(value: number): number {
 function stringPaint(value: string | CanvasGradient | CanvasPattern, property: string): string {
   const serialized = String(value)
   if (value !== serialized) {
-    throw new TypeError(`GPUix Canvas2D v2 supports string ${property} values only`)
+    throw new TypeError(`GPUix Canvas2D v3 supports string ${property} values only`)
   }
   return serialized
 }
@@ -1370,12 +1361,12 @@ function stringPaint(value: string | CanvasGradient | CanvasPattern, property: s
 function parseFont(value: string): ParsedFont {
   const match = value.trim().match(/^(?:(normal|bold|[1-9]00)\s+)?(\d+(?:\.\d+)?)px\s+(.+)$/)
   if (!match) {
-    throw new TypeError(`GPUix Canvas2D v2 cannot represent font ${JSON.stringify(value)}`)
+    throw new TypeError(`GPUix Canvas2D v3 cannot represent font ${JSON.stringify(value)}`)
   }
   const size = Number(match[2])
   const family = match[3]?.trim()
   if (!Number.isFinite(size) || size <= 0 || !family) {
-    throw new TypeError(`GPUix Canvas2D v2 cannot represent font ${JSON.stringify(value)}`)
+    throw new TypeError(`GPUix Canvas2D v3 cannot represent font ${JSON.stringify(value)}`)
   }
   const token = match[1]
   const weight = token === "bold"
