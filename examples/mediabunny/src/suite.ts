@@ -683,10 +683,7 @@ async function runVideoCodecRoundTrip(
     const source = new VideoSampleSource({
       codec,
       ...(codec === "prores"
-        ? {
-            bitrate: 1_000_000,
-            hardwareAcceleration: "prefer-software" as const,
-          }
+        ? { bitrate: 1_000_000 }
         : { quality: new Quality("medium") }),
       onEncoderConfig(config) {
         encoderConfigCodec = config.codec
