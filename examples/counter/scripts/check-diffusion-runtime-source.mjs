@@ -82,6 +82,9 @@ const sourceRequire = createRequire(join(sourceRoot, "package.json"))
 const runtimeEntry = sourceRequire.resolve("@diffusionstudio/runtime")
 const reconcilerEntry = sourceRequire.resolve("@diffusionstudio/reconciler")
 const runtime = await import(pathToFileURL(runtimeEntry).href)
+const runtimeRequire = createRequire(runtimeEntry)
+const kootaEntry = runtimeRequire.resolve("koota")
+const { Not, Or } = await import(pathToFileURL(kootaEntry).href)
 const { createRuntimeDocument, mount } = await import(pathToFileURL(reconcilerEntry).href)
 const {
   CANVAS_DRAW_LIST_VERSION,
@@ -157,6 +160,29 @@ try {
   const groupChildren = [...world.query(runtime.Group, runtime.ChildOf(scene.entity))]
   const adjustmentChildren = [...world.query(runtime.AdjustmentLayer, runtime.ChildOf(scene.entity))]
   const maskChildren = [...world.query(runtime.IsMask, runtime.ChildOf(scene.entity))]
+  const orChildren = [...world.query(
+    Or(runtime.Geometry, runtime.Group, runtime.AdjustmentLayer),
+    runtime.ChildOf(scene.entity),
+  )]
+  const geometryNotMaskChildren = [...world.query(
+    runtime.Geometry,
+    runtime.ChildOf(scene.entity),
+    Not(runtime.IsMask),
+  )]
+  const fullCacheQueryChildren = [...world.query(
+    Or(runtime.Geometry, runtime.Group, runtime.AdjustmentLayer),
+    runtime.ChildOf(scene.entity),
+    Not(runtime.IsMask),
+  )]
+  const worldInternal = world[Symbol.for("koota.internal")]
+  const traitPlacement = (trait) => {
+    const instance = worldInternal?.traitInstances?.[trait.id]
+    return {
+      id: trait.id,
+      generation: instance?.generationId ?? null,
+      bitflag: instance?.bitflag ?? null,
+    }
+  }
   const entityCacheChildren = scene.entity.get(runtime.Cache)?.children ?? []
   runtime.rebuildCaches(world, rect.entity, scene.entity)
   const rebuiltSceneChildren = runtime.store(world, runtime.Cache).children[sceneId] ?? []
@@ -188,6 +214,17 @@ try {
       groupChildIds: groupChildren.map((child) => child.id()),
       adjustmentChildIds: adjustmentChildren.map((child) => child.id()),
       maskChildIds: maskChildren.map((child) => child.id()),
+      orChildIds: orChildren.map((child) => child.id()),
+      geometryNotMaskChildIds: geometryNotMaskChildren.map((child) => child.id()),
+      fullCacheQueryChildIds: fullCacheQueryChildren.map((child) => child.id()),
+      traitPlacements: {
+        geometry: traitPlacement(runtime.Geometry),
+        group: traitPlacement(runtime.Group),
+        adjustmentLayer: traitPlacement(runtime.AdjustmentLayer),
+        childOf: traitPlacement(runtime.ChildOf[Symbol.for("koota.internal")]?.trait ?? runtime.ChildOf),
+        isMask: traitPlacement(runtime.IsMask),
+      },
+      kootaEntry,
       childOfEvents,
       sceneHasStage: scene.entity.has(runtime.Stage),
       sceneHasCache: scene.entity.has(runtime.Cache),
