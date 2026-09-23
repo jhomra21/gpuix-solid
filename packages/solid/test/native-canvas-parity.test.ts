@@ -63,6 +63,11 @@ describe("native Canvas2D source-edge parity", () => {
 
     context.fillStyle = "#ffffff"
     context.font = "600 16px Arial"
+    const measured = context.measureText("GPUix")
+    expect(measured.width).toBeGreaterThan(0)
+    context.font = "600 32px Arial"
+    expect(context.measureText("GPUix").width).toBeGreaterThan(measured.width)
+    context.font = "600 16px Arial"
     context.fillText("GPUix", 18, 116)
 
     await Promise.resolve()
