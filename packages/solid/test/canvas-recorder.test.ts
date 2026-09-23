@@ -241,12 +241,11 @@ describe("Canvas2D draw-list recorder", () => {
     ctx.beginPath()
     ctx.moveTo(0, 0)
     ctx.arcTo(10, 0, 10, 10, 2)
-    ctx.strokeStyle = "#ffffff"
-    ctx.stroke()
+    ctx.fill()
 
     const command = recorder.snapshot().commands[0]
-    expect(command?.op).toBe("strokePath")
-    if (command?.op !== "strokePath") throw new Error("expected stroke path")
+    expect(command?.op).toBe("fillPath")
+    if (command?.op !== "fillPath") throw new Error("expected fill path")
     expect(command.path[1]).toMatchObject({ op: "lineTo", x: 23, y: 15 })
     expect(command.path[2]).toMatchObject({ op: "bezierCurveTo", x: 27.5, y: 19 })
   })
