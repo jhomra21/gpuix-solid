@@ -5,7 +5,7 @@ import {
   type GpuixCanvasRenderingContext2D,
 } from "./canvas.js"
 import { parseDragData } from "./drag-data.js"
-import { EVENT_PROP_TO_TYPE, nativeEventTypeForDomEvent, type DomCompatTarget, type EventRegistry } from "./events.js"
+import { EVENT_PROP_TO_TYPE, nativeEventTypeForBrowserEvent, nativeEventTypeForDomEvent, type DomCompatTarget, type EventRegistry } from "./events.js"
 import type { MutationDriver, MutationValue } from "./mutations.js"
 import type {
   DragData,
@@ -54,6 +54,7 @@ type HostStyleDeclaration = StyleDesc & {
 
 const customStyleProperties = new WeakMap<HostElementNode, Map<string, string>>()
 const appliedPointerEvents = new WeakMap<HostElementNode, StyleDesc["pointerEvents"] | undefined>()
+const browserEventListeners = new WeakMap<HostElementNode, Map<string, Set<EventListenerOrEventListenerObject>>>()
 const INTERACTIVE_TAG_NAMES = new Set(["a", "button", "input", "label", "select", "summary", "textarea"])
 const INTERACTIVE_ROLES = new Set([
   "button",
@@ -117,7 +118,6 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     add: (..._tokens: string[]): void => undefined,
     remove: (..._tokens: string[]): void => undefined,
   }
-  readonly #eventListeners = new Map<string, Set<EventListenerOrEventListenerObject>>()
   #canvas2d: Canvas2DRecorder | undefined
   #canvasDrawQueued = false
   #videoFrame: VideoFrameSurfaceFrame | null | undefined
@@ -426,9 +426,18 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     listener: EventListenerOrEventListenerObject | null,
   ): void {
     if (!listener) return
-    const listeners = this.#eventListeners.get(type) ?? new Set<EventListenerOrEventListenerObject>()
+    const eventType = type.toLowerCase()
+    const nativeEventType = nativeEventTypeForBrowserEvent(eventType)
+    const hadNativeHandler = nativeEventType ? hasNativeEventHandler(this, nativeEventType) : false
+    const byType = browserEventListeners.get(this) ?? new Map<string, Set<EventListenerOrEventListenerObject>>()
+    const listeners = byType.get(eventType) ?? new Set<EventListenerOrEventListenerObject>()
     listeners.add(listener)
-    this.#eventListeners.set(type, listeners)
+    byType.set(eventType, listeners)
+    browserEventListeners.set(this, byType)
+    if (!nativeEventType || !this.root || !this.nativeAlive) return
+    if (!hadNativeHandler && hasNativeEventHandler(this, nativeEventType)) {
+      this.root.driver.enqueue("setEventListener", this.id, nativeEventType, true)
+    }
   }
 
   removeEventListener(
@@ -436,9 +445,18 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     listener: EventListenerOrEventListenerObject | null,
   ): void {
     if (!listener) return
-    const listeners = this.#eventListeners.get(type)
+    const eventType = type.toLowerCase()
+    const nativeEventType = nativeEventTypeForBrowserEvent(eventType)
+    const hadNativeHandler = nativeEventType ? hasNativeEventHandler(this, nativeEventType) : false
+    const byType = browserEventListeners.get(this)
+    const listeners = byType?.get(eventType)
     listeners?.delete(listener)
-    if (listeners?.size === 0) this.#eventListeners.delete(type)
+    if (listeners?.size === 0) byType?.delete(eventType)
+    if (byType?.size === 0) browserEventListeners.delete(this)
+    if (!nativeEventType || !this.root || !this.nativeAlive) return
+    if (hadNativeHandler && !hasNativeEventHandler(this, nativeEventType)) {
+      this.root.driver.enqueue("setEventListener", this.id, nativeEventType, false)
+    }
   }
 
   dispatchEvent(event: Event): boolean {
@@ -446,7 +464,7 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
       Object.defineProperty(event, "target", { configurable: true, value: this })
     }
     Object.defineProperty(event, "currentTarget", { configurable: true, value: this })
-    for (const listener of this.#eventListeners.get(event.type) ?? []) {
+    for (const listener of browserEventListeners.get(this)?.get(event.type.toLowerCase()) ?? []) {
       if (listener instanceof Function) listener.call(this, event)
       else listener.handleEvent(event)
     }
@@ -996,6 +1014,7 @@ function adopt(root: HostRootNode, node: HostNode): void {
       const nativeEventType = nativeEventTypeForDomEvent(eventType)
       if (nativeEventType) nativeEventTypes.add(nativeEventType)
     }
+    for (const nativeEventType of browserNativeEventTypes(node)) nativeEventTypes.add(nativeEventType)
     if (node.events.has("contextMenu")) root.driver.setContextMenuListener(node.id, true)
     for (const nativeEventType of ["mouseDown", "mouseMove", "mouseUp"] as const) {
       if (hasNativeEventHandler(node, nativeEventType)) nativeEventTypes.add(nativeEventType)
@@ -1034,6 +1053,16 @@ function hasRangeChangeHandler(node: HostElementNode): boolean {
   return isRangeInput(node) && (node.events.has("change") || node.events.has("input"))
 }
 
+function browserNativeEventTypes(node: HostElementNode): Set<string> {
+  const nativeEventTypes = new Set<string>()
+  for (const [eventType, entries] of browserEventListeners.get(node) ?? []) {
+    if (entries.size === 0) continue
+    const nativeEventType = nativeEventTypeForBrowserEvent(eventType)
+    if (nativeEventType) nativeEventTypes.add(nativeEventType)
+  }
+  return nativeEventTypes
+}
+
 function hasNativeEventHandler(node: HostElementNode, nativeEventType: string): boolean {
   const hasDragSource = node.dragData !== undefined
   // GPUI implicitly captures a pointer when a node owns mouseDown + mouseMove at
@@ -1048,6 +1077,7 @@ function hasNativeEventHandler(node: HostElementNode, nativeEventType: string): 
   for (const eventType of node.events.keys()) {
     if (nativeEventTypeForDomEvent(eventType) === nativeEventType) return true
   }
+  if (browserNativeEventTypes(node).has(nativeEventType)) return true
   return false
 }
 
