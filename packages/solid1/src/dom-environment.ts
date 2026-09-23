@@ -621,24 +621,6 @@ function installHostDomCompatibility(ownerDocument: CompatDocument): void {
         setHostProperty(this, "tabIndex", value)
       },
     },
-    addEventListener: {
-      configurable: true,
-      value(this: HostElementNode, type: string, listener: CompatListener | null): void {
-        addCompatListener(this, type, listener)
-      },
-    },
-    removeEventListener: {
-      configurable: true,
-      value(this: HostElementNode, type: string, listener: CompatListener | null): void {
-        removeCompatListener(this, type, listener)
-      },
-    },
-    dispatchEvent: {
-      configurable: true,
-      value(this: HostElementNode, event: Event): boolean {
-        return dispatchCompatEvent(this, event)
-      },
-    },
     firstChild: {
       configurable: true,
       get(this: HostElementNode): HostNode | null {
