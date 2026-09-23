@@ -125,10 +125,21 @@ class VideoToolboxVideoDecoder final : public Napi::ObjectWrap<VideoToolboxVideo
     Napi::Buffer<uint8_t> description = info[1].As<Napi::Buffer<uint8_t>>();
     config_.assign(description.Data(), description.Data() + description.Length());
 
+    const int coded_width =
+      info.Length() > 2 && info[2].IsNumber()
+        ? info[2].As<Napi::Number>().Int32Value()
+        : 0;
+    const int coded_height =
+      info.Length() > 3 && info[3].IsNumber()
+        ? info[3].As<Napi::Number>().Int32Value()
+        : 0;
+
     std::string error;
     if (!CreateVideoFormatDescription(
       codec_,
       config_,
+      coded_width,
+      coded_height,
       &format_description_,
       error
     )) {
@@ -901,10 +912,12 @@ Napi::Value IsVideoToolboxDecoderSupported(const Napi::CallbackInfo& info) {
     info.Length() < 2
     || !info[0].IsString()
     || !info[1].IsBuffer()
+    || (info.Length() > 2 && !info[2].IsNumber())
+    || (info.Length() > 3 && !info[3].IsNumber())
   ) {
     Napi::TypeError::New(
       env,
-      "Expected codec string and decoder configuration Buffer"
+      "Expected codec string, decoder configuration Buffer, and optional coded dimensions"
     ).ThrowAsJavaScriptException();
     return env.Undefined();
   }
@@ -915,12 +928,18 @@ Napi::Value IsVideoToolboxDecoderSupported(const Napi::CallbackInfo& info) {
     description.Data(),
     description.Data() + description.Length()
   );
+  const int coded_width =
+    info.Length() > 2 ? info[2].As<Napi::Number>().Int32Value() : 0;
+  const int coded_height =
+    info.Length() > 3 ? info[3].As<Napi::Number>().Int32Value() : 0;
 
   CMVideoFormatDescriptionRef format_description = nullptr;
   std::string error;
   if (!CreateVideoFormatDescription(
     codec,
     config,
+    coded_width,
+    coded_height,
     &format_description,
     error
   )) {
