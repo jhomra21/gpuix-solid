@@ -5,6 +5,7 @@ import {
   armDiffusionSourceRectTool,
   DiffusionSourceEngine,
   readDiffusionSourceEditorState,
+  readDiffusionSourceEdits,
   readDiffusionSourceSelection,
   readDiffusionSourceState,
   resetDiffusionSourceCamera,
@@ -133,6 +134,15 @@ if (!hasNativeTestRenderer) {
     requireCondition(inserted.name?.startsWith("Rect") === true, `Expected inserted Rect name, got ${inserted.name}`)
     requireCondition(inserted.width === 120, `Expected inserted Rect width 120, got ${inserted.width}`)
     requireCondition(inserted.height === 80, `Expected inserted Rect height 80, got ${inserted.height}`)
+    requireCondition(inserted.source?.startsWith("pending#") === true, `Expected inserted Rect to carry a pending source stamp, got ${inserted.source}`)
+
+    const edits = readDiffusionSourceEdits()
+    const insertEdit = edits.find((edit) => edit.kind === "insert" && edit.source === inserted.source)
+    requireCondition(insertEdit !== undefined, "Diffusion DrawOverlay should report the inserted rectangle back to the source editor")
+    requireCondition(insertEdit.parent === "project.tsx:2", `Expected insert edit parent project.tsx:2, got ${insertEdit.parent}`)
+    requireCondition(insertEdit.tag === "rect", `Expected insert edit tag rect, got ${insertEdit.tag}`)
+    requireCondition(insertEdit.props.width === 120, `Expected insert edit width 120, got ${String(insertEdit.props.width)}`)
+    requireCondition(insertEdit.props.height === 80, `Expected insert edit height 80, got ${String(insertEdit.props.height)}`)
 
     const editedDrawList = app.renderer.customPropJsonContainingAll("drawList", ["\"version\":3"])
     requireCondition(
@@ -142,7 +152,7 @@ if (!hasNativeTestRenderer) {
 
     app.renderer.captureScreenshot(screenshotPath)
     requireCondition(statSync(screenshotPath).size > 0, "Edited Diffusion source screenshot should not be empty")
-    console.log("solid1 Diffusion source DrawOverlay insert:", JSON.stringify(inserted))
+    console.log("solid1 Diffusion source DrawOverlay insert:", JSON.stringify({ inserted, insertEdit }))
 
     console.log("solid1 Diffusion source EngineCanvas + CameraController + DrawOverlay: passed")
   } finally {
