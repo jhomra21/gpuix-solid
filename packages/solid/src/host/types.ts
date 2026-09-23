@@ -601,7 +601,7 @@ export interface NativeRenderer {
   /** Version of the native retained Canvas2D draw-list protocol, or undefined when unavailable. */
   getCanvasDrawListVersion?(): number | undefined
   /** Synchronously measure one line using GPUI's native text shaping. */
-  measureCanvasText?(text: string, fontSize: number, fontFamily: string, fontWeight?: number): number
+  measureCanvasText?(text: string, fontSize: number, fontFamily: string, fontWeight: number): number
   /** Version of the binary BGRA frame-surface protocol, or undefined when unavailable. */
   getVideoFrameSurfaceVersion?(): number | undefined
   setVideoFrameBgra?(elementId: number, width: number, height: number, data: Uint8Array): void
