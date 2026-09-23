@@ -39,8 +39,10 @@ const {
 
 module.exports.default = function Project() {
   return createComponent(Stage, {
+    __source: "project.tsx:1",
     get children() {
       return createComponent(Scene, {
+        __source: "project.tsx:2",
         name: "GPUix Diffusion source",
         width: 640,
         height: 360,
@@ -48,6 +50,7 @@ module.exports.default = function Project() {
         active: true,
         get children() {
           return createComponent(Rect, {
+            __source: "project.tsx:3",
             name: "GPUix rectangle",
             x: 120,
             y: 80,
