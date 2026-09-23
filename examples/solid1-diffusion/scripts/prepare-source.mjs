@@ -73,7 +73,7 @@ function patchKootaOrAcrossGenerations(file) {
   if (finalReturn < 0) throw new Error(`Could not find Koota checkQuery return in ${file}`)
   checkQuery =
     checkQuery.slice(0, finalReturn) +
-    "if (hasOr && !orMatched) return false;\\n  " +
+    "if (hasOr && !orMatched) return false;\n  " +
     checkQuery.slice(finalReturn)
 
   writeFileSync(file, source.slice(0, start) + checkQuery + source.slice(end))
