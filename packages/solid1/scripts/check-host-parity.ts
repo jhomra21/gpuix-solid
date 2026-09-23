@@ -165,6 +165,12 @@ if (
 
 const semanticButton = createHostElement("div", "button")
 if (semanticButton.localName !== "button" || semanticButton.tagName !== "BUTTON") throw new Error("host must retain semantic tag identity")
+let namespacePointerDown = 0
+setHostProperty(semanticButton, "on:pointerdown", () => { namespacePointerDown += 1 })
+semanticButton.events.get("pointerDown")?.({} as never)
+if (namespacePointerDown !== 1) throw new Error("Solid on:pointerdown must map to the native pointerDown event contract")
+setHostProperty(semanticButton, "on:pointerdown", undefined)
+if (semanticButton.events.has("pointerDown")) throw new Error("clearing on:pointerdown must remove the native pointerDown event contract")
 let localEvents = 0
 semanticButton.addEventListener("click", () => { localEvents += 1 })
 semanticButton.dispatchEvent(new Event("click", { cancelable: true }))
