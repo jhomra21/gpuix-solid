@@ -134,9 +134,10 @@ try {
   runtime.playbackSystem(world)
 
   const computed = runtime.store(world, runtime.Computed)
+  const cache = runtime.store(world, runtime.Cache)
   const sceneId = scene.entity.id()
   const rectId = rect.entity.id()
-  const sceneChildren = scene.entity.get(runtime.Cache)?.children ?? []
+  const sceneChildren = cache.children[sceneId] ?? []
   if (
     computed.visibility[rectId] !== 1 ||
     !sceneChildren.some((child) => child === rect.entity)
