@@ -132,6 +132,35 @@ try {
 
   runtime.setPlayhead(world, scene.entity, 0)
   runtime.playbackSystem(world)
+
+  const computed = runtime.store(world, runtime.Computed)
+  const sceneId = scene.entity.id()
+  const rectId = rect.entity.id()
+  const sceneChildren = scene.entity.get(runtime.Cache)?.children ?? []
+  if (
+    computed.visibility[rectId] !== 1 ||
+    !sceneChildren.some((child) => child === rect.entity)
+  ) {
+    throw new Error(JSON.stringify({
+      issue: "Diffusion child did not become renderable",
+      scene: {
+        id: sceneId,
+        localTime: computed.localTime[sceneId],
+        start: computed.start[sceneId],
+        end: computed.end[sceneId],
+        visibility: computed.visibility[sceneId],
+      },
+      rect: {
+        id: rectId,
+        localTime: computed.localTime[rectId],
+        start: computed.start[rectId],
+        end: computed.end[rectId],
+        visibility: computed.visibility[rectId],
+      },
+      cachedChildIds: sceneChildren.map((child) => child.id()),
+    }))
+  }
+
   runtime.motionSystem(world)
   runtime.transformSystem(world)
   runtime.renderSystem(world)
