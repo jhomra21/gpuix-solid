@@ -93,6 +93,12 @@ const IDENTITY: CanvasMatrix = [1, 0, 0, 1, 0, 0]
 export function createCanvas2DRecorder(
   getSize: () => CanvasBackingSize,
   onChange: () => void = () => undefined,
+  measureTextNative?: (
+    text: string,
+    fontSize: number,
+    fontFamily: string,
+    fontWeight?: number,
+  ) => number,
 ): Canvas2DRecorder {
   let commands: CanvasDrawCommand[] = []
   let path: CanvasPathSegment[] = []
@@ -341,6 +347,22 @@ export function createCanvas2DRecorder(
         path: clonePath(path),
       })
       changed()
+    },
+    measureText(text: string) {
+      if (!measureTextNative) {
+        throw new Error("GPUix Canvas2D measureText() requires native text measurement support")
+      }
+      const font = parseFont(state.font)
+      const width = measureTextNative(
+        String(text),
+        font.size * textScale(state.transform),
+        font.family,
+        font.weight,
+      )
+      if (!Number.isFinite(width) || width < 0) {
+        throw new Error(`GPUix native text measurement returned invalid width ${width}`)
+      }
+      return { width }
     },
     fillText(text: string, x: number, y: number, maxWidth?: number) {
       if (maxWidth !== undefined) {
