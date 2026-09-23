@@ -1162,7 +1162,9 @@ function appendArc(
 
   const sweep = end - start
   if (Math.abs(sweep) < Number.EPSILON) return
-  const segments = Math.max(1, Math.ceil(Math.abs(sweep) / (Math.PI / 2)))
+  const quarterTurn = Math.PI / 2
+  const segmentRatio = Math.abs(sweep) / quarterTurn
+  const segments = Math.max(1, Math.ceil(segmentRatio - 1e-12))
   const step = sweep / segments
   const startPoint = transformPoint(x + Math.cos(start) * radius, y + Math.sin(start) * radius, matrix)
 
