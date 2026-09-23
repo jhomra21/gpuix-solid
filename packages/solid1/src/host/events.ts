@@ -64,6 +64,14 @@ export function nativeEventTypeForDomEvent(eventType: string): NativeEventType |
   return DOM_EVENT_TO_NATIVE.get(eventType)
 }
 
+export function nativeEventTypeForBrowserEvent(eventType: string): NativeEventType | undefined {
+  const normalized = eventType.toLowerCase()
+  for (const domEventType of DOM_EVENT_TO_NATIVE.keys()) {
+    if (browserEventName(domEventType) === normalized) return nativeEventTypeForDomEvent(domEventType)
+  }
+  return undefined
+}
+
 type GlobalEventHandler = (event: EventPayload) => void
 const globalListeners = new Map<string, Set<GlobalEventHandler>>()
 const EVENT_STATE = new WeakMap<object, { defaultPrevented: boolean; propagationStopped: boolean }>()
