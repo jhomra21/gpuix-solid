@@ -1,4 +1,4 @@
-export const CANVAS_DRAW_LIST_VERSION = 2 as const
+export const CANVAS_DRAW_LIST_VERSION = 3 as const
 
 export type CanvasDrawListVersion = typeof CANVAS_DRAW_LIST_VERSION
 export type CanvasMatrix = readonly [number, number, number, number, number, number]
@@ -23,6 +23,19 @@ export type CanvasClipRect = {
   y: number
   width: number
   height: number
+}
+
+export type CanvasImageRect = {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export type CanvasImagePixels = {
+  width: number
+  height: number
+  pixels: Uint8Array
 }
 
 type CanvasCommandClip = {
@@ -59,6 +72,13 @@ export type CanvasDrawCommand = (
       fontWeight?: number
       align: CanvasTextAlign
       baseline: CanvasTextBaseline
+    }
+  | {
+      op: "drawImage"
+      imageId: number
+      source: CanvasImageRect
+      destination: CanvasImageRect
+      alpha: number
     }
 ) & CanvasCommandClip
 
@@ -112,11 +132,17 @@ export function createCanvas2DRecorder(
     fontFamily: string,
     fontWeight: number,
   ) => number,
+  uploadImageNative?: (
+    imageId: number,
+    source: CanvasImagePixels,
+  ) => void,
 ): Canvas2DRecorder {
   let commands: CanvasDrawCommand[] = []
   let path: CanvasPathSegment[] = []
   let state = defaultState()
   const stack: CanvasState[] = []
+  const imageIds = new WeakMap<object, number>()
+  let nextImageId = 1
 
   const changed = () => onChange()
 
@@ -390,6 +416,30 @@ export function createCanvas2DRecorder(
       }
       return { width }
     },
+    drawImage(image: CanvasImageSource, ...args: number[]) {
+      if (!uploadImageNative) {
+        throw new Error("GPUix Canvas2D drawImage() requires native image upload support")
+      }
+      const pixels = readCanvasImagePixels(image)
+      const rectangles = resolveDrawImageRectangles(pixels.width, pixels.height, args)
+      if (!rectangles) return
+      const destination = transformImageRect(rectangles.destination, state.transform)
+      let imageId = imageIds.get(image as object)
+      if (imageId === undefined) {
+        imageId = nextImageId
+        nextImageId += 1
+        imageIds.set(image as object, imageId)
+      }
+      uploadImageNative(imageId, pixels)
+      commands.push(withCanvasClip({
+        op: "drawImage",
+        imageId,
+        source: rectangles.source,
+        destination,
+        alpha: state.globalAlpha,
+      }, state.clip))
+      changed()
+    },
     fillText(text: string, x: number, y: number, maxWidth?: number) {
       if (maxWidth !== undefined) {
         throw new Error("GPUix Canvas2D v2 does not support fillText() maxWidth")
@@ -519,11 +569,140 @@ function clonePath(path: readonly CanvasPathSegment[]): CanvasPathSegment[] {
 }
 
 function cloneCommand(command: CanvasDrawCommand): CanvasDrawCommand {
-  const clone: CanvasDrawCommand = command.op === "fillText"
-    ? { ...command }
-    : { ...command, path: clonePath(command.path) }
+  let clone: CanvasDrawCommand
+  if (command.op === "fillText") {
+    clone = { ...command }
+  } else if (command.op === "drawImage") {
+    clone = {
+      ...command,
+      source: { ...command.source },
+      destination: { ...command.destination },
+    }
+  } else {
+    clone = { ...command, path: clonePath(command.path) }
+  }
   if (command.clip) clone.clip = { ...command.clip }
   return clone
+}
+
+function readCanvasImagePixels(image: CanvasImageSource): CanvasImagePixels {
+  if (typeof image !== "object" || image === null) {
+    throw new TypeError("GPUix Canvas2D drawImage() requires an object image source")
+  }
+  const candidate = image as unknown as {
+    width?: unknown
+    height?: unknown
+    getContext?: (contextId: string) => {
+      getImageData?: (x: number, y: number, width: number, height: number) => {
+        data: Uint8ClampedArray
+      }
+    } | null
+  }
+  const width = Number(candidate.width)
+  const height = Number(candidate.height)
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    throw new DOMException("The image source has no usable dimensions.", "InvalidStateError")
+  }
+  const integerWidth = Math.floor(width)
+  const integerHeight = Math.floor(height)
+  const context = candidate.getContext?.("2d")
+  const data = context?.getImageData?.(0, 0, integerWidth, integerHeight).data
+  if (!data) {
+    throw new TypeError(
+      "GPUix Canvas2D drawImage() currently supports canvas-like sources with readable RGBA pixels",
+    )
+  }
+  return {
+    width: integerWidth,
+    height: integerHeight,
+    pixels: new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
+  }
+}
+
+function resolveDrawImageRectangles(
+  imageWidth: number,
+  imageHeight: number,
+  args: readonly number[],
+): { source: CanvasImageRect; destination: CanvasImageRect } | null {
+  let source: CanvasImageRect = { x: 0, y: 0, width: imageWidth, height: imageHeight }
+  let destination: CanvasImageRect
+
+  if (args.length === 2) {
+    destination = { x: finite(args[0]!), y: finite(args[1]!), width: imageWidth, height: imageHeight }
+  } else if (args.length === 4) {
+    destination = normalizeImageRect(args[0]!, args[1]!, args[2]!, args[3]!)
+  } else if (args.length === 8) {
+    source = normalizeImageRect(args[0]!, args[1]!, args[2]!, args[3]!)
+    destination = normalizeImageRect(args[4]!, args[5]!, args[6]!, args[7]!)
+  } else {
+    throw new TypeError("Canvas drawImage() expects 3, 5, or 9 arguments")
+  }
+
+  if (source.width === 0 || source.height === 0 || destination.width === 0 || destination.height === 0) {
+    return null
+  }
+
+  const scaleX = destination.width / source.width
+  const scaleY = destination.height / source.height
+  const sourceRight = source.x + source.width
+  const sourceBottom = source.y + source.height
+  const clippedLeft = Math.max(0, source.x)
+  const clippedTop = Math.max(0, source.y)
+  const clippedRight = Math.min(imageWidth, sourceRight)
+  const clippedBottom = Math.min(imageHeight, sourceBottom)
+  if (clippedRight <= clippedLeft || clippedBottom <= clippedTop) return null
+
+  destination = {
+    x: destination.x + (clippedLeft - source.x) * scaleX,
+    y: destination.y + (clippedTop - source.y) * scaleY,
+    width: (clippedRight - clippedLeft) * scaleX,
+    height: (clippedBottom - clippedTop) * scaleY,
+  }
+  source = {
+    x: clippedLeft,
+    y: clippedTop,
+    width: clippedRight - clippedLeft,
+    height: clippedBottom - clippedTop,
+  }
+
+  return { source, destination }
+}
+
+function normalizeImageRect(x: number, y: number, width: number, height: number): CanvasImageRect {
+  let left = finite(x)
+  let top = finite(y)
+  let normalizedWidth = finite(width)
+  let normalizedHeight = finite(height)
+  if (normalizedWidth < 0) {
+    left += normalizedWidth
+    normalizedWidth = -normalizedWidth
+  }
+  if (normalizedHeight < 0) {
+    top += normalizedHeight
+    normalizedHeight = -normalizedHeight
+  }
+  return { x: left, y: top, width: normalizedWidth, height: normalizedHeight }
+}
+
+function transformImageRect(rect: CanvasImageRect, matrix: CanvasMatrix): CanvasImageRect {
+  const [a, b, c, d, e, f] = matrix
+  const tolerance = Math.max(1, Math.abs(a), Math.abs(b), Math.abs(c), Math.abs(d)) * 1e-9
+  if (
+    Math.abs(b) > tolerance ||
+    Math.abs(c) > tolerance ||
+    a <= Number.EPSILON ||
+    d <= Number.EPSILON
+  ) {
+    throw new Error(
+      "GPUix Canvas2D drawImage() currently requires translation plus positive axis-aligned scale",
+    )
+  }
+  return {
+    x: a * rect.x + e,
+    y: d * rect.y + f,
+    width: a * rect.width,
+    height: d * rect.height,
+  }
 }
 
 function withCanvasClip(command: CanvasDrawCommand, clip: CanvasClipRect | null): CanvasDrawCommand {
