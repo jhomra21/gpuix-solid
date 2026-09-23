@@ -24,6 +24,13 @@ type NativeModule = {
 type SourceEdgeNativeTestRenderer = NativeTestRendererApi & {
   getCanvasDrawListVersion?: () => number
   measureCanvasText?: (text: string, fontSize: number, fontFamily: string, fontWeight: number) => number
+  setCanvasImagePixels?: (
+    elementId: number,
+    imageId: number,
+    width: number,
+    height: number,
+    pixels: Uint8Array,
+  ) => void
   getVideoFrameSurfaceVersion?: () => number
   setVideoFrameBgra?: (elementId: number, width: number, height: number, data: Uint8Array) => void
   getVideoFrameIosurfaceVersion?: () => number
@@ -332,6 +339,19 @@ export class TestRenderer implements NativeRenderer {
     const native = this.#native as SourceEdgeNativeTestRenderer
     if (!native.measureCanvasText) throw new Error("Native Canvas text measurement is unavailable")
     return native.measureCanvasText(text, fontSize, fontFamily, fontWeight)
+  }
+
+  setCanvasImagePixels(
+    elementId: number,
+    imageId: number,
+    width: number,
+    height: number,
+    pixels: Uint8Array,
+  ): void {
+    // SAFETY: source-edge GPUIX exposes the Canvas image resource upload before published native typings.
+    const native = this.#native as SourceEdgeNativeTestRenderer
+    if (!native.setCanvasImagePixels) throw new Error("Native Canvas image upload is unavailable")
+    native.setCanvasImagePixels(elementId, imageId, width, height, pixels)
   }
 
   getVideoFrameSurfaceVersion(): number | undefined {
