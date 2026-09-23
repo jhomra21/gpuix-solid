@@ -150,8 +150,10 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   getContext(contextId: string): GpuixCanvasRenderingContext2D | null {
     if (this.localName !== "canvas" || contextId !== "2d") return null
     const root = this.root
-    if (!root) return null
-    if (root.driver.renderer.getCanvasDrawListVersion?.() !== CANVAS_DRAW_LIST_VERSION) return null
+    if (
+      root &&
+      root.driver.renderer.getCanvasDrawListVersion?.() !== CANVAS_DRAW_LIST_VERSION
+    ) return null
 
     this.#canvas2d ??= createCanvas2DRecorder(
       () => ({ width: this.width, height: this.height }),

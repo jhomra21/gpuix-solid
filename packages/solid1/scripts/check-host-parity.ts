@@ -138,7 +138,7 @@ const semanticCanvas = createSemanticElement("canvas")
 if (semanticCanvas.kind !== "element" || semanticCanvas.nativeType !== "div" || semanticCanvas.localName !== "canvas") {
   throw new Error(`semantic canvas must use a supported native layout box: ${JSON.stringify(semanticCanvas)}`)
 }
-if (semanticCanvas.getContext("2d") !== null) throw new Error("semantic canvas must preserve browser feature detection")
+if (semanticCanvas.getContext("2d") === null) throw new Error("disconnected semantic canvas must expose browser-like Canvas2D")
 
 const centeredSemanticButton = createSemanticElement("button")
 if (centeredSemanticButton.kind !== "element") throw new Error("semantic button fixture must create a host element")
