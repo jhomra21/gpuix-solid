@@ -7,6 +7,7 @@ import {
 } from "mediabunny"
 import type {
   Decoder as TurboResDecoder,
+  DecoderOptions,
   FilledFrame,
 } from "turbores"
 
@@ -49,7 +50,7 @@ export class BunSafeProResDecoder extends CustomVideoDecoder {
   async init(): Promise<void> {
     const module = await import("turbores")
     const decoder = await module.Decoder.create({
-      proresFourCc: this.config.codec as Parameters<typeof module.Decoder.create>[0]["proresFourCc"],
+      proresFourCc: this.config.codec as DecoderOptions["proresFourCc"],
       useSharedMemory: false,
       concurrency: 0,
     })
@@ -70,8 +71,9 @@ export class BunSafeProResDecoder extends CustomVideoDecoder {
       if (result instanceof Error) throw result
 
       const display = displaySize(result)
-      const bytes = result.frameData.slice()
-      const sample = new VideoSample(bytes, {
+      const bytes = new Uint8Array(result.frameData.byteLength)
+      bytes.set(result.frameData)
+      const sample = new VideoSample(bytes.buffer, {
         format: result.pixelFormat,
         codedWidth: result.codedWidth,
         codedHeight: result.codedHeight,
