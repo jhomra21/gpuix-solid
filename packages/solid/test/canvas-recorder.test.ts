@@ -229,7 +229,10 @@ describe("Canvas2D draw-list recorder", () => {
     expect(command?.op).toBe("fillPath")
     if (command?.op !== "fillPath") throw new Error("expected fill path")
     expect(command.path[2]).toMatchObject({ op: "lineTo", x: 16, y: 0 })
-    expect(command.path[3]).toMatchObject({ op: "bezierCurveTo", x: 20, y: 4 })
+    expect(command.path[3]).toMatchObject({ op: "bezierCurveTo" })
+    if (command.path[3]?.op !== "bezierCurveTo") throw new Error("expected cubic arc segment")
+    expect(command.path[3].x).toBeCloseTo(20, 12)
+    expect(command.path[3].y).toBeCloseTo(4, 12)
     expect(command.path[4]).toMatchObject({ op: "lineTo", x: 20, y: 20 })
   })
 
