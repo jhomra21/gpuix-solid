@@ -11,6 +11,7 @@ import { CameraController } from "@/engine/camera-controller"
 import { EngineProvider, useEngineContext } from "@/engine/context"
 import { mount, type Mount } from "@diffusionstudio/reconciler"
 import {
+  findSceneAt,
   getActiveEntity,
   getCamera,
   Name,
@@ -19,6 +20,7 @@ import {
   Selected,
   setCamera,
   Size,
+  Source,
   Tool,
   ToolType,
   type RuntimeWorld,
@@ -173,6 +175,21 @@ export function readDiffusionSourceSelection() {
       height: size?.height ?? null,
     }
   })
+}
+
+export function readDiffusionSourceEditorState() {
+  const world = requireWorld()
+  const scene = getActiveEntity(world)
+  const hit = findSceneAt(world, 4, 4)
+
+  return {
+    tool: world.get(Tool)?.value ?? null,
+    sceneHasSource: Boolean(scene?.get(Source)?.value),
+    hitSceneName: hit?.get(Name)?.value ?? null,
+    hitSceneHasSource: Boolean(hit?.get(Source)?.value),
+    names: [...world.query(Name)].map((entity) => entity.get(Name)?.value ?? null),
+    selection: readDiffusionSourceSelection(),
+  }
 }
 
 export function readDiffusionSourceState() {
