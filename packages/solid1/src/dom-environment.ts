@@ -336,7 +336,7 @@ export function installDomEventEnvironment(): void {
     if (normalized === "head") return [headTarget]
     if (normalized === "body") return [bodyTarget]
     if (normalized === "html") return [documentElementTarget]
-    return documentTarget.querySelectorAll?.(normalized) ?? []
+    return queryDescendants(documentElementTarget, normalized)
   }
   documentTarget.createTreeWalker = createCompatTreeWalker
   windowTarget.document = documentTarget
