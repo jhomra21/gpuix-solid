@@ -10,6 +10,7 @@ import { DrawOverlay } from "@/components/canvas/draw-overlay"
 import { EngineCanvas } from "@/engine/canvas"
 import { CameraController } from "@/engine/camera-controller"
 import { EngineProvider, useEngineContext } from "@/engine/context"
+import { getDocumentEditor, type EntityEdit } from "@/engine/editor"
 import { mount, type Mount } from "@diffusionstudio/reconciler"
 import {
   findSceneAt,
@@ -70,12 +71,14 @@ export type DiffusionSourceProbe = {
   world: RuntimeWorld | null
   mounted: Mount | null
   frame: (() => number) | null
+  edits: EntityEdit[]
 }
 
 export const diffusionSourceProbe: DiffusionSourceProbe = {
   world: null,
   mounted: null,
   frame: null,
+  edits: [],
 }
 
 function ProjectMount(): JSX.Element {
@@ -84,11 +87,15 @@ function ProjectMount(): JSX.Element {
   diffusionSourceProbe.frame = engine.frame
 
   let mounted: Mount | undefined
+  let unsubscribeEdits: (() => void) | undefined
   onMount(() => {
+    diffusionSourceProbe.edits = []
+    unsubscribeEdits = getDocumentEditor(engine.world).onEdit((edit) => diffusionSourceProbe.edits.push(edit))
     mounted = mount(projectBundle, engine.world)
     diffusionSourceProbe.mounted = mounted
   })
   onCleanup(() => {
+    unsubscribeEdits?.()
     mounted?.dispose()
     diffusionSourceProbe.mounted = null
     diffusionSourceProbe.world = null
@@ -167,8 +174,13 @@ export function readDiffusionSourceSelection() {
       y: position?.y ?? null,
       width: size?.width ?? null,
       height: size?.height ?? null,
+      source: entity.get(Source)?.value ?? null,
     }
   })
+}
+
+export function readDiffusionSourceEdits(): EntityEdit[] {
+  return [...diffusionSourceProbe.edits]
 }
 
 export function readDiffusionSourceEditorState() {
