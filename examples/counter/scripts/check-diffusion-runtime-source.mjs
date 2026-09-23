@@ -62,10 +62,6 @@ function ensureSource() {
   }
 }
 
-function sourceModule(relativePath) {
-  return pathToFileURL(join(sourceRoot, relativePath)).href
-}
-
 function localModule(relativePath) {
   return pathToFileURL(join(repoRoot, relativePath)).href
 }
