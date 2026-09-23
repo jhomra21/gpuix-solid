@@ -2,9 +2,11 @@ import { GpuixPath2D } from "./host/path2d.js"
 import {
   HostElementNode,
   createHostElement,
+  createHostText,
   insertHostNode,
   removeHostNode,
   setHostProperty,
+  type HostNode,
 } from "./host/nodes.js"
 
 type CompatListener = (event: Event) => void
@@ -50,10 +52,13 @@ class CompatFontFaceSet extends EventTarget {
 
 type CompatDocument = CompatEventTarget & {
   body?: CompatDocumentNode
+  head?: HostElementNode
   documentElement?: CompatDocumentNode
   defaultView?: CompatWindow
   fonts?: CompatFontFaceSet
   createElement?: (tagName: string) => HostElementNode
+  createTextNode?: (value: string) => ReturnType<typeof createHostText>
+  getElementsByTagName?: (tagName: string) => CompatTreeElement[]
   createTreeWalker?: (
     root: CompatTreeElement,
     whatToShow: number,
@@ -309,6 +314,7 @@ export function installDomEventEnvironment(): void {
   }
 
   const bodyTarget = createDocumentNode("body", documentTarget, windowTarget)
+  const headTarget = createCompatElement("head")
   const documentElementTarget = createDocumentNode("html", documentTarget, windowTarget)
   activeBody = bodyTarget
   connectDocumentTree(bodyTarget, documentElementTarget)
@@ -319,10 +325,19 @@ export function installDomEventEnvironment(): void {
   installEventTarget(documentElementTarget)
   installEventTarget(windowTarget)
   documentTarget.body = bodyTarget
+  documentTarget.head = headTarget
   documentTarget.documentElement = documentElementTarget
   documentTarget.defaultView = windowTarget
   documentTarget.fonts = new CompatFontFaceSet()
   documentTarget.createElement = createCompatElement
+  documentTarget.createTextNode = (value) => createHostText(value)
+  documentTarget.getElementsByTagName = (tagName) => {
+    const normalized = tagName.toLowerCase()
+    if (normalized === "head") return [headTarget]
+    if (normalized === "body") return [bodyTarget]
+    if (normalized === "html") return [documentElementTarget]
+    return documentTarget.querySelectorAll?.(normalized) ?? []
+  }
   documentTarget.createTreeWalker = createCompatTreeWalker
   windowTarget.document = documentTarget
   windowTarget.setTimeout = (callback, delay) => globalThis.setTimeout(callback, delay)
@@ -622,6 +637,34 @@ function installHostDomCompatibility(ownerDocument: CompatDocument): void {
       configurable: true,
       value(this: HostElementNode, event: Event): boolean {
         return dispatchCompatEvent(this, event)
+      },
+    },
+    firstChild: {
+      configurable: true,
+      get(this: HostElementNode): HostNode | null {
+        return this.children[0] ?? null
+      },
+    },
+    appendChild: {
+      configurable: true,
+      value(this: HostElementNode, node: HostNode): HostNode {
+        insertHostNode(this, node)
+        return node
+      },
+    },
+    insertBefore: {
+      configurable: true,
+      value(this: HostElementNode, node: HostNode, before: HostNode | null): HostNode {
+        insertHostNode(this, node, before)
+        return node
+      },
+    },
+    removeChild: {
+      configurable: true,
+      value(this: HostElementNode, node: HostNode): HostNode {
+        if (node.parent !== this) throw new DOMException("Node is not a child of this parent", "NotFoundError")
+        removeHostNode(this, node)
+        return node
       },
     },
     insertAdjacentElement: {
