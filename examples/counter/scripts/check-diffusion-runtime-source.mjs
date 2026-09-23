@@ -71,6 +71,10 @@ function localModule(relativePath) {
 
 ensureSource()
 
+if (typeof globalThis.HTMLImageElement === "undefined") {
+  globalThis.HTMLImageElement = class HTMLImageElement {}
+}
+
 const runtime = await import(sourceModule("packages/runtime/src/index.ts"))
 const { createRuntimeDocument } = await import(sourceModule("packages/reconciler/src/document.ts"))
 const {
