@@ -2,6 +2,7 @@ import {
   CANVAS_DRAW_LIST_VERSION,
   createCanvas2DRecorder,
   type Canvas2DRecorder,
+  type GpuixCanvasRenderingContext2D,
 } from "./canvas.js"
 import { parseDragData } from "./drag-data.js"
 import { EVENT_PROP_TO_TYPE, nativeEventTypeForDomEvent, type DomCompatTarget, type EventRegistry } from "./events.js"
@@ -146,7 +147,7 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     return this.parentNode
   }
 
-  getContext(contextId: string): CanvasRenderingContext2D | null {
+  getContext(contextId: string): GpuixCanvasRenderingContext2D | null {
     if (this.localName !== "canvas" || contextId !== "2d") return null
     const root = this.root
     if (!root || !this.nativeAlive) return null
