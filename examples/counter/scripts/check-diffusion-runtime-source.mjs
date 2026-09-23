@@ -158,6 +158,8 @@ try {
   const adjustmentChildren = [...world.query(runtime.AdjustmentLayer, runtime.ChildOf(scene.entity))]
   const maskChildren = [...world.query(runtime.IsMask, runtime.ChildOf(scene.entity))]
   const entityCacheChildren = scene.entity.get(runtime.Cache)?.children ?? []
+  runtime.rebuildCaches(world, rect.entity, scene.entity)
+  const rebuiltSceneChildren = runtime.store(world, runtime.Cache).children[sceneId] ?? []
   if (
     computed.visibility[rectId] !== 1 ||
     !sceneChildren.some((child) => child === rect.entity)
@@ -180,6 +182,7 @@ try {
       },
       cachedChildIds: sceneChildren.map((child) => child.id()),
       entityCacheChildIds: entityCacheChildren.map((child) => child.id()),
+      rebuiltChildIds: rebuiltSceneChildren.map((child) => child.id()),
       queriedChildIds: queriedChildren.map((child) => child.id()),
       geometryChildIds: geometryChildren.map((child) => child.id()),
       groupChildIds: groupChildren.map((child) => child.id()),
