@@ -71,8 +71,14 @@ function localModule(relativePath) {
 
 ensureSource()
 
+if (typeof globalThis.HTMLElement === "undefined") {
+  globalThis.HTMLElement = class HTMLElement {}
+}
+if (typeof globalThis.HTMLCanvasElement === "undefined") {
+  globalThis.HTMLCanvasElement = class HTMLCanvasElement extends globalThis.HTMLElement {}
+}
 if (typeof globalThis.HTMLImageElement === "undefined") {
-  globalThis.HTMLImageElement = class HTMLImageElement {}
+  globalThis.HTMLImageElement = class HTMLImageElement extends globalThis.HTMLElement {}
 }
 
 const runtime = await import(sourceModule("packages/runtime/src/index.ts"))
