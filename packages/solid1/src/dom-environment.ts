@@ -172,6 +172,7 @@ type CompatWindow = CompatEventTarget & {
   scrollY?: number
   pageXOffset?: number
   pageYOffset?: number
+  devicePixelRatio?: number
 }
 
 type CompatMutationSnapshot = Map<HostElementNode, CompatTreeElement>
@@ -200,6 +201,7 @@ export function installDomEventEnvironment(): void {
     scrollY: 0,
     pageXOffset: 0,
     pageYOffset: 0,
+    devicePixelRatio: 1,
   }
 
   const bodyTarget = createDocumentNode("body", documentTarget, windowTarget)
