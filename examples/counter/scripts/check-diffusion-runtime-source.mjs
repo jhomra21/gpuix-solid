@@ -96,8 +96,16 @@ const recorder = createCanvas2DRecorder(
   (text, fontSize) => String(text).length * fontSize * 0.55,
 )
 
+function prepareDiffusionWorld(world) {
+  // Koota 0.6.6 evaluates Or(...) per bitmask generation. Diffusion's
+  // node-cache query includes AdjustmentLayer, which otherwise registers
+  // after Geometry and Group have landed in the previous generation.
+  world.query(runtime.AdjustmentLayer)
+}
+
 const canvas = { width, height }
 const world = runtime.createRuntimeWorld("gpuix-diffusion-runtime-source-smoke")
+prepareDiffusionWorld(world)
 world.set(runtime.Mode, { value: "offline-video" })
 world.set(runtime.FrameRate, { value: 30 })
 world.set(runtime.RenderSurface, {
@@ -107,10 +115,6 @@ world.set(runtime.RenderSurface, {
 })
 
 const document = createRuntimeDocument(world)
-const childOfEvents = []
-const stopChildOfEvents = world.onAdd(runtime.ChildOf("*"), (child, parent) => {
-  childOfEvents.push([child.id(), parent?.id() ?? null])
-})
 
 try {
   const scene = document.createElement("Scene")
@@ -153,23 +157,6 @@ try {
   const sceneChildren = cache.children[sceneId] ?? []
   const queriedChildren = runtime.getEntityChildren(world, scene.entity)
   const rectParent = runtime.getParentEntity(rect.entity)
-  const geometryChildren = [...world.query(runtime.Geometry, runtime.ChildOf(scene.entity))]
-  const groupChildren = [...world.query(runtime.Group, runtime.ChildOf(scene.entity))]
-  const adjustmentChildren = [...world.query(runtime.AdjustmentLayer, runtime.ChildOf(scene.entity))]
-  const maskChildren = [...world.query(runtime.IsMask, runtime.ChildOf(scene.entity))]
-  const worldInternal = world[Symbol.for("koota.internal")]
-  const traitPlacement = (trait) => {
-    const instance = worldInternal?.traitInstances?.[trait.id]
-    return {
-      id: trait.id,
-      generation: instance?.generationId ?? null,
-      bitflag: instance?.bitflag ?? null,
-    }
-  }
-  const childOfTrait = runtime.ChildOf[Symbol.for("koota.internal")]?.trait
-  const entityCacheChildren = scene.entity.get(runtime.Cache)?.children ?? []
-  runtime.rebuildCaches(world, rect.entity, scene.entity)
-  const rebuiltSceneChildren = runtime.store(world, runtime.Cache).children[sceneId] ?? []
   if (
     computed.visibility[rectId] !== 1 ||
     !sceneChildren.some((child) => child === rect.entity)
@@ -191,25 +178,7 @@ try {
         visibility: computed.visibility[rectId],
       },
       cachedChildIds: sceneChildren.map((child) => child.id()),
-      entityCacheChildIds: entityCacheChildren.map((child) => child.id()),
-      rebuiltChildIds: rebuiltSceneChildren.map((child) => child.id()),
-      traitPlacements: {
-        geometry: traitPlacement(runtime.Geometry),
-        group: traitPlacement(runtime.Group),
-        adjustmentLayer: traitPlacement(runtime.AdjustmentLayer),
-        childOf: childOfTrait ? traitPlacement(childOfTrait) : null,
-        isMask: traitPlacement(runtime.IsMask),
-      },
       queriedChildIds: queriedChildren.map((child) => child.id()),
-      geometryChildIds: geometryChildren.map((child) => child.id()),
-      groupChildIds: groupChildren.map((child) => child.id()),
-      adjustmentChildIds: adjustmentChildren.map((child) => child.id()),
-      maskChildIds: maskChildren.map((child) => child.id()),
-      childOfEvents,
-      sceneHasStage: scene.entity.has(runtime.Stage),
-      sceneHasCache: scene.entity.has(runtime.Cache),
-      rectHasGeometry: rect.entity.has(runtime.Geometry),
-      rectHasMask: rect.entity.has(runtime.IsMask),
       rectParentId: rectParent?.id() ?? null,
     }))
   }
@@ -260,7 +229,6 @@ try {
     reconciler: "real-source",
   }))
 } finally {
-  stopChildOfEvents()
   document.dispose()
   world.destroy()
 }
@@ -271,6 +239,7 @@ const mountedRecorder = createCanvas2DRecorder(
   (text, fontSize) => String(text).length * fontSize * 0.55,
 )
 const mountedWorld = runtime.createRuntimeWorld("gpuix-diffusion-mount-source-smoke")
+prepareDiffusionWorld(mountedWorld)
 mountedWorld.set(runtime.Mode, { value: "offline-video" })
 mountedWorld.set(runtime.FrameRate, { value: 30 })
 mountedWorld.set(runtime.RenderSurface, {
