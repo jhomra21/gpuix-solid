@@ -94,7 +94,6 @@ export type CanvasDrawCommand = (
       imageId: number
       source: CanvasImageRect
       destination: CanvasImageRect
-      alpha: number
     }
 ) & CanvasCommandClip
 
@@ -157,7 +156,7 @@ export function createCanvas2DRecorder(
   let path: CanvasPathSegment[] = []
   let state = defaultState()
   const stack: CanvasState[] = []
-  const imageIds = new WeakMap<CanvasRecorderImageSource, number>()
+  const imageIds = new WeakMap<CanvasRecorderImageSource, Map<number, number>>()
   let nextImageId = 1
 
   const changed = () => onChange()
@@ -440,19 +439,23 @@ export function createCanvas2DRecorder(
       const rectangles = resolveDrawImageRectangles(pixels.width, pixels.height, args)
       if (!rectangles) return
       const destination = transformImageRect(rectangles.destination, state.transform)
-      let imageId = imageIds.get(image)
+      let variants = imageIds.get(image)
+      if (!variants) {
+        variants = new Map<number, number>()
+        imageIds.set(image, variants)
+      }
+      let imageId = variants.get(state.globalAlpha)
       if (imageId === undefined) {
         imageId = nextImageId
         nextImageId += 1
-        imageIds.set(image, imageId)
+        variants.set(state.globalAlpha, imageId)
       }
-      uploadImageNative(imageId, pixels)
+      uploadImageNative(imageId, applyImageAlpha(pixels, state.globalAlpha))
       commands.push(withCanvasClip({
         op: "drawImage",
         imageId,
         source: rectangles.source,
         destination,
-        alpha: state.globalAlpha,
       }, state.clip))
       changed()
     },
@@ -624,6 +627,19 @@ function readCanvasImagePixels(image: CanvasRecorderImageSource): CanvasImagePix
     height: integerHeight,
     pixels: new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
   }
+}
+
+function applyImageAlpha(image: CanvasImagePixels, alpha: number): CanvasImagePixels {
+  if (alpha >= 1) return image
+  const pixels = image.pixels.slice()
+  if (alpha <= 0) {
+    for (let index = 3; index < pixels.length; index += 4) pixels[index] = 0
+  } else {
+    for (let index = 3; index < pixels.length; index += 4) {
+      pixels[index] = Math.round((pixels[index] ?? 0) * alpha)
+    }
+  }
+  return { width: image.width, height: image.height, pixels }
 }
 
 function resolveDrawImageRectangles(
