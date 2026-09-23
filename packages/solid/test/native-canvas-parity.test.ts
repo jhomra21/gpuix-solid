@@ -79,8 +79,10 @@ describe("native Canvas2D source-edge parity", () => {
           ]),
         }),
       }),
-    } as unknown as CanvasImageSource
-    context.drawImage(imageSource, 202, 18, 28, 28)
+    }
+    // SAFETY: the native Canvas bridge reads only width, height, and the 2D getImageData contract supplied above.
+    const readableImageSource = imageSource as CanvasImageSource
+    context.drawImage(readableImageSource, 202, 18, 28, 28)
 
     context.fillStyle = "#ffffff"
     context.font = "600 16px Arial"
