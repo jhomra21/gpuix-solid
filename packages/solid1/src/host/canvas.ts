@@ -38,6 +38,18 @@ export type CanvasImagePixels = {
   pixels: Uint8Array
 }
 
+export type CanvasPixelSource = {
+  width: number
+  height: number
+  getContext(contextId: "2d"): {
+    getImageData(x: number, y: number, width: number, height: number): {
+      data: Uint8ClampedArray
+    }
+  } | null
+}
+
+type CanvasRecorderImageSource = CanvasImageSource | CanvasPixelSource
+
 type CanvasCommandClip = {
   clip?: CanvasClipRect
 }
@@ -141,7 +153,7 @@ export function createCanvas2DRecorder(
   let path: CanvasPathSegment[] = []
   let state = defaultState()
   const stack: CanvasState[] = []
-  const imageIds = new WeakMap<CanvasImageSource, number>()
+  const imageIds = new WeakMap<CanvasRecorderImageSource, number>()
   let nextImageId = 1
 
   const changed = () => onChange()
@@ -416,7 +428,7 @@ export function createCanvas2DRecorder(
       }
       return { width }
     },
-    drawImage(image: CanvasImageSource, ...args: number[]) {
+    drawImage(image: CanvasRecorderImageSource, ...args: number[]) {
       if (!uploadImageNative) {
         throw new Error("GPUix Canvas2D drawImage() requires native image upload support")
       }
@@ -585,7 +597,7 @@ function cloneCommand(command: CanvasDrawCommand): CanvasDrawCommand {
   return clone
 }
 
-function readCanvasImagePixels(image: CanvasImageSource): CanvasImagePixels {
+function readCanvasImagePixels(image: CanvasRecorderImageSource): CanvasImagePixels {
   if (!("getContext" in image)) {
     throw new TypeError(
       "GPUix Canvas2D drawImage() currently supports canvas-like sources with readable RGBA pixels",
