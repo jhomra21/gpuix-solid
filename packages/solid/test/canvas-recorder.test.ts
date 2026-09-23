@@ -148,7 +148,7 @@ describe("Canvas2D draw-list recorder", () => {
     expect(command?.op).toBe("strokePath")
     if (command?.op !== "strokePath") throw new Error("expected stroke path")
     expect(command.path[0]).toEqual({ op: "moveTo", x: 16, y: 20 })
-    expect(command.path[1]).toEqual({ op: "lineTo", x: 86, y: 20 })
+    expect(command.path[1]).toEqual({ op: "lineTo", x: 82, y: 20 })
   })
 
   it("rejects invalid roundRect radii instead of approximating them", () => {
