@@ -107,6 +107,10 @@ world.set(runtime.RenderSurface, {
 })
 
 const document = createRuntimeDocument(world)
+const childOfEvents = []
+const stopChildOfEvents = world.onAdd(runtime.ChildOf("*"), (child, parent) => {
+  childOfEvents.push([child.id(), parent?.id() ?? null])
+})
 
 try {
   const scene = document.createElement("Scene")
@@ -149,6 +153,11 @@ try {
   const sceneChildren = cache.children[sceneId] ?? []
   const queriedChildren = runtime.getEntityChildren(world, scene.entity)
   const rectParent = runtime.getParentEntity(rect.entity)
+  const geometryChildren = [...world.query(runtime.Geometry, runtime.ChildOf(scene.entity))]
+  const groupChildren = [...world.query(runtime.Group, runtime.ChildOf(scene.entity))]
+  const adjustmentChildren = [...world.query(runtime.AdjustmentLayer, runtime.ChildOf(scene.entity))]
+  const maskChildren = [...world.query(runtime.IsMask, runtime.ChildOf(scene.entity))]
+  const entityCacheChildren = scene.entity.get(runtime.Cache)?.children ?? []
   if (
     computed.visibility[rectId] !== 1 ||
     !sceneChildren.some((child) => child === rect.entity)
@@ -170,7 +179,17 @@ try {
         visibility: computed.visibility[rectId],
       },
       cachedChildIds: sceneChildren.map((child) => child.id()),
+      entityCacheChildIds: entityCacheChildren.map((child) => child.id()),
       queriedChildIds: queriedChildren.map((child) => child.id()),
+      geometryChildIds: geometryChildren.map((child) => child.id()),
+      groupChildIds: groupChildren.map((child) => child.id()),
+      adjustmentChildIds: adjustmentChildren.map((child) => child.id()),
+      maskChildIds: maskChildren.map((child) => child.id()),
+      childOfEvents,
+      sceneHasStage: scene.entity.has(runtime.Stage),
+      sceneHasCache: scene.entity.has(runtime.Cache),
+      rectHasGeometry: rect.entity.has(runtime.Geometry),
+      rectHasMask: rect.entity.has(runtime.IsMask),
       rectParentId: rectParent?.id() ?? null,
     }))
   }
@@ -221,6 +240,7 @@ try {
     reconciler: "real-source",
   }))
 } finally {
+  stopChildOfEvents()
   document.dispose()
   world.destroy()
 }
