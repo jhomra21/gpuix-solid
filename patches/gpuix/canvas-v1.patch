@@ -13,13 +13,14 @@ diff --git a/packages/native/src/custom_elements/canvas.rs b/packages/native/src
 new file mode 100644
 --- /dev/null
 +++ b/packages/native/src/custom_elements/canvas.rs
-@@ -0,0 +1,574 @@
+@@ -0,0 +1,688 @@
 +use gpui::prelude::*;
 +use serde::Deserialize;
++use std::collections::HashMap;
 +
 +use super::{CustomElement, CustomElementFactory, CustomRenderContext};
 +
-+pub const CANVAS_DRAW_LIST_VERSION: u32 = 2;
++pub const CANVAS_DRAW_LIST_VERSION: u32 = 3;
 +
 +#[derive(Clone, Debug, Deserialize)]
 +#[serde(rename_all = "camelCase")]
@@ -33,6 +34,15 @@ new file mode 100644
 +#[derive(Clone, Debug, Deserialize)]
 +#[serde(rename_all = "camelCase")]
 +struct CanvasClipRect {
++    x: f32,
++    y: f32,
++    width: f32,
++    height: f32,
++}
++
++#[derive(Clone, Debug, Deserialize)]
++#[serde(rename_all = "camelCase")]
++struct CanvasImageRect {
 +    x: f32,
 +    y: f32,
 +    width: f32,
@@ -86,6 +96,16 @@ new file mode 100644
 +        #[serde(default)]
 +        clip: Option<CanvasClipRect>,
 +    },
++    #[serde(rename = "drawImage")]
++    DrawImage {
++        #[serde(rename = "imageId")]
++        image_id: u64,
++        source: CanvasImageRect,
++        destination: CanvasImageRect,
++        alpha: f32,
++        #[serde(default)]
++        clip: Option<CanvasClipRect>,
++    },
 +}
 +
 +impl CanvasDrawCommand {
@@ -93,7 +113,8 @@ new file mode 100644
 +        match self {
 +            Self::FillPath { clip, .. }
 +            | Self::StrokePath { clip, .. }
-+            | Self::FillText { clip, .. } => clip.as_ref(),
++            | Self::FillText { clip, .. }
++            | Self::DrawImage { clip, .. } => clip.as_ref(),
 +        }
 +    }
 +}
@@ -125,9 +146,17 @@ new file mode 100644
 +    ClosePath,
 +}
 +
++#[derive(Clone)]
++struct CanvasImageResource {
++    image: std::sync::Arc<gpui::RenderImage>,
++    width: u32,
++    height: u32,
++}
++
 +#[derive(Default)]
 +pub struct CanvasElement {
 +    draw_list: Option<CanvasDrawList>,
++    images: HashMap<u64, CanvasImageResource>,
 +}
 +
 +pub struct CanvasFactory;
@@ -154,13 +183,14 @@ new file mode 100644
 +        _cx: &mut gpui::Context<crate::renderer::GpuixView>,
 +    ) -> gpui::AnyElement {
 +        let draw_list = self.draw_list.clone();
++        let images = self.images.clone();
 +        let prepaint_list = draw_list.clone();
 +        let paint_list = draw_list;
 +        let canvas = gpui::canvas(
 +            move |bounds, window, _cx| prepare_canvas(prepaint_list.as_ref(), bounds, window),
 +            move |bounds, prepared, window, cx| {
 +                if let Some(draw_list) = paint_list.as_ref() {
-+                    paint_canvas(draw_list, &prepared, bounds, window, cx);
++                    paint_canvas(draw_list, &prepared, &images, bounds, window, cx);
 +                }
 +            },
 +        )
@@ -232,6 +262,30 @@ new file mode 100644
 +    }
 +
 +    fn destroy(&mut self) {}
++
++    fn replace_canvas_image(
++        &mut self,
++        image_id: u64,
++        width: u32,
++        height: u32,
++        image: std::sync::Arc<gpui::RenderImage>,
++    ) -> std::result::Result<Option<std::sync::Arc<gpui::RenderImage>>, String> {
++        Ok(self
++            .images
++            .insert(
++                image_id,
++                CanvasImageResource {
++                    image,
++                    width,
++                    height,
++                },
++            )
++            .map(|previous| previous.image))
++    }
++
++    fn take_canvas_images(&mut self) -> Vec<std::sync::Arc<gpui::RenderImage>> {
++        self.images.drain().map(|(_, resource)| resource.image).collect()
++    }
 +}
 +
 +fn wire_canvas_events(
@@ -408,6 +462,7 @@ new file mode 100644
 +fn paint_canvas(
 +    draw_list: &CanvasDrawList,
 +    prepared: &PreparedCanvas,
++    images: &HashMap<u64, CanvasImageResource>,
 +    bounds: gpui::Bounds<gpui::Pixels>,
 +    window: &mut gpui::Window,
 +    cx: &mut gpui::App,
@@ -507,8 +562,67 @@ new file mode 100644
 +                    );
 +                });
 +            }
++            CanvasDrawCommand::DrawImage {
++                image_id,
++                source,
++                destination,
++                alpha,
++                ..
++            } => {
++                let Some(resource) = images.get(image_id) else {
++                    log::warn!("Skipping missing GPUIX canvas image resource {image_id}");
++                    continue;
++                };
++                if source.width <= 0.0
++                    || source.height <= 0.0
++                    || destination.width <= 0.0
++                    || destination.height <= 0.0
++                {
++                    continue;
++                }
++                let image_scale_x = destination.width / source.width;
++                let image_scale_y = destination.height / source.height;
++                let visible = canvas_image_bounds(destination, bounds, scale_x, scale_y);
++                let full = CanvasImageRect {
++                    x: destination.x - source.x * image_scale_x,
++                    y: destination.y - source.y * image_scale_y,
++                    width: resource.width as f32 * image_scale_x,
++                    height: resource.height as f32 * image_scale_y,
++                };
++                let full = canvas_image_bounds(&full, bounds, scale_x, scale_y);
++                paint_with_clip(command.clip(), draw_list, bounds, window, |window| {
++                    window.with_element_opacity(Some(alpha.clamp(0.0, 1.0)), |window| {
++                        let _ = window.paint_image(
++                            visible,
++                            full,
++                            gpui::Corners::default(),
++                            resource.image.clone(),
++                            0,
++                            false,
++                        );
++                    });
++                });
++            }
 +        }
 +    }
++}
++
++fn canvas_image_bounds(
++    rect: &CanvasImageRect,
++    bounds: gpui::Bounds<gpui::Pixels>,
++    scale_x: f32,
++    scale_y: f32,
++) -> gpui::Bounds<gpui::Pixels> {
++    gpui::Bounds::new(
++        gpui::point(
++            bounds.origin.x + gpui::px(rect.x * scale_x),
++            bounds.origin.y + gpui::px(rect.y * scale_y),
++        ),
++        gpui::size(
++            gpui::px((rect.width * scale_x).max(0.0)),
++            gpui::px((rect.height * scale_y).max(0.0)),
++        ),
++    )
 +}
 +
 +fn paint_with_clip(
