@@ -83,6 +83,7 @@ globalThis.HTMLImageElement = HeadlessHTMLImageElement
 
 const runtime = await import(sourceModule("packages/runtime/src/index.ts"))
 const { createRuntimeDocument } = await import(sourceModule("packages/reconciler/src/document.ts"))
+const { mount } = await import(sourceModule("packages/reconciler/src/mount.ts"))
 const {
   CANVAS_DRAW_LIST_VERSION,
   createCanvas2DRecorder,
@@ -178,4 +179,87 @@ try {
 } finally {
   document.dispose()
   world.destroy()
+}
+
+const mountedRecorder = createCanvas2DRecorder(
+  () => ({ width, height }),
+  undefined,
+  (text, fontSize) => String(text).length * fontSize * 0.55,
+)
+const mountedWorld = runtime.createRuntimeWorld("gpuix-diffusion-mount-source-smoke")
+mountedWorld.set(runtime.Mode, { value: "offline-video" })
+mountedWorld.set(runtime.FrameRate, { value: 30 })
+mountedWorld.set(runtime.RenderSurface, {
+  canvas: { width, height },
+  ctx: mountedRecorder.context,
+  resolution: 1,
+})
+
+const compiledBundle = `
+const {
+  createComponent,
+  Stage,
+  Scene,
+  Rect,
+} = require("@diffusionstudio/jsx");
+
+module.exports.default = function Project() {
+  return createComponent(Stage, {
+    get children() {
+      return createComponent(Scene, {
+        name: "GPUix mounted source smoke",
+        width: ${width},
+        height: ${height},
+        fill: "#0F172A",
+        active: true,
+        get children() {
+          return createComponent(Rect, {
+            x: 52,
+            y: 36,
+            width: 144,
+            height: 84,
+            fill: "#22C55E",
+            cornerRadius: 12,
+          });
+        },
+      });
+    },
+  });
+};
+`
+
+const mounted = mount(compiledBundle, mountedWorld)
+try {
+  runtime.playbackSystem(mountedWorld)
+  runtime.motionSystem(mountedWorld)
+  runtime.transformSystem(mountedWorld)
+  runtime.renderSystem(mountedWorld)
+
+  const mountedDrawList = mountedRecorder.snapshot()
+  const mountedFill = mountedDrawList.commands.find(
+    (command) => command.op === "fillPath" && command.color === "#22C55E",
+  )
+  if (!mountedFill || mountedFill.op !== "fillPath") {
+    throw new Error(
+      `Diffusion mount() did not render the source bundle into GPUix Canvas: ${JSON.stringify(mountedDrawList)}`,
+    )
+  }
+
+  const mountedCubics = mountedFill.path.filter((segment) => segment.op === "bezierCurveTo")
+  if (mountedCubics.length !== 4) {
+    throw new Error(
+      `Diffusion mount() round rect should lower through four cubics, got ${mountedCubics.length}`,
+    )
+  }
+
+  console.log(JSON.stringify({
+    diffusionCommit: DIFFUSION_COMMIT,
+    canvasProtocol: mountedDrawList.version,
+    mountedCommands: mountedDrawList.commands.length,
+    mountedRoundRectCubics: mountedCubics.length,
+    mount: "real-source",
+  }))
+} finally {
+  mounted.dispose()
+  mountedWorld.destroy()
 }
