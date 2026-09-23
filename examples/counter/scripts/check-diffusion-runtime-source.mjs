@@ -137,6 +137,8 @@ try {
   document.setProperty(cacheRefreshRect, "fill", "#38BDF8")
   document.insertNode(scene, cacheRefreshRect)
 
+  await Promise.resolve()
+
   runtime.setPlayhead(world, scene.entity, 0)
   runtime.playbackSystem(world)
 
@@ -281,6 +283,8 @@ module.exports.default = function Project() {
 
 const mounted = mount(compiledBundle, mountedWorld)
 try {
+  await Promise.resolve()
+
   const mountedScene = runtime.getActiveEntity(mountedWorld)
   if (!mountedScene) throw new Error("Diffusion mount() did not create an active scene")
   runtime.setPlayhead(mountedWorld, mountedScene, 0)
