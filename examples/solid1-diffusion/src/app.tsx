@@ -1,12 +1,16 @@
 import { onCleanup, onMount, type JSX } from "solid-js"
 import { configureNativeStyleManifest } from "@jhomra21/gpuix-solid1"
 import { EngineCanvas } from "@/engine/canvas"
+import { CameraController } from "@/engine/camera-controller"
 import { EngineProvider, useEngineContext } from "@/engine/context"
 import { mount, type Mount } from "@diffusionstudio/reconciler"
 import {
   getActiveEntity,
+  getCamera,
   Name,
   RenderSurface,
+  Tool,
+  ToolType,
   type RuntimeWorld,
 } from "@diffusionstudio/runtime"
 
@@ -82,7 +86,12 @@ function ProjectMount(): JSX.Element {
     diffusionSourceProbe.frame = null
   })
 
-  return <EngineCanvas />
+  return (
+    <>
+      <EngineCanvas />
+      <CameraController />
+    </>
+  )
 }
 
 class DiffusionAudioContext {
@@ -119,10 +128,18 @@ export function DiffusionSourceEngine(): JSX.Element {
   )
 }
 
+export function armDiffusionSourceHandTool(): void {
+  const world = diffusionSourceProbe.world
+  if (!world) throw new Error("Diffusion source world is not mounted")
+  world.set(Tool, { value: ToolType.HAND })
+}
+
 export function readDiffusionSourceState() {
   const world = diffusionSourceProbe.world
   const scene = world ? getActiveEntity(world) : null
   const surface = world?.get(RenderSurface)
+  const camera = world ? getCamera(world) : null
+
   return {
     sceneName: scene?.get(Name)?.value ?? null,
     canvas: surface?.canvas ?? null,
@@ -131,5 +148,8 @@ export function readDiffusionSourceState() {
     canvasWidth: surface?.canvas?.width ?? null,
     canvasHeight: surface?.canvas?.height ?? null,
     resolution: surface?.resolution ?? null,
+    camera: camera
+      ? { a: camera.a, b: camera.b, c: camera.c, d: camera.d, e: camera.e, f: camera.f }
+      : null,
   }
 }
