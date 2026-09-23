@@ -48,15 +48,15 @@ for (const candidate of candidates) {
 }
 
 const omissionsComment = omissions.length === 0
-  ? "// No explicit native omissions in this manifest.\\n"
+  ? "// No explicit native omissions in this manifest.\n"
   : [
       "// Explicit native omissions from the pinned Diffusion source.",
       ...omissions.map(({ candidate, reason }) => `// - ${candidate}: ${reason}`),
       "",
-    ].join("\\n")
-const generated = `import type { NativeStyleManifest } from "@jhomra21/gpuix-solid1"\\n\\n` +
+    ].join("\n")
+const generated = `import type { NativeStyleManifest } from "@jhomra21/gpuix-solid1"\n\n` +
   omissionsComment +
-  `export const nativeTailwindManifest: NativeStyleManifest = ${JSON.stringify({ classes }, null, 2)}\\n`
+  `export const nativeTailwindManifest: NativeStyleManifest = ${JSON.stringify({ classes }, null, 2)}\n`
 
 await writeFile(outputPath, generated)
 console.log(`Diffusion native Tailwind manifest: ${candidates.length} candidates (${omissions.length} explicit omissions)`)
