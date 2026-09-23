@@ -37,10 +37,21 @@ if (!hasNativeTestRenderer) {
     requireCondition(existsSync(screenshotPath), "Diffusion source screenshot should be written")
     requireCondition(statSync(screenshotPath).size > 0, "Diffusion source screenshot should not be empty")
 
-    app.renderer.customPropJsonContainingAll("drawList", [
-      "\"version\":3",
-      "\"color\":\"#22C55E\"",
-    ])
+    const canvasBounds = app.renderer.boundsFirstTypeWithinTestId("diffusion-source-engine", "canvas")
+    console.log("solid1 Diffusion source state:", JSON.stringify({
+      frame: state.frame,
+      canvasWidth: state.canvasWidth,
+      canvasHeight: state.canvasHeight,
+      resolution: state.resolution,
+      canvasBounds,
+    }))
+
+    const drawList = app.renderer.customPropJsonContainingAll("drawList", ["\"version\":3"])
+    console.log("solid1 Diffusion source drawList:", drawList)
+    requireCondition(
+      drawList.includes("\"color\":\"#22C55E\""),
+      "Diffusion source draw list should contain the green project rectangle",
+    )
 
     console.log("solid1 Diffusion source EngineProvider + EngineCanvas: passed")
   } finally {

@@ -144,6 +144,8 @@ jobs:
     name: GPUIX pinned edge (macOS)
     runs-on: macos-latest
     timeout-minutes: 45
+    env:
+      CARGO_TARGET_DIR: ${{ github.workspace }}/.cache/gpuix-cargo-target
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -153,6 +155,14 @@ jobs:
           bun-version: 1.3.14
       - name: Confirm native build toolchain
         run: rustc --version && cargo --version
+      - name: Cache pinned GPUIX Cargo build
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            .cache/gpuix-cargo-target
+          key: gpuix-edge-macos-${{ hashFiles('.gpuix/edge.json', 'patches/gpuix/*.patch') }}
       - run: bun install --frozen-lockfile
       - name: Install Solid 1 and Diffusion source host
         run: |

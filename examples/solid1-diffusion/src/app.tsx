@@ -57,16 +57,19 @@ module.exports.default = function Project() {
 export type DiffusionSourceProbe = {
   world: RuntimeWorld | null
   mounted: Mount | null
+  frame: (() => number) | null
 }
 
 export const diffusionSourceProbe: DiffusionSourceProbe = {
   world: null,
   mounted: null,
+  frame: null,
 }
 
 function ProjectMount(): JSX.Element {
   const engine = useEngineContext()
   diffusionSourceProbe.world = engine.world
+  diffusionSourceProbe.frame = engine.frame
 
   // Diffusion 0.206.0 uses an Or(Geometry, Group, AdjustmentLayer) cache query
   // that crosses Koota 0.6.6 bitmask generations unless this trait is known
@@ -82,6 +85,7 @@ function ProjectMount(): JSX.Element {
     mounted?.dispose()
     diffusionSourceProbe.mounted = null
     diffusionSourceProbe.world = null
+    diffusionSourceProbe.frame = null
   })
 
   return <EngineCanvas />
@@ -129,5 +133,9 @@ export function readDiffusionSourceState() {
     sceneName: scene?.get(Name)?.value ?? null,
     canvas: surface?.canvas ?? null,
     context: surface?.ctx ?? null,
+    frame: diffusionSourceProbe.frame?.() ?? null,
+    canvasWidth: surface?.canvas?.width ?? null,
+    canvasHeight: surface?.canvas?.height ?? null,
+    resolution: surface?.resolution ?? null,
   }
 }
