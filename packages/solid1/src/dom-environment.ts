@@ -177,6 +177,7 @@ type CompatWindow = CompatEventTarget & {
   Node?: typeof Node
   Path2D?: typeof GpuixPath2D
   DOMMatrix?: typeof CompatDOMMatrix
+  DOMRect?: typeof CompatDOMRect
   getComputedStyle?: CompatGetComputedStyle
   innerWidth?: number
   innerHeight?: number
@@ -187,6 +188,54 @@ type CompatWindow = CompatEventTarget & {
   devicePixelRatio?: number
 }
 
+
+
+class CompatDOMRect {
+  constructor(
+    public x = 0,
+    public y = 0,
+    public width = 0,
+    public height = 0,
+  ) {}
+
+  get top(): number {
+    return Math.min(this.y, this.y + this.height)
+  }
+
+  get right(): number {
+    return Math.max(this.x, this.x + this.width)
+  }
+
+  get bottom(): number {
+    return Math.max(this.y, this.y + this.height)
+  }
+
+  get left(): number {
+    return Math.min(this.x, this.x + this.width)
+  }
+
+  toJSON(): Record<"x" | "y" | "width" | "height" | "top" | "right" | "bottom" | "left", number> {
+    return {
+      x: this.x,
+      y: this.y,
+      width: this.width,
+      height: this.height,
+      top: this.top,
+      right: this.right,
+      bottom: this.bottom,
+      left: this.left,
+    }
+  }
+
+  static fromRect(rect: DOMRectInit = {}): CompatDOMRect {
+    return new CompatDOMRect(
+      rect.x ?? 0,
+      rect.y ?? 0,
+      rect.width ?? 0,
+      rect.height ?? 0,
+    )
+  }
+}
 
 class CompatDOMMatrix {
   a = 1
@@ -286,6 +335,7 @@ export function installDomEventEnvironment(): void {
   windowTarget.Image = CompatImageLoader
   windowTarget.Path2D = GpuixPath2D
   windowTarget.DOMMatrix = CompatDOMMatrix
+  windowTarget.DOMRect = CompatDOMRect
   windowTarget.getComputedStyle = defaultComputedStyle
   Object.defineProperty(windowTarget, "Element", {
     configurable: true,
@@ -339,6 +389,11 @@ export function installDomEventEnvironment(): void {
     configurable: true,
     writable: true,
     value: CompatDOMMatrix,
+  })
+  Object.defineProperty(globalThis, "DOMRect", {
+    configurable: true,
+    writable: true,
+    value: CompatDOMRect,
   })
   Object.defineProperty(globalThis, "requestAnimationFrame", {
     configurable: true,
