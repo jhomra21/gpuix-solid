@@ -15,7 +15,15 @@ import {
   type VideoSamplePixelFormat,
 } from "mediabunny"
 
-type NativeVideoCodec = "avc" | "hevc"
+type NativeVideoCodec =
+  | "avc"
+  | "hevc"
+  | "apco"
+  | "apcs"
+  | "apcn"
+  | "apch"
+  | "ap4h"
+  | "ap4x"
 
 type NativePacket = {
   data: Buffer
@@ -68,10 +76,14 @@ type NativeModule = {
   VideoToolboxVideoDecoder: new (
     codec: NativeVideoCodec,
     description: Buffer,
+    codedWidth?: number,
+    codedHeight?: number,
   ) => NativeDecoder
   isVideoToolboxDecoderSupported(
     codec: NativeVideoCodec,
     description: Buffer,
+    codedWidth?: number,
+    codedHeight?: number,
   ): boolean
 }
 
@@ -113,8 +125,27 @@ function toBuffer(source: AllowSharedBufferSource): Buffer {
   return Buffer.from(new Uint8Array(source))
 }
 
-function isNativeCodec(codec: VideoCodec): codec is NativeVideoCodec {
-  return codec === "avc" || codec === "hevc"
+const PRORES_SAMPLE_ENTRIES = new Set<NativeVideoCodec>([
+  "apco",
+  "apcs",
+  "apcn",
+  "apch",
+  "ap4h",
+  "ap4x",
+])
+
+function resolveNativeCodec(
+  codec: VideoCodec,
+  config: VideoDecoderConfig,
+): NativeVideoCodec | null {
+  if (codec === "avc" || codec === "hevc") return codec
+  if (
+    codec === "prores"
+    && PRORES_SAMPLE_ENTRIES.has(config.codec as NativeVideoCodec)
+  ) {
+    return config.codec as NativeVideoCodec
+  }
+  return null
 }
 
 export class VideoToolboxVideoSampleResource extends VideoSampleResource {
@@ -246,18 +277,37 @@ export class VideoToolboxMediaDecoder extends CustomVideoDecoder {
     codec: VideoCodec,
     config: VideoDecoderConfig,
   ): boolean {
+    if (process.platform !== "darwin") return false
+
+    const nativeCodec = resolveNativeCodec(codec, config)
+    if (!nativeCodec) return false
+
+    const description = config.description
+      ? toBuffer(config.description)
+      : Buffer.alloc(0)
+
     if (
-      process.platform !== "darwin"
-      || !isNativeCodec(codec)
-      || !config.description
+      (codec === "avc" || codec === "hevc")
+      && description.byteLength === 0
+    ) {
+      return false
+    }
+    if (
+      codec === "prores"
+      && (
+        !config.codedWidth
+        || !config.codedHeight
+      )
     ) {
       return false
     }
 
     try {
       return getNativeModule().isVideoToolboxDecoderSupported(
-        codec,
-        toBuffer(config.description),
+        nativeCodec,
+        description,
+        config.codedWidth ?? 0,
+        config.codedHeight ?? 0,
       )
     } catch {
       return false
@@ -273,13 +323,31 @@ export class VideoToolboxMediaDecoder extends CustomVideoDecoder {
   readonly #packetBatchSize = 8
 
   init(): void {
-    if (!isNativeCodec(this.codec) || !this.config.description) {
-      throw new Error("VideoToolboxMediaDecoder requires AVC or HEVC decoder configuration")
+    const nativeCodec = resolveNativeCodec(this.codec, this.config)
+    if (!nativeCodec) {
+      throw new Error(
+        "VideoToolboxMediaDecoder requires AVC, HEVC, or a supported ProRes sample entry",
+      )
+    }
+
+    const description = this.config.description
+      ? toBuffer(this.config.description)
+      : Buffer.alloc(0)
+
+    if (
+      (this.codec === "avc" || this.codec === "hevc")
+      && description.byteLength === 0
+    ) {
+      throw new Error(
+        "VideoToolboxMediaDecoder requires AVC/HEVC decoder configuration data",
+      )
     }
 
     this.#decoder = new (getNativeModule().VideoToolboxVideoDecoder)(
-      this.codec,
-      toBuffer(this.config.description),
+      nativeCodec,
+      description,
+      this.config.codedWidth ?? 0,
+      this.config.codedHeight ?? 0,
     )
 
     if (!this.#decoder.hardwareAccelerated) {
