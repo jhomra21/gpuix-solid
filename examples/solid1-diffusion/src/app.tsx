@@ -30,6 +30,9 @@ configureNativeStyleManifest({
     "size-full": { base: { width: "100%", height: "100%" } },
     absolute: { base: { position: "absolute" } },
     "inset-0": { base: { top: 0, right: 0, bottom: 0, left: 0 } },
+    "z-5": { base: {} },
+    "cursor-crosshair": { base: { cursor: "crosshair" } },
+    "pointer-events-none": { base: { pointerEvents: "none" } },
   },
 })
 
