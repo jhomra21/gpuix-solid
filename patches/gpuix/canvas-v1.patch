@@ -859,7 +859,12 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
      #[napi]
      pub fn set_image(&self, element_id: f64, bytes: Buffer) -> Result<()> {
          let id = to_element_id(element_id)?;
-@@ -2680,2 +2710,57 @@
+@@ -1450,8 +1480,63 @@
+         ))
+     }
+ 
+-    /// The paintable size of the window in logical pixels, excluding any
+-    /// platform title bar. This used to answer a hardcoded 800x600, so anything
 +    /// Version of the retained Canvas2D draw-list protocol.
 +    #[napi]
 +    pub fn get_canvas_draw_list_version(&self) -> u32 {
@@ -915,8 +920,11 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +        }
 +    }
 +
-     /// The paintable size of the window in logical pixels, excluding any
-     /// platform title bar. This used to answer a hardcoded 800x600, so anything
++    /// The paintable size of the window in logical pixels, excluding any
++    /// platform title bar. This used to answer a hardcoded 800x600, so anything
+     /// that turned a mouse position into layout coordinates pointed at the
+     /// wrong place on every window that was not exactly that size.
+     #[napi]
 @@ -3723,13 +3808,48 @@
          self.set_live_image(id, image, window, cx)
      }
@@ -1016,7 +1024,12 @@ diff --git a/packages/native/src/test_renderer.rs b/packages/native/src/test_ren
          let id = to_element_id(element_id)?;
          let bytes = bytes.to_vec();
          with_test_state(|cx, window, view| {
-@@ -1170,3 +1197,55 @@
+@@ -1208,8 +1235,60 @@
+         self.tree.lock().unwrap().root_id.map(|id| id as f64)
+     }
+ 
+-    /// The offscreen window size, so `useWindowSize()` reports the same numbers
+-    /// under test as in a real window instead of falling back to a default.
 +    /// Version of the retained Canvas2D draw-list protocol.
 +    #[napi]
 +    pub fn get_canvas_draw_list_version(&self) -> u32 {
@@ -1069,5 +1082,8 @@ diff --git a/packages/native/src/test_renderer.rs b/packages/native/src/test_ren
 +        })
 +    }
 +
-     /// The offscreen window size, so `useWindowSize()` reports the same numbers
-     /// under test as in a real window instead of falling back to a default.
++    /// The offscreen window size, so `useWindowSize()` reports the same numbers
++    /// under test as in a real window instead of falling back to a default.
+     #[napi]
+     pub fn get_window_size(&self) -> Result<crate::renderer::WindowSize> {
+         with_test_state(|cx, window, _view| {
