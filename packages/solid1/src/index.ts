@@ -108,6 +108,7 @@ export { CANVAS_DRAW_LIST_VERSION, createCanvas2DRecorder } from "./host/canvas.
 export type {
   Canvas2DRecorder,
   CanvasBackingSize,
+  CanvasClipRect,
   CanvasDrawCommand,
   CanvasDrawList,
   CanvasDrawListVersion,
