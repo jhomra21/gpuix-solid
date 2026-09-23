@@ -63,13 +63,9 @@ type CanvasRecorderImageSource = CanvasImageSource | CanvasPixelSource
 
 export type GpuixCanvasRenderingContext2D = Omit<
   CanvasRenderingContext2D,
-  "drawImage" | "fill" | "stroke"
+  "drawImage"
 > & {
   drawImage(image: CanvasRecorderImageSource, ...args: number[]): void
-  fill(fillRule?: CanvasFillRule): void
-  fill(path: GpuixPath2D, fillRule?: CanvasFillRule): void
-  stroke(): void
-  stroke(path: GpuixPath2D): void
 }
 
 type CanvasCommandClip = {

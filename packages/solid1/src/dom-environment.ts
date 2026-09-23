@@ -40,10 +40,19 @@ type CompatTreeWalker = {
   nextNode(): HostElementNode | null
 }
 
+class CompatFontFaceSet extends EventTarget {
+  readonly ready = Promise.resolve(this)
+
+  add(_font: FontFace): this {
+    return this
+  }
+}
+
 type CompatDocument = CompatEventTarget & {
   body?: CompatDocumentNode
   documentElement?: CompatDocumentNode
   defaultView?: CompatWindow
+  fonts?: CompatFontFaceSet
   createElement?: (tagName: string) => HostElementNode
   createTreeWalker?: (
     root: CompatTreeElement,
@@ -263,6 +272,7 @@ export function installDomEventEnvironment(): void {
   documentTarget.body = bodyTarget
   documentTarget.documentElement = documentElementTarget
   documentTarget.defaultView = windowTarget
+  documentTarget.fonts = new CompatFontFaceSet()
   documentTarget.createElement = createCompatElement
   documentTarget.createTreeWalker = createCompatTreeWalker
   windowTarget.document = documentTarget
