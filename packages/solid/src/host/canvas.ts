@@ -249,16 +249,23 @@ export function createCanvas2DRecorder(
       state.transform = IDENTITY
     },
     setTransform(
-      a: number | CanvasTransformInit,
-      b?: number,
-      c?: number,
-      d?: number,
-      e?: number,
-      f?: number,
+      ...args:
+        | [transform: CanvasTransformInit]
+        | [a: number, b: number, c: number, d: number, e: number, f: number]
     ) {
-      state.transform = typeof a === "number"
-        ? finiteMatrix(a, b, c, d, e, f)
-        : finiteMatrix(a.a, a.b, a.c, a.d, a.e, a.f)
+      if (args.length === 1) {
+        const matrix = args[0]
+        state.transform = finiteMatrix(
+          matrix.a,
+          matrix.b,
+          matrix.c,
+          matrix.d,
+          matrix.e,
+          matrix.f,
+        )
+        return
+      }
+      state.transform = finiteMatrix(...args)
     },
     transform(a: number, b: number, c: number, d: number, e: number, f: number) {
       state.transform = multiplyMatrices(state.transform, finiteMatrix(a, b, c, d, e, f))
