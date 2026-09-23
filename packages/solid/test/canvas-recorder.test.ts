@@ -116,6 +116,66 @@ describe("Canvas2D draw-list recorder", () => {
     expect(command.path.filter((segment) => segment.op === "bezierCurveTo")).toHaveLength(4)
   })
 
+  it("lowers arcTo into the existing cubic path protocol", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 120, height: 80 }))
+    const ctx = recorder.context
+
+    ctx.beginPath()
+    ctx.moveTo(0, 0)
+    ctx.lineTo(10, 0)
+    ctx.arcTo(20, 0, 20, 10, 4)
+    ctx.lineTo(20, 20)
+    ctx.fill()
+
+    const command = recorder.snapshot().commands[0]
+    expect(command?.op).toBe("fillPath")
+    if (command?.op !== "fillPath") throw new Error("expected fill path")
+    expect(command.path[2]).toMatchObject({ op: "lineTo", x: 16, y: 0 })
+    expect(command.path[3]).toMatchObject({ op: "bezierCurveTo", x: 20, y: 4 })
+    expect(command.path[4]).toMatchObject({ op: "lineTo", x: 20, y: 20 })
+  })
+
+  it("keeps arcTo geometry correct through an affine transform", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 200, height: 120 }))
+    const ctx = recorder.context
+
+    ctx.setTransform(2, 0.5, 0.25, 1.5, 7, 11)
+    ctx.beginPath()
+    ctx.moveTo(0, 0)
+    ctx.arcTo(10, 0, 10, 10, 2)
+    ctx.strokeStyle = "#ffffff"
+    ctx.stroke()
+
+    const command = recorder.snapshot().commands[0]
+    expect(command?.op).toBe("strokePath")
+    if (command?.op !== "strokePath") throw new Error("expected stroke path")
+    expect(command.path[1]).toMatchObject({ op: "lineTo", x: 23, y: 15 })
+    expect(command.path[2]).toMatchObject({ op: "bezierCurveTo", x: 27.5, y: 19 })
+  })
+
+  it("handles degenerate arcTo corners and rejects negative radii", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
+    const ctx = recorder.context
+
+    ctx.beginPath()
+    ctx.arcTo(4, 5, 8, 9, 2)
+    expect(recorder.snapshot().commands).toEqual([])
+
+    ctx.lineTo(10, 5)
+    ctx.arcTo(10, 5, 20, 5, 3)
+    ctx.stroke()
+    const command = recorder.snapshot().commands[0]
+    expect(command?.op).toBe("strokePath")
+    if (command?.op !== "strokePath") throw new Error("expected stroke path")
+    expect(command.path).toMatchObject([
+      { op: "moveTo", x: 4, y: 5 },
+      { op: "lineTo", x: 10, y: 5 },
+      { op: "lineTo", x: 10, y: 5 },
+    ])
+
+    expect(() => ctx.arcTo(0, 0, 10, 10, -1)).toThrow(/radius provided is negative/u)
+  })
+
   it("lowers roundRect into the existing path protocol", () => {
     const recorder = createCanvas2DRecorder(() => ({ width: 120, height: 80 }))
     const ctx = recorder.context
