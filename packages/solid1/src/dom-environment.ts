@@ -214,7 +214,7 @@ class CompatDOMRect {
     return Math.min(this.x, this.x + this.width)
   }
 
-  toJSON(): Record<"x" | "y" | "width" | "height" | "top" | "right" | "bottom" | "left", number> {
+  toJSON() {
     return {
       x: this.x,
       y: this.y,
