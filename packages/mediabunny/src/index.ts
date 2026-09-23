@@ -6,6 +6,7 @@ import {
   getVideoToolboxVideoSampleResource,
   registerVideoToolboxMediaDecoder,
 } from "./videotoolbox-mediabunny.js"
+import { registerBunSafeProResDecoder } from "./prores-bun-fallback.js"
 
 export type GpuixVideoFrameRenderer = {
   getVideoFrameIosurfaceVersion(): number | null
@@ -20,6 +21,7 @@ export type GpuixVideoFrameRenderer = {
 
 export type GpuixMediaBunnyRegistration = {
   videoToolbox: boolean
+  proresFallback: boolean
   serverFallback: true
 }
 
@@ -35,10 +37,12 @@ export function registerGpuixMediaBunny(
   installGpuixCanvasSinkBridge()
 
   const videoToolbox = registerVideoToolboxMediaDecoder()
+  const proresFallback = registerBunSafeProResDecoder()
   registerMediabunnyServer(serverOptions)
 
   registration = {
     videoToolbox,
+    proresFallback,
     serverFallback: true,
   }
   registered = true
@@ -110,3 +114,8 @@ export {
 export { installGpuixCanvasSinkBridge } from "./gpuix-canvas-sink.js"
 export { createGpuixFilePathSource } from "./file-path-source.js"
 export { installNapiCanvasGlobals } from "./napi-canvas-globals.js"
+
+export {
+  BunSafeProResDecoder,
+  registerBunSafeProResDecoder,
+} from "./prores-bun-fallback.js"
