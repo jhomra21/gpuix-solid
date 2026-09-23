@@ -125,27 +125,24 @@ function toBuffer(source: AllowSharedBufferSource): Buffer {
   return Buffer.from(new Uint8Array(source))
 }
 
-const PRORES_SAMPLE_ENTRIES = new Set<NativeVideoCodec>([
-  "apco",
-  "apcs",
-  "apcn",
-  "apch",
-  "ap4h",
-  "ap4x",
-])
-
 function resolveNativeCodec(
   codec: VideoCodec,
   config: VideoDecoderConfig,
 ): NativeVideoCodec | null {
   if (codec === "avc" || codec === "hevc") return codec
-  if (
-    codec === "prores"
-    && PRORES_SAMPLE_ENTRIES.has(config.codec as NativeVideoCodec)
-  ) {
-    return config.codec as NativeVideoCodec
+  if (codec !== "prores") return null
+
+  switch (config.codec) {
+    case "apco":
+    case "apcs":
+    case "apcn":
+    case "apch":
+    case "ap4h":
+    case "ap4x":
+      return config.codec
+    default:
+      return null
   }
-  return null
 }
 
 export class VideoToolboxVideoSampleResource extends VideoSampleResource {
