@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "examples/mediabunny/**"
+      - "packages/mediabunny/**"
       - ".github/workflows/mediabunny.yml"
   workflow_dispatch:
 
@@ -33,6 +34,14 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.3.14
+      - name: Install reusable MediaBunny package dependencies
+        if: matrix.backend == 'webcodecs'
+        working-directory: packages/mediabunny
+        run: bun install --no-save
+      - name: Typecheck reusable MediaBunny package
+        if: matrix.backend == 'webcodecs'
+        working-directory: packages/mediabunny
+        run: bun run typecheck
       - name: Install pinned media dependencies
         working-directory: examples/mediabunny
         run: bun install --no-save
@@ -50,6 +59,148 @@ jobs:
         if: matrix.backend == 'webcodecs'
         working-directory: examples/mediabunny
         run: bun run build:videotoolbox
+      - name: Build and stage reusable MediaBunny package
+        if: matrix.backend == 'webcodecs'
+        run: |
+          cd packages/mediabunny
+          bun run build
+          cd ../../examples/mediabunny
+          bun run stage:gpuix-mediabunny
+      - name: Smoke packed MediaBunny package
+        if: matrix.backend == 'webcodecs'
+        working-directory: packages/mediabunny
+        run: |
+          set -euo pipefail
+          package_file=$(npm pack --json | node -e 'let data=""; process.stdin.on("data", chunk => data += chunk); process.stdin.on("end", () => process.stdout.write(JSON.parse(data)[0].filename))')
+          if tar -tzf "$package_file" | grep -q '^package/native/videotoolbox/build/'; then
+            echo "Generated native build artifacts leaked into npm package"
+            exit 1
+          fi
+          rm -rf /tmp/gpuix-mediabunny-package-smoke
+          mkdir -p /tmp/gpuix-mediabunny-package-smoke
+          cd /tmp/gpuix-mediabunny-package-smoke
+          bun init -y >/dev/null
+          bun add "$GITHUB_WORKSPACE/packages/mediabunny/$package_file" mediabunny@1.59.0 @mediabunny/server@1.59.0 >/dev/null
+          ./node_modules/.bin/gpuix-mediabunny-build-native
+          node --input-type=module - <<'NODE'
+          import {
+            VideoToolboxMediaDecoder,
+            getVideoToolboxVideoSampleResource,
+            registerGpuixMediaBunny,
+          } from "@jhomra21/gpuix-mediabunny"
+          import {
+            ALL_FORMATS,
+            BufferSource,
+            BufferTarget,
+            Input,
+            Mp4OutputFormat,
+            Output,
+            Quality,
+            VideoSample,
+            VideoSampleSink,
+            VideoSampleSource,
+          } from "mediabunny"
+
+          const registration = registerGpuixMediaBunny()
+          if (!registration.videoToolbox || !registration.serverFallback) {
+            throw new Error("Packed gpuix-mediabunny did not register native + fallback paths")
+          }
+
+          const target = new BufferTarget()
+          const output = new Output({
+            format: new Mp4OutputFormat(),
+            target,
+          })
+          const source = new VideoSampleSource({
+            codec: "avc",
+            quality: new Quality("medium"),
+          })
+          output.addVideoTrack(source, { frameRate: 30 })
+
+          await output.start()
+          for (let index = 0; index < 2; index += 1) {
+            const pixels = new Uint8Array(640 * 360 * 4)
+            for (let offset = 0; offset < pixels.length; offset += 4) {
+              pixels[offset] = index === 0 ? 32 : 224
+              pixels[offset + 1] = 96
+              pixels[offset + 2] = 160
+              pixels[offset + 3] = 255
+            }
+            const sample = new VideoSample(pixels, {
+              format: "RGBA",
+              codedWidth: 640,
+              codedHeight: 360,
+              timestamp: index / 30,
+              duration: 1 / 30,
+            })
+            try {
+              await source.add(sample)
+            } finally {
+              sample.close()
+            }
+          }
+          source.close()
+          await output.finalize()
+          if (!target.buffer) {
+            throw new Error("Packed consumer AVC fixture produced no bytes")
+          }
+
+          const input = new Input({
+            source: new BufferSource(target.buffer),
+            formats: ALL_FORMATS,
+          })
+          try {
+            const track = await input.getPrimaryVideoTrack()
+            if (!track) throw new Error("Packed consumer AVC fixture has no video track")
+
+            const codec = await track.getCodec()
+            const decoderConfig = await track.getDecoderConfig()
+            if (!decoderConfig || (codec !== "avc" && codec !== "hevc")) {
+              throw new Error("Packed consumer AVC fixture has no native decoder configuration")
+            }
+            if (!VideoToolboxMediaDecoder.supports(codec, decoderConfig)) {
+              const description = decoderConfig.description
+              const descriptionBytes = description
+                ? ArrayBuffer.isView(description)
+                  ? description.byteLength
+                  : description.byteLength
+                : 0
+              throw new Error(
+                "Packed consumer fixture is not VideoToolbox hardware-decodable"
+                + " (codec=" + codec
+                + ", descriptionBytes=" + descriptionBytes
+                + ")",
+              )
+            }
+
+            const sample = await new VideoSampleSink(track).getSample(0)
+            if (!sample) throw new Error("Packed consumer native decode returned no sample")
+            try {
+              const native = getVideoToolboxVideoSampleResource(sample)
+              if (!native || native.iosurfaceHandle.byteLength === 0) {
+                throw new Error("Packed consumer did not use VideoToolbox IOSurface decode")
+              }
+
+              const pixels = new Uint8Array(sample.allocationSize())
+              await sample.copyTo(pixels)
+              if (!pixels.some((value) => value !== 0)) {
+                throw new Error("Packed consumer native sample copyTo produced no pixels")
+              }
+
+              console.log(JSON.stringify({
+                ...registration,
+                codec,
+                iosurfaceHandleBytes: native.iosurfaceHandle.byteLength,
+                copiedBytes: pixels.byteLength,
+              }))
+            } finally {
+              sample.close()
+            }
+          } finally {
+            input.dispose()
+          }
+          NODE
+          rm -f "$GITHUB_WORKSPACE/packages/mediabunny/$package_file"
       - name: Smoke direct VideoToolbox decoder
         if: matrix.backend == 'webcodecs'
         working-directory: examples/mediabunny
@@ -58,6 +209,34 @@ jobs:
         if: matrix.backend == 'webcodecs'
         working-directory: examples/mediabunny
         run: bun run smoke:videotoolbox-stream
+      - name: Smoke HEVC VideoToolbox paths
+        if: matrix.backend == 'webcodecs'
+        working-directory: examples/mediabunny
+        run: bun run smoke:videotoolbox-hevc
+      - name: Smoke MediaBunny VideoToolbox integration
+        if: matrix.backend == 'webcodecs'
+        working-directory: examples/mediabunny
+        run: |
+          bun run smoke:mediabunny-videotoolbox:avc
+          bun run smoke:mediabunny-videotoolbox:hevc
+      - name: Smoke native ProRes MediaBunny round trip
+        if: matrix.backend == 'webcodecs'
+        working-directory: examples/mediabunny
+        run: bun run smoke:mediabunny-videotoolbox:prores
+      - name: Smoke broad MediaBunny parity surface
+        if: matrix.backend == 'webcodecs'
+        working-directory: examples/mediabunny
+        run: bun run smoke:mediabunny-parity
+      - name: Run full GPUix MediaBunny parity suite
+        if: matrix.backend == 'webcodecs'
+        working-directory: examples/mediabunny
+        run: |
+          set +e
+          bun run bench:gpuix-mediabunny > reports/gpuix-mediabunny.json
+          status=$?
+          set -e
+          cat reports/gpuix-mediabunny.json
+          exit "$status"
       - name: Build streaming VideoToolbox presentation harness
         if: matrix.backend == 'webcodecs'
         working-directory: examples/mediabunny
@@ -69,9 +248,35 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: mediabunny-${{ matrix.backend }}-macos
-          path: examples/mediabunny/reports/${{ matrix.backend }}.json
+          path: |
+            examples/mediabunny/reports/${{ matrix.backend }}.json
+            examples/mediabunny/reports/gpuix-mediabunny.json
           if-no-files-found: warn
           retention-days: 14
+
+
+  prores-bun-current:
+    name: ProRes (Bun 1.4.2, macOS)
+    runs-on: macos-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.2
+      - name: Install pinned media dependencies
+        working-directory: examples/mediabunny
+        run: bun install --no-save
+      - name: Prepare GPUix MediaBunny package
+        working-directory: examples/mediabunny
+        run: bun run prepare:gpuix-mediabunny
+      - name: Run GPUix MediaBunny parity on Bun 1.4.2
+        working-directory: examples/mediabunny
+        env:
+          MEDIABUNNY_SERVER_CODEC_TIMEOUT_MS: 30000
+        run: bun run bench:gpuix-mediabunny
 
   compare:
     name: compare reports

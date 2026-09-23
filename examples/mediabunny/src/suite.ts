@@ -1,24 +1,37 @@
 import {
   ALL_FORMATS,
+  AppendOnlyStreamTarget,
   AudioSample,
   AudioSampleSink,
   AudioSampleSource,
+  BlobSource,
   BufferSource,
   BufferTarget,
   CanvasSink,
   CanvasSource,
+  CmafOutputFormat,
   Conversion,
+  EncodedAudioPacketSource,
   EncodedPacketSink,
+  EncodedVideoPacketSource,
   FlacOutputFormat,
+  HlsOutputFormat,
   Input,
   MkvOutputFormat,
   MovOutputFormat,
   Mp3OutputFormat,
   Mp4OutputFormat,
+  MpegTsOutputFormat,
+  NullTarget,
   OggOutputFormat,
   WebMOutputFormat,
   Output,
+  PathedTarget,
   Quality,
+  ReadableStreamSource,
+  StreamTarget,
+  TextSubtitleSource,
+  AdtsOutputFormat,
   VideoSample,
   VideoSampleSink,
   VideoSampleSource,
@@ -28,10 +41,16 @@ import {
   canEncodeAudio,
   canEncodeVideo,
   type AudioCodec,
+  type OutputFormat,
+  type StreamTargetChunk,
   type VideoCodec,
 } from "mediabunny"
 
-export type BenchmarkBackend = "browser-webcodecs" | "mediabunny-server" | "napi-webcodecs"
+export type BenchmarkBackend =
+  | "browser-webcodecs"
+  | "mediabunny-server"
+  | "napi-webcodecs"
+  | "gpuix-mediabunny"
 
 type CapabilityResult<TCodec extends string = string> = {
   codec: TCodec
@@ -628,7 +647,7 @@ function makeCodecVideoSample(
 }
 
 function videoCodecOutputFormat(codec: VideoCodec): MovOutputFormat | Mp4OutputFormat | WebMOutputFormat {
-  if (codec === "prores") return new Mp4OutputFormat()
+  if (codec === "prores") return new MovOutputFormat()
   if (codec === "avc" || codec === "hevc") return new Mp4OutputFormat({ fastStart: "fragmented" })
   return new WebMOutputFormat()
 }
@@ -644,7 +663,7 @@ async function runVideoCodecRoundTrip(
   const codec = capability.codec
   const frameCount = 6
   const width = codec === "prores" ? 640 : 160
-  const height = codec === "prores" ? 480 : 90
+  const height = codec === "prores" ? 360 : 90
   const target = new BufferTarget()
   const format = videoCodecOutputFormat(codec)
   if (!format.getSupportedVideoCodecs().includes(codec)) {
@@ -663,9 +682,12 @@ async function runVideoCodecRoundTrip(
     const output = new Output({ format, target })
     const source = new VideoSampleSource({
       codec,
-      quality: codec === "prores"
-        ? new Quality({ quality: 0.75, preferBitrate: true })
-        : new Quality("medium"),
+      ...(codec === "prores"
+        ? {
+            bitrate: 1_000_000,
+            hardwareAcceleration: "prefer-software" as const,
+          }
+        : { quality: new Quality("medium") }),
       onEncoderConfig(config) {
         encoderConfigCodec = config.codec
       },
@@ -1037,20 +1059,966 @@ async function runCanvasSinkFeature(buffer: ArrayBuffer): Promise<FeatureExecuti
   }
 }
 
+async function encodeShortVideo(
+  output: Output,
+  codec: VideoCodec = "avc",
+  frames = 12,
+): Promise<void> {
+  const source = new VideoSampleSource({
+    codec,
+    quality: new Quality("medium"),
+  })
+  output.addVideoTrack(source, { frameRate: FRAME_RATE })
+
+  await output.start()
+  for (let frame = 0; frame < frames; frame += 1) {
+    const sample = makeCodecVideoSample(frame, frames, 160, 90)
+    try {
+      await source.add(sample)
+    } finally {
+      sample.close()
+    }
+  }
+  source.close()
+  await output.finalize()
+}
+
+async function encodeShortAudio(
+  output: Output,
+  codec: AudioCodec = "aac",
+): Promise<void> {
+  const source = new AudioSampleSource({
+    codec,
+    quality: new Quality("medium"),
+  })
+  output.addAudioTrack(source)
+
+  await output.start()
+  const sample = makeCodecAudioSample()
+  try {
+    await source.add(sample)
+  } finally {
+    sample.close()
+  }
+  source.close()
+  await output.finalize()
+}
+
+async function roundTripVideoContainer(
+  format: OutputFormat,
+  codec: VideoCodec,
+): Promise<number> {
+  const target = new BufferTarget()
+  const output = new Output({ format, target })
+  await encodeShortVideo(output, codec, 6)
+
+  if (!target.buffer || target.buffer.byteLength === 0) {
+    throw new Error(format.constructor.name + " produced no video bytes")
+  }
+
+  const input = createInput(target.buffer)
+  try {
+    if (!await input.canRead()) {
+      throw new Error(format.constructor.name + " could not be read back")
+    }
+
+    const track = await input.getPrimaryVideoTrack()
+    if (!track) {
+      throw new Error(format.constructor.name + " read-back has no video track")
+    }
+    if (await track.getCodec() !== codec) {
+      throw new Error(
+        format.constructor.name
+        + " changed video codec from "
+        + codec
+        + " to "
+        + await track.getCodec(),
+      )
+    }
+
+    const sample = await new VideoSampleSink(track).getSample(
+      await track.getFirstTimestamp(),
+    )
+    if (!sample) {
+      throw new Error(format.constructor.name + " read-back produced no video sample")
+    }
+    sample.close()
+
+    return target.buffer.byteLength
+  } finally {
+    input.dispose()
+  }
+}
+
+async function roundTripAudioContainer(
+  format: OutputFormat,
+  codec: AudioCodec,
+): Promise<number> {
+  const target = new BufferTarget()
+  const output = new Output({ format, target })
+  await encodeShortAudio(output, codec)
+
+  if (!target.buffer || target.buffer.byteLength === 0) {
+    throw new Error(format.constructor.name + " produced no audio bytes")
+  }
+
+  const input = createInput(target.buffer)
+  try {
+    if (!await input.canRead()) {
+      throw new Error(format.constructor.name + " could not be read back")
+    }
+
+    const track = await input.getPrimaryAudioTrack()
+    if (!track) {
+      throw new Error(format.constructor.name + " read-back has no audio track")
+    }
+
+    let decodedFrames = 0
+    for await (const sample of new AudioSampleSink(track).samples()) {
+      decodedFrames += sample.numberOfFrames
+      sample.close()
+    }
+    if (decodedFrames === 0) {
+      throw new Error(format.constructor.name + " read-back decoded no audio")
+    }
+
+    return target.buffer.byteLength
+  } finally {
+    input.dispose()
+  }
+}
+
+async function runContainerRoundTripMatrixFeature(): Promise<FeatureExecution> {
+  const results: [string, number][] = []
+  const skipped: string[] = []
+
+  const addVideo = async (
+    name: string,
+    format: OutputFormat,
+    codec: VideoCodec,
+  ) => {
+    const supported = await canEncodeVideo(codec, {
+      width: 160,
+      height: 90,
+      frameRate: FRAME_RATE,
+    })
+    if (!supported) {
+      skipped.push(name)
+      return
+    }
+    results.push([name, await roundTripVideoContainer(format, codec)])
+  }
+
+  const addAudio = async (
+    name: string,
+    format: OutputFormat,
+    codec: AudioCodec,
+  ) => {
+    const supported = await canEncodeAudio(codec, {
+      numberOfChannels: AUDIO_CHANNELS,
+      sampleRate: AUDIO_SAMPLE_RATE,
+    })
+    if (!supported) {
+      skipped.push(name)
+      return
+    }
+    results.push([name, await roundTripAudioContainer(format, codec)])
+  }
+
+  await addVideo("mp4", new Mp4OutputFormat(), "avc")
+  await addVideo("mov", new MovOutputFormat(), "avc")
+  await addVideo("mkv", new MkvOutputFormat(), "avc")
+  await addVideo("webm", new WebMOutputFormat(), "vp8")
+  await addAudio("ogg", new OggOutputFormat(), "opus")
+  await addAudio("mp3", new Mp3OutputFormat(), "mp3")
+  await addAudio("wav", new WavOutputFormat(), "pcm-s16")
+  await addAudio("adts", new AdtsOutputFormat(), "aac")
+  await addAudio("flac", new FlacOutputFormat(), "flac")
+  await addVideo("mpeg-ts", new MpegTsOutputFormat(), "avc")
+
+  if (results.length === 0) {
+    return {
+      status: "unsupported",
+      details: {
+        tested: 0,
+        skipped: skipped.length,
+      },
+    }
+  }
+
+  return {
+    status: "pass",
+    details: {
+      tested: results.length,
+      skipped: skipped.length,
+      names: results.map(([name]) => name).join(","),
+      skippedNames: skipped.join(","),
+      totalBytes: results.reduce((sum, [, bytes]) => sum + bytes, 0),
+    },
+  }
+}
+
+async function runCmafOutputFeature(): Promise<FeatureExecution> {
+  const target = new BufferTarget()
+  const initTarget = new BufferTarget()
+  const output = new Output({
+    format: new CmafOutputFormat(),
+    target,
+    initTarget,
+  })
+  await encodeShortVideo(output)
+
+  if (!target.buffer || !initTarget.buffer) {
+    throw new Error("CMAF output did not produce both init and media segments")
+  }
+
+  const initInput = createInput(initTarget.buffer)
+  const segmentInput = new Input({
+    source: new BufferSource(target.buffer),
+    formats: ALL_FORMATS,
+    initInput,
+  })
+  try {
+    const track = await segmentInput.getPrimaryVideoTrack()
+    if (!track) throw new Error("CMAF read-back has no video track")
+    const sample = await new VideoSampleSink(track).getSample(0)
+    if (!sample) throw new Error("CMAF read-back produced no video sample")
+    sample.close()
+
+    return {
+      status: "pass",
+      details: {
+        initBytes: initTarget.buffer.byteLength,
+        mediaBytes: target.buffer.byteLength,
+      },
+    }
+  } finally {
+    segmentInput.dispose()
+    initInput.dispose()
+  }
+}
+
+async function runMpegTsOutputFeature(): Promise<FeatureExecution> {
+  const target = new BufferTarget()
+  const output = new Output({
+    format: new MpegTsOutputFormat(),
+    target,
+  })
+
+  const video = new VideoSampleSource({
+    codec: "avc",
+    quality: new Quality("medium"),
+  })
+  const audio = new AudioSampleSource({
+    codec: "aac",
+    quality: new Quality("medium"),
+  })
+  output.addVideoTrack(video, { frameRate: FRAME_RATE })
+  output.addAudioTrack(audio)
+
+  await output.start()
+  const frames = 12
+  for (let frame = 0; frame < frames; frame += 1) {
+    const sample = makeCodecVideoSample(frame, frames, 160, 90)
+    try {
+      await video.add(sample)
+    } finally {
+      sample.close()
+    }
+  }
+  const audioSample = makeCodecAudioSample()
+  try {
+    await audio.add(audioSample)
+  } finally {
+    audioSample.close()
+  }
+  video.close()
+  audio.close()
+  await output.finalize()
+
+  if (!target.buffer) throw new Error("MPEG-TS output was empty")
+  const input = createInput(target.buffer)
+  try {
+    const [videoTrack, audioTrack] = await Promise.all([
+      input.getPrimaryVideoTrack(),
+      input.getPrimaryAudioTrack(),
+    ])
+    if (!videoTrack || !audioTrack) {
+      throw new Error("MPEG-TS read-back is missing video or audio")
+    }
+
+    const videoSample = await new VideoSampleSink(videoTrack).getSample(0)
+    if (!videoSample) throw new Error("MPEG-TS video did not decode")
+    videoSample.close()
+
+    let audioFrames = 0
+    for await (const sample of new AudioSampleSink(audioTrack).samples()) {
+      audioFrames += sample.numberOfFrames
+      sample.close()
+    }
+    if (audioFrames === 0) throw new Error("MPEG-TS audio did not decode")
+
+    return {
+      status: "pass",
+      details: {
+        bytes: target.buffer.byteLength,
+        audioFrames,
+      },
+    }
+  } finally {
+    input.dispose()
+  }
+}
+
+async function runAdtsOutputFeature(): Promise<FeatureExecution> {
+  const target = new BufferTarget()
+  const output = new Output({
+    format: new AdtsOutputFormat(),
+    target,
+  })
+  await encodeShortAudio(output, "aac")
+
+  if (!target.buffer) throw new Error("ADTS output was empty")
+  const input = createInput(target.buffer)
+  try {
+    const track = await input.getPrimaryAudioTrack()
+    if (!track) throw new Error("ADTS read-back has no audio track")
+
+    let decodedFrames = 0
+    for await (const sample of new AudioSampleSink(track).samples()) {
+      decodedFrames += sample.numberOfFrames
+      sample.close()
+    }
+    if (decodedFrames === 0) throw new Error("ADTS read-back decoded no audio")
+
+    return {
+      status: "pass",
+      details: {
+        bytes: target.buffer.byteLength,
+        decodedFrames,
+      },
+    }
+  } finally {
+    input.dispose()
+  }
+}
+
+async function runStreamTargetFeature(): Promise<FeatureExecution> {
+  const chunks: Uint8Array[] = []
+  let nextPosition = 0
+  const writable = new WritableStream<StreamTargetChunk>({
+    write(chunk) {
+      if (chunk.position !== nextPosition) {
+        throw new Error(
+          "Fragmented MP4 StreamTarget write was not append-only: expected "
+          + nextPosition
+          + ", got "
+          + chunk.position,
+        )
+      }
+      chunks.push(chunk.data.slice())
+      nextPosition += chunk.data.byteLength
+    },
+  })
+
+  const output = new Output({
+    format: new Mp4OutputFormat({ fastStart: "fragmented" }),
+    target: new StreamTarget(writable, { chunked: true }),
+  })
+  await encodeShortVideo(output, "avc", 12)
+
+  const bytes = new Uint8Array(nextPosition)
+  let offset = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  if (bytes.byteLength === 0 || chunks.length === 0) {
+    throw new Error("StreamTarget produced no MP4 bytes")
+  }
+
+  const input = createInput(bytes.buffer)
+  try {
+    const track = await input.getPrimaryVideoTrack()
+    if (!track) throw new Error("StreamTarget MP4 read-back has no video track")
+    const sample = await new VideoSampleSink(track).getSample(0)
+    if (!sample) throw new Error("StreamTarget MP4 read-back did not decode")
+    sample.close()
+  } finally {
+    input.dispose()
+  }
+
+  return {
+    status: "pass",
+    details: {
+      chunks: chunks.length,
+      bytes: bytes.byteLength,
+    },
+  }
+}
+
+async function runReadableStreamSourceFeature(
+  buffer: ArrayBuffer,
+): Promise<FeatureExecution> {
+  const bytes = new Uint8Array(buffer)
+  const chunkSize = 1024
+  let offset = 0
+  const stream = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (offset >= bytes.byteLength) {
+        controller.close()
+        return
+      }
+
+      const end = Math.min(bytes.byteLength, offset + chunkSize)
+      controller.enqueue(bytes.slice(offset, end))
+      offset = end
+    },
+  })
+
+  const input = new Input({
+    source: new ReadableStreamSource(stream),
+    formats: ALL_FORMATS,
+  })
+  try {
+    if (!await input.canRead()) {
+      throw new Error("ReadableStreamSource could not read the generated WebM")
+    }
+
+    const [videoTrack, audioTrack] = await Promise.all([
+      input.getPrimaryVideoTrack(),
+      input.getPrimaryAudioTrack(),
+    ])
+    if (!videoTrack || !audioTrack) {
+      throw new Error("ReadableStreamSource lost video or audio tracks")
+    }
+
+    let videoSamples = 0
+    for await (const sample of new VideoSampleSink(videoTrack).samples()) {
+      videoSamples += 1
+      sample.close()
+    }
+    let audioFrames = 0
+    for await (const sample of new AudioSampleSink(audioTrack).samples()) {
+      audioFrames += sample.numberOfFrames
+      sample.close()
+    }
+
+    if (videoSamples === 0 || audioFrames === 0) {
+      throw new Error("ReadableStreamSource decoded no media")
+    }
+
+    return {
+      status: "pass",
+      details: {
+        chunks: Math.ceil(bytes.byteLength / chunkSize),
+        videoSamples,
+        audioFrames,
+      },
+    }
+  } finally {
+    input.dispose()
+  }
+}
+
+async function inspectSourceFeature(
+  name: string,
+  source: BlobSource | ReturnType<BufferSource["slice"]>,
+): Promise<FeatureExecution> {
+  const input = new Input({
+    source,
+    formats: ALL_FORMATS,
+  })
+  try {
+    if (!await input.canRead()) {
+      throw new Error(name + " could not read the generated fixture")
+    }
+
+    const [videoTrack, audioTrack] = await Promise.all([
+      input.getPrimaryVideoTrack(),
+      input.getPrimaryAudioTrack(),
+    ])
+    if (!videoTrack || !audioTrack) {
+      throw new Error(name + " lost video or audio tracks")
+    }
+
+    const videoSample = await new VideoSampleSink(videoTrack).getSample(
+      await videoTrack.getFirstTimestamp(),
+    )
+    if (!videoSample) {
+      throw new Error(name + " produced no video sample")
+    }
+    videoSample.close()
+
+    return {
+      status: "pass",
+      details: {
+        bytes: await source.getSize(),
+        videoCodec: await videoTrack.getCodec(),
+        audioCodec: await audioTrack.getCodec(),
+      },
+    }
+  } finally {
+    input.dispose()
+  }
+}
+
+async function runBlobSourceFeature(
+  buffer: ArrayBuffer,
+): Promise<FeatureExecution> {
+  return inspectSourceFeature(
+    "BlobSource",
+    new BlobSource(new Blob([buffer])),
+  )
+}
+
+async function runRangedSourceFeature(
+  buffer: ArrayBuffer,
+): Promise<FeatureExecution> {
+  const prefixBytes = 37
+  const bytes = new Uint8Array(prefixBytes + buffer.byteLength)
+  bytes.fill(0xa5, 0, prefixBytes)
+  bytes.set(new Uint8Array(buffer), prefixBytes)
+
+  const source = new BufferSource(bytes).slice(prefixBytes, buffer.byteLength)
+  return inspectSourceFeature("RangedSource", source)
+}
+
+
+async function runHlsOutputFeature(): Promise<FeatureExecution> {
+  const files = new Map<string, ArrayBuffer>()
+  let playlist = ""
+  const target = new PathedTarget("", ({ path }) => {
+    const bufferTarget = new BufferTarget()
+    bufferTarget.on("finalized", () => {
+      if (bufferTarget.buffer) files.set(path, bufferTarget.buffer)
+    })
+    return bufferTarget
+  })
+  const output = new Output({
+    format: new HlsOutputFormat({
+      segmentFormat: new MpegTsOutputFormat(),
+      onPlaylist(text) {
+        playlist = text
+      },
+    }),
+    target,
+  })
+
+  await encodeShortVideo(output, "avc", 30)
+
+  if (!playlist.includes("#EXTM3U") || !playlist.includes("#EXT-X-ENDLIST")) {
+    throw new Error("HLS output did not produce a finalized playlist")
+  }
+
+  const segment = [...files.entries()].find(([path]) => path.endsWith(".ts"))
+  if (!segment) {
+    throw new Error("HLS output did not produce an MPEG-TS segment")
+  }
+
+  const input = createInput(segment[1])
+  try {
+    const track = await input.getPrimaryVideoTrack()
+    if (!track) throw new Error("HLS MPEG-TS segment has no video track")
+    const sample = await new VideoSampleSink(track).getSample(0)
+    if (!sample) throw new Error("HLS MPEG-TS segment did not decode")
+    sample.close()
+  } finally {
+    input.dispose()
+  }
+
+  return {
+    status: "pass",
+    details: {
+      files: files.size,
+      segmentBytes: segment[1].byteLength,
+      playlistBytes: new TextEncoder().encode(playlist).byteLength,
+    },
+  }
+}
+
+async function runEncodedPacketSourcesFeature(
+  buffer: ArrayBuffer,
+): Promise<FeatureExecution> {
+  const input = createInput(buffer)
+  const target = new BufferTarget()
+  const output = new Output({
+    format: new WebMOutputFormat(),
+    target,
+  })
+
+  try {
+    const [videoTrack, audioTrack] = await Promise.all([
+      input.getPrimaryVideoTrack(),
+      input.getPrimaryAudioTrack(),
+    ])
+    if (!videoTrack || !audioTrack) {
+      throw new Error("Encoded packet remux fixture is missing video or audio")
+    }
+
+    const videoSource = new EncodedVideoPacketSource(await videoTrack.getCodec())
+    const audioSource = new EncodedAudioPacketSource(await audioTrack.getCodec())
+    output.addVideoTrack(videoSource)
+    output.addAudioTrack(audioSource)
+
+    const [videoConfig, audioConfig] = await Promise.all([
+      videoTrack.getDecoderConfig(),
+      audioTrack.getDecoderConfig(),
+    ])
+
+    await output.start()
+
+    let videoPackets = 0
+    for await (const packet of new EncodedPacketSink(videoTrack).packets()) {
+      await videoSource.add(
+        packet,
+        videoPackets === 0 && videoConfig
+          ? { decoderConfig: videoConfig }
+          : undefined,
+      )
+      videoPackets += 1
+    }
+
+    let audioPackets = 0
+    for await (const packet of new EncodedPacketSink(audioTrack).packets()) {
+      await audioSource.add(
+        packet,
+        audioPackets === 0 && audioConfig
+          ? { decoderConfig: audioConfig }
+          : undefined,
+      )
+      audioPackets += 1
+    }
+
+    videoSource.close()
+    audioSource.close()
+    await output.finalize()
+
+    if (!target.buffer || target.buffer.byteLength === 0) {
+      throw new Error("Encoded packet sources produced no WebM output")
+    }
+
+    const remuxed = createInput(target.buffer)
+    try {
+      const [remuxedVideo, remuxedAudio] = await Promise.all([
+        remuxed.getPrimaryVideoTrack(),
+        remuxed.getPrimaryAudioTrack(),
+      ])
+      if (!remuxedVideo || !remuxedAudio) {
+        throw new Error("Encoded packet remux lost video or audio")
+      }
+
+      const firstVideo = await new VideoSampleSink(remuxedVideo).getSample(0)
+      if (!firstVideo) {
+        throw new Error("Encoded packet remux video did not decode")
+      }
+      firstVideo.close()
+
+      let decodedAudioFrames = 0
+      for await (const sample of new AudioSampleSink(remuxedAudio).samples()) {
+        decodedAudioFrames += sample.numberOfFrames
+        sample.close()
+      }
+      if (decodedAudioFrames === 0) {
+        throw new Error("Encoded packet remux audio did not decode")
+      }
+
+      return {
+        status: "pass",
+        details: {
+          bytes: target.buffer.byteLength,
+          videoPackets,
+          audioPackets,
+          decodedAudioFrames,
+        },
+      }
+    } finally {
+      remuxed.dispose()
+    }
+  } finally {
+    input.dispose()
+  }
+}
+
+async function runAppendOnlyTargetFeature(): Promise<FeatureExecution> {
+  const chunks: Uint8Array[] = []
+  const writable = new WritableStream<Uint8Array>({
+    write(chunk) {
+      chunks.push(chunk.slice())
+    },
+  })
+
+  const output = new Output({
+    format: new Mp4OutputFormat({ fastStart: "fragmented" }),
+    target: new AppendOnlyStreamTarget(writable),
+  })
+  await encodeShortVideo(output, "avc", 12)
+
+  const size = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0)
+  const bytes = new Uint8Array(size)
+  let offset = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+
+  if (bytes.byteLength === 0 || chunks.length === 0) {
+    throw new Error("AppendOnlyStreamTarget produced no MP4 bytes")
+  }
+
+  const video = await inspectVideoTrack(bytes.buffer)
+  if (video.samples === 0) {
+    throw new Error("AppendOnlyStreamTarget MP4 decoded no samples")
+  }
+
+  return {
+    status: "pass",
+    details: {
+      chunks: chunks.length,
+      bytes: bytes.byteLength,
+      samples: video.samples,
+    },
+  }
+}
+
+async function runNullTargetFeature(): Promise<FeatureExecution> {
+  let encodedPackets = 0
+  let encodedBytes = 0
+  const output = new Output({
+    format: new Mp4OutputFormat({ fastStart: "fragmented" }),
+    target: new NullTarget(),
+  })
+  const source = new VideoSampleSource({
+    codec: "avc",
+    quality: new Quality("medium"),
+    onEncodedPacket(packet) {
+      encodedPackets += 1
+      encodedBytes += packet.byteLength
+    },
+  })
+  output.addVideoTrack(source, { frameRate: FRAME_RATE })
+
+  await output.start()
+  const frameCount = 6
+  for (let frame = 0; frame < frameCount; frame += 1) {
+    const sample = makeCodecVideoSample(frame, frameCount, 160, 90)
+    try {
+      await source.add(sample)
+    } finally {
+      sample.close()
+    }
+  }
+  source.close()
+  await output.finalize()
+
+  if (encodedPackets === 0 || encodedBytes === 0) {
+    throw new Error("NullTarget path emitted no encoded packets")
+  }
+
+  return {
+    status: "pass",
+    details: {
+      encodedPackets,
+      encodedBytes,
+    },
+  }
+}
+
+async function runMetadataTagsFeature(): Promise<FeatureExecution> {
+  const target = new BufferTarget()
+  const output = new Output({
+    format: new Mp4OutputFormat(),
+    target,
+  })
+  output.setMetadataTags({
+    title: "GPUix MediaBunny parity",
+    artist: "gpuix-solid",
+    comment: "metadata round trip",
+    beatsPerMinute: 128,
+  })
+
+  await encodeShortVideo(output, "avc", 4)
+  if (!target.buffer) throw new Error("Metadata fixture was empty")
+
+  const input = createInput(target.buffer)
+  try {
+    const tags = await input.getMetadataTags()
+    if (
+      tags.title !== "GPUix MediaBunny parity"
+      || tags.artist !== "gpuix-solid"
+      || tags.comment !== "metadata round trip"
+      || tags.beatsPerMinute !== 128
+    ) {
+      throw new Error("Metadata tags did not survive MP4 round trip")
+    }
+
+    return {
+      status: "pass",
+      details: {
+        bytes: target.buffer.byteLength,
+        title: tags.title ?? null,
+        artist: tags.artist ?? null,
+        beatsPerMinute: tags.beatsPerMinute ?? null,
+      },
+    }
+  } finally {
+    input.dispose()
+  }
+}
+
+async function runConversionProgressFeature(
+  buffer: ArrayBuffer,
+): Promise<FeatureExecution> {
+  const input = createInput(buffer)
+  const target = new BufferTarget()
+  const output = new Output({
+    format: new WebMOutputFormat(),
+    target,
+  })
+
+  try {
+    const conversion = await Conversion.init({
+      input,
+      output,
+      video: {
+        codec: "vp8",
+        forceTranscode: true,
+      },
+      audio: {
+        codec: "opus",
+        forceTranscode: true,
+      },
+    })
+    if (!conversion.isValid) {
+      return {
+        status: "unsupported",
+        details: { discardedTracks: conversion.discardedTracks.length },
+      }
+    }
+
+    let callbacks = 0
+    let lastProgress = 0
+    let lastProcessedTime = 0
+    conversion.onProgress = (progress, processedTime) => {
+      callbacks += 1
+      lastProgress = progress
+      lastProcessedTime = processedTime
+    }
+
+    await conversion.execute()
+    if (callbacks === 0 || lastProgress < 0.99) {
+      throw new Error(
+        "Conversion progress did not reach completion: callbacks="
+        + callbacks
+        + ", progress="
+        + lastProgress,
+      )
+    }
+
+    return {
+      status: "pass",
+      details: {
+        callbacks,
+        progress: lastProgress,
+        processedTime: lastProcessedTime,
+      },
+    }
+  } finally {
+    input.dispose()
+  }
+}
+
+async function writeSubtitleFixture(
+  format: Mp4OutputFormat | MkvOutputFormat,
+): Promise<number> {
+  const target = new BufferTarget()
+  const output = new Output({ format, target })
+  const source = new TextSubtitleSource("webvtt")
+  output.addSubtitleTrack(source)
+
+  await output.start()
+  await source.add(`WEBVTT
+
+00:00.000 --> 00:00.500
+GPUix MediaBunny parity
+
+00:00.500 --> 00:01.000
+WebVTT output works
+`)
+  await output.finalize()
+
+  if (!target.buffer || target.buffer.byteLength === 0) {
+    throw new Error(format.constructor.name + " WebVTT output was empty")
+  }
+  return target.buffer.byteLength
+}
+
 async function runFeatureCases(
   backend: BenchmarkBackend,
   buffer: ArrayBuffer,
 ): Promise<FeatureCaseResult[]> {
-  const canvasSink = backend === "browser-webcodecs"
-    ? await runFeatureCase("canvas-sink", () => runCanvasSinkFeature(buffer))
-    : knownGapFeature(
-        "canvas-sink",
-        "Native canvas implementations do not accept the backend's decoded VideoFrame/resource in drawImage; GPUix uses the binary video-frame surface instead.",
-      )
+  const canvasSink =
+    backend === "browser-webcodecs" || backend === "gpuix-mediabunny"
+      ? await runFeatureCase("canvas-sink", () => runCanvasSinkFeature(buffer))
+      : knownGapFeature(
+          "canvas-sink",
+          "The generic native backend does not install a Canvas implementation. The GPUix MediaBunny backend does and exercises CanvasSink directly.",
+        )
 
   return [
     await runFeatureCase("canvas-source", runCanvasSourceFeature),
     canvasSink,
+
+    await runFeatureCase("metadata-tags", runMetadataTagsFeature),
+    await runFeatureCase(
+      "encoded-packet-sources",
+      () => runEncodedPacketSourcesFeature(buffer),
+    ),
+    await runFeatureCase(
+      "append-only-stream-target",
+      runAppendOnlyTargetFeature,
+    ),
+    await runFeatureCase("null-target", runNullTargetFeature),
+    await runFeatureCase(
+      "conversion-progress",
+      () => runConversionProgressFeature(buffer),
+    ),
+
+    await runFeatureCase("stream-target-fragmented-mp4", runStreamTargetFeature),
+    await runFeatureCase(
+      "readable-stream-source",
+      () => runReadableStreamSourceFeature(buffer),
+    ),
+    await runFeatureCase(
+      "blob-source",
+      () => runBlobSourceFeature(buffer),
+    ),
+    await runFeatureCase(
+      "ranged-source",
+      () => runRangedSourceFeature(buffer),
+    ),
+
+    await runFeatureCase("container-roundtrip-matrix", runContainerRoundTripMatrixFeature),
+
+    await runFeatureCase("cmaf-output", runCmafOutputFeature),
+    await runFeatureCase("mpeg-ts-output", runMpegTsOutputFeature),
+    await runFeatureCase("adts-output", runAdtsOutputFeature),
+    await runFeatureCase("hls-output", runHlsOutputFeature),
+
+    await runFeatureCase("webvtt-output", async () => {
+      const [mp4Bytes, mkvBytes] = await Promise.all([
+        writeSubtitleFixture(new Mp4OutputFormat()),
+        writeSubtitleFixture(new MkvOutputFormat()),
+      ])
+      return {
+        status: "pass",
+        details: {
+          mp4Bytes,
+          mkvBytes,
+          subtitleReadSupport: false,
+        },
+      }
+    }),
 
     await runFeatureCase("conversion-copy", async () => {
       const converted = await convertFixture(buffer, {

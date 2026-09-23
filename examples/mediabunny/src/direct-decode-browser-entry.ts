@@ -19,6 +19,7 @@ const parameters = new URLSearchParams(location.search)
 const iterations = Number(parameters.get("iterations") ?? 5)
 const warmups = Number(parameters.get("warmups") ?? 2)
 const reportEndpoint = parameters.get("reportEndpoint")
+const codec = parameters.get("codec") === "hevc" ? "hevc" : "avc"
 
 type EncodedInput = {
   type: EncodedVideoChunkType
@@ -39,12 +40,14 @@ async function prepareInput(buffer: ArrayBuffer) {
   try {
     const track = await input.getPrimaryVideoTrack()
     if (!track) throw new Error("Direct decode fixture has no video track")
-    if (await track.getCodec() !== "avc") {
-      throw new Error("Direct decode benchmark requires AVC")
+    if (await track.getCodec() !== codec) {
+      throw new Error(`Direct decode benchmark expected ${codec.toUpperCase()}`)
     }
 
     const config = await track.getDecoderConfig()
-    if (!config) throw new Error("AVC track has no decoder configuration")
+    if (!config) {
+      throw new Error(`${codec.toUpperCase()} track has no decoder configuration`)
+    }
 
     const packets: EncodedInput[] = []
     const sink = new EncodedPacketSink(track)
@@ -157,7 +160,7 @@ try {
     backend: "browser-webcodecs-direct",
     generatedAt: new Date().toISOString(),
     workload: {
-      codec: "avc",
+      codec,
       fixtureBytes: fixture.byteLength,
       warmups,
       iterations,

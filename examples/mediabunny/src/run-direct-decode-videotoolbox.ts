@@ -17,6 +17,8 @@ if (process.platform !== "darwin") {
   throw new Error("Direct VideoToolbox benchmark requires macOS")
 }
 
+type NativeVideoCodec = "avc" | "hevc"
+
 type NativeBatchPacket = {
   data: Buffer
   timestamp: number
@@ -49,7 +51,10 @@ type NativeDecoder = {
 }
 
 type NativeModule = {
-  VideoToolboxH264Decoder: new (description: Buffer) => NativeDecoder
+  VideoToolboxVideoDecoder: new (
+    codec: NativeVideoCodec,
+    description: Buffer,
+  ) => NativeDecoder
 }
 
 const fixturePath = process.argv[2]
@@ -62,6 +67,10 @@ const sourceDirectory = dirname(fileURLToPath(import.meta.url))
 const addonPath = join(
   sourceDirectory,
   "..",
+  "..",
+  "..",
+  "packages",
+  "mediabunny",
   "native",
   "videotoolbox",
   "build",
@@ -97,13 +106,14 @@ async function prepareInput() {
   try {
     const track = await input.getPrimaryVideoTrack()
     if (!track) throw new Error("Direct decode fixture has no video track")
-    if (await track.getCodec() !== "avc") {
-      throw new Error("Direct VideoToolbox benchmark requires AVC")
+    const codec = await track.getCodec()
+    if (codec !== "avc" && codec !== "hevc") {
+      throw new Error(`Direct VideoToolbox benchmark does not support ${codec}`)
     }
 
     const config = await track.getDecoderConfig()
     if (!config?.description) {
-      throw new Error("AVC track has no decoder configuration description")
+      throw new Error(`${codec.toUpperCase()} track has no decoder configuration description`)
     }
 
     const packets: NativeBatchPacket[] = []
@@ -118,6 +128,7 @@ async function prepareInput() {
     }
 
     return {
+      codec,
       description: toBuffer(config.description),
       packets,
     }
@@ -129,7 +140,10 @@ async function prepareInput() {
 const prepared = await prepareInput()
 
 function runDecode(): DirectDecodeRun {
-  const decoder = new native.VideoToolboxH264Decoder(prepared.description)
+  const decoder = new native.VideoToolboxVideoDecoder(
+    prepared.codec,
+    prepared.description,
+  )
   try {
     if (!decoder.hardwareAccelerated) {
       throw new Error("Direct VideoToolbox decoder is not hardware accelerated")
@@ -180,7 +194,7 @@ const report: DirectDecodeReport = {
   backend: "videotoolbox-direct",
   generatedAt: new Date().toISOString(),
   workload: {
-    codec: "avc",
+    codec: prepared.codec,
     fixtureBytes: fixture.byteLength,
     warmups,
     iterations,
@@ -190,6 +204,7 @@ const report: DirectDecodeReport = {
     packetCount: prepared.packets.length,
     packetPreparationExcludedFromTiming: true,
     directVideoToolbox: true,
+    codec: prepared.codec,
     hardwareAccelerationRequired: true,
     oneNativeBatchCallPerRun: true,
     ffmpegInDecodeHotLoop: false,

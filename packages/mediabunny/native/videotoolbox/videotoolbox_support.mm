@@ -12,26 +12,24 @@ uint16_t ReadBE16(const uint8_t* data) {
 
 }  // namespace
 
-bool CreateH264FormatDescription(
+bool CreateAvcFormatDescription(
   const std::vector<uint8_t>& config,
   CMVideoFormatDescriptionRef* output,
   std::string& error
 ) {
-  if (!output) {
-    error = "Missing output format description";
-    return false;
-  }
-  *output = nullptr;
-
   if (config.size() < 7 || config[0] != 1) {
     error = "Invalid AVCDecoderConfigurationRecord";
     return false;
   }
 
   const size_t nal_length_size = static_cast<size_t>((config[4] & 0x03) + 1);
+  if (nal_length_size == 3) {
+    error = "AVC NAL unit length must be 1, 2, or 4 bytes";
+    return false;
+  }
+
   size_t offset = 5;
   const uint8_t sps_count = config[offset++] & 0x1f;
-
   std::vector<const uint8_t*> parameter_sets;
   std::vector<size_t> parameter_sizes;
 
@@ -68,7 +66,7 @@ bool CreateH264FormatDescription(
     if (!append_set("PPS")) return false;
   }
 
-  if (parameter_sets.empty() || sps_count == 0 || pps_count == 0) {
+  if (sps_count == 0 || pps_count == 0) {
     error = "AVC configuration must contain SPS and PPS";
     return false;
   }
@@ -91,6 +89,168 @@ bool CreateH264FormatDescription(
   }
 
   return true;
+}
+
+bool CreateHevcFormatDescription(
+  const std::vector<uint8_t>& config,
+  CMVideoFormatDescriptionRef* output,
+  std::string& error
+) {
+  if (config.size() < 23 || config[0] != 1) {
+    error = "Invalid HEVCDecoderConfigurationRecord";
+    return false;
+  }
+
+  const size_t nal_length_size = static_cast<size_t>((config[21] & 0x03) + 1);
+  if (nal_length_size == 3) {
+    error = "HEVC NAL unit length must be 1, 2, or 4 bytes";
+    return false;
+  }
+
+  const uint8_t array_count = config[22];
+  size_t offset = 23;
+  bool has_sps = false;
+  bool has_pps = false;
+  std::vector<const uint8_t*> parameter_sets;
+  std::vector<size_t> parameter_sizes;
+
+  for (uint8_t array_index = 0; array_index < array_count; ++array_index) {
+    if (offset + 3 > config.size()) {
+      error = "Truncated HEVC parameter-set array";
+      return false;
+    }
+
+    const uint8_t nal_unit_type = config[offset++] & 0x3f;
+    const uint16_t nal_count = ReadBE16(config.data() + offset);
+    offset += 2;
+
+    for (uint16_t nal_index = 0; nal_index < nal_count; ++nal_index) {
+      if (offset + 2 > config.size()) {
+        error = "Truncated HEVC parameter-set length";
+        return false;
+      }
+
+      const size_t size = ReadBE16(config.data() + offset);
+      offset += 2;
+      if (size == 0 || offset + size > config.size()) {
+        error = "Invalid HEVC parameter-set payload";
+        return false;
+      }
+
+      if (nal_unit_type >= 32 && nal_unit_type <= 34) {
+        parameter_sets.push_back(config.data() + offset);
+        parameter_sizes.push_back(size);
+        if (nal_unit_type == 33) has_sps = true;
+        if (nal_unit_type == 34) has_pps = true;
+      }
+      offset += size;
+    }
+  }
+
+  if (!has_sps || !has_pps || parameter_sets.size() < 2) {
+    error = "HEVC configuration must contain SPS and PPS";
+    return false;
+  }
+
+  const OSStatus status = CMVideoFormatDescriptionCreateFromHEVCParameterSets(
+    kCFAllocatorDefault,
+    parameter_sets.size(),
+    parameter_sets.data(),
+    parameter_sizes.data(),
+    static_cast<int>(nal_length_size),
+    nullptr,
+    output
+  );
+
+  if (status != noErr || !*output) {
+    error =
+      "CMVideoFormatDescriptionCreateFromHEVCParameterSets failed: "
+      + std::to_string(status);
+    *output = nullptr;
+    return false;
+  }
+
+  return true;
+}
+
+CMVideoCodecType ProResCodecType(const std::string& codec) {
+  if (codec == "apco") return kCMVideoCodecType_AppleProRes422Proxy;
+  if (codec == "apcs") return kCMVideoCodecType_AppleProRes422LT;
+  if (codec == "apcn") return kCMVideoCodecType_AppleProRes422;
+  if (codec == "apch") return kCMVideoCodecType_AppleProRes422HQ;
+  if (codec == "ap4h") return kCMVideoCodecType_AppleProRes4444;
+  if (codec == "ap4x") return kCMVideoCodecType_AppleProRes4444XQ;
+  return 0;
+}
+
+bool CreateProResFormatDescription(
+  const std::string& codec,
+  int coded_width,
+  int coded_height,
+  CMVideoFormatDescriptionRef* output,
+  std::string& error
+) {
+  const CMVideoCodecType codec_type = ProResCodecType(codec);
+  if (codec_type == 0) {
+    error = "Unsupported ProRes sample entry: " + codec;
+    return false;
+  }
+  if (coded_width <= 0 || coded_height <= 0) {
+    error = "ProRes format description requires coded dimensions";
+    return false;
+  }
+
+  const OSStatus status = CMVideoFormatDescriptionCreate(
+    kCFAllocatorDefault,
+    codec_type,
+    coded_width,
+    coded_height,
+    nullptr,
+    output
+  );
+  if (status != noErr || !*output) {
+    error =
+      "CMVideoFormatDescriptionCreate for ProRes failed: "
+      + std::to_string(status);
+    *output = nullptr;
+    return false;
+  }
+
+  return true;
+}
+
+bool CreateVideoFormatDescription(
+  const std::string& codec,
+  const std::vector<uint8_t>& config,
+  int coded_width,
+  int coded_height,
+  CMVideoFormatDescriptionRef* output,
+  std::string& error
+) {
+  if (!output) {
+    error = "Missing output format description";
+    return false;
+  }
+  *output = nullptr;
+
+  if (codec == "avc") {
+    return CreateAvcFormatDescription(config, output, error);
+  }
+  if (codec == "hevc") {
+    return CreateHevcFormatDescription(config, output, error);
+  }
+  if (ProResCodecType(codec) != 0) {
+    return CreateProResFormatDescription(
+      codec,
+      coded_width,
+      coded_height,
+      output,
+      error
+    );
+  }
+
+  error = "Unsupported VideoToolbox codec: " + codec;
+  return false;
 }
 
 bool IsHardwareAccelerated(VTDecompressionSessionRef session) {

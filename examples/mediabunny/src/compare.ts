@@ -18,7 +18,12 @@ for (const file of files) {
 
 if (reports.length === 0) throw new Error(`No MediaBunny JSON reports found in ${reportsDirectory}`)
 
-const backendOrder = ["browser-webcodecs", "mediabunny-server", "napi-webcodecs"] as const
+const backendOrder = [
+  "browser-webcodecs",
+  "mediabunny-server",
+  "gpuix-mediabunny",
+  "napi-webcodecs",
+] as const
 reports.sort((a, b) => backendOrder.indexOf(a.backend) - backendOrder.indexOf(b.backend))
 
 function supportCell(encode: boolean, decode: boolean): string {

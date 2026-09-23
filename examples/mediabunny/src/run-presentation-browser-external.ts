@@ -11,7 +11,10 @@ const projectDirectory = resolve(sourceDirectory, "..")
 const buildDirectory = join(projectDirectory, ".browser-presentation-external")
 const iterations = Number(process.env.MEDIABUNNY_PRESENTATION_ITERATIONS ?? 3)
 const warmups = Number(process.env.MEDIABUNNY_PRESENTATION_WARMUPS ?? 1)
-const codec = process.env.MEDIABUNNY_PRESENTATION_CODEC === "avc" ? "avc" : "vp8"
+const requestedCodec = process.env.MEDIABUNNY_PRESENTATION_CODEC
+const codec = requestedCodec === "avc" || requestedCodec === "hevc"
+  ? requestedCodec
+  : "vp8"
 
 await rm(buildDirectory, { recursive: true, force: true })
 await mkdir(buildDirectory, { recursive: true })
@@ -51,7 +54,7 @@ const server = Bun.serve({
 
     if (url.pathname === "/fixture.webm") {
       return new Response(Bun.file(fixturePath), {
-        headers: { "content-type": codec === "avc" ? "video/mp4" : "video/webm" },
+        headers: { "content-type": codec === "vp8" ? "video/webm" : "video/mp4" },
       })
     }
 

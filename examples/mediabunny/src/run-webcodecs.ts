@@ -1,6 +1,6 @@
 await import("@napi-rs/webcodecs/polyfill")
 
-const { installNapiCanvasGlobals } = await import("./napi-canvas-globals.ts")
+const { installNapiCanvasGlobals } = await import("../../../packages/mediabunny/src/index.ts")
 installNapiCanvasGlobals()
 
 const { registerNapiVideoSampleTransformer } = await import("./napi-video-transformer.ts")

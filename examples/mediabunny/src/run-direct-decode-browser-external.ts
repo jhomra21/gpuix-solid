@@ -11,6 +11,7 @@ const projectDirectory = resolve(sourceDirectory, "..")
 const buildDirectory = join(projectDirectory, ".direct-decode-browser")
 const iterations = Number(process.env.MEDIABUNNY_PRESENTATION_ITERATIONS ?? 5)
 const warmups = Number(process.env.MEDIABUNNY_PRESENTATION_WARMUPS ?? 2)
+const codec = process.env.MEDIABUNNY_PRESENTATION_CODEC === "hevc" ? "hevc" : "avc"
 
 await rm(buildDirectory, { recursive: true, force: true })
 await mkdir(buildDirectory, { recursive: true })
@@ -62,7 +63,7 @@ const server = Bun.serve({
         if (
           report.schemaVersion !== 1
           || report.backend !== "browser-webcodecs-direct"
-          || report.workload.codec !== "avc"
+          || report.workload.codec !== codec
         ) {
           throw new Error("Browser submitted an unsupported direct decode report")
         }
@@ -97,6 +98,7 @@ const server = Bun.serve({
 const url = new URL(`http://127.0.0.1:${server.port}/`)
 url.searchParams.set("iterations", String(iterations))
 url.searchParams.set("warmups", String(warmups))
+url.searchParams.set("codec", codec)
 url.searchParams.set("reportEndpoint", "/report")
 
 process.stderr.write(

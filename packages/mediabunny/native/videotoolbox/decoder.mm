@@ -1,5 +1,6 @@
 #include <napi.h>
 
+#include "frame.h"
 #include "videotoolbox_support.h"
 
 #include <CoreFoundation/CoreFoundation.h>
@@ -20,13 +21,13 @@
 
 namespace {
 
-using gpuix::media::CreateH264FormatDescription;
+using gpuix::media::CreateVideoFormatDescription;
 using gpuix::media::CreateHardwareDecodeSession;
 using gpuix::media::CreateSampleBuffer;
 using gpuix::media::IsHardwareAccelerated;
 using gpuix::media::PacketInput;
 
-class VideoToolboxH264Decoder;
+class VideoToolboxVideoDecoder;
 
 struct StreamFrame {
   CVPixelBufferRef pixel_buffer;
@@ -34,7 +35,7 @@ struct StreamFrame {
 };
 
 struct StreamTask {
-  VideoToolboxH264Decoder* decoder;
+  VideoToolboxVideoDecoder* decoder;
   Napi::Promise::Deferred deferred;
   Napi::Reference<Napi::Array> packets_ref;
   Napi::ThreadSafeFunction tsfn;
@@ -46,6 +47,7 @@ struct StreamTask {
   std::thread delivery_thread;
   std::string error;
   bool decode_done = false;
+  bool finish_delayed_frames = true;
   bool presentation_order_monotonic = true;
   bool has_last_presentation_time = false;
   CMTime last_presentation_time = kCMTimeInvalid;
@@ -57,7 +59,7 @@ struct StreamTask {
   const size_t max_pending_frames = 2;
 
   StreamTask(
-    VideoToolboxH264Decoder* decoder_value,
+    VideoToolboxVideoDecoder* decoder_value,
     Napi::Env env,
     const Napi::Array& packet_values
   )
@@ -83,46 +85,71 @@ struct StreamDelivery {
   CMTime presentation_time;
 };
 
-class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264Decoder> {
+class VideoToolboxVideoDecoder final : public Napi::ObjectWrap<VideoToolboxVideoDecoder> {
  public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports) {
     Napi::Function ctor = DefineClass(
       env,
-      "VideoToolboxH264Decoder",
+      "VideoToolboxVideoDecoder",
       {
-        InstanceMethod<&VideoToolboxH264Decoder::DecodeBatch>("decodeBatch"),
-        InstanceMethod<&VideoToolboxH264Decoder::DecodeStream>("decodeStream"),
-        InstanceMethod<&VideoToolboxH264Decoder::Dispose>("dispose"),
-        InstanceAccessor<&VideoToolboxH264Decoder::HardwareAccelerated>("hardwareAccelerated"),
+        InstanceMethod<&VideoToolboxVideoDecoder::DecodeBatch>("decodeBatch"),
+        InstanceMethod<&VideoToolboxVideoDecoder::DecodeStream>("decodeStream"),
+        InstanceMethod<&VideoToolboxVideoDecoder::Reset>("reset"),
+        InstanceMethod<&VideoToolboxVideoDecoder::Dispose>("dispose"),
+        InstanceAccessor<&VideoToolboxVideoDecoder::HardwareAccelerated>("hardwareAccelerated"),
       }
     );
 
     constructor = Napi::Persistent(ctor);
     constructor.SuppressDestruct();
-    exports.Set("VideoToolboxH264Decoder", ctor);
+    exports.Set("VideoToolboxVideoDecoder", ctor);
     return exports;
   }
 
-  explicit VideoToolboxH264Decoder(const Napi::CallbackInfo& info)
-      : Napi::ObjectWrap<VideoToolboxH264Decoder>(info) {
+  explicit VideoToolboxVideoDecoder(const Napi::CallbackInfo& info)
+      : Napi::ObjectWrap<VideoToolboxVideoDecoder>(info) {
     Napi::Env env = info.Env();
-    if (info.Length() < 1 || !info[0].IsBuffer()) {
-      Napi::TypeError::New(env, "Expected AVCDecoderConfigurationRecord Buffer").ThrowAsJavaScriptException();
+    if (
+      info.Length() < 2
+      || !info[0].IsString()
+      || !info[1].IsBuffer()
+    ) {
+      Napi::TypeError::New(
+        env,
+        "Expected codec string and decoder configuration Buffer"
+      ).ThrowAsJavaScriptException();
       return;
     }
 
-    Napi::Buffer<uint8_t> description = info[0].As<Napi::Buffer<uint8_t>>();
+    codec_ = info[0].As<Napi::String>().Utf8Value();
+    Napi::Buffer<uint8_t> description = info[1].As<Napi::Buffer<uint8_t>>();
     config_.assign(description.Data(), description.Data() + description.Length());
 
+    const int coded_width =
+      info.Length() > 2 && info[2].IsNumber()
+        ? info[2].As<Napi::Number>().Int32Value()
+        : 0;
+    const int coded_height =
+      info.Length() > 3 && info[3].IsNumber()
+        ? info[3].As<Napi::Number>().Int32Value()
+        : 0;
+
     std::string error;
-    if (!CreateH264FormatDescription(config_, &format_description_, error)) {
+    if (!CreateVideoFormatDescription(
+      codec_,
+      config_,
+      coded_width,
+      coded_height,
+      &format_description_,
+      error
+    )) {
       Napi::Error::New(env, error).ThrowAsJavaScriptException();
       return;
     }
     if (!CreateHardwareDecodeSession(
       format_description_,
       this,
-      &VideoToolboxH264Decoder::OutputCallback,
+      &VideoToolboxVideoDecoder::OutputCallback,
       &session_,
       error
     )) {
@@ -131,7 +158,7 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
     }
   }
 
-  ~VideoToolboxH264Decoder() override {
+  ~VideoToolboxVideoDecoder() override {
     Destroy();
   }
 
@@ -151,6 +178,7 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
 
   static Napi::FunctionReference constructor;
 
+  std::string codec_;
   std::vector<uint8_t> config_;
   CMVideoFormatDescriptionRef format_description_ = nullptr;
   VTDecompressionSessionRef session_ = nullptr;
@@ -166,7 +194,7 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
     CMTime presentation_time_stamp,
     CMTime
   ) {
-    auto* self = static_cast<VideoToolboxH264Decoder*>(decompression_output_refcon);
+    auto* self = static_cast<VideoToolboxVideoDecoder*>(decompression_output_refcon);
     if (!self) return;
 
     StreamTask* stream = self->active_stream_.load(std::memory_order_acquire);
@@ -306,21 +334,13 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       const napi_status call_status = task->tsfn.BlockingCall(
         delivery,
         [](Napi::Env env, Napi::Function callback, StreamDelivery* value) {
-          IOSurfaceRef surface = CVPixelBufferGetIOSurface(value->pixel_buffer);
-          if (!surface) {
-            value->task->SetError(
-              "Streaming VideoToolbox frame did not expose an IOSurface"
-            );
+          Napi::Object frame =
+            VideoToolboxFrame::NewInstance(env, value->pixel_buffer);
+          if (env.IsExceptionPending()) {
             CVPixelBufferRelease(value->pixel_buffer);
             delete value;
             return;
           }
-
-          Napi::Buffer<uint8_t> handle = Napi::Buffer<uint8_t>::Copy(
-            env,
-            reinterpret_cast<const uint8_t*>(&surface),
-            sizeof(surface)
-          );
 
           double timestamp_us = 0;
           if (CMTIME_IS_NUMERIC(value->presentation_time)) {
@@ -328,7 +348,7 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
           }
 
           callback.Call({
-            handle,
+            frame,
             Napi::Number::New(env, timestamp_us),
           });
 
@@ -342,7 +362,6 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
             value->task->delivered += 1;
           }
 
-          CVPixelBufferRelease(value->pixel_buffer);
           delete value;
         }
       );
@@ -386,7 +405,8 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       status = VTDecompressionSessionDecodeFrame(
         session_,
         sample,
-        kVTDecodeFrame_EnableAsynchronousDecompression,
+        kVTDecodeFrame_EnableAsynchronousDecompression
+        | kVTDecodeFrame_EnableTemporalProcessing,
         nullptr,
         &info_flags
       );
@@ -400,10 +420,12 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       task->submitted += 1;
     }
 
-    const OSStatus finish_status =
-      VTDecompressionSessionFinishDelayedFrames(session_);
-    if (decode_status == noErr && finish_status != noErr) {
-      decode_status = finish_status;
+    if (task->finish_delayed_frames) {
+      const OSStatus finish_status =
+        VTDecompressionSessionFinishDelayedFrames(session_);
+      if (decode_status == noErr && finish_status != noErr) {
+        decode_status = finish_status;
+      }
     }
 
     const OSStatus wait_status =
@@ -510,6 +532,19 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
     Napi::Array values = info[0].As<Napi::Array>();
     auto* task = new StreamTask(this, env, values);
     task->packets.reserve(values.Length());
+
+    if (info.Length() > 2) {
+      if (!info[2].IsBoolean()) {
+        task->packets_ref.Reset();
+        delete task;
+        Napi::TypeError::New(
+          env,
+          "decodeStream finish flag must be a boolean when provided"
+        ).ThrowAsJavaScriptException();
+        return env.Undefined();
+      }
+      task->finish_delayed_frames = info[2].As<Napi::Boolean>().Value();
+    }
 
     for (uint32_t index = 0; index < values.Length(); ++index) {
       PacketInput packet{
@@ -693,7 +728,8 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
       status = VTDecompressionSessionDecodeFrame(
         session_,
         sample,
-        kVTDecodeFrame_EnableAsynchronousDecompression,
+        kVTDecodeFrame_EnableAsynchronousDecompression
+        | kVTDecodeFrame_EnableTemporalProcessing,
         nullptr,
         &info_flags
       );
@@ -795,6 +831,43 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
     return result;
   }
 
+  Napi::Value Reset(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    if (active_stream_.load(std::memory_order_acquire) != nullptr) {
+      Napi::Error::New(
+        env,
+        "Cannot reset VideoToolbox decoder while decodeStream is active"
+      ).ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+    if (!format_description_) {
+      Napi::Error::New(env, "VideoToolbox decoder is disposed")
+        .ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+
+    if (session_) {
+      VTDecompressionSessionWaitForAsynchronousFrames(session_);
+      VTDecompressionSessionInvalidate(session_);
+      CFRelease(session_);
+      session_ = nullptr;
+    }
+
+    std::string error;
+    if (!CreateHardwareDecodeSession(
+      format_description_,
+      this,
+      &VideoToolboxVideoDecoder::OutputCallback,
+      &session_,
+      error
+    )) {
+      Napi::Error::New(env, error).ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+
+    return env.Undefined();
+  }
+
   Napi::Value Dispose(const Napi::CallbackInfo& info) {
     if (active_stream_.load(std::memory_order_acquire) != nullptr) {
       Napi::Error::New(
@@ -821,10 +894,84 @@ class VideoToolboxH264Decoder final : public Napi::ObjectWrap<VideoToolboxH264De
   }
 };
 
-Napi::FunctionReference VideoToolboxH264Decoder::constructor;
+Napi::FunctionReference VideoToolboxVideoDecoder::constructor;
+
+void CapabilityOutputCallback(
+  void*,
+  void*,
+  OSStatus,
+  VTDecodeInfoFlags,
+  CVImageBufferRef,
+  CMTime,
+  CMTime
+) {}
+
+Napi::Value IsVideoToolboxDecoderSupported(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  if (
+    info.Length() < 2
+    || !info[0].IsString()
+    || !info[1].IsBuffer()
+    || (info.Length() > 2 && !info[2].IsNumber())
+    || (info.Length() > 3 && !info[3].IsNumber())
+  ) {
+    Napi::TypeError::New(
+      env,
+      "Expected codec string, decoder configuration Buffer, and optional coded dimensions"
+    ).ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  const std::string codec = info[0].As<Napi::String>().Utf8Value();
+  Napi::Buffer<uint8_t> description = info[1].As<Napi::Buffer<uint8_t>>();
+  std::vector<uint8_t> config(
+    description.Data(),
+    description.Data() + description.Length()
+  );
+  const int coded_width =
+    info.Length() > 2 ? info[2].As<Napi::Number>().Int32Value() : 0;
+  const int coded_height =
+    info.Length() > 3 ? info[3].As<Napi::Number>().Int32Value() : 0;
+
+  CMVideoFormatDescriptionRef format_description = nullptr;
+  std::string error;
+  if (!CreateVideoFormatDescription(
+    codec,
+    config,
+    coded_width,
+    coded_height,
+    &format_description,
+    error
+  )) {
+    return Napi::Boolean::New(env, false);
+  }
+
+  VTDecompressionSessionRef session = nullptr;
+  const bool supported = CreateHardwareDecodeSession(
+    format_description,
+    nullptr,
+    &CapabilityOutputCallback,
+    &session,
+    error
+  );
+
+  if (session) {
+    VTDecompressionSessionInvalidate(session);
+    CFRelease(session);
+  }
+  CFRelease(format_description);
+
+  return Napi::Boolean::New(env, supported);
+}
 
 Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
-  return VideoToolboxH264Decoder::Init(env, exports);
+  VideoToolboxFrame::Init(env, exports);
+  VideoToolboxVideoDecoder::Init(env, exports);
+  exports.Set(
+    "isVideoToolboxDecoderSupported",
+    Napi::Function::New(env, IsVideoToolboxDecoderSupported)
+  );
+  return exports;
 }
 
 NODE_API_MODULE(gpuix_videotoolbox, InitAll)

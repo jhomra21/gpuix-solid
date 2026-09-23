@@ -12,6 +12,8 @@ if (process.platform !== "darwin") {
   process.exit(0)
 }
 
+type NativeVideoCodec = "avc" | "hevc"
+
 type PacketInput = {
   data: Buffer
   timestamp: number
@@ -30,17 +32,38 @@ type StreamResult = {
   maxPendingFrames: number
 }
 
+type NativeFramePlane = {
+  data: Buffer
+  stride: number
+  rows: number
+}
+
+type NativeFrame = {
+  readonly width: number
+  readonly height: number
+  readonly pixelFormat: "NV12" | "BGRA" | null
+  readonly fullRange: boolean | null
+  readonly iosurfaceHandle: Buffer
+  readonly planeCount: number
+  copyPlane(index: number): NativeFramePlane
+  copyRgba(): Buffer
+  close(): void
+}
+
 type Decoder = {
   readonly hardwareAccelerated: boolean
   decodeStream(
     packets: PacketInput[],
-    onFrame: (handle: Buffer, timestampUs: number) => void,
+    onFrame: (frame: NativeFrame, timestampUs: number) => void,
   ): Promise<StreamResult>
   dispose(): void
 }
 
 type NativeModule = {
-  VideoToolboxH264Decoder: new (description: Buffer) => Decoder
+  VideoToolboxVideoDecoder: new (
+    codec: NativeVideoCodec,
+    description: Buffer,
+  ) => Decoder
 }
 
 const fixturePath = process.argv[2]
@@ -50,6 +73,10 @@ const fixture = await Bun.file(fixturePath).arrayBuffer()
 const addonPath = path.join(
   import.meta.dir,
   "..",
+  "..",
+  "..",
+  "packages",
+  "mediabunny",
   "native",
   "videotoolbox",
   "build",
@@ -68,13 +95,14 @@ const input = new Input({
 try {
   const track = await input.getPrimaryVideoTrack()
   if (!track) throw new Error("Stream smoke fixture has no video track")
-  if (await track.getCodec() !== "avc") {
-    throw new Error("Stream smoke requires AVC")
+  const codec = await track.getCodec()
+  if (codec !== "avc" && codec !== "hevc") {
+    throw new Error(`Stream smoke does not support ${codec}`)
   }
 
   const config = await track.getDecoderConfig()
   if (!config?.description) {
-    throw new Error("Stream smoke AVC track has no decoder configuration")
+    throw new Error(`Stream smoke ${codec.toUpperCase()} track has no decoder configuration`)
   }
 
   const description = ArrayBuffer.isView(config.description)
@@ -98,7 +126,7 @@ try {
     })
   }
 
-  const decoder = new native.VideoToolboxH264Decoder(description)
+  const decoder = new native.VideoToolboxVideoDecoder(codec, description)
   try {
     if (!decoder.hardwareAccelerated) {
       throw new Error("Stream smoke decoder is not hardware accelerated")
@@ -106,19 +134,52 @@ try {
 
     let callbacks = 0
     let handleBytes = 0
+    let planeBytes = 0
+    let rgbaBytes = 0
     let previousTimestamp = -Infinity
     let callbackOrderMonotonic = true
 
     const result = await decoder.decodeStream(
       packets,
-      (handle, timestampUs) => {
-        if (!Buffer.isBuffer(handle) || handle.byteLength === 0) {
-          throw new Error("Stream smoke received an invalid IOSurface handle")
+      (frame, timestampUs) => {
+        try {
+          const handle = frame.iosurfaceHandle
+          if (!Buffer.isBuffer(handle) || handle.byteLength === 0) {
+            throw new Error("Stream smoke received an invalid IOSurface handle")
+          }
+          if (frame.width <= 0 || frame.height <= 0 || frame.planeCount <= 0) {
+            throw new Error("Stream smoke received invalid frame geometry")
+          }
+
+          if (callbacks === 0) {
+            const plane = frame.copyPlane(0)
+            if (
+              !Buffer.isBuffer(plane.data)
+              || plane.data.byteLength === 0
+              || plane.stride <= 0
+              || plane.rows <= 0
+            ) {
+              throw new Error("Stream smoke could not copy the native frame plane")
+            }
+            planeBytes = plane.data.byteLength
+
+            const rgba = frame.copyRgba()
+            if (
+              !Buffer.isBuffer(rgba)
+              || rgba.byteLength !== frame.width * frame.height * 4
+            ) {
+              throw new Error("Stream smoke could not convert the native frame to RGBA")
+            }
+            rgbaBytes = rgba.byteLength
+          }
+
+          if (timestampUs < previousTimestamp) callbackOrderMonotonic = false
+          previousTimestamp = timestampUs
+          callbacks += 1
+          handleBytes = handle.byteLength
+        } finally {
+          frame.close()
         }
-        if (timestampUs < previousTimestamp) callbackOrderMonotonic = false
-        previousTimestamp = timestampUs
-        callbacks += 1
-        handleBytes = handle.byteLength
       },
     )
 
@@ -152,7 +213,8 @@ try {
     try {
       await decoder.decodeStream(
         packets,
-        () => {
+        (frame) => {
+          frame.close()
           failureCallbacks += 1
           if (failureCallbacks === 2) {
             throw new Error("intentional stream smoke callback failure")
@@ -170,7 +232,8 @@ try {
     let recoveryCallbacks = 0
     const recovery = await decoder.decodeStream(
       packets,
-      () => {
+      (frame) => {
+        frame.close()
         recoveryCallbacks += 1
       },
     )
@@ -186,9 +249,12 @@ try {
 
     console.log(
       JSON.stringify({
+        codec,
         packets: packets.length,
         callbacks,
         handleBytes,
+        planeBytes,
+        rgbaBytes,
         decodeMs: result.decodeMs,
         hardwareAccelerated: result.hardwareAccelerated,
         maxPendingFrames: result.maxPendingFrames,

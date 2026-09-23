@@ -30,6 +30,8 @@ type MediaBunnyVideoTrack = NonNullable<
   Awaited<ReturnType<Input["getPrimaryVideoTrack"]>>
 >
 
+type NativeVideoCodec = "avc" | "hevc"
+
 type NativePacket = {
   data: Buffer
   timestamp: number
@@ -48,17 +50,25 @@ type StreamResult = {
   maxPendingFrames: number
 }
 
+type NativeFrame = {
+  readonly iosurfaceHandle: Buffer
+  close(): void
+}
+
 type NativeDecoder = {
   readonly hardwareAccelerated: boolean
   decodeStream(
     packets: NativePacket[],
-    onFrame: (handle: Buffer, timestampUs: number) => void,
+    onFrame: (frame: NativeFrame, timestampUs: number) => void,
   ): Promise<StreamResult>
   dispose(): void
 }
 
 type NativeModule = {
-  VideoToolboxH264Decoder: new (description: Buffer) => NativeDecoder
+  VideoToolboxVideoDecoder: new (
+    codec: NativeVideoCodec,
+    description: Buffer,
+  ) => NativeDecoder
 }
 
 const fixturePath = process.argv[2]
@@ -71,6 +81,10 @@ const fixture = await Bun.file(fixturePath).arrayBuffer()
 const addonPath = path.join(
   import.meta.dir,
   "..",
+  "..",
+  "..",
+  "packages",
+  "mediabunny",
   "native",
   "videotoolbox",
   "build",
@@ -112,20 +126,22 @@ async function createTrackState() {
     input.dispose()
     throw new Error("Presentation fixture has no video track")
   }
-  if (await track.getCodec() !== "avc") {
+  const codec = await track.getCodec()
+  if (codec !== "avc" && codec !== "hevc") {
     input.dispose()
-    throw new Error("Streaming VideoToolbox presentation requires AVC")
+    throw new Error(`Streaming VideoToolbox presentation does not support ${codec}`)
   }
 
   const config = await track.getDecoderConfig()
   if (!config?.description) {
     input.dispose()
-    throw new Error("AVC track has no decoder configuration")
+    throw new Error(`${codec.toUpperCase()} track has no decoder configuration`)
   }
 
   return {
     input,
     track,
+    codec,
     description: copyDescription(config.description),
     width: config.codedWidth ?? await track.getCodedWidth(),
     height: config.codedHeight ?? await track.getCodedHeight(),
@@ -176,7 +192,7 @@ function validateStream(
 
 async function runDecodeOnly(): Promise<PresentationRun> {
   const state = await createTrackState()
-  const decoder = new native.VideoToolboxH264Decoder(state.description)
+  const decoder = new native.VideoToolboxVideoDecoder(state.codec, state.description)
   try {
     if (!decoder.hardwareAccelerated) {
       throw new Error("Streaming VideoToolbox decoder is not hardware accelerated")
@@ -191,12 +207,16 @@ async function runDecodeOnly(): Promise<PresentationRun> {
 
     const result = await decoder.decodeStream(
       packets,
-      () => {
-        const now = performance.now()
-        frameSteps.push(now - previousFrameAt)
-        previousFrameAt = now
-        if (callbacks === 0) firstFrameMs = now - started
-        callbacks += 1
+      (frame) => {
+        try {
+          const now = performance.now()
+          frameSteps.push(now - previousFrameAt)
+          previousFrameAt = now
+          if (callbacks === 0) firstFrameMs = now - started
+          callbacks += 1
+        } finally {
+          frame.close()
+        }
       },
     )
 
@@ -237,7 +257,7 @@ if (surface.id <= 0) {
 
 async function runPresentation(): Promise<PresentationRun> {
   const state = await createTrackState()
-  const decoder = new native.VideoToolboxH264Decoder(state.description)
+  const decoder = new native.VideoToolboxVideoDecoder(state.codec, state.description)
 
   try {
     if (!decoder.hardwareAccelerated) {
@@ -261,32 +281,39 @@ async function runPresentation(): Promise<PresentationRun> {
     const streamStarted = performance.now()
     const result = await decoder.decodeStream(
       packets,
-      (handle) => {
-        const callbackStarted = performance.now()
+      (frame) => {
+        try {
+          const callbackStarted = performance.now()
 
-        const handoffStarted = performance.now()
-        testRoot.renderer.setVideoFrameIosurface(surface.id, handle)
-        const handoffEnded = performance.now()
-        const handoffDuration = handoffEnded - handoffStarted
-        handoffMs += handoffDuration
+          const handoffStarted = performance.now()
+          testRoot.renderer.setVideoFrameIosurface(
+            surface.id,
+            frame.iosurfaceHandle,
+          )
+          const handoffEnded = performance.now()
+          const handoffDuration = handoffEnded - handoffStarted
+          handoffMs += handoffDuration
 
-        const renderStarted = performance.now()
-        testRoot.renderer.flush()
-        const renderEnded = performance.now()
-        const renderDuration = renderEnded - renderStarted
-        renderFlushMs += renderDuration
+          const renderStarted = performance.now()
+          testRoot.renderer.flush()
+          const renderEnded = performance.now()
+          const renderDuration = renderEnded - renderStarted
+          renderFlushMs += renderDuration
 
-        const presentedAt = performance.now()
-        frameSteps.push(presentedAt - previousPresentedAt)
-        previousPresentedAt = presentedAt
+          const presentedAt = performance.now()
+          frameSteps.push(presentedAt - previousPresentedAt)
+          previousPresentedAt = presentedAt
 
-        if (callbacks === 0) {
-          firstFrameMs = presentedAt - started
-          firstFrameDecodeMs = callbackStarted - streamStarted + packetPreparationMs
-          firstFrameHandoffMs = handoffDuration
-          firstFrameRenderFlushMs = renderDuration
+          if (callbacks === 0) {
+            firstFrameMs = presentedAt - started
+            firstFrameDecodeMs = callbackStarted - streamStarted + packetPreparationMs
+            firstFrameHandoffMs = handoffDuration
+            firstFrameRenderFlushMs = renderDuration
+          }
+          callbacks += 1
+        } finally {
+          frame.close()
         }
-        callbacks += 1
       },
     )
 
@@ -346,7 +373,7 @@ try {
     backend: "streaming-videotoolbox-iosurface-gpuix-video-frame",
     generatedAt: new Date().toISOString(),
     workload: {
-      codec: "avc",
+      codec: initial.codec,
       fixtureBytes: fixture.byteLength,
       warmups,
       iterations,
@@ -357,6 +384,7 @@ try {
       nativeSurfaceVersion: testRoot.renderer.getVideoFrameIosurfaceVersion() ?? 0,
       screenshotBytes,
       decoderHardwareAcceleration: "videotoolbox",
+      codec: initial.codec,
       streamingDelivery: true,
       maxPendingFrames: 2,
       mediaBunnyPacketSink: true,
