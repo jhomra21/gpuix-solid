@@ -50,6 +50,10 @@ export type CanvasPixelSource = {
 
 type CanvasRecorderImageSource = CanvasImageSource | CanvasPixelSource
 
+export type GpuixCanvasRenderingContext2D = Omit<CanvasRenderingContext2D, "drawImage"> & {
+  drawImage(image: CanvasRecorderImageSource, ...args: number[]): void
+}
+
 type CanvasCommandClip = {
   clip?: CanvasClipRect
 }
@@ -107,7 +111,7 @@ export type CanvasBackingSize = {
 }
 
 export type Canvas2DRecorder = {
-  context: CanvasRenderingContext2D
+  context: GpuixCanvasRenderingContext2D
   snapshot(): CanvasDrawList
   reset(): void
 }
@@ -482,7 +486,7 @@ export function createCanvas2DRecorder(
   // SAFETY: this host object deliberately implements the Canvas2D subset supported by protocol v3.
   // Browser-compiled source still sees the standard CanvasRenderingContext2D contract; unsupported
   // operations are absent or fail closed rather than being serialized incorrectly.
-  const canvasContext = context as CanvasRenderingContext2D
+  const canvasContext = context as GpuixCanvasRenderingContext2D
 
   return {
     context: canvasContext,
