@@ -234,7 +234,7 @@ The upstream GPUIX native package. GPUix Solid consumes it rather than carrying 
 
 ### `@jhomra21/gpuix-mediabunny`
 
-The MediaBunny integration package. It registers macOS hardware VideoToolbox decoders for AVC/HEVC, exposes IOSurface-backed `VideoSample` resources to GPUix, installs native Canvas support for MediaBunny Canvas APIs, and keeps MediaBunny's ProRes/server extensions as the broad codec fallback.
+The MediaBunny integration package. It registers macOS hardware VideoToolbox decoders for AVC, HEVC, and supported ProRes sample entries, exposes IOSurface-backed `VideoSample` resources to GPUix, installs native Canvas support for MediaBunny Canvas APIs, adds a Bun-safe TurboRes ProRes fallback, and keeps MediaBunny Server for the remaining codec coverage.
 
 The maintained parity suite passes six video codec round trips, the current tested audio codec matrix, conversion/transforms, stream/blob/ranged/file/URL sources, CMAF/MPEG-TS/HLS/ADTS, subtitles, CanvasSource/CanvasSink, and GPUix presentation with zero unsupported cases, known gaps, timeouts, or errors in the GPUix backend. See [MediaBunny dogfood](./examples/mediabunny/README.md) and [the package README](./packages/mediabunny/README.md).
 
