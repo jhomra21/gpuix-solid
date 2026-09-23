@@ -145,6 +145,8 @@ try {
   const sceneId = scene.entity.id()
   const rectId = rect.entity.id()
   const sceneChildren = cache.children[sceneId] ?? []
+  const queriedChildren = runtime.getEntityChildren(world, scene.entity)
+  const rectParent = runtime.getParentEntity(rect.entity)
   if (
     computed.visibility[rectId] !== 1 ||
     !sceneChildren.some((child) => child === rect.entity)
@@ -166,6 +168,8 @@ try {
         visibility: computed.visibility[rectId],
       },
       cachedChildIds: sceneChildren.map((child) => child.id()),
+      queriedChildIds: queriedChildren.map((child) => child.id()),
+      rectParentId: rectParent?.id() ?? null,
     }))
   }
 
