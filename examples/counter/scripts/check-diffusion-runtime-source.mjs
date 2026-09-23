@@ -129,6 +129,14 @@ try {
   document.setProperty(rect, "cornerRadiusBottomLeft", 2)
   document.insertNode(scene, rect)
 
+  const cacheRefreshRect = document.createElement("Rect")
+  document.setProperty(cacheRefreshRect, "x", 250)
+  document.setProperty(cacheRefreshRect, "y", 140)
+  document.setProperty(cacheRefreshRect, "width", 12)
+  document.setProperty(cacheRefreshRect, "height", 12)
+  document.setProperty(cacheRefreshRect, "fill", "#38BDF8")
+  document.insertNode(scene, cacheRefreshRect)
+
   runtime.setPlayhead(world, scene.entity, 0)
   runtime.playbackSystem(world)
 
@@ -243,14 +251,23 @@ module.exports.default = function Project() {
         fill: "#0F172A",
         active: true,
         get children() {
-          return createComponent(Rect, {
-            x: 52,
-            y: 36,
-            width: 144,
-            height: 84,
-            fill: "#22C55E",
-            cornerRadius: 12,
-          });
+          return [
+            createComponent(Rect, {
+              x: 52,
+              y: 36,
+              width: 144,
+              height: 84,
+              fill: "#22C55E",
+              cornerRadius: 12,
+            }),
+            createComponent(Rect, {
+              x: 250,
+              y: 140,
+              width: 12,
+              height: 12,
+              fill: "#38BDF8",
+            }),
+          ];
         },
       });
     },
