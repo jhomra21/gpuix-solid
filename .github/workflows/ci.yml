@@ -155,8 +155,9 @@ jobs:
           bun-version: 1.3.14
       - name: Confirm native build toolchain
         run: rustc --version && cargo --version
-      - name: Cache pinned GPUIX Cargo build
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Restore pinned GPUIX Cargo build
+        id: gpuix-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry
@@ -172,6 +173,15 @@ jobs:
           bun install --no-save
       - name: Build and link pinned GPUIX source
         run: bun run gpuix:edge:prepare
+      - name: Save pinned GPUIX Cargo build
+        if: steps.gpuix-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            .cache/gpuix-cargo-target
+          key: gpuix-edge-macos-${{ hashFiles('.gpuix/edge.json', 'patches/gpuix/*.patch') }}
       - run: bun run gpuix:edge:status
       - run: bun run gpuix:edge:verify
       - name: Run Diffusion Solid 1 source acceptance

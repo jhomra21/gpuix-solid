@@ -4,7 +4,6 @@ import { EngineCanvas } from "@/engine/canvas"
 import { EngineProvider, useEngineContext } from "@/engine/context"
 import { mount, type Mount } from "@diffusionstudio/reconciler"
 import {
-  AdjustmentLayer,
   getActiveEntity,
   Name,
   RenderSurface,
@@ -70,11 +69,6 @@ function ProjectMount(): JSX.Element {
   const engine = useEngineContext()
   diffusionSourceProbe.world = engine.world
   diffusionSourceProbe.frame = engine.frame
-
-  // Diffusion 0.206.0 uses an Or(Geometry, Group, AdjustmentLayer) cache query
-  // that crosses Koota 0.6.6 bitmask generations unless this trait is known
-  // before the project document is mounted.
-  engine.world.query(AdjustmentLayer)
 
   let mounted: Mount | undefined
   onMount(() => {
