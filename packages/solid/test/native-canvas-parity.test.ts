@@ -66,6 +66,22 @@ describe("native Canvas2D source-edge parity", () => {
     context.fill()
     context.restore()
 
+    const imageSource = {
+      width: 2,
+      height: 2,
+      getContext: () => ({
+        getImageData: () => ({
+          data: new Uint8ClampedArray([
+            255, 0, 0, 255,
+            0, 255, 0, 255,
+            0, 0, 255, 255,
+            255, 255, 255, 255,
+          ]),
+        }),
+      }),
+    } as unknown as CanvasImageSource
+    context.drawImage(imageSource, 202, 18, 28, 28)
+
     context.fillStyle = "#ffffff"
     context.font = "600 16px Arial"
     const measured = context.measureText("GPUix")
@@ -86,6 +102,12 @@ describe("native Canvas2D source-edge parity", () => {
         { op: "fillPath", color: "#2f81f7" },
         { op: "fillPath", color: "#f2cc60" },
         { op: "fillPath", color: "#3fb950", clip: { x: 184, y: 84, width: 24, height: 24 } },
+        {
+          op: "drawImage",
+          imageId: 1,
+          source: { x: 0, y: 0, width: 2, height: 2 },
+          destination: { x: 202, y: 18, width: 28, height: 28 },
+        },
         { op: "fillText", text: "GPUix", fontFamily: "Arial" },
       ],
     })
