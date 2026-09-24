@@ -361,9 +361,16 @@ export function createRoot(renderer: NativeRenderer, initialWindowEventHandlers:
             handled = true
             return
           }
-          if (!hasLiveElement(container, event.elementId)) return
           const mounted = container.children[0]
           const rootId = mounted && mounted.kind === "element" ? mounted.id : undefined
+          if (!hasLiveElement(container, event.elementId)) {
+            if (
+              rootId === undefined
+              || releaseRelay.pressedElementId === undefined
+              || (event.eventType !== "mouseMove" && event.eventType !== "mouseUp")
+            ) return
+            event = { ...event, elementId: rootId }
+          }
           if (
             event.eventType === "mouseDown"
             && event.elementId === rootId
