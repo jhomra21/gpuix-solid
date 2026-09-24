@@ -12,7 +12,7 @@ diff --git a/packages/native/src/style.rs b/packages/native/src/style.rs
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -4816,6 +4816,18 @@ impl Inherited {
+@@ -4816,6 +4816,19 @@ impl Inherited {
  
  // ── Element builders ─────────────────────────────────────────────────
  
