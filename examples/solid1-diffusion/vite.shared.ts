@@ -36,21 +36,18 @@ const multilineClassAttributeHook = {
   },
 }
 
-const iconTestHook = {
-  name: "diffusion-icon-native-test-hook",
+const rectangleSvgTestHook = {
+  name: "diffusion-rectangle-svg-native-test-hook",
   enforce: "pre" as const,
   transform(code: string, id: string) {
     const normalizedId = id.replaceAll("\\", "/").split("?")[0]
-    if (!normalizedId.endsWith("/apps/web/src/components/ui/icon.tsx")) return null
+    if (!normalizedId.endsWith("/apps/web/src/assets/icons/tool.rectangle.svg")) return null
 
-    const iconComponent = '<IconComponent class={cx("size-6 shrink-0", props.class)} />'
-    if (!code.includes(iconComponent)) {
-      throw new Error("Pinned Diffusion Icon component changed; update native acceptance instrumentation")
+    const svgOpen = '<svg viewBox="0 0 24 24"'
+    if (!code.includes(svgOpen)) {
+      throw new Error("Pinned Diffusion Rectangle SVG changed; update native acceptance instrumentation")
     }
-    return code.replace(
-      iconComponent,
-      '<IconComponent testId={`diffusion-icon-${props.name}`} class={cx("size-6 shrink-0", props.class)} />',
-    )
+    return code.replace(svgOpen, '<svg data-gpuix-test-id="rectangle" viewBox="0 0 24 24"')
   },
 }
 
@@ -91,7 +88,7 @@ export function diffusionConfig(entry: string, outDir: string) {
     plugins: [
       multilineClassAttributeHook,
       toolbarTestHook,
-      iconTestHook,
+      rectangleSvgTestHook,
       solid({
         solid: {
           generate: "universal",
