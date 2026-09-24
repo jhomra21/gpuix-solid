@@ -1,4 +1,4 @@
-import { createTestRoot, hasNativeTestRenderer } from "@jhomra21/gpuix-solid1"
+import { CANVAS_DRAW_LIST_VERSION, createTestRoot, hasNativeTestRenderer } from "@jhomra21/gpuix-solid1"
 import { existsSync, statSync, unlinkSync } from "node:fs"
 import { ToolType } from "@diffusionstudio/runtime"
 import {
@@ -62,7 +62,7 @@ if (!hasNativeTestRenderer) {
       canvasBounds,
     }))
 
-    const drawList = app.renderer.customPropJsonContainingAll("drawList", ["\"version\":3"])
+    const drawList = app.renderer.customPropJsonContainingAll("drawList", [`"version":${CANVAS_DRAW_LIST_VERSION}`])
     console.log("solid1 Diffusion source drawList:", drawList)
     requireCondition(
       drawList.includes("\"color\":\"#22C55E\""),
@@ -88,7 +88,7 @@ if (!hasNativeTestRenderer) {
       `Diffusion CameraController should pan camera y by 30px, got ${panned.camera.f - beforeCamera.f}`,
     )
 
-    const pannedDrawList = app.renderer.customPropJsonContainingAll("drawList", ["\"version\":3"])
+    const pannedDrawList = app.renderer.customPropJsonContainingAll("drawList", [`"version":${CANVAS_DRAW_LIST_VERSION}`])
     requireCondition(
       pannedDrawList.includes("\"color\":\"#22C55E\""),
       "Diffusion project rectangle should still render after CameraController pan",
@@ -160,7 +160,7 @@ if (!hasNativeTestRenderer) {
     requireCondition(insertEdit.props.width === 120, `Expected insert edit width 120, got ${String(insertEdit.props.width)}`)
     requireCondition(insertEdit.props.height === 80, `Expected insert edit height 80, got ${String(insertEdit.props.height)}`)
 
-    const editedDrawList = app.renderer.customPropJsonContainingAll("drawList", ["\"version\":3"])
+    const editedDrawList = app.renderer.customPropJsonContainingAll("drawList", [`"version":${CANVAS_DRAW_LIST_VERSION}`])
     requireCondition(
       editedDrawList.includes("\"color\":\"#E0E0E0\""),
       "Diffusion draw list should contain the rectangle inserted by the real DrawOverlay",
@@ -220,7 +220,7 @@ if (!hasNativeTestRenderer) {
     requireCondition(editorState.sceneName === "GPUix Diffusion source", "Diffusion EditorPage should share the mounted project world")
     requireCondition(editorState.canvas instanceof HTMLCanvasElement, "Diffusion EditorPage should mount the real EngineCanvas")
 
-    const editorDrawList = editorApp.renderer.customPropJsonContainingAll("drawList", ["\"version\":3"])
+    const editorDrawList = editorApp.renderer.customPropJsonContainingAll("drawList", [`"version":${CANVAS_DRAW_LIST_VERSION}`])
     requireCondition(
       editorDrawList.includes("\"color\":\"#22C55E\""),
       "Diffusion EditorPage canvas should render the project rectangle",
