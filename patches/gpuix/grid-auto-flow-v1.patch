@@ -1,11 +1,13 @@
 diff --git a/packages/native/src/style.rs b/packages/native/src/style.rs
 --- a/packages/native/src/style.rs
 +++ b/packages/native/src/style.rs
-@@ -147,5 +147,6 @@ pub struct StyleDesc {
+@@ -147,5 +147,8 @@ pub struct StyleDesc {
      pub column_gap: Option<f64>,
      pub grid_template_columns: Option<f64>,
      pub grid_template_rows: Option<f64>,
 +    pub grid_auto_flow: Option<String>,
++    pub grid_column_span: Option<f64>,
++    pub grid_column_span_full: Option<bool>,
      pub grid_column_min: Option<String>,
      pub grid_row_min: Option<String>,
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
@@ -30,3 +32,23 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
          if crate::style::should_occlude(style) {
              // BlockMouse (occlude) stops the hit test, so the parent scroller
              // never sees the wheel. HTML does not work that way: a wheel over
+@@ -5575,12 +5587,18 @@ pub(crate) fn apply_styles<E: gpui::Styled>(mut el: E, style: &StyleDesc) -> E {
+     if let Some(rows) = style.grid_template_rows {
+         let count = rows.round().clamp(1.0, 64.0) as u16;
+         el = match style.grid_row_min.as_deref() {
+             Some("min-content") => el.grid_rows_min_content(count),
+             Some("max-content") => el.grid_rows_max_content(count),
+             _ => el.grid_rows(count),
+         };
+     }
++    if style.grid_column_span_full == Some(true) {
++        el = el.col_span_full();
++    } else if let Some(span) = style.grid_column_span {
++        let count = span.round().clamp(1.0, u16::MAX as f64) as u16;
++        el = el.col_span(count);
++    }
+     if style.flex_direction.as_deref() == Some("column") {
+         el = el.flex_col();
+     }
+     if style.flex_direction.as_deref() == Some("row") {
+

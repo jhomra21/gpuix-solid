@@ -814,6 +814,18 @@ function mapDeclaration(style, property, rawValue, candidate) {
     case "gap": style.gap = lengthValue(value, property, candidate); return
     case "row-gap": style.rowGap = lengthValue(value, property, candidate); return
     case "column-gap": style.columnGap = lengthValue(value, property, candidate); return
+    case "grid-column": {
+      const span = value.match(/^span\s+(\d+)\s*\/\s*span\s+\1$/)
+      if (span?.[1]) {
+        style.gridColumnSpan = numberValue(span[1], property, candidate)
+        return
+      }
+      if (value === "1 / -1") {
+        style.gridColumnSpanFull = true
+        return
+      }
+      throw new Error(`Unsupported grid-column from ${JSON.stringify(candidate)}: ${value}`)
+    }
     case "width": style.width = dimensionValue(value, property, candidate); return
     case "height": style.height = dimensionValue(value, property, candidate); return
     case "min-width": style.minWidth = dimensionValue(value, property, candidate); return
