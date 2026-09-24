@@ -6,9 +6,76 @@ import {
   type ValidComponent,
 } from "solid-js"
 import { HostElementNode, setHostProperty, type HostRootNode } from "./host/nodes.js"
-import { createElement, spread } from "./universal.js"
+import { nativeEventTypeForBrowserEvent, registerDelegatedNativeEvent } from "./host/events.js"
+import { createComponent, createElement, insert, spread, use } from "./universal.js"
 
 export const isServer = false
+
+export { createComponent, insert, use }
+
+export const SVGElements = new Set([
+  "altGlyph", "altGlyphDef", "altGlyphItem", "animate", "animateColor", "animateMotion",
+  "animateTransform", "circle", "clipPath", "color-profile", "cursor", "defs", "desc",
+  "ellipse", "feBlend", "feColorMatrix", "feComponentTransfer", "feComposite",
+  "feConvolveMatrix", "feDiffuseLighting", "feDisplacementMap", "feDistantLight",
+  "feDropShadow", "feFlood", "feFuncA", "feFuncB", "feFuncG", "feFuncR",
+  "feGaussianBlur", "feImage", "feMerge", "feMergeNode", "feMorphology", "feOffset",
+  "fePointLight", "feSpecularLighting", "feSpotLight", "feTile", "feTurbulence",
+  "filter", "font", "font-face", "font-face-format", "font-face-name", "font-face-src",
+  "font-face-uri", "foreignObject", "g", "glyph", "glyphRef", "hkern", "image", "line",
+  "linearGradient", "marker", "mask", "metadata", "missing-glyph", "mpath", "path",
+  "pattern", "polygon", "polyline", "radialGradient", "rect", "set", "stop", "svg",
+  "switch", "symbol", "text", "textPath", "tref", "tspan", "use", "view", "vkern",
+])
+
+const delegatedEventsByDocument = new WeakMap<object, Set<string>>()
+
+export function delegateEvents(eventNames: string[], documentTarget: Document = globalThis.document): void {
+  const registered = delegatedEventsByDocument.get(documentTarget) ?? new Set<string>()
+  delegatedEventsByDocument.set(documentTarget, registered)
+
+  for (const rawName of eventNames) {
+    const name = rawName.toLowerCase()
+    if (registered.has(name)) continue
+    registered.add(name)
+    documentTarget.addEventListener(name, dispatchDelegatedEvent)
+
+    const nativeEventType = nativeEventTypeForBrowserEvent(name)
+    if (!nativeEventType) continue
+    if (registerDelegatedNativeEvent(nativeEventType)) syncNativeDelegatedObservation(nativeEventType)
+  }
+}
+
+function dispatchDelegatedEvent(event: Event): void {
+  let node = event.target
+  while (node instanceof HostElementNode) {
+    const properties = node as unknown as Record<string, unknown>
+    const handler = properties[`$${event.type}`]
+    if (typeof handler === "function") {
+      Object.defineProperty(event, "currentTarget", { configurable: true, value: node })
+      const data = properties[`$${event.type}Data`]
+      if (data === undefined) handler.call(node, event)
+      else handler.call(node, data, event)
+    } else if (Array.isArray(handler) && typeof handler[0] === "function") {
+      Object.defineProperty(event, "currentTarget", { configurable: true, value: node })
+      handler[0].call(node, handler[1], event)
+    }
+    if (event.cancelBubble) return
+    node = node.parentElement
+  }
+}
+
+function syncNativeDelegatedObservation(nativeEventType: string): void {
+  const roots = new Set<HostRootNode>()
+  for (const candidate of Array.from(globalThis.document.body.querySelectorAll("*"))) {
+    if (!(candidate instanceof HostElementNode)) continue
+    const root = candidate.root
+    if (!root || !candidate.nativeAlive) continue
+    roots.add(root)
+    root.driver.enqueue("setEventListener", candidate.id, nativeEventType, true)
+  }
+  for (const root of roots) root.driver.flush()
+}
 
 export type DynamicProps<T extends ValidComponent, P = ComponentProps<T>> = {
   [K in keyof P]: P[K]
