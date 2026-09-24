@@ -147,7 +147,7 @@ export function template(
 function parseStaticTemplate(html: string): StaticTemplateElement {
   const roots: StaticTemplateNode[] = []
   const stack: StaticTemplateElement[] = []
-  const tokens = html.match(/<!--[\s\S]*?-->|<\/?[A-Za-z][^>]*>|[^<]+/g) ?? []
+  const tokens = html.match(/<!--[\s\S]*?-->|<!>|<\/?[A-Za-z][^>]*>|[^<]+/g) ?? []
 
   const append = (node: StaticTemplateNode): void => {
     const parent = stack.at(-1)
@@ -156,7 +156,7 @@ function parseStaticTemplate(html: string): StaticTemplateElement {
   }
 
   for (const token of tokens) {
-    if (token.startsWith("<!--")) {
+    if (token.startsWith("<!--") || token === "<!>") {
       append({ kind: "text", value: "" })
       continue
     }
@@ -215,7 +215,9 @@ function instantiateStaticTemplate(templateNode: StaticTemplateElement): HostEle
     throw new Error(`Expected host element for static <${templateNode.tagName}> template`)
   }
 
-  for (const [name, value] of templateNode.attributes) setProp(node, name, value)
+  for (const [name, value] of templateNode.attributes) {
+    setProp(node, name, name === "style" ? parseStaticStyleAttribute(value) : value)
+  }
   for (const child of templateNode.children) {
     if (child.kind === "text") {
       insertNode(node, createTextNode(child.value))
@@ -224,6 +226,18 @@ function instantiateStaticTemplate(templateNode: StaticTemplateElement): HostEle
     insertNode(node, instantiateStaticTemplate(child))
   }
   return node
+}
+
+function parseStaticStyleAttribute(value: string): Record<string, string> {
+  const declarations: Record<string, string> = {}
+  for (const declaration of value.split(";")) {
+    const separator = declaration.indexOf(":")
+    if (separator < 0) continue
+    const name = declaration.slice(0, separator).trim()
+    const propertyValue = declaration.slice(separator + 1).trim()
+    if (name && propertyValue) declarations[name] = propertyValue
+  }
+  return declarations
 }
 
 function decodeHtmlEntities(value: string): string {
