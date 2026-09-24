@@ -2,17 +2,17 @@
 
 GPUix Solid has an experimental native Canvas2D path for source-edge development. The Solid host implements the browser-facing context and records a compact draw list. GPUIX replays that list with GPUI path, text, clipping, and image painting.
 
-This is separate from the published `@gpuix/native@0.9.0` contract. A normal 0.9 install does not expose the Canvas renderer capability, so `canvas.getContext("2d")` returns `null`. The pinned source-edge build applies `patches/gpuix/canvas-v1.patch` and advertises draw-list protocol version 3.
+This is separate from the published `@gpuix/native@0.9.0` contract. A normal 0.9 install does not expose the Canvas renderer capability, so `canvas.getContext("2d")` returns `null`. The pinned source-edge build applies `patches/gpuix/canvas-v1.patch` and advertises draw-list protocol version 4.
 
 ## How it works
 
-GPUix Solid owns Canvas state, transforms, path lowering, validation, command retention, text measurement calls, and image uploads. GPUIX owns the native Canvas element, GPUI painting, rectangular content masks, uploaded image resources, and pointer delivery.
+GPUix Solid owns Canvas state, transforms, path lowering, validation, command retention, text measurement calls, clipping metadata, and image uploads. GPUIX owns the native Canvas element, GPUI painting, clip-mask painting, uploaded image resources, and pointer delivery.
 
 The retained property contains drawing commands, not image bytes:
 
 ```ts
 {
-  version: 3,
+  version: 4,
   width: 300,
   height: 150,
   commands: [...]
@@ -25,9 +25,9 @@ A full-backing-store opaque `fillRect()` is an occlusion boundary. The recorder 
 
 Canvas `width` and `height` are backing-store dimensions and default to 300 by 150. Native layout width and height control the painted size. GPUI scales backing-store coordinates into the laid-out Canvas element.
 
-## Canvas2D v3
+## Canvas2D v4
 
-Protocol v3 supports:
+Protocol v4 supports:
 
 - `fillRect()`, `strokeRect()`, and full-backing-store `clearRect()`;
 - `beginPath()`, `closePath()`, `moveTo()`, `lineTo()`, `quadraticCurveTo()`, and `bezierCurveTo()`;
@@ -39,12 +39,12 @@ Protocol v3 supports:
 - `fillText()` with font family, size, weight, alignment, and baseline;
 - synchronous `measureText()` backed by GPUI text shaping;
 - `save()`, `restore()`, `translate()`, `scale()`, `rotate()`, `transform()`, and the six-number `setTransform()` overload;
-- exact rectangular `clip()`, including nested rectangle intersections;
+- rectangular `clip()`, uniform `roundRect()` clipping, nested rectangle intersections, and one rounded clip combined with rectangular scissoring;
 - `drawImage()` with the 3, 5, and 9 argument forms for readable canvas-like RGBA sources;
 - source-rectangle clipping for `drawImage()`;
 - native click, auxiliary click, mouse and pointer down/move/up, outside-down, scroll, hover, file drop, and captured-pointer continuity.
 
-`roundRect()` and `arcTo()` are lowered to cubic paths before the native boundary. Negative rectangle dimensions keep browser corner assignment.
+`roundRect()` and `arcTo()` are lowered to cubic paths before the native boundary. Negative rectangle dimensions keep browser corner assignment. When a uniform `roundRect()` is used directly as the clip path, v4 also records its bounds and radius so the native renderer can preserve the rounded mask.
 
 `measureText()` sends one synchronous request to GPUI's text system. The current Canvas transform does not alter the returned CSS-pixel width.
 
@@ -52,12 +52,12 @@ Protocol v3 supports:
 
 ## Current limits
 
-The recorder rejects behavior GPUIX cannot reproduce instead of drawing an approximation. Current limits include:
+The recorder rejects unsupported operations instead of silently changing their meaning. Uniform `roundRect()` clipping is the one deliberate approximation. GPUI's current content mask is rectangular, so the native patch paints the rounded boundary as subpixel-height horizontal mask strips. Current limits include:
 
 - gradients and Canvas patterns;
 - the `evenodd` fill rule;
 - partial `clearRect()`;
-- arbitrary or rounded clip paths;
+- arbitrary clip paths, mixed-corner rounded clip radii, rotated rounded clips, and multiple different rounded clips in one active clip stack;
 - `fillText()` `maxWidth` and multiline text;
 - object-form `setTransform()`;
 - non-default line caps, joins, and miter limits;
@@ -72,11 +72,11 @@ The first `drawImage()` implementation is a correctness path for Diffusion's can
 
 ## Diffusion Studio coverage
 
-Current Diffusion Studio source uses `roundRect()`, mixed-corner `arcTo()`, clipping, `measureText()`, `globalAlpha`, and `drawImage()` in its runtime and editor drawing code. Protocol v3 covers the basic geometry, text, rectangular clipping, and canvas-backed image path needed to start running the real runtime.
+Current Diffusion Studio source uses `roundRect()`, mixed-corner `arcTo()`, clipping, `measureText()`, `globalAlpha`, and `drawImage()` in its runtime and editor drawing code. Protocol v4 covers the geometry, text, uniform rounded clipping, and canvas-backed image path used by the real EditorPage timeline.
 
 CI also checks the exact current Diffusion source pin at `666cdced1f6b97a792b63e551f45797649efb27a` from editor 0.206.0. That test imports Diffusion's real runtime and reconciler, creates and renders a real scene through the GPUix Canvas recorder, and exercises Diffusion's `mount()` evaluator with a compiled universal-renderer bundle.
 
-The existing visual Diffusion example still uses local editor-state adapters. Passing the source-runtime test does not mean the full editor UI is running on GPUIX yet. The remaining work includes the real Solid 1 editor host, richer clipping and paint state, and direct native media-frame drawing.
+The Solid 1 source acceptance now mounts Diffusion's real provider chain and `EditorPage`. It exercises `EngineCanvas`, camera panning, the Rectangle toolbar action, `DrawOverlay` insertion, the real timeline canvas, and native window sizing. It also writes separate source-engine and editor screenshots. The remaining Canvas work includes arbitrary clip paths, more paint state, and direct native media-frame drawing.
 
 ## Validation
 
