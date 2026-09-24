@@ -28,6 +28,7 @@ import {
 } from "./host/nodes.js"
 import type { DimensionValue, ElementType, StyleDesc } from "./host/types.js"
 import {
+  applyNativeStyleAutoMargin,
   applyNativeStyleParentPosition,
   applyNativeStyleTranslation,
   applyNativeStyleViewportSize,
@@ -40,6 +41,7 @@ import {
   resolveNativeClassParentPosition,
   resolveNativeClassTranslation,
   resolveNativeClassViewportSize,
+  resolveNativeClassAutoMargin,
   resolveNativeClassTextTransform,
   resolveNativeDescendantClassStyle,
   type NativeClassList,
@@ -727,6 +729,7 @@ function applyNativeStyleState(node: HostElementNode): void {
   const classAttributeStyle = resolveNativeClassAttributeStyle(className, state.classList, node.props)
   const classParentPosition = resolveNativeClassParentPosition(className, state.classList)
   const classViewportSize = resolveNativeClassViewportSize(className, state.classList)
+  const classAutoMargin = resolveNativeClassAutoMargin(className, state.classList)
   const classTranslation = resolveNativeClassTranslation(className, state.classList)
   const inheritedTextTransform = resolveInheritedTextTransform(node)
   const classTextTransform = resolveNativeClassTextTransform(className, state.classList)
@@ -766,12 +769,15 @@ function applyNativeStyleState(node: HostElementNode): void {
     parentWidth,
     parentHeight,
   )
+  const autoMarginStyle = node.root?.driver.renderer.getAutoMarginVersion?.() === 1
+    ? applyNativeStyleAutoMargin(positionedStyle, classAutoMargin)
+    : positionedStyle
   setHostProperty(
     node,
     "style",
-    applyNativeStyleTranslation(positionedStyle, classTranslation) ?? {},
+    applyNativeStyleTranslation(autoMarginStyle, classTranslation) ?? {},
   )
-  scheduleMeasuredFractionalTranslation(node, positionedStyle, classTranslation)
+  scheduleMeasuredFractionalTranslation(node, autoMarginStyle, classTranslation)
 }
 
 function scheduleMeasuredFractionalTranslation(
