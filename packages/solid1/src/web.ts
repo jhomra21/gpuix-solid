@@ -38,6 +38,188 @@ export function style(
   return value
 }
 
+type WebDelegatedHandler = EventListener | [(data: unknown, event: Event) => void, unknown]
+
+type WebTemplateFactory = (() => HostElementNode) & {
+  cloneNode(deep?: boolean): HostElementNode
+}
+
+const VOID_TEMPLATE_ELEMENTS = new Set([
+  "area",
+  "base",
+  "br",
+  "col",
+  "embed",
+  "hr",
+  "img",
+  "input",
+  "link",
+  "meta",
+  "param",
+  "source",
+  "track",
+  "wbr",
+])
+
+export function addEventListener(
+  node: HostElementNode,
+  name: string,
+  handler: EventListenerOrEventListenerObject | WebDelegatedHandler,
+  delegate = false,
+): void {
+  const eventName = name.toLowerCase()
+
+  if (delegate) {
+    const delegated = Array.isArray(handler) ? handler[0] : handler
+    Object.defineProperty(node, `$${eventName}`, {
+      configurable: true,
+      writable: true,
+      value: delegated,
+    })
+    if (Array.isArray(handler)) {
+      Object.defineProperty(node, `$${eventName}Data`, {
+        configurable: true,
+        writable: true,
+        value: handler[1],
+      })
+    }
+    return
+  }
+
+  if (Array.isArray(handler)) {
+    const [listener, data] = handler
+    node.addEventListener(eventName, (event) => listener.call(node, data, event))
+    return
+  }
+
+  node.addEventListener(eventName, handler)
+}
+
+export function template(
+  html: string,
+  _isImportNode?: boolean | number,
+  _isSVG?: boolean,
+  _isMathML?: boolean,
+): WebTemplateFactory {
+  const instantiate = () => parseStaticTemplate(html)
+  const factory = instantiate as WebTemplateFactory
+  factory.cloneNode = () => instantiate()
+  return factory
+}
+
+function parseStaticTemplate(html: string): HostElementNode {
+  const roots: HostElementNode[] = []
+  const stack: HostElementNode[] = []
+  const tokens = html.match(/<!--[\s\S]*?-->|<\/?[A-Za-z][^>]*>|[^<]+/g) ?? []
+
+  for (const token of tokens) {
+    if (token.startsWith("<!--")) continue
+
+    if (token.startsWith("</")) {
+      stack.pop()
+      continue
+    }
+
+    if (token.startsWith("<")) {
+      const opening = parseTemplateOpeningTag(token)
+      const element = createElement(opening.tagName)
+      if (!(element instanceof HostElementNode)) {
+        throw new TypeError(`Expected host element for static template <${opening.tagName}>`)
+      }
+      for (const [name, value] of opening.attributes) {
+        setTemplateAttribute(element, name, value)
+      }
+
+      const parent = stack.at(-1)
+      if (parent) insertNode(parent, element)
+      else roots.push(element)
+
+      if (!opening.selfClosing && !VOID_TEMPLATE_ELEMENTS.has(opening.tagName.toLowerCase())) {
+        stack.push(element)
+      }
+      continue
+    }
+
+    const parent = stack.at(-1)
+    if (!parent) {
+      if (token.trim()) throw new Error("Static Solid template must have one element root")
+      continue
+    }
+    insertNode(parent, createTextNode(decodeTemplateEntities(token)))
+  }
+
+  if (roots.length !== 1) {
+    throw new Error(`Static Solid template expected one root element, received ${roots.length}`)
+  }
+  return roots[0]!
+}
+
+function parseTemplateOpeningTag(token: string): {
+  tagName: string
+  attributes: Array<[string, string | true]>
+  selfClosing: boolean
+} {
+  const selfClosing = /\/\s*>$/.test(token)
+  const body = token.slice(1, token.length - (selfClosing ? 2 : 1)).trim()
+  const firstWhitespace = body.search(/\s/)
+  const tagName = firstWhitespace < 0 ? body : body.slice(0, firstWhitespace)
+  const source = firstWhitespace < 0 ? "" : body.slice(firstWhitespace + 1)
+  const attributes: Array<[string, string | true]> = []
+  const attributePattern = /([^\s=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>]+)))?/g
+
+  for (const match of source.matchAll(attributePattern)) {
+    const name = match[1]
+    if (!name) continue
+    const rawValue = match[2] ?? match[3] ?? match[4]
+    attributes.push([name, rawValue === undefined ? true : decodeTemplateEntities(rawValue)])
+  }
+
+  return { tagName, attributes, selfClosing }
+}
+
+function setTemplateAttribute(
+  node: HostElementNode,
+  name: string,
+  value: string | true,
+): void {
+  if (name === "style" && typeof value === "string") {
+    setProp(node, name, parseTemplateStyle(value))
+    return
+  }
+  setProp(node, name, value)
+}
+
+function parseTemplateStyle(value: string): Record<string, string> {
+  const style: Record<string, string> = {}
+  for (const declaration of value.split(";")) {
+    const separator = declaration.indexOf(":")
+    if (separator < 0) continue
+    const name = declaration.slice(0, separator).trim()
+    const propertyValue = declaration.slice(separator + 1).trim()
+    if (name && propertyValue) style[name] = propertyValue
+  }
+  return style
+}
+
+function decodeTemplateEntities(value: string): string {
+  return value.replace(
+    /&(?:#(\d+)|#x([\da-f]+)|amp|lt|gt|quot|apos|nbsp);/gi,
+    (entity, decimal: string | undefined, hexadecimal: string | undefined) => {
+      if (decimal) return String.fromCodePoint(Number(decimal))
+      if (hexadecimal) return String.fromCodePoint(Number.parseInt(hexadecimal, 16))
+      switch (entity.toLowerCase()) {
+        case "&amp;": return "&"
+        case "&lt;": return "<"
+        case "&gt;": return ">"
+        case "&quot;": return '"'
+        case "&apos;": return "'"
+        case "&nbsp;": return "\u00a0"
+        default: return entity
+      }
+    },
+  )
+}
+
 type WebEventDataHandler<T> = (data: T, event: Event) => void
 type WebEventHandler<T> = EventListener | [WebEventDataHandler<T>, T]
 
