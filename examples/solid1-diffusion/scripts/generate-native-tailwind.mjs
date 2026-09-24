@@ -205,9 +205,6 @@ const explicitlyIgnored = new Map([
   ["focus:outline-none", "native inputs do not paint a browser focus outline"],
   ["focus:bg-app-surface/60", "native input focus background pseudo styling is not published by GPUIX 0.7"],
   ["outline-none", "GPUIX native inputs and menu primitives do not paint the browser outline suppressed by this utility"],
-  ["disabled:pointer-events-none", "the native Kobalte adapter owns disabled pointer behavior"],
-  ["disabled:opacity-50", "the native Kobalte adapter owns disabled opacity"],
-  ["disabled:opacity-60", "the native input/browser adapter owns disabled opacity"],
   ["underline-offset-4", "native text decoration offset is not exposed by GPUIX 0.7"],
   ["hover:underline", "native text decoration is not exposed by GPUIX 0.7"],
   ["file:border-0", "native input has no browser file-selector pseudo-element"],
@@ -216,7 +213,6 @@ const explicitlyIgnored = new Map([
   ["file:font-medium", "native input has no browser file-selector pseudo-element"],
   ["placeholder:text-muted-foreground", "native input placeholder styling is not separately exposed by GPUIX 0.7"],
   ["selection:bg-primary/40", "native text selection has its own selectionColor contract rather than CSS ::selection variants"],
-  ["disabled:cursor-not-allowed", "the native Kobalte adapter owns disabled interaction"],
   ["data-[disabled]:pointer-events-none", "native Kobalte menu adapters own disabled item hit testing"],
   ["data-[disabled]:opacity-50", "native Kobalte menu adapters own disabled item opacity"],
   ["data-[invalid]:border-error-foreground", "the native TextField adapter owns invalid border state until data-state variants are native"],
@@ -362,6 +358,12 @@ for (const candidate of rawCandidates) {
       ? { base: lightCompiled.focus }
       : { light: lightCompiled.focus, dark: darkCompiled.focus }
     : undefined
+  const hasDisabled = Object.keys(lightCompiled.disabled).length > 0 || Object.keys(darkCompiled.disabled).length > 0
+  const disabled = hasDisabled
+    ? JSON.stringify(lightCompiled.disabled) === JSON.stringify(darkCompiled.disabled)
+      ? { base: lightCompiled.disabled }
+      : { light: lightCompiled.disabled, dark: darkCompiled.disabled }
+    : undefined
   if (lightCompiled.lineHeightMultiplier !== darkCompiled.lineHeightMultiplier) {
     throw new Error(`Theme-dependent relative line-height is unsupported for ${JSON.stringify(candidate)}`)
   }
@@ -376,6 +378,7 @@ for (const candidate of rawCandidates) {
     : undefined
 
   if (descendant && focus) throw new Error(`Unsupported focused descendant native Tailwind candidate ${JSON.stringify(candidate)}`)
+  if (descendant && disabled) throw new Error(`Unsupported disabled descendant native Tailwind candidate ${JSON.stringify(candidate)}`)
   if (descendant && lightCompiled.lineHeightMultiplier !== undefined) throw new Error(`Unsupported relative line-height descendant native Tailwind candidate ${JSON.stringify(candidate)}`)
   if (descendant && svg) throw new Error(`Unsupported SVG paint descendant native Tailwind candidate ${JSON.stringify(candidate)}`)
   if (descendant) {
@@ -383,6 +386,7 @@ for (const candidate of rawCandidates) {
   } else {
     const entry = { ...variant, ...lineHeightMetadata }
     if (focus) entry.focus = focus
+    if (disabled) entry.attributeVariants = { disabled: { "true": disabled } }
     if (svg) entry.svg = svg
     classes[candidate] = entry
   }
@@ -722,13 +726,22 @@ function compileRule(rule, candidate, themeVariables) {
   const hover = {}
   const active = {}
   const focus = {}
+  const disabled = {}
   const svgPaint = {}
   let lineHeightMultiplier
 
   rule.walkDecls((declaration) => {
     if (declaration.prop.startsWith("--")) return
     const state = declarationState(declaration, rule, candidate)
-    const target = state === "hover" ? hover : state === "active" ? active : state === "focus" ? focus : base
+    const target = state === "hover"
+      ? hover
+      : state === "active"
+        ? active
+        : state === "focus"
+          ? focus
+          : state === "disabled"
+            ? disabled
+            : base
     const value = resolveCssValue(declaration.value, { ...themeVariables, ...localVariables })
     if (declaration.prop === "stroke" || declaration.prop === "fill") {
       if (state !== "base") throw new Error(`Stateful SVG paint is not supported for ${JSON.stringify(candidate)}`)
@@ -747,10 +760,10 @@ function compileRule(rule, candidate, themeVariables) {
   const result = { ...base }
   if (Object.keys(hover).length > 0) result.hover = hover
   if (Object.keys(active).length > 0) result.active = active
-  if (Object.keys(result).length === 0 && Object.keys(focus).length === 0 && lineHeightMultiplier === undefined && Object.keys(svgPaint).length === 0) {
+  if (Object.keys(result).length === 0 && Object.keys(focus).length === 0 && Object.keys(disabled).length === 0 && lineHeightMultiplier === undefined && Object.keys(svgPaint).length === 0) {
     throw new Error(`Tailwind candidate ${JSON.stringify(candidate)} produced no native styles`)
   }
-  return { style: result, focus, lineHeightMultiplier, svgPaint }
+  return { style: result, focus, disabled, lineHeightMultiplier, svgPaint }
 }
 
 function declarationState(declaration, candidateRule, candidate) {
@@ -779,7 +792,9 @@ function stateFromSelector(selector) {
   if (/(^|[^\\]):active\b/.test(selector)) states.add("active")
   if (/(^|[^\\]):focus(?:-visible)?\b/.test(selector)) states.add("focus")
 
-  const unsupported = ["disabled", "checked"]
+  if (/(^|[^\\]):disabled\b/.test(selector)) states.add("disabled")
+
+  const unsupported = ["checked"]
   for (const pseudo of unsupported) {
     const pattern = new RegExp(`(^|[^\\\\]):${pseudo.replace("-", "\\-")}\\b`)
     if (pattern.test(selector)) throw new Error(`Unsupported native Tailwind state variant :${pseudo}`)

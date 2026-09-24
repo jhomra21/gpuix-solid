@@ -281,6 +281,9 @@ const runtime = createRenderer<HostNode | HostParent>({
       }
     }
     setHostProperty(node, name, value, previous)
+    if (node.kind === "element" && name === "disabled") {
+      reapplyNativeStyleSubtree(node)
+    }
     if (node.kind === "element" && semanticTags.get(node) === "select" && name === "value") {
       for (const child of node.children) {
         if (child.kind === "element") reapplyNativeStyleSubtree(child)

@@ -233,6 +233,7 @@ function setNativeProperty<T>(
     return
   }
   setHostProperty(node, name, value, previous)
+  if (name === "disabled") reapplyNativeStyleSubtree(node)
 }
 
 function nativeElementType(tagName: string): ElementType {
