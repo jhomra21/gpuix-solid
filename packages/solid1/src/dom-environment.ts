@@ -1148,7 +1148,7 @@ function installEventTarget(target: CompatEventTarget): void {
 
 function createCompatMediaQueryList(windowTarget: CompatWindow, query: string): CompatMediaQueryList {
   let previousMatches = evaluateMediaQuery(windowTarget, query)
-  const target = {
+  const target: CompatMediaQueryList = {
     media: query,
     get matches() {
       return evaluateMediaQuery(windowTarget, query)
@@ -1160,7 +1160,7 @@ function createCompatMediaQueryList(windowTarget: CompatWindow, query: string): 
     removeListener(listener: CompatListener | null) {
       removeCompatListener(target, "change", listener)
     },
-  } satisfies CompatMediaQueryList
+  }
 
   installEventTarget(target)
   addCompatListener(windowTarget, "resize", () => {
