@@ -1001,7 +1001,8 @@ function colorValue(value, property, candidate) {
   if (/^#[0-9a-f]{3,8}$/i.test(value)) return value
   if (/^oklch\(/i.test(value)) return value
   if (/^color-mix\(/i.test(value)) return value
-  if (/^rgb\(/i.test(value)) return value
+  if (/^rgba?\(/i.test(value)) return value
+  if (/^hsla?\(/i.test(value)) return value
   throw new Error(`Unsupported ${property} color from ${JSON.stringify(candidate)}: ${value}`)
 }
 
