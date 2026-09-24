@@ -689,6 +689,8 @@ function descendantTarget(candidate) {
   if (descendant) return descendant[1]
   const directChild = candidate.match(/^\[&>([A-Za-z][\w-]*)\]:/)
   if (directChild) return `>${directChild[1]}`
+  const dataChild = candidate.match(/^\*:data-\[([A-Za-z][\w-]*)=([^\]]+)\]:/)
+  if (dataChild) return `>[data-${dataChild[1]}=${dataChild[2]}]`
   return undefined
 }
 
@@ -778,6 +780,7 @@ function mapDeclaration(style, property, rawValue, candidate) {
   const value = rawValue.trim()
   switch (property) {
     case "display":
+      if (value === "-webkit-box" && candidate.endsWith(":line-clamp-1")) return
       style.display = value === "inline-flex" ? "flex" : value
       return
     case "align-items": style.alignItems = value; return
@@ -875,6 +878,16 @@ function mapDeclaration(style, property, rawValue, candidate) {
     case "text-align": style.textAlign = value; return
     case "white-space": style.whiteSpace = value; return
     case "text-overflow": style.textOverflow = value; return
+    case "-webkit-box-orient":
+      if (candidate.endsWith(":line-clamp-1") && value === "vertical") return
+      throw new Error(`Unsupported ${property} from ${JSON.stringify(candidate)}: ${value}`)
+    case "-webkit-line-clamp":
+      if (candidate.endsWith(":line-clamp-1") && value === "1") {
+        style.whiteSpace = "nowrap"
+        style.textOverflow = "ellipsis"
+        return
+      }
+      throw new Error(`Unsupported ${property} from ${JSON.stringify(candidate)}: ${value}`)
     case "cursor": style.cursor = value; return
     case "pointer-events": style.pointerEvents = value; return
     case "-webkit-user-select":
