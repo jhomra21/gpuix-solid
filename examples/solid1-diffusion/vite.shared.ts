@@ -6,6 +6,8 @@ import { defineConfig } from "vite"
 const diffusionCommit = "666cdced1f6b97a792b63e551f45797649efb27a"
 const fromHere = (relativePath: string) => fileURLToPath(new URL(relativePath, import.meta.url))
 const sourceRoot = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/`)
+const fixtureRoot = fromHere("./")
+const webAppRoot = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/apps/web/`)
 const solid1Entry = fromHere("../../packages/solid1/dist/index.js")
 const solidWebCompat = fromHere("../../packages/solid1/dist/web-entry.js")
 const runtimeBridge = fromHere("./src/runtime-bridge.ts")
@@ -67,6 +69,9 @@ const packageSource = (name: string) =>
 
 export function diffusionConfig(entry: string, outDir: string) {
   return defineConfig({
+    // Diffusion resolves absolute /src import.meta.glob patterns from apps/web.
+    // Keep that upstream Vite root while using the GPUix fixture as the SSR entry.
+    root: webAppRoot,
     define: {
       "import.meta.env.VITE_DESKTOP": JSON.stringify("false"),
     },
@@ -115,8 +120,9 @@ export function diffusionConfig(entry: string, outDir: string) {
     },
     build: {
       target: "node22",
-      ssr: entry,
-      outDir,
+      ssr: fileURLToPath(new URL(entry, fixtureRoot)),
+      outDir: fileURLToPath(new URL(`${outDir}/`, fixtureRoot)),
+      emptyOutDir: true,
       rollupOptions: {
         external: ["@gpuix/native"],
       },
