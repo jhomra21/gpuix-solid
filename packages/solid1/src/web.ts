@@ -13,13 +13,15 @@ export const isServer = false
 
 export { createComponent, effect, insert, memo, use }
 
+type WebAttributeValue = string | number | boolean | null | undefined
+
 type WebStyleValue =
   | string
   | Record<string, string | number | null | undefined>
   | null
   | undefined
 
-export function setAttribute(node: HostElementNode, name: string, value: unknown): void {
+export function setAttribute(node: HostElementNode, name: string, value: WebAttributeValue): void {
   setProp(node, name, value)
 }
 
