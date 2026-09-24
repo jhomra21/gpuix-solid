@@ -154,6 +154,7 @@ const explicitlyIgnored = new Map([
   ["transition-transform", "GPUIX 0.7 does not publish CSS transitions; source transform transitions remain immediate"],
   ["rotate-180", "GPUIX 0.7 StyleDesc has no general CSS transform; exact collapsed-device rotation remains source-locked but cannot be reproduced natively"],
   ["-rotate-90", "GPUIX 0.7 StyleDesc has no general CSS transform; this rotates visual affordance icons without changing editor layout or interaction"],
+  ["rotate-45", "GPUIX 0.7 StyleDesc has no general CSS transform; the keyframe marker remains visible and stateful but renders as a square instead of a diamond"],
   ["focus-visible:ring-1", "GPUIX 0.7 does not publish browser focus-visible ring painting through StyleDesc; keyboard focus semantics remain native"],
   ["focus-visible:ring-inset", "GPUIX 0.7 BoxShadow has no inset focus-ring mode; the exact source utility remains source-locked"],
   ["focus-visible:ring-cyan-300/70", "GPUIX 0.7 does not publish browser focus-visible ring color through StyleDesc; keyboard focus semantics remain native"],
@@ -252,6 +253,12 @@ const explicitlyIgnored = new Map([
 ])
 
 function dynamicIgnoredReason(candidate) {
+  if (candidate.startsWith("before:") || candidate.includes(":before:")) {
+    return "pinned Diffusion before:* utilities are audited decorative segmented-control separators; GPUIX has no pseudo-element paint tree, while authored controls retain layout, labels, state, and interaction"
+  }
+  if (candidate === "animate-pulse" || candidate === "animate-spin") {
+    return "GPUIX does not publish CSS keyframe animation; loading/running state remains represented by the mounted status icon, text, ARIA semantics, and component state"
+  }
   if (candidate.startsWith("after:") || candidate.includes(":after:")) {
     return "pinned Diffusion after:* utilities are audited decorative focus/selection/drop ring overlays; GPUIX has no pseudo-element paint tree, while layout, content, and pointer input remain on the authored element"
   }
