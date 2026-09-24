@@ -7,7 +7,7 @@ import {
 } from "solid-js"
 import { HostElementNode, setHostProperty, type HostRootNode } from "./host/nodes.js"
 import { nativeEventTypeForBrowserEvent, registerDelegatedNativeEvent } from "./host/events.js"
-import { createComponent, createElement, effect, insert, memo, setProp, spread, use } from "./universal.js"
+import { createComponent, createElement, createTextNode, effect, insert, insertNode, memo, setProp, spread, use } from "./universal.js"
 
 export const isServer = false
 
@@ -36,6 +36,215 @@ export function style(
 ): WebStyleValue {
   setProp(node, "style", value, previous)
   return value
+}
+
+type WebEventData =
+  | object
+  | string
+  | number
+  | boolean
+  | bigint
+  | symbol
+  | null
+  | undefined
+
+type WebEventDataHandler = (data: WebEventData, event: Event) => void
+type WebEventHandler = EventListenerOrEventListenerObject | [WebEventDataHandler, WebEventData]
+
+export function addEventListener(
+  node: HostElementNode,
+  name: string,
+  handler: WebEventHandler,
+  delegate: boolean,
+): void {
+  const eventName = name.toLowerCase()
+  if (Array.isArray(handler)) {
+    const [handlerFunction, data] = handler
+    if (delegate) {
+      defineDelegatedEvent(node, eventName, handlerFunction, data)
+      return
+    }
+    node.addEventListener(eventName, (event) => handlerFunction.call(node, data, event))
+    return
+  }
+
+  if (delegate) {
+    const listener = typeof handler === "function"
+      ? handler
+      : (event: Event) => handler.handleEvent(event)
+    defineDelegatedEvent(node, eventName, listener)
+    return
+  }
+
+  node.addEventListener(eventName, handler)
+}
+
+function defineDelegatedEvent(
+  node: HostElementNode,
+  name: string,
+  handler: EventListener | WebEventDataHandler,
+  data?: WebEventData,
+): void {
+  Object.defineProperty(node, `$${name}`, {
+    configurable: true,
+    writable: true,
+    value: handler,
+  })
+  if (data === undefined) return
+  Object.defineProperty(node, `$${name}Data`, {
+    configurable: true,
+    writable: true,
+    value: data,
+  })
+}
+
+type StaticTemplateText = {
+  kind: "text"
+  value: string
+}
+
+type StaticTemplateElement = {
+  kind: "element"
+  tagName: string
+  attributes: Array<[string, string]>
+  children: StaticTemplateNode[]
+}
+
+type StaticTemplateNode = StaticTemplateText | StaticTemplateElement
+
+interface StaticTemplateFactory {
+  (): HostElementNode
+  cloneNode(): HostElementNode
+}
+
+const VOID_TEMPLATE_TAGS = new Set([
+  "area",
+  "base",
+  "br",
+  "col",
+  "embed",
+  "hr",
+  "img",
+  "input",
+  "link",
+  "meta",
+  "param",
+  "source",
+  "track",
+  "wbr",
+])
+
+export function template(
+  html: string,
+  _isImportNode?: boolean,
+  _isSvg?: boolean,
+  isMathMl?: boolean,
+): StaticTemplateFactory {
+  if (isMathMl) throw new Error("GPUix Solid does not support MathML templates")
+  const blueprint = parseStaticTemplate(html)
+  const create = (): HostElementNode => instantiateStaticTemplate(blueprint)
+  return Object.assign(create, { cloneNode: create })
+}
+
+function parseStaticTemplate(html: string): StaticTemplateElement {
+  const roots: StaticTemplateNode[] = []
+  const stack: StaticTemplateElement[] = []
+  const tokens = html.match(/<!--[\\s\\S]*?-->|<\\/?[A-Za-z][^>]*>|[^<]+/g) ?? []
+
+  const append = (node: StaticTemplateNode): void => {
+    const parent = stack.at(-1)
+    if (parent) parent.children.push(node)
+    else roots.push(node)
+  }
+
+  for (const token of tokens) {
+    if (token.startsWith("<!--")) {
+      append({ kind: "text", value: "" })
+      continue
+    }
+
+    if (token.startsWith("</")) {
+      const tagName = /^<\\/([A-Za-z][\\w:-]*)\\s*>$/.exec(token)?.[1]?.toLowerCase()
+      const open = stack.pop()
+      if (!tagName || !open || open.tagName !== tagName) {
+        throw new Error(`Invalid Solid DOM template closing tag: ${token}`)
+      }
+      continue
+    }
+
+    if (token.startsWith("<")) {
+      const match = /^<([A-Za-z][\\w:-]*)([\\s\\S]*?)(\\/?)>$/.exec(token)
+      if (!match?.[1]) throw new Error(`Invalid Solid DOM template tag: ${token}`)
+      const tagName = match[1].toLowerCase()
+      const element: StaticTemplateElement = {
+        kind: "element",
+        tagName,
+        attributes: parseStaticTemplateAttributes(match[2] ?? ""),
+        children: [],
+      }
+      append(element)
+      if (match[3] !== "/" && !VOID_TEMPLATE_TAGS.has(tagName)) stack.push(element)
+      continue
+    }
+
+    append({ kind: "text", value: decodeHtmlEntities(token) })
+  }
+
+  if (stack.length !== 0) {
+    throw new Error(`Unclosed Solid DOM template tag: <${stack.at(-1)?.tagName ?? "unknown"}>`)
+  }
+  if (roots.length !== 1 || roots[0]?.kind !== "element") {
+    throw new Error("Solid DOM templates must contain exactly one root element")
+  }
+  return roots[0]
+}
+
+function parseStaticTemplateAttributes(source: string): Array<[string, string]> {
+  const attributes: Array<[string, string]> = []
+  const pattern = /([^\\s=/>]+)(?:\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'=<>\`]+)))?/g
+  for (const match of source.matchAll(pattern)) {
+    const name = match[1]
+    if (!name) continue
+    const rawValue = match[2] ?? match[3] ?? match[4] ?? ""
+    attributes.push([name, decodeHtmlEntities(rawValue)])
+  }
+  return attributes
+}
+
+function instantiateStaticTemplate(templateNode: StaticTemplateElement): HostElementNode {
+  const node = createElement(templateNode.tagName)
+  if (!(node instanceof HostElementNode)) {
+    throw new Error(`Expected host element for static <${templateNode.tagName}> template`)
+  }
+
+  for (const [name, value] of templateNode.attributes) setProp(node, name, value)
+  for (const child of templateNode.children) {
+    if (child.kind === "text") {
+      insertNode(node, createTextNode(child.value))
+      continue
+    }
+    insertNode(node, instantiateStaticTemplate(child))
+  }
+  return node
+}
+
+function decodeHtmlEntities(value: string): string {
+  return value.replace(
+    /&(#x[0-9A-Fa-f]+|#\\d+|amp|apos|gt|lt|nbsp|quot);/g,
+    (entity, encoded: string) => {
+      if (encoded.startsWith("#x")) return String.fromCodePoint(Number.parseInt(encoded.slice(2), 16))
+      if (encoded.startsWith("#")) return String.fromCodePoint(Number.parseInt(encoded.slice(1), 10))
+      switch (encoded) {
+        case "amp": return "&"
+        case "apos": return "'"
+        case "gt": return ">"
+        case "lt": return "<"
+        case "nbsp": return "\u00a0"
+        case "quot": return '"'
+      }
+      return entity
+    },
+  )
 }
 
 export const SVGElements = new Set([
