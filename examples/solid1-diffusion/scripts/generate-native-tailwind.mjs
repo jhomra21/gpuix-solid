@@ -33,6 +33,14 @@ const nativeCompatEntries = new Map([
     light: { borderColor: "hsla(0, 0%, 88%, 1)" },
     dark: { borderColor: "hsla(0, 0%, 100%, 0.09)" },
   }],
+  ["text-border-input", {
+    light: { color: "hsla(0, 0%, 88%, 1)" },
+    dark: { color: "hsla(0, 0%, 100%, 0.09)" },
+  }],
+  ["hover:border-border-input", {
+    light: { hover: { borderColor: "hsla(0, 0%, 88%, 1)" } },
+    dark: { hover: { borderColor: "hsla(0, 0%, 100%, 0.09)" } },
+  }],
   ["text-destructive-foreground", {
     light: { color: "hsla(0, 0%, 100%, 1)" },
     dark: { color: "hsla(0, 0%, 100%, 1)" },
@@ -111,18 +119,47 @@ const nativeCompatEntries = new Map([
       ">:nth-child(2)": { base: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: 0 } },
     },
   }],
+  ["grid-cols-[1fr]", { base: { gridTemplateColumns: 1 } }],
+  ["grid-cols-[1fr_1fr]", { base: { gridTemplateColumns: 2 } }],
+  ["grid-rows-3", { base: { gridTemplateRows: 3 } }],
+  ["grid-rows-[1fr]", { base: { gridTemplateRows: 1 } }],
+  // Diffusion's SelectTrigger is exactly fixed icon / flexible value / fixed icon.
+  ["!grid-cols-[24px_minmax(0,1fr)_24px]", {
+    base: { display: "flex", flexDirection: "row" },
+    descendants: {
+      ">:nth-child(1)": { base: { width: 24, minWidth: 24, maxWidth: 24, flexGrow: 0, flexShrink: 0 } },
+      ">:nth-child(2)": { base: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: 0 } },
+      ">:nth-child(3)": { base: { width: 24, minWidth: 24, maxWidth: 24, flexGrow: 0, flexShrink: 0 } },
+    },
+  }],
   ["max-h-screen", { base: { maxHeight: "100%" } }],
+  ["h-screen", { base: { height: "100%" } }],
+  ["max-h-[50vh]", { base: { maxHeight: "50%" } }],
+  ["max-w-[30%]", { base: { maxWidth: "30%" } }],
+  ["w-1/2", { base: { width: "50%" } }],
+  // Both pinned uses pair this with text-xxs (10px Inter). Keep the compact
+  // color/source editors near their authored 7ch width until GPUI publishes ch units.
+  ["w-[7ch]", { base: { width: 44 } }],
   ["top-full", { base: {}, parentPosition: { topFraction: 1 } }],
   ["ring-1", { base: { boxShadow: { offsetX: 0, offsetY: 0, blurRadius: 0, spreadRadius: 1, color: "rgba(0, 0, 0, 0)" } } }],
   ["ring-blue-400/80", { base: { boxShadow: { offsetX: 0, offsetY: 0, blurRadius: 0, spreadRadius: 1, color: "rgba(81, 162, 255, 0.8)" } } }],
   ["space-y-1.5", { base: { gap: 6 } }],
+  ["space-y-2", { base: { gap: 8 } }],
+  ["place-items-center", { base: { display: "flex", alignItems: "center", justifyContent: "center" } }],
   ["sr-only", { base: { position: "absolute", width: 1, height: 1, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, marginTop: -1, marginRight: -1, marginBottom: -1, marginLeft: -1, overflow: "hidden", whiteSpace: "nowrap", borderWidth: 0 } }],
   ["sm:items-center", { base: { alignItems: "center" } }],
   ["sm:text-left", { base: { textAlign: "left" } }],
   ["sm:flex-row", { base: { flexDirection: "row" } }],
   ["sm:justify-end", { base: { justifyContent: "flex-end" } }],
   ["sm:space-x-2", { base: { gap: 8 } }],
+  // Native Diffusion is a desktop surface, so its >=40rem source variants are
+  // the active branch. Keep the authored desktop values rather than dropping them.
+  ["sm:gap-1", { base: { gap: 4 } }],
+  ["sm:gap-2.5", { base: { gap: 10 } }],
+  ["sm:max-w-sm", { base: { maxWidth: 384 } }],
+  ["sm:max-w-lg", { base: { maxWidth: 512 } }],
   ["left-1/2", { base: {}, parentPosition: { leftFraction: 0.5 } }],
+  ["left-[50%]", { base: {}, parentPosition: { leftFraction: 0.5 } }],
   ["grid-cols-[1fr_auto_1fr]", { base: { display: "flex", flexDirection: "row" } }],
   ["justify-self-start", { base: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, justifyContent: "flex-start" } }],
   ["justify-self-center", { base: { flexGrow: 0, flexShrink: 0 } }],
@@ -141,11 +178,32 @@ const nativeCompatEntries = new Map([
   // Bottom-panel resize handle is 16px tall and its center rail is 4px tall.
   // CSS top:50% + translateY(-50%) therefore lands at top:6px exactly.
   ["top-1/2", { base: {}, parentPosition: { topFraction: 0.5 } }],
+  ["top-[50%]", { base: {}, parentPosition: { topFraction: 0.5 } }],
+  ["top-[54%]", { base: {}, parentPosition: { topFraction: 0.54 } }],
   ["translate-y-1/2", { base: {}, translation: { yFraction: 0.5 } }],
   ["-translate-y-1/2", { base: {}, translation: { yFraction: -0.5 } }],
 ])
 
 const explicitlyIgnored = new Map([
+  ["field-sizing-content", "browser field-sizing has no GPUIX style field; the pinned project-name input still keeps its authored auto/min/max width constraints"],
+  ["list-disc", "native semantic lists do not publish CSS list-marker painting; list content, indentation, and vertical spacing remain intact"],
+  ["max-w-[calc(100%-2rem)]", "native Dialog/FloatingLayer owns viewport-safe popup placement; the source sm:max-w-lg desktop cap remains native"],
+  ["min-w-(--titlebar-controls-width)", "the pinned Windows title-bar spacer also supplies the same controlsWidth as an inline width, so the browser env() minimum is redundant natively"],
+  ["motion-reduce:transition-none", "native style changes are immediate and do not run the browser width transition, so the reduced-motion branch is already satisfied"],
+  ["overscroll-contain", "overscroll-behavior is a browser scroll-chain policy; native popup scrolling does not chain through a document viewport"],
+  ["resize-none", "native text areas do not expose browser drag-resize chrome"],
+  ["shadow-none", "GPUIX does not inherit browser Tailwind shadows, so this reset has no native paint to clear"],
+  ["shadow-xs", "Tailwind shadow-xs is browser shadow chrome; GPUIX exposes one BoxShadow and cannot preserve the source shadow stack exactly"],
+  ["shadow-sm", "Tailwind shadow-sm is browser shadow chrome; GPUIX exposes one BoxShadow and cannot preserve the source shadow stack exactly"],
+  ["size-[calc(100%-1px)]", "the attachment outline is already absolutely constrained by inset-[0.5px]; native edge constraints determine its size without the browser calc() duplicate"],
+  ["soundboard", "this class only establishes a CSS size-query container; native keeps the full meter scale instead of browser container-query thinning at short heights"],
+  ["soundboard-ticks", "this is a source selector anchor for soundboard container-query tick thinning and has no direct base paint"],
+  ["text-inherit!", "native text color already inherits from the parent when no color override is published"],
+  ["agent-ellipsis", "the source class adds animated pseudo-element dots; the running label and spinner remain mounted natively without pseudo-element animation"],
+  ["agent-shimmer", "the source class is an animated text-gradient treatment; running state remains visible through the authored text and status icon"],
+  ["file:font-450", "native input has no browser file-selector pseudo-element"],
+  ["focus-within:border-border-input", "generic native host focus-within painting is not published; child focus and interaction semantics remain native"],
+  ["focus:border-border-input", "generic native input focus border variants are not published through class selectors"],
   ["break-all", "GPUI text exposes normal and nowrap wrapping but no CSS word-break mode; expanded asset names preserve their text and normal wrapping, so only exceptionally long unbroken filenames may overflow instead of breaking at arbitrary characters"],
   ["break-words", "GPUI text exposes normal and nowrap wrapping but no overflow-wrap mode; Diffusion chat, markdown, breadcrumbs, and asset text still wrap at normal break opportunities, while a single long unbroken token may overflow"],
   ["wrap-break-words", "GPUI text exposes normal and nowrap wrapping but no overflow-wrap mode; Diffusion asset text still wraps at normal break opportunities, while a single long unbroken token may overflow"],
@@ -256,6 +314,12 @@ const explicitlyIgnored = new Map([
 ])
 
 function dynamicIgnoredReason(candidate) {
+  if (/^(?:group|peer)\/[A-Za-z0-9_-]+$/.test(candidate)) {
+    return "named Tailwind group/peer tokens are relationship-state markers and have no direct native paint"
+  }
+  if (candidate === "ease-out" || candidate.startsWith("transition-")) {
+    return "GPUIX native StyleDesc does not publish browser CSS transition/easing configuration; native state changes remain immediate"
+  }
   if (candidate.startsWith("before:") || candidate.includes(":before:")) {
     return "pinned Diffusion before:* utilities are audited decorative segmented-control separators; GPUIX has no pseudo-element paint tree, while authored controls retain layout, labels, state, and interaction"
   }
