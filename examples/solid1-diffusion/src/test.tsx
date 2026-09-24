@@ -3,6 +3,7 @@ import { existsSync, statSync, unlinkSync } from "node:fs"
 import { ToolType } from "@diffusionstudio/runtime"
 import {
   armDiffusionSourceHandTool,
+  DiffusionSourceEditor,
   DiffusionSourceEngine,
   readDiffusionSourceEditorState,
   readDiffusionSourceEdits,
@@ -12,6 +13,7 @@ import {
 } from "./app"
 
 const screenshotPath = "/tmp/gpuix-solid1-diffusion-source.png"
+const editorScreenshotPath = "/tmp/gpuix-solid1-diffusion-editor.png"
 
 function requireCondition(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -171,5 +173,79 @@ if (!hasNativeTestRenderer) {
     console.log("solid1 Diffusion source EngineCanvas + CameraController + DrawOverlay: passed")
   } finally {
     app.unmount()
+  }
+
+  if (existsSync(editorScreenshotPath)) unlinkSync(editorScreenshotPath)
+
+  const editorApp = createTestRoot(1280, 800)
+  editorApp.render(() => <DiffusionSourceEditor />)
+
+  try {
+    for (let frame = 0; frame < 4; frame++) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+    }
+    await Promise.resolve()
+    editorApp.root.flush()
+    editorApp.renderer.flush()
+
+    requireCondition(
+      editorApp.renderer.hasTestId("diffusion-source-editor"),
+      "Diffusion EditorPage fixture should mount its native editor root",
+    )
+
+    const editorBounds = editorApp.renderer.boundsTestId("diffusion-source-editor")
+    const stageBounds = editorApp.renderer.boundsFirstTypeWithinTestId("diffusion-source-editor", "canvas")
+    const editorText = editorApp.renderer.textContent("diffusion-source-editor")
+    requireCondition(editorBounds.width >= 1200 && editorBounds.height >= 760, "Diffusion EditorPage should fill the native window")
+    requireCondition(editorText.includes("Add media"), "Diffusion EditorPage should render the real Assets sidebar")
+    requireCondition(stageBounds.width < editorBounds.width, "Diffusion EditorPage stage should leave room for editor sidebars")
+    requireCondition(stageBounds.height < editorBounds.height, "Diffusion EditorPage stage should leave room for the timeline")
+
+    const timelineCanvas = Array.from(document.body.querySelectorAll("canvas"))
+      .find((element) => element.getAttribute("id") === "timeline-canvas")
+    requireCondition(timelineCanvas instanceof HTMLCanvasElement, "Diffusion EditorPage should mount the real timeline canvas")
+    timelineCanvas.setAttribute("testId", "diffusion-editor-timeline")
+    editorApp.root.flush()
+    editorApp.renderer.flush()
+    requireCondition(
+      editorApp.renderer.hasTestId("diffusion-editor-timeline"),
+      "Diffusion timeline canvas should remain connected to the native tree",
+    )
+
+    const editorState = readDiffusionSourceState()
+    requireCondition(editorState.sceneName === "GPUix Diffusion source", "Diffusion EditorPage should share the mounted project world")
+    requireCondition(editorState.canvas instanceof HTMLCanvasElement, "Diffusion EditorPage should mount the real EngineCanvas")
+
+    const editorDrawList = editorApp.renderer.customPropJsonContainingAll("drawList", ["\"version\":3"])
+    requireCondition(
+      editorDrawList.includes("\"color\":\"#22C55E\""),
+      "Diffusion EditorPage canvas should render the project rectangle",
+    )
+
+    requireCondition(
+      editorApp.renderer.hasTestId("diffusion-toolbar-rectangle"),
+      "Diffusion EditorPage should expose the real Rectangle toolbar button",
+    )
+    editorApp.renderer.clickTestId("diffusion-toolbar-rectangle")
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+    editorApp.root.flush()
+    editorApp.renderer.flush()
+    requireCondition(
+      readDiffusionSourceEditorState().tool === ToolType.RECT,
+      "Diffusion EditorPage Rectangle button should select the real RECT tool",
+    )
+
+    editorApp.renderer.captureScreenshot(editorScreenshotPath)
+    requireCondition(existsSync(editorScreenshotPath), "Diffusion EditorPage screenshot should be written")
+    requireCondition(statSync(editorScreenshotPath).size > 0, "Diffusion EditorPage screenshot should not be empty")
+
+    console.log("solid1 Diffusion EditorPage shell:", JSON.stringify({
+      editorBounds,
+      stageBounds,
+      timelineBounds: editorApp.renderer.boundsTestId("diffusion-editor-timeline"),
+    }))
+    console.log("solid1 Diffusion EditorPage shell: passed")
+  } finally {
+    editorApp.unmount()
   }
 }
