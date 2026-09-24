@@ -5,7 +5,7 @@ import {
   type GpuixCanvasRenderingContext2D,
 } from "./canvas.js"
 import { parseDragData } from "./drag-data.js"
-import { EVENT_PROP_TO_TYPE, nativeEventTypeForBrowserEvent, nativeEventTypeForDomEvent, type DomCompatTarget, type EventRegistry } from "./events.js"
+import { EVENT_PROP_TO_TYPE, isDelegatedNativeEvent, nativeEventTypeForBrowserEvent, nativeEventTypeForDomEvent, type DomCompatTarget, type EventRegistry } from "./events.js"
 import type { MutationDriver, MutationValue } from "./mutations.js"
 import type {
   DragData,
@@ -1064,6 +1064,7 @@ function browserNativeEventTypes(node: HostElementNode): Set<string> {
 }
 
 function hasNativeEventHandler(node: HostElementNode, nativeEventType: string): boolean {
+  if (isDelegatedNativeEvent(nativeEventType)) return true
   const hasDragSource = node.dragData !== undefined
   // GPUI implicitly captures a pointer when a node owns mouseDown + mouseMove at
   // press time. Pre-arm drag sources for mouseDown only; BrowserPointerMutationDriver
