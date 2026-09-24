@@ -725,8 +725,9 @@ function applyNativeStyleState(node: HostElementNode): void {
   const flowedStyle = mergeNativeStyles(mergedStyle, browserInlineFlow)
   const parentWidth = resolvedNativeNodeSize(node.parent, "x")
   const parentHeight = resolvedNativeNodeSize(node.parent, "y")
+  const sizedStyle = resolveNativeRelativeDimensions(flowedStyle, parentWidth, parentHeight)
   const positionedStyle = applyNativeStyleParentPosition(
-    flowedStyle,
+    sizedStyle,
     classParentPosition,
     parentWidth,
     parentHeight,
@@ -899,6 +900,31 @@ function resolvedNativeDimension(value: DimensionValue | undefined, parentSize: 
   return undefined
 }
 
+
+function resolveNativeRelativeDimensions(
+  style: StyleDesc | undefined,
+  parentWidth: number | undefined,
+  parentHeight: number | undefined,
+): StyleDesc | undefined {
+  if (!style) return style
+  const resolved: StyleDesc = { ...style }
+
+  const width = resolvedNativeDimension(style.width, parentWidth)
+  const minWidth = resolvedNativeDimension(style.minWidth, parentWidth)
+  const maxWidth = resolvedNativeDimension(style.maxWidth, parentWidth)
+  const height = resolvedNativeDimension(style.height, parentHeight)
+  const minHeight = resolvedNativeDimension(style.minHeight, parentHeight)
+  const maxHeight = resolvedNativeDimension(style.maxHeight, parentHeight)
+
+  if (width !== undefined) resolved.width = width
+  if (minWidth !== undefined) resolved.minWidth = minWidth
+  if (maxWidth !== undefined) resolved.maxWidth = maxWidth
+  if (height !== undefined) resolved.height = height
+  if (minHeight !== undefined) resolved.minHeight = minHeight
+  if (maxHeight !== undefined) resolved.maxHeight = maxHeight
+
+  return resolved
+}
 function resolvedNativePosition(value: DimensionValue | undefined, parentSize: number): number | undefined {
   if (value === undefined) return undefined
   const number = Number(value)
