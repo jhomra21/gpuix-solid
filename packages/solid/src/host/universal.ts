@@ -592,7 +592,13 @@ function resolveAncestorDescendantStyle(node: HostElementNode): StyleDesc | unde
     if (!state || !hasNativeClasses(state)) continue
     resolved = mergeNativeStyles(
       resolved,
-      resolveNativeDescendantClassStyle(combinedClassName(state), state.classList, tagName, directParent === ancestor),
+      resolveNativeDescendantClassStyle(
+        combinedClassName(state),
+        state.classList,
+        tagName,
+        directParent === ancestor,
+        node.props,
+      ),
     )
   }
   return resolved
