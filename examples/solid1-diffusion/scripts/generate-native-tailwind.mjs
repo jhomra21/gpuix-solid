@@ -132,9 +132,9 @@ const nativeCompatEntries = new Map([
       ">:nth-child(3)": { base: { width: 24, minWidth: 24, maxWidth: 24, flexGrow: 0, flexShrink: 0 } },
     },
   }],
-  ["max-h-screen", { base: { maxHeight: "100%" } }],
-  ["h-screen", { base: { height: "100%" } }],
-  ["max-h-[50vh]", { base: { maxHeight: "50%" } }],
+  ["max-h-screen", { base: { maxHeight: "100%" }, viewportSize: { maxHeightFraction: 1 } }],
+  ["h-screen", { base: { height: "100%" }, viewportSize: { heightFraction: 1 } }],
+  ["max-h-[50vh]", { base: { maxHeight: "50%" }, viewportSize: { maxHeightFraction: 0.5 } }],
   ["max-w-[30%]", { base: { maxWidth: "30%" } }],
   ["w-1/2", { base: { width: "50%" } }],
   // Both pinned uses pair this with text-xxs (10px Inter). Keep the compact
