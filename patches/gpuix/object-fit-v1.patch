@@ -13,7 +13,7 @@ diff --git a/packages/native/src/style.rs b/packages/native/src/style.rs
 diff --git a/packages/native/src/custom_elements/img.rs b/packages/native/src/custom_elements/img.rs
 --- a/packages/native/src/custom_elements/img.rs
 +++ b/packages/native/src/custom_elements/img.rs
-@@ -184,9 +184,13 @@ impl CustomElement for ImgElement {
+@@ -184,8 +184,13 @@ impl CustomElement for ImgElement {
          use gpui::prelude::*;
  
          if let Some(image) = self.dropped.take() {
