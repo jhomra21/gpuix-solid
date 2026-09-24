@@ -11,6 +11,32 @@ const runtimeBridge = fromHere("./src/runtime-bridge.ts")
 const webSource = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/apps/web/src/`)
 const kobalteSourceRoot = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/node_modules/@kobalte/core/src/`)
 
+const toolbarTestHook = {
+  name: "diffusion-toolbar-native-test-hook",
+  enforce: "pre" as const,
+  transform(code: string, id: string) {
+    const normalizedId = id.replaceAll("\\", "/").split("?")[0]
+    if (!normalizedId.endsWith("/apps/web/src/components/canvas/toolbar.tsx")) return null
+
+    const rectangleTrigger = `<TooltipTrigger
+            as={Button}
+            size="icon-square"
+            variant={selectedTool() === ToolType.RECT ? 'default' : 'ghost'}`
+    if (!code.includes(rectangleTrigger)) {
+      throw new Error("Pinned Diffusion Toolbar RECT trigger changed; update native acceptance instrumentation")
+    }
+
+    return code.replace(
+      rectangleTrigger,
+      `<TooltipTrigger
+            as={Button}
+            testId="diffusion-toolbar-rectangle"
+            size="icon-square"
+            variant={selectedTool() === ToolType.RECT ? 'default' : 'ghost'}`,
+    )
+  },
+}
+
 const packageSource = (name: string) =>
   fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/packages/${name}/src/index.ts`)
 
@@ -20,6 +46,7 @@ export function diffusionConfig(entry: string, outDir: string) {
       "import.meta.env.VITE_DESKTOP": JSON.stringify("false"),
     },
     plugins: [
+      toolbarTestHook,
       solid({
         solid: {
           generate: "universal",
