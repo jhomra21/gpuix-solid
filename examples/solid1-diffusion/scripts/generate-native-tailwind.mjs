@@ -128,6 +128,9 @@ const nativeCompatEntries = new Map([
   ["justify-self-center", { base: { flexGrow: 0, flexShrink: 0 } }],
   ["justify-self-end", { base: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, justifyContent: "flex-end" } }],
   ["grid-cols-1", { base: { gridTemplateColumns: 1 } }],
+  ["grid-rows-4", { base: { gridTemplateRows: 4 } }],
+  ["grid-flow-col", { base: { gridAutoFlow: "column" } }],
+  ["auto-cols-auto", { base: { gridColumnMin: "max-content" } }],
   ["space-y-0.5", { base: { gap: 2 } }],
   ["rounded-full", { base: { borderRadius: 9999 } }],
   // Browser resize handle: parent is 8px wide and the rail is 4px wide, so
