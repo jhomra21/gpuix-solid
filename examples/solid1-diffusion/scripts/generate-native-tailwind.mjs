@@ -147,6 +147,8 @@ const nativeCompatEntries = new Map([
 
 const explicitlyIgnored = new Map([
   ["break-all", "GPUI text exposes normal and nowrap wrapping but no CSS word-break mode; expanded asset names preserve their text and normal wrapping, so only exceptionally long unbroken filenames may overflow instead of breaking at arbitrary characters"],
+  ["break-words", "GPUI text exposes normal and nowrap wrapping but no overflow-wrap mode; Diffusion chat, markdown, breadcrumbs, and asset text still wrap at normal break opportunities, while a single long unbroken token may overflow"],
+  ["wrap-break-words", "GPUI text exposes normal and nowrap wrapping but no overflow-wrap mode; Diffusion asset text still wraps at normal break opportunities, while a single long unbroken token may overflow"],
   ["accent-primary", "GPUIX does not publish browser form-control accent-color painting; input checked state and interaction remain native, while only the radio/checkbox tint differs"],
   ["focus-ring", "Diffusion applies this custom utility only for :focus-visible or data-dragging=true; generic host focus-visible and attribute-state painting are not published yet, and this filled-scene Canvas gate does not mount SceneInitOverlay"],
   ["box-content", "GPUIX has no box-sizing field; this source element has auto width and no vertical padding or border, so content-box does not change its current geometry"],
