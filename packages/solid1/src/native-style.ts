@@ -48,10 +48,19 @@ export interface NativeStyleViewportSize {
   maxHeightFraction?: number
 }
 
+/** CSS auto-margin edges that require native flex layout support. */
+export interface NativeStyleAutoMargin {
+  top?: boolean
+  right?: boolean
+  bottom?: boolean
+  left?: boolean
+}
+
 export interface NativeStyleManifestEntry extends NativeStyleVariant {
   translation?: NativeStyleTranslation
   parentPosition?: NativeStyleParentPosition
   viewportSize?: NativeStyleViewportSize
+  autoMargin?: NativeStyleAutoMargin
   /** Source :focus / :focus-visible styles applied by compatibility components that own focus state. */
   focus?: NativeStyleVariant
   descendants?: Record<string, NativeStyleVariant>
@@ -213,6 +222,37 @@ export function resolveNativeClassViewportSize(
     resolved = { ...resolved, ...entry.viewportSize }
   }
   return resolved
+}
+
+export function resolveNativeClassAutoMargin(
+  className: string | undefined,
+  classList: NativeClassList | undefined,
+): NativeStyleAutoMargin | undefined {
+  const candidates = classCandidates(className, classList)
+  if (candidates.length === 0) return undefined
+  const activeManifest = requireManifest()
+
+  let resolved: NativeStyleAutoMargin | undefined
+  for (const candidate of candidates) {
+    const entry = activeManifest.classes[candidate]
+    if (!entry) throw missingCandidate(candidate)
+    if (!entry.autoMargin) continue
+    resolved = { ...resolved, ...entry.autoMargin }
+  }
+  return resolved
+}
+
+export function applyNativeStyleAutoMargin(
+  style: StyleDesc | undefined,
+  margin: NativeStyleAutoMargin | undefined,
+): StyleDesc | undefined {
+  if (!style || !margin) return style
+  const result: StyleDesc = { ...style }
+  if (margin.top) result.marginTopAuto = true
+  if (margin.right) result.marginRightAuto = true
+  if (margin.bottom) result.marginBottomAuto = true
+  if (margin.left) result.marginLeftAuto = true
+  return result
 }
 
 export function applyNativeStyleViewportSize(
