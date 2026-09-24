@@ -1086,9 +1086,10 @@ function inlineGridItems(grid: HostElementNode): HostElementNode[] {
 
 function browserGridItem(node: HostElementNode): BrowserGridItem {
   const style = sourceAuthoredStyle(node)
-  return {
-    columnSpan: style?.gridColumnSpanFull ? "full" : style?.gridColumnSpan,
-  }
+  const item: BrowserGridItem = {}
+  if (style?.gridColumnSpanFull) item.columnSpan = "full"
+  else if (style?.gridColumnSpan !== undefined) item.columnSpan = style.gridColumnSpan
+  return item
 }
 
 function finiteStyleNumber(value: number | undefined): number {
