@@ -1,3 +1,4 @@
+import "fake-indexeddb/auto"
 import { render } from "@jhomra21/gpuix-solid1"
 import { installDiffusionDesktopHost } from "./desktop-host"
 

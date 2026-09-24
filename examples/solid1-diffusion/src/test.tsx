@@ -1,3 +1,4 @@
+import "fake-indexeddb/auto"
 import { CANVAS_DRAW_LIST_VERSION, createTestRoot, hasNativeTestRenderer } from "@jhomra21/gpuix-solid1"
 import { existsSync, statSync, unlinkSync } from "node:fs"
 import { ToolType } from "@diffusionstudio/runtime"
