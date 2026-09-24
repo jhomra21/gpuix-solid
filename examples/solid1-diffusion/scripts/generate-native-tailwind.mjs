@@ -157,6 +157,7 @@ const explicitlyIgnored = new Map([
   ["effect-shell-chevron-icon", "the source rotates this icon with CSS transform; GPUIX 0.7 has no general CSS transform field"],
   ["duration-100", "GPUIX 0.7 does not publish CSS transition timing; native state changes remain immediate"],
   ["duration-150", "GPUIX 0.7 does not publish CSS transition timing; native state changes remain immediate"],
+  ["duration-200", "GPUIX 0.7 does not publish CSS transition timing; native state changes remain immediate"],
   ["transition-transform", "GPUIX 0.7 does not publish CSS transitions; source transform transitions remain immediate"],
   ["rotate-180", "GPUIX 0.7 StyleDesc has no general CSS transform; exact collapsed-device rotation remains source-locked but cannot be reproduced natively"],
   ["-rotate-90", "GPUIX 0.7 StyleDesc has no general CSS transform; this rotates visual affordance icons without changing editor layout or interaction"],
