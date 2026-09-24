@@ -34,7 +34,7 @@ function findByTestId(node, testId) {
 function svgSource(node) {
   const svg = descendants(node).find((candidate) => candidate.type === "svg")
   const source = svg?.customProps?.source
-  return typeof source === "string" ? source : null
+  return source == null ? null : String(source)
 }
 
 function drawListText(node) {
