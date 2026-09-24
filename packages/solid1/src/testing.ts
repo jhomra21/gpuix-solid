@@ -206,6 +206,11 @@ export class TestRenderer {
   setWindowKeyEvents(keyDown: boolean, keyUp: boolean, eventId: number): void { this.#native.setWindowKeyEvents(keyDown, keyUp, eventId) }
   setWindowSelectionChange(enabled: boolean, eventId: number): void { this.#native.setWindowSelectionChange(enabled, eventId) }
   getElementBounds(elementId: number): number[] | null { return this.#native.getElementBounds(elementId) }
+
+  getWindowSize(): { width: number; height: number } {
+    this.#native.flush()
+    return this.#native.getWindowSize()
+  }
   getCanvasDrawListVersion(): number | undefined {
     // SAFETY: source-edge GPUIX may expose this optional capability before it
     // exists in the published @gpuix/native TypeScript surface.
