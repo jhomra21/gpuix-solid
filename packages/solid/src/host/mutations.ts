@@ -24,6 +24,10 @@ type DimensionStyleKey =
   | "minHeight"
   | "maxWidth"
   | "maxHeight"
+  | "top"
+  | "right"
+  | "bottom"
+  | "left"
 
 type NumberStyleKey =
   | "flexGrow"
@@ -44,10 +48,6 @@ type NumberStyleKey =
   | "marginRight"
   | "marginBottom"
   | "marginLeft"
-  | "top"
-  | "right"
-  | "bottom"
-  | "left"
   | "opacity"
   | "borderWidth"
   | "borderTopWidth"
@@ -420,10 +420,10 @@ function normalizeStyleMutation(style: StyleMutationInput): StyleDesc {
     marginRight: normalizeNumberStyle(style.marginRight, "marginRight") ?? margin.right,
     marginBottom: normalizeNumberStyle(style.marginBottom, "marginBottom") ?? margin.bottom,
     marginLeft: normalizeNumberStyle(style.marginLeft, "marginLeft") ?? margin.left,
-    top: normalizeNumberStyle(style.top, "top"),
-    right: normalizeNumberStyle(style.right, "right"),
-    bottom: normalizeNumberStyle(style.bottom, "bottom"),
-    left: normalizeNumberStyle(style.left, "left"),
+    top: normalizeDimensionStyle(style.top, fontSize ?? 16),
+    right: normalizeDimensionStyle(style.right, fontSize ?? 16),
+    bottom: normalizeDimensionStyle(style.bottom, fontSize ?? 16),
+    left: normalizeDimensionStyle(style.left, fontSize ?? 16),
     opacity: normalizeNumberStyle(style.opacity, "opacity"),
     borderWidth: normalizeNumberStyle(style.borderWidth, "borderWidth"),
     borderTopWidth: normalizeNumberStyle(style.borderTopWidth, "borderTopWidth"),
