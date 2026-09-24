@@ -30,9 +30,18 @@ export interface NativeStyleParentPosition {
   bottomFraction?: number
 }
 
+/** Viewport-relative dimensions for CSS units such as vh/vw. */
+export interface NativeStyleViewportSize {
+  widthFraction?: number
+  heightFraction?: number
+  maxWidthFraction?: number
+  maxHeightFraction?: number
+}
+
 export interface NativeStyleManifestEntry extends NativeStyleVariant {
   translation?: NativeStyleTranslation
   parentPosition?: NativeStyleParentPosition
+  viewportSize?: NativeStyleViewportSize
   descendants?: Record<string, NativeStyleVariant>
   textTransform?: NativeTextTransform
 }
@@ -110,6 +119,46 @@ export function resolveNativeClassParentPosition(
   return resolved
 }
 
+export function resolveNativeClassViewportSize(
+  className: string | undefined,
+  classList: NativeClassList | undefined,
+): NativeStyleViewportSize | undefined {
+  const candidates = classCandidates(className, classList)
+  if (candidates.length === 0 || !manifest) return undefined
+  const activeManifest = manifest
+
+  let resolved: NativeStyleViewportSize | undefined
+  for (const candidate of candidates) {
+    const entry = activeManifest.classes[candidate]
+    if (!entry) throw missingCandidate(candidate)
+    if (!entry.viewportSize) continue
+    resolved = { ...resolved, ...entry.viewportSize }
+  }
+  return resolved
+}
+
+export function applyNativeStyleViewportSize(
+  style: StyleDesc | undefined,
+  viewport: NativeStyleViewportSize | undefined,
+  viewportWidth: number | undefined,
+  viewportHeight: number | undefined,
+): StyleDesc | undefined {
+  if (!style || !viewport) return style
+  const result: StyleDesc = { ...style }
+  if (viewport.widthFraction !== undefined && viewportWidth !== undefined) {
+    result.width = viewportWidth * viewport.widthFraction
+  }
+  if (viewport.heightFraction !== undefined && viewportHeight !== undefined) {
+    result.height = viewportHeight * viewport.heightFraction
+  }
+  if (viewport.maxWidthFraction !== undefined && viewportWidth !== undefined) {
+    result.maxWidth = viewportWidth * viewport.maxWidthFraction
+  }
+  if (viewport.maxHeightFraction !== undefined && viewportHeight !== undefined) {
+    result.maxHeight = viewportHeight * viewport.maxHeightFraction
+  }
+  return result
+}
 export function applyNativeStyleParentPosition(
   style: StyleDesc | undefined,
   position: NativeStyleParentPosition | undefined,
