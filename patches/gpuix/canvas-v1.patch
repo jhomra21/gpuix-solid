@@ -752,7 +752,7 @@ new file mode 100644
 +    draw_list: &CanvasDrawList,
 +    bounds: gpui::Bounds<gpui::Pixels>,
 +    window: &mut gpui::Window,
-+    paint: impl Fn(&mut gpui::Window),
++    mut paint: impl FnMut(&mut gpui::Window),
 +) {
 +    let Some(clip) = clip else {
 +        paint(window);
@@ -760,20 +760,23 @@ new file mode 100644
 +    };
 +    let (scale_x, scale_y, _) = canvas_scale(draw_list, bounds);
 +
-+    let paint_mask = |mask: gpui::Bounds<gpui::Pixels>, window: &mut gpui::Window| {
-+        let paint = |window: &mut gpui::Window| {
-+            window.with_content_mask(Some(gpui::ContentMask { bounds: mask }), |window| {
-+                paint(window);
-+            });
-+        };
++    let mut paint_mask = |mask: gpui::Bounds<gpui::Pixels>, window: &mut gpui::Window| {
 +        if let Some(scissor) = clip.scissor.as_ref() {
 +            let scissor_bounds = canvas_clip_bounds(scissor, bounds, scale_x, scale_y);
 +            window.with_content_mask(
 +                Some(gpui::ContentMask { bounds: scissor_bounds }),
-+                paint,
++                |window| {
++                    window.with_content_mask(
++                        Some(gpui::ContentMask { bounds: mask }),
++                        |window| paint(window),
++                    );
++                },
 +            );
 +        } else {
-+            paint(window);
++            window.with_content_mask(
++                Some(gpui::ContentMask { bounds: mask }),
++                |window| paint(window),
++            );
 +        }
 +    };
 +
