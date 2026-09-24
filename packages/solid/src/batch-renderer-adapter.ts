@@ -31,6 +31,7 @@ export interface BatchRendererApi {
   getPaintedHighlights?(): HighlightMatch[]
   getWindowSize?(): { width: number; height: number }
   getCanvasDrawListVersion?(): number | undefined
+  getAutoMarginVersion?(): number | undefined
   measureCanvasText?(text: string, fontSize: number, fontFamily: string, fontWeight: number): number
   setCanvasImagePixels?(
     elementId: number,
@@ -199,6 +200,9 @@ export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRen
   if (renderer.getWindowSize) adapted.getWindowSize = renderer.getWindowSize.bind(renderer)
   if (renderer.getCanvasDrawListVersion) {
     adapted.getCanvasDrawListVersion = renderer.getCanvasDrawListVersion.bind(renderer)
+  }
+  if (renderer.getAutoMarginVersion) {
+    adapted.getAutoMarginVersion = renderer.getAutoMarginVersion.bind(renderer)
   }
   if (renderer.measureCanvasText) {
     adapted.measureCanvasText = renderer.measureCanvasText.bind(renderer)
