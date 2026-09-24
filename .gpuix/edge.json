@@ -12,6 +12,7 @@
     "patches/gpuix/grid-auto-flow-v1.patch",
     "patches/gpuix/grid-auto-flow-children-v1.patch",
     "patches/gpuix/percentage-position-v1.patch",
-    "patches/gpuix/auto-margin-v1.patch"
+    "patches/gpuix/auto-margin-v1.patch",
+    "patches/gpuix/display-none-v1.patch"
   ]
 }
