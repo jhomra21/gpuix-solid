@@ -1,8 +1,7 @@
 diff --git a/packages/native/src/style.rs b/packages/native/src/style.rs
 --- a/packages/native/src/style.rs
 +++ b/packages/native/src/style.rs
-@@ -178,10 +178,10 @@ pub struct StyleDesc {
- 
+@@ -174,7 +174,7 @@ pub struct StyleDesc {
      // Position
      pub position: Option<String>,
 -    pub top: Option<f64>,
@@ -13,9 +12,7 @@ diff --git a/packages/native/src/style.rs b/packages/native/src/style.rs
 +    pub right: Option<DimensionValue>,
 +    pub bottom: Option<DimensionValue>,
 +    pub left: Option<DimensionValue>,
- 
-     // Background & Colors
-     pub background: Option<BackgroundValue>,
+     pub z_index: Option<f64>,
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
