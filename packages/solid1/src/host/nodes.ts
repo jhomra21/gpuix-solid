@@ -147,6 +147,17 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     return this.parentNode
   }
 
+  get firstChild(): HostNode | null {
+    return this.children[0] ?? null
+  }
+
+  get nextSibling(): HostNode | null {
+    const parent = this.parent
+    if (!parent) return null
+    const index = parent.children.indexOf(this)
+    return index < 0 ? null : parent.children[index + 1] ?? null
+  }
+
   getContext(contextId: string): GpuixCanvasRenderingContext2D | null {
     if (this.localName !== "canvas" || contextId !== "2d") return null
     const root = this.root
@@ -516,6 +527,7 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
 export class HostTextNode {
   readonly kind = "text" as const
   readonly type = "text" as const
+  readonly nodeName = "#text"
   readonly children: HostNode[] = []
   parent: HostParent | null = null
   root: HostRootNode | null = null
@@ -525,6 +537,21 @@ export class HostTextNode {
 
   constructor(text: string) {
     this.text = text
+  }
+
+  get parentNode(): HostElementNode | null {
+    return this.parent?.kind === "element" ? this.parent : null
+  }
+
+  get parentElement(): HostElementNode | null {
+    return this.parentNode
+  }
+
+  get nextSibling(): HostNode | null {
+    const parent = this.parent
+    if (!parent) return null
+    const index = parent.children.indexOf(this)
+    return index < 0 ? null : parent.children[index + 1] ?? null
   }
 }
 
