@@ -9,6 +9,7 @@
     "patches/gpuix/z-index-v1.patch",
     "patches/gpuix/aspect-ratio-v1.patch",
     "patches/gpuix/object-fit-v1.patch",
-    "patches/gpuix/grid-auto-flow-v1.patch"
+    "patches/gpuix/grid-auto-flow-v1.patch",
+    "patches/gpuix/grid-auto-flow-children-v1.patch"
   ]
 }
