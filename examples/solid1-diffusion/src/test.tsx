@@ -244,9 +244,10 @@ if (!hasNativeTestRenderer) {
       editorApp.renderer.hasTestId("diffusion-toolbar-rectangle"),
       "Diffusion EditorPage should expose the real Rectangle toolbar button",
     )
-    const rectangleIconBefore = editorApp.renderer.customPropStringContainingAll(
+    const rectangleIconBefore = editorApp.renderer.customPropStringContainingAllWithinTestId(
+      "diffusion-toolbar-rectangle",
       "source",
-      ["M6.93735 4.5"],
+      ["<svg"],
     )
     requireCondition(
       !rectangleIconBefore.includes("currentColor"),
@@ -261,9 +262,10 @@ if (!hasNativeTestRenderer) {
       readDiffusionSourceEditorState().tool === ToolType.RECT,
       "Diffusion EditorPage Rectangle button should select the real RECT tool",
     )
-    const rectangleIconAfter = editorApp.renderer.customPropStringContainingAll(
+    const rectangleIconAfter = editorApp.renderer.customPropStringContainingAllWithinTestId(
+      "diffusion-toolbar-rectangle",
       "source",
-      ["M6.93735 4.5"],
+      ["<svg"],
     )
     requireCondition(
       rectangleIconAfter !== rectangleIconBefore,

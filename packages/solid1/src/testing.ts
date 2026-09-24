@@ -471,6 +471,22 @@ export class TestRenderer {
     return value
   }
 
+  customPropStringContainingAllWithinTestId(
+    testId: string,
+    name: string,
+    fragments: readonly string[],
+  ): string {
+    this.#native.flush()
+    const parent = this.requireTestId(testId)
+    const value = findCustomPropStringContainingAll(parent, name, fragments)
+    if (value === undefined) {
+      throw new Error(
+        `Expected string custom prop ${JSON.stringify(name)} containing ${JSON.stringify(fragments)} inside ${testId}`,
+      )
+    }
+    return value
+  }
+
   customPropJsonContainingAll(name: string, fragments: readonly string[]): string {
     this.#native.flush()
     const node = findNodeBySerializedCustomProp(parseTree(this.#native.getTreeJson()), name, fragments)
