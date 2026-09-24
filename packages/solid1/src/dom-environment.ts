@@ -57,6 +57,7 @@ type CompatDocument = CompatEventTarget & {
   defaultView?: CompatWindow
   fonts?: CompatFontFaceSet
   createElement?: (tagName: string) => HostElementNode
+  createElementNS?: (namespace: string | null, qualifiedName: string) => HostElementNode
   createTextNode?: (value: string) => ReturnType<typeof createHostText>
   getElementsByTagName?: (tagName: string) => CompatTreeElement[]
   createTreeWalker?: (
@@ -330,6 +331,7 @@ export function installDomEventEnvironment(): void {
   documentTarget.defaultView = windowTarget
   documentTarget.fonts = new CompatFontFaceSet()
   documentTarget.createElement = createCompatElement
+  documentTarget.createElementNS = (_namespace, qualifiedName) => createCompatNamespacedElement(qualifiedName)
   documentTarget.createTextNode = (value) => createHostText(value)
   documentTarget.getElementsByTagName = (tagName) => {
     const normalized = tagName.toLowerCase()
@@ -527,6 +529,10 @@ function createDocumentNode(
 
 function createCompatElement(tagName: string): HostElementNode {
   return createHostElement("div", tagName.toLowerCase())
+}
+
+function createCompatNamespacedElement(qualifiedName: string): HostElementNode {
+  return createHostElement("div", qualifiedName)
 }
 
 function connectDocumentTree(body: CompatDocumentNode, documentElement: CompatDocumentNode): void {
