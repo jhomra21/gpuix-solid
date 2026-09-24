@@ -7,11 +7,34 @@ import {
 } from "solid-js"
 import { HostElementNode, setHostProperty, type HostRootNode } from "./host/nodes.js"
 import { nativeEventTypeForBrowserEvent, registerDelegatedNativeEvent } from "./host/events.js"
-import { createComponent, createElement, insert, spread, use } from "./universal.js"
+import { createComponent, createElement, effect, insert, memo, setProp, spread, use } from "./universal.js"
 
 export const isServer = false
 
-export { createComponent, insert, use }
+export { createComponent, effect, insert, memo, use }
+
+type WebStyleValue =
+  | string
+  | Record<string, string | number | null | undefined>
+  | null
+  | undefined
+
+export function setAttribute(node: HostElementNode, name: string, value: unknown): void {
+  setProp(node, name, value)
+}
+
+export function className(node: HostElementNode, value: string | null | undefined): void {
+  setProp(node, "class", value)
+}
+
+export function style(
+  node: HostElementNode,
+  value: WebStyleValue,
+  previous?: WebStyleValue,
+): WebStyleValue {
+  setProp(node, "style", value, previous)
+  return value
+}
 
 export const SVGElements = new Set([
   "altGlyph", "altGlyphDef", "altGlyphItem", "animate", "animateColor", "animateMotion",
