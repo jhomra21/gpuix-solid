@@ -69,6 +69,7 @@ type CompatDocument = CompatEventTarget & {
   createElementNS?: (namespace: string | null, qualifiedName: string) => HostElementNode
   createTextNode?: (value: string) => ReturnType<typeof createHostText>
   getElementsByTagName?: (tagName: string) => CompatTreeElement[]
+  getElementById?: (id: string) => HostElementNode | null
   querySelector?: (selector: string) => HostElementNode | null
   querySelectorAll?: (selector: string) => HostElementNode[]
   createTreeWalker?: (
@@ -411,6 +412,10 @@ export function installDomEventEnvironment(): void {
     if (normalized === "body") return [bodyTarget]
     if (normalized === "html") return [documentElementTarget]
     return queryDescendants(bodyTarget, normalized)
+  }
+  documentTarget.getElementById = (id) => {
+    const expected = String(id)
+    return descendantsOf(bodyTarget).find((node) => hostAttribute(node, "id") === expected) ?? null
   }
   documentTarget.querySelectorAll = (selector) => queryDescendants(bodyTarget, selector)
   documentTarget.querySelector = (selector) => documentTarget.querySelectorAll?.(selector)[0] ?? null
@@ -853,6 +858,10 @@ function matchesSelector(node: HostElementNode, selector: string): boolean {
     const part = rawPart.trim()
     if (!part) continue
     if (part === "*") return true
+    if (part.startsWith("#")) {
+      if (hostAttribute(node, "id") === part.slice(1)) return true
+      continue
+    }
     if (part.startsWith("[") && part.endsWith("]")) {
       const expression = part.slice(1, -1).trim()
       const separator = expression.indexOf("=")
