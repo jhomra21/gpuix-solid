@@ -282,7 +282,7 @@ const sourceTexts = await Promise.all(
 const rawCandidates = collectCandidates(sourceTexts)
 
 const compiler = await compile(themeCss, {
-  base: projectRoot,
+  base: path.dirname(themePath),
   from: themePath,
   onDependency() {},
 })
