@@ -152,6 +152,7 @@ const explicitlyIgnored = new Map([
   ["duration-150", "GPUIX 0.7 does not publish CSS transition timing; native state changes remain immediate"],
   ["transition-transform", "GPUIX 0.7 does not publish CSS transitions; source transform transitions remain immediate"],
   ["rotate-180", "GPUIX 0.7 StyleDesc has no general CSS transform; exact collapsed-device rotation remains source-locked but cannot be reproduced natively"],
+  ["-rotate-90", "GPUIX 0.7 StyleDesc has no general CSS transform; this rotates visual affordance icons without changing editor layout or interaction"],
   ["focus-visible:ring-1", "GPUIX 0.7 does not publish browser focus-visible ring painting through StyleDesc; keyboard focus semantics remain native"],
   ["focus-visible:ring-inset", "GPUIX 0.7 BoxShadow has no inset focus-ring mode; the exact source utility remains source-locked"],
   ["focus-visible:ring-cyan-300/70", "GPUIX 0.7 does not publish browser focus-visible ring color through StyleDesc; keyboard focus semantics remain native"],
