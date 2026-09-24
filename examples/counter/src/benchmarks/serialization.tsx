@@ -330,7 +330,7 @@ function main(): void {
   benchCanvasDrawList(captureCanvasDrawList(canvasPoints), iterations)
   console.log(
     "\nThis measures Solid's applyBatch JSON path and the same style-interning question as upstream. " +
-      "The Canvas row measures the exact v1 drawList custom-prop envelope for a DAW-style waveform. " +
+      "The Canvas row measures the current drawList custom-prop envelope for a DAW-style waveform. " +
       "The upstream Rust serde benchmark stays upstream because this repository does not own that native decoder.",
   )
 }
