@@ -37,6 +37,7 @@ import {
   resolveNativeClassTextTransform,
   resolveNativeDescendantClassStyle,
   type NativeClassList,
+  type NativeStyleMeasuredSize,
   type NativeStyleTranslation,
   type NativeTextTransform,
 } from "./native-style.js"
@@ -773,7 +774,7 @@ function scheduleMeasuredFractionalTranslation(
     const height = bounds.height > 0 ? bounds.height : undefined
     if ((pendingNeedsWidth && width === undefined) || (pendingNeedsHeight && height === undefined)) return
 
-    const measuredSize: { width?: number; height?: number } = {}
+    const measuredSize: NativeStyleMeasuredSize = {}
     if (width !== undefined) measuredSize.width = width
     if (height !== undefined) measuredSize.height = height
     const translated = applyNativeStyleTranslation(
