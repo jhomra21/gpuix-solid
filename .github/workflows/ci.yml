@@ -94,6 +94,12 @@ jobs:
         with:
           bun-version: 1.3.14
       - run: bun run diffusion:runtime:source
+      - name: Install Diffusion source style compiler
+        working-directory: examples/solid1-diffusion
+        run: bun install --no-save
+      - name: Compile Diffusion native source styles
+        working-directory: examples/solid1-diffusion
+        run: bun run source:prepare && bun run generate:styles
 
   package:
     name: package smoke

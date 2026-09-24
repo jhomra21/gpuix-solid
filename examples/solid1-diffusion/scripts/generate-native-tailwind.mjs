@@ -262,6 +262,9 @@ function dynamicIgnoredReason(candidate) {
   if (candidate === "animate-pulse" || candidate === "animate-spin") {
     return "GPUIX does not publish CSS keyframe animation; loading/running state remains represented by the mounted status icon, text, ARIA semantics, and component state"
   }
+  if (/^!?duration-\d+(?:\.\d+)?$/.test(candidate)) {
+    return "GPUIX native StyleDesc does not publish CSS transition timing; native state changes remain immediate"
+  }
   if (candidate.startsWith("after:") || candidate.includes(":after:")) {
     return "pinned Diffusion after:* utilities are audited decorative focus/selection/drop ring overlays; GPUIX has no pseudo-element paint tree, while layout, content, and pointer input remain on the authored element"
   }
@@ -320,6 +323,7 @@ const variables = collectThemeVariables(root)
 const classes = {}
 const omissions = []
 const unknownCandidates = []
+const compileFailures = []
 
 for (const candidate of rawCandidates) {
   const compatEntry = nativeCompatEntries.get(candidate)
@@ -347,8 +351,9 @@ for (const candidate of rawCandidates) {
     continue
   }
 
-  const descendant = descendantTarget(candidate)
-  const lightCompiled = compileRule(rule, candidate, variables.light)
+  try {
+    const descendant = descendantTarget(candidate)
+    const lightCompiled = compileRule(rule, candidate, variables.light)
   const darkCompiled = compileRule(rule, candidate, variables.dark)
   const variant = JSON.stringify(lightCompiled.style) === JSON.stringify(darkCompiled.style)
     ? { base: lightCompiled.style }
@@ -390,11 +395,29 @@ for (const candidate of rawCandidates) {
     if (disabled) entry.attributeVariants = { disabled: { "true": disabled } }
     if (svg) entry.svg = svg
     classes[candidate] = entry
+    }
+  } catch (error) {
+    compileFailures.push({
+      candidate,
+      message: error instanceof Error ? error.message : String(error),
+    })
   }
 }
 
+const sourceDiagnostics = []
+if (compileFailures.length > 0) {
+  sourceDiagnostics.push(
+    "Unsupported native Tailwind candidates:",
+    ...compileFailures.map(({ candidate, message }) => `- ${JSON.stringify(candidate)}: ${message}`),
+  )
+}
 if (unknownCandidates.length > 0) {
-  throw new Error(`Source class candidates have no Tailwind rule or explicit native compatibility entry: ${unknownCandidates.map((candidate) => JSON.stringify(candidate)).join(", ")}`)
+  sourceDiagnostics.push(
+    `Source class candidates have no Tailwind rule or explicit native compatibility entry: ${unknownCandidates.map((candidate) => JSON.stringify(candidate)).join(", ")}`,
+  )
+}
+if (sourceDiagnostics.length > 0) {
+  throw new Error(sourceDiagnostics.join("\n"))
 }
 
 const omissionsComment = omissions.length === 0
