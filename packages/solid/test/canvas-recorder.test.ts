@@ -357,23 +357,28 @@ describe("Canvas2D draw-list recorder", () => {
     ])
   })
 
-  it("rejects rounded, rotated, and compound clip paths instead of approximating them", () => {
-    const rounded = createCanvas2DRecorder(() => ({ width: 100, height: 100 })).context
+  it("records uniform rounded clips and rejects rotated or compound clip paths", () => {
+    const roundedRecorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
+    const rounded = roundedRecorder.context
     rounded.beginPath()
     rounded.roundRect(0, 0, 20, 20, 4)
-    expect(() => rounded.clip()).toThrow(/axis-aligned rectangular path/u)
+    rounded.clip()
+    rounded.fillRect(0, 0, 20, 20)
+    expect(roundedRecorder.snapshot().commands[0]).toMatchObject({
+      clip: { x: 0, y: 0, width: 20, height: 20, radius: 4 },
+    })
 
     const rotated = createCanvas2DRecorder(() => ({ width: 100, height: 100 })).context
     rotated.rotate(Math.PI / 4)
     rotated.beginPath()
     rotated.rect(0, 0, 20, 20)
-    expect(() => rotated.clip()).toThrow(/axis-aligned rectangular path/u)
+    expect(() => rotated.clip()).toThrow(/axis-aligned rectangle or uniform rounded rectangle/u)
 
     const compound = createCanvas2DRecorder(() => ({ width: 100, height: 100 })).context
     compound.beginPath()
     compound.rect(0, 0, 20, 20)
     compound.rect(30, 30, 10, 10)
-    expect(() => compound.clip()).toThrow(/axis-aligned rectangular path/u)
+    expect(() => compound.clip()).toThrow(/axis-aligned rectangle or uniform rounded rectangle/u)
   })
 
   it("clears the retained command list only for a full backing-store clear", () => {
