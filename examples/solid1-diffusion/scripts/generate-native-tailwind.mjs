@@ -962,6 +962,12 @@ function lengthValue(value, property, candidate) {
     const amount = Number(product[1]) * Number(product[3])
     return product[2] === "rem" ? amount * 16 : amount
   }
+  const sum = value.match(/^calc\(\s*(-?\d+(?:\.\d+)?)(px|rem)\s*([+-])\s*(-?\d+(?:\.\d+)?)(px|rem)\s*\)$/)
+  if (sum) {
+    const left = Number(sum[1]) * (sum[2] === "rem" ? 16 : 1)
+    const right = Number(sum[4]) * (sum[5] === "rem" ? 16 : 1)
+    return sum[3] === "+" ? left + right : left - right
+  }
   throw new Error(`Unsupported ${property} length from ${JSON.stringify(candidate)}: ${value}`)
 }
 
