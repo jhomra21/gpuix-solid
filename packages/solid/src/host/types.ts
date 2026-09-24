@@ -188,6 +188,11 @@ export interface StyleDesc {
   marginRight?: number
   marginBottom?: number
   marginLeft?: number
+  /** Source-edge CSS auto margins. Sent only when the renderer advertises support. */
+  marginTopAuto?: boolean
+  marginRightAuto?: boolean
+  marginBottomAuto?: boolean
+  marginLeftAuto?: boolean
 
   /** Width + height shorthand; explicit width/height win. */
   size?: DimensionValue
@@ -608,6 +613,8 @@ export interface NativeRenderer {
   getWindowInsets?(): NativeWindowInsets
   /** Version of the native retained Canvas2D draw-list protocol, or undefined when unavailable. */
   getCanvasDrawListVersion?(): number | undefined
+  /** Version of source-edge CSS auto-margin support, or undefined when unavailable. */
+  getAutoMarginVersion?(): number | undefined
   /** Synchronously measure one line using GPUI's native text shaping. */
   measureCanvasText?(text: string, fontSize: number, fontFamily: string, fontWeight: number): number
   setCanvasImagePixels?(
