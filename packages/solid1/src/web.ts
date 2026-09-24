@@ -38,30 +38,20 @@ export function style(
   return value
 }
 
-type WebEventData =
-  | object
-  | string
-  | number
-  | boolean
-  | bigint
-  | symbol
-  | null
-  | undefined
+type WebEventDataHandler<T> = (data: T, event: Event) => void
+type WebEventHandler<T> = EventListener | [WebEventDataHandler<T>, T]
 
-type WebEventDataHandler = (data: WebEventData, event: Event) => void
-type WebEventHandler = EventListenerOrEventListenerObject | [WebEventDataHandler, WebEventData]
-
-export function addEventListener(
+export function addEventListener<T>(
   node: HostElementNode,
   name: string,
-  handler: WebEventHandler,
+  handler: WebEventHandler<T>,
   delegate: boolean,
 ): void {
   const eventName = name.toLowerCase()
   if (Array.isArray(handler)) {
     const [handlerFunction, data] = handler
     if (delegate) {
-      defineDelegatedEvent(node, eventName, handlerFunction, data)
+      defineDelegatedDataHandler(node, eventName, handlerFunction, data)
       return
     }
     node.addEventListener(eventName, (event) => handlerFunction.call(node, data, event))
@@ -69,29 +59,37 @@ export function addEventListener(
   }
 
   if (delegate) {
-    const listener = typeof handler === "function"
-      ? handler
-      : (event: Event) => handler.handleEvent(event)
-    defineDelegatedEvent(node, eventName, listener)
+    defineDelegatedListener(node, eventName, handler)
     return
   }
 
   node.addEventListener(eventName, handler)
 }
 
-function defineDelegatedEvent(
+function defineDelegatedListener(
   node: HostElementNode,
   name: string,
-  handler: EventListener | WebEventDataHandler,
-  data?: WebEventData,
+  handler: EventListener,
 ): void {
-  Object.defineProperty(node, `$${name}`, {
+  Object.defineProperty(node, `$$${name}`, {
     configurable: true,
     writable: true,
     value: handler,
   })
-  if (data === undefined) return
-  Object.defineProperty(node, `$${name}Data`, {
+}
+
+function defineDelegatedDataHandler<T>(
+  node: HostElementNode,
+  name: string,
+  handler: WebEventDataHandler<T>,
+  data: T,
+): void {
+  Object.defineProperty(node, `$$${name}`, {
+    configurable: true,
+    writable: true,
+    value: handler,
+  })
+  Object.defineProperty(node, `$$${name}Data`, {
     configurable: true,
     writable: true,
     value: data,
