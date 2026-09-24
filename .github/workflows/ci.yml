@@ -151,6 +151,7 @@ jobs:
 
   edge-native:
     name: GPUIX pinned edge (macOS)
+    needs: diffusion-source
     runs-on: macos-latest
     timeout-minutes: 45
     env:
