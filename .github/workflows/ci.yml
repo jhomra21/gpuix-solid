@@ -102,7 +102,7 @@ jobs:
         run: bun run source:prepare && bun run generate:styles
       - name: Build Diffusion source harness
         working-directory: examples/solid1-diffusion
-        run: bun run build:test:edge
+        run: bun run build:test
 
   package:
     name: package smoke
