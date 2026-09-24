@@ -23,6 +23,7 @@ type NativeModule = {
 
 type SourceEdgeNativeTestRenderer = NativeTestRendererApi & {
   getCanvasDrawListVersion?: () => number
+  getAutoMarginVersion?: () => number
   measureCanvasText?: (text: string, fontSize: number, fontFamily: string, fontWeight: number) => number
   setCanvasImagePixels?: (
     elementId: number,
@@ -332,6 +333,12 @@ export class TestRenderer implements NativeRenderer {
     // exists in the published @gpuix/native TypeScript surface.
     const native = this.#native as SourceEdgeNativeTestRenderer
     return native.getCanvasDrawListVersion?.()
+  }
+
+  getAutoMarginVersion(): number | undefined {
+    // SAFETY: source-edge GPUIX may expose CSS auto margins before published typings.
+    const native = this.#native as SourceEdgeNativeTestRenderer
+    return native.getAutoMarginVersion?.()
   }
 
   measureCanvasText(text: string, fontSize: number, fontFamily: string, fontWeight: number): number {
