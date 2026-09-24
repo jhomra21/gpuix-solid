@@ -182,6 +182,7 @@ const nativeCompatEntries = new Map([
   ["top-[54%]", { base: {}, parentPosition: { topFraction: 0.54 } }],
   ["translate-y-1/2", { base: {}, translation: { yFraction: 0.5 } }],
   ["-translate-y-1/2", { base: {}, translation: { yFraction: -0.5 } }],
+  ["ml-auto", { base: {}, autoMargin: { left: true } }],
 ])
 
 const explicitlyIgnored = new Map([
@@ -310,7 +311,6 @@ const explicitlyIgnored = new Map([
   ["w-max", "native floating content uses intrinsic sizing; GPUIX 0.7 dimensions do not accept CSS max-content"],
   ["shadow-md", "Tailwind shadow-md is layered; GPUIX 0.7 exposes one native BoxShadow"],
   ["shadow-lg", "Tailwind shadow-lg is layered; GPUIX 0.7 exposes one native BoxShadow"],
-  ["ml-auto", "GPUIX 0.7 exposes numeric margins only; CSS auto main-axis margins are unavailable"],
 ])
 
 function dynamicIgnoredReason(candidate) {
