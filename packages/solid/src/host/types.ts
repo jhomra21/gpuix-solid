@@ -154,6 +154,7 @@ export interface StyleDesc {
   columnGap?: number
   gridTemplateColumns?: number
   gridTemplateRows?: number
+  gridAutoFlow?: "row" | "column"
   gridColumnMin?: "zero" | "min-content" | "max-content"
   gridRowMin?: "zero" | "min-content" | "max-content"
 
