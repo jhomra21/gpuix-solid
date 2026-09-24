@@ -15,7 +15,7 @@ diff --git a/packages/native/src/style.rs b/packages/native/src/style.rs
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -1450,6 +1450,12 @@ impl GpuixRenderer {
+@@ -1482,6 +1482,12 @@ impl GpuixRenderer {
          ))
      }
  
@@ -25,9 +25,9 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +        1
 +    }
 +
-     /// The paintable size of the window in logical pixels, excluding any
-     /// platform title bar. This used to answer a hardcoded 800x600, so anything
-     /// that turned a mouse position into layout coordinates pointed at the
+     #[napi]
+     pub fn get_window_insets(&self) -> Result<WindowInsets> {
+         #[cfg(target_os = "macos")]
 @@ -5719,6 +5725,18 @@ fn apply_style(mut el: gpui::Div, style: &StyleDesc) -> gpui::Div {
      if let Some(ml) = style.margin_left {
          el = el.ml(gpui::px(ml as f32));
@@ -50,8 +50,8 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 diff --git a/packages/native/src/test_renderer.rs b/packages/native/src/test_renderer.rs
 --- a/packages/native/src/test_renderer.rs
 +++ b/packages/native/src/test_renderer.rs
-@@ -1208,6 +1208,12 @@ impl TestGpuixRenderer {
-         self.tree.lock().unwrap().root_id.map(|id| id as f64)
+@@ -1222,6 +1222,12 @@ impl TestGpuixRenderer {
+         })
      }
  
 +    /// Version of CSS auto-margin support in StyleDesc.
@@ -60,6 +60,6 @@ diff --git a/packages/native/src/test_renderer.rs b/packages/native/src/test_ren
 +        1
 +    }
 +
-     /// The offscreen window size, so `useWindowSize()` reports the same numbers
-     /// under test as in a real window instead of falling back to a default.
-     #[napi]
+     // ── Private helpers ──────────────────────────────────────────────
+ 
+     fn collect_text(id: u64, tree: &RetainedTree, texts: &mut Vec<String>) {
