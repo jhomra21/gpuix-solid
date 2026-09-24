@@ -189,6 +189,7 @@ type CompatWindow = CompatEventTarget & {
   localStorage?: CompatStorage
   sessionStorage?: CompatStorage
   Storage?: typeof CompatStorage
+  history?: CompatHistory
   innerWidth?: number
   innerHeight?: number
   scrollX?: number
@@ -199,6 +200,25 @@ type CompatWindow = CompatEventTarget & {
 }
 
 
+
+type CompatHistoryState = Record<string, string | number | boolean | null>
+
+class CompatHistory {
+  #state: CompatHistoryState | null = null
+
+  get length(): number {
+    return 1
+  }
+
+  get state(): CompatHistoryState | null {
+    return this.#state
+  }
+
+  replaceState(state: CompatHistoryState | null, title: string): void {
+    void title
+    this.#state = state ? { ...state } : null
+  }
+}
 
 class CompatStorage {
   readonly #items = new Map<string, string>()
@@ -339,10 +359,12 @@ export function installDomEventEnvironment(): void {
   const documentTarget: CompatDocument = {}
   const localStorageTarget = new CompatStorage()
   const sessionStorageTarget = new CompatStorage()
+  const historyTarget = new CompatHistory()
   const windowTarget: CompatWindow = {
     localStorage: localStorageTarget,
     sessionStorage: sessionStorageTarget,
     Storage: CompatStorage,
+    history: historyTarget,
     innerWidth: 800,
     innerHeight: 600,
     scrollX: 0,
@@ -429,6 +451,11 @@ export function installDomEventEnvironment(): void {
     configurable: true,
     writable: true,
     value: CompatStorage,
+  })
+  Object.defineProperty(globalThis, "history", {
+    configurable: true,
+    writable: true,
+    value: historyTarget,
   })
   Object.defineProperty(globalThis, "getComputedStyle", {
     configurable: true,
