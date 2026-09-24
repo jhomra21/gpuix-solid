@@ -61,11 +61,11 @@ describe("native Canvas2D source-edge parity", () => {
 
     context.save()
     context.beginPath()
-    context.rect(184, 84, 24, 24)
+    context.roundRect(180, 80, 40, 32, 6)
     context.clip()
     context.fillStyle = "#3fb950"
     context.beginPath()
-    context.arc(196, 96, 22, 0, Math.PI * 2)
+    context.arc(200, 96, 22, 0, Math.PI * 2)
     context.fill()
     context.restore()
 
@@ -104,7 +104,7 @@ describe("native Canvas2D source-edge parity", () => {
       commands: [
         { op: "fillPath", color: "#2f81f7" },
         { op: "fillPath", color: "#f2cc60" },
-        { op: "fillPath", color: "#3fb950", clip: { x: 184, y: 84, width: 24, height: 24 } },
+        { op: "fillPath", color: "#3fb950", clip: { x: 180, y: 80, width: 40, height: 32, radius: 6 } },
         {
           op: "drawImage",
           imageId: 1,
