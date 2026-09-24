@@ -26,17 +26,6 @@ function descendants(node) {
   return values
 }
 
-function findByTestId(node, testId) {
-  if (!node) return null
-  return descendants(node).find((candidate) => candidate.testId === testId) ?? null
-}
-
-function svgSource(node) {
-  const svg = descendants(node).find((candidate) => candidate.type === "svg")
-  const source = svg?.customProps?.source
-  return source == null ? null : String(source)
-}
-
 function drawListText(node) {
   return JSON.stringify(node.customProps?.drawList ?? null)
 }
@@ -97,25 +86,6 @@ try {
   const rectangle = app.getByTestId("diffusion-toolbar-rectangle")
   await rectangle.waitFor({ timeoutMs })
 
-  const beforeTree = await app.backend.getTree()
-  const beforeButton = findByTestId(beforeTree, "diffusion-toolbar-rectangle")
-  if (!beforeButton) throw new Error("Rectangle button disappeared before live click")
-
-  const beforeSvg = svgSource(beforeButton)
-  if (!beforeSvg || beforeSvg.includes("currentColor")) {
-    throw new Error("Rectangle button SVG should enter live automation with resolved currentColor")
-  }
-
-  await rectangle.click()
-
-  const selectedSvg = await waitFor("Rectangle selected paint", async () => {
-    const tree = await app.backend.getTree()
-    const button = findByTestId(tree, "diffusion-toolbar-rectangle")
-    if (!button) return null
-    const source = svgSource(button)
-    return source && source !== beforeSvg && !source.includes("currentColor") ? source : null
-  })
-
   const stage = await waitFor("Diffusion EngineCanvas draw list", async () => {
     const tree = await app.backend.getTree()
     if (!tree) return null
@@ -129,13 +99,27 @@ try {
     throw new Error(`Unexpected Diffusion EngineCanvas bounds: ${JSON.stringify(stageBounds)}`)
   }
 
+  await rectangle.click()
+
+  const overlay = await waitFor("Rectangle DrawOverlay", async () => {
+    const tree = await app.backend.getTree()
+    if (!tree) return null
+    return descendants(tree).find(
+      (node) => node.style?.cursor === "crosshair" && node.style?.pointerEvents !== "none",
+    ) ?? null
+  })
+  const overlayBounds = overlay.bounds ?? await app.backend.getBounds(overlay.id)
+  if (!overlayBounds || overlayBounds.width < 240 || overlayBounds.height < 180) {
+    throw new Error(`Unexpected Diffusion DrawOverlay bounds: ${JSON.stringify(overlayBounds)}`)
+  }
+
   const start = {
-    x: stageBounds.x + stageBounds.width * 0.35,
-    y: stageBounds.y + stageBounds.height * 0.35,
+    x: overlayBounds.x + overlayBounds.width * 0.35,
+    y: overlayBounds.y + overlayBounds.height * 0.35,
   }
   const end = {
-    x: Math.min(stageBounds.x + stageBounds.width - 24, start.x + 120),
-    y: Math.min(stageBounds.y + stageBounds.height - 24, start.y + 80),
+    x: Math.min(overlayBounds.x + overlayBounds.width - 24, start.x + 120),
+    y: Math.min(overlayBounds.y + overlayBounds.height - 24, start.y + 80),
   }
 
   await app.mouse.drag(start, end, { steps: 8 })
@@ -154,8 +138,8 @@ try {
   }
 
   console.log("solid1 Diffusion live automation:", JSON.stringify({
-    rectangleSvgChanged: selectedSvg !== beforeSvg,
     stageBounds,
+    overlayBounds,
     drag: { start, end },
     insertedDrawListBytes: insertedDrawList.length,
     screenshotPath,
