@@ -11,7 +11,7 @@ diff --git a/packages/native/src/style.rs b/packages/native/src/style.rs
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -5114,6 +5114,19 @@ pub(crate) fn build_host_container(
+@@ -5114,6 +5114,18 @@ pub(crate) fn build_host_container(
      if let Some(style) = style {
          el = apply_interactive_styles(el, style);
  
@@ -30,7 +30,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
          if crate::style::should_occlude(style) {
              // BlockMouse (occlude) stops the hit test, so the parent scroller
              // never sees the wheel. HTML does not work that way: a wheel over
-@@ -5462,7 +5475,23 @@ pub(crate) fn build_host_container(
+@@ -5462,6 +5474,25 @@ pub(crate) fn build_host_container(
      }
  
      // Children
