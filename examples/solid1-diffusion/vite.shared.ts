@@ -9,6 +9,7 @@ const solid1Entry = fromHere("../../packages/solid1/dist/index.js")
 const solidWebCompat = fromHere("../../packages/solid1/dist/web-entry.js")
 const runtimeBridge = fromHere("./src/runtime-bridge.ts")
 const webSource = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/apps/web/src/`)
+const desktopSource = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/apps/desktop/src/`)
 const kobalteSourceRoot = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/node_modules/@kobalte/core/src/`)
 
 const toolbarTestHook = {
@@ -61,6 +62,7 @@ export function diffusionConfig(entry: string, outDir: string) {
         { find: /^@kobalte\/core$/, replacement: `${kobalteSourceRoot}index.ts` },
         { find: /^@kobalte\/core\/(.+)$/, replacement: `${kobalteSourceRoot}$1/index.tsx` },
         { find: /^@\//, replacement: webSource },
+        { find: /^@desktop\//, replacement: desktopSource },
         { find: "@diffusionstudio/assets", replacement: packageSource("assets") },
         { find: "@diffusionstudio/jsx", replacement: packageSource("jsx") },
         { find: "@diffusionstudio/koota-solid", replacement: packageSource("koota-solid") },
