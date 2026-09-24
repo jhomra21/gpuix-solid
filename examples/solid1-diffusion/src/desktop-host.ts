@@ -1,40 +1,36 @@
-type MainRequest = {
-  id: string
-  channel: string
-}
-
-type MainReply =
-  | { id: string; ok: true; data: boolean | null }
-  | { id: string; ok: false; error: string }
+import {
+  MAIN_CHANNELS,
+  MAIN_WIRE,
+  type MainReply,
+  type MainRequest,
+} from "@desktop/main-channels"
 
 type DesktopListener = (payload: MainReply) => void
 
 const listeners = new Map<string, Set<DesktopListener>>()
+let installed = false
 
 /**
- * Supplies the small Electron preload surface the pinned editor reads while
- * running inside GPUIX. Keep unsupported main-process calls visible instead
- * of silently inventing desktop behavior.
+ * Supplies the Electron preload surface the pinned editor reads while running
+ * inside GPUIX. Unsupported main-process calls return an explicit error.
  */
 export function installDiffusionDesktopHost(): void {
-  const browserWindow = globalThis.window as Window & { desktop?: object }
-  if (browserWindow.desktop) return
+  if (installed) return
+  installed = true
 
   const desktop = {
     platform: "darwin",
-    send(channel: string, payload: unknown): void {
-      if (channel !== "main:request") return
-      const request = parseMainRequest(payload)
-      if (!request) return
+    send(channel: string, request: MainRequest): void {
+      if (channel !== MAIN_WIRE.REQUEST) return
 
       let reply: MainReply
       switch (request.channel) {
-        case "window:is-fullscreen":
+        case MAIN_CHANNELS.WINDOW_IS_FULLSCREEN:
           reply = { id: request.id, ok: true, data: false }
           break
-        case "window:set-color-mode":
-        case "analytics:track":
-          reply = { id: request.id, ok: true, data: null }
+        case MAIN_CHANNELS.WINDOW_SET_COLOR_MODE:
+        case MAIN_CHANNELS.ANALYTICS_TRACK:
+          reply = { id: request.id, ok: true, data: undefined }
           break
         default:
           reply = {
@@ -44,7 +40,7 @@ export function installDiffusionDesktopHost(): void {
           }
       }
 
-      queueMicrotask(() => emit("main:response", reply))
+      queueMicrotask(() => emit(MAIN_WIRE.RESPONSE, reply))
     },
     on(channel: string, listener: DesktopListener): () => void {
       const channelListeners = listeners.get(channel) ?? new Set<DesktopListener>()
@@ -60,7 +56,7 @@ export function installDiffusionDesktopHost(): void {
     },
   }
 
-  Object.defineProperty(browserWindow, "desktop", {
+  Object.defineProperty(globalThis.window, "desktop", {
     configurable: true,
     writable: true,
     value: desktop,
@@ -71,15 +67,4 @@ export function installDiffusionDesktopHost(): void {
 
 function emit(channel: string, payload: MainReply): void {
   for (const listener of listeners.get(channel) ?? []) listener(payload)
-}
-
-function parseMainRequest(payload: unknown): MainRequest | undefined {
-  if (!isRecord(payload)) return undefined
-  const { id, channel } = payload
-  if (typeof id !== "string" || typeof channel !== "string") return undefined
-  return { id, channel }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
 }
