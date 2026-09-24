@@ -109,6 +109,7 @@ onNativeStyleEnvironmentChange(() => {
       continue
     }
     reapplyNativeStyleSubtree(node)
+    refreshInlineSvgSubtree(node)
   }
 })
 
@@ -215,18 +216,22 @@ function setNativeProperty<T>(
     // SAFETY: Solid forwards the JSX style prop as the host element's inline style object.
     const inlineStyle = value as NativeInlineStyleInput | undefined
     setNativeInlineStyle(node, normalizeNativeInlineStyle(inlineStyle))
+    refreshInlineSvgSubtree(node)
     return
   }
   if (name === "class") {
     setNativeClass(node, parseNativeClassName(value))
+    refreshInlineSvgSubtree(node)
     return
   }
   if (name === "className") {
     setNativeClassName(node, parseNativeClassName(value))
+    refreshInlineSvgSubtree(node)
     return
   }
   if (name === "classList") {
     setNativeClassList(node, parseNativeClassList(value))
+    refreshInlineSvgSubtree(node)
     return
   }
   if (name === "hidden") {
@@ -290,6 +295,16 @@ function refreshInlineSvg(node: HostElementNode): void {
   setHostProperty(root, "src", `data:image/svg+xml,${encodeURIComponent(source)}`)
 }
 
+function refreshInlineSvgSubtree(node: HostElementNode): void {
+  if (semanticTags.get(node) === "svg") {
+    refreshInlineSvg(node)
+    return
+  }
+  for (const child of node.children) {
+    if (child.kind === "element") refreshInlineSvgSubtree(child)
+  }
+}
+
 function inlineSvgRoot(node: HostElementNode): HostElementNode | undefined {
   let current: HostElementNode = node
   for (;;) {
@@ -306,7 +321,7 @@ function serializeSvgElement(node: HostElementNode, root: boolean): string {
   const attributes = new Map(svgAttributes.get(node) ?? [])
   if (root && !attributes.has("xmlns")) attributes.set("xmlns", "http://www.w3.org/2000/svg")
   const renderedAttributes = [...attributes]
-    .map(([name, value]) => `${serializeSvgAttributeName(name)}="${escapeXmlAttribute(value)}"`)
+    .map(([name, value]) => `${serializeSvgAttributeName(name)}="${escapeXmlAttribute(resolveSvgCurrentColor(node, value))}"`)
     .join(" ")
   const opening = renderedAttributes ? `<${tagName} ${renderedAttributes}>` : `<${tagName}>`
   const children = node.children.map(serializeSvgChild).join("")
@@ -318,6 +333,21 @@ function serializeSvgChild(node: HostNode): string {
   const tagName = semanticTags.get(node)
   if (!tagName || !isSvgMarkupTag(tagName)) return ""
   return serializeSvgElement(node, false)
+}
+
+function resolveSvgCurrentColor(node: HostElementNode, value: string): string {
+  if (!value.includes("currentColor")) return value
+  const color = inheritedSvgColor(node)
+  return color === undefined ? value : value.replaceAll("currentColor", color)
+}
+
+function inheritedSvgColor(node: HostElementNode): string | undefined {
+  let current: HostParent | null = node
+  while (current?.kind === "element") {
+    if (current.style.color !== undefined) return current.style.color
+    current = current.parent
+  }
+  return undefined
 }
 
 function serializeSvgAttributeName(name: string): string {
