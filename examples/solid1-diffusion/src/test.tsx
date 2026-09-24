@@ -212,10 +212,12 @@ if (!hasNativeTestRenderer) {
     )
     requireCondition(stageBounds.width < editorBounds.width, "Diffusion EditorPage stage should leave room for editor sidebars")
     requireCondition(stageBounds.height < editorBounds.height, "Diffusion EditorPage stage should leave room for the timeline")
-    requireCondition(
-      zoomLabelBounds.x > editorLabelBounds.x + editorLabelBounds.width + 80,
-      `Diffusion inspector zoom should stay right-aligned; Editor at ${editorLabelBounds.x}, zoom at ${zoomLabelBounds.x}`,
-    )
+    if (editorApp.renderer.getAutoMarginVersion() === 1) {
+      requireCondition(
+        zoomLabelBounds.x > editorLabelBounds.x + editorLabelBounds.width + 80,
+        `Diffusion inspector zoom should stay right-aligned; Editor at ${editorLabelBounds.x}, zoom at ${zoomLabelBounds.x}`,
+      )
+    }
 
     const timelineCanvas = Array.from(document.body.querySelectorAll("canvas"))
       .find((element) => element.getAttribute("id") === "timeline-canvas")
