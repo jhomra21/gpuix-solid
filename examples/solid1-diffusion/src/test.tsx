@@ -245,7 +245,7 @@ if (!hasNativeTestRenderer) {
       "Diffusion EditorPage should expose the real Rectangle toolbar button",
     )
     const rectangleIconBefore = editorApp.renderer.customPropStringContainingAllWithinTestId(
-      "diffusion-toolbar-rectangle",
+      "diffusion-icon-tool.rectangle",
       "source",
       ["<svg"],
     )
@@ -263,7 +263,7 @@ if (!hasNativeTestRenderer) {
       "Diffusion EditorPage Rectangle button should select the real RECT tool",
     )
     const rectangleIconAfter = editorApp.renderer.customPropStringContainingAllWithinTestId(
-      "diffusion-toolbar-rectangle",
+      "diffusion-icon-tool.rectangle",
       "source",
       ["<svg"],
     )
