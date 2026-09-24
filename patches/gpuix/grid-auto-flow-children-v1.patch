@@ -1,0 +1,30 @@
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -5482,6 +5482,25 @@ pub(crate) fn build_host_container(
+ 
+     // Children
+-    let child_ids: Vec<u64> = element.children.clone();
++    let child_ids: Vec<u64> = if style.and_then(|value| value.grid_auto_flow.as_deref()) == Some("column") {
++        if let Some(rows) = style.and_then(|value| value.grid_template_rows) {
++            let row_count = rows.round().clamp(1.0, 64.0) as usize;
++            let column_count = element.children.len().div_ceil(row_count);
++            let mut ordered = Vec::with_capacity(element.children.len());
++            for row in 0..row_count {
++                for column in 0..column_count {
++                    let index = column * row_count + row;
++                    if let Some(&child_id) = element.children.get(index) {
++                        ordered.push(child_id);
++                    }
++                }
++            }
++            ordered
++        } else {
++            element.children.clone()
++        }
++    } else {
++        element.children.clone()
++    };
+     for child_id in child_ids {
+         let child = build_element(child_id, ctx, window, cx);
+         let child = if let Some(priority) = z_index_priority(ctx.tree, child_id) {
