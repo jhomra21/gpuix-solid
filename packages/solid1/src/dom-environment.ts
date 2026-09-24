@@ -185,6 +185,9 @@ type CompatWindow = CompatEventTarget & {
   DOMMatrix?: typeof CompatDOMMatrix
   DOMRect?: typeof CompatDOMRect
   getComputedStyle?: CompatGetComputedStyle
+  localStorage?: CompatStorage
+  sessionStorage?: CompatStorage
+  Storage?: typeof CompatStorage
   innerWidth?: number
   innerHeight?: number
   scrollX?: number
@@ -195,6 +198,35 @@ type CompatWindow = CompatEventTarget & {
 }
 
 
+
+class CompatStorage {
+  readonly #items = new Map<string, string>()
+
+  get length(): number {
+    return this.#items.size
+  }
+
+  clear(): void {
+    this.#items.clear()
+  }
+
+  getItem(key: string): string | null {
+    return this.#items.get(String(key)) ?? null
+  }
+
+  key(index: number): string | null {
+    if (!Number.isInteger(index) || index < 0) return null
+    return [...this.#items.keys()][index] ?? null
+  }
+
+  removeItem(key: string): void {
+    this.#items.delete(String(key))
+  }
+
+  setItem(key: string, value: string): void {
+    this.#items.set(String(key), String(value))
+  }
+}
 
 class CompatDOMRect {
   constructor(
@@ -304,7 +336,12 @@ export function installDomEventEnvironment(): void {
   nativeDomEnvironmentInstalled = true
 
   const documentTarget: CompatDocument = {}
+  const localStorageTarget = new CompatStorage()
+  const sessionStorageTarget = new CompatStorage()
   const windowTarget: CompatWindow = {
+    localStorage: localStorageTarget,
+    sessionStorage: sessionStorageTarget,
+    Storage: CompatStorage,
     innerWidth: 800,
     innerHeight: 600,
     scrollX: 0,
@@ -376,6 +413,21 @@ export function installDomEventEnvironment(): void {
     configurable: true,
     writable: true,
     value: windowTarget,
+  })
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    writable: true,
+    value: localStorageTarget,
+  })
+  Object.defineProperty(globalThis, "sessionStorage", {
+    configurable: true,
+    writable: true,
+    value: sessionStorageTarget,
+  })
+  Object.defineProperty(globalThis, "Storage", {
+    configurable: true,
+    writable: true,
+    value: CompatStorage,
   })
   Object.defineProperty(globalThis, "getComputedStyle", {
     configurable: true,
