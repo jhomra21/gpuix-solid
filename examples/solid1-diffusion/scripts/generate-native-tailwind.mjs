@@ -258,6 +258,9 @@ function dynamicIgnoredReason(candidate) {
   if (candidate.startsWith("origin-(") || candidate.startsWith("max-h-[var(")) {
     return "native floating-layer geometry owns the corresponding browser CSS custom-property contract"
   }
+  if (/^-?translate-[xy]-/.test(candidate)) {
+    return "GPUIX native layout has explicit translation metadata only for the fractional centering utilities used by the canvas shell"
+  }
   if (candidate === "animate-in" || candidate === "animate-out" || candidate.includes("fade-in-") || candidate.includes("fade-out-") || candidate.includes("zoom-in-") || candidate.includes("zoom-out-") || candidate.includes("slide-in-from-")) {
     return "native UI state changes are immediate; browser CSS entrance/exit transforms are not published"
   }
