@@ -27,6 +27,11 @@ export interface NativeStyleTranslation {
   yFraction?: number
 }
 
+export interface NativeStyleMeasuredSize {
+  width?: number
+  height?: number
+}
+
 /** Parent-relative offsets used by percentage positioning utilities such as left-1/2. */
 export interface NativeStyleParentPosition {
   leftFraction?: number
@@ -242,7 +247,7 @@ export function resolveNativeClassTranslation(
 export function applyNativeStyleTranslation(
   style: StyleDesc | undefined,
   translation: NativeStyleTranslation | undefined,
-  measuredSize?: { width?: number; height?: number },
+  measuredSize?: NativeStyleMeasuredSize,
 ): StyleDesc | undefined {
   if (!style || !translation) return style
   const result: StyleDesc = { ...style }
