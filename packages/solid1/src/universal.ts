@@ -725,11 +725,8 @@ function applyNativeStyleState(node: HostElementNode): void {
   const flowedStyle = mergeNativeStyles(mergedStyle, browserInlineFlow)
   const parentWidth = resolvedNativeNodeSize(node.parent, "x")
   const parentHeight = resolvedNativeNodeSize(node.parent, "y")
-  const sizedStyle = node.parent?.kind === "root"
-    ? resolveNativeRelativeDimensions(flowedStyle, parentWidth, parentHeight)
-    : flowedStyle
   const positionedStyle = applyNativeStyleParentPosition(
-    sizedStyle,
+    flowedStyle,
     classParentPosition,
     parentWidth,
     parentHeight,
@@ -902,23 +899,6 @@ function resolvedNativeDimension(value: DimensionValue | undefined, parentSize: 
   return undefined
 }
 
-
-function resolveNativeRelativeDimensions(
-  style: StyleDesc | undefined,
-  parentWidth: number | undefined,
-  parentHeight: number | undefined,
-): StyleDesc | undefined {
-  if (!style) return style
-  const resolved: StyleDesc = { ...style }
-
-  const width = resolvedNativeDimension(style.width, parentWidth)
-  const height = resolvedNativeDimension(style.height, parentHeight)
-
-  if (width !== undefined) resolved.width = width
-  if (height !== undefined) resolved.height = height
-
-  return resolved
-}
 function resolvedNativePosition(value: DimensionValue | undefined, parentSize: number): number | undefined {
   if (value === undefined) return undefined
   const number = Number(value)
