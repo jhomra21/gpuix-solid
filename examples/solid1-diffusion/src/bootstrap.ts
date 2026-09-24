@@ -1,11 +1,10 @@
 import { installDiffusionDesktopHost } from "./desktop-host"
 
 /**
- * Installs the browser services Diffusion evaluates at module load, then loads
- * the untouched upstream-backed editor after those services exist.
+ * Installs the native browser/desktop services Diffusion reads during module
+ * evaluation, then loads the untouched upstream-backed editor.
  */
 export async function loadDiffusionNativeApp() {
-  await import("fake-indexeddb/auto")
   installDiffusionDesktopHost()
   return import("./app")
 }

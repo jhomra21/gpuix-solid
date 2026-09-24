@@ -1,4 +1,19 @@
 import {
+  IDBCursor,
+  IDBCursorWithValue,
+  IDBDatabase,
+  IDBFactory,
+  IDBIndex,
+  IDBKeyRange,
+  IDBObjectStore,
+  IDBOpenDBRequest,
+  IDBRecord,
+  IDBRequest,
+  IDBTransaction,
+  IDBVersionChangeEvent,
+  indexedDB,
+} from "fake-indexeddb"
+import {
   MAIN_CHANNELS,
   MAIN_WIRE,
   type MainReply,
@@ -10,13 +25,35 @@ type DesktopListener = (payload: MainReply) => void
 const listeners = new Map<string, Set<DesktopListener>>()
 let installed = false
 
+const indexedDbProperties: PropertyDescriptorMap = {
+  indexedDB: writableGlobal(indexedDB),
+  IDBCursor: writableGlobal(IDBCursor),
+  IDBCursorWithValue: writableGlobal(IDBCursorWithValue),
+  IDBDatabase: writableGlobal(IDBDatabase),
+  IDBFactory: writableGlobal(IDBFactory),
+  IDBIndex: writableGlobal(IDBIndex),
+  IDBKeyRange: writableGlobal(IDBKeyRange),
+  IDBObjectStore: writableGlobal(IDBObjectStore),
+  IDBOpenDBRequest: writableGlobal(IDBOpenDBRequest),
+  IDBRecord: writableGlobal(IDBRecord),
+  IDBRequest: writableGlobal(IDBRequest),
+  IDBTransaction: writableGlobal(IDBTransaction),
+  IDBVersionChangeEvent: writableGlobal(IDBVersionChangeEvent),
+}
+
 /**
- * Supplies the Electron preload surface the pinned editor reads while running
- * inside GPUIX. Unsupported main-process calls return an explicit error.
+ * Supplies the browser storage globals and Electron preload surface the pinned
+ * editor reads while running inside GPUIX. Unsupported main-process calls
+ * return an explicit error.
  */
 export function installDiffusionDesktopHost(): void {
   if (installed) return
   installed = true
+
+  // GPUIX exposes a browser-like window object that is distinct from the JS
+  // global object. Diffusion uses both window APIs and bare IndexedDB globals.
+  Object.defineProperties(globalThis, indexedDbProperties)
+  Object.defineProperties(globalThis.window, indexedDbProperties)
 
   const desktop = {
     platform: "darwin",
@@ -63,6 +100,15 @@ export function installDiffusionDesktopHost(): void {
   })
   document.documentElement.dataset.platform = "darwin"
   document.documentElement.dataset.fullscreen = "false"
+}
+
+function writableGlobal(value: object): PropertyDescriptor {
+  return {
+    value,
+    enumerable: false,
+    configurable: true,
+    writable: true,
+  }
 }
 
 function emit(channel: string, payload: MainReply): void {
