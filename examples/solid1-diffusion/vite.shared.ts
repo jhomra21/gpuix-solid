@@ -12,6 +12,27 @@ const webSource = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slic
 const desktopSource = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/apps/desktop/src/`)
 const kobalteSourceRoot = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/node_modules/@kobalte/core/src/`)
 
+const normalizedSourceRoot = sourceRoot.replaceAll("\\", "/")
+
+const multilineClassAttributeHook = {
+  name: "diffusion-multiline-class-attribute-compat",
+  enforce: "pre" as const,
+  transform(code: string, id: string) {
+    const normalizedId = id.replaceAll("\\", "/").split("?")[0]
+    if (!normalizedId.startsWith(normalizedSourceRoot) || !normalizedId.endsWith(".tsx")) return null
+
+    let changed = false
+    const normalizedCode = code.replace(
+      /\b(class|className)\s*=\s*"([^"]*\n[^"]*)"/g,
+      (_match, name: string, value: string) => {
+        changed = true
+        return `${name}="${value.replace(/\s*\n\s*/g, " ")}"`
+      },
+    )
+    return changed ? { code: normalizedCode, map: null } : null
+  },
+}
+
 const toolbarTestHook = {
   name: "diffusion-toolbar-native-test-hook",
   enforce: "pre" as const,
@@ -47,6 +68,7 @@ export function diffusionConfig(entry: string, outDir: string) {
       "import.meta.env.VITE_DESKTOP": JSON.stringify("false"),
     },
     plugins: [
+      multilineClassAttributeHook,
       toolbarTestHook,
       solid({
         solid: {

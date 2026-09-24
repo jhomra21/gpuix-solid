@@ -100,6 +100,9 @@ jobs:
       - name: Compile Diffusion native source styles
         working-directory: examples/solid1-diffusion
         run: bun run source:prepare && bun run generate:styles
+      - name: Build Diffusion source harness
+        working-directory: examples/solid1-diffusion
+        run: bun run build:test:edge
 
   package:
     name: package smoke
