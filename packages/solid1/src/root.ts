@@ -413,6 +413,13 @@ export function createRoot(renderer: NativeRenderer, initialWindowEventHandlers:
           return true
         }
 
+        if (event.eventType === "mouseDown") {
+          const targetId = pointerTargetAtPoint(container, renderer, events, event)
+          if (targetId !== undefined && targetId !== event.elementId) {
+            event = { ...event, elementId: targetId }
+          }
+        }
+
         let routedEvent = releaseRelay.route(
           event,
           rootId,
