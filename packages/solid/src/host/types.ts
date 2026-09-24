@@ -163,6 +163,8 @@ export interface StyleDesc {
   minHeight?: DimensionValue
   maxWidth?: DimensionValue
   maxHeight?: DimensionValue
+  /** Width-to-height ratio used when one axis is otherwise auto. */
+  aspectRatio?: number
 
   padding?: number
   /** Horizontal padding shorthand; expands to left + right before native render. */
