@@ -199,6 +199,8 @@ if (!hasNativeTestRenderer) {
     const windowSize = editorApp.renderer.getWindowSize()
     const stageBounds = editorApp.renderer.boundsFirstTypeWithinTestId("diffusion-source-editor", "canvas")
     const editorText = editorApp.renderer.textContent("diffusion-source-editor")
+    const editorLabelBounds = editorApp.renderer.boundsText("Editor")
+    const zoomLabelBounds = editorApp.renderer.boundsText("30%")
     requireCondition(
       closeTo(editorBounds.width, windowSize.width) && closeTo(editorBounds.height, windowSize.height),
       `Diffusion EditorPage should fill the granted native window; got ${editorBounds.width}x${editorBounds.height}, window ${windowSize.width}x${windowSize.height}`,
@@ -210,6 +212,10 @@ if (!hasNativeTestRenderer) {
     )
     requireCondition(stageBounds.width < editorBounds.width, "Diffusion EditorPage stage should leave room for editor sidebars")
     requireCondition(stageBounds.height < editorBounds.height, "Diffusion EditorPage stage should leave room for the timeline")
+    requireCondition(
+      zoomLabelBounds.x > editorLabelBounds.x + editorLabelBounds.width + 80,
+      `Diffusion inspector zoom should stay right-aligned; Editor at ${editorLabelBounds.x}, zoom at ${zoomLabelBounds.x}`,
+    )
 
     const timelineCanvas = Array.from(document.body.querySelectorAll("canvas"))
       .find((element) => element.getAttribute("id") === "timeline-canvas")
