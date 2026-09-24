@@ -126,14 +126,14 @@ diff --git a/packages/native/src/custom_elements/canvas.rs b/packages/native/src
 new file mode 100644
 --- /dev/null
 +++ b/packages/native/src/custom_elements/canvas.rs
-@@ -0,0 +1,684 @@
+@@ -0,0 +1,802 @@
 +use gpui::prelude::*;
 +use serde::Deserialize;
 +use std::collections::HashMap;
 +
 +use super::{CustomElement, CustomElementFactory, CustomRenderContext};
 +
-+pub const CANVAS_DRAW_LIST_VERSION: u32 = 3;
++pub const CANVAS_DRAW_LIST_VERSION: u32 = 4;
 +
 +#[derive(Clone, Debug, Deserialize)]
 +#[serde(rename_all = "camelCase")]
@@ -146,11 +146,24 @@ new file mode 100644
 +
 +#[derive(Clone, Debug, Deserialize)]
 +#[serde(rename_all = "camelCase")]
++struct CanvasClipScissor {
++    x: f32,
++    y: f32,
++    width: f32,
++    height: f32,
++}
++
++#[derive(Clone, Debug, Deserialize)]
++#[serde(rename_all = "camelCase")]
 +struct CanvasClipRect {
 +    x: f32,
 +    y: f32,
 +    width: f32,
 +    height: f32,
++    #[serde(default)]
++    radius: f32,
++    #[serde(default)]
++    scissor: Option<CanvasClipScissor>,
 +}
 +
 +#[derive(Clone, Debug, Deserialize)]
@@ -601,7 +614,7 @@ new file mode 100644
 +                append_path(&mut builder, path, bounds, scale_x, scale_y);
 +                if let Ok(path) = builder.build() {
 +                    paint_with_clip(command.clip(), draw_list, bounds, window, |window| {
-+                        window.paint_path(path, color);
++                        window.paint_path(path.clone(), color);
 +                    });
 +                }
 +            }
@@ -629,7 +642,7 @@ new file mode 100644
 +                append_path(&mut builder, path, bounds, scale_x, scale_y);
 +                if let Ok(path) = builder.build() {
 +                    paint_with_clip(command.clip(), draw_list, bounds, window, |window| {
-+                        window.paint_path(path, color);
++                        window.paint_path(path.clone(), color);
 +                    });
 +                }
 +            }
@@ -739,24 +752,129 @@ new file mode 100644
 +    draw_list: &CanvasDrawList,
 +    bounds: gpui::Bounds<gpui::Pixels>,
 +    window: &mut gpui::Window,
-+    paint: impl FnOnce(&mut gpui::Window),
++    paint: impl Fn(&mut gpui::Window),
 +) {
 +    let Some(clip) = clip else {
 +        paint(window);
 +        return;
 +    };
 +    let (scale_x, scale_y, _) = canvas_scale(draw_list, bounds);
-+    let clip_bounds = gpui::Bounds::new(
++
++    let paint_mask = |mask: gpui::Bounds<gpui::Pixels>, window: &mut gpui::Window| {
++        let paint = |window: &mut gpui::Window| {
++            window.with_content_mask(Some(gpui::ContentMask { bounds: mask }), |window| {
++                paint(window);
++            });
++        };
++        if let Some(scissor) = clip.scissor.as_ref() {
++            let scissor_bounds = canvas_clip_bounds(scissor, bounds, scale_x, scale_y);
++            window.with_content_mask(
++                Some(gpui::ContentMask { bounds: scissor_bounds }),
++                paint,
++            );
++        } else {
++            paint(window);
++        }
++    };
++
++    let clip_bounds = canvas_clip_bounds(clip, bounds, scale_x, scale_y);
++    let width = f32::from(clip_bounds.size.width);
++    let height = f32::from(clip_bounds.size.height);
++    if width <= 0.0 || height <= 0.0 {
++        return;
++    }
++
++    let radius_x = (clip.radius * scale_x.abs()).clamp(0.0, width * 0.5);
++    let radius_y = (clip.radius * scale_y.abs()).clamp(0.0, height * 0.5);
++    if radius_x <= f32::EPSILON || radius_y <= f32::EPSILON {
++        paint_mask(clip_bounds, window);
++        return;
++    }
++
++    // GPUI's ContentMask is rectangular. Paint the rounded mask as disjoint
++    // horizontal strips so every command type (paths, text, images) gets the
++    // same clip semantics without rasterizing the retained Canvas surface.
++    let slices = ((radius_y * 2.0).ceil() as usize).clamp(2, 24);
++    let step = radius_y / slices as f32;
++    for index in 0..slices {
++        let y0 = index as f32 * step;
++        let y1 = (index + 1) as f32 * step;
++        let midpoint = (y0 + y1) * 0.5;
++        let normalized = ((radius_y - midpoint) / radius_y).clamp(0.0, 1.0);
++        let inset = radius_x * (1.0 - (1.0 - normalized * normalized).sqrt());
++        let slice_width = (width - inset * 2.0).max(0.0);
++        if slice_width <= 0.0 {
++            continue;
++        }
++        let slice_height = (y1 - y0).max(0.0);
++        let top = gpui::Bounds::new(
++            gpui::point(
++                clip_bounds.origin.x + gpui::px(inset),
++                clip_bounds.origin.y + gpui::px(y0),
++            ),
++            gpui::size(gpui::px(slice_width), gpui::px(slice_height)),
++        );
++        let bottom = gpui::Bounds::new(
++            gpui::point(
++                clip_bounds.origin.x + gpui::px(inset),
++                clip_bounds.origin.y + gpui::px(height - y1),
++            ),
++            gpui::size(gpui::px(slice_width), gpui::px(slice_height)),
++        );
++        paint_mask(top, window);
++        paint_mask(bottom, window);
++    }
++
++    let middle_height = (height - radius_y * 2.0).max(0.0);
++    if middle_height > 0.0 {
++        let middle = gpui::Bounds::new(
++            gpui::point(
++                clip_bounds.origin.x,
++                clip_bounds.origin.y + gpui::px(radius_y),
++            ),
++            gpui::size(gpui::px(width), gpui::px(middle_height)),
++        );
++        paint_mask(middle, window);
++    }
++}
++
++fn canvas_clip_bounds(
++    clip: &impl CanvasClipBounds,
++    bounds: gpui::Bounds<gpui::Pixels>,
++    scale_x: f32,
++    scale_y: f32,
++) -> gpui::Bounds<gpui::Pixels> {
++    gpui::Bounds::new(
 +        gpui::point(
-+            bounds.origin.x + gpui::px(clip.x * scale_x),
-+            bounds.origin.y + gpui::px(clip.y * scale_y),
++            bounds.origin.x + gpui::px(clip.x() * scale_x),
++            bounds.origin.y + gpui::px(clip.y() * scale_y),
 +        ),
 +        gpui::size(
-+            gpui::px((clip.width * scale_x).max(0.0)),
-+            gpui::px((clip.height * scale_y).max(0.0)),
++            gpui::px((clip.width() * scale_x).max(0.0)),
++            gpui::px((clip.height() * scale_y).max(0.0)),
 +        ),
-+    );
-+    window.with_content_mask(Some(gpui::ContentMask { bounds: clip_bounds }), paint);
++    )
++}
++
++trait CanvasClipBounds {
++    fn x(&self) -> f32;
++    fn y(&self) -> f32;
++    fn width(&self) -> f32;
++    fn height(&self) -> f32;
++}
++
++impl CanvasClipBounds for CanvasClipRect {
++    fn x(&self) -> f32 { self.x }
++    fn y(&self) -> f32 { self.y }
++    fn width(&self) -> f32 { self.width }
++    fn height(&self) -> f32 { self.height }
++}
++
++impl CanvasClipBounds for CanvasClipScissor {
++    fn x(&self) -> f32 { self.x }
++    fn y(&self) -> f32 { self.y }
++    fn width(&self) -> f32 { self.width }
++    fn height(&self) -> f32 { self.height }
 +}
 +
 +fn append_path(
