@@ -17,10 +17,12 @@ import {
 } from "./nodes.js"
 import type { DimensionValue, ElementType, StyleDesc } from "./types.js"
 import {
+  applyNativeStyleViewportSize,
   mergeNativeStyles,
   normalizeNativeStyleColors,
   onNativeStyleEnvironmentChange,
   resolveNativeClassStyle,
+  resolveNativeClassViewportSize,
   resolveNativeClassTextTransform,
   resolveNativeDescendantClassStyle,
   type NativeClassList,
@@ -515,6 +517,7 @@ function applyNativeStyleState(node: HostElementNode): void {
   const inheritedStyle = resolveInheritedNativeStyle(node)
   const ancestorStyle = resolveAncestorDescendantStyle(node)
   const classStyle = resolveNativeClassStyle(className, state.classList)
+  const classViewportSize = resolveNativeClassViewportSize(className, state.classList)
   const inheritedTextTransform = resolveInheritedTextTransform(node)
   const classTextTransform = resolveNativeClassTextTransform(className, state.classList)
   const textTransform = classTextTransform ?? inheritedTextTransform
@@ -522,7 +525,13 @@ function applyNativeStyleState(node: HostElementNode): void {
   else textTransforms.set(node, textTransform)
 
   const hiddenStyle: StyleDesc | undefined = state.hidden ? { display: "none" } : undefined
-  const resolvedStyle = mergeNativeStyles(inheritedStyle, ancestorStyle, classStyle, state.inlineStyle, hiddenStyle)
+  const mergedStyle = mergeNativeStyles(inheritedStyle, ancestorStyle, classStyle, state.inlineStyle, hiddenStyle)
+  const resolvedStyle = applyNativeStyleViewportSize(
+    mergedStyle,
+    classViewportSize,
+    nativeViewportSize("x"),
+    nativeViewportSize("y"),
+  )
   if (resolvedStyle === undefined) {
     if (!appliedStyleNodes.has(node)) return
     setHostProperty(node, "style", {})
@@ -534,6 +543,10 @@ function applyNativeStyleState(node: HostElementNode): void {
   appliedStyleNodes.add(node)
 }
 
+function nativeViewportSize(axis: "x" | "y"): number | undefined {
+  const viewport = Number(axis === "x" ? globalThis.window?.innerWidth : globalThis.window?.innerHeight)
+  return Number.isFinite(viewport) && viewport > 0 ? viewport : undefined
+}
 function applyNativeTextTransform(node: HostTextNode): void {
   const source = sourceTextValues.get(node) ?? node.text
   const parent = node.parent
