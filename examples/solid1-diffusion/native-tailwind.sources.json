@@ -1,4 +1,5 @@
 [
+  "apps/web/src/pages/editor.tsx",
   "apps/web/src/components/canvas/canvas.tsx",
   "apps/web/src/components/canvas/desktop-app-banner.tsx",
   "apps/web/src/components/canvas/draw-overlay.tsx",
