@@ -97,7 +97,7 @@ export function diffusionConfig(entry: string, outDir: string) {
         { find: /^@diffusionstudio\/runtime$/, replacement: runtimeBridge },
       ],
       conditions: ["solid", "browser", "development"],
-      dedupe: ["solid-js", "koota"],
+      dedupe: ["solid-js", "@solidjs/router", "koota"],
     },
     ssr: {
       noExternal: [

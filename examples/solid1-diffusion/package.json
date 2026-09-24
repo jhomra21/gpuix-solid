@@ -17,6 +17,7 @@
   "dependencies": {
     "@gpuix/native": "0.9.0",
     "@jhomra21/gpuix-solid1": "file:../../packages/solid1",
+    "@solidjs/router": "0.15.4",
     "fake-indexeddb": "6.2.5",
     "koota": "0.6.6",
     "solid-js": "1.9.15"
