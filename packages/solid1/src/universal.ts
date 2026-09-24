@@ -26,6 +26,7 @@ import type { DimensionValue, ElementType, StyleDesc } from "./host/types.js"
 import {
   applyNativeStyleParentPosition,
   applyNativeStyleTranslation,
+  applyNativeStyleViewportSize,
   mergeNativeStyles,
   normalizeNativeStyleColors,
   onNativeStyleEnvironmentChange,
@@ -34,6 +35,7 @@ import {
   resolveNativeClassSvgPaint,
   resolveNativeClassParentPosition,
   resolveNativeClassTranslation,
+  resolveNativeClassViewportSize,
   resolveNativeClassTextTransform,
   resolveNativeDescendantClassStyle,
   type NativeClassList,
@@ -701,6 +703,7 @@ function applyNativeStyleState(node: HostElementNode): void {
   const classStyle = resolveNativeClassStyle(className, state.classList, state.inlineStyle?.fontSize ?? preClassStyle?.fontSize)
   const classAttributeStyle = resolveNativeClassAttributeStyle(className, state.classList, node.props)
   const classParentPosition = resolveNativeClassParentPosition(className, state.classList)
+  const classViewportSize = resolveNativeClassViewportSize(className, state.classList)
   const classTranslation = resolveNativeClassTranslation(className, state.classList)
   const inheritedTextTransform = resolveInheritedTextTransform(node)
   const classTextTransform = resolveNativeClassTextTransform(className, state.classList)
@@ -723,10 +726,18 @@ function applyNativeStyleState(node: HostElementNode): void {
   if (browserInlineFlow) browserInlineFlowNodes.add(node)
   else browserInlineFlowNodes.delete(node)
   const flowedStyle = mergeNativeStyles(mergedStyle, browserInlineFlow)
+  const viewportWidth = nativeViewportSize("x")
+  const viewportHeight = nativeViewportSize("y")
+  const viewportStyle = applyNativeStyleViewportSize(
+    flowedStyle,
+    classViewportSize,
+    viewportWidth,
+    viewportHeight,
+  )
   const parentWidth = resolvedNativeNodeSize(node.parent, "x")
   const parentHeight = resolvedNativeNodeSize(node.parent, "y")
   const positionedStyle = applyNativeStyleParentPosition(
-    flowedStyle,
+    viewportStyle,
     classParentPosition,
     parentWidth,
     parentHeight,
@@ -871,12 +882,13 @@ function transformText(value: string, transform: NativeTextTransform | undefined
   }
 }
 
+function nativeViewportSize(axis: "x" | "y"): number | undefined {
+  const viewport = Number(axis === "x" ? globalThis.window?.innerWidth : globalThis.window?.innerHeight)
+  return Number.isFinite(viewport) && viewport > 0 ? viewport : undefined
+}
 function resolvedNativeNodeSize(parent: HostParent | null, axis: "x" | "y"): number | undefined {
   if (!parent) return undefined
-  if (parent.kind === "root") {
-    const viewport = Number(axis === "x" ? globalThis.window?.innerWidth : globalThis.window?.innerHeight)
-    return Number.isFinite(viewport) && viewport > 0 ? viewport : undefined
-  }
+  if (parent.kind === "root") return nativeViewportSize(axis)
   const style = parent.style
   const parentSize = resolvedNativeNodeSize(parent.parent, axis)
   const explicit = axis === "x" ? style.width : style.height
