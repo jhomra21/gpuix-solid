@@ -73,6 +73,15 @@ const INTERACTIVE_ROLES = new Set([
   "textbox",
 ])
 
+const EXPLICIT_POINTER_SURFACE_EVENTS = new Set([
+  "mouseDown",
+  "mouseMove",
+  "mouseUp",
+  "pointerDown",
+  "pointerMove",
+  "pointerUp",
+])
+
 export class HostRootNode {
   readonly kind = "root" as const
   readonly children: HostNode[] = []
@@ -909,6 +918,14 @@ function ownsSemanticHitSurface(node: HostElementNode): boolean {
   return role !== undefined && role !== null && INTERACTIVE_ROLES.has(String(role))
 }
 
+function ownsExplicitPointerSurface(node: HostElementNode): boolean {
+  for (const eventType of node.events.keys()) {
+    if (EXPLICIT_POINTER_SURFACE_EVENTS.has(eventType)) return true
+  }
+  const nativeEvents = browserNativeEventTypes(node)
+  return nativeEvents.has("mouseDown") || nativeEvents.has("mouseMove") || nativeEvents.has("mouseUp")
+}
+
 function effectivePointerEvents(node: HostElementNode): StyleDesc["pointerEvents"] | undefined {
   // Preserve explicit source ownership first. In particular, a descendant
   // pointer-events:auto must be able to re-enable itself beneath an inherited none.
@@ -929,6 +946,7 @@ function effectivePointerEvents(node: HostElementNode): StyleDesc["pointerEvents
     || node.events.has("dragOver")
     || node.events.has("drop")
     || (node.events.size > 0 && ownsSemanticHitSurface(node))
+    || ownsExplicitPointerSurface(node)
   ) return "auto"
   return undefined
 }
