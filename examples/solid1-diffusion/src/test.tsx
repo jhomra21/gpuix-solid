@@ -244,6 +244,15 @@ if (!hasNativeTestRenderer) {
       editorApp.renderer.hasTestId("diffusion-toolbar-rectangle"),
       "Diffusion EditorPage should expose the real Rectangle toolbar button",
     )
+    const rectangleIconBefore = editorApp.renderer.customPropStringContainingAll(
+      "source",
+      ["M6.93735 4.5"],
+    )
+    requireCondition(
+      !rectangleIconBefore.includes("currentColor"),
+      "Diffusion toolbar SVG should resolve inherited currentColor before native serialization",
+    )
+
     editorApp.renderer.clickTestId("diffusion-toolbar-rectangle")
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
     editorApp.root.flush()
@@ -251,6 +260,18 @@ if (!hasNativeTestRenderer) {
     requireCondition(
       readDiffusionSourceEditorState().tool === ToolType.RECT,
       "Diffusion EditorPage Rectangle button should select the real RECT tool",
+    )
+    const rectangleIconAfter = editorApp.renderer.customPropStringContainingAll(
+      "source",
+      ["M6.93735 4.5"],
+    )
+    requireCondition(
+      rectangleIconAfter !== rectangleIconBefore,
+      "Diffusion toolbar SVG should refresh when inherited button color changes",
+    )
+    requireCondition(
+      !rectangleIconAfter.includes("currentColor"),
+      "Diffusion selected toolbar SVG should keep currentColor resolved",
     )
 
     editorApp.renderer.captureScreenshot(editorScreenshotPath)
