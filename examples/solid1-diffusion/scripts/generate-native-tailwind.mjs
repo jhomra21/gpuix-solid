@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises"
+import { access, readFile, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { compile } from "@tailwindcss/node"
@@ -284,7 +284,8 @@ function dynamicIgnoredReason(candidate) {
 
 
 const themeCss = await readFile(themePath, "utf8")
-const sourcePaths = JSON.parse(await readFile(sourcesPath, "utf8"))
+const entrySourcePaths = JSON.parse(await readFile(sourcesPath, "utf8"))
+const sourcePaths = await expandLocalSourcePaths(entrySourcePaths)
 const sourceTexts = await Promise.all(
   sourcePaths.map(async (sourcePath) => ({
     sourcePath,
@@ -388,7 +389,66 @@ const generated = `import type { NativeStyleManifest } from "@jhomra21/gpuix-sol
   `export const nativeTailwindManifest: NativeStyleManifest = ${JSON.stringify({ classes }, null, 2)}\n`
 
 await writeFile(outputPath, generated)
-console.log(`Diffusion native Tailwind manifest: ${Object.keys(classes).length} classes from ${sourcePaths.length} pinned source files (${omissions.length} explicit omissions)`)
+console.log(`Diffusion native Tailwind manifest: ${Object.keys(classes).length} classes from ${sourcePaths.length} pinned source files expanded from ${entrySourcePaths.length} entries (${omissions.length} explicit omissions)`)
+
+async function expandLocalSourcePaths(entryPaths) {
+  const seen = new Set()
+  const queue = [...entryPaths]
+
+  while (queue.length > 0) {
+    const sourcePath = queue.shift()
+    if (!sourcePath || seen.has(sourcePath)) continue
+    seen.add(sourcePath)
+
+    const absolutePath = path.join(sourceRoot, sourcePath)
+    const text = await readFile(absolutePath, "utf8")
+    const scriptKind = sourcePath.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS
+    const sourceFile = ts.createSourceFile(sourcePath, text, ts.ScriptTarget.Latest, true, scriptKind)
+
+    for (const statement of sourceFile.statements) {
+      if (!ts.isImportDeclaration(statement) && !ts.isExportDeclaration(statement)) continue
+      const moduleSpecifier = statement.moduleSpecifier
+      if (!moduleSpecifier || !ts.isStringLiteral(moduleSpecifier)) continue
+      const resolved = await resolveLocalSourceImport(sourcePath, moduleSpecifier.text)
+      if (resolved && !seen.has(resolved)) queue.push(resolved)
+    }
+  }
+
+  return [...seen]
+}
+
+async function resolveLocalSourceImport(importerPath, specifier) {
+  let unresolved
+  if (specifier.startsWith("@/")) {
+    unresolved = path.posix.join("apps/web/src", specifier.slice(2))
+  } else if (specifier.startsWith(".")) {
+    unresolved = path.posix.normalize(path.posix.join(path.posix.dirname(importerPath), specifier))
+  } else {
+    return undefined
+  }
+
+  const extension = path.posix.extname(unresolved)
+  const candidates = extension
+    ? [unresolved]
+    : [
+        `${unresolved}.tsx`,
+        `${unresolved}.ts`,
+        path.posix.join(unresolved, "index.tsx"),
+        path.posix.join(unresolved, "index.ts"),
+      ]
+
+  for (const candidate of candidates) {
+    if (!candidate.endsWith(".tsx") && !candidate.endsWith(".ts")) continue
+    try {
+      await access(path.join(sourceRoot, candidate))
+      return candidate
+    } catch {
+      // Try the next source-form candidate.
+    }
+  }
+
+  return undefined
+}
 
 function collectCandidates(sources) {
   const candidates = new Set()
