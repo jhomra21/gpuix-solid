@@ -143,6 +143,7 @@ const nativeCompatEntries = new Map([
 ])
 
 const explicitlyIgnored = new Map([
+  ["accent-primary", "GPUIX does not publish browser form-control accent-color painting; input checked state and interaction remain native, while only the radio/checkbox tint differs"],
   ["focus-ring", "Diffusion applies this custom utility only for :focus-visible or data-dragging=true; generic host focus-visible and attribute-state painting are not published yet, and this filled-scene Canvas gate does not mount SceneInitOverlay"],
   ["box-content", "GPUIX has no box-sizing field; this source element has auto width and no vertical padding or border, so content-box does not change its current geometry"],
   ["ursor-pointer", "pinned Diffusion source typo has no Tailwind rule and is a browser no-op"],
