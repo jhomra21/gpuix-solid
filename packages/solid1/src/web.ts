@@ -149,7 +149,7 @@ export function template(
 function parseStaticTemplate(html: string): StaticTemplateElement {
   const roots: StaticTemplateNode[] = []
   const stack: StaticTemplateElement[] = []
-  const tokens = html.match(/<!--[\\s\\S]*?-->|<\\/?[A-Za-z][^>]*>|[^<]+/g) ?? []
+  const tokens = html.match(/<!--[\s\S]*?-->|<\/?[A-Za-z][^>]*>|[^<]+/g) ?? []
 
   const append = (node: StaticTemplateNode): void => {
     const parent = stack.at(-1)
@@ -164,7 +164,7 @@ function parseStaticTemplate(html: string): StaticTemplateElement {
     }
 
     if (token.startsWith("</")) {
-      const tagName = /^<\\/([A-Za-z][\\w:-]*)\\s*>$/.exec(token)?.[1]?.toLowerCase()
+      const tagName = /^<\/([A-Za-z][\w:-]*)\s*>$/.exec(token)?.[1]?.toLowerCase()
       const open = stack.pop()
       if (!tagName || !open || open.tagName !== tagName) {
         throw new Error(`Invalid Solid DOM template closing tag: ${token}`)
@@ -173,7 +173,7 @@ function parseStaticTemplate(html: string): StaticTemplateElement {
     }
 
     if (token.startsWith("<")) {
-      const match = /^<([A-Za-z][\\w:-]*)([\\s\\S]*?)(\\/?)>$/.exec(token)
+      const match = /^<([A-Za-z][\w:-]*)([\s\S]*?)(\/?)>$/.exec(token)
       if (!match?.[1]) throw new Error(`Invalid Solid DOM template tag: ${token}`)
       const tagName = match[1].toLowerCase()
       const element: StaticTemplateElement = {
@@ -201,7 +201,7 @@ function parseStaticTemplate(html: string): StaticTemplateElement {
 
 function parseStaticTemplateAttributes(source: string): Array<[string, string]> {
   const attributes: Array<[string, string]> = []
-  const pattern = /([^\\s=/>]+)(?:\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'=<>\`]+)))?/g
+  const pattern = /([^\s=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>]+)))?/g
   for (const match of source.matchAll(pattern)) {
     const name = match[1]
     if (!name) continue
