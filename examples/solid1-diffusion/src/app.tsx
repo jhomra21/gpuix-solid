@@ -6,11 +6,10 @@ import "fake-indexeddb/auto"
 import { onCleanup, onMount, type JSX } from "solid-js"
 import { configureNativeStyleManifest } from "@jhomra21/gpuix-solid1"
 import { nativeTailwindManifest } from "./native-tailwind.generated"
-import { DrawOverlay } from "@/components/canvas/draw-overlay"
-import { Toolbar } from "@/components/canvas/toolbar"
+import { Canvas } from "@/components/canvas/canvas"
 import { PromptInputProvider } from "@/context/prompt-input"
-import { EngineCanvas } from "@/engine/canvas"
-import { CameraController } from "@/engine/camera-controller"
+import { ProjectProvider } from "@/context/project"
+import { EditorApiProvider } from "@/dapi"
 import { EngineProvider, useEngineContext } from "@/engine/context"
 import { getDocumentEditor, type EntityEdit } from "@/engine/editor"
 import { mount, type Mount } from "@diffusionstudio/reconciler"
@@ -31,6 +30,16 @@ import {
 } from "@diffusionstudio/runtime"
 
 configureNativeStyleManifest(nativeTailwindManifest)
+
+const fixtureProject = {
+  id: "gpuix-diffusion-source",
+  name: "gpuix-diffusion-source",
+  displayName: "GPUix Diffusion source",
+  dir: "/gpuix-diffusion-source",
+  entry: "project.tsx",
+  modifiedAt: "2026-09-23T00:00:00.000Z",
+  createdAt: "2026-09-23T00:00:00.000Z",
+}
 
 const projectBundle = `
 const {
@@ -105,16 +114,7 @@ function ProjectMount(): JSX.Element {
     diffusionSourceProbe.frame = null
   })
 
-  return (
-    <>
-      <EngineCanvas />
-      <CameraController />
-      <DrawOverlay />
-      <PromptInputProvider>
-        <Toolbar />
-      </PromptInputProvider>
-    </>
-  )
+  return <Canvas />
 }
 
 class DiffusionAudioContext {
@@ -140,14 +140,20 @@ Object.defineProperty(globalThis.window, "AudioContext", {
 
 export function DiffusionSourceEngine(): JSX.Element {
   return (
-    <EngineProvider projectId="gpuix-diffusion-source">
-      <div
-        testId="diffusion-source-engine"
-        style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column" }}
-      >
-        <ProjectMount />
-      </div>
-    </EngineProvider>
+    <ProjectProvider project={fixtureProject}>
+      <EngineProvider projectId={fixtureProject.id}>
+        <EditorApiProvider>
+          <PromptInputProvider>
+            <div
+              testId="diffusion-source-engine"
+              style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column" }}
+            >
+              <ProjectMount />
+            </div>
+          </PromptInputProvider>
+        </EditorApiProvider>
+      </EngineProvider>
+    </ProjectProvider>
   )
 }
 
