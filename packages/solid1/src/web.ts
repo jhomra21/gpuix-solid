@@ -49,16 +49,13 @@ export function delegateEvents(eventNames: string[], documentTarget: Document = 
 function dispatchDelegatedEvent(event: Event): void {
   let node = event.target
   while (node instanceof HostElementNode) {
-    const properties = node as unknown as Record<string, unknown>
-    const handler = properties[`$${event.type}`]
-    if (typeof handler === "function") {
+    const handlerKey = "$$" + event.type
+    const handlerValue: unknown = Object.getOwnPropertyDescriptor(node, handlerKey)?.value
+    if (handlerValue instanceof Function) {
       Object.defineProperty(event, "currentTarget", { configurable: true, value: node })
-      const data = properties[`$${event.type}Data`]
-      if (data === undefined) handler.call(node, event)
-      else handler.call(node, data, event)
-    } else if (Array.isArray(handler) && typeof handler[0] === "function") {
-      Object.defineProperty(event, "currentTarget", { configurable: true, value: node })
-      handler[0].call(node, handler[1], event)
+      const data: unknown = Object.getOwnPropertyDescriptor(node, handlerKey + "Data")?.value
+      if (data === undefined) handlerValue.call(node, event)
+      else handlerValue.call(node, data, event)
     }
     if (event.cancelBubble) return
     node = node.parentElement
