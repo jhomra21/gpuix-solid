@@ -482,7 +482,10 @@ export class EventRegistry {
   }
 
   dispatch(event: NativeEventPayload, resolvedDragTargetId?: number | null): void {
-    if (!this.#live.has(event.elementId)) return
+    if (!this.#live.has(event.elementId)) {
+      this.#dispatchDetachedPointerLifecycle(event)
+      return
+    }
     switch (event.eventType) {
       case "mouseDown": {
         if ((event.button ?? 0) === 0) {
@@ -585,6 +588,24 @@ export class EventRegistry {
         for (const domEventType of DOM_EVENTS_BY_NATIVE.get(event.eventType) ?? []) {
           this.#dispatchDom(event.elementId, domEventType, event)
         }
+    }
+  }
+
+  #dispatchDetachedPointerLifecycle(event: NativeEventPayload): void {
+    if (!this.#activePointers.has(POINTER_ID)) return
+
+    if (event.eventType === "mouseMove") {
+      const pointerEvent = domCompatibleEvent(event, undefined, "pointerMove")
+      dispatchGlobalEvent("pointerMove", pointerEvent)
+      return
+    }
+
+    if (event.eventType === "mouseUp") {
+      const pointerEvent = domCompatibleEvent(event, undefined, "pointerUp")
+      dispatchGlobalEvent("pointerUp", pointerEvent)
+      this.#activePointers.delete(POINTER_ID)
+      const capturedId = this.#pointerCapture.get(POINTER_ID)
+      if (capturedId !== undefined) this.#releasePointerCapture(capturedId, POINTER_ID)
     }
   }
 
