@@ -1,13 +1,136 @@
-type JsonObject = Record<string, unknown>
+import { z } from "zod"
 
-type AutomationRequest = {
-  id: number
-  method: string
-  params: JsonObject
-}
+type JsonPrimitive = string | number | boolean | null
+type JsonValue =
+  | JsonPrimitive
+  | JsonValue[]
+  | { [key: string]: JsonValue }
+
+const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(jsonValueSchema),
+    z.record(z.string(), jsonValueSchema),
+  ]),
+)
+
+const PROTOCOL_VERSION = 1 as const
+const idSchema = z.number().int()
+const mouseButtonSchema = z.number().int().optional()
+const modifiersSchema = z.string().optional()
+
+const automationRequestSchema = z.discriminatedUnion("method", [
+  z.object({
+    id: idSchema,
+    method: z.literal("initialize"),
+    params: z.object({
+      protocolVersion: z.literal(PROTOCOL_VERSION),
+      client: z.string(),
+    }),
+  }),
+  z.object({
+    id: idSchema,
+    method: z.literal("getTree"),
+    params: z.object({}),
+  }),
+  z.object({
+    id: idSchema,
+    method: z.literal("getBounds"),
+    params: z.object({ elementId: z.number() }),
+  }),
+  z.object({
+    id: idSchema,
+    method: z.literal("click"),
+    params: z.object({
+      x: z.number(),
+      y: z.number(),
+      button: mouseButtonSchema,
+      modifiers: modifiersSchema,
+    }),
+  }),
+  z.object({
+    id: idSchema,
+    method: z.literal("mouseMove"),
+    params: z.object({
+      x: z.number(),
+      y: z.number(),
+      pressedButton: mouseButtonSchema,
+      modifiers: modifiersSchema,
+    }),
+  }),
+  z.object({
+    id: idSchema,
+    method: z.literal("mouseDown"),
+    params: z.object({
+      x: z.number(),
+      y: z.number(),
+      button: mouseButtonSchema,
+      modifiers: modifiersSchema,
+    }),
+  }),
+  z.object({
+    id: idSchema,
+    method: z.literal("mouseUp"),
+    params: z.object({
+      x: z.number(),
+      y: z.number(),
+      button: mouseButtonSchema,
+      modifiers: modifiersSchema,
+    }),
+  }),
+  z.object({
+    id: idSchema,
+    method: z.literal("scrollWheel"),
+    params: z.object({
+      x: z.number(),
+      y: z.number(),
+      deltaX: z.number(),
+      deltaY: z.number(),
+      modifiers: modifiersSchema,
+    }),
+  }),
+  z.object({
+    id: idSchema,
+    method: z.literal("keystrokes"),
+    params: z.object({
+      elementId: z.number(),
+      keys: z.string(),
+    }),
+  }),
+  z.object({
+    id: idSchema,
+    method: z.literal("screenshot"),
+    params: z.object({ path: z.string() }),
+  }),
+  z.object({
+    id: idSchema,
+    method: z.literal("clockPause"),
+    params: z.object({}),
+  }),
+  z.object({
+    id: idSchema,
+    method: z.literal("clockSet"),
+    params: z.object({ nowMs: z.number().nonnegative() }),
+  }),
+  z.object({
+    id: idSchema,
+    method: z.literal("clockFastForward"),
+    params: z.object({ deltaMs: z.number().nonnegative() }),
+  }),
+  z.object({
+    id: idSchema,
+    method: z.literal("clockResume"),
+    params: z.object({}),
+  }),
+])
+
+type AutomationRequest = z.infer<typeof automationRequestSchema>
 
 type AutomationResponse =
-  | { id: number; result: unknown }
+  | { id: number; result: JsonValue }
   | { id: number; error: { code: "Protocol"; message: string } }
 
 export interface LiveAutomationRenderer {
@@ -33,64 +156,12 @@ export interface LiveAutomationRenderer {
   clockResume(): number
 }
 
-const PROTOCOL_VERSION = 1
-
 function encodeSse(response: AutomationResponse): string {
   return `data: ${JSON.stringify(response)}\n\n`
 }
 
 function nextNativeInputTurn(): Promise<void> {
   return new Promise((resolve) => setImmediate(resolve))
-}
-
-function numberParam(params: JsonObject, key: string): number {
-  const value = params[key]
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new Error(`Expected numeric automation parameter ${key}`)
-  }
-  return value
-}
-
-function optionalNumberParam(params: JsonObject, key: string): number | undefined {
-  const value = params[key]
-  if (value === undefined) return undefined
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new Error(`Expected numeric automation parameter ${key}`)
-  }
-  return value
-}
-
-function stringParam(params: JsonObject, key: string): string {
-  const value = params[key]
-  if (typeof value !== "string") {
-    throw new Error(`Expected string automation parameter ${key}`)
-  }
-  return value
-}
-
-function optionalStringParam(params: JsonObject, key: string): string | undefined {
-  const value = params[key]
-  if (value === undefined) return undefined
-  if (typeof value !== "string") {
-    throw new Error(`Expected string automation parameter ${key}`)
-  }
-  return value
-}
-
-function parseRequest(value: unknown): AutomationRequest {
-  if (!value || typeof value !== "object") throw new Error("Automation request must be an object")
-  const record = value as JsonObject
-  const id = record.id
-  const method = record.method
-  const params = record.params
-  if (typeof id !== "number" || !Number.isInteger(id)) {
-    throw new Error("Automation request id must be an integer")
-  }
-  if (typeof method !== "string") throw new Error("Automation request method must be a string")
-  if (!params || typeof params !== "object" || Array.isArray(params)) {
-    throw new Error("Automation request params must be an object")
-  }
-  return { id, method, params: params as JsonObject }
 }
 
 function parseBounds(bounds: number[] | null): { x: number; y: number; width: number; height: number } | null {
@@ -102,103 +173,109 @@ function parseBounds(bounds: number[] | null): { x: number; y: number; width: nu
   return { x, y, width, height }
 }
 
+function parseAutomationTree(json: string): JsonValue {
+  return jsonValueSchema.parse(JSON.parse(json))
+}
+
 async function dispatch(
   request: AutomationRequest,
   renderer: LiveAutomationRenderer,
-): Promise<unknown> {
+): Promise<JsonValue> {
   switch (request.method) {
-    case "initialize": {
-      const protocolVersion = numberParam(request.params, "protocolVersion")
-      if (protocolVersion !== PROTOCOL_VERSION) {
-        throw new Error(
-          `Unsupported automation protocol ${protocolVersion}; expected ${PROTOCOL_VERSION}`,
-        )
-      }
+    case "initialize":
       return {
         protocolVersion: PROTOCOL_VERSION,
         pid: process.pid,
         capabilities: ["input", "screenshot", "clock", "tree"],
         window: renderer.getWindowSize?.() ?? { width: 800, height: 600 },
       }
-    }
     case "getTree":
-      return { tree: JSON.parse(renderer.getAutomationTree()) as unknown }
+      return { tree: parseAutomationTree(renderer.getAutomationTree()) }
     case "getBounds":
-      return { bounds: parseBounds(renderer.getElementBounds(numberParam(request.params, "elementId"))) }
-    case "click": {
-      const x = numberParam(request.params, "x")
-      const y = numberParam(request.params, "y")
-      const button = optionalNumberParam(request.params, "button")
-      const modifiers = optionalStringParam(request.params, "modifiers")
-      renderer.simulateMouseDown(x, y, button, modifiers)
+      return { bounds: parseBounds(renderer.getElementBounds(request.params.elementId)) }
+    case "click":
+      renderer.simulateMouseDown(
+        request.params.x,
+        request.params.y,
+        request.params.button,
+        request.params.modifiers,
+      )
       await nextNativeInputTurn()
-      renderer.simulateMouseUp(x, y, button, modifiers)
+      renderer.simulateMouseUp(
+        request.params.x,
+        request.params.y,
+        request.params.button,
+        request.params.modifiers,
+      )
       return { ok: true }
-    }
     case "mouseMove":
       renderer.simulateMouseMove(
-        numberParam(request.params, "x"),
-        numberParam(request.params, "y"),
-        optionalNumberParam(request.params, "pressedButton"),
-        optionalStringParam(request.params, "modifiers"),
+        request.params.x,
+        request.params.y,
+        request.params.pressedButton,
+        request.params.modifiers,
       )
       return { ok: true }
     case "mouseDown":
       renderer.simulateMouseDown(
-        numberParam(request.params, "x"),
-        numberParam(request.params, "y"),
-        optionalNumberParam(request.params, "button"),
-        optionalStringParam(request.params, "modifiers"),
+        request.params.x,
+        request.params.y,
+        request.params.button,
+        request.params.modifiers,
       )
       return { ok: true }
     case "mouseUp":
       renderer.simulateMouseUp(
-        numberParam(request.params, "x"),
-        numberParam(request.params, "y"),
-        optionalNumberParam(request.params, "button"),
-        optionalStringParam(request.params, "modifiers"),
+        request.params.x,
+        request.params.y,
+        request.params.button,
+        request.params.modifiers,
       )
       return { ok: true }
     case "scrollWheel":
       renderer.simulateScrollWheel(
-        numberParam(request.params, "x"),
-        numberParam(request.params, "y"),
-        numberParam(request.params, "deltaX"),
-        numberParam(request.params, "deltaY"),
-        optionalStringParam(request.params, "modifiers"),
+        request.params.x,
+        request.params.y,
+        request.params.deltaX,
+        request.params.deltaY,
+        request.params.modifiers,
       )
       return { ok: true }
     case "keystrokes":
-      renderer.focusElement(numberParam(request.params, "elementId"))
-      renderer.simulateKeystrokes(stringParam(request.params, "keys"))
+      renderer.focusElement(request.params.elementId)
+      renderer.simulateKeystrokes(request.params.keys)
       return { ok: true }
-    case "screenshot": {
-      const path = stringParam(request.params, "path")
-      renderer.captureScreenshot(path)
-      return { path }
-    }
+    case "screenshot":
+      renderer.captureScreenshot(request.params.path)
+      return { path: request.params.path }
     case "clockPause":
       return { nowMs: renderer.clockPause() }
     case "clockSet":
-      return { nowMs: renderer.clockSet(numberParam(request.params, "nowMs")) }
+      return { nowMs: renderer.clockSet(request.params.nowMs) }
     case "clockFastForward":
-      return { nowMs: renderer.clockFastForward(numberParam(request.params, "deltaMs")) }
+      return { nowMs: renderer.clockFastForward(request.params.deltaMs) }
     case "clockResume":
       return { nowMs: renderer.clockResume() }
-    default:
-      throw new Error(`Unsupported automation method ${request.method}`)
   }
 }
 
-async function respond(raw: unknown, renderer: LiveAutomationRenderer): Promise<string> {
-  let id = -1
+async function respond(raw: JsonValue, renderer: LiveAutomationRenderer): Promise<string> {
+  const parsed = automationRequestSchema.safeParse(raw)
+  if (!parsed.success) {
+    return encodeSse({
+      id: -1,
+      error: {
+        code: "Protocol",
+        message: `Invalid automation request: ${parsed.error.message}`,
+      },
+    })
+  }
+
   try {
-    const request = parseRequest(raw)
-    id = request.id
-    return encodeSse({ id, result: await dispatch(request, renderer) })
+    return encodeSse({ id: parsed.data.id, result: await dispatch(parsed.data, renderer) })
   } catch (reason) {
     return encodeSse({
-      id,
+      id: parsed.data.id,
       error: {
         code: "Protocol",
         message: reason instanceof Error ? reason.message : String(reason),
@@ -226,14 +303,10 @@ export function enableAutomation(renderer: LiveAutomationRenderer): void {
         .join("\n")
       if (!data) continue
 
-      let message: unknown
-      try {
-        message = JSON.parse(data) as unknown
-      } catch {
-        continue
-      }
+      const message = jsonValueSchema.safeParse(JSON.parse(data))
+      if (!message.success) continue
 
-      void respond(message, renderer).then((reply) => {
+      void respond(message.data, renderer).then((reply) => {
         process.stdout.write(reply)
       })
     }
