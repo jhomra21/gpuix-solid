@@ -395,7 +395,7 @@ function collectCandidates(sources) {
         }
       }
 
-      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && (node.expression.text === "cn" || node.expression.text === "clsx")) {
+      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && (node.expression.text === "cn" || node.expression.text === "clsx" || node.expression.text === "cx")) {
         for (const argument of node.arguments) collectClassExpression(argument, candidates)
         return
       }
@@ -463,7 +463,7 @@ function collectClassExpression(node, candidates) {
     return
   }
 
-  if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && (node.expression.text === "cn" || node.expression.text === "clsx")) {
+  if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && (node.expression.text === "cn" || node.expression.text === "clsx" || node.expression.text === "cx")) {
     for (const argument of node.arguments) collectClassExpression(argument, candidates)
     return
   }
