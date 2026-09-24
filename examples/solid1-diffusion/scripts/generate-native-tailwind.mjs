@@ -252,6 +252,9 @@ const explicitlyIgnored = new Map([
 ])
 
 function dynamicIgnoredReason(candidate) {
+  if (candidate.startsWith("after:") || candidate.includes(":after:")) {
+    return "pinned Diffusion after:* utilities are audited decorative focus/selection/drop ring overlays; GPUIX has no pseudo-element paint tree, while layout, content, and pointer input remain on the authored element"
+  }
   if (candidate === "z-[10000]") return "native floating layers own popup stacking; published native StyleDesc has no z-index"
   if (candidate === "text-balance") return "native text wrapping does not expose CSS text-wrap balance"
   if (candidate.startsWith("data-") || candidate.startsWith("aria-") || candidate.startsWith("dark:data-")) {
