@@ -19,7 +19,7 @@ diff --git a/packages/native/src/style.rs b/packages/native/src/style.rs
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -5720,17 +5720,37 @@ pub(crate) fn apply_styles<E: gpui::Styled>(mut el: E, style: &StyleDesc) -> E {
+@@ -5720,17 +5720,33 @@ pub(crate) fn apply_styles<E: gpui::Styled>(mut el: E, style: &StyleDesc) -> E {
          Some("relative") => el = el.relative(),
          _ => {}
      }
