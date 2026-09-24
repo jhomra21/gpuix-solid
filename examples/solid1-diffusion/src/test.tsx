@@ -194,11 +194,12 @@ if (!hasNativeTestRenderer) {
     )
 
     const editorBounds = editorApp.renderer.boundsTestId("diffusion-source-editor")
+    const windowSize = editorApp.renderer.getWindowSize()
     const stageBounds = editorApp.renderer.boundsFirstTypeWithinTestId("diffusion-source-editor", "canvas")
     const editorText = editorApp.renderer.textContent("diffusion-source-editor")
     requireCondition(
-      editorBounds.width >= 1200 && editorBounds.height >= 760,
-      `Diffusion EditorPage should fill the native window; got ${editorBounds.width}x${editorBounds.height}`,
+      closeTo(editorBounds.width, windowSize.width) && closeTo(editorBounds.height, windowSize.height),
+      `Diffusion EditorPage should fill the granted native window; got ${editorBounds.width}x${editorBounds.height}, window ${windowSize.width}x${windowSize.height}`,
     )
     requireCondition(editorText.includes("Add media"), "Diffusion EditorPage should render the real Assets sidebar")
     requireCondition(stageBounds.width < editorBounds.width, "Diffusion EditorPage stage should leave room for editor sidebars")
@@ -244,6 +245,7 @@ if (!hasNativeTestRenderer) {
 
     console.log("solid1 Diffusion EditorPage shell:", JSON.stringify({
       editorBounds,
+      windowSize,
       stageBounds,
       timelineBounds: editorApp.renderer.boundsTestId("diffusion-editor-timeline"),
     }))
