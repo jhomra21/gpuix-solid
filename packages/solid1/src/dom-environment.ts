@@ -69,6 +69,8 @@ type CompatDocument = CompatEventTarget & {
   createElementNS?: (namespace: string | null, qualifiedName: string) => HostElementNode
   createTextNode?: (value: string) => ReturnType<typeof createHostText>
   getElementsByTagName?: (tagName: string) => CompatTreeElement[]
+  querySelector?: (selector: string) => HostElementNode | null
+  querySelectorAll?: (selector: string) => HostElementNode[]
   createTreeWalker?: (
     root: CompatTreeElement,
     whatToShow: number,
@@ -104,6 +106,7 @@ type CompatDocumentNode = CompatEventTarget & {
   setAttribute(name: string, value: string): void
   removeAttribute(name: string): void
   contains(node: CompatTreeElement): boolean
+  querySelector(selector: string): HostElementNode | null
   querySelectorAll(selector: string): HostElementNode[]
   getBoundingClientRect(): CompatRect
 }
@@ -407,8 +410,10 @@ export function installDomEventEnvironment(): void {
     if (normalized === "head") return [headTarget]
     if (normalized === "body") return [bodyTarget]
     if (normalized === "html") return [documentElementTarget]
-    return queryDescendants(documentElementTarget, normalized)
+    return queryDescendants(bodyTarget, normalized)
   }
+  documentTarget.querySelectorAll = (selector) => queryDescendants(bodyTarget, selector)
+  documentTarget.querySelector = (selector) => documentTarget.querySelectorAll?.(selector)[0] ?? null
   documentTarget.createTreeWalker = createCompatTreeWalker
   windowTarget.document = documentTarget
   windowTarget.setTimeout = (callback, delay) => globalThis.setTimeout(callback, delay)
@@ -601,6 +606,9 @@ function createDocumentNode(
       if (candidate === node) return true
       return candidate instanceof HostElementNode && descendantsOf(node).includes(candidate)
     },
+    querySelector(selector) {
+      return queryDescendants(node, selector)[0] ?? null
+    },
     querySelectorAll(selector) {
       return queryDescendants(node, selector)
     },
@@ -687,6 +695,13 @@ function installHostDomCompatibility(ownerDocument: CompatDocument): void {
           parent = parent.kind === "root" ? null : parent.parent
         }
         return false
+      },
+    },
+    querySelector: {
+      configurable: true,
+      value(this: HostElementNode, selector: string): HostElementNode | null {
+        registerKnownRoot(this)
+        return queryDescendants(this, selector)[0] ?? null
       },
     },
     querySelectorAll: {
