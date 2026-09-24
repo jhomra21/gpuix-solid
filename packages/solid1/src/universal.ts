@@ -37,6 +37,7 @@ import {
   resolveNativeClassTextTransform,
   resolveNativeDescendantClassStyle,
   type NativeClassList,
+  type NativeStyleTranslation,
   type NativeTextTransform,
 } from "./native-style.js"
 
@@ -90,6 +91,14 @@ const svgAttributes = new WeakMap<HostElementNode, Map<string, SvgAttributeValue
 const textTransforms = new WeakMap<HostElementNode, NativeTextTransform>()
 const sourceTextValues = new WeakMap<HostTextNode, string>()
 const browserInlineFlowNodes = new WeakSet<HostElementNode>()
+
+type PendingFractionalTranslation = {
+  style: StyleDesc
+  translation: NativeStyleTranslation
+}
+
+const pendingFractionalTranslations = new WeakMap<HostElementNode, PendingFractionalTranslation>()
+const scheduledFractionalTranslations = new WeakSet<HostElementNode>()
 
 const TEXT_SEMANTIC_TAGS = new Set([
   "span",
@@ -723,6 +732,51 @@ function applyNativeStyleState(node: HostElementNode): void {
     "style",
     applyNativeStyleTranslation(positionedStyle, classTranslation) ?? {},
   )
+  scheduleMeasuredFractionalTranslation(node, positionedStyle, classTranslation)
+}
+
+function scheduleMeasuredFractionalTranslation(
+  node: HostElementNode,
+  style: StyleDesc | undefined,
+  translation: NativeStyleTranslation | undefined,
+): void {
+  if (!style || !translation) {
+    pendingFractionalTranslations.delete(node)
+    return
+  }
+
+  const needsWidth = translation.xFraction !== undefined && !Number.isFinite(Number(style.width))
+  const needsHeight = translation.yFraction !== undefined && !Number.isFinite(Number(style.height))
+  if (!needsWidth && !needsHeight) {
+    pendingFractionalTranslations.delete(node)
+    return
+  }
+
+  pendingFractionalTranslations.set(node, { style, translation })
+  if (scheduledFractionalTranslations.has(node)) return
+  scheduledFractionalTranslations.add(node)
+
+  queueMicrotask(() => {
+    scheduledFractionalTranslations.delete(node)
+    const pending = pendingFractionalTranslations.get(node)
+    const root = node.root
+    if (!pending || !root || !node.nativeAlive) return
+
+    root.driver.flush()
+    const bounds = node.getBoundingClientRect()
+    const width = bounds.width > 0 ? bounds.width : undefined
+    const height = bounds.height > 0 ? bounds.height : undefined
+    if ((needsWidth && width === undefined) || (needsHeight && height === undefined)) return
+
+    const translated = applyNativeStyleTranslation(
+      pending.style,
+      pending.translation,
+      { width, height },
+    )
+    setHostProperty(node, "style", translated ?? {})
+    root.driver.flush()
+    pendingFractionalTranslations.delete(node)
+  })
 }
 
 function isUnselectedSelectOption(node: HostElementNode): boolean {
@@ -806,7 +860,11 @@ function transformText(value: string, transform: NativeTextTransform | undefined
 }
 
 function resolvedNativeNodeSize(parent: HostParent | null, axis: "x" | "y"): number | undefined {
-  if (!parent || parent.kind === "root") return undefined
+  if (!parent) return undefined
+  if (parent.kind === "root") {
+    const viewport = axis === "x" ? globalThis.window?.innerWidth : globalThis.window?.innerHeight
+    return Number.isFinite(viewport) && viewport > 0 ? viewport : undefined
+  }
   const style = parent.style
   const parentSize = resolvedNativeNodeSize(parent.parent, axis)
   const explicit = axis === "x" ? style.width : style.height
