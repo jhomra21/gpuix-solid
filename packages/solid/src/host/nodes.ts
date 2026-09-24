@@ -561,6 +561,15 @@ export type HostNode = HostElementNode | HostTextNode
 export type HostParent = HostRootNode | HostElementNode
 type HostTreeNode = HostRootNode | HostNode
 
+const mountedHostRootElements = new Set<HostElementNode>()
+
+export function getMountedHostRootElements(): HostElementNode[] {
+  for (const node of mountedHostRootElements) {
+    if (node.parent?.kind !== "root" || !node.nativeAlive) mountedHostRootElements.delete(node)
+  }
+  return [...mountedHostRootElements]
+}
+
 export function createHostElement(type: string, tagName = type): HostElementNode {
   if (!isElementType(type)) throw new Error(`Unsupported GPUIX element <${type}>`)
   return new HostElementNode(type, tagName)
@@ -730,11 +739,13 @@ export function insertHostNode(parent: HostParent, node: HostNode, anchor?: Host
   if (root) adopt(root, node)
 
   const oldParent = node.parent
+  if (oldParent?.kind === "root" && node.kind === "element") mountedHostRootElements.delete(node)
   if (oldParent) removeFromChildren(oldParent, node)
 
   const index = anchor ? parent.children.indexOf(anchor) : parent.children.length
   parent.children.splice(index, 0, node)
   node.parent = parent
+  if (parent.kind === "root" && node.kind === "element") mountedHostRootElements.add(node)
 
   if (root) refreshInheritedPointerEvents(node)
   if (!root) return
@@ -749,6 +760,7 @@ export function insertHostNode(parent: HostParent, node: HostNode, anchor?: Host
 
 export function removeHostNode(parent: HostParent, node: HostNode): void {
   if (node.parent !== parent) return
+  if (parent.kind === "root" && node.kind === "element") mountedHostRootElements.delete(node)
   removeFromChildren(parent, node)
   node.parent = null
   const root = rootOf(parent)
