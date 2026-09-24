@@ -46,8 +46,8 @@ async function main(): Promise<void> {
     requireCondition(text.includes("30%"), "Live Diffusion window should paint the Inspector zoom value")
     requireCondition(text.includes("GPUix rectangle"), "Live Diffusion window should paint the fixture timeline layer")
 
-    requireCondition(typeof app.renderer.captureScreenshot === "function", "Live renderer should expose screenshot capture")
-    app.renderer.captureScreenshot(screenshotPath)
+    requireCondition(Boolean(app.renderer.captureScreenshot), "Live renderer should expose screenshot capture")
+    app.renderer.captureScreenshot?.(screenshotPath)
     requireCondition(existsSync(screenshotPath), "Live Diffusion screenshot should be written")
     requireCondition(statSync(screenshotPath).size > 10_000, "Live Diffusion screenshot should contain a rendered frame")
 
