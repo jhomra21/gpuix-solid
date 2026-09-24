@@ -73,7 +73,7 @@ export function nativeEventTypeForBrowserEvent(eventType: string): NativeEventTy
   return undefined
 }
 
-const delegatedNativeEventTypes = new Set<NativeEventType>()
+const delegatedNativeEventTypes = new Set<string>()
 
 export function registerDelegatedNativeEvent(eventType: NativeEventType): boolean {
   const alreadyRegistered = delegatedNativeEventTypes.has(eventType)
@@ -82,7 +82,7 @@ export function registerDelegatedNativeEvent(eventType: NativeEventType): boolea
 }
 
 export function isDelegatedNativeEvent(eventType: string): boolean {
-  return delegatedNativeEventTypes.has(eventType as NativeEventType)
+  return delegatedNativeEventTypes.has(eventType)
 }
 
 type GlobalEventHandler = (event: EventPayload) => void
