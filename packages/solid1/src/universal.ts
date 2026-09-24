@@ -748,7 +748,8 @@ function applyNativeStyleState(node: HostElementNode): void {
   const browserInlineFlow = resolveBrowserInlineFlowStyle(node, mergedStyle)
   if (browserInlineFlow) browserInlineFlowNodes.add(node)
   else browserInlineFlowNodes.delete(node)
-  const flowedStyle = mergeNativeStyles(mergedStyle, browserInlineFlow)
+  const browserGrid2D = resolveInlineGrid2DStyle(node)
+  const flowedStyle = mergeNativeStyles(mergedStyle, browserInlineFlow, browserGrid2D)
   const viewportWidth = nativeViewportSize("x")
   const viewportHeight = nativeViewportSize("y")
   const viewportStyle = applyNativeStyleViewportSize(
@@ -1005,8 +1006,20 @@ function resolveInlineGridItemStyle(node: HostElementNode): StyleDesc | undefine
   while (ancestor && ancestor.kind === "element") {
     const columns = inlineGridColumns.get(ancestor)
     const rows = inlineGridRows.get(ancestor)
-    if (columns && rows) return resolveInlineGrid2DItemStyle(ancestor, node, columns, rows)
+    if (columns && rows) return undefined
     if (columns) return browserGridItemStyle(columns, inlineGridItemIndex(ancestor, node))
+    if (sourceDisplay(ancestor) !== "contents") return undefined
+    ancestor = ancestor.parent
+  }
+  return undefined
+}
+
+function resolveInlineGrid2DStyle(node: HostElementNode): StyleDesc | undefined {
+  let ancestor: HostParent | null = node.parent
+  while (ancestor && ancestor.kind === "element") {
+    const columns = inlineGridColumns.get(ancestor)
+    const rows = inlineGridRows.get(ancestor)
+    if (columns && rows) return resolveInlineGrid2DItemStyle(ancestor, node, columns, rows)
     if (sourceDisplay(ancestor) !== "contents") return undefined
     ancestor = ancestor.parent
   }
