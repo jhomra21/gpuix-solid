@@ -1,0 +1,11 @@
+[
+  "apps/web/src/engine/canvas.tsx",
+  "apps/web/src/components/canvas/draw-overlay.tsx",
+  "apps/web/src/components/canvas/toolbar.tsx",
+  "apps/web/src/components/genai/action-bar.tsx",
+  "apps/web/src/components/ui/button.tsx",
+  "apps/web/src/components/ui/dropdown-menu.tsx",
+  "apps/web/src/components/ui/icon.tsx",
+  "apps/web/src/components/ui/separator.tsx",
+  "apps/web/src/components/ui/tooltip.tsx"
+]
