@@ -1,5 +1,4 @@
 diff --git a/packages/native/src/style.rs b/packages/native/src/style.rs
-index 9e2f8c1..0000000 100644
 --- a/packages/native/src/style.rs
 +++ b/packages/native/src/style.rs
 @@ -177,6 +177,7 @@ pub struct StyleDesc {
@@ -11,56 +10,57 @@ index 9e2f8c1..0000000 100644
      // Background & Colors
      pub background: Option<BackgroundValue>,
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
-index a1b2c3d..0000000 100644
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -4816,6 +4816,24 @@ impl Inherited {
+@@ -4816,6 +4816,18 @@ impl Inherited {
  
  // ── Element builders ─────────────────────────────────────────────────
  
-+fn stacked_child_ids(
-+    element: &crate::retained_tree::RetainedElement,
-+    tree: &RetainedTree,
-+) -> Vec<u64> {
-+    let mut children: Vec<(usize, u64, f64)> = element
-+        .children
-+        .iter()
-+        .copied()
-+        .enumerate()
-+        .filter_map(|(index, child_id)| {
-+            let child = tree.elements.get(&child_id)?;
-+            let z_index = child.style.as_deref().and_then(|style| style.z_index).unwrap_or(0.0);
-+            Some((index, child_id, z_index))
-+        })
-+        .collect();
-+    children.sort_by(|left, right| left.2.total_cmp(&right.2).then_with(|| left.0.cmp(&right.0)));
-+    children.into_iter().map(|(_, child_id, _)| child_id).collect()
++fn z_index_priority(tree: &RetainedTree, id: u64) -> Option<usize> {
++    let value = tree
++        .elements
++        .get(&id)?
++        .style
++        .as_deref()?
++        .z_index?;
++    if !value.is_finite() || value <= 0.0 {
++        return None;
++    }
++    Some(value.min(usize::MAX as f64) as usize)
 +}
 +
  pub(crate) fn build_element(
      id: u64,
      ctx: &mut BuildCtx,
-@@ -4881,12 +4899,9 @@ pub(crate) fn build_element(
- 
-         // Polymorphic dispatch for all custom elements.
-         custom_type => {
--            let custom_children: Vec<gpui::AnyElement> = element
--                .children
--                .iter()
--                .copied()
--                .filter(|child_id| ctx.tree.elements.contains_key(child_id))
-+            let custom_children: Vec<gpui::AnyElement> = stacked_child_ids(element, ctx.tree)
-+                .into_iter()
-                 .map(|child_id| build_element(child_id, ctx, window, cx))
+@@ -4886,7 +4898,15 @@ pub(crate) fn build_element(
+                 .iter()
+                 .copied()
+                 .filter(|child_id| ctx.tree.elements.contains_key(child_id))
+-                .map(|child_id| build_element(child_id, ctx, window, cx))
++                .map(|child_id| {
++                    let child = build_element(child_id, ctx, window, cx);
++                    if let Some(priority) = z_index_priority(ctx.tree, child_id) {
++                        use gpui::IntoElement;
++                        gpui::deferred(child).with_priority(priority).into_any_element()
++                    } else {
++                        child
++                    }
++                })
                  .collect();
              let inherited = ctx.inherited.clone();
-@@ -5461,8 +5476,7 @@ pub(crate) fn build_host_container(
-     }
+             let render_ctx = CustomRenderContext {
+@@ -5462,8 +5482,13 @@ pub(crate) fn build_host_container(
  
      // Children
--    let child_ids: Vec<u64> = element.children.clone();
--    for child_id in child_ids {
-+    for child_id in stacked_child_ids(element, ctx.tree) {
-         let child = build_element(child_id, ctx, window, cx);
+     let child_ids: Vec<u64> = element.children.clone();
+     for child_id in child_ids {
+-        let child = build_element(child_id, ctx, window, cx);
++        let child = build_element(child_id, ctx, window, cx);
++        let child = if let Some(priority) = z_index_priority(ctx.tree, child_id) {
++            gpui::deferred(child).with_priority(priority).into_any_element()
++        } else {
++            child
++        };
          el = if overflow_x_only {
              el.child(gpui::div().flex_none().child(child))
+         } else {
