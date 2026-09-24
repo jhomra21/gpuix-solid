@@ -4,6 +4,7 @@ import "fake-indexeddb/auto"
 // Keep the source unchanged; this fixture supplies the browser IndexedDB contract in memory
 // until durable native project metadata storage gets its own host boundary.
 import { onCleanup, onMount, type JSX } from "solid-js"
+import { MemoryRouter, Route } from "@solidjs/router"
 import { configureNativeStyleManifest } from "@jhomra21/gpuix-solid1"
 import { nativeTailwindManifest } from "./native-tailwind.generated"
 import { Canvas } from "@/components/canvas/canvas"
@@ -169,7 +170,7 @@ export function DiffusionSourceEngine(): JSX.Element {
   )
 }
 
-export function DiffusionSourceEditor(): JSX.Element {
+function DiffusionSourceEditorRoute(): JSX.Element {
   return (
     <ProjectProvider project={editorFixtureProject}>
       <EngineProvider projectId={editorFixtureProject.id}>
@@ -193,6 +194,14 @@ export function DiffusionSourceEditor(): JSX.Element {
         </EditorApiProvider>
       </EngineProvider>
     </ProjectProvider>
+  )
+}
+
+export function DiffusionSourceEditor(): JSX.Element {
+  return (
+    <MemoryRouter>
+      <Route path="/" component={DiffusionSourceEditorRoute} />
+    </MemoryRouter>
   )
 }
 
