@@ -196,7 +196,10 @@ if (!hasNativeTestRenderer) {
     const editorBounds = editorApp.renderer.boundsTestId("diffusion-source-editor")
     const stageBounds = editorApp.renderer.boundsFirstTypeWithinTestId("diffusion-source-editor", "canvas")
     const editorText = editorApp.renderer.textContent("diffusion-source-editor")
-    requireCondition(editorBounds.width >= 1200 && editorBounds.height >= 760, "Diffusion EditorPage should fill the native window")
+    requireCondition(
+      editorBounds.width >= 1200 && editorBounds.height >= 760,
+      `Diffusion EditorPage should fill the native window; got ${editorBounds.width}x${editorBounds.height}`,
+    )
     requireCondition(editorText.includes("Add media"), "Diffusion EditorPage should render the real Assets sidebar")
     requireCondition(stageBounds.width < editorBounds.width, "Diffusion EditorPage stage should leave room for editor sidebars")
     requireCondition(stageBounds.height < editorBounds.height, "Diffusion EditorPage stage should leave room for the timeline")
