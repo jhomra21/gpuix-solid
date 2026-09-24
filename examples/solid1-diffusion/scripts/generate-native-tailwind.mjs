@@ -3,63 +3,574 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { compile } from "@tailwindcss/node"
 import postcss from "postcss"
+import * as ts from "typescript"
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const diffusionCommit = "666cdced1f6b97a792b63e551f45797649efb27a"
 const sourceRoot = path.resolve(projectRoot, "../../.cache/diffusion-editor", diffusionCommit.slice(0, 12))
 const themePath = path.join(sourceRoot, "apps/web/src/index.css")
-const candidatesPath = path.join(projectRoot, "native-tailwind.candidates.json")
+const sourcesPath = path.join(projectRoot, "native-tailwind.sources.json")
 const outputPath = path.join(projectRoot, "src/native-tailwind.generated.ts")
 
-const explicitNativeOmissions = new Map([
-  ["z-5", "published native StyleDesc has no z-index; retained-tree order places DrawOverlay after EngineCanvas"],
+const nativeTextTransforms = new Map([
+  ["uppercase", "uppercase"],
+  ["lowercase", "lowercase"],
+  ["capitalize", "capitalize"],
+  ["normal-case", "none"],
 ])
 
+// GPUIX 0.7 supports equal-count CSS grid tracks, but not arbitrary CSS
+// templates or justify-self. Preserve the copied transport's 1fr/auto/1fr
+// semantics with the equivalent flex layout: equal flexible side zones around
+// one intrinsic center zone. Other entries below translate source geometry
+// into native fields without editing the copied DAW components.
+const nativeCompatEntries = new Map([
+  ["shadow-[0_0_6px_rgba(239,68,68,0.75)]", {
+    base: {
+      boxShadow: {
+        offsetX: 0,
+        offsetY: 0,
+        blurRadius: 6,
+        spreadRadius: 0,
+        color: "rgba(239, 68, 68, 0.75)",
+      },
+    },
+  }],
+  ["effect-shell", {
+    base: {},
+    attributeVariants: {
+      "data-device-collapsed": {
+        "true": { base: { width: 26, minWidth: 26, maxWidth: 26, flexGrow: 0, flexShrink: 0, flexBasis: 26 } },
+      },
+    },
+  }],
+  // Custom classes below are owned by the pinned DAW src/index.css. Keep the
+  // source class names intact and translate only the native representation.
+  ["mixer-volume-slider", {
+    base: { height: 20, borderWidth: 0.5 },
+    light: { borderColor: "oklch(0.92 0.004 286.32)", backgroundColor: "oklch(0.552 0.016 285.938)" },
+    dark: { borderColor: "oklch(0.274 0.006 286.033)", backgroundColor: "oklch(0.705 0.015 286.067)" },
+  }],
+  // The browser source layers an automation-range gradient over the volume
+  // meter. GPUIX 0.7 publishes one background and cannot represent both
+  // CSS-variable-driven layers; the exact source class remains registered.
+  ["mixer-volume-slider-automated", { base: {} }],
+  // The browser rules use inset/layered shadows. A one-pixel bottom border is
+  // the native divider fallback; selected state still comes from the source
+  // row background/color classes.
+  ["track-row-divider", { base: { borderBottomWidth: 1, borderColor: "rgb(38 38 38)" } }],
+  ["track-row-selected-wash", { base: { borderBottomWidth: 1, borderColor: "rgb(38 38 38)" } }],
+  ["track-row-control-panel", { base: { width: 101 } }],
+  ["track-row-control-stack", { base: { width: 81 } }],
+  ["track-meter-strip", { base: { width: 12 } }],
+  ["track-automation-indicator", { base: { boxShadow: { offsetX: 0, offsetY: 0, blurRadius: 6, spreadRadius: 0, color: "rgba(239, 68, 68, 0.75)" } } }],
+  // GPUIX 0.7 only publishes equal-count grid tracks. Preserve the source
+  // column count for the two three-column layouts; fixed control widths remain
+  // source-owned by track-row-control-panel/stack/meter-strip above.
+  ["track-expanded-row-grid", { base: { gridTemplateColumns: 3 } }],
+  ["grid-cols-[minmax(72px,96px)_minmax(96px,1fr)_101px]", { base: { gridTemplateColumns: 3 } }],
+  // This two-column source layout can be represented exactly as flex because
+  // its children are one flexible div followed by one fixed 20px button.
+  ["grid-cols-[minmax(0,1fr)_20px]", {
+    base: { display: "flex", flexDirection: "row" },
+    descendants: {
+      ">div": { base: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0 } },
+      ">button": { base: { width: 20, flexShrink: 0 } },
+    },
+  }],
+  ["grid-cols-2", { base: { gridTemplateColumns: 2 } }],
+  ["grid-cols-3", { base: { gridTemplateColumns: 3 } }],
+  ["grid-cols-4", { base: { gridTemplateColumns: 4 } }],
+  ["grid-cols-[84px_1fr_96px]", {
+    base: { display: "flex", flexDirection: "row" },
+    descendants: {
+      ">:nth-child(1)": { base: { width: 84, minWidth: 84, flexGrow: 0, flexShrink: 0 } },
+      ">:nth-child(2)": { base: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: 0 } },
+      ">:nth-child(3)": { base: { width: 96, minWidth: 96, flexGrow: 0, flexShrink: 0 } },
+    },
+  }],
+  ["grid-cols-[auto_1fr]", {
+    base: { display: "flex", flexDirection: "row" },
+    descendants: {
+      ">:nth-child(1)": { base: { flexGrow: 0, flexShrink: 0 } },
+      ">:nth-child(2)": { base: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: 0 } },
+    },
+  }],
+  ["max-h-screen", { base: { maxHeight: "100%" } }],
+  ["top-full", { base: {}, parentPosition: { topFraction: 1 } }],
+  ["ring-1", { base: { boxShadow: { offsetX: 0, offsetY: 0, blurRadius: 0, spreadRadius: 1, color: "rgba(0, 0, 0, 0)" } } }],
+  ["ring-blue-400/80", { base: { boxShadow: { offsetX: 0, offsetY: 0, blurRadius: 0, spreadRadius: 1, color: "rgba(81, 162, 255, 0.8)" } } }],
+  ["space-y-1.5", { base: { gap: 6 } }],
+  ["sr-only", { base: { position: "absolute", width: 1, height: 1, paddingTop: 0, paddingRight: 0, paddingBottom: 0, paddingLeft: 0, marginTop: -1, marginRight: -1, marginBottom: -1, marginLeft: -1, overflow: "hidden", whiteSpace: "nowrap", borderWidth: 0 } }],
+  ["sm:items-center", { base: { alignItems: "center" } }],
+  ["sm:text-left", { base: { textAlign: "left" } }],
+  ["sm:flex-row", { base: { flexDirection: "row" } }],
+  ["sm:justify-end", { base: { justifyContent: "flex-end" } }],
+  ["sm:space-x-2", { base: { gap: 8 } }],
+  ["left-1/2", { base: {}, parentPosition: { leftFraction: 0.5 } }],
+  ["grid-cols-[1fr_auto_1fr]", { base: { display: "flex", flexDirection: "row" } }],
+  ["justify-self-start", { base: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, justifyContent: "flex-start" } }],
+  ["justify-self-center", { base: { flexGrow: 0, flexShrink: 0 } }],
+  ["justify-self-end", { base: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, justifyContent: "flex-end" } }],
+  ["grid-cols-1", { base: { gridTemplateColumns: 1 } }],
+  ["space-y-0.5", { base: { gap: 2 } }],
+  ["rounded-full", { base: { borderRadius: 9999 } }],
+  // Browser resize handle: parent is 8px wide and the rail is 4px wide, so
+  // CSS right:50% + translateX(50%) is exactly a 2px right inset natively.
+  ["right-1/2", { base: {}, parentPosition: { rightFraction: 0.5 } }],
+  ["translate-x-1/2", { base: {}, translation: { xFraction: 0.5 } }],
+  ["-translate-x-1/2", { base: {}, translation: { xFraction: -0.5 } }],
+  // Bottom-panel resize handle is 16px tall and its center rail is 4px tall.
+  // CSS top:50% + translateY(-50%) therefore lands at top:6px exactly.
+  ["top-1/2", { base: {}, parentPosition: { topFraction: 0.5 } }],
+  ["translate-y-1/2", { base: {}, translation: { yFraction: 0.5 } }],
+  ["-translate-y-1/2", { base: {}, translation: { yFraction: -0.5 } }],
+])
+
+const explicitlyIgnored = new Map([
+  ["effect-shell-chevron", "the source class is only a selector anchor for chevron transform state; GPUIX 0.7 has no general CSS transform field"],
+  ["effect-shell-chevron-icon", "the source rotates this icon with CSS transform; GPUIX 0.7 has no general CSS transform field"],
+  ["duration-100", "GPUIX 0.7 does not publish CSS transition timing; native state changes remain immediate"],
+  ["duration-150", "GPUIX 0.7 does not publish CSS transition timing; native state changes remain immediate"],
+  ["transition-transform", "GPUIX 0.7 does not publish CSS transitions; source transform transitions remain immediate"],
+  ["rotate-180", "GPUIX 0.7 StyleDesc has no general CSS transform; exact collapsed-device rotation remains source-locked but cannot be reproduced natively"],
+  ["focus-visible:ring-1", "GPUIX 0.7 does not publish browser focus-visible ring painting through StyleDesc; keyboard focus semantics remain native"],
+  ["focus-visible:ring-inset", "GPUIX 0.7 BoxShadow has no inset focus-ring mode; the exact source utility remains source-locked"],
+  ["focus-visible:ring-cyan-300/70", "GPUIX 0.7 does not publish browser focus-visible ring color through StyleDesc; keyboard focus semantics remain native"],
+  ["[writing-mode:vertical-rl]", "GPUIX 0.7 does not publish CSS writing-mode; the exact collapsed device label remains source-locked while native cannot reproduce vertical text orientation"],
+  ["mt-auto", "GPUIX 0.7 publishes numeric margins only; the exact Compressor Auto toggle keeps its source utility while native cannot reproduce CSS auto-margin free-space absorption without changing sibling geometry"],
+  ["duration-75", "native StyleDesc transitions are not published in GPUIX 0.7"],
+  ["transition-all", "native StyleDesc transitions are not published in GPUIX 0.7"],
+  ["transition-opacity", "native StyleDesc transitions are not published in GPUIX 0.7"],
+  ["focus-visible:outline", "GPUIX 0.7 does not publish browser focus-outline painting through StyleDesc"],
+  ["focus-visible:outline-2", "GPUIX 0.7 does not publish browser focus-outline width through StyleDesc"],
+  ["focus-visible:outline-offset-[-2px]", "GPUIX 0.7 does not publish browser focus-outline offset through StyleDesc"],
+  ["focus-visible:outline-primary", "GPUIX 0.7 does not publish browser focus-outline color through StyleDesc"],
+  ["focus:ring-2", "GPUIX 0.7 does not publish browser focus-ring painting through StyleDesc"],
+  ["focus:ring-ring", "GPUIX 0.7 does not publish browser focus-ring color through StyleDesc"],
+  ["focus:ring-offset-2", "GPUIX 0.7 does not publish browser focus-ring offset through StyleDesc"],
+  ["hover:brightness-110", "GPUIX 0.7 does not publish CSS filter effects; this is only hover feedback on unselected clips and does not alter clip geometry or state"],
+  ["shadow-background/40", "this only recolors the copied context menu's layered shadow-md; GPUIX 0.7 exposes one BoxShadow and cannot represent Tailwind's layered shadow-md geometry"],
+  ["shadow-xl", "Tailwind shadow-xl is layered; GPUIX 0.7 exposes one native BoxShadow and cannot represent both source shadow layers faithfully"],
+  ["shadow-black/50", "this only recolors the copied automation picker shadow-xl; GPUIX 0.7 cannot represent that layered source shadow exactly"],
+  ["shadow-black/30", "this only recolors the copied automation lane readout shadow-lg; GPUIX 0.7 cannot represent that layered source shadow exactly"],
+  ["shadow-inner", "GPUIX 0.7 BoxShadow has no inset mode; the exact armed-record state remains preserved by its red border, background, and foreground styles"],
+  ["touch-none", "touch-action is a browser gesture policy; the exact fade interaction owns native gesture continuity with pointer capture and window pointer listeners"],
+  ["tracking-tight", "letter-spacing is not exposed by GPUIX 0.7; keep the exact copied title utility registered without silently broadening unsupported typography"],
+  ["z-0", "published native StyleDesc has no z-index; retained-tree order owns this source baseline stacking level"],
+  ["z-20", "published native StyleDesc has no z-index; retained-tree order owns this source intermediate stacking level"],
+  ["box-border", "GPUIX 0.7 has no box-sizing StyleDesc field; native DAW footer bounds tests already verify the intended total border-box geometry"],
+  ["col-start-3", "GPUIX 0.7 does not publish grid-item column placement; the native DAW verifier asserts the collapsed source control group remains right-aligned before this omission is accepted"],
+  ["col-start-4", "GPUIX 0.7 does not publish grid-item column placement; the native DAW verifier asserts collapsed mute/solo/arm/volume order and right alignment"],
+  ["row-start-1", "GPUIX 0.7 does not publish grid-item row placement; the native DAW verifier asserts the collapsed controls preserve the source one-row ordering"],
+  ["active:scale-97", "GPUIX 0.7 has no transform/scale StyleDesc field"],
+  ["group", "Tailwind group is a relationship-state marker and has no direct painted native style"],
+  ["group-hover:bg-sky-500/20", "group relationship hover styling is not exposed by GPUIX 0.7"],
+  ["group-active:bg-sky-500/20", "group relationship active styling is not exposed by GPUIX 0.7"],
+  ["group-hover:text-foreground", "the copied browser item already has text-foreground as its base color; native group relationship hover styling is not exposed"],
+  ["!transition-transform", "native StyleDesc transitions are not published in GPUIX 0.7"],
+  ["!duration-150", "native StyleDesc transitions are not published in GPUIX 0.7"],
+  ["transition-colors", "native StyleDesc transitions are not published in GPUIX 0.7"],
+  ["ring-offset-background", "native focus ring offset styling is not exposed by GPUIX 0.7"],
+  ["focus-visible:outline-none", "native focus-visible styling is not exposed by GPUIX 0.7"],
+  ["focus-visible:ring-2", "native focus-visible styling is not exposed by GPUIX 0.7"],
+  ["focus-visible:ring-ring", "native focus-visible styling is not exposed by GPUIX 0.7"],
+  ["focus-visible:ring-offset-2", "native focus-visible styling is not exposed by GPUIX 0.7"],
+  ["focus:border-border", "native focus pseudo styling is not published; this input already has the same border-border base color"],
+  ["focus:outline-none", "native inputs do not paint a browser focus outline"],
+  ["focus:bg-app-surface/60", "native input focus background pseudo styling is not published by GPUIX 0.7"],
+  ["outline-none", "GPUIX native inputs and menu primitives do not paint the browser outline suppressed by this utility"],
+  ["disabled:pointer-events-none", "the native Kobalte adapter owns disabled pointer behavior"],
+  ["disabled:opacity-50", "the native Kobalte adapter owns disabled opacity"],
+  ["disabled:opacity-60", "the native input/browser adapter owns disabled opacity"],
+  ["underline-offset-4", "native text decoration offset is not exposed by GPUIX 0.7"],
+  ["hover:underline", "native text decoration is not exposed by GPUIX 0.7"],
+  ["file:border-0", "native input has no browser file-selector pseudo-element"],
+  ["file:bg-transparent", "native input has no browser file-selector pseudo-element"],
+  ["file:text-sm", "native input has no browser file-selector pseudo-element"],
+  ["file:font-medium", "native input has no browser file-selector pseudo-element"],
+  ["placeholder:text-muted-foreground", "native input placeholder styling is not separately exposed by GPUIX 0.7"],
+  ["selection:bg-primary/40", "native text selection has its own selectionColor contract rather than CSS ::selection variants"],
+  ["disabled:cursor-not-allowed", "the native Kobalte adapter owns disabled interaction"],
+  ["data-[disabled]:pointer-events-none", "native Kobalte menu adapters own disabled item hit testing"],
+  ["data-[disabled]:opacity-50", "native Kobalte menu adapters own disabled item opacity"],
+  ["data-[invalid]:border-error-foreground", "the native TextField adapter owns invalid border state until data-state variants are native"],
+  ["data-[invalid]:text-error-foreground", "the native TextField adapter owns invalid state until data-state variants are native"],
+  ["data-[invalid]:text-destructive", "the native TextField adapter owns invalid label/error presentation"],
+  ["data-[expanded]:bg-muted", "the native Menubar adapter owns expanded trigger background state"],
+  ["data-[expanded]:text-foreground", "the native Menubar adapter owns expanded trigger state; arbitrary data variants are not native selectors"],
+  ["data-[expanded]:bg-accent", "the native Menubar adapter owns expanded trigger background state"],
+  ["data-[expanded]:text-accent-foreground", "the native Menubar adapter owns expanded trigger foreground state"],
+  ["data-[state=open]:bg-accent", "the native DropdownMenu sub adapter owns open-state highlighting"],
+  ["peer-disabled:cursor-not-allowed", "peer variants require native relationship-state styling"],
+  ["peer-disabled:opacity-70", "peer variants require native relationship-state styling"],
+  ["appearance-none", "GPUIX native inputs do not have browser user-agent appearance chrome to suppress"],
+  ["fill-current", "inline GPUIX SVG styling does not expose CSS fill through StyleDesc; source currentColor stroke still inherits normally"],
+  ["tabular-nums", "font-variant-numeric is not exposed by GPUIX 0.7"],
+  ["tracking-normal", "letter-spacing is not exposed by GPUIX 0.7"],
+  ["tracking-wide", "letter-spacing is not exposed by GPUIX 0.7; keep the copied source unchanged until the native text contract supports it"],
+  ["tracking-widest", "letter-spacing is not exposed by GPUIX 0.7"],
+  ["border-dashed", "GPUIX 0.7 exposes border width/color but not border style; native fallback remains solid"],
+  ["max-h-(--kb-menu-content-available-height)", "native Kobalte FloatingLayer owns available-space popup placement/sizing; the browser CSS custom property does not exist natively"],
+  ["origin-[var(--kb-menu-content-transform-origin)]", "native Kobalte FloatingLayer owns popup placement; CSS transform-origin is not exposed by GPUIX 0.7"],
+  ["data-[expanded]:animate-in", "native Kobalte menus mount directly without browser CSS enter animations"],
+  ["data-[closed]:animate-out", "native Kobalte menus unmount directly without browser CSS exit animations"],
+  ["data-[closed]:fade-out-0", "native Kobalte menus unmount directly without browser CSS opacity animation"],
+  ["data-[expanded]:fade-in-0", "native Kobalte menus mount directly without browser CSS opacity animation"],
+  ["data-[closed]:zoom-out-95", "native Kobalte menus do not use browser CSS scale animations"],
+  ["data-[expanded]:zoom-in-95", "native Kobalte menus mount directly without browser CSS scale animations"],
+  ["data-[placement=bottom]:slide-in-from-top-2", "native FloatingLayer owns placement without CSS translate animation"],
+  ["data-[placement=left]:slide-in-from-right-2", "native FloatingLayer owns placement without CSS translate animation"],
+  ["data-[placement=right]:slide-in-from-left-2", "native FloatingLayer owns placement without CSS translate animation"],
+  ["data-[placement=top]:slide-in-from-bottom-2", "native FloatingLayer owns placement without CSS translate animation"],
+  ["data-[closed]:hidden", "native Kobalte menus own closed-state mounting rather than CSS visibility"],
+  ["aspect-square", "the copied avatar already supplies equal native width and height through size utilities"],
+  ["z-10", "published native StyleDesc has no z-index; retained-tree/layer order owns stacking"],
+  ["z-30", "published native StyleDesc has no z-index; retained-tree/layer order owns stacking"],
+  ["z-40", "published native StyleDesc has no z-index; retained-tree/layer order owns stacking"],
+  ["z-50", "native anchored-layer priority owns popup stacking"],
+  ["w-fit", "native floating content uses intrinsic sizing instead of CSS fit-content"],
+  ["w-max", "native floating content uses intrinsic sizing; GPUIX 0.7 dimensions do not accept CSS max-content"],
+  ["shadow-md", "Tailwind shadow-md is layered; GPUIX 0.7 exposes one native BoxShadow"],
+  ["shadow-lg", "Tailwind shadow-lg is layered; GPUIX 0.7 exposes one native BoxShadow"],
+  ["ml-auto", "GPUIX 0.7 exposes numeric margins only; CSS auto main-axis margins are unavailable"],
+])
+
+function dynamicIgnoredReason(candidate) {
+  if (candidate === "z-5") return "published native StyleDesc has no z-index; retained-tree order places DrawOverlay above EngineCanvas"
+  if (candidate === "z-[10000]") return "native floating layers own popup stacking; published native StyleDesc has no z-index"
+  if (candidate === "text-balance") return "native text wrapping does not expose CSS text-wrap balance"
+  if (candidate === "border-none") return "native separator/background geometry already owns the visible divider; CSS border-style none is not published"
+  if (candidate === "invisible") return "native visibility is represented by mounting/display state rather than CSS visibility"
+  if (candidate === "visible") return "native visibility is represented by mounting/display state rather than CSS visibility"
+  if (candidate.startsWith("data-") || candidate.startsWith("aria-") || candidate.startsWith("dark:data-")) {
+    return "Kobalte/runtime state owns this data/aria variant; native class selectors do not evaluate arbitrary attribute variants yet"
+  }
+  if (candidate.startsWith("focus-visible:ring") || candidate.startsWith("focus-visible:outline")) {
+    return "native focus semantics are preserved without browser CSS ring/outline painting"
+  }
+  if (candidate.startsWith("[[data-popper-positioner]")) {
+    return "native floating-layer placement owns popup positioning; browser CSS entry animation selectors are not used"
+  }
+  if (candidate.startsWith("[&_svg:not") || candidate.startsWith("*:[svg]")) {
+    return "native SVG descendants preserve semantic paint/size through the renderer; complex CSS descendant selectors are not evaluated"
+  }
+  if (candidate.startsWith("origin-(") || candidate.startsWith("max-h-[var(")) {
+    return "native floating-layer geometry owns the corresponding browser CSS custom-property contract"
+  }
+  if (candidate === "animate-in" || candidate === "animate-out" || candidate.includes("fade-in-") || candidate.includes("fade-out-") || candidate.includes("zoom-in-") || candidate.includes("zoom-out-") || candidate.includes("slide-in-from-")) {
+    return "native UI state changes are immediate; browser CSS entrance/exit transforms are not published"
+  }
+  if (candidate === "outline-hidden") return "native controls do not paint the browser outline hidden by this utility"
+  if (candidate.startsWith("shadow-[")) return "GPUIX exposes one native BoxShadow and cannot reproduce this layered arbitrary browser shadow exactly"
+  if (candidate.startsWith("ring-") || candidate.includes(":ring-")) return "browser Tailwind ring painting is not exposed through the current native StyleDesc"
+  return undefined
+}
+
+
 const themeCss = await readFile(themePath, "utf8")
-const candidates = JSON.parse(await readFile(candidatesPath, "utf8"))
+const sourcePaths = JSON.parse(await readFile(sourcesPath, "utf8"))
+const sourceTexts = await Promise.all(
+  sourcePaths.map(async (sourcePath) => ({
+    sourcePath,
+    text: await readFile(path.join(sourceRoot, sourcePath), "utf8"),
+  })),
+)
+const rawCandidates = collectCandidates(sourceTexts)
 
 const compiler = await compile(themeCss, {
-  base: path.dirname(themePath),
+  base: projectRoot,
   from: themePath,
   onDependency() {},
 })
-const compiledCss = compiler.build(candidates)
+const compiledCss = compiler.build(rawCandidates)
 const root = postcss.parse(compiledCss, { from: themePath })
 const variables = collectThemeVariables(root)
 const classes = {}
-
 const omissions = []
-for (const candidate of candidates) {
-  const omission = explicitNativeOmissions.get(candidate)
-  if (omission) {
+const unknownCandidates = []
+
+for (const candidate of rawCandidates) {
+  const compatEntry = nativeCompatEntries.get(candidate)
+  if (compatEntry) {
+    classes[candidate] = compatEntry
+    continue
+  }
+
+  const textTransform = nativeTextTransforms.get(candidate)
+  if (textTransform) {
+    classes[candidate] = { base: {}, textTransform }
+    continue
+  }
+
+  const ignoredReason = explicitlyIgnored.get(candidate) ?? dynamicIgnoredReason(candidate)
+  if (ignoredReason) {
     classes[candidate] = { base: {} }
-    omissions.push({ candidate, reason: omission })
+    omissions.push({ candidate, reason: ignoredReason })
     continue
   }
 
   const rule = findCandidateRule(root, candidate)
-  if (!rule) throw new Error(`Tailwind did not emit candidate ${JSON.stringify(candidate)}`)
+  if (!rule) {
+    unknownCandidates.push(candidate)
+    continue
+  }
 
-  const light = compileRule(rule, candidate, variables.light)
-  const dark = compileRule(rule, candidate, variables.dark)
-  classes[candidate] = JSON.stringify(light) === JSON.stringify(dark)
-    ? { base: light }
-    : { light, dark }
+  const descendant = descendantTarget(candidate)
+  const lightCompiled = compileRule(rule, candidate, variables.light)
+  const darkCompiled = compileRule(rule, candidate, variables.dark)
+  const variant = JSON.stringify(lightCompiled.style) === JSON.stringify(darkCompiled.style)
+    ? { base: lightCompiled.style }
+    : { light: lightCompiled.style, dark: darkCompiled.style }
+  const hasFocus = Object.keys(lightCompiled.focus).length > 0 || Object.keys(darkCompiled.focus).length > 0
+  const focus = hasFocus
+    ? JSON.stringify(lightCompiled.focus) === JSON.stringify(darkCompiled.focus)
+      ? { base: lightCompiled.focus }
+      : { light: lightCompiled.focus, dark: darkCompiled.focus }
+    : undefined
+  if (lightCompiled.lineHeightMultiplier !== darkCompiled.lineHeightMultiplier) {
+    throw new Error(`Theme-dependent relative line-height is unsupported for ${JSON.stringify(candidate)}`)
+  }
+  const lineHeightMetadata = lightCompiled.lineHeightMultiplier === undefined
+    ? {}
+    : { lineHeightMultiplier: lightCompiled.lineHeightMultiplier }
+  const hasSvgPaint = Object.keys(lightCompiled.svgPaint).length > 0 || Object.keys(darkCompiled.svgPaint).length > 0
+  const svg = hasSvgPaint
+    ? JSON.stringify(lightCompiled.svgPaint) === JSON.stringify(darkCompiled.svgPaint)
+      ? { base: lightCompiled.svgPaint }
+      : { light: lightCompiled.svgPaint, dark: darkCompiled.svgPaint }
+    : undefined
+
+  if (descendant && focus) throw new Error(`Unsupported focused descendant native Tailwind candidate ${JSON.stringify(candidate)}`)
+  if (descendant && lightCompiled.lineHeightMultiplier !== undefined) throw new Error(`Unsupported relative line-height descendant native Tailwind candidate ${JSON.stringify(candidate)}`)
+  if (descendant && svg) throw new Error(`Unsupported SVG paint descendant native Tailwind candidate ${JSON.stringify(candidate)}`)
+  if (descendant) {
+    classes[candidate] = { descendants: { [descendant]: variant } }
+  } else {
+    const entry = { ...variant, ...lineHeightMetadata }
+    if (focus) entry.focus = focus
+    if (svg) entry.svg = svg
+    classes[candidate] = entry
+  }
+}
+
+if (unknownCandidates.length > 0) {
+  throw new Error(`Source class candidates have no Tailwind rule or explicit native compatibility entry: ${unknownCandidates.map((candidate) => JSON.stringify(candidate)).join(", ")}`)
 }
 
 const omissionsComment = omissions.length === 0
   ? "// No explicit native omissions in this manifest.\n"
   : [
-      "// Explicit native omissions from the pinned Diffusion source.",
+      "// Explicit native omissions. Each class remains registered so copied source can execute",
+      "// without silently widening the unsupported-CSS surface. Remove an omission as soon as",
+      "// the corresponding GPUIX/native contract can represent it faithfully.",
       ...omissions.map(({ candidate, reason }) => `// - ${candidate}: ${reason}`),
       "",
     ].join("\n")
+
 const generated = `import type { NativeStyleManifest } from "@jhomra21/gpuix-solid1"\n\n` +
   omissionsComment +
   `export const nativeTailwindManifest: NativeStyleManifest = ${JSON.stringify({ classes }, null, 2)}\n`
 
 await writeFile(outputPath, generated)
-console.log(`Diffusion native Tailwind manifest: ${candidates.length} candidates (${omissions.length} explicit omissions)`)
+console.log(`Diffusion native Tailwind manifest: ${Object.keys(classes).length} classes from ${sourcePaths.length} pinned source files (${omissions.length} explicit omissions)`)
+
+function collectCandidates(sources) {
+  const candidates = new Set()
+
+  for (const { sourcePath, text } of sources) {
+    const scriptKind = sourcePath.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS
+    const sourceFile = ts.createSourceFile(sourcePath, text, ts.ScriptTarget.Latest, true, scriptKind)
+
+    const visit = (node) => {
+      if (ts.isJsxAttribute(node)) {
+        const attributeName = node.name.text
+        if (attributeName === "class" || attributeName === "className") {
+          collectClassExpression(node.initializer, candidates)
+          return
+        }
+        if (attributeName === "classList") {
+          collectClassListExpression(node.initializer, candidates)
+          return
+        }
+      }
+
+      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && (node.expression.text === "cn" || node.expression.text === "clsx")) {
+        for (const argument of node.arguments) collectClassExpression(argument, candidates)
+        return
+      }
+
+      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "cva") {
+        collectCvaCall(node, candidates)
+        return
+      }
+
+      ts.forEachChild(node, visit)
+    }
+
+    visit(sourceFile)
+  }
+
+  return [...candidates].sort()
+}
+
+function collectClassExpression(node, candidates) {
+  if (!node) return
+
+  if (ts.isJsxExpression(node) || ts.isParenthesizedExpression(node)) {
+    collectClassExpression(node.expression, candidates)
+    return
+  }
+
+  if (ts.isTaggedTemplateExpression(node) && ts.isIdentifier(node.tag) && node.tag.text === "tw") {
+    collectClassExpression(node.template, candidates)
+    return
+  }
+
+  if (ts.isStringLiteralLike(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+    addClassString(node.text, candidates)
+    return
+  }
+
+  if (ts.isTemplateExpression(node)) {
+    addClassString(node.head.text, candidates)
+    for (const span of node.templateSpans) {
+      collectClassExpression(span.expression, candidates)
+      addClassString(span.literal.text, candidates)
+    }
+    return
+  }
+
+  if (ts.isConditionalExpression(node)) {
+    collectClassExpression(node.whenTrue, candidates)
+    collectClassExpression(node.whenFalse, candidates)
+    return
+  }
+
+  if (ts.isBinaryExpression(node)) {
+    if (node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
+      collectClassExpression(node.right, candidates)
+      return
+    }
+    if (
+      node.operatorToken.kind === ts.SyntaxKind.BarBarToken ||
+      node.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken ||
+      node.operatorToken.kind === ts.SyntaxKind.PlusToken
+    ) {
+      collectClassExpression(node.left, candidates)
+      collectClassExpression(node.right, candidates)
+    }
+    return
+  }
+
+  if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && (node.expression.text === "cn" || node.expression.text === "clsx")) {
+    for (const argument of node.arguments) collectClassExpression(argument, candidates)
+    return
+  }
+
+  if (ts.isArrayLiteralExpression(node)) {
+    for (const element of node.elements) collectClassExpression(element, candidates)
+    return
+  }
+
+  if (ts.isObjectLiteralExpression(node)) {
+    for (const property of node.properties) {
+      if (ts.isPropertyAssignment(property) || ts.isShorthandPropertyAssignment(property)) {
+        collectClassListKey(property.name, candidates)
+      }
+    }
+  }
+}
+
+function propertyNameText(name) {
+  if (ts.isIdentifier(name) || ts.isStringLiteralLike(name) || ts.isNoSubstitutionTemplateLiteral(name)) return name.text
+  return undefined
+}
+
+function collectCvaCall(node, candidates) {
+  const first = node.arguments[0]
+  const second = node.arguments[1]
+
+  if (first && ts.isObjectLiteralExpression(first) && !second) {
+    collectCvaConfig(first, candidates)
+    return
+  }
+
+  collectClassExpression(first, candidates)
+  if (second && ts.isObjectLiteralExpression(second)) collectCvaConfig(second, candidates)
+}
+
+function collectCvaConfig(config, candidates) {
+  for (const property of config.properties) {
+    if (!ts.isPropertyAssignment(property)) continue
+    const name = propertyNameText(property.name)
+    if (name === "base") {
+      collectClassExpression(property.initializer, candidates)
+      continue
+    }
+    if (name === "variants" && ts.isObjectLiteralExpression(property.initializer)) {
+      for (const variant of property.initializer.properties) {
+        if (!ts.isPropertyAssignment(variant) || !ts.isObjectLiteralExpression(variant.initializer)) continue
+        for (const option of variant.initializer.properties) {
+          if (ts.isPropertyAssignment(option)) collectClassExpression(option.initializer, candidates)
+        }
+      }
+      continue
+    }
+    if (name === "compoundVariants" && ts.isArrayLiteralExpression(property.initializer)) {
+      for (const compound of property.initializer.elements) {
+        if (!ts.isObjectLiteralExpression(compound)) continue
+        for (const entry of compound.properties) {
+          if (!ts.isPropertyAssignment(entry)) continue
+          const entryName = propertyNameText(entry.name)
+          if (entryName === "class" || entryName === "className") collectClassExpression(entry.initializer, candidates)
+        }
+      }
+    }
+  }
+}
+
+function collectClassListExpression(node, candidates) {
+  if (!node) return
+
+  if (ts.isJsxExpression(node)) {
+    collectClassListExpression(node.expression, candidates)
+    return
+  }
+
+  if (!ts.isObjectLiteralExpression(node)) return
+
+  for (const property of node.properties) {
+    if (ts.isPropertyAssignment(property)) {
+      collectClassListKey(property.name, candidates)
+      continue
+    }
+    if (ts.isSpreadAssignment(property)) {
+      collectClassListExpression(property.expression, candidates)
+    }
+  }
+}
+
+function collectClassListKey(name, candidates) {
+  if (ts.isStringLiteralLike(name) || ts.isNoSubstitutionTemplateLiteral(name)) {
+    addClassString(name.text, candidates)
+    return
+  }
+  if (ts.isIdentifier(name)) {
+    addClassString(name.text, candidates)
+    return
+  }
+  if (ts.isComputedPropertyName(name)) {
+    collectClassExpression(name.expression, candidates)
+  }
+}
+
+function addClassString(value, candidates) {
+  for (const token of value.split(/\s+/)) {
+    const candidate = token.trim()
+    if (candidate) candidates.add(candidate)
+  }
+}
 
 function collectThemeVariables(rootNode) {
   const light = {}
@@ -98,6 +609,14 @@ function findCandidateRule(rootNode, candidate) {
   return found
 }
 
+function descendantTarget(candidate) {
+  const descendant = candidate.match(/^\[&_([A-Za-z][\w-]*)\]:/)
+  if (descendant) return descendant[1]
+  const directChild = candidate.match(/^\[&>([A-Za-z][\w-]*)\]:/)
+  if (directChild) return `>${directChild[1]}`
+  return undefined
+}
+
 function compileRule(rule, candidate, themeVariables) {
   const localVariables = {}
   rule.walkDecls((declaration) => {
@@ -107,20 +626,36 @@ function compileRule(rule, candidate, themeVariables) {
   const base = {}
   const hover = {}
   const active = {}
+  const focus = {}
+  const svgPaint = {}
+  let lineHeightMultiplier
 
   rule.walkDecls((declaration) => {
     if (declaration.prop.startsWith("--")) return
     const state = declarationState(declaration, rule, candidate)
-    const target = state === "hover" ? hover : state === "active" ? active : base
+    const target = state === "hover" ? hover : state === "active" ? active : state === "focus" ? focus : base
     const value = resolveCssValue(declaration.value, { ...themeVariables, ...localVariables })
+    if (declaration.prop === "stroke" || declaration.prop === "fill") {
+      if (state !== "base") throw new Error(`Stateful SVG paint is not supported for ${JSON.stringify(candidate)}`)
+      svgPaint[declaration.prop] = colorValue(value, declaration.prop, candidate)
+      return
+    }
+    const relativeLineHeight = declaration.prop === "line-height" ? lineHeightMultiplierValue(value) : undefined
+    if (relativeLineHeight !== undefined) {
+      if (state !== "base") throw new Error(`Relative line-height state variants are not supported for ${JSON.stringify(candidate)}`)
+      lineHeightMultiplier = relativeLineHeight
+      return
+    }
     mapDeclaration(target, declaration.prop, value, candidate)
   })
 
   const result = { ...base }
   if (Object.keys(hover).length > 0) result.hover = hover
   if (Object.keys(active).length > 0) result.active = active
-  if (Object.keys(result).length === 0) throw new Error(`Tailwind candidate ${JSON.stringify(candidate)} produced no native styles`)
-  return result
+  if (Object.keys(result).length === 0 && Object.keys(focus).length === 0 && lineHeightMultiplier === undefined && Object.keys(svgPaint).length === 0) {
+    throw new Error(`Tailwind candidate ${JSON.stringify(candidate)} produced no native styles`)
+  }
+  return { style: result, focus, lineHeightMultiplier, svgPaint }
 }
 
 function declarationState(declaration, candidateRule, candidate) {
@@ -147,8 +682,9 @@ function stateFromSelector(selector) {
   const states = new Set()
   if (/(^|[^\\]):hover\b/.test(selector)) states.add("hover")
   if (/(^|[^\\]):active\b/.test(selector)) states.add("active")
+  if (/(^|[^\\]):focus(?:-visible)?\b/.test(selector)) states.add("focus")
 
-  const unsupported = ["focus", "focus-visible", "disabled", "checked"]
+  const unsupported = ["disabled", "checked"]
   for (const pseudo of unsupported) {
     const pattern = new RegExp(`(^|[^\\\\]):${pseudo.replace("-", "\\-")}\\b`)
     if (pattern.test(selector)) throw new Error(`Unsupported native Tailwind state variant :${pseudo}`)
@@ -175,6 +711,7 @@ function mapDeclaration(style, property, rawValue, candidate) {
     case "justify-content": style.justifyContent = value; return
     case "flex-direction": style.flexDirection = value; return
     case "flex-wrap": style.flexWrap = value; return
+    case "flex": applyFlexShorthand(style, value, candidate); return
     case "flex-grow": style.flexGrow = numberValue(value, property, candidate); return
     case "flex-shrink": style.flexShrink = numberValue(value, property, candidate); return
     case "flex-basis": style.flexBasis = lengthValue(value, property, candidate); return
@@ -207,211 +744,312 @@ function mapDeclaration(style, property, rawValue, candidate) {
     case "bottom": style.bottom = lengthValue(value, property, candidate); return
     case "left": style.left = lengthValue(value, property, candidate); return
     case "inset": applyInsetShorthand(style, value, candidate); return
-    case "background-color": style.backgroundColor = normalizeColor(value); return
-    case "color": style.color = normalizeColor(value); return
-    case "opacity": style.opacity = opacityValue(value, candidate); return
-    case "border-width": style.borderWidth = lengthValue(value, property, candidate); return
-    case "border-color": style.borderColor = normalizeColor(value); return
-    case "border-radius": style.borderRadius = lengthValue(value, property, candidate); return
-    case "font-size": style.fontSize = lengthValue(value, property, candidate); return
-    case "font-weight": style.fontWeight = numericOrString(value); return
-    case "line-height": style.lineHeight = lineHeightValue(value, candidate, style.fontSize); return
-    case "text-align": style.textAlign = value; return
-    case "white-space": style.whiteSpace = value; return
-    case "text-overflow": style.textOverflow = value; return
+    case "inset-inline": applyPair(style, "left", "right", value, property, candidate); return
+    case "inset-block": applyPair(style, "top", "bottom", value, property, candidate); return
     case "overflow": style.overflow = value; return
     case "overflow-x": style.overflowX = value; return
     case "overflow-y": style.overflowY = value; return
+    case "background-color": style.backgroundColor = colorValue(value, property, candidate); return
+    case "color": style.color = colorValue(value, property, candidate); return
+    case "opacity": style.opacity = opacityValue(value, candidate); return
+    case "border-width": style.borderWidth = lengthValue(value, property, candidate); return
+    case "border-top-width": style.borderTopWidth = lengthValue(value, property, candidate); return
+    case "border-right-width": style.borderRightWidth = lengthValue(value, property, candidate); return
+    case "border-bottom-width": style.borderBottomWidth = lengthValue(value, property, candidate); return
+    case "border-left-width": style.borderLeftWidth = lengthValue(value, property, candidate); return
+    case "border-inline-width": {
+      const width = lengthValue(value, property, candidate)
+      style.borderLeftWidth = width
+      style.borderRightWidth = width
+      return
+    }
+    case "border-block-width": {
+      const width = lengthValue(value, property, candidate)
+      style.borderTopWidth = width
+      style.borderBottomWidth = width
+      return
+    }
+    case "border-style":
+    case "border-top-style":
+    case "border-right-style":
+    case "border-bottom-style":
+    case "border-left-style":
+      if (value === "solid") return
+      throw new Error(`Unsupported ${property} from ${JSON.stringify(candidate)}: ${value}`)
+    case "border-inline-style":
+    case "border-block-style":
+      if (value === "solid") return
+      throw new Error(`Unsupported ${property} from ${JSON.stringify(candidate)}: ${value}`)
+    case "border-color": style.borderColor = colorValue(value, property, candidate); return
+    case "border-top-color": style.borderTopColor = colorValue(value, property, candidate); return
+    case "border-right-color": style.borderRightColor = colorValue(value, property, candidate); return
+    case "border-bottom-color": style.borderBottomColor = colorValue(value, property, candidate); return
+    case "border-left-color": style.borderLeftColor = colorValue(value, property, candidate); return
+    case "border-radius": style.borderRadius = lengthValue(value, property, candidate); return
+    case "border-top-left-radius": style.borderTopLeftRadius = lengthValue(value, property, candidate); return
+    case "border-top-right-radius": style.borderTopRightRadius = lengthValue(value, property, candidate); return
+    case "border-bottom-right-radius": style.borderBottomRightRadius = lengthValue(value, property, candidate); return
+    case "border-bottom-left-radius": style.borderBottomLeftRadius = lengthValue(value, property, candidate); return
+    case "font-family": style.fontFamily = value; return
+    case "font-size": style.fontSize = lengthValue(value, property, candidate); return
+    case "font-weight": style.fontWeight = numberOrStringValue(value); return
+    case "line-height": style.lineHeight = lineHeightValue(value, style.fontSize, property, candidate); return
+    case "text-align": style.textAlign = value; return
+    case "white-space": style.whiteSpace = value; return
+    case "text-overflow": style.textOverflow = value; return
     case "cursor": style.cursor = value; return
     case "pointer-events": style.pointerEvents = value; return
+    case "-webkit-user-select":
     case "user-select": style.userSelect = value; return
-    case "border-style":
-      if (value === "solid") return
-      break
+    case "box-sizing": return
+    case "outline-style": return
+    case "outline-width": return
+    case "outline-color": return
+    case "outline-offset": return
+    case "--tw-ring-offset-width": return
+    case "--tw-ring-offset-color": return
+    case "--tw-ring-color": return
+    case "--tw-ring-shadow": return
+    case "--tw-inset-ring-shadow": return
+    case "--tw-shadow": return
+    case "--tw-shadow-colored": return
+    case "box-shadow": return
+    case "transition-property": return
+    case "transition-duration": return
+    case "transition-timing-function": return
+    default:
+      throw new Error(`Unsupported CSS declaration from Tailwind candidate ${JSON.stringify(candidate)}:\n${property}: ${value}`)
   }
-  throw new Error(`Unsupported CSS declaration from Tailwind candidate ${JSON.stringify(candidate)}: ${property}: ${value}`)
 }
 
-function applyInsetShorthand(style, value, candidate) {
-  const parts = splitTopLevelWhitespace(value)
-  if (parts.length < 1 || parts.length > 4) throw new Error(`Unsupported inset shorthand for ${JSON.stringify(candidate)}: ${value}`)
-  const top = lengthValue(parts[0], "inset", candidate)
-  const right = lengthValue(parts[1] ?? parts[0], "inset", candidate)
-  const bottom = lengthValue(parts[2] ?? parts[0], "inset", candidate)
-  const left = lengthValue(parts[3] ?? parts[1] ?? parts[0], "inset", candidate)
-  style.top = top
-  style.right = right
-  style.bottom = bottom
-  style.left = left
+function applyFlexShorthand(style, value, candidate) {
+  if (value === "none") {
+    style.flexGrow = 0
+    style.flexShrink = 0
+    return
+  }
+  if (value === "auto") {
+    style.flexGrow = 1
+    style.flexShrink = 1
+    return
+  }
+  if (value === "initial") {
+    style.flexGrow = 0
+    style.flexShrink = 1
+    return
+  }
+
+  const parts = splitCssValue(value)
+  if (parts.length === 1) {
+    style.flexGrow = numberValue(parts[0], "flex-grow", candidate)
+    style.flexShrink = 1
+    style.flexBasis = 0
+    return
+  }
+  if (parts.length === 2) {
+    style.flexGrow = numberValue(parts[0], "flex-grow", candidate)
+    const secondNumber = Number(parts[1])
+    if (Number.isFinite(secondNumber)) {
+      style.flexShrink = secondNumber
+      style.flexBasis = 0
+    } else {
+      style.flexShrink = 1
+      style.flexBasis = lengthValue(parts[1], "flex-basis", candidate)
+    }
+    return
+  }
+  if (parts.length === 3) {
+    style.flexGrow = numberValue(parts[0], "flex-grow", candidate)
+    style.flexShrink = numberValue(parts[1], "flex-shrink", candidate)
+    style.flexBasis = lengthValue(parts[2], "flex-basis", candidate)
+    return
+  }
+  throw new Error(`Unsupported flex shorthand from ${JSON.stringify(candidate)}: ${value}`)
+}
+
+function applyBoxShorthand(style, prefix, value, candidate) {
+  const parts = splitCssValue(value)
+  if (parts.length < 1 || parts.length > 4) throw new Error(`Unsupported ${prefix} shorthand for ${JSON.stringify(candidate)}: ${value}`)
+  const [a, b = a, c = a, d = b] = parts
+  style[`${prefix}Top`] = lengthValue(a, prefix, candidate)
+  style[`${prefix}Right`] = lengthValue(b, prefix, candidate)
+  style[`${prefix}Bottom`] = lengthValue(c, prefix, candidate)
+  style[`${prefix}Left`] = lengthValue(d, prefix, candidate)
 }
 
 function applyPair(style, first, second, value, property, candidate) {
-  const parts = splitTopLevelWhitespace(value)
-  if (parts.length === 0 || parts.length > 2) throw new Error(`Unsupported ${property} value for ${JSON.stringify(candidate)}: ${value}`)
+  const parts = splitCssValue(value)
+  if (parts.length === 0 || parts.length > 2) throw new Error(`Unsupported ${property} shorthand for ${JSON.stringify(candidate)}: ${value}`)
   style[first] = lengthValue(parts[0], property, candidate)
   style[second] = lengthValue(parts[1] ?? parts[0], property, candidate)
 }
 
-function applyBoxShorthand(style, prefix, value, candidate) {
-  const parts = splitTopLevelWhitespace(value)
-  if (parts.length < 1 || parts.length > 4) throw new Error(`Unsupported ${prefix} shorthand for ${JSON.stringify(candidate)}: ${value}`)
-  const top = lengthValue(parts[0], prefix, candidate)
-  const right = lengthValue(parts[1] ?? parts[0], prefix, candidate)
-  const bottom = lengthValue(parts[2] ?? parts[0], prefix, candidate)
-  const left = lengthValue(parts[3] ?? parts[1] ?? parts[0], prefix, candidate)
-  if (top === right && right === bottom && bottom === left) style[prefix] = top
-  else {
-    style[`${prefix}Top`] = top
-    style[`${prefix}Right`] = right
-    style[`${prefix}Bottom`] = bottom
-    style[`${prefix}Left`] = left
-  }
+function applyInsetShorthand(style, value, candidate) {
+  const parts = splitCssValue(value)
+  if (parts.length < 1 || parts.length > 4) throw new Error(`Unsupported inset shorthand for ${JSON.stringify(candidate)}: ${value}`)
+  const [top, right = top, bottom = top, left = right] = parts
+  style.top = lengthValue(top, "inset", candidate)
+  style.right = lengthValue(right, "inset", candidate)
+  style.bottom = lengthValue(bottom, "inset", candidate)
+  style.left = lengthValue(left, "inset", candidate)
 }
 
-function dimensionValue(value, property, candidate) {
-  if (value === "auto" || value.endsWith("%")) return value
-  return lengthValue(value, property, candidate)
+function resolveCssValue(value, variables) {
+  let current = value
+  for (let iteration = 0; iteration < 12 && current.includes("var("); iteration++) {
+    const next = resolveInnermostCssVariable(current, variables)
+    if (next === current) break
+    current = next
+  }
+  return current
+}
+
+function resolveInnermostCssVariable(value, variables) {
+  const start = value.lastIndexOf("var(")
+  if (start < 0) return value
+
+  let depth = 0
+  let end = -1
+  for (let index = start + 4; index < value.length; index++) {
+    const character = value[index]
+    if (character === "(") depth += 1
+    else if (character === ")") {
+      if (depth === 0) {
+        end = index
+        break
+      }
+      depth -= 1
+    }
+  }
+  if (end < 0) throw new Error(`Unbalanced CSS variable value: ${value}`)
+
+  const body = value.slice(start + 4, end)
+  let comma = -1
+  depth = 0
+  for (let index = 0; index < body.length; index++) {
+    const character = body[index]
+    if (character === "(") depth += 1
+    else if (character === ")") depth -= 1
+    else if (character === "," && depth === 0) {
+      comma = index
+      break
+    }
+  }
+
+  const name = (comma < 0 ? body : body.slice(0, comma)).trim()
+  const fallback = comma < 0 ? undefined : body.slice(comma + 1).trim()
+  const replacement = variables[name] ?? fallback
+  if (replacement === undefined) return value
+  return value.slice(0, start) + replacement + value.slice(end + 1)
 }
 
 function lengthValue(value, property, candidate) {
-  const normalized = value.trim()
-  if (normalized === "0") return 0
-  const px = normalized.match(/^(-?\d+(?:\.\d+)?)px$/)
+  if (value === "0" || value === "0%") return 0
+  if (value === "auto") return "auto"
+  if (value === "100%") return "100%"
+  const px = value.match(/^(-?\d+(?:\.\d+)?)px$/)
   if (px) return Number(px[1])
-  const rem = normalized.match(/^(-?\d+(?:\.\d+)?)rem$/)
+  const rem = value.match(/^(-?\d+(?:\.\d+)?)rem$/)
   if (rem) return Number(rem[1]) * 16
-  const calc = normalized.match(/^calc\(\s*(-?\d+(?:\.\d+)?)(px|rem)\s*([*/])\s*(-?\d+(?:\.\d+)?)\s*\)$/)
-  if (calc) {
-    const left = Number(calc[1]) * (calc[2] === "rem" ? 16 : 1)
-    const right = Number(calc[4])
-    return calc[3] === "*" ? left * right : left / right
+  const product = value.match(/^calc\(\s*(-?\d+(?:\.\d+)?)(px|rem)\s*\*\s*(-?\d+(?:\.\d+)?)\s*\)$/)
+  if (product) {
+    const amount = Number(product[1]) * Number(product[3])
+    return product[2] === "rem" ? amount * 16 : amount
   }
-  throw new Error(`Unsupported native length from Tailwind candidate ${JSON.stringify(candidate)}: ${property}: ${value}`)
+  throw new Error(`Unsupported ${property} length from ${JSON.stringify(candidate)}: ${value}`)
 }
 
-function lineHeightValue(value, candidate, fontSize) {
-  const normalized = value.trim()
-  const direct = Number(normalized)
-  if (Number.isFinite(direct)) return relativeLineHeight(direct, fontSize, candidate, value)
-  const calc = normalized.match(/^calc\(\s*(-?\d+(?:\.\d+)?)\s*([*/])\s*(-?\d+(?:\.\d+)?)\s*\)$/)
-  if (calc) {
-    const left = Number(calc[1])
-    const right = Number(calc[3])
-    const ratio = calc[2] === "*" ? left * right : left / right
-    return relativeLineHeight(ratio, fontSize, candidate, value)
+function lineHeightMultiplierValue(value) {
+  const unitless = value.match(/^(-?\d+(?:\.\d+)?)$/)
+  if (unitless) {
+    const multiplier = Number(unitless[1])
+    return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : undefined
   }
-  return lengthValue(normalized, "line-height", candidate)
+
+  const ratio = value.match(/^calc\(\s*(-?\d+(?:\.\d+)?)\s*\/\s*(-?\d+(?:\.\d+)?)\s*\)$/)
+  if (!ratio) return undefined
+  const denominator = Number(ratio[2])
+  if (denominator === 0) return undefined
+  const multiplier = Number(ratio[1]) / denominator
+  return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : undefined
 }
 
-function relativeLineHeight(ratio, fontSize, candidate, sourceValue) {
-  if (!Number.isFinite(fontSize)) {
-    throw new Error(`Native Tailwind candidate ${JSON.stringify(candidate)} has relative line-height ${sourceValue} without a local font-size`)
+function lineHeightValue(value, fontSize, property, candidate) {
+  const multiplier = lineHeightMultiplierValue(value)
+  if (multiplier !== undefined) return relativeLineHeight(multiplier, fontSize, candidate)
+  return lengthValue(value, property, candidate)
+}
+
+function relativeLineHeight(multiplier, fontSize, candidate) {
+  if (!Number.isFinite(multiplier) || multiplier <= 0 || !Number.isFinite(fontSize)) {
+    throw new Error(`Relative line-height from ${JSON.stringify(candidate)} requires a finite positive multiplier and font-size`)
   }
-  return ratio * fontSize
+  return multiplier * fontSize
+}
+
+function dimensionValue(value, property, candidate) {
+  return lengthValue(value, property, candidate)
+}
+
+function colorValue(value, property, candidate) {
+  const keyword = value.toLowerCase()
+  if (keyword === "transparent") return "transparent"
+  if (keyword === "currentcolor") return "currentColor"
+  if (/^#[0-9a-f]{3,8}$/i.test(value)) return value
+  if (/^oklch\(/i.test(value)) return value
+  if (/^color-mix\(/i.test(value)) return value
+  if (/^rgb\(/i.test(value)) return value
+  throw new Error(`Unsupported ${property} color from ${JSON.stringify(candidate)}: ${value}`)
 }
 
 function opacityValue(value, candidate) {
-  const normalized = value.trim()
-  if (normalized.endsWith("%")) {
-    const percentage = Number(normalized.slice(0, -1))
-    if (Number.isFinite(percentage)) return percentage / 100
+  if (value.endsWith("%")) {
+    const percentage = Number(value.slice(0, -1))
+    if (!Number.isFinite(percentage) || percentage < 0 || percentage > 100) {
+      throw new Error(`Unsupported opacity percentage from ${JSON.stringify(candidate)}: ${value}`)
+    }
+    return percentage / 100
   }
-  return numberValue(normalized, "opacity", candidate)
+  const opacity = numberValue(value, "opacity", candidate)
+  if (opacity < 0 || opacity > 1) throw new Error(`Unsupported opacity number from ${JSON.stringify(candidate)}: ${value}`)
+  return opacity
 }
 
 function numberValue(value, property, candidate) {
   const number = Number(value)
-  if (!Number.isFinite(number)) throw new Error(`Expected numeric ${property} for ${JSON.stringify(candidate)}, received ${value}`)
+  if (!Number.isFinite(number)) throw new Error(`Unsupported ${property} number from ${JSON.stringify(candidate)}: ${value}`)
   return number
 }
 
-function numericOrString(value) {
-  const number = Number(value)
-  return Number.isFinite(number) ? number : value
+function numberOrStringValue(value) {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : value
 }
 
-function normalizeColor(value) {
-  const mix = value.match(/^color-mix\(in oklab,\s*(oklch\([^)]*\))\s+(\d+(?:\.\d+)?)%,\s*transparent\)$/)
-  if (!mix) return value
-  const color = mix[1]
-  const alpha = mix[2]
-  if (color.includes("/")) return value
-  return color.replace(/\)$/, ` / ${alpha}%)`)
-}
-
-function resolveCssValue(value, variables) {
-  let result = value
-  for (let iteration = 0; iteration < 32; iteration += 1) {
-    const variable = firstVarFunction(result)
-    if (!variable) return result
-    const replacement = variables[variable.name] ?? variable.fallback
-    if (replacement === undefined) throw new Error(`Unresolved CSS variable ${variable.name} in ${JSON.stringify(value)}`)
-    result = result.slice(0, variable.start) + replacement + result.slice(variable.end)
-  }
-  throw new Error(`CSS variable resolution exceeded 32 substitutions for ${JSON.stringify(value)}`)
-}
-
-function firstVarFunction(value) {
-  const start = value.indexOf("var(")
-  if (start < 0) return undefined
-  let depth = 1
-  let comma = -1
-  let end = start + 4
-  for (; end < value.length; end += 1) {
-    const character = value[end]
-    if (character === "(") depth += 1
-    else if (character === ")") {
-      depth -= 1
-      if (depth === 0) break
-    } else if (character === "," && depth === 1 && comma < 0) comma = end
-  }
-  if (depth !== 0) throw new Error(`Unclosed CSS var() in ${JSON.stringify(value)}`)
-  const nameEnd = comma < 0 ? end : comma
-  const name = value.slice(start + 4, nameEnd).trim()
-  const fallback = comma < 0 ? undefined : value.slice(comma + 1, end).trim()
-  return { start, end: end + 1, name, fallback }
-}
-
-function splitTopLevelWhitespace(value) {
+function splitCssValue(value) {
   const parts = []
-  let start = 0
+  let current = ""
   let depth = 0
-  for (let index = 0; index < value.length; index += 1) {
-    const character = value[index]
+
+  for (const character of value.trim()) {
     if (character === "(") depth += 1
     else if (character === ")") depth -= 1
-    else if (/\s/.test(character) && depth === 0) {
-      if (index > start) parts.push(value.slice(start, index))
-      while (index + 1 < value.length && /\s/.test(value[index + 1])) index += 1
-      start = index + 1
+
+    if (/\s/.test(character) && depth === 0) {
+      if (current) {
+        parts.push(current)
+        current = ""
+      }
+      continue
     }
+    current += character
   }
-  if (start < value.length) parts.push(value.slice(start))
-  return parts.filter(Boolean)
+
+  if (current) parts.push(current)
+  if (depth !== 0) throw new Error(`Unbalanced CSS value: ${value}`)
+  return parts
 }
 
 function escapeCssIdentifier(value) {
-  let result = ""
-  for (let index = 0; index < value.length; index += 1) {
-    const code = value.charCodeAt(index)
-    const character = value[index]
-    if (code === 0) {
-      result += "�"
-      continue
-    }
-    if ((code >= 1 && code <= 31) || code === 127 || (index === 0 && code >= 48 && code <= 57) || (index === 1 && code >= 48 && code <= 57 && value.charCodeAt(0) === 45)) {
-      result += `\\${code.toString(16)} `
-      continue
-    }
-    if (index === 0 && character === "-" && value.length === 1) {
-      result += "\\-"
-      continue
-    }
-    if (code >= 128 || character === "-" || character === "_" || (code >= 48 && code <= 57) || (code >= 65 && code <= 90) || (code >= 97 && code <= 122)) {
-      result += character
-    } else {
-      result += `\\${character}`
-    }
-  }
-  return result
+  return value.replace(/[^a-zA-Z0-9_-]/g, (character) => `\\${character}`)
 }
