@@ -1,8 +1,3 @@
-import "fake-indexeddb/auto"
-
-// Diffusion's browser source opens its project database while the engine barrel loads.
-// Keep the source unchanged; this fixture supplies the browser IndexedDB contract in memory
-// until durable native project metadata storage gets its own host boundary.
 import { onCleanup, onMount, type JSX } from "solid-js"
 import { MemoryRouter, Route } from "@solidjs/router"
 import { configureNativeStyleManifest } from "@jhomra21/gpuix-solid1"

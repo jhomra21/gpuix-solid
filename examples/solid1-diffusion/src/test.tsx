@@ -1,10 +1,7 @@
-import "fake-indexeddb/auto"
 import { CANVAS_DRAW_LIST_VERSION, createTestRoot, hasNativeTestRenderer } from "@jhomra21/gpuix-solid1"
 import { existsSync, statSync, unlinkSync } from "node:fs"
 import { ToolType } from "@diffusionstudio/runtime"
-import { installDiffusionDesktopHost } from "./desktop-host"
-
-installDiffusionDesktopHost()
+import { loadDiffusionNativeApp } from "./bootstrap"
 
 const {
   armDiffusionSourceHandTool,
@@ -15,7 +12,7 @@ const {
   readDiffusionSourceSelection,
   readDiffusionSourceState,
   resetDiffusionSourceCamera,
-} = await import("./app")
+} = await loadDiffusionNativeApp()
 
 const screenshotPath = "/tmp/gpuix-solid1-diffusion-source.png"
 const editorScreenshotPath = "/tmp/gpuix-solid1-diffusion-editor.png"

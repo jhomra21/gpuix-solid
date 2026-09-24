@@ -1,10 +1,7 @@
-import "fake-indexeddb/auto"
 import { render } from "@jhomra21/gpuix-solid1"
-import { installDiffusionDesktopHost } from "./desktop-host"
+import { loadDiffusionNativeApp } from "./bootstrap"
 
-installDiffusionDesktopHost()
-
-const { DiffusionSourceEditor } = await import("./app")
+const { DiffusionSourceEditor } = await loadDiffusionNativeApp()
 
 render(() => <DiffusionSourceEditor />, {
   title: "Diffusion Studio — Solid 1 + GPUIX",
