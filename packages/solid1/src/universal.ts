@@ -773,10 +773,13 @@ function scheduleMeasuredFractionalTranslation(
     const height = bounds.height > 0 ? bounds.height : undefined
     if ((pendingNeedsWidth && width === undefined) || (pendingNeedsHeight && height === undefined)) return
 
+    const measuredSize: { width?: number; height?: number } = {}
+    if (width !== undefined) measuredSize.width = width
+    if (height !== undefined) measuredSize.height = height
     const translated = applyNativeStyleTranslation(
       pending.style,
       pending.translation,
-      { width, height },
+      measuredSize,
     )
     setHostProperty(node, "style", translated ?? {})
     root.driver.flush()
@@ -867,10 +870,8 @@ function transformText(value: string, transform: NativeTextTransform | undefined
 function resolvedNativeNodeSize(parent: HostParent | null, axis: "x" | "y"): number | undefined {
   if (!parent) return undefined
   if (parent.kind === "root") {
-    const viewport = axis === "x" ? globalThis.window?.innerWidth : globalThis.window?.innerHeight
-    return typeof viewport === "number" && Number.isFinite(viewport) && viewport > 0
-      ? viewport
-      : undefined
+    const viewport = Number(axis === "x" ? globalThis.window?.innerWidth : globalThis.window?.innerHeight)
+    return Number.isFinite(viewport) && viewport > 0 ? viewport : undefined
   }
   const style = parent.style
   const parentSize = resolvedNativeNodeSize(parent.parent, axis)
