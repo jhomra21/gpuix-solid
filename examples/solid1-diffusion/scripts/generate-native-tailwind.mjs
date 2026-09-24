@@ -25,6 +25,9 @@ const nativeTextTransforms = new Map([
 // one intrinsic center zone. Other entries below translate source geometry
 // into native fields without editing the copied DAW components.
 const nativeCompatEntries = new Map([
+  ["invisible", { base: { opacity: 0 } }],
+  ["visible", { base: { opacity: 1 } }],
+  ["border-none", { base: { borderWidth: 0 } }],
   ["shadow-[0_0_6px_rgba(239,68,68,0.75)]", {
     base: {
       boxShadow: {
@@ -240,9 +243,6 @@ function dynamicIgnoredReason(candidate) {
   if (candidate === "z-5") return "published native StyleDesc has no z-index; retained-tree order places DrawOverlay above EngineCanvas"
   if (candidate === "z-[10000]") return "native floating layers own popup stacking; published native StyleDesc has no z-index"
   if (candidate === "text-balance") return "native text wrapping does not expose CSS text-wrap balance"
-  if (candidate === "border-none") return "native separator/background geometry already owns the visible divider; CSS border-style none is not published"
-  if (candidate === "invisible") return "native visibility is represented by mounting/display state rather than CSS visibility"
-  if (candidate === "visible") return "native visibility is represented by mounting/display state rather than CSS visibility"
   if (candidate.startsWith("data-") || candidate.startsWith("aria-") || candidate.startsWith("dark:data-")) {
     return "Kobalte/runtime state owns this data/aria variant; native class selectors do not evaluate arbitrary attribute variants yet"
   }
