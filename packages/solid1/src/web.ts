@@ -228,7 +228,7 @@ function instantiateStaticTemplate(templateNode: StaticTemplateElement): HostEle
   return node
 }
 
-function parseStaticStyleAttribute(value: string): Record<string, string> {
+function parseStaticStyleAttribute(value: string) {
   const declarations: Record<string, string> = {}
   for (const declaration of value.split(";")) {
     const separator = declaration.indexOf(":")
