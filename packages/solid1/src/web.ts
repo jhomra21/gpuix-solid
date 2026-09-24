@@ -11,6 +11,12 @@ import { createComponent, createElement, createTextNode, effect, insert, insertN
 
 export const isServer = false
 
+// Solid's client web runtime exposes the server request helper as a no-op.
+// Routers import it unconditionally and rely on isServer=false to keep request-only work dormant.
+export function getRequestEvent(): undefined {
+  return undefined
+}
+
 export { createComponent, effect, insert, memo, use }
 
 type WebAttributeValue = string | number | boolean | null | undefined
