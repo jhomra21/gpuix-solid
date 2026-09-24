@@ -73,6 +73,18 @@ export function nativeEventTypeForBrowserEvent(eventType: string): NativeEventTy
   return undefined
 }
 
+const delegatedNativeEventTypes = new Set<NativeEventType>()
+
+export function registerDelegatedNativeEvent(eventType: NativeEventType): boolean {
+  const alreadyRegistered = delegatedNativeEventTypes.has(eventType)
+  delegatedNativeEventTypes.add(eventType)
+  return !alreadyRegistered
+}
+
+export function isDelegatedNativeEvent(eventType: string): boolean {
+  return delegatedNativeEventTypes.has(eventType as NativeEventType)
+}
+
 type GlobalEventHandler = (event: EventPayload) => void
 const globalListeners = new Map<string, Set<GlobalEventHandler>>()
 const EVENT_STATE = new WeakMap<object, { defaultPrevented: boolean; propagationStopped: boolean }>()
