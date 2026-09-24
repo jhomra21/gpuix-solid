@@ -120,8 +120,14 @@ if (!hasNativeTestRenderer) {
     overlay?.addEventListener("pointerdown", () => {
       overlayPointerDowns += 1
     })
+    overlay?.setAttribute("testId", "diffusion-draw-overlay")
+    app.root.flush()
+    app.renderer.flush()
     console.log("solid1 Diffusion source DrawOverlay before:", JSON.stringify({
       overlayBounds: overlay?.getBoundingClientRect() ?? null,
+      nativeOverlayStyle: app.renderer.hasTestId("diffusion-draw-overlay")
+        ? app.renderer.styleTestId("diffusion-draw-overlay")
+        : null,
       editor: readDiffusionSourceEditorState(),
     }))
 
