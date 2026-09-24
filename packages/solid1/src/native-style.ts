@@ -301,6 +301,7 @@ export function resolveNativeDescendantClassStyle(
   tagName: string,
   directChild: boolean,
   directChildIndex?: number,
+  attributes?: ReadonlyMap<string, unknown>,
 ): StyleDesc | undefined {
   const candidates = classCandidates(className, classList)
   if (candidates.length === 0) return undefined
@@ -319,9 +320,22 @@ export function resolveNativeDescendantClassStyle(
         resolved = mergeNativeStyles(resolved, resolveVariant(descendants[`>:nth-child(${directChildIndex})`]))
         resolved = mergeNativeStyles(resolved, resolveVariant(descendants[`>${tagName}:nth-child(${directChildIndex})`]))
       }
+      for (const [selector, variant] of Object.entries(descendants)) {
+        const attribute = directChildAttributeSelector(selector)
+        if (!attribute) continue
+        if (String(attributes?.get(attribute.name) ?? "") !== attribute.value) continue
+        resolved = mergeNativeStyles(resolved, resolveVariant(variant))
+      }
     }
   }
   return resolved
+}
+
+function directChildAttributeSelector(selector: string): { name: string; value: string } | undefined {
+  const match = selector.match(/^>\[([A-Za-z][\w-]*)=([^\]]+)\]$/)
+  const name = match?.[1]
+  const value = match?.[2]
+  return name && value ? { name, value } : undefined
 }
 
 export function mergeNativeStyles(...styles: Array<StyleDesc | undefined>): StyleDesc | undefined {
