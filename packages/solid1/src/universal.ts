@@ -762,11 +762,16 @@ function scheduleMeasuredFractionalTranslation(
     const root = node.root
     if (!pending || !root || !node.nativeAlive) return
 
+    const pendingNeedsWidth = pending.translation.xFraction !== undefined
+      && !Number.isFinite(Number(pending.style.width))
+    const pendingNeedsHeight = pending.translation.yFraction !== undefined
+      && !Number.isFinite(Number(pending.style.height))
+
     root.driver.flush()
     const bounds = node.getBoundingClientRect()
     const width = bounds.width > 0 ? bounds.width : undefined
     const height = bounds.height > 0 ? bounds.height : undefined
-    if ((needsWidth && width === undefined) || (needsHeight && height === undefined)) return
+    if ((pendingNeedsWidth && width === undefined) || (pendingNeedsHeight && height === undefined)) return
 
     const translated = applyNativeStyleTranslation(
       pending.style,
@@ -863,7 +868,9 @@ function resolvedNativeNodeSize(parent: HostParent | null, axis: "x" | "y"): num
   if (!parent) return undefined
   if (parent.kind === "root") {
     const viewport = axis === "x" ? globalThis.window?.innerWidth : globalThis.window?.innerHeight
-    return Number.isFinite(viewport) && viewport > 0 ? viewport : undefined
+    return typeof viewport === "number" && Number.isFinite(viewport) && viewport > 0
+      ? viewport
+      : undefined
   }
   const style = parent.style
   const parentSize = resolvedNativeNodeSize(parent.parent, axis)
