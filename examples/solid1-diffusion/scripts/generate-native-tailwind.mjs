@@ -766,6 +766,7 @@ function mapDeclaration(style, property, rawValue, candidate) {
     case "background-color": style.backgroundColor = colorValue(value, property, candidate); return
     case "color": style.color = colorValue(value, property, candidate); return
     case "opacity": style.opacity = opacityValue(value, candidate); return
+    case "object-fit": style.objectFit = objectFitValue(value, candidate); return
     case "border-width": style.borderWidth = lengthValue(value, property, candidate); return
     case "border-top-width": style.borderTopWidth = lengthValue(value, property, candidate); return
     case "border-right-width": style.borderRightWidth = lengthValue(value, property, candidate); return
@@ -1050,6 +1051,12 @@ function opacityValue(value, candidate) {
   const opacity = numberValue(value, "opacity", candidate)
   if (opacity < 0 || opacity > 1) throw new Error(`Unsupported opacity number from ${JSON.stringify(candidate)}: ${value}`)
   return opacity
+}
+
+function objectFitValue(value, candidate) {
+  if (value === "fill" || value === "contain" || value === "cover" || value === "none") return value
+  if (value === "scale-down") return "scaleDown"
+  throw new Error(`Unsupported object-fit from ${JSON.stringify(candidate)}: ${value}`)
 }
 
 function numberValue(value, property, candidate) {
