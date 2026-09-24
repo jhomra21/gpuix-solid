@@ -131,6 +131,7 @@ export type {
 export {
   applyNativeStyleParentPosition,
   applyNativeStyleTranslation,
+  applyNativeStyleViewportSize,
   clearNativeStyleManifest,
   configureNativeStyleManifest,
   getNativeStyleColorMode,
@@ -138,6 +139,7 @@ export {
   resolveNativeClassStyle,
   resolveNativeClassParentPosition,
   resolveNativeClassTranslation,
+  resolveNativeClassViewportSize,
   resolveNativeClassTextTransform,
   resolveNativeDescendantClassStyle,
   setNativeStyleColorMode,
@@ -149,6 +151,7 @@ export type {
   NativeStyleManifestEntry,
   NativeStyleParentPosition,
   NativeStyleTranslation,
+  NativeStyleViewportSize,
   NativeStyleVariant,
   NativeTextTransform,
 } from "./native-style.js"
