@@ -1,4 +1,5 @@
 import solid from "vite-plugin-solid"
+import solidSvg from "vite-plugin-solid-svg"
 import { fileURLToPath } from "node:url"
 import { defineConfig } from "vite"
 
@@ -78,6 +79,7 @@ export function diffusionConfig(entry: string, outDir: string) {
           moduleName: "@jhomra21/gpuix-solid1",
         },
       }),
+      solidSvg({ defaultAsComponent: true }),
     ],
     resolve: {
       alias: [
