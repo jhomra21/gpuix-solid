@@ -1,6 +1,6 @@
 import { GpuixPath2D } from "./path2d.js"
 
-export const CANVAS_DRAW_LIST_VERSION = 3 as const
+export const CANVAS_DRAW_LIST_VERSION = 4 as const
 
 export type CanvasDrawListVersion = typeof CANVAS_DRAW_LIST_VERSION
 export type CanvasMatrix = readonly [number, number, number, number, number, number]
@@ -29,11 +29,18 @@ export type CanvasPathSegment =
     }
   | { op: "closePath" }
 
-export type CanvasClipRect = {
+export type CanvasClipScissor = {
   x: number
   y: number
   width: number
   height: number
+}
+
+export type CanvasClipRect = CanvasClipScissor & {
+  /** Uniform rounded-rectangle radius in canvas coordinates. Omitted for rectangular clips. */
+  radius?: number
+  /** Additional rectangular clipping inherited before a rounded clip. */
+  scissor?: CanvasClipScissor
 }
 
 export type CanvasImageRect = {
@@ -168,6 +175,7 @@ export function createCanvas2DRecorder(
 ): Canvas2DRecorder {
   let commands: CanvasDrawCommand[] = []
   let path: CanvasPathSegment[] = []
+  let clipCandidate: CanvasClipRect | null = null
   let state = defaultState()
   const stack: CanvasState[] = []
   const imageIds = new WeakMap<CanvasRecorderImageSource, Map<number, number>>()
@@ -286,10 +294,11 @@ export function createCanvas2DRecorder(
     clearRect(x: number, y: number, width: number, height: number) {
       const points = rectanglePoints(x, y, width, height, state.transform)
       if (!coversBackingStore(points, getSize())) {
-        throw new Error("GPUix Canvas2D v3 supports clearRect() only when it clears the full backing store")
+        throw new Error("GPUix Canvas2D v4 supports clearRect() only when it clears the full backing store")
       }
       commands = []
       path = []
+      clipCandidate = null
       changed()
     },
     fillRect(x: number, y: number, width: number, height: number) {
@@ -329,20 +338,25 @@ export function createCanvas2DRecorder(
 
     beginPath() {
       path = []
+      clipCandidate = null
     },
     closePath() {
       if (path.at(-1)?.op === "closePath") return
+      clipCandidate = null
       path.push({ op: "closePath" })
     },
     moveTo(x: number, y: number) {
+      clipCandidate = null
       const point = transformPoint(x, y, state.transform)
       path.push({ op: "moveTo", x: point[0], y: point[1] })
     },
     lineTo(x: number, y: number) {
+      clipCandidate = null
       const point = transformPoint(x, y, state.transform)
       path.push({ op: "lineTo", x: point[0], y: point[1] })
     },
     quadraticCurveTo(cpx: number, cpy: number, x: number, y: number) {
+      clipCandidate = null
       const control = transformPoint(cpx, cpy, state.transform)
       const point = transformPoint(x, y, state.transform)
       path.push({
@@ -361,6 +375,7 @@ export function createCanvas2DRecorder(
       x: number,
       y: number,
     ) {
+      clipCandidate = null
       const control1 = transformPoint(cp1x, cp1y, state.transform)
       const control2 = transformPoint(cp2x, cp2y, state.transform)
       const point = transformPoint(x, y, state.transform)
@@ -375,7 +390,9 @@ export function createCanvas2DRecorder(
       })
     },
     rect(x: number, y: number, width: number, height: number) {
-      path.push(...rectanglePath(x, y, width, height, state.transform))
+      const nextPath = rectanglePath(x, y, width, height, state.transform)
+      clipCandidate = path.length === 0 ? rectangularClipFromPath(nextPath) : null
+      path.push(...nextPath)
     },
     arc(
       x: number,
@@ -385,9 +402,11 @@ export function createCanvas2DRecorder(
       endAngle: number,
       counterclockwise = false,
     ) {
+      clipCandidate = null
       appendArc(path, x, y, radius, startAngle, endAngle, counterclockwise, state.transform)
     },
     arcTo(x1: number, y1: number, x2: number, y2: number, radius: number) {
+      clipCandidate = null
       appendArcTo(path, x1, y1, x2, y2, radius, state.transform)
     },
     roundRect(
@@ -397,17 +416,21 @@ export function createCanvas2DRecorder(
       height: number,
       radii: number | number[] = 0,
     ) {
-      path.push(...roundedRectanglePath(x, y, width, height, radii, state.transform))
+      const nextPath = roundedRectanglePath(x, y, width, height, radii, state.transform)
+      clipCandidate = path.length === 0
+        ? roundedClipFromRoundRect(x, y, width, height, radii, state.transform)
+        : null
+      path.push(...nextPath)
     },
     clip(fillRule: CanvasFillRule = "nonzero") {
       if (fillRule !== "nonzero") {
-        throw new Error("GPUix Canvas2D v3 supports the nonzero clip rule only")
+        throw new Error("GPUix Canvas2D v4 supports the nonzero clip rule only")
       }
-      const nextClip = rectangularClipFromPath(path)
+      const nextClip = clipCandidate ?? rectangularClipFromPath(path)
       if (!nextClip) {
-        throw new Error("GPUix Canvas2D v3 supports clip() only for one axis-aligned rectangular path")
+        throw new Error("GPUix Canvas2D v4 supports clip() for one axis-aligned rectangle or uniform rounded rectangle")
       }
-      state.clip = intersectClipRects(state.clip, nextClip)
+      state.clip = intersectCanvasClips(state.clip, nextClip)
     },
     fill(
       pathOrRule: GpuixPath2D | CanvasFillRule = "nonzero",
@@ -415,7 +438,7 @@ export function createCanvas2DRecorder(
     ) {
       const fillRule = pathOrRule instanceof GpuixPath2D ? pathFillRule : pathOrRule
       if (fillRule !== "nonzero") {
-        throw new Error("GPUix Canvas2D v3 supports the nonzero fill rule only")
+        throw new Error("GPUix Canvas2D v4 supports the nonzero fill rule only")
       }
       const fillPath = pathOrRule instanceof GpuixPath2D
         ? transformStoredPath(pathOrRule.segments, state.transform)
@@ -495,10 +518,10 @@ export function createCanvas2DRecorder(
     },
     fillText(text: string, x: number, y: number, maxWidth?: number) {
       if (maxWidth !== undefined) {
-        throw new Error("GPUix Canvas2D v3 does not support fillText() maxWidth")
+        throw new Error("GPUix Canvas2D v4 does not support fillText() maxWidth")
       }
       if (String(text).includes("\n")) {
-        throw new Error("GPUix Canvas2D v3 does not support newlines in fillText()")
+        throw new Error("GPUix Canvas2D v4 does not support newlines in fillText()")
       }
       assertTextTransform(state.transform)
       const point = transformPoint(x, y, state.transform)
@@ -520,7 +543,7 @@ export function createCanvas2DRecorder(
       changed()
     },
   }
-  // SAFETY: this host object deliberately implements the Canvas2D subset supported by protocol v3.
+  // SAFETY: this host object deliberately implements the Canvas2D subset supported by protocol v4.
   // Browser-compiled source still sees the standard CanvasRenderingContext2D contract; unsupported
   // operations are absent or fail closed rather than being serialized incorrectly.
   const canvasContext = context as GpuixCanvasRenderingContext2D
@@ -539,6 +562,7 @@ export function createCanvas2DRecorder(
     reset() {
       commands = []
       path = []
+      clipCandidate = null
       state = defaultState()
       stack.length = 0
       changed()
@@ -558,7 +582,7 @@ function assertSimilarityTransform(matrix: CanvasMatrix, operation: string): voi
     Math.abs(scaleX - scaleY) > scaleTolerance ||
     Math.abs(a * c + b * d) > orthogonalTolerance
   ) {
-    throw new Error(`GPUix Canvas2D v3 requires a rotation/reflection + uniform scale transform for ${operation}`)
+    throw new Error(`GPUix Canvas2D v4 requires a rotation/reflection + uniform scale transform for ${operation}`)
   }
 }
 
@@ -572,19 +596,19 @@ function assertTextTransform(matrix: CanvasMatrix): void {
     Math.abs(b) > tolerance ||
     Math.abs(c) > tolerance
   ) {
-    throw new Error("GPUix Canvas2D v3 requires translation + positive uniform scale for fillText()")
+    throw new Error("GPUix Canvas2D v4 requires translation + positive uniform scale for fillText()")
   }
 }
 
 function assertSupportedStrokeState(state: CanvasState): void {
   if (state.lineCap !== "butt") {
-    throw new Error(`GPUix Canvas2D v3 does not support lineCap=${JSON.stringify(state.lineCap)}`)
+    throw new Error(`GPUix Canvas2D v4 does not support lineCap=${JSON.stringify(state.lineCap)}`)
   }
   if (state.lineJoin !== "miter") {
-    throw new Error(`GPUix Canvas2D v3 does not support lineJoin=${JSON.stringify(state.lineJoin)}`)
+    throw new Error(`GPUix Canvas2D v4 does not support lineJoin=${JSON.stringify(state.lineJoin)}`)
   }
   if (state.miterLimit !== 10) {
-    throw new Error(`GPUix Canvas2D v3 does not support miterLimit=${state.miterLimit}`)
+    throw new Error(`GPUix Canvas2D v4 does not support miterLimit=${state.miterLimit}`)
   }
 }
 
@@ -609,7 +633,7 @@ function cloneState(state: CanvasState): CanvasState {
   return {
     ...state,
     transform: cloneMatrix(state.transform),
-    clip: state.clip ? { ...state.clip } : null,
+    clip: state.clip ? cloneCanvasClip(state.clip) : null,
   }
 }
 
@@ -682,7 +706,7 @@ function cloneCommand(command: CanvasDrawCommand): CanvasDrawCommand {
   } else {
     clone = { ...command, path: clonePath(command.path) }
   }
-  if (command.clip) clone.clip = { ...command.clip }
+  if (command.clip) clone.clip = cloneCanvasClip(command.clip)
   return clone
 }
 
@@ -811,7 +835,7 @@ function transformImageRect(rect: CanvasImageRect, matrix: CanvasMatrix): Canvas
 }
 
 function withCanvasClip(command: CanvasDrawCommand, clip: CanvasClipRect | null): CanvasDrawCommand {
-  if (clip) command.clip = { ...clip }
+  if (clip) command.clip = cloneCanvasClip(clip)
   return command
 }
 
@@ -869,6 +893,91 @@ function intersectClipRects(current: CanvasClipRect | null, next: CanvasClipRect
     y: top,
     width: Math.max(0, right - left),
     height: Math.max(0, bottom - top),
+  }
+}
+
+function roundedClipFromRoundRect(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radii: number | number[],
+  matrix: CanvasMatrix,
+): CanvasClipRect | null {
+  const [a, b, c, d] = matrix
+  const scaleTolerance = Math.max(1, Math.abs(a), Math.abs(d)) * 1e-6
+  if (
+    a <= Number.EPSILON ||
+    d <= Number.EPSILON ||
+    Math.abs(a - d) > scaleTolerance ||
+    Math.abs(b) > scaleTolerance ||
+    Math.abs(c) > scaleTolerance
+  ) {
+    return null
+  }
+
+  const corners = normalizeRoundRectRadii(radii)
+  const radiusTolerance = Math.max(1, ...corners.map(Math.abs)) * 1e-6
+  const radius = corners[0]!
+  if (corners.some((corner) => Math.abs(corner - radius) > radiusTolerance)) return null
+
+  const rect = transformImageRect(normalizeImageRect(x, y, width, height), matrix)
+  const transformedRadius = radius * a
+  return transformedRadius > 0 ? { ...rect, radius: transformedRadius } : rect
+}
+
+function intersectCanvasClips(
+  current: CanvasClipRect | null,
+  next: CanvasClipRect,
+): CanvasClipRect {
+  if (!current) return cloneCanvasClip(next)
+
+  const currentRounded = (current.radius ?? 0) > 0
+  const nextRounded = (next.radius ?? 0) > 0
+  if (!currentRounded && !nextRounded) return intersectClipRects(current, next)
+
+  if (currentRounded && nextRounded) {
+    if (!sameRoundedClip(current, next)) {
+      throw new Error("GPUix Canvas2D v4 supports one rounded clip combined with rectangular clips")
+    }
+    const result = cloneCanvasClip(current)
+    const currentScissor = current.scissor ?? clipBounds(current)
+    const nextScissor = next.scissor ?? clipBounds(next)
+    result.scissor = intersectClipRects(currentScissor, nextScissor)
+    return result
+  }
+
+  if (currentRounded) {
+    const result = cloneCanvasClip(current)
+    result.scissor = intersectClipRects(current.scissor ?? clipBounds(current), next)
+    return result
+  }
+
+  const result = cloneCanvasClip(next)
+  result.scissor = intersectClipRects(next.scissor ?? clipBounds(next), current)
+  return result
+}
+
+function sameRoundedClip(a: CanvasClipRect, b: CanvasClipRect): boolean {
+  const values = [a.x, a.y, a.width, a.height, a.radius ?? 0, b.x, b.y, b.width, b.height, b.radius ?? 0]
+  const tolerance = Math.max(1, ...values.map(Math.abs)) * 1e-6
+  return (
+    Math.abs(a.x - b.x) <= tolerance &&
+    Math.abs(a.y - b.y) <= tolerance &&
+    Math.abs(a.width - b.width) <= tolerance &&
+    Math.abs(a.height - b.height) <= tolerance &&
+    Math.abs((a.radius ?? 0) - (b.radius ?? 0)) <= tolerance
+  )
+}
+
+function clipBounds(clip: CanvasClipRect): CanvasClipScissor {
+  return { x: clip.x, y: clip.y, width: clip.width, height: clip.height }
+}
+
+function cloneCanvasClip(clip: CanvasClipRect): CanvasClipRect {
+  return {
+    ...clip,
+    ...(clip.scissor ? { scissor: { ...clip.scissor } } : {}),
   }
 }
 
@@ -1317,7 +1426,7 @@ function finiteMatrix(
     e === undefined || !Number.isFinite(e) ||
     f === undefined || !Number.isFinite(f)
   ) {
-    throw new TypeError("GPUix Canvas2D v3 supports only the six-number setTransform() overload")
+    throw new TypeError("GPUix Canvas2D v4 supports only the six-number setTransform() overload")
   }
   return [a, b, c, d, e, f]
 }
@@ -1469,7 +1578,7 @@ function finite(value: number): number {
 function stringPaint(value: string | CanvasGradient | CanvasPattern, property: string): string {
   const serialized = String(value)
   if (value !== serialized) {
-    throw new TypeError(`GPUix Canvas2D v3 supports string ${property} values only`)
+    throw new TypeError(`GPUix Canvas2D v4 supports string ${property} values only`)
   }
   return serialized
 }
@@ -1477,7 +1586,7 @@ function stringPaint(value: string | CanvasGradient | CanvasPattern, property: s
 function parseFont(value: string): ParsedFont {
   const match = value.trim().match(/^(?:(normal|bold|\d{1,4})\s+)?(\d+(?:\.\d+)?)px\s+(.+)$/)
   if (!match) {
-    throw new TypeError(`GPUix Canvas2D v3 cannot represent font ${JSON.stringify(value)}`)
+    throw new TypeError(`GPUix Canvas2D v4 cannot represent font ${JSON.stringify(value)}`)
   }
   const size = Number(match[2])
   const family = match[3]?.trim()
@@ -1493,7 +1602,7 @@ function parseFont(value: string): ParsedFont {
     !family ||
     (weight !== undefined && (!Number.isInteger(weight) || weight < 1 || weight > 1000))
   ) {
-    throw new TypeError(`GPUix Canvas2D v3 cannot represent font ${JSON.stringify(value)}`)
+    throw new TypeError(`GPUix Canvas2D v4 cannot represent font ${JSON.stringify(value)}`)
   }
   return weight === undefined ? { size, family } : { size, family, weight }
 }
