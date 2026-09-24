@@ -1,7 +1,11 @@
 import { CANVAS_DRAW_LIST_VERSION, createTestRoot, hasNativeTestRenderer } from "@jhomra21/gpuix-solid1"
 import { existsSync, statSync, unlinkSync } from "node:fs"
 import { ToolType } from "@diffusionstudio/runtime"
-import {
+import { installDiffusionDesktopHost } from "./desktop-host"
+
+installDiffusionDesktopHost()
+
+const {
   armDiffusionSourceHandTool,
   DiffusionSourceEditor,
   DiffusionSourceEngine,
@@ -10,7 +14,7 @@ import {
   readDiffusionSourceSelection,
   readDiffusionSourceState,
   resetDiffusionSourceCamera,
-} from "./app"
+} = await import("./app")
 
 const screenshotPath = "/tmp/gpuix-solid1-diffusion-source.png"
 const editorScreenshotPath = "/tmp/gpuix-solid1-diffusion-editor.png"
@@ -202,6 +206,10 @@ if (!hasNativeTestRenderer) {
       `Diffusion EditorPage should fill the granted native window; got ${editorBounds.width}x${editorBounds.height}, window ${windowSize.width}x${windowSize.height}`,
     )
     requireCondition(editorText.includes("Add media"), "Diffusion EditorPage should render the real Assets sidebar")
+    requireCondition(
+      !editorText.includes("Edit your videos with AI agents"),
+      "Diffusion native EditorPage should not render the browser-only desktop app promo",
+    )
     requireCondition(stageBounds.width < editorBounds.width, "Diffusion EditorPage stage should leave room for editor sidebars")
     requireCondition(stageBounds.height < editorBounds.height, "Diffusion EditorPage stage should leave room for the timeline")
 

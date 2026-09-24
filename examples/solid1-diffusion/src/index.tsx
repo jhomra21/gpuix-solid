@@ -1,7 +1,11 @@
 import { render } from "@jhomra21/gpuix-solid1"
-import { DiffusionSourceEngine } from "./app"
+import { installDiffusionDesktopHost } from "./desktop-host"
 
-render(() => <DiffusionSourceEngine />, {
+installDiffusionDesktopHost()
+
+const { DiffusionSourceEditor } = await import("./app")
+
+render(() => <DiffusionSourceEditor />, {
   title: "Diffusion Studio — Solid 1 + GPUIX",
   appName: "Diffusion Studio",
   width: 1280,
