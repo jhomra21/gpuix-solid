@@ -198,6 +198,8 @@ export interface StyleDesc {
   right?: DimensionValue
   bottom?: DimensionValue
   left?: DimensionValue
+  /** Numeric sibling stacking level. Equal values preserve source order. */
+  zIndex?: number
 
   background?: string | LinearGradientBackground
   backgroundColor?: string
