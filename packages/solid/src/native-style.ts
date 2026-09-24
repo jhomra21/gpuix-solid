@@ -164,11 +164,12 @@ export function resolveNativeClassTranslation(
 export function applyNativeStyleTranslation(
   style: StyleDesc | undefined,
   translation: NativeStyleTranslation | undefined,
+  measuredSize?: { width?: number; height?: number },
 ): StyleDesc | undefined {
   if (!style || !translation) return style
   const result: StyleDesc = { ...style }
-  const width = numericStyleLength(result.width)
-  const height = numericStyleLength(result.height)
+  const width = numericStyleLength(result.width) ?? measuredSize?.width
+  const height = numericStyleLength(result.height) ?? measuredSize?.height
   if (translation.xFraction !== undefined && width !== undefined) {
     const offset = width * translation.xFraction
     const left = numericStyleLength(result.left)
