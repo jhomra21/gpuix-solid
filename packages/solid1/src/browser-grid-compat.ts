@@ -95,8 +95,10 @@ export function placeBrowserGridItems(
 
     if (!placement) return undefined
     for (let y = placement.row; y < placement.row + placement.rowSpan; y++) {
+      const occupiedRow = occupied[y]
+      if (!occupiedRow) continue
       for (let x = placement.column; x < placement.column + placement.columnSpan; x++) {
-        if (occupied[y]) occupied[y][x] = true
+        occupiedRow[x] = true
       }
     }
     placements.push(placement)
