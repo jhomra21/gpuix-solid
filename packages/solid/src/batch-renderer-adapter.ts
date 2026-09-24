@@ -29,6 +29,8 @@ export interface BatchRendererApi {
   getSelectedText?(): string | null
   clearSelection?(): void
   getPaintedHighlights?(): HighlightMatch[]
+  getPaintedText?(): string[]
+  captureScreenshot?(path: string): void
   getWindowSize?(): { width: number; height: number }
   getCanvasDrawListVersion?(): number | undefined
   getAutoMarginVersion?(): number | undefined
@@ -197,6 +199,8 @@ export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRen
   if (renderer.getSelectedText) adapted.getSelectedText = renderer.getSelectedText.bind(renderer)
   if (renderer.clearSelection) adapted.clearSelection = renderer.clearSelection.bind(renderer)
   if (renderer.getPaintedHighlights) adapted.getPaintedHighlights = renderer.getPaintedHighlights.bind(renderer)
+  if (renderer.getPaintedText) adapted.getPaintedText = renderer.getPaintedText.bind(renderer)
+  if (renderer.captureScreenshot) adapted.captureScreenshot = renderer.captureScreenshot.bind(renderer)
   if (renderer.getWindowSize) adapted.getWindowSize = renderer.getWindowSize.bind(renderer)
   if (renderer.getCanvasDrawListVersion) {
     adapted.getCanvasDrawListVersion = renderer.getCanvasDrawListVersion.bind(renderer)

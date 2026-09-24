@@ -609,6 +609,8 @@ export interface NativeRenderer {
   getSelectedText?(): string | null
   clearSelection?(): void
   getPaintedHighlights?(): HighlightMatch[]
+  getPaintedText?(): string[]
+  captureScreenshot?(path: string): void
   getWindowSize?(): { width: number; height: number }
   getWindowInsets?(): NativeWindowInsets
   /** Version of the native retained Canvas2D draw-list protocol, or undefined when unavailable. */

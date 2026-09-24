@@ -205,6 +205,7 @@ jobs:
           path: |
             /tmp/gpuix-solid1-diffusion-source.png
             /tmp/gpuix-solid1-diffusion-editor.png
+            /tmp/gpuix-solid1-diffusion-live.png
           if-no-files-found: ignore
           retention-days: 7
       - name: Verify source compatibility against pinned GPUIX
