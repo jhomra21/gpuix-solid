@@ -12,7 +12,9 @@
     "run": "bun run build && bun run start",
     "build:test:edge": "cd ../../packages/solid1 && bun run build && cd ../../examples/solid1-diffusion && bun run source:prepare && bun run generate:styles && vite build --config vite.test.config.ts",
     "test:native:edge": "bun run build:test:edge && node scripts/run-test.mjs && vite build --config vite.live-smoke.config.ts && node dist/live-smoke/live-smoke.js",
-    "generate:styles": "node scripts/generate-native-tailwind.mjs"
+    "generate:styles": "node scripts/generate-native-tailwind.mjs",
+    "build:live:edge": "bun run host:build && bun run source:prepare && bun run generate:styles && cd ../../packages/solid && bun run build && cd ../../examples/solid1-diffusion && vite build",
+    "test:live:edge": "bun run build:live:edge && node scripts/check-live-automation.mjs"
   },
   "dependencies": {
     "@gpuix/native": "0.9.0",
