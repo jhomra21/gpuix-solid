@@ -99,6 +99,17 @@ function eventPointInsideElement(renderer: NativeRenderer, elementId: number, ev
   return x >= left && x <= left + width && y >= top && y <= top + height
 }
 
+function topmostPointerNodes(nodes: readonly HostNode[]): HostNode[] {
+  return nodes
+    .map((node, sourceIndex) => ({
+      node,
+      sourceIndex,
+      zIndex: node.kind === "element" ? node.style.zIndex ?? 0 : 0,
+    }))
+    .sort((left, right) => right.zIndex - left.zIndex || right.sourceIndex - left.sourceIndex)
+    .map(({ node }) => node)
+}
+
 function pointerTargetAtPoint(
   container: HostRootNode,
   renderer: NativeRenderer,
@@ -106,9 +117,8 @@ function pointerTargetAtPoint(
   event: EventPayload,
 ): number | undefined {
   const visit = (nodes: readonly HostNode[]): number | undefined => {
-    for (let index = nodes.length - 1; index >= 0; index -= 1) {
-      const node = nodes[index]
-      if (!node || node.kind !== "element" || !node.nativeAlive) continue
+    for (const node of topmostPointerNodes(nodes)) {
+      if (node.kind !== "element" || !node.nativeAlive) continue
       const descendant = visit(node.children)
       if (descendant !== undefined) return descendant
       if (!eventPointInsideElement(renderer, node.id, event)) continue
@@ -127,9 +137,8 @@ function semanticDragTargetAtPoint(
   eventType: "dragOver" | "drop",
 ): number | undefined {
   const visit = (nodes: readonly HostNode[]): number | undefined => {
-    for (let index = nodes.length - 1; index >= 0; index -= 1) {
-      const node = nodes[index]
-      if (!node || node.kind !== "element" || !node.nativeAlive) continue
+    for (const node of topmostPointerNodes(nodes)) {
+      if (node.kind !== "element" || !node.nativeAlive) continue
       const descendant = visit(node.children)
       if (descendant !== undefined) return descendant
       if (!eventPointInsideElement(renderer, node.id, event)) continue
