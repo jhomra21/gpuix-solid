@@ -7,10 +7,14 @@ import { onCleanup, onMount, type JSX } from "solid-js"
 import { configureNativeStyleManifest } from "@jhomra21/gpuix-solid1"
 import { nativeTailwindManifest } from "./native-tailwind.generated"
 import { Canvas } from "@/components/canvas/canvas"
+import { ExportProvider } from "@/context/export"
+import { LayoutProvider } from "@/context/layout"
 import { PromptInputProvider } from "@/context/prompt-input"
 import { ProjectProvider } from "@/context/project"
+import { TimelineProvider } from "@/context/timeline"
 import { EditorApiProvider } from "@/dapi"
 import { EngineProvider, useEngineContext } from "@/engine/context"
+import { EditorPage } from "@/pages/editor"
 import { getDocumentEditor, type EntityEdit } from "@/engine/editor"
 import { mount, type Mount } from "@diffusionstudio/reconciler"
 import {
@@ -39,6 +43,12 @@ const fixtureProject = {
   entry: "project.tsx",
   modifiedAt: "2026-09-23T00:00:00.000Z",
   createdAt: "2026-09-23T00:00:00.000Z",
+}
+
+const editorFixtureProject = {
+  ...fixtureProject,
+  displayName: "GPUix Diffusion editor",
+  dir: "",
 }
 
 const projectBundle = `
@@ -92,7 +102,7 @@ export const diffusionSourceProbe: DiffusionSourceProbe = {
   edits: [],
 }
 
-function ProjectMount(): JSX.Element {
+function ProjectMount(props: { children: JSX.Element }): JSX.Element {
   const engine = useEngineContext()
   diffusionSourceProbe.world = engine.world
   diffusionSourceProbe.frame = engine.frame
@@ -114,7 +124,7 @@ function ProjectMount(): JSX.Element {
     diffusionSourceProbe.frame = null
   })
 
-  return <Canvas />
+  return props.children
 }
 
 class DiffusionAudioContext {
@@ -148,9 +158,38 @@ export function DiffusionSourceEngine(): JSX.Element {
               testId="diffusion-source-engine"
               style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column" }}
             >
-              <ProjectMount />
+              <ProjectMount>
+                <Canvas />
+              </ProjectMount>
             </div>
           </PromptInputProvider>
+        </EditorApiProvider>
+      </EngineProvider>
+    </ProjectProvider>
+  )
+}
+
+export function DiffusionSourceEditor(): JSX.Element {
+  return (
+    <ProjectProvider project={editorFixtureProject}>
+      <EngineProvider projectId={editorFixtureProject.id}>
+        <EditorApiProvider>
+          <TimelineProvider>
+            <ExportProvider>
+              <PromptInputProvider>
+                <LayoutProvider>
+                  <div
+                    testId="diffusion-source-editor"
+                    style={{ width: "100%", height: "100%" }}
+                  >
+                    <ProjectMount>
+                      <EditorPage />
+                    </ProjectMount>
+                  </div>
+                </LayoutProvider>
+              </PromptInputProvider>
+            </ExportProvider>
+          </TimelineProvider>
         </EditorApiProvider>
       </EngineProvider>
     </ProjectProvider>
