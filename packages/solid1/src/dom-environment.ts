@@ -3,6 +3,7 @@ import {
   HostElementNode,
   createHostElement,
   createHostText,
+  getMountedHostRootElements,
   insertHostNode,
   removeHostNode,
   setHostProperty,
@@ -751,12 +752,12 @@ function installHostDomCompatibility(ownerDocument: CompatDocument): void {
 }
 
 function activeDomRoots(): HostElementNode[] {
-  const roots: HostElementNode[] = []
+  const roots = new Set(getMountedHostRootElements())
   for (const node of knownRoots) {
-    if (node.parent?.kind === "root") roots.push(node)
+    if (node.parent?.kind === "root") roots.add(node)
     else knownRoots.delete(node)
   }
-  return roots
+  return [...roots]
 }
 
 function registerKnownRoot(node: HostElementNode): void {
