@@ -1,8 +1,8 @@
 import { createTestRoot, hasNativeTestRenderer } from "@jhomra21/gpuix-solid1"
 import { existsSync, statSync, unlinkSync } from "node:fs"
+import { ToolType } from "@diffusionstudio/runtime"
 import {
   armDiffusionSourceHandTool,
-  armDiffusionSourceRectTool,
   DiffusionSourceEngine,
   readDiffusionSourceEditorState,
   readDiffusionSourceEdits,
@@ -101,10 +101,18 @@ if (!hasNativeTestRenderer) {
     }))
 
     resetDiffusionSourceCamera()
-    armDiffusionSourceRectTool()
+    requireCondition(
+      app.renderer.hasTestId("diffusion-toolbar-rectangle"),
+      "Diffusion Toolbar should expose its real Rectangle button to native acceptance",
+    )
+    app.renderer.clickTestId("diffusion-toolbar-rectangle")
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
     app.root.flush()
     app.renderer.flush()
+    requireCondition(
+      readDiffusionSourceEditorState().tool === ToolType.RECT,
+      "Diffusion Toolbar Rectangle button should select the real RECT tool",
+    )
 
     const overlay = Array.from(document.body.querySelectorAll("div"))
       .find((element) => element.style.cursor === "crosshair")
