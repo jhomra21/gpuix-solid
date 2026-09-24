@@ -736,6 +736,7 @@ function mapDeclaration(style, property, rawValue, candidate) {
     case "min-height": style.minHeight = dimensionValue(value, property, candidate); return
     case "max-width": style.maxWidth = dimensionValue(value, property, candidate); return
     case "max-height": style.maxHeight = dimensionValue(value, property, candidate); return
+    case "aspect-ratio": style.aspectRatio = aspectRatioValue(value, candidate); return
     case "padding": applyBoxShorthand(style, "padding", value, candidate); return
     case "padding-inline": applyPair(style, "paddingLeft", "paddingRight", value, property, candidate); return
     case "padding-block": applyPair(style, "paddingTop", "paddingBottom", value, property, candidate); return
@@ -1008,6 +1009,22 @@ function relativeLineHeight(multiplier, fontSize, candidate) {
 
 function dimensionValue(value, property, candidate) {
   return lengthValue(value, property, candidate)
+}
+
+function aspectRatioValue(value, candidate) {
+  const parts = value.split("/").map((part) => part.trim()).filter(Boolean)
+  if (parts.length === 1) {
+    const ratio = Number(parts[0])
+    if (Number.isFinite(ratio) && ratio > 0) return ratio
+  }
+  if (parts.length === 2) {
+    const width = Number(parts[0])
+    const height = Number(parts[1])
+    if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+      return width / height
+    }
+  }
+  throw new Error(`Unsupported aspect-ratio from ${JSON.stringify(candidate)}: ${value}`)
 }
 
 function colorValue(value, property, candidate) {
