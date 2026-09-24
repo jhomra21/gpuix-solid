@@ -172,8 +172,6 @@ const explicitlyIgnored = new Map([
   ["shadow-inner", "GPUIX 0.7 BoxShadow has no inset mode; the exact armed-record state remains preserved by its red border, background, and foreground styles"],
   ["touch-none", "touch-action is a browser gesture policy; the exact fade interaction owns native gesture continuity with pointer capture and window pointer listeners"],
   ["tracking-tight", "letter-spacing is not exposed by GPUIX 0.7; keep the exact copied title utility registered without silently broadening unsupported typography"],
-  ["z-0", "published native StyleDesc has no z-index; retained-tree order owns this source baseline stacking level"],
-  ["z-20", "published native StyleDesc has no z-index; retained-tree order owns this source intermediate stacking level"],
   ["box-border", "GPUIX 0.7 has no box-sizing StyleDesc field; native DAW footer bounds tests already verify the intended total border-box geometry"],
   ["col-start-3", "GPUIX 0.7 does not publish grid-item column placement; the native DAW verifier asserts the collapsed source control group remains right-aligned before this omission is accepted"],
   ["col-start-4", "GPUIX 0.7 does not publish grid-item column placement; the native DAW verifier asserts collapsed mute/solo/arm/volume order and right alignment"],
@@ -240,9 +238,6 @@ const explicitlyIgnored = new Map([
   ["data-[placement=top]:slide-in-from-bottom-2", "native FloatingLayer owns placement without CSS translate animation"],
   ["data-[closed]:hidden", "native Kobalte menus own closed-state mounting rather than CSS visibility"],
   ["aspect-square", "the copied avatar already supplies equal native width and height through size utilities"],
-  ["z-10", "published native StyleDesc has no z-index; retained-tree/layer order owns stacking"],
-  ["z-30", "published native StyleDesc has no z-index; retained-tree/layer order owns stacking"],
-  ["z-40", "published native StyleDesc has no z-index; retained-tree/layer order owns stacking"],
   ["z-50", "native anchored-layer priority owns popup stacking"],
   ["w-fit", "native floating content uses intrinsic sizing instead of CSS fit-content"],
   ["w-max", "native floating content uses intrinsic sizing; GPUIX 0.7 dimensions do not accept CSS max-content"],
@@ -252,7 +247,6 @@ const explicitlyIgnored = new Map([
 ])
 
 function dynamicIgnoredReason(candidate) {
-  if (candidate === "z-5") return "published native StyleDesc has no z-index; retained-tree order places DrawOverlay above EngineCanvas"
   if (candidate === "z-[10000]") return "native floating layers own popup stacking; published native StyleDesc has no z-index"
   if (candidate === "text-balance") return "native text wrapping does not expose CSS text-wrap balance"
   if (candidate.startsWith("data-") || candidate.startsWith("aria-") || candidate.startsWith("dark:data-")) {
@@ -757,6 +751,7 @@ function mapDeclaration(style, property, rawValue, candidate) {
     case "margin-bottom": style.marginBottom = lengthValue(value, property, candidate); return
     case "margin-left": style.marginLeft = lengthValue(value, property, candidate); return
     case "position": style.position = value; return
+    case "z-index": style.zIndex = numberValue(value, property, candidate); return
     case "top": style.top = lengthValue(value, property, candidate); return
     case "right": style.right = lengthValue(value, property, candidate); return
     case "bottom": style.bottom = lengthValue(value, property, candidate); return
