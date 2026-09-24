@@ -25,6 +25,18 @@ const nativeTextTransforms = new Map([
 // one intrinsic center zone. Other entries below translate source geometry
 // into native fields without editing the copied DAW components.
 const nativeCompatEntries = new Map([
+  // Diffusion uses these source tokens directly even though the pinned Tailwind
+  // compiler does not emit candidates for their class spellings. Preserve the
+  // source-owned values explicitly instead of substituting a neighboring token.
+  ["font-450", { base: { fontWeight: 450 } }],
+  ["border-border-input", {
+    light: { borderColor: "hsla(0, 0%, 88%, 1)" },
+    dark: { borderColor: "hsla(0, 0%, 100%, 0.09)" },
+  }],
+  ["text-destructive-foreground", {
+    light: { color: "hsla(0, 0%, 100%, 1)" },
+    dark: { color: "hsla(0, 0%, 100%, 1)" },
+  }],
   ["invisible", { base: { opacity: 0 } }],
   ["visible", { base: { opacity: 1 } }],
   ["border-none", { base: { borderWidth: 0 } }],
