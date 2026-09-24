@@ -246,6 +246,9 @@ function dynamicIgnoredReason(candidate) {
   if (candidate.startsWith("data-") || candidate.startsWith("aria-") || candidate.startsWith("dark:data-")) {
     return "Kobalte/runtime state owns this data/aria variant; native class selectors do not evaluate arbitrary attribute variants yet"
   }
+  if (candidate.startsWith("group-")) {
+    return "Kobalte relationship state owns this group variant; native class selectors do not evaluate arbitrary ancestor-state selectors yet"
+  }
   if (candidate.startsWith("focus-visible:ring") || candidate.startsWith("focus-visible:outline")) {
     return "native focus semantics are preserved without browser CSS ring/outline painting"
   }
