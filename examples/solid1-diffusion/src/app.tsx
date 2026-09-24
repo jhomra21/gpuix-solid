@@ -7,6 +7,8 @@ import { onCleanup, onMount, type JSX } from "solid-js"
 import { configureNativeStyleManifest } from "@jhomra21/gpuix-solid1"
 import { nativeTailwindManifest } from "./native-tailwind.generated"
 import { DrawOverlay } from "@/components/canvas/draw-overlay"
+import { Toolbar } from "@/components/canvas/toolbar"
+import { PromptInputProvider } from "@/context/prompt-input"
 import { EngineCanvas } from "@/engine/canvas"
 import { CameraController } from "@/engine/camera-controller"
 import { EngineProvider, useEngineContext } from "@/engine/context"
@@ -93,6 +95,19 @@ function ProjectMount(): JSX.Element {
     unsubscribeEdits = getDocumentEditor(engine.world).onEdit((edit) => diffusionSourceProbe.edits.push(edit))
     mounted = mount(projectBundle, engine.world)
     diffusionSourceProbe.mounted = mounted
+
+    queueMicrotask(() => {
+      const buttons = Array.from(document.body.querySelectorAll("[data-slot='button']"))
+      const toolbarIds = [
+        "diffusion-toolbar-select",
+        "diffusion-toolbar-select-menu",
+        "diffusion-toolbar-frame",
+        "diffusion-toolbar-rectangle",
+        "diffusion-toolbar-text",
+        "diffusion-toolbar-ai",
+      ]
+      for (const [index, testId] of toolbarIds.entries()) buttons[index]?.setAttribute("testId", testId)
+    })
   })
   onCleanup(() => {
     unsubscribeEdits?.()
@@ -107,6 +122,9 @@ function ProjectMount(): JSX.Element {
       <EngineCanvas />
       <CameraController />
       <DrawOverlay />
+      <PromptInputProvider>
+        <Toolbar />
+      </PromptInputProvider>
     </>
   )
 }
