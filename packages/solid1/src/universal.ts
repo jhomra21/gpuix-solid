@@ -955,6 +955,7 @@ function resolveAncestorDescendantStyle(node: HostElementNode): StyleDesc | unde
         tagName,
         directParent === ancestor,
         directParent === ancestor ? directChildIndex : undefined,
+        node.props,
       ),
     )
   }
