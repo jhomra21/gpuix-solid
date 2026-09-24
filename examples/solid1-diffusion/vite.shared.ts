@@ -106,13 +106,8 @@ export function diffusionConfig(entry: string, outDir: string) {
       dedupe: ["solid-js", "@solidjs/router", "koota"],
     },
     ssr: {
-      noExternal: [
-        "@jhomra21/gpuix-solid1",
-        /^@kobalte\/core(?:\/.*)?$/,
-        "@kobalte/utils",
-        /^@floating-ui\//,
-        "solid-js",
-      ],
+      noExternal: true,
+      external: ["@gpuix/native"],
       resolve: {
         conditions: ["solid", "browser", "development", "import", "default"],
       },
