@@ -6,7 +6,6 @@ import { defineConfig } from "vite"
 const diffusionCommit = "666cdced1f6b97a792b63e551f45797649efb27a"
 const fromHere = (relativePath: string) => fileURLToPath(new URL(relativePath, import.meta.url))
 const sourceRoot = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/`)
-const fixtureRoot = fromHere("./")
 const webAppRoot = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/apps/web/`)
 const solid1Entry = fromHere("../../packages/solid1/dist/index.js")
 const solidWebCompat = fromHere("../../packages/solid1/dist/web-entry.js")
@@ -120,8 +119,8 @@ export function diffusionConfig(entry: string, outDir: string) {
     },
     build: {
       target: "node22",
-      ssr: fileURLToPath(new URL(entry, fixtureRoot)),
-      outDir: fileURLToPath(new URL(`${outDir}/`, fixtureRoot)),
+      ssr: fromHere(`./${entry}`),
+      outDir: fromHere(`./${outDir}/`),
       emptyOutDir: true,
       rollupOptions: {
         external: ["@gpuix/native"],
