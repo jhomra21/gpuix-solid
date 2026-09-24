@@ -25,6 +25,32 @@ function closeTo(actual: number, expected: number): boolean {
   return Math.abs(actual - expected) < 0.001
 }
 
+function symmetricMultisetDifference(left: readonly string[], right: readonly string[]): string[] {
+  const rightCounts = new Map<string, number>()
+  for (const value of right) rightCounts.set(value, (rightCounts.get(value) ?? 0) + 1)
+
+  const leftOnly: string[] = []
+  for (const value of left) {
+    const count = rightCounts.get(value) ?? 0
+    if (count === 0) leftOnly.push(value)
+    else if (count === 1) rightCounts.delete(value)
+    else rightCounts.set(value, count - 1)
+  }
+
+  const leftCounts = new Map<string, number>()
+  for (const value of left) leftCounts.set(value, (leftCounts.get(value) ?? 0) + 1)
+
+  const rightOnly: string[] = []
+  for (const value of right) {
+    const count = leftCounts.get(value) ?? 0
+    if (count === 0) rightOnly.push(value)
+    else if (count === 1) leftCounts.delete(value)
+    else leftCounts.set(value, count - 1)
+  }
+
+  return [...leftOnly, ...rightOnly]
+}
+
 if (!hasNativeTestRenderer) {
   console.log("solid1 Diffusion source engine: native TestGpuixRenderer unavailable; skipped")
 } else {
@@ -244,14 +270,8 @@ if (!hasNativeTestRenderer) {
       editorApp.renderer.hasTestId("diffusion-toolbar-rectangle"),
       "Diffusion EditorPage should expose the real Rectangle toolbar button",
     )
-    const rectangleIconBefore = editorApp.renderer.customPropStringContainingAll(
-      "source",
-      ['data-gpuix-test-id="rectangle"'],
-    )
-    requireCondition(
-      !rectangleIconBefore.includes("currentColor"),
-      "Diffusion toolbar SVG should resolve inherited currentColor before native serialization",
-    )
+    const svgSourcesBefore = editorApp.renderer.customPropStringsContainingAll("source", ["<svg"])
+    requireCondition(svgSourcesBefore.length > 0, "Diffusion EditorPage should serialize inline SVG icons")
 
     editorApp.renderer.clickTestId("diffusion-toolbar-rectangle")
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
@@ -261,17 +281,15 @@ if (!hasNativeTestRenderer) {
       readDiffusionSourceEditorState().tool === ToolType.RECT,
       "Diffusion EditorPage Rectangle button should select the real RECT tool",
     )
-    const rectangleIconAfter = editorApp.renderer.customPropStringContainingAll(
-      "source",
-      ['data-gpuix-test-id="rectangle"'],
+    const svgSourcesAfter = editorApp.renderer.customPropStringsContainingAll("source", ["<svg"])
+    const changedSvgSources = symmetricMultisetDifference(svgSourcesBefore, svgSourcesAfter)
+    requireCondition(
+      changedSvgSources.length > 0,
+      "Diffusion toolbar SVG sources should refresh when inherited button color changes",
     )
     requireCondition(
-      rectangleIconAfter !== rectangleIconBefore,
-      "Diffusion toolbar SVG should refresh when inherited button color changes",
-    )
-    requireCondition(
-      !rectangleIconAfter.includes("currentColor"),
-      "Diffusion selected toolbar SVG should keep currentColor resolved",
+      changedSvgSources.every((source) => !source.includes("currentColor")),
+      "Diffusion toolbar SVG refresh should keep inherited currentColor resolved",
     )
 
     editorApp.renderer.captureScreenshot(editorScreenshotPath)

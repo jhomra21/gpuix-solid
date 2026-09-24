@@ -114,6 +114,22 @@ function findCustomPropStringContainingAll(
   return undefined
 }
 
+function collectCustomPropStringsContainingAll(
+  node: NativeTreeNode | null,
+  name: string,
+  fragments: readonly string[],
+  values: string[] = [],
+): string[] {
+  if (!node) return values
+  const value = node.customProps?.[name]
+  const text = value === undefined || value === null ? undefined : String(value)
+  if (text !== undefined && fragments.every((fragment) => text.includes(fragment))) values.push(text)
+  for (const child of node.children ?? []) {
+    collectCustomPropStringsContainingAll(child, name, fragments, values)
+  }
+  return values
+}
+
 function findNodeBySerializedCustomProp(
   node: NativeTreeNode | null,
   name: string,
@@ -469,6 +485,11 @@ export class TestRenderer {
       throw new Error(`Expected string custom prop ${JSON.stringify(name)} containing ${JSON.stringify(fragments)}`)
     }
     return value
+  }
+
+  customPropStringsContainingAll(name: string, fragments: readonly string[]): string[] {
+    this.#native.flush()
+    return collectCustomPropStringsContainingAll(parseTree(this.#native.getTreeJson()), name, fragments)
   }
 
   customPropJsonContainingAll(name: string, fragments: readonly string[]): string {

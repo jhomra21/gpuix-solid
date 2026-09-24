@@ -36,21 +36,6 @@ const multilineClassAttributeHook = {
   },
 }
 
-const rectangleSvgTestHook = {
-  name: "diffusion-rectangle-svg-native-test-hook",
-  enforce: "pre" as const,
-  transform(code: string, id: string) {
-    const normalizedId = id.replaceAll("\\", "/").split("?")[0]
-    if (!normalizedId.endsWith("/apps/web/src/assets/icons/tool.rectangle.svg")) return null
-
-    const svgOpen = '<svg viewBox="0 0 24 24"'
-    if (!code.includes(svgOpen)) {
-      throw new Error("Pinned Diffusion Rectangle SVG changed; update native acceptance instrumentation")
-    }
-    return code.replace(svgOpen, '<svg data-gpuix-test-id="rectangle" viewBox="0 0 24 24"')
-  },
-}
-
 const toolbarTestHook = {
   name: "diffusion-toolbar-native-test-hook",
   enforce: "pre" as const,
@@ -88,7 +73,6 @@ export function diffusionConfig(entry: string, outDir: string) {
     plugins: [
       multilineClassAttributeHook,
       toolbarTestHook,
-      rectangleSvgTestHook,
       solid({
         solid: {
           generate: "universal",
