@@ -35,7 +35,7 @@ jobs:
         with:
           bun-version: 1.3.14
       - name: Install reusable MediaBunny package dependencies
-        if: matrix.backend == 'webcodecs'
+        if: matrix.backend == 'server' || matrix.backend == 'webcodecs'
         working-directory: packages/mediabunny
         run: bun install --no-save
       - name: Typecheck reusable MediaBunny package
