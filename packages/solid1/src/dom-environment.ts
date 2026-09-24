@@ -20,6 +20,14 @@ type CompatEventTarget = {
 
 type CompatListenerTarget = CompatEventTarget | HostElementNode
 
+type CompatMediaQueryList = CompatEventTarget & {
+  readonly media: string
+  readonly matches: boolean
+  onchange: CompatListener | null
+  addListener(listener: CompatListener | null): void
+  removeListener(listener: CompatListener | null): void
+}
+
 type CompatRect = {
   x: number
   y: number
@@ -190,6 +198,7 @@ type CompatWindow = CompatEventTarget & {
   sessionStorage?: CompatStorage
   Storage?: typeof CompatStorage
   history?: CompatHistory
+  matchMedia?: (query: string) => CompatMediaQueryList
   innerWidth?: number
   innerHeight?: number
   scrollX?: number
@@ -414,6 +423,7 @@ export function installDomEventEnvironment(): void {
   windowTarget.DOMMatrix = CompatDOMMatrix
   windowTarget.DOMRect = CompatDOMRect
   windowTarget.getComputedStyle = defaultComputedStyle
+  windowTarget.matchMedia = (query) => createCompatMediaQueryList(windowTarget, query)
   Object.defineProperty(windowTarget, "Element", {
     configurable: true,
     get: () => globalThis.Element,
@@ -461,6 +471,11 @@ export function installDomEventEnvironment(): void {
     configurable: true,
     writable: true,
     value: defaultComputedStyle,
+  })
+  Object.defineProperty(globalThis, "matchMedia", {
+    configurable: true,
+    writable: true,
+    value: windowTarget.matchMedia,
   })
   Object.defineProperty(globalThis, "NodeFilter", {
     configurable: true,
@@ -1129,6 +1144,87 @@ function installEventTarget(target: CompatEventTarget): void {
   if (!target.dispatchEvent) {
     target.dispatchEvent = (event) => dispatchCompatEvent(target, event)
   }
+}
+
+function createCompatMediaQueryList(windowTarget: CompatWindow, query: string): CompatMediaQueryList {
+  let previousMatches = evaluateMediaQuery(windowTarget, query)
+  const target = {
+    media: query,
+    get matches() {
+      return evaluateMediaQuery(windowTarget, query)
+    },
+    onchange: null,
+    addListener(listener: CompatListener | null) {
+      addCompatListener(target, "change", listener)
+    },
+    removeListener(listener: CompatListener | null) {
+      removeCompatListener(target, "change", listener)
+    },
+  } satisfies CompatMediaQueryList
+
+  installEventTarget(target)
+  addCompatListener(windowTarget, "resize", () => {
+    const matches = target.matches
+    if (matches === previousMatches) return
+    previousMatches = matches
+    const event = new Event("change")
+    Object.defineProperties(event, {
+      matches: { configurable: true, value: matches },
+      media: { configurable: true, value: query },
+    })
+    target.onchange?.(event)
+    dispatchCompatEvent(target, event)
+  })
+  return target
+}
+
+function evaluateMediaQuery(windowTarget: CompatWindow, query: string): boolean {
+  return query
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .some((part) => evaluateMediaQueryAlternative(windowTarget, part))
+}
+
+function evaluateMediaQueryAlternative(windowTarget: CompatWindow, query: string): boolean {
+  const normalized = query.trim().toLowerCase()
+  const negated = normalized.startsWith("not ")
+  const body = negated ? normalized.slice(4).trim() : normalized
+  const matches = body
+    .split(/\s+and\s+/)
+    .every((part) => evaluateMediaQueryPart(windowTarget, part.trim()))
+  return negated ? !matches : matches
+}
+
+function evaluateMediaQueryPart(windowTarget: CompatWindow, part: string): boolean {
+  if (part === "all" || part === "screen" || part === "only screen") return true
+  const feature = part.startsWith("(") && part.endsWith(")") ? part.slice(1, -1).trim() : part
+
+  const dimension = feature.match(/^(min|max)-(width|height):\s*(-?(?:\d+(?:\.\d+)?|\.\d+))px$/)
+  if (dimension) {
+    const [, bound, axis, rawValue] = dimension
+    const viewport = axis === "width" ? windowTarget.innerWidth ?? 800 : windowTarget.innerHeight ?? 600
+    const value = Number(rawValue)
+    return bound === "min" ? viewport >= value : viewport <= value
+  }
+
+  const orientation = feature.match(/^orientation:\s*(portrait|landscape)$/)?.[1]
+  if (orientation) {
+    const width = windowTarget.innerWidth ?? 800
+    const height = windowTarget.innerHeight ?? 600
+    return orientation === "portrait" ? height >= width : width > height
+  }
+
+  const reducedMotion = feature.match(/^prefers-reduced-motion:\s*(reduce|no-preference)$/)?.[1]
+  if (reducedMotion) return reducedMotion === "no-preference"
+
+  const colorScheme = feature.match(/^prefers-color-scheme:\s*(dark|light)$/)?.[1]
+  if (colorScheme) {
+    const dark = windowTarget.document?.documentElement?.classList.contains("dark") ?? false
+    return colorScheme === "dark" ? dark : !dark
+  }
+
+  return false
 }
 
 installDomEventEnvironment()
