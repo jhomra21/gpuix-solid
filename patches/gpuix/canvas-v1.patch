@@ -126,7 +126,7 @@ diff --git a/packages/native/src/custom_elements/canvas.rs b/packages/native/src
 new file mode 100644
 --- /dev/null
 +++ b/packages/native/src/custom_elements/canvas.rs
-@@ -0,0 +1,802 @@
+@@ -0,0 +1,805 @@
 +use gpui::prelude::*;
 +use serde::Deserialize;
 +use std::collections::HashMap;
