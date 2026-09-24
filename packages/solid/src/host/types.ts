@@ -207,6 +207,7 @@ export interface StyleDesc {
   backgroundColor?: string
   color?: string
   opacity?: number
+  objectFit?: "fill" | "contain" | "cover" | "scaleDown" | "none"
 
   borderWidth?: number
   borderTopWidth?: number
