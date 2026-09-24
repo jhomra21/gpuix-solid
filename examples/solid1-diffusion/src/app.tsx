@@ -96,18 +96,6 @@ function ProjectMount(): JSX.Element {
     mounted = mount(projectBundle, engine.world)
     diffusionSourceProbe.mounted = mounted
 
-    queueMicrotask(() => {
-      const buttons = Array.from(document.body.querySelectorAll("[data-slot='button']"))
-      const toolbarIds = [
-        "diffusion-toolbar-select",
-        "diffusion-toolbar-select-menu",
-        "diffusion-toolbar-frame",
-        "diffusion-toolbar-rectangle",
-        "diffusion-toolbar-text",
-        "diffusion-toolbar-ai",
-      ]
-      for (const [index, testId] of toolbarIds.entries()) buttons[index]?.setAttribute("testId", testId)
-    })
   })
   onCleanup(() => {
     unsubscribeEdits?.()
