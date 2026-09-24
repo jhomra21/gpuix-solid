@@ -975,10 +975,9 @@ function clipBounds(clip: CanvasClipRect): CanvasClipScissor {
 }
 
 function cloneCanvasClip(clip: CanvasClipRect): CanvasClipRect {
-  return {
-    ...clip,
-    ...(clip.scissor ? { scissor: { ...clip.scissor } } : {}),
-  }
+  const cloned: CanvasClipRect = { ...clip }
+  if (clip.scissor) cloned.scissor = { ...clip.scissor }
+  return cloned
 }
 
 function rectanglePath(
