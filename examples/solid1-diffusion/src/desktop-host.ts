@@ -25,20 +25,26 @@ type DesktopListener = (payload: MainReply) => void
 const listeners = new Map<string, Set<DesktopListener>>()
 let installed = false
 
+const globalProperty = {
+  enumerable: false,
+  configurable: true,
+  writable: true,
+} as const
+
 const indexedDbProperties: PropertyDescriptorMap = {
-  indexedDB: writableGlobal(indexedDB),
-  IDBCursor: writableGlobal(IDBCursor),
-  IDBCursorWithValue: writableGlobal(IDBCursorWithValue),
-  IDBDatabase: writableGlobal(IDBDatabase),
-  IDBFactory: writableGlobal(IDBFactory),
-  IDBIndex: writableGlobal(IDBIndex),
-  IDBKeyRange: writableGlobal(IDBKeyRange),
-  IDBObjectStore: writableGlobal(IDBObjectStore),
-  IDBOpenDBRequest: writableGlobal(IDBOpenDBRequest),
-  IDBRecord: writableGlobal(IDBRecord),
-  IDBRequest: writableGlobal(IDBRequest),
-  IDBTransaction: writableGlobal(IDBTransaction),
-  IDBVersionChangeEvent: writableGlobal(IDBVersionChangeEvent),
+  indexedDB: { ...globalProperty, value: indexedDB },
+  IDBCursor: { ...globalProperty, value: IDBCursor },
+  IDBCursorWithValue: { ...globalProperty, value: IDBCursorWithValue },
+  IDBDatabase: { ...globalProperty, value: IDBDatabase },
+  IDBFactory: { ...globalProperty, value: IDBFactory },
+  IDBIndex: { ...globalProperty, value: IDBIndex },
+  IDBKeyRange: { ...globalProperty, value: IDBKeyRange },
+  IDBObjectStore: { ...globalProperty, value: IDBObjectStore },
+  IDBOpenDBRequest: { ...globalProperty, value: IDBOpenDBRequest },
+  IDBRecord: { ...globalProperty, value: IDBRecord },
+  IDBRequest: { ...globalProperty, value: IDBRequest },
+  IDBTransaction: { ...globalProperty, value: IDBTransaction },
+  IDBVersionChangeEvent: { ...globalProperty, value: IDBVersionChangeEvent },
 }
 
 /**
@@ -100,15 +106,6 @@ export function installDiffusionDesktopHost(): void {
   })
   document.documentElement.dataset.platform = "darwin"
   document.documentElement.dataset.fullscreen = "false"
-}
-
-function writableGlobal(value: object): PropertyDescriptor {
-  return {
-    value,
-    enumerable: false,
-    configurable: true,
-    writable: true,
-  }
 }
 
 function emit(channel: string, payload: MainReply): void {
