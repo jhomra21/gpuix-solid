@@ -1091,9 +1091,8 @@ function browserGridItem(node: HostElementNode): BrowserGridItem {
   }
 }
 
-function finiteStyleNumber(value: unknown): number {
-  const number = Number(value)
-  return Number.isFinite(number) ? number : 0
+function finiteStyleNumber(value: number | undefined): number {
+  return value !== undefined && Number.isFinite(value) ? value : 0
 }
 
 function inlineGridItemIndex(grid: HostElementNode, target: HostElementNode): number | undefined {
