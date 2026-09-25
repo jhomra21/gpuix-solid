@@ -87,30 +87,23 @@ const nativeCompatEntries = new Map([
   ["track-row-control-stack", { base: { width: 81 } }],
   ["track-meter-strip", { base: { width: 12 } }],
   ["track-automation-indicator", { base: { boxShadow: { offsetX: 0, offsetY: 0, blurRadius: 6, spreadRadius: 0, color: "rgba(239, 68, 68, 0.75)" } } }],
-  // GPUIX 0.7 only publishes equal-count grid tracks. Preserve the source
-  // column count for the two three-column layouts; fixed control widths remain
-  // source-owned by track-row-control-panel/stack/meter-strip above.
+  // Preserve exact source grid tracks as metadata. The Solid host combines
+  // these class-owned tracks with inline grid-template-* on the other axis.
   ["track-expanded-row-grid", { base: { gridTemplateColumns: 3 } }],
-  ["grid-cols-[minmax(72px,96px)_minmax(96px,1fr)_101px]", { base: { gridTemplateColumns: 3 } }],
-  // This two-column source layout can be represented exactly as flex because
-  // its children are one flexible div followed by one fixed 20px button.
-  ["grid-cols-[minmax(0,1fr)_20px]", {
-    base: { display: "flex", flexDirection: "row" },
-    descendants: {
-      ">div": { base: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0 } },
-      ">button": { base: { width: 20, flexShrink: 0 } },
-    },
+  ["grid-cols-[minmax(72px,96px)_minmax(96px,1fr)_101px]", {
+    base: {},
+    gridTemplate: { columns: "minmax(72px, 96px) minmax(96px, 1fr) 101px" },
   }],
-  ["grid-cols-2", { base: { gridTemplateColumns: 2 } }],
-  ["grid-cols-3", { base: { gridTemplateColumns: 3 } }],
-  ["grid-cols-4", { base: { gridTemplateColumns: 4 } }],
+  ["grid-cols-[minmax(0,1fr)_20px]", {
+    base: {},
+    gridTemplate: { columns: "minmax(0, 1fr) 20px" },
+  }],
+  ["grid-cols-2", { base: {}, gridTemplate: { columns: "repeat(2, minmax(0, 1fr))" } }],
+  ["grid-cols-3", { base: {}, gridTemplate: { columns: "repeat(3, minmax(0, 1fr))" } }],
+  ["grid-cols-4", { base: {}, gridTemplate: { columns: "repeat(4, minmax(0, 1fr))" } }],
   ["grid-cols-[84px_1fr_96px]", {
-    base: { display: "flex", flexDirection: "row" },
-    descendants: {
-      ">:nth-child(1)": { base: { width: 84, minWidth: 84, flexGrow: 0, flexShrink: 0 } },
-      ">:nth-child(2)": { base: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: 0 } },
-      ">:nth-child(3)": { base: { width: 96, minWidth: 96, flexGrow: 0, flexShrink: 0 } },
-    },
+    base: {},
+    gridTemplate: { columns: "84px 1fr 96px" },
   }],
   ["grid-cols-[auto_1fr]", {
     base: { display: "flex", flexDirection: "row" },
@@ -119,18 +112,14 @@ const nativeCompatEntries = new Map([
       ">:nth-child(2)": { base: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: 0 } },
     },
   }],
-  ["grid-cols-[1fr]", { base: { gridTemplateColumns: 1 } }],
-  ["grid-cols-[1fr_1fr]", { base: { gridTemplateColumns: 2 } }],
-  ["grid-rows-3", { base: { gridTemplateRows: 3 } }],
-  ["grid-rows-[1fr]", { base: { gridTemplateRows: 1 } }],
+  ["grid-cols-[1fr]", { base: {}, gridTemplate: { columns: "1fr" } }],
+  ["grid-cols-[1fr_1fr]", { base: {}, gridTemplate: { columns: "1fr 1fr" } }],
+  ["grid-rows-3", { base: {}, gridTemplate: { rows: "repeat(3, minmax(0, 1fr))" } }],
+  ["grid-rows-[1fr]", { base: {}, gridTemplate: { rows: "1fr" } }],
   // Diffusion's SelectTrigger is exactly fixed icon / flexible value / fixed icon.
   ["!grid-cols-[24px_minmax(0,1fr)_24px]", {
-    base: { display: "flex", flexDirection: "row" },
-    descendants: {
-      ">:nth-child(1)": { base: { width: 24, minWidth: 24, maxWidth: 24, flexGrow: 0, flexShrink: 0 } },
-      ">:nth-child(2)": { base: { minWidth: 0, flexGrow: 1, flexShrink: 1, flexBasis: 0 } },
-      ">:nth-child(3)": { base: { width: 24, minWidth: 24, maxWidth: 24, flexGrow: 0, flexShrink: 0 } },
-    },
+    base: {},
+    gridTemplate: { columns: "24px minmax(0, 1fr) 24px" },
   }],
   ["max-h-screen", { base: { maxHeight: "100%" }, viewportSize: { maxHeightFraction: 1 } }],
   ["h-screen", { base: { height: "100%" }, viewportSize: { heightFraction: 1 } }],
@@ -164,8 +153,8 @@ const nativeCompatEntries = new Map([
   ["justify-self-start", { base: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, justifyContent: "flex-start" } }],
   ["justify-self-center", { base: { flexGrow: 0, flexShrink: 0 } }],
   ["justify-self-end", { base: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, justifyContent: "flex-end" } }],
-  ["grid-cols-1", { base: { gridTemplateColumns: 1 } }],
-  ["grid-rows-4", { base: { gridTemplateRows: 4 } }],
+  ["grid-cols-1", { base: {}, gridTemplate: { columns: "1fr" } }],
+  ["grid-rows-4", { base: {}, gridTemplate: { rows: "repeat(4, minmax(0, 1fr))" } }],
   ["grid-flow-col", { base: { gridAutoFlow: "column" } }],
   ["auto-cols-auto", { base: { gridColumnMin: "max-content" } }],
   ["space-y-0.5", { base: { gap: 2 } }],
@@ -437,9 +426,15 @@ for (const candidate of rawCandidates) {
   if (lightCompiled.lineHeightMultiplier !== darkCompiled.lineHeightMultiplier) {
     throw new Error(`Theme-dependent relative line-height is unsupported for ${JSON.stringify(candidate)}`)
   }
+  if (JSON.stringify(lightCompiled.gridTemplate) !== JSON.stringify(darkCompiled.gridTemplate)) {
+    throw new Error(`Theme-dependent grid template is unsupported for ${JSON.stringify(candidate)}`)
+  }
   const lineHeightMetadata = lightCompiled.lineHeightMultiplier === undefined
     ? {}
     : { lineHeightMultiplier: lightCompiled.lineHeightMultiplier }
+  const gridTemplate = Object.keys(lightCompiled.gridTemplate).length > 0
+    ? lightCompiled.gridTemplate
+    : undefined
   const hasSvgPaint = Object.keys(lightCompiled.svgPaint).length > 0 || Object.keys(darkCompiled.svgPaint).length > 0
   const svg = hasSvgPaint
     ? JSON.stringify(lightCompiled.svgPaint) === JSON.stringify(darkCompiled.svgPaint)
@@ -450,6 +445,7 @@ for (const candidate of rawCandidates) {
   if (descendant && focus) throw new Error(`Unsupported focused descendant native Tailwind candidate ${JSON.stringify(candidate)}`)
   if (descendant && disabled) throw new Error(`Unsupported disabled descendant native Tailwind candidate ${JSON.stringify(candidate)}`)
   if (descendant && lightCompiled.lineHeightMultiplier !== undefined) throw new Error(`Unsupported relative line-height descendant native Tailwind candidate ${JSON.stringify(candidate)}`)
+  if (descendant && gridTemplate) throw new Error(`Unsupported grid-template descendant native Tailwind candidate ${JSON.stringify(candidate)}`)
   if (descendant && svg) throw new Error(`Unsupported SVG paint descendant native Tailwind candidate ${JSON.stringify(candidate)}`)
   if (descendant) {
     classes[candidate] = { descendants: { [descendant]: variant } }
@@ -457,6 +453,7 @@ for (const candidate of rawCandidates) {
     const entry = { ...variant, ...lineHeightMetadata }
     if (focus) entry.focus = focus
     if (disabled) entry.attributeVariants = { disabled: { "true": disabled } }
+    if (gridTemplate) entry.gridTemplate = gridTemplate
     if (svg) entry.svg = svg
     classes[candidate] = entry
     }
@@ -823,6 +820,7 @@ function compileRule(rule, candidate, themeVariables) {
   const focus = {}
   const disabled = {}
   const svgPaint = {}
+  const gridTemplate = {}
   let lineHeightMultiplier
 
   rule.walkDecls((declaration) => {
@@ -843,6 +841,11 @@ function compileRule(rule, candidate, themeVariables) {
       svgPaint[declaration.prop] = colorValue(value, declaration.prop, candidate)
       return
     }
+    if (declaration.prop === "grid-template-columns" || declaration.prop === "grid-template-rows") {
+      if (state !== "base") throw new Error(`Stateful grid template is not supported for ${JSON.stringify(candidate)}`)
+      gridTemplate[declaration.prop === "grid-template-columns" ? "columns" : "rows"] = value
+      return
+    }
     const relativeLineHeight = declaration.prop === "line-height" ? lineHeightMultiplierValue(value) : undefined
     if (relativeLineHeight !== undefined) {
       if (state !== "base") throw new Error(`Relative line-height state variants are not supported for ${JSON.stringify(candidate)}`)
@@ -855,10 +858,10 @@ function compileRule(rule, candidate, themeVariables) {
   const result = { ...base }
   if (Object.keys(hover).length > 0) result.hover = hover
   if (Object.keys(active).length > 0) result.active = active
-  if (Object.keys(result).length === 0 && Object.keys(focus).length === 0 && Object.keys(disabled).length === 0 && lineHeightMultiplier === undefined && Object.keys(svgPaint).length === 0) {
+  if (Object.keys(result).length === 0 && Object.keys(focus).length === 0 && Object.keys(disabled).length === 0 && lineHeightMultiplier === undefined && Object.keys(svgPaint).length === 0 && Object.keys(gridTemplate).length === 0) {
     throw new Error(`Tailwind candidate ${JSON.stringify(candidate)} produced no native styles`)
   }
-  return { style: result, focus, disabled, lineHeightMultiplier, svgPaint }
+  return { style: result, focus, disabled, lineHeightMultiplier, svgPaint, gridTemplate }
 }
 
 function declarationState(declaration, candidateRule, candidate) {
