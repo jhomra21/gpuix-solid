@@ -431,7 +431,7 @@ describe("Canvas2D draw-list recorder", () => {
     expect(() => ctx.stroke()).toThrow(/miterLimit/u)
   })
 
-  it("rejects transforms that GPUI cannot reproduce exactly for strokes and text", () => {
+  it("rejects unsupported stroke transforms and retains affine text transforms", () => {
     const strokeRecorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
     const stroke = strokeRecorder.context
     stroke.scale(2, 1)
@@ -443,7 +443,22 @@ describe("Canvas2D draw-list recorder", () => {
     const rotatedTextRecorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
     const rotatedText = rotatedTextRecorder.context
     rotatedText.rotate(Math.PI / 4)
-    expect(() => rotatedText.fillText("rotated", 10, 10)).toThrow(/positive uniform scale/u)
+    rotatedText.fillText("rotated", 10, 10)
+    const rotated = rotatedTextRecorder.snapshot().commands[0]
+    expect(rotated).toMatchObject({
+      op: "fillText",
+      x: 10,
+      y: 10,
+      fontSize: 10,
+    })
+    expect(rotated?.op === "fillText" ? rotated.transform : undefined).toEqual([
+      Math.SQRT1_2,
+      Math.SQRT1_2,
+      -Math.SQRT1_2,
+      Math.SQRT1_2,
+      0,
+      0,
+    ])
 
     const scaledTextRecorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
     const scaledText = scaledTextRecorder.context
@@ -452,9 +467,10 @@ describe("Canvas2D draw-list recorder", () => {
     scaledText.fillText("scaled", 10, 12)
     expect(scaledTextRecorder.snapshot().commands[0]).toMatchObject({
       op: "fillText",
-      x: 24,
-      y: 30,
-      fontSize: 20,
+      x: 10,
+      y: 12,
+      fontSize: 10,
+      transform: [2, 0, 0, 2, 4, 6],
     })
   })
 
