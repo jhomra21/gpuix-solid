@@ -363,14 +363,18 @@ try {
   // Exercise DrawOverlay through its real toolbar + native pointer sequence.
   let parts = toolbarParts(tree)
   await clickNode(app, parts.rectangle)
-  await drag(app, at(stage.bounds, 0.286, 0.335), at(stage.bounds, 0.343, 0.407), 12)
+  // The pinned fixture's 640×360 scene sits at 30% zoom inside EngineCanvas.
+  // Draw in the scene's empty lower-right region, away from the seeded green
+  // rectangle and away from the scene boundary so small layout shifts cannot
+  // turn the gesture into an out-of-scene drag.
+  await drag(app, at(stage.bounds, 0.44, 0.45), at(stage.bounds, 0.53, 0.56), 12)
   await screenshot(app, "rectangle")
   tree = await waitFor("new native rectangle layer", async () => {
     const next = await currentTree(app)
     return descendants(next).some((node) => node.text === "Rect 1") ? next : null
   })
   assertInspectorShowsTransformControls(tree)
-  await drag(app, at(stage.bounds, 0.315, 0.371), at(stage.bounds, 0.335, 0.391), 8)
+  await drag(app, at(stage.bounds, 0.485, 0.505), at(stage.bounds, 0.505, 0.525), 8)
   tree = await getFreshTree(app)
   await screenshot(app, "rectangleMoved")
   assert(
@@ -379,9 +383,9 @@ try {
   )
 
   // Resize the selected Rect 1 through its lower-right HUD handle. The rectangle
-  // was drawn from .286/.335 to .343/.407 and then moved by .02/.02 above, so
-  // this point targets the retained selection handle rather than a guessed UI node.
-  await drag(app, at(stage.bounds, 0.363, 0.427), at(stage.bounds, 0.392, 0.458), 12)
+  // was drawn from .44/.45 to .53/.56 and then moved by .02/.02 above, so this
+  // point targets the retained selection handle rather than a guessed UI node.
+  await drag(app, at(stage.bounds, 0.55, 0.58), at(stage.bounds, 0.58, 0.61), 12)
   await delay(220)
   tree = await getFreshTree(app)
   assertInspectorShowsTransformControls(tree)
