@@ -541,8 +541,8 @@ function normalizeNativeInlineStyle(style: NativeInlineStyleInput | undefined): 
     left,
     "row-gap": cssRowGap,
     "column-gap": cssColumnGap,
-    "grid-template-columns": cssGridTemplateColumns,
-    "grid-template-rows": cssGridTemplateRows,
+    "grid-template-columns": _cssGridTemplateColumns,
+    "grid-template-rows": _cssGridTemplateRows,
     "min-width": cssMinWidth,
     "min-height": cssMinHeight,
     "max-width": cssMaxWidth,
@@ -1038,10 +1038,12 @@ function resolveAncestorDescendantStyle(node: HostElementNode): StyleDesc | unde
   return resolved
 }
 
-function sourceGridTracks(node: HostElementNode): {
+type SourceGridTracks = {
   columns: readonly BrowserGridTrack[] | undefined
   rows: readonly BrowserGridTrack[] | undefined
-} {
+}
+
+function sourceGridTracks(node: HostElementNode): SourceGridTracks {
   const state = styleStates.get(node)
   const classTemplate = state
     ? resolveNativeClassGridTemplate(combinedClassName(state), state.classList)
