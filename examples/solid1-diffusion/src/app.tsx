@@ -125,10 +125,16 @@ function ProjectMount(props: { children: JSX.Element }): JSX.Element {
 
 class DiffusionAudioContext {
   currentTime = 0
-  state = "running"
+  state = "suspended"
   destination = {}
 
+  resume(): Promise<void> {
+    this.state = "running"
+    return Promise.resolve()
+  }
+
   close(): Promise<void> {
+    this.state = "closed"
     return Promise.resolve()
   }
 }

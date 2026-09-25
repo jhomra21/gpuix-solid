@@ -2,6 +2,7 @@ import solid from "vite-plugin-solid"
 import solidSvg from "vite-plugin-solid-svg"
 import { fileURLToPath } from "node:url"
 import { defineConfig } from "vite"
+import { decodeJsxTextEntities } from "./src/jsx-text-entities.ts"
 
 const diffusionCommit = "666cdced1f6b97a792b63e551f45797649efb27a"
 const fromHere = (relativePath: string) => fileURLToPath(new URL(relativePath, import.meta.url))
@@ -78,6 +79,7 @@ export function diffusionConfig(entry: string, outDir: string) {
       multilineClassAttributeHook,
       toolbarTestHook,
       solid({
+        babel: { plugins: [decodeJsxTextEntities] },
         solid: {
           generate: "universal",
           moduleName: "@jhomra21/gpuix-solid1",
