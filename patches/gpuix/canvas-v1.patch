@@ -1041,7 +1041,7 @@ new file mode 100644
 +    let text = canvas_escape_xml_text(text);
 +    let font_family = canvas_escape_xml_attribute(font_family);
 +    format!(
-+        r#"<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}"><text x="{pad}" y="{}" fill="#fff" font-family="{font_family}" font-size="{font_size}" font-weight="{font_weight}">{text}</text></svg>"#,
++        r##"<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}"><text x="{pad}" y="{}" fill="#fff" font-family="{font_family}" font-size="{font_size}" font-weight="{font_weight}">{text}</text></svg>"##,
 +        pad + font_size * 0.8,
 +    )
 +}
