@@ -42,6 +42,7 @@ import {
   resolveNativeClassTranslation,
   resolveNativeClassViewportSize,
   resolveNativeClassAutoMargin,
+  resolveNativeClassGridTemplate,
   resolveNativeClassTextTransform,
   resolveNativeDescendantClassStyle,
   type NativeClassList,
@@ -564,11 +565,6 @@ function normalizeNativeInlineStyle(style: NativeInlineStyleInput | undefined): 
     ...nativeStyle
   } = style
   const normalized: StyleDesc = { ...nativeStyle }
-  const gridContainerStyle = browserGridContainerStyle(
-    parseBrowserGridTemplateColumns(cssGridTemplateColumns),
-    parseBrowserGridTemplateRows(cssGridTemplateRows),
-  )
-  if (gridContainerStyle) Object.assign(normalized, gridContainerStyle)
 
   if (cssFlexDirection !== undefined) normalized.flexDirection = cssFlexDirection
   if (cssFlexWrap !== undefined) normalized.flexWrap = cssFlexWrap
@@ -779,11 +775,13 @@ function applyNativeStyleState(node: HostElementNode): void {
     hiddenStyle,
     selectOptionStyle,
   )
+  const gridTracks = sourceGridTracks(node)
+  const browserGridContainer = browserGridContainerStyle(gridTracks.columns, gridTracks.rows)
   const browserInlineFlow = resolveBrowserInlineFlowStyle(node, mergedStyle)
   if (browserInlineFlow) browserInlineFlowNodes.add(node)
   else browserInlineFlowNodes.delete(node)
   const browserGrid2D = resolveInlineGrid2DStyle(node)
-  const flowedStyle = mergeNativeStyles(mergedStyle, browserInlineFlow, browserGrid2D)
+  const flowedStyle = mergeNativeStyles(mergedStyle, browserGridContainer, browserInlineFlow, browserGrid2D)
   const viewportWidth = nativeViewportSize("x")
   const viewportHeight = nativeViewportSize("y")
   const viewportStyle = applyNativeStyleViewportSize(
@@ -1040,11 +1038,24 @@ function resolveAncestorDescendantStyle(node: HostElementNode): StyleDesc | unde
   return resolved
 }
 
+function sourceGridTracks(node: HostElementNode): {
+  columns: readonly BrowserGridTrack[] | undefined
+  rows: readonly BrowserGridTrack[] | undefined
+} {
+  const state = styleStates.get(node)
+  const classTemplate = state
+    ? resolveNativeClassGridTemplate(combinedClassName(state), state.classList)
+    : undefined
+  return {
+    columns: inlineGridColumns.get(node) ?? parseBrowserGridTemplateColumns(classTemplate?.columns),
+    rows: inlineGridRows.get(node) ?? parseBrowserGridTemplateRows(classTemplate?.rows),
+  }
+}
+
 function resolveInlineGridItemStyle(node: HostElementNode): StyleDesc | undefined {
   let ancestor: HostParent | null = node.parent
   while (ancestor && ancestor.kind === "element") {
-    const columns = inlineGridColumns.get(ancestor)
-    const rows = inlineGridRows.get(ancestor)
+    const { columns, rows } = sourceGridTracks(ancestor)
     if (columns && rows) return undefined
     if (columns) return browserGridItemStyle(columns, inlineGridItemIndex(ancestor, node))
     if (sourceDisplay(ancestor) !== "contents") return undefined
@@ -1056,8 +1067,7 @@ function resolveInlineGridItemStyle(node: HostElementNode): StyleDesc | undefine
 function resolveInlineGrid2DStyle(node: HostElementNode): StyleDesc | undefined {
   let ancestor: HostParent | null = node.parent
   while (ancestor && ancestor.kind === "element") {
-    const columns = inlineGridColumns.get(ancestor)
-    const rows = inlineGridRows.get(ancestor)
+    const { columns, rows } = sourceGridTracks(ancestor)
     if (columns && rows) return resolveInlineGrid2DItemStyle(ancestor, node, columns, rows)
     if (sourceDisplay(ancestor) !== "contents") return undefined
     ancestor = ancestor.parent
@@ -1185,7 +1195,8 @@ function refreshInlineGridParent(node: HostElementNode): void {
 
 function refreshInlineGridLayout(parent: HostParent | null): void {
   if (!parent || parent.kind !== "element") return
-  if (!inlineGridColumns.has(parent) || !inlineGridRows.has(parent)) return
+  const { columns, rows } = sourceGridTracks(parent)
+  if (!columns && !rows) return
   reapplyNativeStyleSubtree(parent)
 }
 
