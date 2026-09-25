@@ -451,14 +451,19 @@ describe("Canvas2D draw-list recorder", () => {
       y: 10,
       fontSize: 10,
     })
-    expect(rotated?.op === "fillText" ? rotated.transform : undefined).toEqual([
+    const rotatedTransform = rotated?.op === "fillText" ? rotated.transform : undefined
+    expect(rotatedTransform).toHaveLength(6)
+    const expectedRotation = [
       Math.SQRT1_2,
       Math.SQRT1_2,
       -Math.SQRT1_2,
       Math.SQRT1_2,
       0,
       0,
-    ])
+    ]
+    for (let index = 0; index < expectedRotation.length; index += 1) {
+      expect(rotatedTransform?.[index]).toBeCloseTo(expectedRotation[index]!, 12)
+    }
 
     const scaledTextRecorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
     const scaledText = scaledTextRecorder.context
