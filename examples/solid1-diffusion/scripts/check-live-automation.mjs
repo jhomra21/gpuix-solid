@@ -111,17 +111,42 @@ try {
     throw new Error(`Unexpected Diffusion EngineCanvas bounds: ${JSON.stringify(stageBounds)}`)
   }
 
+  const beforeRectangleTree = await app.backend.getTree()
+  if (!beforeRectangleTree) throw new Error("Diffusion live automation tree disappeared before Rectangle selection")
+  const beforeRectangleIds = new Set(descendants(beforeRectangleTree).map((node) => node.id))
+
   await rectangle.click()
 
   const overlay = await waitFor("Rectangle DrawOverlay", async () => {
     const tree = await app.backend.getTree()
     if (!tree) return null
-    const node = descendants(tree).find(
-      (candidate) => candidate.style?.cursor === "crosshair" && candidate.style?.pointerEvents !== "none",
-    )
-    if (!node) return null
-    const bounds = await nodeBounds(app, node)
-    return bounds ? { node, bounds } : null
+
+    const stageCenter = {
+      x: stageBounds.x + stageBounds.width / 2,
+      y: stageBounds.y + stageBounds.height / 2,
+    }
+    const candidates = []
+    for (const node of descendants(tree)) {
+      if (beforeRectangleIds.has(node.id)) continue
+      const bounds = await nodeBounds(app, node)
+      if (!bounds) continue
+
+      const containsStageCenter =
+        stageCenter.x >= bounds.x &&
+        stageCenter.x <= bounds.x + bounds.width &&
+        stageCenter.y >= bounds.y &&
+        stageCenter.y <= bounds.y + bounds.height
+      const coversStage =
+        bounds.width >= stageBounds.width * 0.9 &&
+        bounds.height >= stageBounds.height * 0.9
+
+      if (containsStageCenter && coversStage) {
+        candidates.push({ node, bounds, area: bounds.width * bounds.height })
+      }
+    }
+
+    candidates.sort((left, right) => right.area - left.area)
+    return candidates[0] ?? null
   })
 
   const overlayBounds = overlay.bounds
