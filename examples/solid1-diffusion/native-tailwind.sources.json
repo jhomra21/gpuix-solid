@@ -11,5 +11,6 @@
   "apps/web/src/components/ui/icon.tsx",
   "apps/web/src/components/ui/separator.tsx",
   "apps/web/src/components/ui/tooltip.tsx",
-  "apps/web/src/engine/canvas.tsx"
+  "apps/web/src/engine/canvas.tsx",
+  "apps/web/src/components/sidebar-right/inspector/transform/index.ts"
 ]
