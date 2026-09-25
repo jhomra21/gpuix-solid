@@ -257,8 +257,9 @@ if (!hasNativeTestRenderer) {
     const layersViewport = document.body.querySelector("[data-timeline-layers-viewport]")
     const firstLayerRow = document.body.querySelector("[data-layer-row]")
     const rightSidebar = document.body.querySelector("[data-right-sidebar]")
-    const soundboard = Array.from(document.body.querySelectorAll("div"))
-      .find((element) => element.classList.contains("soundboard"))
+    const editorHost = document.body.querySelector('[testId="diffusion-source-editor"]')
+    const pageGrid = editorHost instanceof HTMLElement ? Array.from(editorHost.children)[0] : undefined
+    const soundboard = pageGrid instanceof HTMLElement ? Array.from(pageGrid.children).at(-1) : undefined
     requireCondition(layersContainer instanceof HTMLElement, "Diffusion EditorPage should mount the real layer grid")
     requireCondition(layersViewport instanceof HTMLElement, "Diffusion EditorPage should mount the real layer viewport")
     requireCondition(firstLayerRow instanceof HTMLElement, "Diffusion EditorPage should mount at least one layer row")
