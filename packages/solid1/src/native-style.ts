@@ -56,11 +56,18 @@ export interface NativeStyleAutoMargin {
   left?: boolean
 }
 
+/** Exact browser grid templates retained separately from GPUI's count-only grid fields. */
+export interface NativeStyleGridTemplate {
+  columns?: string
+  rows?: string
+}
+
 export interface NativeStyleManifestEntry extends NativeStyleVariant {
   translation?: NativeStyleTranslation
   parentPosition?: NativeStyleParentPosition
   viewportSize?: NativeStyleViewportSize
   autoMargin?: NativeStyleAutoMargin
+  gridTemplate?: NativeStyleGridTemplate
   /** Source :focus / :focus-visible styles applied by compatibility components that own focus state. */
   focus?: NativeStyleVariant
   descendants?: Record<string, NativeStyleVariant>
@@ -238,6 +245,24 @@ export function resolveNativeClassAutoMargin(
     if (!entry) throw missingCandidate(candidate)
     if (!entry.autoMargin) continue
     resolved = { ...resolved, ...entry.autoMargin }
+  }
+  return resolved
+}
+
+export function resolveNativeClassGridTemplate(
+  className: string | undefined,
+  classList: NativeClassList | undefined,
+): NativeStyleGridTemplate | undefined {
+  const candidates = classCandidates(className, classList)
+  if (candidates.length === 0) return undefined
+  const activeManifest = requireManifest()
+
+  let resolved: NativeStyleGridTemplate | undefined
+  for (const candidate of candidates) {
+    const entry = activeManifest.classes[candidate]
+    if (!entry) throw missingCandidate(candidate)
+    if (!entry.gridTemplate) continue
+    resolved = { ...resolved, ...entry.gridTemplate }
   }
   return resolved
 }
