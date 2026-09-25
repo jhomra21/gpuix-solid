@@ -126,7 +126,7 @@ diff --git a/packages/native/src/custom_elements/canvas.rs b/packages/native/src
 new file mode 100644
 --- /dev/null
 +++ b/packages/native/src/custom_elements/canvas.rs
-@@ -0,0 +1,941 @@
+@@ -0,0 +1,947 @@
 +use gpui::prelude::*;
 +use serde::Deserialize;
 +use std::collections::HashMap;
@@ -990,12 +990,18 @@ new file mode 100644
 +    surface_scale_x: f32,
 +    surface_scale_y: f32,
 +) -> [[f32; 2]; 2] {
-+    let scale = canvas_text_transform_scale(transform);
-+    let safe_x = surface_scale_x.abs().max(0.0001);
-+    let safe_y = surface_scale_y.abs().max(0.0001);
++    let transform_scale = canvas_text_transform_scale(transform);
++    let surface_text_scale = ((surface_scale_x.abs() + surface_scale_y.abs()) / 2.0).max(0.0001);
++    let denominator = transform_scale * surface_text_scale;
 +    [
-+        [transform[0] / scale, transform[2] / scale * safe_x / safe_y],
-+        [transform[1] / scale * safe_y / safe_x, transform[3] / scale],
++        [
++            surface_scale_x * transform[0] / denominator,
++            surface_scale_x * transform[2] / denominator,
++        ],
++        [
++            surface_scale_y * transform[1] / denominator,
++            surface_scale_y * transform[3] / denominator,
++        ],
 +    ]
 +}
 +
