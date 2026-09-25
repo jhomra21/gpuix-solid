@@ -164,6 +164,14 @@ function parseBrowserGridTemplate(value: string | undefined): BrowserGridTrack[]
   if (tokens.length === 0) return undefined
   const tracks: BrowserGridTrack[] = []
   for (const token of tokens) {
+    const repeat = token.match(/^repeat\(\s*(\d+)\s*,\s*(.*)\)$/i)
+    if (repeat) {
+      const count = Number(repeat[1])
+      const repeated = parseBrowserGridTemplate(repeat[2])
+      if (!Number.isInteger(count) || count < 1 || !repeated?.length) return undefined
+      for (let iteration = 0; iteration < count; iteration++) tracks.push(...repeated)
+      continue
+    }
     const track = parseBrowserGridTrack(token)
     if (!track) return undefined
     tracks.push(track)
