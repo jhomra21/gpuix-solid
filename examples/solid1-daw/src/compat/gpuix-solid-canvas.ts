@@ -15,6 +15,7 @@ type CanvasTextAlignValue = CanvasRenderingContext2D["textAlign"]
 type CanvasTextBaselineValue = CanvasRenderingContext2D["textBaseline"]
 type NativeHostNode = ReturnType<typeof createNativeElement>
 type NativeHostElement = Extract<NativeHostNode, { kind: "element" }>
+export type GpuixCanvasRenderingContext2D = NonNullable<ReturnType<NativeHostElement["getContext"]>>
 type CanvasHostNode = NativeHostElement & {
   width?: number
   height?: number
@@ -47,7 +48,7 @@ type CanvasCommand =
     }
 
 type CanvasSurface = {
-  context: CanvasRenderingContext2D
+  context: GpuixCanvasRenderingContext2D
   toSvg(): string
 }
 
@@ -115,7 +116,7 @@ type IntervalOverlaySurfaceState = {
 const runtimeCanvases = new WeakMap<CanvasHostNode, RuntimeCanvasState>()
 const nativeCanvasContexts = new WeakMap<
   CanvasHostNode,
-  (contextId: string) => CanvasRenderingContext2D | null
+  (contextId: string) => GpuixCanvasRenderingContext2D | null
 >()
 const cssVariableHardSplits = new Map<`--${string}`, CssVariableHardSplitCompat>()
 const cssVariableIntervalOverlays = new Map<string, CssVariableIntervalOverlayCompat>()
@@ -335,7 +336,7 @@ function installCanvas2D(node: CanvasHostNode): void {
   nativeCanvasContexts.set(node, getNativeContext)
   Object.defineProperty(node, "getContext", {
     configurable: true,
-    value(contextId: string): CanvasRenderingContext2D | null {
+    value(contextId: string): GpuixCanvasRenderingContext2D | null {
       const nativeContext = getNativeContext(contextId)
       if (nativeContext || contextId !== "2d") return nativeContext
       let state = runtimeCanvases.get(node)
@@ -363,7 +364,7 @@ function installCanvas2D(node: CanvasHostNode): void {
 export function getNativeCanvas2DContext(
   node: CanvasHostNode,
   contextId: string,
-): CanvasRenderingContext2D | null {
+): GpuixCanvasRenderingContext2D | null {
   return nativeCanvasContexts.get(node)?.(contextId) ?? null
 }
 
@@ -552,7 +553,7 @@ function createCanvasSurface(getSize: () => CanvasSize, onChange: () => void): C
       })
       onChange()
     },
-  } as CanvasRenderingContext2D
+  } as GpuixCanvasRenderingContext2D
 
   return {
     context,

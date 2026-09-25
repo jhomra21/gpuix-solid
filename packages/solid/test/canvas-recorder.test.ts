@@ -481,11 +481,12 @@ describe("Canvas2D draw-list recorder", () => {
     expect(() => recorder.context.measureText("GPUix")).toThrow(/native text measurement/u)
   })
 
-  it("rejects multiline and constrained fillText instead of mispainting it", () => {
+  it("normalizes Canvas whitespace and rejects constrained fillText", () => {
     const recorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
     const ctx = recorder.context
 
-    expect(() => ctx.fillText("two\nlines", 0, 0)).toThrow(/newlines/u)
+    ctx.fillText("two\nlines", 0, 0)
+    expect(recorder.snapshot().commands[0]).toMatchObject({ op: "fillText", text: "two lines" })
     expect(() => ctx.fillText("text", 0, 0, 20)).toThrow(/maxWidth/u)
   })
 

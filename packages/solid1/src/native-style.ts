@@ -246,12 +246,28 @@ export function applyNativeStyleAutoMargin(
   style: StyleDesc | undefined,
   margin: NativeStyleAutoMargin | undefined,
 ): StyleDesc | undefined {
-  if (!style || !margin) return style
+  if (!style) return style
   const result: StyleDesc = { ...style }
-  if (margin.top) result.marginTopAuto = true
-  if (margin.right) result.marginRightAuto = true
-  if (margin.bottom) result.marginBottomAuto = true
-  if (margin.left) result.marginLeftAuto = true
+  const top = margin?.top || isAutoMarginValue(result.marginTop)
+  const right = margin?.right || isAutoMarginValue(result.marginRight)
+  const bottom = margin?.bottom || isAutoMarginValue(result.marginBottom)
+  const left = margin?.left || isAutoMarginValue(result.marginLeft)
+  if (top) {
+    result.marginTopAuto = true
+    delete result.marginTop
+  }
+  if (right) {
+    result.marginRightAuto = true
+    delete result.marginRight
+  }
+  if (bottom) {
+    result.marginBottomAuto = true
+    delete result.marginBottom
+  }
+  if (left) {
+    result.marginLeftAuto = true
+    delete result.marginLeft
+  }
   return result
 }
 
@@ -337,8 +353,16 @@ export function applyNativeStyleTranslation(
   style: StyleDesc | undefined,
   translation: NativeStyleTranslation | undefined,
   measuredSize?: NativeStyleMeasuredSize,
+  supportsAutoMargins?: boolean,
 ): StyleDesc | undefined {
   if (!style || !translation) return style
+  const hasUnnormalizedTranslatedAutoMargin =
+    (translation.xFraction !== undefined && isAutoMarginValue(style.marginLeft)) ||
+    (translation.yFraction !== undefined && isAutoMarginValue(style.marginTop))
+  if (hasUnnormalizedTranslatedAutoMargin) {
+    if (supportsAutoMargins === undefined) return style
+    throw new TypeError("CSS auto margins require native auto-margin support")
+  }
   const result: StyleDesc = { ...style }
   const width = numericStyleLength(result.width) ?? measuredSize?.width
   const height = numericStyleLength(result.height) ?? measuredSize?.height
@@ -348,7 +372,9 @@ export function applyNativeStyleTranslation(
     const right = numericStyleLength(result.right)
     if (left !== undefined) result.left = left + offset
     else if (right !== undefined) result.right = right - offset
-    else result.marginLeft = (result.marginLeft ?? 0) + offset
+    else {
+      result.marginLeft = (numericStyleLength(result.marginLeft) ?? 0) + offset
+    }
   }
   if (translation.yFraction !== undefined && height !== undefined) {
     const offset = height * translation.yFraction
@@ -356,7 +382,9 @@ export function applyNativeStyleTranslation(
     const bottom = numericStyleLength(result.bottom)
     if (top !== undefined) result.top = top + offset
     else if (bottom !== undefined) result.bottom = bottom - offset
-    else result.marginTop = (result.marginTop ?? 0) + offset
+    else {
+      result.marginTop = (numericStyleLength(result.marginTop) ?? 0) + offset
+    }
   }
   return result
 }
@@ -365,6 +393,10 @@ function numericStyleLength(value: DimensionValue | undefined): number | undefin
   if (value === undefined) return undefined
   const number = Number(value)
   return Number.isFinite(number) ? number : undefined
+}
+
+function isAutoMarginValue(value: string | number | undefined): boolean {
+  return value === "auto"
 }
 
 export function resolveNativeClassTextTransform(

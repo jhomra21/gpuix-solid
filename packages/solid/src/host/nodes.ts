@@ -537,6 +537,7 @@ export class HostTextNode {
   readonly kind = "text" as const
   readonly type = "text" as const
   readonly nodeName = "#text"
+  readonly nodeType = 3
   readonly children: HostNode[] = []
   parent: HostParent | null = null
   root: HostRootNode | null = null
@@ -546,6 +547,38 @@ export class HostTextNode {
 
   constructor(text: string) {
     this.text = text
+  }
+
+  get data(): string {
+    return this.text
+  }
+
+  set data(value: string) {
+    replaceHostText(this, value)
+  }
+
+  get nodeValue(): string {
+    return this.text
+  }
+
+  set nodeValue(value: string) {
+    this.data = value
+  }
+
+  get textContent(): string {
+    return this.text
+  }
+
+  set textContent(value: string) {
+    this.data = value
+  }
+
+  get length(): number {
+    return this.text.length
+  }
+
+  remove(): void {
+    if (this.parent) removeHostNode(this.parent, this)
   }
 
   get parentNode(): HostElementNode | null {

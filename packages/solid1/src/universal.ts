@@ -385,6 +385,11 @@ function nativeElementType(tagName: string): ElementType {
       // GPUIX 0.7 has no Canvas2D element. Preserve semantic canvas identity on
       // a supported layout box so browser source can feature-detect getContext().
       return "div"
+    case "span":
+      // Browser spans are inline containers and may contain adjacent text nodes
+      // around expressions. Keep the semantic tag while using the div-backed
+      // inline-flow compatibility path instead of a GPUIX text leaf.
+      return "div"
     default:
       if (TEXT_SEMANTIC_TAGS.has(tagName)) return "text"
       if (DIV_SEMANTIC_TAGS.has(tagName) || SVG_CHILD_TAGS.has(tagName)) return "div"
@@ -795,13 +800,15 @@ function applyNativeStyleState(node: HostElementNode): void {
     parentWidth,
     parentHeight,
   )
-  const autoMarginStyle = node.root?.driver.renderer.getAutoMarginVersion?.() === 1
+  const autoMarginVersion = node.root?.driver.renderer.getAutoMarginVersion?.()
+  const supportsAutoMargins = node.root ? autoMarginVersion === 1 : undefined
+  const autoMarginStyle = supportsAutoMargins
     ? applyNativeStyleAutoMargin(positionedStyle, classAutoMargin)
     : positionedStyle
   setHostProperty(
     node,
     "style",
-    applyNativeStyleTranslation(autoMarginStyle, classTranslation) ?? {},
+    applyNativeStyleTranslation(autoMarginStyle, classTranslation, undefined, supportsAutoMargins) ?? {},
   )
   scheduleMeasuredFractionalTranslation(node, autoMarginStyle, classTranslation)
 }

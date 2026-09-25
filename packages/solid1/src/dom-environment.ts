@@ -1,6 +1,8 @@
 import { GpuixPath2D } from "./host/path2d.js"
+import { GpuixDOMPoint } from "./host/dom-point.js"
 import {
   HostElementNode,
+  HostTextNode,
   createHostElement,
   createHostText,
   getMountedHostRootElements,
@@ -197,6 +199,8 @@ type CompatWindow = CompatEventTarget & {
   Path2D?: typeof GpuixPath2D
   DOMMatrix?: typeof CompatDOMMatrix
   DOMRect?: typeof CompatDOMRect
+  DOMPoint?: typeof GpuixDOMPoint
+  Text?: typeof HostTextNode
   getComputedStyle?: CompatGetComputedStyle
   localStorage?: CompatStorage
   sessionStorage?: CompatStorage
@@ -339,6 +343,17 @@ class CompatDOMMatrix {
     return this
   }
 
+  transformPoint(point: DOMPointInit = {}): GpuixDOMPoint {
+    const x = point.x ?? 0
+    const y = point.y ?? 0
+    return new GpuixDOMPoint(
+      this.a * x + this.c * y + this.e,
+      this.b * x + this.d * y + this.f,
+      point.z ?? 0,
+      point.w ?? 1,
+    )
+  }
+
   private clone(): CompatDOMMatrix {
     const matrix = new CompatDOMMatrix()
     matrix.a = this.a
@@ -432,6 +447,8 @@ export function installDomEventEnvironment(): void {
   windowTarget.Path2D = GpuixPath2D
   windowTarget.DOMMatrix = CompatDOMMatrix
   windowTarget.DOMRect = CompatDOMRect
+  windowTarget.DOMPoint = GpuixDOMPoint
+  windowTarget.Text = HostTextNode
   windowTarget.getComputedStyle = defaultComputedStyle
   windowTarget.matchMedia = (query) => createCompatMediaQueryList(windowTarget, query)
   Object.defineProperty(windowTarget, "Element", {
@@ -516,6 +533,16 @@ export function installDomEventEnvironment(): void {
     configurable: true,
     writable: true,
     value: CompatDOMRect,
+  })
+  Object.defineProperty(globalThis, "DOMPoint", {
+    configurable: true,
+    writable: true,
+    value: GpuixDOMPoint,
+  })
+  Object.defineProperty(globalThis, "Text", {
+    configurable: true,
+    writable: true,
+    value: HostTextNode,
   })
   Object.defineProperty(globalThis, "requestAnimationFrame", {
     configurable: true,
@@ -691,8 +718,9 @@ function installHostDomCompatibility(ownerDocument: CompatDocument): void {
     },
     contains: {
       configurable: true,
-      value(this: HostElementNode, candidate: HostElementNode): boolean {
+      value(this: HostElementNode, candidate: HostElementNode | null | undefined): boolean {
         registerKnownRoot(this)
+        if (!candidate) return false
         if (candidate === this) return true
         let parent = candidate.parent
         while (parent) {

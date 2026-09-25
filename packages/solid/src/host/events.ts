@@ -1,5 +1,6 @@
 import type { EventPayload as NativeEventPayload } from "@gpuix/native"
 import type { DomCompatTarget, DragData, EventPayload, HostEventHandler } from "./types.js"
+import { GpuixDOMPoint } from "./dom-point.js"
 
 export type { DomCompatTarget } from "./types.js"
 
@@ -88,6 +89,22 @@ export function isDelegatedNativeEvent(eventType: string): boolean {
 type GlobalEventHandler = (event: EventPayload) => void
 const globalListeners = new Map<string, Set<GlobalEventHandler>>()
 const EVENT_STATE = new WeakMap<object, { defaultPrevented: boolean; propagationStopped: boolean }>()
+const BUBBLING_DOM_EVENTS = new Set([
+  "auxClick",
+  "change",
+  "contextMenu",
+  "dblClick",
+  "input",
+  "keyDown",
+  "keyUp",
+  "mouseDown",
+  "mouseMove",
+  "mouseUp",
+  "pointerCancel",
+  "pointerDown",
+  "pointerMove",
+  "pointerUp",
+])
 const POINTER_ID = 0
 const PERSISTENT_DEVICE_ID = 0
 const DOUBLE_CLICK_MS = 500
@@ -170,6 +187,7 @@ function domCompatibleEvent(
     type: browserEventName(domEventType),
     currentTarget,
     target: currentTarget,
+    relatedTarget: null,
     clientX: x,
     clientY: y,
     pointerId: POINTER_ID,
@@ -194,13 +212,23 @@ function domCompatibleEvent(
   return payload
 }
 
-function createTargetEvent(eventType: string, event: EventPayload, target: EventTarget): Event {
-  const domEvent = new Event(browserEventName(eventType), { bubbles: true, cancelable: true })
+function createTargetEvent(
+  eventType: string,
+  event: EventPayload,
+  target: EventTarget,
+  origin: EventTarget,
+  path: readonly EventTarget[],
+): Event {
+  const domEvent = new Event(browserEventName(eventType), {
+    bubbles: BUBBLING_DOM_EVENTS.has(eventType),
+    cancelable: true,
+  })
   const originalPreventDefault = domEvent.preventDefault.bind(domEvent)
   const originalStopPropagation = domEvent.stopPropagation.bind(domEvent)
   Object.defineProperties(domEvent, {
-    target: { configurable: true, value: target },
+    target: { configurable: true, value: origin },
     currentTarget: { configurable: true, value: target },
+    relatedTarget: { configurable: true, value: event.relatedTarget ?? null },
     clientX: { configurable: true, value: event.clientX ?? 0 },
     clientY: { configurable: true, value: event.clientY ?? 0 },
     pointerId: { configurable: true, value: event.pointerId ?? POINTER_ID },
@@ -228,7 +256,7 @@ function createTargetEvent(eventType: string, event: EventPayload, target: Event
         event.stopPropagation?.()
       },
     },
-    composedPath: { configurable: true, value: () => [target] },
+    composedPath: { configurable: true, value: () => [...path] },
   })
   return domEvent
 }
@@ -239,6 +267,7 @@ function createGlobalDomEvent(name: string, event: EventPayload, currentTarget: 
   Object.defineProperties(domEvent, {
     target: { configurable: true, value: target },
     currentTarget: { configurable: true, value: currentTarget },
+    relatedTarget: { configurable: true, value: event.relatedTarget ?? null },
     clientX: { configurable: true, value: event.clientX ?? 0 },
     clientY: { configurable: true, value: event.clientY ?? 0 },
     pointerId: { configurable: true, value: event.pointerId ?? POINTER_ID },
@@ -272,6 +301,8 @@ function dispatchGlobalEvent(eventType: string, event: EventPayload): void {
   const name = globalEventName(eventType)
   if (!name) return
   for (const handler of globalListeners.get(name) ?? []) handler(event)
+  const body = globalThis.document.body
+  body.dispatchEvent(createGlobalDomEvent(name, event, body))
   globalThis.document.dispatchEvent(createGlobalDomEvent(name, event, globalThis.document))
   globalThis.window.dispatchEvent(createGlobalDomEvent(name, event, globalThis.window))
 }
@@ -306,7 +337,15 @@ function installNativeDomGlobals(): void {
     Object.defineProperty(globalThis, "document", {
       configurable: true,
       writable: true,
-      value: { body: { classList }, dispatchEvent: () => true },
+      value: { body: { classList, dispatchEvent: () => true }, dispatchEvent: () => true },
+    })
+  }
+
+  if (!Object.hasOwn(globalThis, "DOMPoint")) {
+    Object.defineProperty(globalThis, "DOMPoint", {
+      configurable: true,
+      writable: true,
+      value: GpuixDOMPoint,
     })
   }
 }
@@ -485,6 +524,9 @@ export class EventRegistry {
     if (!this.#live.has(event.elementId)) return
     switch (event.eventType) {
       case "mouseDown": {
+        // Keep the actual down path through release: the generated click must
+        // not synthesize a second pointerDown for the same activation.
+        this.#nativePointerDown.clear()
         if ((event.button ?? 0) === 0) {
           const sourceId = this.#dragSourceOwner(event.elementId)
           const data = sourceId === undefined ? undefined : this.#dragData.get(sourceId)
@@ -508,8 +550,13 @@ export class EventRegistry {
           this.#activeRangeId = event.elementId
           if (this.#updateRangeValue(event.elementId, event)) this.#dispatchDom(event.elementId, "input", event)
         }
-        this.#nativePointerDown.add(event.elementId)
-        queueMicrotask(() => this.#nativePointerDown.delete(event.elementId))
+        if ((event.button ?? 0) === 0) {
+          let current: number | null | undefined = event.elementId
+          while (current !== undefined && current !== null && this.#live.has(current)) {
+            this.#nativePointerDown.add(current)
+            current = this.#parents.get(current)
+          }
+        }
         this.#dispatchDom(event.elementId, "pointerDown", event)
         this.#dispatchDom(event.elementId, "mouseDown", event)
         return
@@ -557,6 +604,7 @@ export class EventRegistry {
         }
         this.#activePointers.delete(POINTER_ID)
         if (capturedId !== undefined) this.#releasePointerCapture(capturedId, POINTER_ID)
+        this.#nativePointerDown.clear()
         return
       }
       case "click": {
@@ -862,14 +910,34 @@ export class EventRegistry {
     },
   ): EventPayload | undefined {
     if (!this.#live.has(elementId)) return undefined
-    const target = this.#targets.get(elementId)
-    const event = domCompatibleEvent({ ...nativeEvent, elementId }, target, eventType)
+    const origin = this.#targets.get(elementId)
+    const event = domCompatibleEvent({ ...nativeEvent, elementId }, origin, eventType)
     if (extras) Object.assign(event, extras)
     if (!globalOnly) {
-      this.#handlers.get(elementId)?.get(eventType)?.(event)
-      if (target) target.dispatchEvent(createTargetEvent(eventType, event, target))
+      const targetIds = [elementId]
+      if (BUBBLING_DOM_EVENTS.has(eventType)) {
+        let parentId = this.#parents.get(elementId)
+        while (parentId !== undefined && parentId !== null && this.#live.has(parentId)) {
+          targetIds.push(parentId)
+          parentId = this.#parents.get(parentId)
+        }
+      }
+      const path = targetIds.flatMap((id) => {
+        const target = this.#targets.get(id)
+        return target ? [target] : []
+      })
+      const eventState = EVENT_STATE.get(event)
+      for (const currentId of targetIds) {
+        const currentTarget = this.#targets.get(currentId)
+        if (currentTarget) event.currentTarget = currentTarget
+        this.#handlers.get(currentId)?.get(eventType)?.(event)
+        if (currentTarget && origin) {
+          currentTarget.dispatchEvent(createTargetEvent(eventType, event, currentTarget, origin, path))
+        }
+        if (eventState?.propagationStopped) break
+      }
     }
-    dispatchGlobalEvent(eventType, event)
+    if (!EVENT_STATE.get(event)?.propagationStopped) dispatchGlobalEvent(eventType, event)
     return event
   }
 

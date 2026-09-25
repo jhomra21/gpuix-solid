@@ -1,4 +1,5 @@
 import { GpuixPath2D } from "./path2d.js"
+import { GpuixDOMPoint } from "./dom-point.js"
 
 export const CANVAS_DRAW_LIST_VERSION = 4 as const
 
@@ -12,6 +13,55 @@ type CanvasTransformInit = {
   d: number
   e: number
   f: number
+}
+
+export class CanvasDOMMatrixSnapshot {
+  readonly a: number
+  readonly b: number
+  readonly c: number
+  readonly d: number
+  readonly e: number
+  readonly f: number
+  readonly is2D = true
+
+  constructor(matrix: CanvasMatrix) {
+    this.a = matrix[0]
+    this.b = matrix[1]
+    this.c = matrix[2]
+    this.d = matrix[3]
+    this.e = matrix[4]
+    this.f = matrix[5]
+    Object.freeze(this)
+  }
+
+  get isIdentity(): boolean {
+    return this.a === 1 && this.b === 0 && this.c === 0 && this.d === 1 && this.e === 0 && this.f === 0
+  }
+
+  transformPoint(point: DOMPointInit = {}): DOMPoint {
+    const x = point.x ?? 0
+    const y = point.y ?? 0
+    return new GpuixDOMPoint(
+      this.a * x + this.c * y + this.e,
+      this.b * x + this.d * y + this.f,
+      point.z ?? 0,
+      point.w ?? 1,
+    )
+  }
+
+  inverse(): CanvasDOMMatrixSnapshot {
+    const determinant = this.a * this.d - this.b * this.c
+    if (determinant === 0) return new CanvasDOMMatrixSnapshot([NaN, NaN, NaN, NaN, NaN, NaN])
+    const a = this.d / determinant
+    const b = -this.b / determinant
+    const c = -this.c / determinant
+    const d = this.a / determinant
+    return new CanvasDOMMatrixSnapshot([a, b, c, d, -(a * this.e + c * this.f), -(b * this.e + d * this.f)])
+  }
+
+  toJSON() {
+    return { a: this.a, b: this.b, c: this.c, d: this.d, e: this.e, f: this.f, is2D: true, isIdentity: this.isIdentity }
+  }
 }
 
 export type CanvasPathSegment =
@@ -70,8 +120,9 @@ type CanvasRecorderImageSource = CanvasImageSource | CanvasPixelSource
 
 export type GpuixCanvasRenderingContext2D = Omit<
   CanvasRenderingContext2D,
-  "drawImage"
+  "drawImage" | "getTransform"
 > & {
+  getTransform(): CanvasDOMMatrixSnapshot
   drawImage(image: CanvasRecorderImageSource, ...args: number[]): void
 }
 
@@ -143,7 +194,7 @@ type ParsedFont = {
 }
 
 type CanvasState = {
-  fillStyle: string
+  fillStyle: string | CanvasLinearGradient
   strokeStyle: string
   lineWidth: number
   lineCap: CanvasLineCap
@@ -158,6 +209,227 @@ type CanvasState = {
 }
 
 const IDENTITY: CanvasMatrix = [1, 0, 0, 1, 0, 0]
+
+type RgbaColor = readonly [number, number, number, number]
+
+type LinearGradientStop = {
+  offset: number
+  color: RgbaColor
+  order: number
+}
+
+class CanvasLinearGradient {
+  readonly #start: readonly [number, number]
+  readonly #end: readonly [number, number]
+  readonly #transform: CanvasMatrix
+  readonly #stops: LinearGradientStop[] = []
+
+  constructor(
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+    transform: CanvasMatrix,
+  ) {
+    this.#start = [finite(x0), finite(y0)]
+    this.#end = [finite(x1), finite(y1)]
+    this.#transform = cloneMatrix(transform)
+  }
+
+  addColorStop(offset: number, color: string): void {
+    if (!Number.isFinite(offset) || offset < 0 || offset > 1) {
+      throw new DOMException("The offset provided is outside the range [0, 1].", "IndexSizeError")
+    }
+    const parsedColor = parseGradientColor(color)
+    if (!parsedColor) {
+      throw new DOMException("The color provided is not a supported CSS color.", "SyntaxError")
+    }
+    this.#stops.push({ offset, color: parsedColor, order: this.#stops.length })
+  }
+
+  fillRect(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    transform: CanvasMatrix,
+    alpha: number,
+    clip: CanvasClipRect | null,
+  ): CanvasDrawCommand[] {
+    if (this.#stops.length === 0) return []
+    const start = transformPoint(this.#start[0], this.#start[1], this.#transform)
+    const end = transformPoint(this.#end[0], this.#end[1], this.#transform)
+    const dx = end[0] - start[0]
+    const dy = end[1] - start[1]
+    const lengthSquared = dx * dx + dy * dy
+    if (lengthSquared <= Number.EPSILON) {
+      return [withCanvasClip({
+        op: "fillPath",
+        color: rgbaHex(this.colorAt(1)),
+        alpha,
+        fillRule: "nonzero",
+        path: rectanglePath(x, y, width, height, transform),
+      }, clip)]
+    }
+
+    const [a, b, c, d, e, f] = transform
+    const points: Array<[number, number]> = [
+      [a * x + c * y + e, b * x + d * y + f],
+      [a * (x + width) + c * y + e, b * (x + width) + d * y + f],
+      [a * (x + width) + c * (y + height) + e, b * (x + width) + d * (y + height) + f],
+      [a * x + c * (y + height) + e, b * x + d * (y + height) + f],
+    ]
+    const parameter = (point: readonly [number, number]) =>
+      ((point[0] - start[0]) * dx + (point[1] - start[1]) * dy) / lengthSquared
+    const parameters = points.map(parameter)
+    const minimum = Math.min(...parameters)
+    const maximum = Math.max(...parameters)
+    const transformedLength = Math.hypot(a * dx + c * dy, b * dx + d * dy)
+    const bandCount = Math.max(1, Math.min(512, Math.ceil(transformedLength * (maximum - minimum))))
+    const commands: CanvasDrawCommand[] = []
+
+    for (let index = 0; index < bandCount; index += 1) {
+      const low = minimum + (maximum - minimum) * index / bandCount
+      const high = minimum + (maximum - minimum) * (index + 1) / bandCount
+      const band = clipGradientPolygon(clipGradientPolygon(points, start, dx, dy, lengthSquared, low, true), start, dx, dy, lengthSquared, high, false)
+      if (band.length < 3) continue
+      const path: CanvasPathSegment[] = band.map(([pointX, pointY], pointIndex) =>
+        pointIndex === 0
+          ? { op: "moveTo", x: pointX, y: pointY }
+          : { op: "lineTo", x: pointX, y: pointY },
+      )
+      path.push({ op: "closePath" })
+      commands.push(withCanvasClip({
+        op: "fillPath",
+        color: rgbaHex(this.colorAt((low + high) / 2)),
+        alpha,
+        fillRule: "nonzero",
+        path,
+      }, clip))
+    }
+
+    return commands
+  }
+
+  private colorAt(offset: number): RgbaColor {
+    const stops = [...this.#stops].sort((left, right) => left.offset - right.offset || left.order - right.order)
+    const first = stops[0]!
+    if (offset <= first.offset) return first.color
+    for (let index = 1; index < stops.length; index += 1) {
+      const next = stops[index]!
+      if (offset > next.offset) continue
+      const previous = stops[index - 1]!
+      const span = next.offset - previous.offset
+      return span <= 0 ? next.color : interpolateRgba(previous.color, next.color, (offset - previous.offset) / span)
+    }
+    return stops.at(-1)!.color
+  }
+}
+
+function clipGradientPolygon(
+  polygon: readonly [number, number][],
+  origin: readonly [number, number],
+  dx: number,
+  dy: number,
+  lengthSquared: number,
+  boundary: number,
+  keepGreater: boolean,
+): Array<[number, number]> {
+  if (polygon.length === 0) return []
+  const parameter = ([x, y]: readonly [number, number]) =>
+    ((x - origin[0]) * dx + (y - origin[1]) * dy) / lengthSquared
+  const inside = (value: number) => keepGreater ? value >= boundary - 1e-10 : value <= boundary + 1e-10
+  const output: Array<[number, number]> = []
+  let previous = polygon[polygon.length - 1]!
+  let previousValue = parameter(previous)
+  for (const current of polygon) {
+    const currentValue = parameter(current)
+    const previousInside = inside(previousValue)
+    const currentInside = inside(currentValue)
+    if (previousInside !== currentInside) {
+      const amount = (boundary - previousValue) / (currentValue - previousValue)
+      output.push([
+        previous[0] + (current[0] - previous[0]) * amount,
+        previous[1] + (current[1] - previous[1]) * amount,
+      ])
+    }
+    if (currentInside) output.push([current[0], current[1]])
+    previous = current
+    previousValue = currentValue
+  }
+  return output
+}
+
+function parseGradientColor(value: string): RgbaColor | undefined {
+  const color = value.trim().toLowerCase()
+  if (color === "transparent") return [0, 0, 0, 0]
+  const hex = color.match(/^#([0-9a-f]{3,8})$/)?.[1]
+  if (hex) {
+    if (![3, 4, 6, 8].includes(hex.length)) return undefined
+    const digits = hex.length <= 4 ? [...hex].map((digit) => digit + digit).join("") : hex
+    const channels = digits.match(/.{2}/g)?.map((part) => Number.parseInt(part, 16) / 255)
+    if (!channels) return undefined
+    return [channels[0]!, channels[1]!, channels[2]!, channels[3] ?? 1]
+  }
+
+  const rgb = color.match(/^rgba?\((.*)\)$/)?.[1]
+  if (rgb === undefined) return undefined
+  const slash = rgb.split("/")
+  if (slash.length > 2) return undefined
+  let channelParts: string[]
+  let alphaPart: string | undefined = slash[1]?.trim()
+  if (rgb.includes(",")) {
+    if (slash.length !== 1) return undefined
+    const parts = rgb.split(",").map((part) => part.trim())
+    if (parts.length !== 3 && parts.length !== 4) return undefined
+    channelParts = parts.slice(0, 3)
+    alphaPart = parts[3]
+  } else {
+    channelParts = (slash[0] ?? "").trim().split(/\s+/u)
+    if (channelParts.length !== 3) return undefined
+  }
+  const channels = channelParts.map(parseRgbChannel)
+  const alpha = alphaPart === undefined ? 1 : parseAlpha(alphaPart)
+  if (channels.some((channel) => channel === undefined) || alpha === undefined) return undefined
+  return [channels[0]!, channels[1]!, channels[2]!, alpha]
+}
+
+function parseRgbChannel(value: string): number | undefined {
+  const parsed = Number.parseFloat(value)
+  if (!Number.isFinite(parsed)) return undefined
+  if (value.endsWith("%")) return clamp(parsed / 100, 0, 1)
+  return clamp(parsed / 255, 0, 1)
+}
+
+function parseAlpha(value: string): number | undefined {
+  const parsed = Number.parseFloat(value)
+  if (!Number.isFinite(parsed)) return undefined
+  return clamp(value.endsWith("%") ? parsed / 100 : parsed, 0, 1)
+}
+
+function interpolateRgba(from: RgbaColor, to: RgbaColor, amount: number): RgbaColor {
+  const alpha = from[3] + (to[3] - from[3]) * amount
+  if (alpha <= 0) return [0, 0, 0, 0]
+  return [
+    (from[0] * from[3] + (to[0] * to[3] - from[0] * from[3]) * amount) / alpha,
+    (from[1] * from[3] + (to[1] * to[3] - from[1] * from[3]) * amount) / alpha,
+    (from[2] * from[3] + (to[2] * to[3] - from[2] * from[3]) * amount) / alpha,
+    alpha,
+  ]
+}
+
+function rgbaHex(color: RgbaColor): string {
+  return `#${color.map((channel) => Math.round(clamp(channel, 0, 1) * 255).toString(16).padStart(2, "0")).join("")}`
+}
+
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.min(maximum, Math.max(minimum, value))
+}
+
+function solidPaint(paint: string | CanvasLinearGradient, operation: string): string {
+  if (!(paint instanceof CanvasLinearGradient)) return paint
+  throw new TypeError(`GPUix Canvas2D v4 supports CanvasGradient only with fillRect(); ${operation} requires a solid paint`)
+}
 
 export function createCanvas2DRecorder(
   getSize: () => CanvasBackingSize,
@@ -188,7 +460,7 @@ export function createCanvas2DRecorder(
       return state.fillStyle
     },
     set fillStyle(value: string | CanvasGradient | CanvasPattern) {
-      state.fillStyle = stringPaint(value, "fillStyle")
+      state.fillStyle = value instanceof CanvasLinearGradient ? value : stringPaint(value, "fillStyle")
     },
     get strokeStyle() {
       return state.strokeStyle
@@ -256,6 +528,9 @@ export function createCanvas2DRecorder(
     resetTransform() {
       state.transform = IDENTITY
     },
+    getTransform() {
+      return new CanvasDOMMatrixSnapshot(state.transform)
+    },
     setTransform(
       ...args:
         | [transform: CanvasTransformInit]
@@ -302,6 +577,11 @@ export function createCanvas2DRecorder(
       changed()
     },
     fillRect(x: number, y: number, width: number, height: number) {
+      if (state.fillStyle instanceof CanvasLinearGradient) {
+        commands.push(...state.fillStyle.fillRect(x, y, width, height, state.transform, state.globalAlpha, state.clip))
+        changed()
+        return
+      }
       const points = rectanglePoints(x, y, width, height, state.transform)
       if (
         state.globalAlpha >= 1 &&
@@ -313,7 +593,7 @@ export function createCanvas2DRecorder(
       }
       commands.push(withCanvasClip({
         op: "fillPath",
-        color: state.fillStyle,
+        color: solidPaint(state.fillStyle, "fillRect()"),
         alpha: state.globalAlpha,
         fillRule: "nonzero",
         path: rectanglePath(x, y, width, height, state.transform),
@@ -446,7 +726,7 @@ export function createCanvas2DRecorder(
       if (fillPath.length === 0) return
       commands.push(withCanvasClip({
         op: "fillPath",
-        color: state.fillStyle,
+        color: solidPaint(state.fillStyle, "fill()"),
         alpha: state.globalAlpha,
         fillRule,
         path: fillPath,
@@ -478,7 +758,7 @@ export function createCanvas2DRecorder(
       }
       const font = parseFont(state.font)
       const width = measureTextNative(
-        String(text),
+        prepareCanvasText(text),
         font.size,
         font.family,
         font.weight ?? 400,
@@ -516,22 +796,23 @@ export function createCanvas2DRecorder(
       }, state.clip))
       changed()
     },
+    createLinearGradient(x0: number, y0: number, x1: number, y1: number) {
+      // SAFETY: CanvasLinearGradient implements CanvasGradient.addColorStop and is the only gradient object this recorder creates.
+      return new CanvasLinearGradient(x0, y0, x1, y1, state.transform) as CanvasGradient
+    },
     fillText(text: string, x: number, y: number, maxWidth?: number) {
       if (maxWidth !== undefined) {
         throw new Error("GPUix Canvas2D v4 does not support fillText() maxWidth")
-      }
-      if (String(text).includes("\n")) {
-        throw new Error("GPUix Canvas2D v4 does not support newlines in fillText()")
       }
       assertTextTransform(state.transform)
       const point = transformPoint(x, y, state.transform)
       const font = parseFont(state.font)
       const command: Extract<CanvasDrawCommand, { op: "fillText" }> = {
         op: "fillText",
-        text: String(text),
+        text: prepareCanvasText(text),
         x: point[0],
         y: point[1],
-        color: state.fillStyle,
+        color: solidPaint(state.fillStyle, "fillText()"),
         alpha: state.globalAlpha,
         fontSize: font.size * textScale(state.transform),
         fontFamily: font.family,
@@ -568,6 +849,15 @@ export function createCanvas2DRecorder(
       changed()
     },
   }
+}
+
+function prepareCanvasText(text: string): string {
+  return String(text)
+    .replaceAll("\t", " ")
+    .replaceAll("\n", " ")
+    .replaceAll("\u000B", " ")
+    .replaceAll("\f", " ")
+    .replaceAll("\r", " ")
 }
 
 function assertSimilarityTransform(matrix: CanvasMatrix, operation: string): void {
@@ -1583,13 +1873,16 @@ function stringPaint(value: string | CanvasGradient | CanvasPattern, property: s
 }
 
 function parseFont(value: string): ParsedFont {
-  const match = value.trim().match(/^(?:(normal|bold|\d{1,4})\s+)?(\d+(?:\.\d+)?)px\s+(.+)$/)
+  const match = value.trim().match(/^(?:(normal|italic|oblique)\s+)?(?:(normal|bold|\d{1,4})\s+)?(\d+(?:\.\d+)?)px\s+(.+)$/)
   if (!match) {
     throw new TypeError(`GPUix Canvas2D v4 cannot represent font ${JSON.stringify(value)}`)
   }
-  const size = Number(match[2])
-  const family = match[3]?.trim()
-  const token = match[1]
+  if (match[1] && match[1] !== "normal") {
+    throw new TypeError(`GPUix Canvas2D v4 cannot represent font style ${JSON.stringify(match[1])}`)
+  }
+  const size = Number(match[3])
+  const family = match[4]?.trim()
+  const token = match[2]
   const weight = token === "bold"
     ? 700
     : token && token !== "normal"
