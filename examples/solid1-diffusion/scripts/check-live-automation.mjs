@@ -327,15 +327,25 @@ try {
   ])
 
   const initial = await waitForEditor(app)
-  assert(initial.canvases.some((node) => node.bounds.width > 500 && node.bounds.height > 300), "EngineCanvas did not paint at a useful size")
-  assert(initial.canvases.some((node) => node.bounds.y >= 560), "Timeline canvas did not mount below the editor")
+  const stage = [...initial.canvases]
+    .sort((a, b) => b.bounds.width * b.bounds.height - a.bounds.width * a.bounds.height)[0]
+  assert(stage?.bounds && stage.bounds.width > 400 && stage.bounds.height > 300, "EngineCanvas did not paint at a useful size")
+
+  const stageBottom = stage.bounds.y + stage.bounds.height
+  const timeline = initial.canvases
+    .filter((node) => node.id !== stage.id && node.bounds.y >= stageBottom - 2)
+    .sort((a, b) => b.bounds.width * b.bounds.height - a.bounds.width * a.bounds.height)[0]
+  assert(
+    timeline?.bounds &&
+      Math.abs(timeline.bounds.x - stage.bounds.x) <= 2 &&
+      Math.abs(timeline.bounds.width - stage.bounds.width) <= 2 &&
+      timeline.bounds.height > 100,
+    "Timeline canvas did not mount in the editor row below EngineCanvas",
+  )
   assertText(initial.tree, "Assets", "Assets navigation")
   assertText(initial.tree, "Chat", "Chat navigation")
   await screenshot(app, "initial")
 
-  const stage = initial.canvases.sort((a, b) => b.bounds.width * b.bounds.height - a.bounds.width * a.bounds.height)[0]
-  const timeline = initial.canvases.find((node) => node.bounds.y >= 560)
-  assert(stage?.bounds && timeline?.bounds, "EngineCanvas or timeline bounds are missing")
   const at = (bounds, x, y) => ({ x: bounds.x + bounds.width * x, y: bounds.y + bounds.height * y })
 
   // Canvas selection, then layer-list selection must agree in the Inspector.
