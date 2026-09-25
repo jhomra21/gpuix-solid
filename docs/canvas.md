@@ -77,7 +77,7 @@ Current Diffusion Studio source uses `roundRect()`, mixed-corner `arcTo()`, clip
 
 CI also checks the exact current Diffusion source pin at `666cdced1f6b97a792b63e551f45797649efb27a` from editor 0.206.0. That test imports Diffusion's real runtime and reconciler, creates and renders a real scene through the GPUix Canvas recorder, and exercises Diffusion's `mount()` evaluator with a compiled universal-renderer bundle.
 
-The Solid 1 source acceptance mounts Diffusion's real provider chain and `EditorPage`. It exercises `EngineCanvas`, camera panning, Rectangle insertion, object movement and resizing, the real timeline canvas, inspector and soundboard geometry, and native window sizing. The live acceptance then uses Diffusion's real Rotate 90 Inspector control and checks that the editor remains responsive after the affine HUD text path runs. It writes separate source-engine, editor, and live screenshots. The remaining Canvas work includes arbitrary clip paths, more paint state, and direct native media-frame drawing.
+The Solid 1 source acceptance mounts Diffusion's real provider chain and `EditorPage`. It exercises `EngineCanvas`, camera panning, Rectangle insertion, object movement and resizing, the real timeline canvas, inspector and soundboard geometry, and native window sizing. The live acceptance reproduces the resize HUD path that previously crashed in `fillText()` and checks that the editor remains responsive after the retained affine text paint runs. It writes separate source-engine, editor, and live screenshots. The remaining Canvas work includes arbitrary clip paths, more paint state, and direct native media-frame drawing.
 
 ## Validation
 
