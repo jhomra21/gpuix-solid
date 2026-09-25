@@ -566,7 +566,8 @@ try {
   assertText(tree, "Generate with AI", "Assets restored after Chat navigation")
   assert(!descendants(tree).some((node) => node.type === "textarea"), "Chat composer remained mounted after returning to Assets")
 
-  const currentTimeline = getEditorCanvases(tree).find((node) => node.bounds.y >= 560)
+  const currentTimeline = getEditorCanvases(tree).find((node) => node.id === timeline.id)
+  assert(currentTimeline?.bounds, "Timeline canvas disappeared before minimize/restore acceptance")
   const timelineHeight = currentTimeline.bounds.height
   tree = await openProjectMenu(app)
   await physicalClick(app, { x: (findText(tree, "View")).bounds.x + 20, y: (findText(tree, "View")).bounds.y + 6 })
@@ -577,7 +578,7 @@ try {
   await clickNode(app, findText(tree, "Toggle timeline"))
   await delay(180)
   tree = await getFreshTree(app)
-  let collapsedTimeline = getEditorCanvases(tree).find((node) => node.bounds.y >= 560)
+  let collapsedTimeline = getEditorCanvases(tree).find((node) => node.id === timeline.id)
   assert(!collapsedTimeline || collapsedTimeline.bounds.height < timelineHeight, "Timeline did not minimize")
   tree = await openProjectMenu(app)
   await physicalClick(app, { x: findText(tree, "View").bounds.x + 20, y: findText(tree, "View").bounds.y + 6 })
@@ -588,8 +589,8 @@ try {
   await clickNode(app, findText(tree, "Toggle timeline"))
   await delay(180)
   tree = await getFreshTree(app)
-  const restoredTimeline = getEditorCanvases(tree).find((node) => node.bounds.y >= 560)
-  assert(restoredTimeline?.bounds.height >= timelineHeight - 2, "Timeline did not restore to its previous height")
+  const restoredTimeline = getEditorCanvases(tree).find((node) => node.id === timeline.id)
+  assert(restoredTimeline?.bounds && restoredTimeline.bounds.height >= timelineHeight - 2, "Timeline did not restore to its previous height")
 
   // Hide and restore the full editor chrome; the floating header is the only
   // expected control while the sidebars and timeline chrome are hidden.
@@ -653,7 +654,7 @@ try {
     timelineBounds: restoredTimeline.bounds,
     checks: [
       "initial EditorPage and both canvases paint",
-      "canvas selection and layer-row selection agree in the Inspector",
+      "layer-row selection updates the Inspector and canvas gestures operate on the selected entity",
       "Rectangle draw, move, and resize keep the HUD and native engine responsive",
       "Generate with AI mounts and closes without submitting",
       "Text placement, native textarea entry, and Enter commit",
