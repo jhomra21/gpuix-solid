@@ -1713,11 +1713,6 @@ function transformedLineWidth(width: number, matrix: CanvasMatrix): number {
   return finite(width) * Math.max(0.0001, (scaleX + scaleY) / 2)
 }
 
-function textScale(matrix: CanvasMatrix): number {
-  const [a, b, c, d] = matrix
-  return Math.max(0.0001, (Math.hypot(a, b) + Math.hypot(c, d)) / 2)
-}
-
 function coversBackingStore(
   points: readonly (readonly [number, number])[],
   size: CanvasBackingSize,
