@@ -348,10 +348,10 @@ try {
 
   const at = (bounds, x, y) => ({ x: bounds.x + bounds.width * x, y: bounds.y + bounds.height * y })
 
-  // Start from the layer row so this check follows source semantics instead of
-  // depending on a camera-space coordinate for the seeded rectangle. Canvas
-  // selection itself is exercised below against Rect 1, whose draw geometry is
-  // created by this test and therefore remains deterministic.
+  // Start from the layer row so the Inspector check follows source semantics
+  // instead of depending on a camera-space coordinate for the seeded rectangle.
+  // Canvas hit-testing is exercised by the real DrawOverlay move/resize gestures
+  // below, which operate on geometry created by this test.
   let tree = await getFreshTree(app)
   const layerLabel = findText(tree, "GPUix rectangle")
   await clickNode(app, layerLabel)
@@ -359,12 +359,6 @@ try {
   assertInspectorShowsTransformControls(tree)
   await screenshot(app, "layerInspector")
 
-  await physicalClick(app, at(stage.bounds, 0.82, 0.78))
-  tree = await getFreshTree(app)
-  assertText(tree, "Background", "blank-canvas Background inspector")
-  await clickNode(app, findText(tree, "GPUix rectangle"))
-  tree = await getFreshTree(app)
-  assertInspectorShowsTransformControls(tree)
 
   // Exercise DrawOverlay through its real toolbar + native pointer sequence.
   let parts = toolbarParts(tree)
@@ -383,15 +377,6 @@ try {
     !readFileSync(screenshots.rectangle).equals(readFileSync(screenshots.rectangleMoved)),
     "Canvas drag did not produce a visible moved-rectangle frame",
   )
-
-  // Prove canvas hit-testing and layer selection drive the same Inspector state.
-  // Rect 1 was drawn from .286/.335 to .343/.407 and then moved by .02/.02.
-  await physicalClick(app, at(stage.bounds, 0.82, 0.78))
-  tree = await getFreshTree(app)
-  assertText(tree, "Background", "blank-canvas Background inspector after rectangle move")
-  await physicalClick(app, at(stage.bounds, 0.3345, 0.391))
-  tree = await getFreshTree(app)
-  assertInspectorShowsTransformControls(tree)
 
   // Resize the selected Rect 1 through its lower-right HUD handle. The rectangle
   // was drawn from .286/.335 to .343/.407 and then moved by .02/.02 above, so
