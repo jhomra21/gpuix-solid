@@ -12,6 +12,7 @@ const screenshots = {
   layerInspector: "/tmp/diffusion-layer-inspector.png",
   rectangle: "/tmp/diffusion-rectangle-drawn.png",
   rectangleMoved: "/tmp/diffusion-rectangle-moved.png",
+  rectangleResized: "/tmp/diffusion-rectangle-resized.png",
   aiPrompt: "/tmp/diffusion-ai-prompt.png",
   textEdit: "/tmp/diffusion-text-edit.png",
   timeline: "/tmp/diffusion-timeline-interaction.png",
@@ -37,6 +38,7 @@ const fatalPatterns = [
   /DOM content must be inside <html>/i,
   /ctx\.getTransform is not a function/i,
   /Unsupported numeric inline style/i,
+  /GPUix Canvas2D .*fillText/i,
   /uncaught.*solid/i,
 ]
 
@@ -51,6 +53,7 @@ function matchingDiagnostics(output) {
     /DOM content must be inside <html>/gi,
     /ctx\.getTransform is not a function/gi,
     /Unsupported numeric inline style[^\r\n]*/gi,
+    /GPUix Canvas2D [^\r\n]*fillText[^\r\n]*/gi,
     /(?:TypeError|ReferenceError):[^\r\n]*/gi,
   ]
   const matches = []
@@ -322,6 +325,25 @@ try {
     !readFileSync(screenshots.rectangle).equals(readFileSync(screenshots.rectangleMoved)),
     "Canvas drag did not produce a visible moved-rectangle frame",
   )
+
+  // Resize the selected Rect 1 through its lower-right HUD handle. The rectangle
+  // was drawn from .286/.335 to .343/.407 and then moved by .02/.02 above, so
+  // this point targets the retained selection handle rather than a guessed UI node.
+  await drag(app, at(stage.bounds, 0.363, 0.427), at(stage.bounds, 0.392, 0.458), 12)
+  await delay(220)
+  tree = await getFreshTree(app)
+  assertInspectorShowsTransformControls(tree)
+  await screenshot(app, "rectangleResized")
+  assert(
+    !readFileSync(screenshots.rectangleMoved).equals(readFileSync(screenshots.rectangleResized)),
+    "Canvas resize did not produce a visible resized-rectangle frame",
+  )
+
+  // Prove the engine remains responsive after the HUD has painted several
+  // post-resize frames. This specifically guards the manual freeze regression.
+  await delay(240)
+  tree = await getFreshTree(app)
+  assertText(tree, "Rect 1", "resized rectangle layer after engine frames")
 
   // AI prompt mounts from the copied Assets action; no generation request is sent.
   const generate = findText(tree, "Generate with AI")
@@ -613,7 +635,7 @@ try {
     checks: [
       "initial EditorPage and both canvases paint",
       "canvas selection and layer-row selection agree in the Inspector",
-      "Rectangle draw creates Rect 1 and object move updates retained canvas state",
+      "Rectangle draw, move, and resize keep the HUD and native engine responsive",
       "Generate with AI mounts and closes without submitting",
       "Text placement, native textarea entry, and Enter commit",
       "timeline ruler seek and drag move the playhead without getTransform errors",
