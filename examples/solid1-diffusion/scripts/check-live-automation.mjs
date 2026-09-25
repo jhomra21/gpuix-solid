@@ -418,14 +418,27 @@ try {
   assert(getEditorCanvases(tree).length >= 2, "EngineCanvas or timeline stopped painting after marquee drag")
 
   // The timeline ruler uses getTransform().transformPoint() for its coordinates.
+  // Re-read its live bounds after the preceding editor mutations instead of
+  // carrying the startup rectangle through layout changes. The ruler is 36px
+  // high in the pinned source, so its vertical midpoint is a stable hit target.
+  let liveTimeline = getEditorCanvases(tree).find((node) => node.id === timeline.id)
+  assert(liveTimeline?.bounds, "Timeline canvas disappeared before ruler interaction")
   const timeBefore = findNode(tree, (node) => node.type === "text" && /^\d\d:\d\d:\d\d$/.test(node.text ?? ""), "timeline time display")
   const timeBeforeText = timeBefore.text
-  await physicalClick(app, at(timeline.bounds, 0.28, 0.04))
-  tree = await getFreshTree(app)
-  const timeAfterClick = findNode(tree, (node) => node.type === "text" && /^\d\d:\d\d:\d\d$/.test(node.text ?? ""), "timeline time after seek")
-  assert(timeAfterClick.text !== timeBeforeText, `Timeline click did not move the playhead (${timeBeforeText} -> ${timeAfterClick.text})`)
-  const dragStart = at(timeline.bounds, 0.36, 0.04)
-  const dragEnd = at(timeline.bounds, 0.48, 0.04)
+  await physicalClick(app, {
+    x: liveTimeline.bounds.x + liveTimeline.bounds.width * 0.5,
+    y: liveTimeline.bounds.y + 18,
+  })
+  tree = await waitFor("timeline playhead seek", async () => {
+    const next = await currentTree(app)
+    const time = descendants(next).find((node) => node.type === "text" && /^\d\d:\d\d:\d\d$/.test(node.text ?? ""))
+    return time?.text !== timeBeforeText ? next : null
+  }, 3_000)
+
+  liveTimeline = getEditorCanvases(tree).find((node) => node.id === timeline.id)
+  assert(liveTimeline?.bounds, "Timeline canvas disappeared before ruler drag")
+  const dragStart = { x: liveTimeline.bounds.x + liveTimeline.bounds.width * 0.58, y: liveTimeline.bounds.y + 18 }
+  const dragEnd = { x: liveTimeline.bounds.x + liveTimeline.bounds.width * 0.72, y: liveTimeline.bounds.y + 18 }
   await drag(app, dragStart, dragEnd, 8)
   tree = await getFreshTree(app)
   assertText(tree, "Rect 1", "timeline remains painted after ruler drag")
