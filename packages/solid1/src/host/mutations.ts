@@ -492,7 +492,25 @@ function normalizeDimensionStyle(
   if (isIntrinsicCssDimension(trimmed)) return "auto"
   const em = trimmed.match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))em$/i)
   if (em) return Number(em[1]) * fontSize
+  const simplifiedCalc = simplifyDegenerateLinearCalc(trimmed)
+  if (simplifiedCalc !== undefined) return simplifiedCalc
   return parseNumericCssValue(trimmed) ?? value
+}
+
+function simplifyDegenerateLinearCalc(value: string): DimensionValue | undefined {
+  const match = value.match(
+    /^calc\(\s*(-?(?:\d+(?:\.\d+)?|\.\d+))px\s*\+\s*(-?(?:\d+(?:\.\d+)?|\.\d+))\s*\*\s*\(\s*100%\s*-\s*(-?(?:\d+(?:\.\d+)?|\.\d+))px\s*\)\s*\)$/i,
+  )
+  if (!match) return undefined
+
+  const inset = Number(match[1])
+  const ratio = Number(match[2])
+  const subtractedInset = Number(match[3])
+  if (!Number.isFinite(inset) || !Number.isFinite(ratio) || !Number.isFinite(subtractedInset)) return undefined
+  if (inset !== subtractedInset) return undefined
+  if (ratio === 0) return inset
+  if (ratio === 1) return "100%"
+  return undefined
 }
 
 function isIntrinsicCssDimension(value: string): boolean {
