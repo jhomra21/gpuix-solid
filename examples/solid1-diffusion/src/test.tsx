@@ -273,7 +273,8 @@ if (!hasNativeTestRenderer) {
     firstLayerRow.setAttribute("testId", "diffusion-editor-first-layer-row")
     rightSidebar.setAttribute("testId", "diffusion-editor-inspector")
     soundboard.setAttribute("testId", "diffusion-editor-soundboard")
-    const layerHeader = layersContainer.firstElementChild
+    const layerHeader = Array.from(layersContainer.children)
+      .find((child) => child instanceof HTMLElement)
     requireCondition(layerHeader instanceof HTMLElement, "Diffusion layer grid should mount its transport header")
     layerHeader.setAttribute("testId", "diffusion-editor-layer-header")
 
