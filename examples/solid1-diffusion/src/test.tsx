@@ -258,7 +258,9 @@ if (!hasNativeTestRenderer) {
     const firstLayerRow = document.body.querySelector("[data-layer-row]")
     const rightSidebar = document.body.querySelector("[data-right-sidebar]")
     const editorGrid = rightSidebar instanceof HTMLElement ? rightSidebar.parentElement : null
-    const soundboard = editorGrid instanceof HTMLElement ? Array.from(editorGrid.children).at(-1) : undefined
+    const soundboard = editorGrid instanceof HTMLElement
+      ? Array.from(editorGrid.children).filter((child) => child instanceof HTMLElement).at(-1)
+      : undefined
     requireCondition(layersContainer instanceof HTMLElement, "Diffusion EditorPage should mount the real layer grid")
     requireCondition(layersViewport instanceof HTMLElement, "Diffusion EditorPage should mount the real layer viewport")
     requireCondition(firstLayerRow instanceof HTMLElement, "Diffusion EditorPage should mount at least one layer row")
