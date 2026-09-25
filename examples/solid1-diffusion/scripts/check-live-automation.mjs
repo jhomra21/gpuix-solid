@@ -26,8 +26,8 @@ function descendants(node) {
   return values
 }
 
-function drawListText(node) {
-  return JSON.stringify(node.customProps?.drawList ?? null)
+async function nodeBounds(app, node) {
+  return node.bounds ?? await app.backend.getBounds(node.id)
 }
 
 async function waitFor(label, operation) {
@@ -82,19 +82,31 @@ try {
     }),
   ])
 
-  await app.getByTestId("diffusion-source-editor").waitFor({ timeoutMs })
+  const editor = app.getByTestId("diffusion-source-editor")
+  await editor.waitFor({ timeoutMs })
   const rectangle = app.getByTestId("diffusion-toolbar-rectangle")
   await rectangle.waitFor({ timeoutMs })
 
-  const stage = await waitFor("Diffusion EngineCanvas draw list", async () => {
+  const stage = await waitFor("Diffusion EngineCanvas", async () => {
     const tree = await app.backend.getTree()
     if (!tree) return null
-    return descendants(tree).find(
-      (node) => node.type === "canvas" && drawListText(node).includes("#22C55E"),
-    ) ?? null
+
+    const editorNode = descendants(tree).find((node) => node.testId === "diffusion-source-editor")
+    if (!editorNode) return null
+
+    const candidates = []
+    for (const node of descendants(editorNode)) {
+      if (node.type !== "canvas") continue
+      const bounds = await nodeBounds(app, node)
+      if (!bounds || bounds.width < 240 || bounds.height < 180) continue
+      candidates.push({ node, bounds, area: bounds.width * bounds.height })
+    }
+
+    candidates.sort((left, right) => right.area - left.area)
+    return candidates[0] ?? null
   })
 
-  const stageBounds = stage.bounds ?? await app.backend.getBounds(stage.id)
+  const stageBounds = stage.bounds
   if (!stageBounds || stageBounds.width < 240 || stageBounds.height < 180) {
     throw new Error(`Unexpected Diffusion EngineCanvas bounds: ${JSON.stringify(stageBounds)}`)
   }
@@ -104,12 +116,16 @@ try {
   const overlay = await waitFor("Rectangle DrawOverlay", async () => {
     const tree = await app.backend.getTree()
     if (!tree) return null
-    return descendants(tree).find(
-      (node) => node.style?.cursor === "crosshair" && node.style?.pointerEvents !== "none",
-    ) ?? null
+    const node = descendants(tree).find(
+      (candidate) => candidate.style?.cursor === "crosshair" && candidate.style?.pointerEvents !== "none",
+    )
+    if (!node) return null
+    const bounds = await nodeBounds(app, node)
+    return bounds ? { node, bounds } : null
   })
-  const overlayBounds = overlay.bounds ?? await app.backend.getBounds(overlay.id)
-  if (!overlayBounds || overlayBounds.width < 240 || overlayBounds.height < 180) {
+
+  const overlayBounds = overlay.bounds
+  if (overlayBounds.width < 240 || overlayBounds.height < 180) {
     throw new Error(`Unexpected Diffusion DrawOverlay bounds: ${JSON.stringify(overlayBounds)}`)
   }
 
@@ -124,12 +140,9 @@ try {
 
   await app.mouse.drag(start, end, { steps: 8 })
 
-  const insertedDrawList = await waitFor("DrawOverlay rectangle insert", async () => {
-    const tree = await app.backend.getTree()
-    if (!tree) return null
-    const canvas = descendants(tree).find((node) => node.id === stage.id)
-    const drawList = canvas ? drawListText(canvas) : ""
-    return drawList.includes("#E0E0E0") ? drawList : null
+  const insertedLayer = await waitFor("DrawOverlay rectangle insert", async () => {
+    const matches = await app.getByText("Rect 1").all()
+    return matches[0] ?? null
   })
 
   await app.screenshot({ path: screenshotPath })
@@ -141,7 +154,11 @@ try {
     stageBounds,
     overlayBounds,
     drag: { start, end },
-    insertedDrawListBytes: insertedDrawList.length,
+    insertedLayer: {
+      id: insertedLayer.id,
+      type: insertedLayer.type,
+      text: insertedLayer.text ?? null,
+    },
     screenshotPath,
   }))
   console.log("solid1 Diffusion live automation: passed")
