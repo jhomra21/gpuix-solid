@@ -25,6 +25,10 @@ function closeTo(actual: number, expected: number): boolean {
   return Math.abs(actual - expected) < 0.001
 }
 
+function withinPx(actual: number, expected: number, tolerance = 1): boolean {
+  return Math.abs(actual - expected) <= tolerance
+}
+
 function symmetricMultisetDifference(left: readonly string[], right: readonly string[]): string[] {
   const rightCounts = new Map<string, number>()
   for (const value of right) rightCounts.set(value, (rightCounts.get(value) ?? 0) + 1)
@@ -248,12 +252,60 @@ if (!hasNativeTestRenderer) {
     const timelineCanvas = Array.from(document.body.querySelectorAll("canvas"))
       .find((element) => element.getAttribute("id") === "timeline-canvas")
     requireCondition(timelineCanvas instanceof HTMLCanvasElement, "Diffusion EditorPage should mount the real timeline canvas")
+
+    const layersContainer = document.body.querySelector("[data-timeline-layers-container]")
+    const layersViewport = document.body.querySelector("[data-timeline-layers-viewport]")
+    const firstLayerRow = document.body.querySelector("[data-layer-row]")
+    const rightSidebar = document.body.querySelector("[data-right-sidebar]")
+    const soundboard = document.body.querySelector(".soundboard")
+    requireCondition(layersContainer instanceof HTMLElement, "Diffusion EditorPage should mount the real layer grid")
+    requireCondition(layersViewport instanceof HTMLElement, "Diffusion EditorPage should mount the real layer viewport")
+    requireCondition(firstLayerRow instanceof HTMLElement, "Diffusion EditorPage should mount at least one layer row")
+    requireCondition(rightSidebar instanceof HTMLElement, "Diffusion EditorPage should mount the real Inspector sidebar")
+    requireCondition(soundboard instanceof HTMLElement, "Diffusion EditorPage should mount the real Soundboard")
+
     timelineCanvas.setAttribute("testId", "diffusion-editor-timeline")
+    layersContainer.setAttribute("testId", "diffusion-editor-layers")
+    layersViewport.setAttribute("testId", "diffusion-editor-layers-viewport")
+    firstLayerRow.setAttribute("testId", "diffusion-editor-first-layer-row")
+    rightSidebar.setAttribute("testId", "diffusion-editor-inspector")
+    soundboard.setAttribute("testId", "diffusion-editor-soundboard")
+    const layerHeader = layersContainer.firstElementChild
+    requireCondition(layerHeader instanceof HTMLElement, "Diffusion layer grid should mount its transport header")
+    layerHeader.setAttribute("testId", "diffusion-editor-layer-header")
+
     editorApp.root.flush()
     editorApp.renderer.flush()
     requireCondition(
       editorApp.renderer.hasTestId("diffusion-editor-timeline"),
       "Diffusion timeline canvas should remain connected to the native tree",
+    )
+
+    const timelineBounds = editorApp.renderer.boundsTestId("diffusion-editor-timeline")
+    const layersBounds = editorApp.renderer.boundsTestId("diffusion-editor-layers")
+    const layerHeaderBounds = editorApp.renderer.boundsTestId("diffusion-editor-layer-header")
+    const layerViewportBounds = editorApp.renderer.boundsTestId("diffusion-editor-layers-viewport")
+    const firstLayerBounds = editorApp.renderer.boundsTestId("diffusion-editor-first-layer-row")
+    const inspectorBounds = editorApp.renderer.boundsTestId("diffusion-editor-inspector")
+    const soundboardBounds = editorApp.renderer.boundsTestId("diffusion-editor-soundboard")
+
+    requireCondition(
+      withinPx(layersBounds.y, timelineBounds.y) &&
+        withinPx(layersBounds.height, timelineBounds.height),
+      `Diffusion layer panel and timeline canvas must share the same timeline row; layers=${JSON.stringify(layersBounds)} timeline=${JSON.stringify(timelineBounds)}`,
+    )
+    requireCondition(
+      withinPx(layerHeaderBounds.y, layersBounds.y) &&
+        withinPx(layerViewportBounds.y, layerHeaderBounds.y + layerHeaderBounds.height),
+      `Diffusion transport header and layer viewport must remain vertically contiguous; header=${JSON.stringify(layerHeaderBounds)} viewport=${JSON.stringify(layerViewportBounds)}`,
+    )
+    requireCondition(
+      withinPx(firstLayerBounds.y, layerViewportBounds.y),
+      `Diffusion first layer row must start at the top of the clip viewport; row=${JSON.stringify(firstLayerBounds)} viewport=${JSON.stringify(layerViewportBounds)}`,
+    )
+    requireCondition(
+      inspectorBounds.y + inspectorBounds.height <= soundboardBounds.y + 1,
+      `Diffusion Inspector must not overlap the timeline Soundboard; inspector=${JSON.stringify(inspectorBounds)} soundboard=${JSON.stringify(soundboardBounds)}`,
     )
 
     const editorState = readDiffusionSourceState()
