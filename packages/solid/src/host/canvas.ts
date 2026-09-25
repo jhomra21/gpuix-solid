@@ -1,7 +1,7 @@
 import { GpuixPath2D } from "./path2d.js"
 import { GpuixDOMPoint } from "./dom-point.js"
 
-export const CANVAS_DRAW_LIST_VERSION = 4 as const
+export const CANVAS_DRAW_LIST_VERSION = 5 as const
 
 export type CanvasDrawListVersion = typeof CANVAS_DRAW_LIST_VERSION
 export type CanvasMatrix = readonly [number, number, number, number, number, number]
@@ -160,6 +160,7 @@ export type CanvasDrawCommand = (
       fontWeight?: number
       align: CanvasTextAlign
       baseline: CanvasTextBaseline
+      transform: CanvasMatrix
     }
   | {
       op: "drawImage"
@@ -428,7 +429,7 @@ function clamp(value: number, minimum: number, maximum: number): number {
 
 function solidPaint(paint: string | CanvasLinearGradient, operation: string): string {
   if (!(paint instanceof CanvasLinearGradient)) return paint
-  throw new TypeError(`GPUix Canvas2D v4 supports CanvasGradient only with fillRect(); ${operation} requires a solid paint`)
+  throw new TypeError(`GPUix Canvas2D v5 supports CanvasGradient only with fillRect(); ${operation} requires a solid paint`)
 }
 
 export function createCanvas2DRecorder(
@@ -569,7 +570,7 @@ export function createCanvas2DRecorder(
     clearRect(x: number, y: number, width: number, height: number) {
       const points = rectanglePoints(x, y, width, height, state.transform)
       if (!coversBackingStore(points, getSize())) {
-        throw new Error("GPUix Canvas2D v4 supports clearRect() only when it clears the full backing store")
+        throw new Error("GPUix Canvas2D v5 supports clearRect() only when it clears the full backing store")
       }
       commands = []
       path = []
@@ -704,11 +705,11 @@ export function createCanvas2DRecorder(
     },
     clip(fillRule: CanvasFillRule = "nonzero") {
       if (fillRule !== "nonzero") {
-        throw new Error("GPUix Canvas2D v4 supports the nonzero clip rule only")
+        throw new Error("GPUix Canvas2D v5 supports the nonzero clip rule only")
       }
       const nextClip = clipCandidate ?? rectangularClipFromPath(path)
       if (!nextClip) {
-        throw new Error("GPUix Canvas2D v4 supports clip() for one axis-aligned rectangle or uniform rounded rectangle")
+        throw new Error("GPUix Canvas2D v5 supports clip() for one axis-aligned rectangle or uniform rounded rectangle")
       }
       state.clip = intersectCanvasClips(state.clip, nextClip)
     },
@@ -718,7 +719,7 @@ export function createCanvas2DRecorder(
     ) {
       const fillRule = pathOrRule instanceof GpuixPath2D ? pathFillRule : pathOrRule
       if (fillRule !== "nonzero") {
-        throw new Error("GPUix Canvas2D v4 supports the nonzero fill rule only")
+        throw new Error("GPUix Canvas2D v5 supports the nonzero fill rule only")
       }
       const fillPath = pathOrRule instanceof GpuixPath2D
         ? transformStoredPath(pathOrRule.segments, state.transform)
@@ -802,29 +803,28 @@ export function createCanvas2DRecorder(
     },
     fillText(text: string, x: number, y: number, maxWidth?: number) {
       if (maxWidth !== undefined) {
-        throw new Error("GPUix Canvas2D v4 does not support fillText() maxWidth")
+        throw new Error("GPUix Canvas2D v5 does not support fillText() maxWidth")
       }
-      assertTextTransform(state.transform)
-      const point = transformPoint(x, y, state.transform)
       const font = parseFont(state.font)
       const command: Extract<CanvasDrawCommand, { op: "fillText" }> = {
         op: "fillText",
         text: prepareCanvasText(text),
-        x: point[0],
-        y: point[1],
+        x: finite(x),
+        y: finite(y),
         color: solidPaint(state.fillStyle, "fillText()"),
         alpha: state.globalAlpha,
-        fontSize: font.size * textScale(state.transform),
+        fontSize: font.size,
         fontFamily: font.family,
         align: state.textAlign,
         baseline: state.textBaseline,
+        transform: cloneMatrix(state.transform),
       }
       if (font.weight !== undefined) command.fontWeight = font.weight
       commands.push(withCanvasClip(command, state.clip))
       changed()
     },
   }
-  // SAFETY: this host object deliberately implements the Canvas2D subset supported by protocol v4.
+  // SAFETY: this host object deliberately implements the Canvas2D subset supported by protocol v5.
   // Browser-compiled source still sees the standard CanvasRenderingContext2D contract; unsupported
   // operations are absent or fail closed rather than being serialized incorrectly.
   const canvasContext = context as GpuixCanvasRenderingContext2D
@@ -872,33 +872,19 @@ function assertSimilarityTransform(matrix: CanvasMatrix, operation: string): voi
     Math.abs(scaleX - scaleY) > scaleTolerance ||
     Math.abs(a * c + b * d) > orthogonalTolerance
   ) {
-    throw new Error(`GPUix Canvas2D v4 requires a rotation/reflection + uniform scale transform for ${operation}`)
-  }
-}
-
-function assertTextTransform(matrix: CanvasMatrix): void {
-  const [a, b, c, d] = matrix
-  const tolerance = Math.max(1, Math.abs(a), Math.abs(d)) * 1e-6
-  if (
-    a <= Number.EPSILON ||
-    d <= Number.EPSILON ||
-    Math.abs(a - d) > tolerance ||
-    Math.abs(b) > tolerance ||
-    Math.abs(c) > tolerance
-  ) {
-    throw new Error("GPUix Canvas2D v4 requires translation + positive uniform scale for fillText()")
+    throw new Error(`GPUix Canvas2D v5 requires a rotation/reflection + uniform scale transform for ${operation}`)
   }
 }
 
 function assertSupportedStrokeState(state: CanvasState): void {
   if (state.lineCap !== "butt") {
-    throw new Error(`GPUix Canvas2D v4 does not support lineCap=${JSON.stringify(state.lineCap)}`)
+    throw new Error(`GPUix Canvas2D v5 does not support lineCap=${JSON.stringify(state.lineCap)}`)
   }
   if (state.lineJoin !== "miter") {
-    throw new Error(`GPUix Canvas2D v4 does not support lineJoin=${JSON.stringify(state.lineJoin)}`)
+    throw new Error(`GPUix Canvas2D v5 does not support lineJoin=${JSON.stringify(state.lineJoin)}`)
   }
   if (state.miterLimit !== 10) {
-    throw new Error(`GPUix Canvas2D v4 does not support miterLimit=${state.miterLimit}`)
+    throw new Error(`GPUix Canvas2D v5 does not support miterLimit=${state.miterLimit}`)
   }
 }
 
@@ -986,7 +972,7 @@ function transformStoredPath(
 function cloneCommand(command: CanvasDrawCommand): CanvasDrawCommand {
   let clone: CanvasDrawCommand
   if (command.op === "fillText") {
-    clone = { ...command }
+    clone = { ...command, transform: cloneMatrix(command.transform) }
   } else if (command.op === "drawImage") {
     clone = {
       ...command,
@@ -1228,7 +1214,7 @@ function intersectCanvasClips(
 
   if (currentRounded && nextRounded) {
     if (!sameRoundedClip(current, next)) {
-      throw new Error("GPUix Canvas2D v4 supports one rounded clip combined with rectangular clips")
+      throw new Error("GPUix Canvas2D v5 supports one rounded clip combined with rectangular clips")
     }
     const result = cloneCanvasClip(current)
     const currentScissor = current.scissor ?? clipBounds(current)
@@ -1715,7 +1701,7 @@ function finiteMatrix(
     e === undefined || !Number.isFinite(e) ||
     f === undefined || !Number.isFinite(f)
   ) {
-    throw new TypeError("GPUix Canvas2D v4 supports only the six-number setTransform() overload")
+    throw new TypeError("GPUix Canvas2D v5 supports only the six-number setTransform() overload")
   }
   return [a, b, c, d, e, f]
 }
@@ -1867,7 +1853,7 @@ function finite(value: number): number {
 function stringPaint(value: string | CanvasGradient | CanvasPattern, property: string): string {
   const serialized = String(value)
   if (value !== serialized) {
-    throw new TypeError(`GPUix Canvas2D v4 supports string ${property} values only`)
+    throw new TypeError(`GPUix Canvas2D v5 supports string ${property} values only`)
   }
   return serialized
 }
@@ -1875,10 +1861,10 @@ function stringPaint(value: string | CanvasGradient | CanvasPattern, property: s
 function parseFont(value: string): ParsedFont {
   const match = value.trim().match(/^(?:(normal|italic|oblique)\s+)?(?:(normal|bold|\d{1,4})\s+)?(\d+(?:\.\d+)?)px\s+(.+)$/)
   if (!match) {
-    throw new TypeError(`GPUix Canvas2D v4 cannot represent font ${JSON.stringify(value)}`)
+    throw new TypeError(`GPUix Canvas2D v5 cannot represent font ${JSON.stringify(value)}`)
   }
   if (match[1] && match[1] !== "normal") {
-    throw new TypeError(`GPUix Canvas2D v4 cannot represent font style ${JSON.stringify(match[1])}`)
+    throw new TypeError(`GPUix Canvas2D v5 cannot represent font style ${JSON.stringify(match[1])}`)
   }
   const size = Number(match[3])
   const family = match[4]?.trim()
@@ -1894,7 +1880,7 @@ function parseFont(value: string): ParsedFont {
     !family ||
     (weight !== undefined && (!Number.isInteger(weight) || weight < 1 || weight > 1000))
   ) {
-    throw new TypeError(`GPUix Canvas2D v4 cannot represent font ${JSON.stringify(value)}`)
+    throw new TypeError(`GPUix Canvas2D v5 cannot represent font ${JSON.stringify(value)}`)
   }
   return weight === undefined ? { size, family } : { size, family, weight }
 }
