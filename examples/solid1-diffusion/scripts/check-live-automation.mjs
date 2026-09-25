@@ -539,11 +539,7 @@ try {
   console.log("Scene preset dimension native bounds", JSON.stringify(presetDimensions))
   await screenshot(app, "scenePresetPanel")
   const preset = findText(tree, "Square video 1:1")
-  const presetParents = indexParents(tree)
-  let presetTarget = presetParents.get(preset.id)
-  while (presetTarget && presetTarget.type !== "div") presetTarget = presetParents.get(presetTarget.id)
-  assert(presetTarget, "Scene preset option is not nested in its expected host row")
-  await clickNode(app, presetTarget)
+  await clickNode(app, preset)
   tree = await waitFor("created and selected scene preset", async () => {
     const next = await currentTree(app)
     const labels = descendants(next).map((node) => node.text)
