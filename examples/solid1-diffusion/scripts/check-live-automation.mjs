@@ -13,6 +13,7 @@ const screenshots = {
   rectangle: "/tmp/diffusion-rectangle-drawn.png",
   rectangleMoved: "/tmp/diffusion-rectangle-moved.png",
   rectangleResized: "/tmp/diffusion-rectangle-resized.png",
+  rectangleRotated: "/tmp/diffusion-rectangle-rotated.png",
   aiPrompt: "/tmp/diffusion-ai-prompt.png",
   textEdit: "/tmp/diffusion-text-edit.png",
   timeline: "/tmp/diffusion-timeline-interaction.png",
@@ -173,6 +174,50 @@ function assertInspectorShowsTransformControls(root) {
     assert(content.includes(label), `Inspector did not show ${label} after layer-row selection`)
   }
   assert(!content.includes("Background"), "Inspector still showed Background after selecting the layer row")
+}
+
+async function clickInspectorTooltipControl(app, root, rowLabel, tooltipText) {
+  const label = findText(root, rowLabel)
+  const parents = indexParents(root)
+  let row = parents.get(label.id)
+  while (row && !descendants(row).some((node) => node.type === "input" && node.bounds)) {
+    row = parents.get(row.id)
+  }
+  assert(row?.bounds, `Could not find Inspector row ${JSON.stringify(rowLabel)}`)
+
+  const input = descendants(row).find((node) => node.type === "input" && node.bounds)
+  assert(input?.bounds, `Inspector row ${JSON.stringify(rowLabel)} has no input`)
+
+  const inputRight = input.bounds.x + input.bounds.width
+  const rowBottom = row.bounds.y + row.bounds.height
+  const points = []
+  const seen = new Set()
+  for (const node of descendants(row)) {
+    const bounds = node.bounds
+    if (!bounds || bounds.width < 16 || bounds.height < 16) continue
+    if (bounds.x + bounds.width / 2 <= inputRight + 2) continue
+    if (bounds.y < row.bounds.y - 1 || bounds.y + bounds.height > rowBottom + 1) continue
+    const point = {
+      x: bounds.x + bounds.width / 2,
+      y: bounds.y + bounds.height / 2,
+    }
+    const key = `${Math.round(point.x)}:${Math.round(point.y)}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    points.push(point)
+  }
+  points.sort((left, right) => left.x - right.x)
+
+  for (const point of points) {
+    await app.mouse.move(point)
+    await delay(500)
+    const next = await currentTree(app)
+    if (descendants(next).some((node) => node.text === tooltipText)) {
+      await physicalClick(app, point)
+      return
+    }
+  }
+  throw new Error(`Could not find ${JSON.stringify(tooltipText)} in Inspector row ${JSON.stringify(rowLabel)}`)
 }
 
 function getEditorCanvases(root) {
@@ -344,6 +389,23 @@ try {
   await delay(240)
   tree = await getFreshTree(app)
   assertText(tree, "Rect 1", "resized rectangle layer after engine frames")
+
+  // Use Diffusion's real Rotate 90 Inspector control. This drives the HUD through
+  // a non-identity text transform, which is the Canvas v5 path that previously
+  // failed closed before native paint.
+  await clickInspectorTooltipControl(app, tree, "Rotate", "Rotate 90")
+  await app.mouse.move(at(stage.bounds, 0.72, 0.72))
+  await delay(320)
+  tree = await getFreshTree(app)
+  assertInspectorShowsTransformControls(tree)
+  await screenshot(app, "rectangleRotated")
+  assert(
+    !readFileSync(screenshots.rectangleResized).equals(readFileSync(screenshots.rectangleRotated)),
+    "Rotate 90 did not produce a visible rotated-rectangle frame",
+  )
+  await delay(240)
+  tree = await getFreshTree(app)
+  assertText(tree, "Rect 1", "rotated rectangle layer after affine HUD paint")
 
   // AI prompt mounts from the copied Assets action; no generation request is sent.
   const generate = findText(tree, "Generate with AI")
