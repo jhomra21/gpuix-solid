@@ -133,7 +133,7 @@ new file mode 100644
 +
 +use super::{CustomElement, CustomElementFactory, CustomRenderContext};
 +
-+pub const CANVAS_DRAW_LIST_VERSION: u32 = 4;
++pub const CANVAS_DRAW_LIST_VERSION: u32 = 5;
 +
 +#[derive(Clone, Debug, Deserialize)]
 +#[serde(rename_all = "camelCase")]
@@ -219,6 +219,7 @@ new file mode 100644
 +        font_weight: Option<f32>,
 +        align: String,
 +        baseline: String,
++        transform: [f32; 6],
 +        #[serde(default)]
 +        clip: Option<CanvasClipRect>,
 +    },
@@ -551,6 +552,7 @@ new file mode 100644
 +            font_size,
 +            font_family,
 +            font_weight,
++            transform,
 +            ..
 +        } = command
 +        else {
@@ -574,7 +576,7 @@ new file mode 100644
 +        };
 +        let shaped = window.text_system().shape_line(
 +            gpui::SharedString::from(text.clone()),
-+            gpui::px((*font_size * text_scale).max(0.01)),
++            gpui::px((*font_size * canvas_text_transform_scale(transform) * text_scale).max(0.01)),
 +            &[run],
 +            None,
 +        );
@@ -647,42 +649,95 @@ new file mode 100644
 +                }
 +            }
 +            CanvasDrawCommand::FillText {
++                text,
 +                x,
 +                y,
++                color,
++                alpha,
 +                font_size,
++                font_family,
++                font_weight,
 +                align,
 +                baseline,
++                transform,
 +                ..
 +            } => {
 +                let Some(Some(line)) = prepared.text.get(index) else {
 +                    continue;
 +                };
++                let Some(color) = canvas_color(color, *alpha) else {
++                    continue;
++                };
++                let transform_scale = canvas_text_transform_scale(transform);
++                let font_size = (*font_size * transform_scale * text_scale).max(0.01);
 +                let width = f32::from(line.width());
-+                let x = bounds.origin.x
-+                    + gpui::px(*x * scale_x)
-+                    - gpui::px(match align.as_str() {
-+                        "center" => width / 2.0,
-+                        "right" | "end" => width,
-+                        _ => 0.0,
-+                    });
-+                let font_size = (*font_size * text_scale).max(0.01);
++                let align_offset = match align.as_str() {
++                    "center" => width / 2.0,
++                    "right" | "end" => width,
++                    _ => 0.0,
++                };
 +                let y_offset = match baseline.as_str() {
 +                    "top" | "hanging" => 0.0,
 +                    "middle" => font_size * 0.5,
 +                    "bottom" | "ideographic" => font_size,
 +                    _ => font_size * 0.8,
 +                };
-+                let origin = gpui::point(
-+                    x,
-+                    bounds.origin.y + gpui::px(*y * scale_y - y_offset),
++                let transformed = canvas_text_transform_point(*x, *y, transform);
++                let anchor = gpui::point(
++                    bounds.origin.x + gpui::px(transformed.0 * scale_x),
++                    bounds.origin.y + gpui::px(transformed.1 * scale_y),
 +                );
++                let linear = canvas_text_screen_linear(transform, scale_x, scale_y);
++
++                if canvas_text_linear_is_identity(linear) {
++                    let origin = gpui::point(
++                        anchor.x - gpui::px(align_offset),
++                        anchor.y - gpui::px(y_offset),
++                    );
++                    paint_with_clip(command.clip(), draw_list, bounds, window, |window| {
++                        let _ = line.paint(
++                            origin,
++                            gpui::px(font_size),
++                            gpui::TextAlign::Left,
++                            None,
++                            window,
++                            cx,
++                        );
++                    });
++                    continue;
++                }
++
++                // GPUI's glyph paint API fixes sprite transforms to identity. For rotated
++                // Canvas text, rasterize the already-shaped line as a compact SVG alpha mask
++                // and apply GPUI's public sprite TransformationMatrix around the Canvas anchor.
++                // The fast glyph path above remains active for the common unrotated case.
++                let pad = 2.0_f32;
++                let svg_width = (width + pad * 2.0).max(1.0);
++                let svg_height = (font_size * 1.2 + pad * 2.0).max(1.0);
++                let svg_bounds = gpui::Bounds {
++                    origin: gpui::point(
++                        anchor.x - gpui::px(align_offset + pad),
++                        anchor.y - gpui::px(y_offset + pad),
++                    ),
++                    size: gpui::size(gpui::px(svg_width), gpui::px(svg_height)),
++                };
++                let svg = canvas_text_svg(
++                    text,
++                    font_family,
++                    font_weight.unwrap_or(400.0),
++                    font_size,
++                    svg_width,
++                    svg_height,
++                    pad,
++                );
++                let transformation = canvas_text_gpui_transform(linear, anchor, window.scale_factor());
 +                paint_with_clip(command.clip(), draw_list, bounds, window, |window| {
-+                    let _ = line.paint(
-+                        origin,
-+                        gpui::px(font_size),
-+                        gpui::TextAlign::Left,
-+                        None,
-+                        window,
++                    let _ = window.paint_svg(
++                        svg_bounds,
++                        gpui::SharedString::from(svg.clone()),
++                        Some(svg.as_bytes()),
++                        transformation,
++                        color,
 +                        cx,
 +                    );
 +                });
@@ -915,6 +970,87 @@ new file mode 100644
 +            CanvasPathSegment::ClosePath => builder.close(),
 +        }
 +    }
++}
++
++fn canvas_text_transform_scale(transform: &[f32; 6]) -> f32 {
++    let scale_x = transform[0].hypot(transform[1]);
++    let scale_y = transform[2].hypot(transform[3]);
++    ((scale_x + scale_y) / 2.0).max(0.0001)
++}
++
++fn canvas_text_transform_point(x: f32, y: f32, transform: &[f32; 6]) -> (f32, f32) {
++    (
++        transform[0] * x + transform[2] * y + transform[4],
++        transform[1] * x + transform[3] * y + transform[5],
++    )
++}
++
++fn canvas_text_screen_linear(
++    transform: &[f32; 6],
++    surface_scale_x: f32,
++    surface_scale_y: f32,
++) -> [[f32; 2]; 2] {
++    let scale = canvas_text_transform_scale(transform);
++    let safe_x = surface_scale_x.abs().max(0.0001);
++    let safe_y = surface_scale_y.abs().max(0.0001);
++    [
++        [transform[0] / scale, transform[2] / scale * safe_x / safe_y],
++        [transform[1] / scale * safe_y / safe_x, transform[3] / scale],
++    ]
++}
++
++fn canvas_text_linear_is_identity(linear: [[f32; 2]; 2]) -> bool {
++    let tolerance = 1e-5_f32;
++    (linear[0][0] - 1.0).abs() <= tolerance
++        && linear[0][1].abs() <= tolerance
++        && linear[1][0].abs() <= tolerance
++        && (linear[1][1] - 1.0).abs() <= tolerance
++}
++
++fn canvas_text_gpui_transform(
++    linear: [[f32; 2]; 2],
++    anchor: gpui::Point<gpui::Pixels>,
++    scale_factor: f32,
++) -> gpui::TransformationMatrix {
++    let anchor_x = f32::from(anchor.x) * scale_factor;
++    let anchor_y = f32::from(anchor.y) * scale_factor;
++    gpui::TransformationMatrix {
++        rotation_scale: linear,
++        translation: [
++            anchor_x - linear[0][0] * anchor_x - linear[0][1] * anchor_y,
++            anchor_y - linear[1][0] * anchor_x - linear[1][1] * anchor_y,
++        ],
++    }
++}
++
++fn canvas_text_svg(
++    text: &str,
++    font_family: &str,
++    font_weight: f32,
++    font_size: f32,
++    width: f32,
++    height: f32,
++    pad: f32,
++) -> String {
++    let text = canvas_escape_xml_text(text);
++    let font_family = canvas_escape_xml_attribute(font_family);
++    format!(
++        r#"<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}"><text x="{pad}" y="{}" fill="#fff" font-family="{font_family}" font-size="{font_size}" font-weight="{font_weight}">{text}</text></svg>"#,
++        pad + font_size * 0.8,
++    )
++}
++
++fn canvas_escape_xml_text(value: &str) -> String {
++    value
++        .replace('&', "&amp;")
++        .replace('<', "&lt;")
++        .replace('>', "&gt;")
++}
++
++fn canvas_escape_xml_attribute(value: &str) -> String {
++    canvas_escape_xml_text(value)
++        .replace('"', "&quot;")
++        .replace('\'', "&apos;")
 +}
 +
 +fn canvas_scale(
