@@ -570,7 +570,12 @@ function collectCandidates(sources) {
     const visit = (node) => {
       if (ts.isJsxAttribute(node)) {
         const attributeName = node.name.text
-        if (attributeName === "class" || attributeName === "className") {
+        if (
+          attributeName === "class" ||
+          attributeName === "className" ||
+          attributeName.endsWith("Class") ||
+          attributeName.endsWith("ClassName")
+        ) {
           collectClassExpression(node.initializer, candidates)
           return
         }
