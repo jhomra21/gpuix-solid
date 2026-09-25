@@ -392,6 +392,7 @@ try {
     const next = await currentTree(app)
     return descendants(next).some((node) => node.type === "textarea") ? next : null
   })
+  assertText(tree, "Text 1", "new text entity while editing")
   let textArea = findNode(tree, (node) => node.type === "textarea", "text editing control")
   await app.getByType("textarea").fill("GPUix native text")
   await delay(220)
@@ -399,9 +400,13 @@ try {
   await screenshot(app, "textEdit")
   textArea = findNode(tree, (node) => node.type === "textarea", "text editing control after typing")
   await app.backend.keystrokes(textArea.id, "enter")
-  await delay(250)
-  tree = await getFreshTree(app)
-  assertText(tree, "Text 1", "committed text entity")
+  tree = await waitFor("committed Diffusion text entity", async () => {
+    const next = await currentTree(app)
+    const nodes = descendants(next)
+    return !nodes.some((node) => node.type === "textarea") && nodes.some((node) => node.text === "Text 1")
+      ? next
+      : null
+  })
   await screenshot(app, "textEdit")
   await clickNode(app, findText(tree, "GPUix rectangle"))
   tree = await getFreshTree(app)
