@@ -813,6 +813,20 @@ function installHostDomCompatibility(ownerDocument: CompatDocument): void {
         setHostProperty(this, "tabIndex", value)
       },
     },
+    href: reflectedStringProperty("href"),
+    src: reflectedStringProperty("src"),
+    accept: reflectedStringProperty("accept"),
+    download: reflectedStringProperty("download"),
+    multiple: {
+      configurable: true,
+      get(this: HostElementNode): boolean {
+        const value = this.props.get("multiple")
+        return value === true || value === ""
+      },
+      set(this: HostElementNode, value: boolean): void {
+        setHostProperty(this, "multiple", Boolean(value))
+      },
+    },
     firstChild: {
       configurable: true,
       get(this: HostElementNode): HostNode | null {
@@ -958,6 +972,18 @@ function matchesSelector(node: HostElementNode, selector: string): boolean {
     if (node.localName === part.toLowerCase()) return true
   }
   return false
+}
+
+function reflectedStringProperty(name: string): PropertyDescriptor {
+  return {
+    configurable: true,
+    get(this: HostElementNode): string {
+      return hostAttribute(this, name) ?? ""
+    },
+    set(this: HostElementNode, value: string): void {
+      setHostProperty(this, name, String(value))
+    },
+  }
 }
 
 function hostAttribute(node: HostElementNode, name: string): string | null {
