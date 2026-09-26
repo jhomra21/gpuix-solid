@@ -159,6 +159,36 @@ export function applyNativeStyleViewportSize(
   }
   return result
 }
+export function applyNativeStyleParentSize(
+  style: StyleDesc | undefined,
+  parentWidth: number | undefined,
+  parentHeight: number | undefined,
+): StyleDesc | undefined {
+  if (!style) return style
+  const result: StyleDesc = { ...style }
+
+  result.width = resolveRelativeDimension(result.width, parentWidth)
+  result.minWidth = resolveRelativeDimension(result.minWidth, parentWidth)
+  result.maxWidth = resolveRelativeDimension(result.maxWidth, parentWidth)
+  result.height = resolveRelativeDimension(result.height, parentHeight)
+  result.minHeight = resolveRelativeDimension(result.minHeight, parentHeight)
+  result.maxHeight = resolveRelativeDimension(result.maxHeight, parentHeight)
+
+  return result
+}
+
+function resolveRelativeDimension(
+  value: DimensionValue | undefined,
+  parentSize: number | undefined,
+): DimensionValue | undefined {
+  if (value === undefined || parentSize === undefined) return value
+  const numeric = Number(value)
+  if (Number.isFinite(numeric)) return numeric
+  const percentage = String(value).trim().match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))%$/)
+  if (!percentage) return value
+  return parentSize * Number(percentage[1]) / 100
+}
+
 export function applyNativeStyleParentPosition(
   style: StyleDesc | undefined,
   position: NativeStyleParentPosition | undefined,
