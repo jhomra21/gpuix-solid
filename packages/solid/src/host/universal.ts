@@ -581,7 +581,12 @@ function applyNativeStyleState(node: HostElementNode): void {
 
   setHostProperty(node, "style", resolvedStyle)
   appliedStyleNodes.add(node)
-  scheduleMeasuredParentSize(node, viewportStyle)
+  scheduleMeasuredParentSize(
+    node,
+    viewportStyle,
+    resolvedNativeNodeSize(node.parent, "x"),
+    resolvedNativeNodeSize(node.parent, "y"),
+  )
 }
 
 function nativeViewportSize(axis: "x" | "y"): number | undefined {
@@ -599,16 +604,25 @@ function resolvedNativeNodeSize(parent: HostParent | null, axis: "x" | "y"): num
   return axis === "x" ? measured?.width : measured?.height
 }
 
-function scheduleMeasuredParentSize(node: HostElementNode, sourceStyle: StyleDesc | undefined): void {
+function scheduleMeasuredParentSize(
+  node: HostElementNode,
+  sourceStyle: StyleDesc | undefined,
+  resolvedParentWidth: number | undefined,
+  resolvedParentHeight: number | undefined,
+): void {
   const parent = node.parent
   if (!sourceStyle || !parent || parent.kind !== "element") return
 
-  const needsWidth = hasPercentageDimension(sourceStyle.width)
+  const needsWidth = resolvedParentWidth === undefined && (
+    hasPercentageDimension(sourceStyle.width)
     || hasPercentageDimension(sourceStyle.minWidth)
     || hasPercentageDimension(sourceStyle.maxWidth)
-  const needsHeight = hasPercentageDimension(sourceStyle.height)
+  )
+  const needsHeight = resolvedParentHeight === undefined && (
+    hasPercentageDimension(sourceStyle.height)
     || hasPercentageDimension(sourceStyle.minHeight)
     || hasPercentageDimension(sourceStyle.maxHeight)
+  )
   if (!needsWidth && !needsHeight) return
   if (scheduledParentMeasurements.has(node)) return
   scheduledParentMeasurements.add(node)
@@ -616,26 +630,41 @@ function scheduleMeasuredParentSize(node: HostElementNode, sourceStyle: StyleDes
   queueMicrotask(() => {
     scheduledParentMeasurements.delete(node)
     const root = node.root
-    const currentParent = node.parent
-    if (!root || !node.nativeAlive || !currentParent || currentParent.kind !== "element" || !currentParent.nativeAlive) return
+    if (!root || !node.nativeAlive) return
+
+    const widthAnchor = needsWidth ? measurementAnchor(node.parent, "x") : undefined
+    const heightAnchor = needsHeight ? measurementAnchor(node.parent, "y") : undefined
+    if ((needsWidth && !widthAnchor) || (needsHeight && !heightAnchor)) return
 
     root.driver.flush()
-    const bounds = currentParent.getBoundingClientRect()
-    const next: MeasuredLayoutSize = {}
-    if (bounds.width > 0) next.width = bounds.width
-    if (bounds.height > 0) next.height = bounds.height
-    if ((needsWidth && next.width === undefined) || (needsHeight && next.height === undefined)) return
+    let changed = false
 
-    const previous = measuredLayoutSizes.get(currentParent)
-    const changed =
-      (needsWidth && previous?.width !== next.width) ||
-      (needsHeight && previous?.height !== next.height)
-    measuredLayoutSizes.set(currentParent, next)
+    for (const anchor of new Set([widthAnchor, heightAnchor].filter((value): value is HostElementNode => value !== undefined))) {
+      if (!anchor.nativeAlive) continue
+      const bounds = anchor.getBoundingClientRect()
+      const previous = measuredLayoutSizes.get(anchor)
+      const next: MeasuredLayoutSize = { ...previous }
+      if (anchor === widthAnchor && bounds.width > 0) next.width = bounds.width
+      if (anchor === heightAnchor && bounds.height > 0) next.height = bounds.height
+      if (anchor === widthAnchor && next.width !== undefined && previous?.width !== next.width) changed = true
+      if (anchor === heightAnchor && next.height !== undefined && previous?.height !== next.height) changed = true
+      measuredLayoutSizes.set(anchor, next)
+    }
+
     if (!changed) return
-
     reapplyNativeStyleSubtree(node)
     root.driver.flush()
   })
+}
+
+function measurementAnchor(parent: HostParent | null, axis: "x" | "y"): HostElementNode | undefined {
+  let current = parent
+  while (current && current.kind === "element") {
+    const value = axis === "x" ? current.style.width : current.style.height
+    if (!hasPercentageDimension(value)) return current
+    current = current.parent
+  }
+  return undefined
 }
 
 function hasPercentageDimension(value: DimensionValue | undefined): boolean {
