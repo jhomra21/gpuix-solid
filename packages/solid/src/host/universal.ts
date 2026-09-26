@@ -608,24 +608,26 @@ function applyNativeDisplayContentsProxy(
   const hasTextContent = node.children.some(
     (child) => child.kind === "text" && child.text.trim().length > 0,
   )
-  if (elementChildren.length !== 1 || hasTextContent) return style
+  const child = elementChildren[0]
+  if (!child || elementChildren.length !== 1 || hasTextContent) return style
 
-  const childStyle = elementChildren[0].style
-  return {
+  const childStyle = child.style
+  const proxy: StyleDesc = {
     ...style,
     display: "flex",
     flexDirection: parent.style.flexDirection ?? "row",
-    flexGrow: childStyle.flexGrow,
-    flexShrink: childStyle.flexShrink,
-    flexBasis: childStyle.flexBasis,
-    alignSelf: childStyle.alignSelf,
-    width: childStyle.width,
-    height: childStyle.height,
-    minWidth: childStyle.minWidth,
-    minHeight: childStyle.minHeight,
-    maxWidth: childStyle.maxWidth,
-    maxHeight: childStyle.maxHeight,
   }
+  if (childStyle.flexGrow !== undefined) proxy.flexGrow = childStyle.flexGrow
+  if (childStyle.flexShrink !== undefined) proxy.flexShrink = childStyle.flexShrink
+  if (childStyle.flexBasis !== undefined) proxy.flexBasis = childStyle.flexBasis
+  if (childStyle.alignSelf !== undefined) proxy.alignSelf = childStyle.alignSelf
+  if (childStyle.width !== undefined) proxy.width = childStyle.width
+  if (childStyle.height !== undefined) proxy.height = childStyle.height
+  if (childStyle.minWidth !== undefined) proxy.minWidth = childStyle.minWidth
+  if (childStyle.minHeight !== undefined) proxy.minHeight = childStyle.minHeight
+  if (childStyle.maxWidth !== undefined) proxy.maxWidth = childStyle.maxWidth
+  if (childStyle.maxHeight !== undefined) proxy.maxHeight = childStyle.maxHeight
+  return proxy
 }
 
 function refreshNativeDisplayContentsNode(node: HostParent | null): void {
