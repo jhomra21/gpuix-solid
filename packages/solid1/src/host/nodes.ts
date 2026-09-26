@@ -852,7 +852,10 @@ export function insertHostNode(parent: HostParent, node: HostNode, anchor?: Host
   node.parent = parent
   if (parent.kind === "root" && node.kind === "element") mountedHostRootElements.add(node)
 
-  if (root) refreshInheritedPointerEvents(node)
+  if (root) {
+    refreshInheritedPointerEvents(node)
+    refreshInheritedTextColor(node)
+  }
   if (!root) return
   if (parent.kind === "root") {
     root.driver.enqueue("setRoot", node.id)
