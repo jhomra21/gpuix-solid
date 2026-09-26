@@ -368,6 +368,8 @@ export type DomCompatTarget = EventTarget & {
   classList: {
     add: (...tokens: string[]) => void
     remove: (...tokens: string[]) => void
+    contains: (token: string) => boolean
+    toggle: (token: string, force?: boolean) => boolean
   }
   focus: () => void
   blur: () => void
