@@ -10,6 +10,7 @@ const timeoutMs = 20_000
 const screenshots = {
   initial: "/tmp/diffusion-editor-initial.png",
   layerInspector: "/tmp/diffusion-layer-inspector.png",
+  inspectorScrolled: "/tmp/diffusion-inspector-scrolled.png",
   rectangle: "/tmp/diffusion-rectangle-drawn.png",
   rectangleMoved: "/tmp/diffusion-rectangle-moved.png",
   rectangleResized: "/tmp/diffusion-rectangle-resized.png",
@@ -24,6 +25,7 @@ const screenshots = {
   zoomMenu: "/tmp/diffusion-zoom-dropdown.png",
   moveHandMenu: "/tmp/diffusion-move-hand-dropdown.png",
   assetsMenu: "/tmp/diffusion-assets-dropdown.png",
+  chat: "/tmp/diffusion-chat.png",
   contextMenu: "/tmp/diffusion-context-menu.png",
   hiddenUi: "/tmp/diffusion-hidden-ui.png",
   final: "/tmp/gpuix-solid1-diffusion-live-automation.png",
@@ -205,6 +207,33 @@ function assertInspectorAppearanceRowsStack(root) {
   )
 }
 
+function assertInspectorSectionColors(root) {
+  const layout = findText(root, "Layout")
+  const expected = layout.style?.color
+  assert(typeof expected === "string" && expected.length > 0, "Layout heading has no native foreground color")
+  for (const label of ["Time", "Transform", "Appearance"]) {
+    const heading = findText(root, label)
+    assert(
+      heading.style?.color === expected,
+      `${label} heading did not inherit the Inspector foreground color: ${JSON.stringify({
+        expected,
+        actual: heading.style?.color,
+      })}`,
+    )
+  }
+}
+
+function assertPopupOccludes(root, label) {
+  const parents = indexParents(root)
+  let current = findText(root, label)
+  while (current && current.type !== "anchored") current = parents.get(current.id)
+  assert(current, `${label} popup has no native anchored layer`)
+  assert(
+    current.customProps?.occlude === true,
+    `${label} popup is not an occluding native layer: ${JSON.stringify(current.customProps)}`,
+  )
+}
+
 function getEditorCanvases(root) {
   const editor = findNode(root, (node) => node.testId === "diffusion-source-editor", "Diffusion EditorPage")
   return descendants(editor).filter((node) => node.type === "canvas" && node.bounds)
@@ -226,14 +255,9 @@ async function getFreshTree(app) {
 }
 
 async function openProjectMenu(app) {
-  const tree = await getFreshTree(app)
-  const candidates = descendants(tree).filter((node) => {
-    const b = node.bounds
-    return node.type === "svg" && b && b.x >= 0 && b.x < 60 && b.y >= 40 && b.y < 90 && b.width >= 20 && b.height >= 20
-  })
-  candidates.sort((a, b) => a.bounds.x - b.bounds.x)
-  assert(candidates[0], "Could not identify the native project-menu trigger from the live header bounds")
-  await clickNode(app, candidates[0])
+  const trigger = app.getByTestId("diffusion-project-menu-trigger")
+  await trigger.waitFor()
+  await trigger.click()
   return await waitFor("project menu", async () => {
     const next = await currentTree(app)
     return descendants(next).some((node) => node.text === "File") && descendants(next).some((node) => node.text === "View")
@@ -343,11 +367,52 @@ try {
   tree = await getFreshTree(app)
   assertInspectorShowsTransformControls(tree)
   assertInspectorAppearanceRowsStack(tree)
-  await screenshot(app, "layerInspector")
+  assertInspectorSectionColors(tree)
 
+  // Exercise an actual Inspector field through its semantic input surface, then
+  // restore the seeded value so later canvas geometry remains deterministic.
+  const positionX = app.getByTestId("diffusion-inspector-position-x")
+  await positionX.waitFor()
+  await positionX.fill("121")
+  await positionX.press("enter")
+  tree = await waitFor("Inspector Position X edit", async () => {
+    const next = await currentTree(app)
+    const field = descendants(next).find((node) => node.testId === "diffusion-inspector-position-x")
+    return String(field?.customProps?.value ?? "") === "121" ? next : null
+  }, 4_000)
+  await positionX.fill("120")
+  await positionX.press("enter")
+  tree = await waitFor("Inspector Position X restore", async () => {
+    const next = await currentTree(app)
+    const field = descendants(next).find((node) => node.testId === "diffusion-inspector-position-x")
+    return String(field?.customProps?.value ?? "") === "120" ? next : null
+  }, 4_000)
+
+  // The right Inspector must own its wheel input and remain responsive. The
+  // source's ControlScrollArea is instrumented only in this acceptance build.
+  const inspectorScroll = app.getByTestId("diffusion-control-scroll-area-scroll")
+  await inspectorScroll.waitFor()
+  const sourceBefore = findText(tree, "Source").bounds?.y
+  assert(sourceBefore !== undefined, "Inspector Source heading has no initial bounds")
+  await inspectorScroll.wheel(0, -220)
+  await delay(180)
+  tree = await getFreshTree(app)
+  const sourceAfter = findText(tree, "Source").bounds?.y
+  assert(sourceAfter !== undefined && Math.abs(sourceAfter - sourceBefore) >= 20, "Inspector wheel did not move its content")
+  await screenshot(app, "inspectorScrolled")
+  await inspectorScroll.wheel(0, 220)
+  await delay(180)
+  tree = await getFreshTree(app)
+  assertInspectorShowsTransformControls(tree)
+  assertInspectorSectionColors(tree)
+  await screenshot(app, "layerInspector")
 
   // Exercise DrawOverlay through its real toolbar + native pointer sequence.
   let parts = toolbarParts(tree)
+  assert(
+    (parts.rectangle.events ?? []).includes("click"),
+    `Rectangle toolbar control is not a native semantic click surface: ${JSON.stringify(parts.rectangle.events)}`,
+  )
   await clickNode(app, parts.rectangle)
   // The pinned fixture's 640×360 scene sits at 30% zoom inside EngineCanvas.
   // Draw in the scene's empty lower-right region, away from the seeded green
@@ -503,6 +568,7 @@ try {
 
   // Dropdowns are driven using real mouse-down/up; close them without changing project state.
   tree = await openProjectMenu(app)
+  assertPopupOccludes(tree, "File")
   await screenshot(app, "projectMenu")
   const viewTrigger = findText(tree, "View")
   await app.mouse.move({
@@ -522,18 +588,14 @@ try {
   assertText(tree, "38%", "project View > Zoom in action from the fixture's initial 30% zoom")
   await screenshot(app, "projectZoomed")
 
-  const zoomLabel = findText(tree, "38%")
-  const parents = indexParents(tree)
-  let zoomTrigger = parents.get(zoomLabel.id)
-  while (zoomTrigger && !(zoomTrigger.children ?? []).some((node) => node.type === "svg")) {
-    zoomTrigger = parents.get(zoomTrigger.id)
-  }
-  assert(zoomTrigger?.bounds, "Could not locate the Inspector zoom trigger")
-  await clickNode(app, zoomTrigger)
+  const zoomTrigger = app.getByTestId("diffusion-inspector-zoom-trigger")
+  await zoomTrigger.waitFor()
+  await zoomTrigger.click()
   tree = await waitFor("Inspector zoom menu", async () => {
     const next = await currentTree(app)
     return descendants(next).some((node) => node.text === "Zoom to 100%") ? next : null
   })
+  assertPopupOccludes(tree, "Zoom to 100%")
   await screenshot(app, "zoomMenu")
   await clickNode(app, findText(tree, "Zoom to 100%"))
   await delay(160)
@@ -617,16 +679,29 @@ try {
 
   // Channel navigation, timeline collapse/restore, and hide/restore are part of this native shell.
   tree = await getFreshTree(app)
-  await clickNode(app, findText(tree, "Chat"))
+  const chatTab = app.getByTestId("diffusion-sidebar-tab-chat")
+  await chatTab.waitFor()
+  await chatTab.click()
   tree = await waitFor("Chat composer", async () => {
     const next = await currentTree(app)
     return descendants(next).some((node) => node.type === "textarea") ? next : null
   })
-  await clickNode(app, findNode(
-    tree,
-    (node) => node.type === "text" && node.text === "Assets" && node.bounds?.width > 0 && node.bounds?.height > 0,
-    "visible Assets tab in the Chat header",
-  ))
+  await delay(400)
+  tree = await getFreshTree(app)
+  assert(descendants(tree).some((node) => node.type === "textarea"), "Chat composer disappeared after settling")
+  const chatComposer = app.getByType("textarea")
+  await chatComposer.fill("GPUix chat smoke")
+  await delay(120)
+  tree = await getFreshTree(app)
+  const composerNode = descendants(tree).find((node) => node.type === "textarea")
+  assert(
+    String(composerNode?.customProps?.value ?? "").includes("GPUix chat smoke"),
+    `Chat composer did not accept native text input: ${JSON.stringify(composerNode?.customProps)}`,
+  )
+  await screenshot(app, "chat")
+  const assetsTab = app.getByTestId("diffusion-sidebar-tab-assets")
+  await assetsTab.waitFor()
+  await assetsTab.click()
   tree = await getFreshTree(app)
   assertText(tree, "Generate with AI", "Assets restored after Chat navigation")
   assert(!descendants(tree).some((node) => node.type === "textarea"), "Chat composer remained mounted after returning to Assets")
@@ -719,17 +794,17 @@ try {
     timelineBounds: restoredTimeline.bounds,
     checks: [
       "initial EditorPage and both canvases paint",
-      "layer-row selection updates the Inspector and canvas gestures operate on the selected entity",
-      "Rectangle draw, move, and resize keep the HUD and native engine responsive",
+      "layer-row selection updates the Inspector; inherited heading color, Position X input, and Inspector wheel interaction work",
+      "Rectangle toolbar activation plus draw, move, and resize keep the HUD and native engine responsive",
       "Generate with AI mounts and closes without submitting",
       "Text placement, native textarea entry, and Enter commit",
       "timeline ruler seek and drag move the playhead without getTransform errors",
       "blank-stage marquee drag completes",
-      "project/View and Inspector zoom dropdowns open and execute actions",
+      "project/View and Inspector zoom dropdowns open as occluding native layers and execute actions",
       "Move/Hand dropdown opens and both choices work",
       "Assets plus menu opens",
       "layer context menu opens and closes without destructive selection",
-      "Assets/Chat navigation and timeline minimize/restore work",
+      "Assets/Chat navigation, Chat composer input, and timeline minimize/restore work",
       "Hide/restore UI removes and restores the editor chrome",
       "fixture Play/Pause traverses AudioContext.resume() without claiming real audio playback",
     ],
