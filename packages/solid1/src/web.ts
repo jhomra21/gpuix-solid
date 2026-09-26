@@ -550,7 +550,7 @@ function createBrowserStyleProxy(
   style: BrowserStyleDeclaration,
 ): BrowserStyleDeclaration {
   return new Proxy(style, {
-    get(current, property, receiver) {
+    get(current, property) {
       if (property === "setProperty") {
         return (name: string, value: string, priority?: string) => {
           current.setProperty(name, value, priority)
@@ -566,6 +566,7 @@ function createBrowserStyleProxy(
           return previous
         }
       }
+      // SAFETY: Proxy property reads originate from the BrowserStyleDeclaration object or its installed methods.
       return current[property as keyof BrowserStyleDeclaration]
     },
     set(current, property, value, receiver) {
