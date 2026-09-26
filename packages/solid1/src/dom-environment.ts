@@ -706,6 +706,10 @@ function installHostDomCompatibility(ownerDocument: CompatDocument): void {
       configurable: true,
       value(this: HostElementNode, name: string, value: string): void {
         registerKnownRoot(this)
+        if (name === "class") {
+          this.className = String(value)
+          return
+        }
         setHostProperty(this, name, String(value))
       },
     },
@@ -713,6 +717,10 @@ function installHostDomCompatibility(ownerDocument: CompatDocument): void {
       configurable: true,
       value(this: HostElementNode, name: string): void {
         registerKnownRoot(this)
+        if (name === "class") {
+          this.className = ""
+          return
+        }
         setHostProperty(this, name, undefined)
       },
     },
@@ -890,6 +898,10 @@ function matchesSelector(node: HostElementNode, selector: string): boolean {
       if (hostAttribute(node, "id") === part.slice(1)) return true
       continue
     }
+    if (part.startsWith(".")) {
+      if (node.classList.contains(part.slice(1))) return true
+      continue
+    }
     if (part.startsWith("[") && part.endsWith("]")) {
       const expression = part.slice(1, -1).trim()
       const separator = expression.indexOf("=")
@@ -908,6 +920,7 @@ function matchesSelector(node: HostElementNode, selector: string): boolean {
 }
 
 function hostAttribute(node: HostElementNode, name: string): string | null {
+  if (name === "class") return node.className || null
   const value = node.props.get(name)
   return value === undefined || value === null ? null : String(value)
 }
