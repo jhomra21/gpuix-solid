@@ -95,6 +95,14 @@ export function hasDelegatedNativeHandler(target: DomCompatTarget, nativeEventTy
   return false
 }
 
+export function delegatedNativeEventTypesForTarget(target: DomCompatTarget): string[] {
+  const owned: string[] = []
+  for (const nativeEventType of delegatedNativeEventTypes) {
+    if (hasDelegatedNativeHandler(target, nativeEventType)) owned.push(nativeEventType)
+  }
+  return owned
+}
+
 type GlobalEventHandler = (event: EventPayload) => void
 const globalListeners = new Map<string, Set<GlobalEventHandler>>()
 const EVENT_STATE = new WeakMap<object, { defaultPrevented: boolean; propagationStopped: boolean }>()
