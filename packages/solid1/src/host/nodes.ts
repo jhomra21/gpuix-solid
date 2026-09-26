@@ -230,6 +230,46 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     return this.children[0] ?? null
   }
 
+  get firstElementChild(): HostElementNode | null {
+    return this.children.find((child): child is HostElementNode => child.kind === "element") ?? null
+  }
+
+  get lastElementChild(): HostElementNode | null {
+    for (let index = this.children.length - 1; index >= 0; index -= 1) {
+      const child = this.children[index]
+      if (child?.kind === "element") return child
+    }
+    return null
+  }
+
+  get childElementCount(): number {
+    let count = 0
+    for (const child of this.children) if (child.kind === "element") count += 1
+    return count
+  }
+
+  get previousElementSibling(): HostElementNode | null {
+    const parent = this.parent
+    if (!parent) return null
+    const index = parent.children.indexOf(this)
+    for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+      const sibling = parent.children[cursor]
+      if (sibling?.kind === "element") return sibling
+    }
+    return null
+  }
+
+  get nextElementSibling(): HostElementNode | null {
+    const parent = this.parent
+    if (!parent) return null
+    const index = parent.children.indexOf(this)
+    for (let cursor = index + 1; cursor < parent.children.length; cursor += 1) {
+      const sibling = parent.children[cursor]
+      if (sibling?.kind === "element") return sibling
+    }
+    return null
+  }
+
   get nextSibling(): HostNode | null {
     const parent = this.parent
     if (!parent) return null
