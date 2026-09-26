@@ -11,6 +11,7 @@ import {
   setHostProperty,
   type HostNode,
 } from "./host/nodes.js"
+import type { ElementType } from "./host/types.js"
 
 type CompatListener = (event: Event) => void
 
@@ -665,11 +666,20 @@ function createDocumentNode(
 }
 
 function createCompatElement(tagName: string): HostElementNode {
-  return createHostElement("div", tagName.toLowerCase())
+  const localName = tagName.toLowerCase()
+  return createHostElement(nativeCompatElementType(localName), localName)
 }
 
 function createCompatNamespacedElement(qualifiedName: string): HostElementNode {
   return createHostElement("div", qualifiedName)
+}
+
+function nativeCompatElementType(tagName: string): ElementType {
+  if (tagName === "input" || tagName === "textarea" || tagName === "img" || tagName === "canvas") {
+    return tagName
+  }
+  if (tagName === "video-frame") return "video-frame"
+  return "div"
 }
 
 function connectDocumentTree(body: CompatDocumentNode, documentElement: CompatDocumentNode): void {
