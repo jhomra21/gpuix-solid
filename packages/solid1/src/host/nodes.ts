@@ -598,6 +598,7 @@ export class HostTextNode {
 }
 
 const appliedTextPointerEvents = new WeakMap<HostTextNode, StyleDesc["pointerEvents"] | undefined>()
+const appliedTextColors = new WeakMap<HostTextNode, string | undefined>()
 
 export type HostNode = HostElementNode | HostTextNode
 export type HostParent = HostRootNode | HostElementNode
@@ -642,6 +643,7 @@ export function setHostProperty<T>(
 
   if (name === "style") {
     const previousPointerEvents = effectivePointerEvents(node)
+    const previousColor = node.style.color
     node.style = createHostStyleDeclaration(node, isStyle(value) ? value : {})
     if (node.root && node.nativeAlive) {
       const nextPointerEvents = effectivePointerEvents(node)
@@ -649,6 +651,9 @@ export function setHostProperty<T>(
       appliedPointerEvents.set(node, nextPointerEvents)
       if (previousPointerEvents !== nextPointerEvents) {
         for (const child of node.children) refreshInheritedPointerEvents(child)
+      }
+      if (previousColor !== node.style.color) {
+        for (const child of node.children) refreshInheritedTextColor(child)
       }
     }
     return
@@ -859,13 +864,24 @@ function inheritedTextPointerEvents(node: HostTextNode): StyleDesc["pointerEvent
   return undefined
 }
 
+function inheritedTextColor(node: HostTextNode): string | undefined {
+  let parent = node.parent
+  while (parent?.kind === "element") {
+    if (parent.style.color !== undefined) return parent.style.color
+    parent = parent.parent
+  }
+  return undefined
+}
+
 function nativeTextStyle(
   node: HostTextNode,
   pointerEvents = inheritedTextPointerEvents(node),
+  color = inheritedTextColor(node),
 ): StyleDesc {
   const layout = nativeTextLayoutStyle(node.text)
-  if (pointerEvents === undefined) return layout
-  return { ...layout, pointerEvents }
+  const style = color === undefined ? layout : { ...layout, color }
+  if (pointerEvents === undefined) return style
+  return { ...style, pointerEvents }
 }
 
 function canvasDimension(value: MutationValue | undefined, fallback: number): number {
@@ -959,6 +975,12 @@ function ownsExplicitPointerSurface(node: HostElementNode): boolean {
   return nativeEvents.has("mouseDown") || nativeEvents.has("mouseMove") || nativeEvents.has("mouseUp")
 }
 
+function delegatedSemanticPointerSurfaceActive(): boolean {
+  return isDelegatedNativeEvent("click")
+    || isDelegatedNativeEvent("mouseDown")
+    || isDelegatedNativeEvent("mouseUp")
+}
+
 function effectivePointerEvents(node: HostElementNode): StyleDesc["pointerEvents"] | undefined {
   // Preserve explicit source ownership first. In particular, a descendant
   // pointer-events:auto must be able to re-enable itself beneath an inherited none.
@@ -979,6 +1001,7 @@ function effectivePointerEvents(node: HostElementNode): StyleDesc["pointerEvents
     || node.events.has("dragOver")
     || node.events.has("drop")
     || (node.events.size > 0 && ownsSemanticHitSurface(node))
+    || (ownsSemanticHitSurface(node) && delegatedSemanticPointerSurfaceActive())
     || ownsExplicitPointerSurface(node)
   ) return "auto"
   return undefined
@@ -1006,25 +1029,49 @@ function nativeStyleFor(
   return { ...style, pointerEvents }
 }
 
+export function refreshHostPointerEvents(node: HostElementNode): void {
+  const nextPointerEvents = effectivePointerEvents(node)
+  const previousPointerEvents = appliedPointerEvents.get(node)
+  if (!node.root || !node.nativeAlive || previousPointerEvents === nextPointerEvents) return
+  // A transition back to undefined intentionally sends the base style once so
+  // a previously materialized auto/none value is cleared natively.
+  node.root.driver.enqueue("setStyle", node.id, nativeStyleFor(node, nextPointerEvents))
+  appliedPointerEvents.set(node, nextPointerEvents)
+}
+
 function refreshInheritedPointerEvents(node: HostNode): void {
   if (node.kind === "text") {
     const nextPointerEvents = inheritedTextPointerEvents(node)
     const previousPointerEvents = appliedTextPointerEvents.get(node)
     if (node.root && node.nativeAlive && previousPointerEvents !== nextPointerEvents) {
-      node.root.driver.enqueue("setStyle", node.id, nativeTextStyle(node, nextPointerEvents))
+      node.root.driver.enqueue(
+        "setStyle",
+        node.id,
+        nativeTextStyle(node, nextPointerEvents, inheritedTextColor(node)),
+      )
       appliedTextPointerEvents.set(node, nextPointerEvents)
     }
     return
   }
-  const nextPointerEvents = effectivePointerEvents(node)
-  const previousPointerEvents = appliedPointerEvents.get(node)
-  if (node.root && node.nativeAlive && previousPointerEvents !== nextPointerEvents) {
-    // A transition back to undefined intentionally sends the base style once so
-    // a previously materialized auto/none value is cleared natively.
-    node.root.driver.enqueue("setStyle", node.id, nativeStyleFor(node, nextPointerEvents))
-    appliedPointerEvents.set(node, nextPointerEvents)
-  }
+  refreshHostPointerEvents(node)
   for (const child of node.children) refreshInheritedPointerEvents(child)
+}
+
+function refreshInheritedTextColor(node: HostNode): void {
+  if (node.kind === "text") {
+    const nextColor = inheritedTextColor(node)
+    const previousColor = appliedTextColors.get(node)
+    if (node.root && node.nativeAlive && previousColor !== nextColor) {
+      node.root.driver.enqueue(
+        "setStyle",
+        node.id,
+        nativeTextStyle(node, inheritedTextPointerEvents(node), nextColor),
+      )
+      appliedTextColors.set(node, nextColor)
+    }
+    return
+  }
+  for (const child of node.children) refreshInheritedTextColor(child)
 }
 
 function createHostStyleDeclaration(node: HostElementNode, style: StyleDesc): HostStyleDeclaration {
@@ -1084,11 +1131,13 @@ function adopt(root: HostRootNode, node: HostNode): void {
   if (node.kind === "text") {
     root.driver.enqueue("setText", node.id, node.text)
     const pointerEvents = inheritedTextPointerEvents(node)
-    const nativeStyle = nativeTextStyle(node, pointerEvents)
+    const color = inheritedTextColor(node)
+    const nativeStyle = nativeTextStyle(node, pointerEvents, color)
     if (Object.keys(nativeStyle).length > 0) {
       root.driver.enqueue("setStyle", node.id, nativeStyle)
     }
     appliedTextPointerEvents.set(node, pointerEvents)
+    appliedTextColors.set(node, color)
   } else {
     root.events.setTarget(node.id, node)
     if (node.dragData !== undefined) root.events.setDragData(node.id, node.dragData)
