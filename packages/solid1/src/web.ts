@@ -218,6 +218,17 @@ function parseStaticTemplateAttributes(source: string): Array<[string, string]> 
 }
 
 function instantiateStaticTemplate(templateNode: StaticTemplateElement): HostElementNode {
+  const node = instantiateStaticTemplateNode(templateNode)
+  if (!(node instanceof HostElementNode)) {
+    throw new Error(`Expected host element for static <${templateNode.tagName}> template`)
+  }
+  return node
+}
+
+function instantiateStaticTemplateNode(templateNode: StaticTemplateNode): HostNode {
+  if (templateNode.kind === "text") return createTextNode(templateNode.value)
+  if (templateNode.tagName === "br") return createTextNode("\n")
+
   const node = createElement(templateNode.tagName)
   if (!(node instanceof HostElementNode)) {
     throw new Error(`Expected host element for static <${templateNode.tagName}> template`)
@@ -226,13 +237,7 @@ function instantiateStaticTemplate(templateNode: StaticTemplateElement): HostEle
   for (const [name, value] of templateNode.attributes) {
     setProp(node, name, name === "style" ? parseStaticStyleAttribute(value) : value)
   }
-  for (const child of templateNode.children) {
-    if (child.kind === "text") {
-      insertNode(node, createTextNode(child.value))
-      continue
-    }
-    insertNode(node, instantiateStaticTemplate(child))
-  }
+  for (const child of templateNode.children) insertNode(node, instantiateStaticTemplateNode(child))
   return node
 }
 
@@ -385,6 +390,7 @@ installDocumentStyleCompatibility()
 installComputedStyleCompatibility()
 installDocumentFocusCompatibility()
 installDocumentPointerCaptureCompatibility()
+installInnerHtmlCompatibility()
 installImperativeDomElementCompatibility()
 
 export function createDynamic<T extends ValidComponent>(
@@ -472,6 +478,26 @@ function installElementQueryCompatibility(): void {
       return null
     },
   })
+}
+
+function installInnerHtmlCompatibility(): void {
+  Object.defineProperty(HostElementNode.prototype, "innerHTML", {
+    configurable: true,
+    get(): string {
+      return ""
+    },
+    set(this: HostElementNode, value: string) {
+      setHostInnerHtml(this, String(value ?? ""))
+    },
+  })
+}
+
+function setHostInnerHtml(element: HostElementNode, html: string): void {
+  element.textContent = ""
+  if (!html) return
+
+  const wrapper = parseStaticTemplate(`<div>${html}</div>`)
+  for (const child of wrapper.children) insertNode(element, instantiateStaticTemplateNode(child))
 }
 
 function installImperativeDomElementCompatibility(): void {
