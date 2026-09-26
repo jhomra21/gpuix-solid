@@ -175,6 +175,23 @@ const usabilityTestHook = {
       }
     }
 
+    if (normalizedId.endsWith("/apps/web/src/components/timeline/layers/layers.tsx")) {
+      const scroller = `      <div
+        class="grid grid-cols-1 h-full absolute border-b border-border inset-0 overflow-hidden"
+        on:wheel={timeline.scroll}`
+      if (!code.includes(scroller)) throw new Error("Pinned Diffusion timeline layer scroller changed")
+      return {
+        code: code.replace(
+          scroller,
+          `      <div
+        testId="diffusion-timeline-layers-scroll"
+        class="grid grid-cols-1 h-full absolute border-b border-border inset-0 overflow-hidden"
+        on:wheel={timeline.scroll}`,
+        ),
+        map: null,
+      }
+    }
+
     if (normalizedId.endsWith("/apps/web/src/agent-chat/transcript.tsx")) {
       const items = `        <For each={props.items}>
           {(item) => <ChatItem item={item} />}
