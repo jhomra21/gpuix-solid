@@ -549,35 +549,45 @@ function createBrowserStyleProxy(
   element: HostElementNode,
   style: BrowserStyleDeclaration,
 ): BrowserStyleDeclaration {
-  return new Proxy(style, {
-    get(current, property) {
+  // SAFETY: the facade owns no style state; every property operation below forwards to the typed declaration.
+  const facade = {} as BrowserStyleDeclaration
+  return new Proxy(facade, {
+    get(_target, property) {
       if (property === "setProperty") {
         return (name: string, value: string, priority?: string) => {
-          current.setProperty(name, value, priority)
+          style.setProperty(name, value, priority)
           if (name.startsWith("--")) syncBrowserCustomPropertyMutation(element, name)
-          else syncBrowserStyleMutation(element, current)
+          else syncBrowserStyleMutation(element, style)
         }
       }
       if (property === "removeProperty") {
         return (name: string) => {
-          const previous = current.removeProperty(name)
+          const previous = style.removeProperty(name)
           if (name.startsWith("--")) syncBrowserCustomPropertyMutation(element, name)
-          else syncBrowserStyleMutation(element, current)
+          else syncBrowserStyleMutation(element, style)
           return previous
         }
       }
-      // SAFETY: Proxy property reads originate from the BrowserStyleDeclaration object or its installed methods.
-      return current[property as keyof BrowserStyleDeclaration]
+
+      // SAFETY: Proxy reads use keys supplied by BrowserStyleDeclaration consumers and forward them to that declaration.
+      return style[property as keyof BrowserStyleDeclaration]
     },
-    set(current, property, value, receiver) {
+    set(_target, property, value) {
       if (property === "cssText") {
-        applyBrowserCssText(current, String(value ?? ""))
-        syncBrowserStyleMutation(element, current)
+        applyBrowserCssText(style, String(value ?? ""))
+        syncBrowserStyleMutation(element, style)
         return true
       }
-      const updated = Reflect.set(current, property, value, receiver)
-      if (updated && isStringValue(property)) syncBrowserStyleMutation(element, current)
+      const updated = Reflect.set(style, property, value)
+      if (updated && isStringValue(property)) syncBrowserStyleMutation(element, style)
       return updated
+    },
+    ownKeys() {
+      return Object.getOwnPropertyNames(style)
+    },
+    getOwnPropertyDescriptor(_target, property) {
+      const descriptor = Object.getOwnPropertyDescriptor(style, property)
+      return descriptor ? { ...descriptor, configurable: true } : undefined
     },
   })
 }
