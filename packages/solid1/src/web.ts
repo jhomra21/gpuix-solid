@@ -5,7 +5,7 @@ import {
   type JSX,
   type ValidComponent,
 } from "solid-js"
-import { HostElementNode, setHostProperty, type HostRootNode } from "./host/nodes.js"
+import { HostElementNode, refreshHostPointerEvents, setHostProperty, type HostRootNode } from "./host/nodes.js"
 import { nativeEventTypeForBrowserEvent, registerDelegatedNativeEvent } from "./host/events.js"
 import { createComponent, createElement, createTextNode, effect, insert, insertNode, memo, setProp, spread, use } from "./universal.js"
 
@@ -322,6 +322,7 @@ function syncNativeDelegatedObservation(nativeEventType: string): void {
     if (!root || !candidate.nativeAlive) continue
     roots.add(root)
     root.driver.enqueue("setEventListener", candidate.id, nativeEventType, true)
+    refreshHostPointerEvents(candidate)
   }
   for (const root of roots) root.driver.flush()
 }
@@ -420,7 +421,10 @@ function promoteNativePopperPositioner(element: HostElementNode): void {
   setHostProperty(element, "snapMargin", 0)
   setHostProperty(element, "deferred", true)
   setHostProperty(element, "priority", 10)
-  setHostProperty(element, "occlude", false)
+  // Browser portals paint and hit-test above the editor surface. Native Kobalte
+  // positioners must own the same occluding layer or menus can appear behind
+  // canvases/panels and send clicks through to the content below.
+  setHostProperty(element, "occlude", true)
 }
 
 function isHostTag(component: ValidComponent): component is string {
