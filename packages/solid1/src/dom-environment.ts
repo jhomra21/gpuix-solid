@@ -133,6 +133,7 @@ type CompatComputedStyle = {
   overflow: string
   overflowX: string
   overflowY: string
+  scrollBehavior: string
   width: string
   height: string
   paddingLeft: string
@@ -144,6 +145,7 @@ type CompatComputedStyle = {
   filter: string
   willChange: string
   contain: string
+  getPropertyValue(name: string): string
 }
 
 type CompatGetComputedStyle = (element: Element, pseudoElement?: string | null) => CompatComputedStyle
@@ -1126,30 +1128,65 @@ function defaultRequestAnimationFrame(callback: (time: number) => void): ReturnT
   return globalThis.setTimeout(() => callback(Date.now()), 0)
 }
 
-function defaultComputedStyle(_element: Element, _pseudoElement?: string | null): CompatComputedStyle {
+function defaultComputedStyle(element: Element, _pseudoElement?: string | null): CompatComputedStyle {
+  const node = element instanceof HostElementNode ? element : undefined
+  const style = node?.style
+  const bounds = node?.getBoundingClientRect()
+  const overflow = cssString(style?.overflow, "visible")
+  const overflowX = cssString(style?.overflowX, overflow)
+  const overflowY = cssString(style?.overflowY, overflow)
+  const values = new Map<string, string>([
+    ["display", cssString(style?.display, "block")],
+    ["position", cssString(style?.position, "static")],
+    ["overflow", overflow],
+    ["overflow-x", overflowX],
+    ["overflow-y", overflowY],
+    ["scroll-behavior", style?.getPropertyValue("scroll-behavior") || "auto"],
+    ["width", `${bounds?.width ?? 0}px`],
+    ["height", `${bounds?.height ?? 0}px`],
+    ["padding-left", cssLength(style?.paddingLeft ?? style?.padding)],
+    ["padding-top", cssLength(style?.paddingTop ?? style?.padding)],
+    ["transform", style?.getPropertyValue("transform") || "none"],
+  ])
   return {
     animationName: "none",
     animationDuration: "0s",
     transitionDuration: "0s",
     transitionProperty: "none",
-    display: "block",
+    display: values.get("display")!,
     direction: "ltr",
-    position: "static",
-    overflow: "visible",
-    overflowX: "visible",
-    overflowY: "visible",
-    width: "0px",
-    height: "0px",
-    paddingLeft: "0px",
-    paddingTop: "0px",
-    transform: "none",
+    position: values.get("position")!,
+    overflow,
+    overflowX,
+    overflowY,
+    scrollBehavior: values.get("scroll-behavior")!,
+    width: values.get("width")!,
+    height: values.get("height")!,
+    paddingLeft: values.get("padding-left")!,
+    paddingTop: values.get("padding-top")!,
+    transform: values.get("transform")!,
     perspective: "none",
     containerType: "normal",
     backdropFilter: "none",
     filter: "none",
     willChange: "auto",
     contain: "none",
+    getPropertyValue(name) {
+      const normalized = String(name).trim().toLowerCase()
+      return values.get(normalized) ?? style?.getPropertyValue(name) ?? ""
+    },
   }
+}
+
+function cssString(value: unknown, fallback: string): string {
+  if (value === undefined || value === null || value === "") return fallback
+  return String(value)
+}
+
+function cssLength(value: unknown): string {
+  if (value === undefined || value === null || value === "") return "0px"
+  if (typeof value === "number") return `${value}px`
+  return String(value)
 }
 
 class CompatImageLoader implements CompatImage {
