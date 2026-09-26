@@ -569,6 +569,7 @@ function createDocumentNode(
 ): CompatDocumentNode {
   const upperTagName = tagName.toUpperCase()
   const attributes = new Map<string, string>()
+  const dataset = createLiveDataset(attributes)
   const classes = new Set<string>()
   const syncClassAttribute = () => {
     if (classes.size === 0) attributes.delete("class")
@@ -604,9 +605,7 @@ function createDocumentNode(
       if (tagName === "body") return [...activeDomRoots(), ...pendingBodyChildren]
       return activeBody ? [activeBody] : []
     },
-    get dataset() {
-      return datasetFromAttributes(attributes)
-    },
+    dataset,
     classList,
     get clientWidth() {
       return windowTarget.innerWidth ?? 800
@@ -1018,13 +1017,41 @@ function datasetFromHost(node: HostElementNode) {
   return dataset
 }
 
-function datasetFromAttributes(attributes: ReadonlyMap<string, string>) {
-  const dataset: CompatDataset = {}
-  for (const [name, value] of attributes) {
-    if (!name.startsWith("data-")) continue
-    dataset[dataAttributeProperty(name)] = value
-  }
-  return dataset
+function createLiveDataset(attributes: Map<string, string>): CompatDataset {
+  return new Proxy<CompatDataset>({}, {
+    get(_target, property) {
+      if (typeof property !== "string") return undefined
+      return attributes.get(dataPropertyAttribute(property))
+    },
+    set(_target, property, value) {
+      if (typeof property !== "string") return false
+      const name = dataPropertyAttribute(property)
+      if (value === undefined) attributes.delete(name)
+      else attributes.set(name, String(value))
+      return true
+    },
+    deleteProperty(_target, property) {
+      if (typeof property !== "string") return false
+      attributes.delete(dataPropertyAttribute(property))
+      return true
+    },
+    ownKeys() {
+      return [...attributes.keys()]
+        .filter((name) => name.startsWith("data-"))
+        .map(dataAttributeProperty)
+    },
+    getOwnPropertyDescriptor(_target, property) {
+      if (typeof property !== "string") return undefined
+      const value = attributes.get(dataPropertyAttribute(property))
+      return value === undefined
+        ? undefined
+        : { configurable: true, enumerable: true, writable: true, value }
+    },
+  })
+}
+
+function dataPropertyAttribute(property: string): string {
+  return "data-" + property.replace(/[A-Z]/g, (character) => `-${character.toLowerCase()}`)
 }
 
 function createCompatTreeWalker(
