@@ -912,6 +912,15 @@ export function setHostProperty<T>(
       (["mouseDown", "mouseMove", "mouseUp"] as const).map((nativeType) => [nativeType, hasNativeEventHandler(node, nativeType)]),
     )
     const handler = isHostEventHandler(value) ? value : undefined
+    if (name === "on:wheel") {
+      console.error("[gpuix-solid1 wheel probe] setHostProperty", JSON.stringify({
+        id: node.id,
+        nativeAlive: node.nativeAlive,
+        eventType,
+        nativeEventType,
+        handler: handler !== undefined,
+      }))
+    }
     if (handler) node.events.set(eventType, handler)
     else node.events.delete(eventType)
 
@@ -1438,6 +1447,12 @@ function adopt(root: HostRootNode, node: HostNode): void {
     for (const [eventType, handler] of node.events) {
       root.events.set(node.id, eventType, handler)
       const nativeEventType = nativeEventTypeForDomEvent(eventType)
+      if (eventType === "wheel") {
+        console.error("[gpuix-solid1 wheel probe] adopt", JSON.stringify({
+          id: node.id,
+          nativeEventType,
+        }))
+      }
       if (nativeEventType) nativeEventTypes.add(nativeEventType)
     }
     for (const nativeEventType of browserNativeEventTypes(node)) nativeEventTypes.add(nativeEventType)
