@@ -143,8 +143,10 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   #videoFrame: VideoFrameSurfaceFrame | null | undefined
   #scrollOffsetCache: number[] | null | undefined
   #scrollOffsetCacheQueued = false
-  #scrollViewportCache: { width: number; height: number } | undefined
+  #scrollViewportCache: HostViewportSize | undefined
   #scrollViewportCacheQueued = false
+  #scrollContentCache: HostViewportSize | undefined
+  #scrollContentCacheQueued = false
 
   constructor(type: ElementType, tagName: string = type) {
     this.type = type
@@ -325,6 +327,7 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
 
   invalidateScrollMeasurements(): void {
     this.#scrollViewportCache = undefined
+    this.#scrollContentCache = undefined
     this.#scrollOffsetCache = undefined
   }
 
@@ -353,11 +356,11 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   }
 
   get scrollWidth(): number {
-    return this.clientWidth
+    return this.scrollContentSize().width
   }
 
   get scrollHeight(): number {
-    return this.clientHeight
+    return this.scrollContentSize().height
   }
 
   get value(): string {
@@ -617,6 +620,52 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     return this.#scrollViewportCache
   }
 
+  private scrollContentSize(): HostViewportSize {
+    if (this.#scrollContentCache) return this.#scrollContentCache
+    const viewport = this.scrollViewportSize()
+    const root = this.root
+    if (!root || !this.nativeAlive) return viewport
+
+    root.driver.flush()
+    const renderer = root.driver.renderer as BoundsCapableRenderer
+    const own = renderer.getElementBounds?.(this.id)
+    if (!own || own.length < 4) return viewport
+
+    const offset = root.driver.renderer.getScrollOffset?.(this.id) ?? this.#scrollOffsetCache ?? null
+    const scrollLeft = -(offset?.[0] ?? 0)
+    const scrollTop = -(offset?.[1] ?? 0)
+    const originX = own[0] ?? 0
+    const originY = own[1] ?? 0
+    let width = viewport.width
+    let height = viewport.height
+    const pending = [...this.children]
+    while (pending.length > 0) {
+      const child = pending.pop()
+      if (!child || !child.nativeAlive) continue
+      const bounds = renderer.getElementBounds?.(child.id)
+      if (bounds && bounds.length >= 4) {
+        const right = (bounds[0] ?? 0) - originX + (bounds[2] ?? 0) + scrollLeft
+        const bottom = (bounds[1] ?? 0) - originY + (bounds[3] ?? 0) + scrollTop
+        width = Math.max(width, right)
+        height = Math.max(height, bottom)
+      }
+      for (const descendant of child.children) pending.push(descendant)
+    }
+
+    this.#scrollContentCache = {
+      width: Math.max(0, Math.ceil(width)),
+      height: Math.max(0, Math.ceil(height)),
+    }
+    if (!this.#scrollContentCacheQueued) {
+      this.#scrollContentCacheQueued = true
+      queueMicrotask(() => {
+        this.#scrollContentCacheQueued = false
+        this.#scrollContentCache = undefined
+      })
+    }
+    return this.#scrollContentCache
+  }
+
   private scrollOffset(): number[] | null {
     if (this.#scrollOffsetCache !== undefined) return this.#scrollOffsetCache
     const root = this.root
@@ -640,6 +689,7 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     const y = Math.max(0, top)
     root.driver.flush()
     root.driver.renderer.scrollTo?.(this.id, -x, -y)
+    this.#scrollContentCache = undefined
     this.#scrollOffsetCache = [-x, -y]
     if (!this.#scrollOffsetCacheQueued) {
       this.#scrollOffsetCacheQueued = true
