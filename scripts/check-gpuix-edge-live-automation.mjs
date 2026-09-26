@@ -252,6 +252,30 @@ const examples = [
         app.getByTestId("diffusion-project-menu-content").getByText("Zoom in").click(),
       )
       await expectPresent(app.getByText("125%"), "zoom result")
+
+      await step("open frame presets", () => app.getByTestId("diffusion-tool-frame").click())
+      const inspectorScroll = app.getByTestId("diffusion-inspector-scroll")
+      const firstPreset = app.getByTestId("diffusion-scene-preset-video-1080x1920")
+      await expectPresent(inspectorScroll, "inspector scroll viewport")
+      await expectPresent(firstPreset, "first frame preset")
+      const presetBeforeScroll = await step("measure frame preset before inspector scroll", () => firstPreset.bounds())
+      await step("scroll inspector presets", async () => {
+        await inspectorScroll.wheel(0, -180)
+        await delay(75)
+      })
+      const presetAfterScroll = await step("measure frame preset after inspector scroll", () => firstPreset.bounds())
+      if (presetAfterScroll.y >= presetBeforeScroll.y - 20) {
+        throw new Error(
+          `Diffusion: inspector wheel did not move preset content: before=${presetBeforeScroll.y}, after=${presetAfterScroll.y}`,
+        )
+      }
+      await step("restore inspector scroll", async () => {
+        await inspectorScroll.wheel(0, 180)
+        await delay(75)
+      })
+      await step("create scene after inspector scroll", () => firstPreset.click())
+      await expectText(app.getByTestId("diffusion-scene-size"), "1080 × 1920", "scene size after inspector scroll")
+
       await step("open asset actions", () => app.getByTestId("diffusion-import").click())
       await expectPresent(app.getByTestId("diffusion-create-folder"), "create folder action")
       await step("create asset folder", () => app.getByTestId("diffusion-create-folder").click())
