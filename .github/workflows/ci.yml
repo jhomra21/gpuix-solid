@@ -200,16 +200,17 @@ jobs:
       - name: Run Diffusion Solid 1 live automation
         working-directory: examples/solid1-diffusion
         run: bun run test:live:edge
-      - name: Upload Diffusion source screenshot
+      - name: Upload Diffusion acceptance screenshots
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: solid1-diffusion-source-macos
+          name: solid1-diffusion-acceptance-macos
           path: |
             /tmp/gpuix-solid1-diffusion-source.png
             /tmp/gpuix-solid1-diffusion-editor.png
             /tmp/gpuix-solid1-diffusion-live.png
             /tmp/gpuix-solid1-diffusion-live-automation.png
+            /tmp/diffusion-*.png
           if-no-files-found: ignore
           retention-days: 7
       - name: Verify source compatibility against pinned GPUIX
