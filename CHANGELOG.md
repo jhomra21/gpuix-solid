@@ -11,6 +11,7 @@
 - Fix live `createTextSelection()` updates by forwarding GPUIX's window-level selection subscription through the production batch renderer adapter in both Solid 2 and Solid 1.
 - Fix nested `onContextMenu` delivery by relaying secondary mouse-up to the nearest authored context-menu owner while suppressing duplicate retained callbacks.
 - Move the Diffusion asset-actions menu onto GPUIX's native anchored/occluding overlay path so painted overlay order and hit testing agree.
+- Run the pinned Diffusion Studio Solid 1 EditorPage through the source-edge native host end to end, including Canvas draw/move/resize, text editing, timeline interaction, menus, scene creation, Assets/Chat navigation, UI hide/restore, and Play/Pause. Native grid-track emulation now activates only when the source display mode is actually `grid`, so dormant `grid-cols-*` metadata cannot collapse flex-column Inspector sections into overlapping rows.
 - Refresh release, compatibility, upstream, and repository-ownership documentation for the current GPUIX 0.9 / Solid 2 RC.8 line.
 
 ## 0.2.1-beta.0 - 2026-09-18
