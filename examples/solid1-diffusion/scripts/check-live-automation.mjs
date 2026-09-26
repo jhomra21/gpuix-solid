@@ -541,8 +541,31 @@ try {
   const preset = findText(tree, "Square video 1:1")
   const presetParents = indexParents(tree)
   let presetTarget = presetParents.get(preset.id)
-  while (presetTarget && presetTarget.type !== "button") presetTarget = presetParents.get(presetTarget.id)
-  assert(presetTarget, "Scene preset label is not nested in its source button")
+  while (
+    presetTarget &&
+    !(
+      presetTarget.bounds &&
+      presetTarget.bounds.width >= 120 &&
+      presetTarget.bounds.height >= 28 &&
+      presetTarget.bounds.height <= 36
+    )
+  ) {
+    presetTarget = presetParents.get(presetTarget.id)
+  }
+  assert(
+    presetTarget,
+    `Scene preset label did not expose a painted row ancestor: ${JSON.stringify(
+      (() => {
+        const rows = []
+        let current = presetParents.get(preset.id)
+        while (current && rows.length < 6) {
+          rows.push({ type: current.type, bounds: current.bounds, text: textContent(current) })
+          current = presetParents.get(current.id)
+        }
+        return rows
+      })(),
+    )}`,
+  )
   await clickNode(app, presetTarget)
   tree = await waitFor("created and selected scene preset", async () => {
     const next = await currentTree(app)
