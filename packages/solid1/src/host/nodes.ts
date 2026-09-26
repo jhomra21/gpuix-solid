@@ -52,6 +52,11 @@ type HostStyleDeclaration = StyleDesc & {
   getPropertyValue(name: string): string
 }
 
+type HostViewportSize = {
+  width: number
+  height: number
+}
+
 const customStyleProperties = new WeakMap<HostElementNode, Map<string, string>>()
 const appliedPointerEvents = new WeakMap<HostElementNode, StyleDesc["pointerEvents"] | undefined>()
 const browserEventListeners = new WeakMap<HostElementNode, Map<string, Set<EventListenerOrEventListenerObject>>>()
@@ -527,7 +532,7 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     return domBounds(x - paddingLeft, y - paddingTop, width, height)
   }
 
-  private scrollViewportSize(): { width: number; height: number } {
+  private scrollViewportSize(): HostViewportSize {
     const isScrollable = this.style.overflow === "auto"
       || this.style.overflow === "scroll"
       || this.style.overflowX === "auto"
