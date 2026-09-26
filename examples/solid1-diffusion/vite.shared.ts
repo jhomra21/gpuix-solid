@@ -186,7 +186,16 @@ const usabilityTestHook = {
           `      <div
         testId="diffusion-timeline-layers-scroll"
         class="grid grid-cols-1 h-full absolute border-b border-border inset-0 overflow-hidden"
-        on:wheel={timeline.scroll}`,
+        on:wheel={(event) => {
+          console.error("GPUix Diffusion wheel probe", JSON.stringify({
+            deltaX: event.deltaX,
+            deltaY: event.deltaY,
+            deltaMode: event.deltaMode,
+            clientX: event.clientX,
+            clientY: event.clientY,
+          }))
+          timeline.scroll(event)
+        }}`,
         ),
         map: null,
       }

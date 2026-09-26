@@ -713,10 +713,12 @@ export class EventRegistry {
         return
       }
       case "scroll": {
-        if (this.#isBubbledNativeScroll(event)) return
-        for (const domEventType of DOM_EVENTS_BY_NATIVE.get(event.eventType) ?? []) {
-          this.#dispatchDom(event.elementId, domEventType, event)
-        }
+        const duplicateWheel = this.#isBubbledNativeScroll(event)
+        // Native scroll-wheel callbacks can be relayed through descendants so
+        // wheel bubbles across GPUI occluders. DOM scroll itself does not bubble,
+        // so every native target still receives its own scroll notification.
+        this.#dispatchDom(event.elementId, "scroll", event)
+        if (!duplicateWheel) this.#dispatchDom(event.elementId, "wheel", event)
         return
       }
       default:
