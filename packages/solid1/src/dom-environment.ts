@@ -1038,7 +1038,7 @@ class CompatResizeObserver {
 
   observe(target: HostElementNode): void {
     this.#targets.add(target)
-    this.schedule()
+    this.schedule(0)
   }
 
   unobserve(target: HostElementNode): void {
@@ -1053,9 +1053,9 @@ class CompatResizeObserver {
     this.stop()
   }
 
-  private schedule(): void {
+  private schedule(delay = DOM_OBSERVER_POLL_MS): void {
     if (this.#timer !== undefined || this.#targets.size === 0) return
-    this.#timer = globalThis.setTimeout(() => this.check(), DOM_OBSERVER_POLL_MS)
+    this.#timer = globalThis.setTimeout(() => this.check(), delay)
   }
 
   private stop(): void {
