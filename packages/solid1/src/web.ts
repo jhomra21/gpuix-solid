@@ -519,6 +519,11 @@ function createBrowserStyleProxy(
 ): BrowserStyleDeclaration {
   return new Proxy(style, {
     set(current, property, value, receiver) {
+      if (property === "cssText") {
+        applyBrowserCssText(current, String(value ?? ""))
+        syncBrowserStyleMutation(element, current)
+        return true
+      }
       const updated = Reflect.set(current, property, value, receiver)
       if (updated && isStringValue(property)) syncBrowserStyleMutation(element, current)
       return updated
@@ -550,8 +555,84 @@ function syncBrowserStyleMutation(element: HostElementNode, style: BrowserStyleD
   normalizeBrowserInset(nativeStyle, "top", parentBounds.height)
   normalizeBrowserInset(nativeStyle, "bottom", parentBounds.height)
   delete nativeStyle.transform
-  delete nativeStyle.zIndex
+  if (nativeStyle.zIndex !== undefined) {
+    const zIndex = Number(nativeStyle.zIndex)
+    if (Number.isFinite(zIndex)) nativeStyle.zIndex = zIndex
+    else delete nativeStyle.zIndex
+  }
   root.driver.enqueue("setStyle", element.id, nativeStyle)
+}
+
+function applyBrowserCssText(style: BrowserStyleDeclaration, cssText: string): void {
+  delete style.position
+  delete style.left
+  delete style.right
+  delete style.top
+  delete style.bottom
+  delete style.zIndex
+  delete style.opacity
+  delete style.pointerEvents
+  delete style.overflow
+  delete style.overflowX
+  delete style.overflowY
+
+  for (const declaration of cssText.split(";")) {
+    const separator = declaration.indexOf(":")
+    if (separator <= 0) continue
+    const property = declaration.slice(0, separator).trim().toLowerCase()
+    const value = declaration.slice(separator + 1).trim()
+    if (!value) continue
+
+    switch (property) {
+      case "position":
+        style.position = value
+        break
+      case "left":
+        style.left = parseBrowserCssDimension(value)
+        break
+      case "right":
+        style.right = parseBrowserCssDimension(value)
+        break
+      case "top":
+        style.top = parseBrowserCssDimension(value)
+        break
+      case "bottom":
+        style.bottom = parseBrowserCssDimension(value)
+        break
+      case "z-index": {
+        const zIndex = Number(value)
+        if (Number.isFinite(zIndex)) style.zIndex = zIndex
+        break
+      }
+      case "opacity": {
+        const opacity = Number(value)
+        if (Number.isFinite(opacity)) style.opacity = opacity
+        break
+      }
+      case "pointer-events":
+        if (value === "auto" || value === "none") style.pointerEvents = value
+        break
+      case "overflow":
+        style.overflow = value
+        break
+      case "overflow-x":
+        style.overflowX = value
+        break
+      case "overflow-y":
+        style.overflowY = value
+        break
+      // GPUIX has no will-change contract. Ignoring the hint preserves the
+      // authored layout/visibility semantics without inventing an effect.
+      case "will-change":
+        break
+    }
+  }
+}
+
+function parseBrowserCssDimension(value: string): string | number {
+  if (value === "0") return 0
+  const pixels = value.match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))px$/u)
+  return pixels ? Number(pixels[1]) : value
 }
 
 function browserParentBounds(element: HostElementNode): BrowserBounds {
