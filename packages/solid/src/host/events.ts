@@ -86,6 +86,15 @@ export function isDelegatedNativeEvent(eventType: string): boolean {
   return delegatedNativeEventTypes.has(eventType)
 }
 
+export function hasDelegatedNativeHandler(target: DomCompatTarget, nativeEventType: string): boolean {
+  if (!isDelegatedNativeEvent(nativeEventType)) return false
+  for (const domEventType of DOM_EVENTS_BY_NATIVE.get(nativeEventType) ?? []) {
+    const handler = Object.getOwnPropertyDescriptor(target, `$${browserEventName(domEventType)}`)?.value
+    if (handler instanceof Function) return true
+  }
+  return false
+}
+
 type GlobalEventHandler = (event: EventPayload) => void
 const globalListeners = new Map<string, Set<GlobalEventHandler>>()
 const EVENT_STATE = new WeakMap<object, { defaultPrevented: boolean; propagationStopped: boolean }>()
