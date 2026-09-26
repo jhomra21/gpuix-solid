@@ -77,7 +77,7 @@ function defineDelegatedListener(
   name: string,
   handler: EventListener,
 ): void {
-  Object.defineProperty(node, `$${name}`, {
+  Object.defineProperty(node, `$$${name}`, {
     configurable: true,
     writable: true,
     value: handler,
@@ -96,7 +96,7 @@ function defineDelegatedDataHandler<T>(
     writable: true,
     value: handler,
   })
-  Object.defineProperty(node, `$${name}Data`, {
+  Object.defineProperty(node, `$$${name}Data`, {
     configurable: true,
     writable: true,
     value: data,
