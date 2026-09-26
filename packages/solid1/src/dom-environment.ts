@@ -1002,6 +1002,8 @@ function createCompatTreeWalker(
   }
 }
 
+const DOM_OBSERVER_POLL_MS = 50
+
 class CompatResizeObserver {
   readonly #callback: CompatResizeObserverCallback
   readonly #targets = new Set<HostElementNode>()
@@ -1031,7 +1033,7 @@ class CompatResizeObserver {
 
   private schedule(): void {
     if (this.#timer !== undefined || this.#targets.size === 0) return
-    this.#timer = globalThis.setTimeout(() => this.check(), 16)
+    this.#timer = globalThis.setTimeout(() => this.check(), DOM_OBSERVER_POLL_MS)
   }
 
   private stop(): void {
@@ -1085,7 +1087,7 @@ class CompatMutationObserver {
 
   private schedule(): void {
     if (!this.#target) return
-    this.#timer = globalThis.setTimeout(() => this.check(), 16)
+    this.#timer = globalThis.setTimeout(() => this.check(), DOM_OBSERVER_POLL_MS)
   }
 
   private check(): void {
