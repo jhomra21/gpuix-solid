@@ -86,6 +86,99 @@ const scenePresetTestHook = {
   },
 }
 
+const usabilityTestHook = {
+  name: "diffusion-native-usability-test-hook",
+  enforce: "pre" as const,
+  transform(code: string, id: string) {
+    const normalizedId = id.replaceAll("\\", "/").split("?")[0]
+
+    if (normalizedId.endsWith("/apps/web/src/components/sidebar-left/project-menu/index.tsx")) {
+      const trigger = `        <DropdownMenuTrigger
+          as="button"
+          type="button"`
+      if (!code.includes(trigger)) throw new Error("Pinned Diffusion project-menu trigger changed")
+      return {
+        code: code.replace(
+          trigger,
+          `        <DropdownMenuTrigger
+          testId="diffusion-project-menu-trigger"
+          as="button"
+          type="button"`,
+        ),
+        map: null,
+      }
+    }
+
+    if (normalizedId.endsWith("/apps/web/src/components/sidebar-right/inspector/inspector-header.tsx")) {
+      const trigger = `            <Button
+              {...triggerProps}
+              variant="link"`
+      if (!code.includes(trigger)) throw new Error("Pinned Diffusion Inspector zoom trigger changed")
+      return {
+        code: code.replace(
+          trigger,
+          `            <Button
+              {...triggerProps}
+              testId="diffusion-inspector-zoom-trigger"
+              variant="link"`,
+        ),
+        map: null,
+      }
+    }
+
+    if (normalizedId.endsWith("/apps/web/src/agent-chat/sidebar-tabs.tsx")) {
+      const trigger = `          <button
+            type="button"
+            role="tab"`
+      if (!code.includes(trigger)) throw new Error("Pinned Diffusion sidebar tab trigger changed")
+      return {
+        code: code.replace(
+          trigger,
+          `          <button
+            testId={"diffusion-sidebar-tab-" + tab.id}
+            type="button"
+            role="tab"`,
+        ),
+        map: null,
+      }
+    }
+
+    if (normalizedId.endsWith("/apps/web/src/components/sidebar-right/inspector/transform/transform-settings.tsx")) {
+      const field = `          <ControlledTextField
+            icon={<Icon name="prop-x-position" />}`
+      if (!code.includes(field)) throw new Error("Pinned Diffusion Position X field changed")
+      return {
+        code: code.replace(
+          field,
+          `          <ControlledTextField
+            testId="diffusion-inspector-position-x"
+            icon={<Icon name="prop-x-position" />}`,
+        ),
+        map: null,
+      }
+    }
+
+    if (normalizedId.endsWith("/apps/web/src/components/ui/control-scrollarea.tsx")) {
+      const scroller = `      <div
+        ref={scrollEl}
+        class="overflow-y-auto overflow-x-hidden absolute inset-0"`
+      if (!code.includes(scroller)) throw new Error("Pinned Diffusion ControlScrollArea scroller changed")
+      return {
+        code: code.replace(
+          scroller,
+          `      <div
+        ref={scrollEl}
+        testId="diffusion-control-scroll-area-scroll"
+        class="overflow-y-auto overflow-x-hidden absolute inset-0"`,
+        ),
+        map: null,
+      }
+    }
+
+    return null
+  },
+}
+
 const packageSource = (name: string) =>
   fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/packages/${name}/src/index.ts`)
 
@@ -101,6 +194,7 @@ export function diffusionConfig(entry: string, outDir: string) {
       multilineClassAttributeHook,
       toolbarTestHook,
       scenePresetTestHook,
+      usabilityTestHook,
       solid({
         babel: { plugins: [decodeJsxTextEntities] },
         solid: {
