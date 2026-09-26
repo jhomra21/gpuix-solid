@@ -216,6 +216,16 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     return this.parentNode
   }
 
+  get textContent(): string {
+    return this.children.map(hostNodeTextContent).join("")
+  }
+
+  set textContent(value: string) {
+    const text = String(value)
+    for (const child of [...this.children]) removeHostNode(this, child)
+    if (text.length > 0) insertHostNode(this, createHostText(text))
+  }
+
   get firstChild(): HostNode | null {
     return this.children[0] ?? null
   }
@@ -772,6 +782,11 @@ export function createHostElement(type: string, tagName = type): HostElementNode
 
 export function createHostText(value: string): HostTextNode {
   return new HostTextNode(String(value))
+}
+
+function hostNodeTextContent(node: HostNode): string {
+  if (node.kind === "text") return node.text
+  return node.children.map(hostNodeTextContent).join("")
 }
 
 export function replaceHostText(node: HostTextNode, value: string): void {
