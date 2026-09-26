@@ -816,6 +816,32 @@ function installHostDomCompatibility(ownerDocument: CompatDocument): void {
     src: reflectedStringProperty("src"),
     accept: reflectedStringProperty("accept"),
     download: reflectedStringProperty("download"),
+    contentEditable: {
+      configurable: true,
+      get(this: HostElementNode): string {
+        const value = this.props.get("contentEditable")
+        if (value === undefined || value === null) return "inherit"
+        if (value === true || value === "") return "true"
+        if (value === false) return "false"
+        return String(value)
+      },
+      set(this: HostElementNode, value: string): void {
+        setHostProperty(this, "contentEditable", String(value))
+      },
+    },
+    isContentEditable: {
+      configurable: true,
+      get(this: HostElementNode): boolean {
+        let current: HostElementNode | null = this
+        while (current) {
+          const value = current.props.get("contentEditable")
+          if (value === true || value === "" || String(value).toLowerCase() === "true") return true
+          if (value === false || String(value).toLowerCase() === "false") return false
+          current = current.parentElement
+        }
+        return false
+      },
+    },
     multiple: {
       configurable: true,
       get(this: HostElementNode): boolean {
