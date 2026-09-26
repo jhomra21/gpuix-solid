@@ -451,6 +451,14 @@ type NativeClickBubble = {
   y: number
 }
 
+type NativeScrollBubble = {
+  ancestors: ReadonlySet<number>
+  x: number
+  y: number
+  deltaX: number
+  deltaY: number
+}
+
 type DragSession = {
   sourceId: number
   data: DragData
@@ -484,6 +492,7 @@ export class EventRegistry {
   #dragSession: DragSession | undefined
   #nativeClickBubble: NativeClickBubble | undefined
   #nativeContextMenuBubble: NativeClickBubble | undefined
+  #nativeScrollBubble: NativeScrollBubble | undefined
   #activeRangeId: number | undefined
   #lastClick: LastClick | undefined
 
@@ -703,6 +712,13 @@ export class EventRegistry {
         this.#dispatchDom(event.elementId, "mouseOut", event)
         return
       }
+      case "scroll": {
+        if (this.#isBubbledNativeScroll(event)) return
+        for (const domEventType of DOM_EVENTS_BY_NATIVE.get(event.eventType) ?? []) {
+          this.#dispatchDom(event.elementId, domEventType, event)
+        }
+        return
+      }
       default:
         for (const domEventType of DOM_EVENTS_BY_NATIVE.get(event.eventType) ?? []) {
           this.#dispatchDom(event.elementId, domEventType, event)
@@ -847,6 +863,37 @@ export class EventRegistry {
     this.#nativeClickBubble = next
     queueMicrotask(() => {
       if (this.#nativeClickBubble === next) this.#nativeClickBubble = undefined
+    })
+    return false
+  }
+
+  #isBubbledNativeScroll(event: NativeEventPayload): boolean {
+    const x = event.x ?? 0
+    const y = event.y ?? 0
+    const deltaX = event.deltaX ?? 0
+    const deltaY = event.deltaY ?? 0
+    const previous = this.#nativeScrollBubble
+    if (
+      previous
+      && previous.ancestors.has(event.elementId)
+      && previous.x === x
+      && previous.y === y
+      && previous.deltaX === deltaX
+      && previous.deltaY === deltaY
+    ) {
+      return true
+    }
+
+    const ancestors = new Set<number>()
+    let current = this.#parents.get(event.elementId)
+    while (current !== undefined && current !== null) {
+      ancestors.add(current)
+      current = this.#parents.get(current)
+    }
+    const next: NativeScrollBubble = { ancestors, x, y, deltaX, deltaY }
+    this.#nativeScrollBubble = next
+    queueMicrotask(() => {
+      if (this.#nativeScrollBubble === next) this.#nativeScrollBubble = undefined
     })
     return false
   }

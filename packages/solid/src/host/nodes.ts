@@ -92,8 +92,6 @@ const EXPLICIT_POINTER_SURFACE_EVENTS = new Set([
   "pointerDown",
   "pointerMove",
   "pointerUp",
-  "scroll",
-  "wheel",
 ])
 
 export class HostRootNode {
@@ -1193,10 +1191,7 @@ function ownsExplicitPointerSurface(node: HostElementNode): boolean {
     if (EXPLICIT_POINTER_SURFACE_EVENTS.has(eventType)) return true
   }
   const nativeEvents = browserNativeEventTypes(node)
-  return nativeEvents.has("mouseDown")
-    || nativeEvents.has("mouseMove")
-    || nativeEvents.has("mouseUp")
-    || nativeEvents.has("scroll")
+  return nativeEvents.has("mouseDown") || nativeEvents.has("mouseMove") || nativeEvents.has("mouseUp")
 }
 
 function delegatedSemanticPointerSurfaceActive(node: HostElementNode): boolean {
