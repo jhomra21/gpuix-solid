@@ -145,6 +145,8 @@ function fallbackTarget(event: NativeEventPayload): DomCompatTarget {
     classList: {
       add: () => undefined,
       remove: () => undefined,
+      contains: () => false,
+      toggle: (_token: string, force?: boolean) => force ?? true,
     },
     focus: () => undefined,
     blur: () => undefined,
