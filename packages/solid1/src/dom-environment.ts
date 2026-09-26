@@ -690,6 +690,13 @@ function installHostDomCompatibility(ownerDocument: CompatDocument): void {
         return ownerDocument
       },
     },
+    getRootNode: {
+      configurable: true,
+      value(this: HostElementNode): CompatDocument | HostElementNode {
+        registerKnownRoot(this)
+        return this.parent ? ownerDocument : this
+      },
+    },
     getAttribute: {
       configurable: true,
       value(this: HostElementNode, name: string): string | null {
