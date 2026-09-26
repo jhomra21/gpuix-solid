@@ -676,14 +676,27 @@ export class EventRegistry {
           if (this.#shouldDispatchPrimaryClick(clickEvent, `mouseUp:${sourceElementId}`)) this.#dispatchPrimaryClick(clickEvent)
         }
         if (event.button === 2 && !this.#isBubbledNativeContextMenu(event)) {
-          const contextMenuOwner = this.#contextMenuOwner(sourceElementId)
-          if (contextMenuOwner !== undefined) {
-            this.#dispatchDom(
-              contextMenuOwner,
-              "contextMenu",
-              contextMenuOwner === sourceElementId ? event : { ...event, elementId: contextMenuOwner },
-            )
+          const ancestry: Array<{ id: number; handlers: string[] }> = []
+          let current: number | null | undefined = sourceElementId
+          while (current !== undefined && current !== null && this.#live.has(current)) {
+            ancestry.push({ id: current, handlers: [...(this.#handlers.get(current)?.keys() ?? [])] })
+            current = this.#parents.get(current)
           }
+          const contextMenuOwner = this.#contextMenuOwner(sourceElementId)
+          const contextEvent = contextMenuOwner === undefined
+            ? undefined
+            : this.#dispatchDom(
+                contextMenuOwner,
+                "contextMenu",
+                contextMenuOwner === sourceElementId ? event : { ...event, elementId: contextMenuOwner },
+              )
+          console.error("[gpuix-solid context probe]", JSON.stringify({
+            sourceElementId,
+            contextMenuOwner,
+            ancestry,
+            defaultPrevented: contextEvent?.defaultPrevented ?? false,
+            cancelBubble: contextEvent?.cancelBubble ?? false,
+          }))
         }
         this.#activePointers.delete(POINTER_ID)
         if (capturedId !== undefined) this.#releasePointerCapture(capturedId, POINTER_ID)
