@@ -86,7 +86,7 @@ export function isDelegatedNativeEvent(eventType: string): boolean {
   return delegatedNativeEventTypes.has(eventType)
 }
 
-export function hasDelegatedNativeHandler(target: object, nativeEventType: string): boolean {
+export function hasDelegatedNativeHandler(target: DomCompatTarget, nativeEventType: string): boolean {
   if (!isDelegatedNativeEvent(nativeEventType)) return false
   for (const domEventType of DOM_EVENTS_BY_NATIVE.get(nativeEventType) ?? []) {
     const handler = Object.getOwnPropertyDescriptor(target, `$${browserEventName(domEventType)}`)?.value
