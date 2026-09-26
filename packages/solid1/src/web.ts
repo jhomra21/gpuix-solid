@@ -385,6 +385,7 @@ installDocumentStyleCompatibility()
 installComputedStyleCompatibility()
 installDocumentFocusCompatibility()
 installDocumentPointerCaptureCompatibility()
+installImperativeDomElementCompatibility()
 
 export function createDynamic<T extends ValidComponent>(
   component: () => T | undefined,
@@ -471,6 +472,30 @@ function installElementQueryCompatibility(): void {
       return null
     },
   })
+}
+
+function installImperativeDomElementCompatibility(): void {
+  const documentTarget = globalThis.document
+  const originalCreateElement = documentTarget.createElement.bind(documentTarget)
+  const originalCreateElementNS = documentTarget.createElementNS.bind(documentTarget)
+
+  Object.defineProperty(documentTarget, "createElement", {
+    configurable: true,
+    writable: true,
+    value: (tagName: string) => prepareImperativeDomElement(originalCreateElement(tagName)),
+  })
+  Object.defineProperty(documentTarget, "createElementNS", {
+    configurable: true,
+    writable: true,
+    value: (namespace: string | null, qualifiedName: string) =>
+      prepareImperativeDomElement(originalCreateElementNS(namespace, qualifiedName)),
+  })
+}
+
+function prepareImperativeDomElement(element: HostElementNode): HostElementNode {
+  installBrowserStyleMutationCompatibility(element)
+  element.setClassMutationHandler((className) => setProp(element, "class", className))
+  return element
 }
 
 function installBrowserStyleMutationCompatibility(element: HostElementNode): void {
