@@ -5,7 +5,7 @@ import {
   type GpuixCanvasRenderingContext2D,
 } from "./canvas.js"
 import { parseDragData } from "./drag-data.js"
-import { EVENT_PROP_TO_TYPE, isDelegatedNativeEvent, nativeEventTypeForBrowserEvent, nativeEventTypeForDomEvent, type DomCompatTarget, type EventRegistry } from "./events.js"
+import { EVENT_PROP_TO_TYPE, hasDelegatedNativeHandler, nativeEventTypeForBrowserEvent, nativeEventTypeForDomEvent, type DomCompatTarget, type EventRegistry } from "./events.js"
 import type { MutationDriver, MutationValue } from "./mutations.js"
 import type {
   DragData,
@@ -50,6 +50,11 @@ type HostStyleDeclaration = StyleDesc & {
   setProperty(name: string, value: string, priority?: string): void
   removeProperty(name: string): string
   getPropertyValue(name: string): string
+}
+
+type HostViewportSize = {
+  width: number
+  height: number
 }
 
 const customStyleProperties = new WeakMap<HostElementNode, Map<string, string>>()
@@ -130,6 +135,10 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   #canvas2d: Canvas2DRecorder | undefined
   #canvasDrawQueued = false
   #videoFrame: VideoFrameSurfaceFrame | null | undefined
+  #scrollOffsetCache: number[] | null | undefined
+  #scrollOffsetCacheQueued = false
+  #scrollViewportCache: { width: number; height: number } | undefined
+  #scrollViewportCacheQueued = false
 
   constructor(type: ElementType, tagName: string = type) {
     this.type = type
@@ -263,12 +272,17 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     })
   }
 
+  invalidateScrollMeasurements(): void {
+    this.#scrollViewportCache = undefined
+    this.#scrollOffsetCache = undefined
+  }
+
   get clientWidth(): number {
-    return this.getBoundingClientRect().width
+    return this.scrollViewportSize().width
   }
 
   get clientHeight(): number {
-    return this.getBoundingClientRect().height
+    return this.scrollViewportSize().height
   }
 
   get clientLeft(): number {
@@ -280,11 +294,11 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   }
 
   get offsetWidth(): number {
-    return this.getBoundingClientRect().width
+    return this.scrollViewportSize().width
   }
 
   get offsetHeight(): number {
-    return this.getBoundingClientRect().height
+    return this.scrollViewportSize().height
   }
 
   get scrollWidth(): number {
@@ -518,18 +532,61 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     return domBounds(x - paddingLeft, y - paddingTop, width, height)
   }
 
+  private scrollViewportSize(): HostViewportSize {
+    const isScrollable = this.style.overflow === "auto"
+      || this.style.overflow === "scroll"
+      || this.style.overflowX === "auto"
+      || this.style.overflowX === "scroll"
+      || this.style.overflowY === "auto"
+      || this.style.overflowY === "scroll"
+    if (!isScrollable) {
+      const bounds = this.getBoundingClientRect()
+      return { width: bounds.width, height: bounds.height }
+    }
+    if (this.#scrollViewportCache) return this.#scrollViewportCache
+    const bounds = this.getBoundingClientRect()
+    this.#scrollViewportCache = { width: bounds.width, height: bounds.height }
+    if (!this.#scrollViewportCacheQueued) {
+      this.#scrollViewportCacheQueued = true
+      queueMicrotask(() => {
+        this.#scrollViewportCacheQueued = false
+        this.#scrollViewportCache = undefined
+      })
+    }
+    return this.#scrollViewportCache
+  }
+
   private scrollOffset(): number[] | null {
+    if (this.#scrollOffsetCache !== undefined) return this.#scrollOffsetCache
     const root = this.root
     if (!root || !this.nativeAlive) return null
     root.driver.flush()
-    return root.driver.renderer.getScrollOffset?.(this.id) ?? null
+    this.#scrollOffsetCache = root.driver.renderer.getScrollOffset?.(this.id) ?? null
+    if (!this.#scrollOffsetCacheQueued) {
+      this.#scrollOffsetCacheQueued = true
+      queueMicrotask(() => {
+        this.#scrollOffsetCacheQueued = false
+        this.#scrollOffsetCache = undefined
+      })
+    }
+    return this.#scrollOffsetCache
   }
 
   private setScrollOffset(left: number, top: number): void {
     const root = this.root
     if (!root || !this.nativeAlive) return
+    const x = Math.max(0, left)
+    const y = Math.max(0, top)
     root.driver.flush()
-    root.driver.renderer.scrollTo?.(this.id, -Math.max(0, left), -Math.max(0, top))
+    root.driver.renderer.scrollTo?.(this.id, -x, -y)
+    this.#scrollOffsetCache = [-x, -y]
+    if (!this.#scrollOffsetCacheQueued) {
+      this.#scrollOffsetCacheQueued = true
+      queueMicrotask(() => {
+        this.#scrollOffsetCacheQueued = false
+        this.#scrollOffsetCache = undefined
+      })
+    }
   }
 }
 
@@ -598,6 +655,7 @@ export class HostTextNode {
 }
 
 const appliedTextPointerEvents = new WeakMap<HostTextNode, StyleDesc["pointerEvents"] | undefined>()
+const appliedTextColors = new WeakMap<HostTextNode, string | undefined>()
 
 export type HostNode = HostElementNode | HostTextNode
 export type HostParent = HostRootNode | HostElementNode
@@ -642,6 +700,8 @@ export function setHostProperty<T>(
 
   if (name === "style") {
     const previousPointerEvents = effectivePointerEvents(node)
+    const previousColor = node.style.color
+    node.invalidateScrollMeasurements()
     node.style = createHostStyleDeclaration(node, isStyle(value) ? value : {})
     if (node.root && node.nativeAlive) {
       const nextPointerEvents = effectivePointerEvents(node)
@@ -649,6 +709,9 @@ export function setHostProperty<T>(
       appliedPointerEvents.set(node, nextPointerEvents)
       if (previousPointerEvents !== nextPointerEvents) {
         for (const child of node.children) refreshInheritedPointerEvents(child)
+      }
+      if (previousColor !== node.style.color) {
+        for (const child of node.children) refreshInheritedTextColor(child)
       }
     }
     return
@@ -859,13 +922,24 @@ function inheritedTextPointerEvents(node: HostTextNode): StyleDesc["pointerEvent
   return undefined
 }
 
+function inheritedTextColor(node: HostTextNode): string | undefined {
+  let parent = node.parent
+  while (parent?.kind === "element") {
+    if (parent.style.color !== undefined) return parent.style.color
+    parent = parent.parent
+  }
+  return undefined
+}
+
 function nativeTextStyle(
   node: HostTextNode,
   pointerEvents = inheritedTextPointerEvents(node),
+  color = inheritedTextColor(node),
 ): StyleDesc {
   const layout = nativeTextLayoutStyle(node.text)
-  if (pointerEvents === undefined) return layout
-  return { ...layout, pointerEvents }
+  const style = color === undefined ? layout : { ...layout, color }
+  if (pointerEvents === undefined) return style
+  return { ...style, pointerEvents }
 }
 
 function canvasDimension(value: MutationValue | undefined, fallback: number): number {
@@ -959,6 +1033,12 @@ function ownsExplicitPointerSurface(node: HostElementNode): boolean {
   return nativeEvents.has("mouseDown") || nativeEvents.has("mouseMove") || nativeEvents.has("mouseUp")
 }
 
+function delegatedSemanticPointerSurfaceActive(node: HostElementNode): boolean {
+  return hasDelegatedNativeHandler(node, "click")
+    || hasDelegatedNativeHandler(node, "mouseDown")
+    || hasDelegatedNativeHandler(node, "mouseUp")
+}
+
 function effectivePointerEvents(node: HostElementNode): StyleDesc["pointerEvents"] | undefined {
   // Preserve explicit source ownership first. In particular, a descendant
   // pointer-events:auto must be able to re-enable itself beneath an inherited none.
@@ -979,6 +1059,7 @@ function effectivePointerEvents(node: HostElementNode): StyleDesc["pointerEvents
     || node.events.has("dragOver")
     || node.events.has("drop")
     || (node.events.size > 0 && ownsSemanticHitSurface(node))
+    || (ownsSemanticHitSurface(node) && delegatedSemanticPointerSurfaceActive(node))
     || ownsExplicitPointerSurface(node)
   ) return "auto"
   return undefined
@@ -1006,25 +1087,49 @@ function nativeStyleFor(
   return { ...style, pointerEvents }
 }
 
+export function refreshHostPointerEvents(node: HostElementNode): void {
+  const nextPointerEvents = effectivePointerEvents(node)
+  const previousPointerEvents = appliedPointerEvents.get(node)
+  if (!node.root || !node.nativeAlive || previousPointerEvents === nextPointerEvents) return
+  // A transition back to undefined intentionally sends the base style once so
+  // a previously materialized auto/none value is cleared natively.
+  node.root.driver.enqueue("setStyle", node.id, nativeStyleFor(node, nextPointerEvents))
+  appliedPointerEvents.set(node, nextPointerEvents)
+}
+
 function refreshInheritedPointerEvents(node: HostNode): void {
   if (node.kind === "text") {
     const nextPointerEvents = inheritedTextPointerEvents(node)
     const previousPointerEvents = appliedTextPointerEvents.get(node)
     if (node.root && node.nativeAlive && previousPointerEvents !== nextPointerEvents) {
-      node.root.driver.enqueue("setStyle", node.id, nativeTextStyle(node, nextPointerEvents))
+      node.root.driver.enqueue(
+        "setStyle",
+        node.id,
+        nativeTextStyle(node, nextPointerEvents, inheritedTextColor(node)),
+      )
       appliedTextPointerEvents.set(node, nextPointerEvents)
     }
     return
   }
-  const nextPointerEvents = effectivePointerEvents(node)
-  const previousPointerEvents = appliedPointerEvents.get(node)
-  if (node.root && node.nativeAlive && previousPointerEvents !== nextPointerEvents) {
-    // A transition back to undefined intentionally sends the base style once so
-    // a previously materialized auto/none value is cleared natively.
-    node.root.driver.enqueue("setStyle", node.id, nativeStyleFor(node, nextPointerEvents))
-    appliedPointerEvents.set(node, nextPointerEvents)
-  }
+  refreshHostPointerEvents(node)
   for (const child of node.children) refreshInheritedPointerEvents(child)
+}
+
+function refreshInheritedTextColor(node: HostNode): void {
+  if (node.kind === "text") {
+    const nextColor = inheritedTextColor(node)
+    const previousColor = appliedTextColors.get(node)
+    if (node.root && node.nativeAlive && previousColor !== nextColor) {
+      node.root.driver.enqueue(
+        "setStyle",
+        node.id,
+        nativeTextStyle(node, inheritedTextPointerEvents(node), nextColor),
+      )
+      appliedTextColors.set(node, nextColor)
+    }
+    return
+  }
+  for (const child of node.children) refreshInheritedTextColor(child)
 }
 
 function createHostStyleDeclaration(node: HostElementNode, style: StyleDesc): HostStyleDeclaration {
@@ -1084,11 +1189,13 @@ function adopt(root: HostRootNode, node: HostNode): void {
   if (node.kind === "text") {
     root.driver.enqueue("setText", node.id, node.text)
     const pointerEvents = inheritedTextPointerEvents(node)
-    const nativeStyle = nativeTextStyle(node, pointerEvents)
+    const color = inheritedTextColor(node)
+    const nativeStyle = nativeTextStyle(node, pointerEvents, color)
     if (Object.keys(nativeStyle).length > 0) {
       root.driver.enqueue("setStyle", node.id, nativeStyle)
     }
     appliedTextPointerEvents.set(node, pointerEvents)
+    appliedTextColors.set(node, color)
   } else {
     root.events.setTarget(node.id, node)
     if (node.dragData !== undefined) root.events.setDragData(node.id, node.dragData)
@@ -1154,7 +1261,7 @@ function browserNativeEventTypes(node: HostElementNode): Set<string> {
 }
 
 function hasNativeEventHandler(node: HostElementNode, nativeEventType: string): boolean {
-  if (isDelegatedNativeEvent(nativeEventType)) return true
+  if (hasDelegatedNativeHandler(node, nativeEventType)) return true
   const hasDragSource = node.dragData !== undefined
   // GPUI implicitly captures a pointer when a node owns mouseDown + mouseMove at
   // press time. Pre-arm drag sources for mouseDown only; BrowserPointerMutationDriver
