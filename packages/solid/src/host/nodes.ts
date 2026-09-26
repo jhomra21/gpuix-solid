@@ -8,7 +8,6 @@ import { parseDragData } from "./drag-data.js"
 import { delegatedNativeEventTypesForTarget, EVENT_PROP_TO_TYPE, hasDelegatedNativeHandler, nativeEventTypeForBrowserEvent, nativeEventTypeForDomEvent, type DomCompatTarget, type EventRegistry } from "./events.js"
 import type { MutationDriver, MutationValue } from "./mutations.js"
 import type {
-  DimensionValue,
   DragData,
   ElementType,
   HostEventHandler,
@@ -93,6 +92,8 @@ const EXPLICIT_POINTER_SURFACE_EVENTS = new Set([
   "pointerDown",
   "pointerMove",
   "pointerUp",
+  "scroll",
+  "wheel",
 ])
 
 export class HostRootNode {
@@ -695,13 +696,6 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
       for (const descendant of child.children) pending.push(descendant)
     }
 
-    // GPUIX exposes painted bounds. Fully clipped descendants do not paint,
-    // but browser scrollHeight still includes their layout boxes. Preserve the
-    // painted-bounds path and add a lower-bound estimate for ordinary column
-    // flex stacks, where authored child heights remain known offscreen.
-    const flexColumnHeight = estimatedFlexColumnContentHeight(this, renderer)
-    if (flexColumnHeight !== undefined) height = Math.max(height, flexColumnHeight)
-
     this.#scrollContentCache = {
       width: Math.max(0, Math.ceil(width)),
       height: Math.max(0, Math.ceil(height)),
@@ -1106,66 +1100,6 @@ function nativeTextStyle(
   return { ...style, pointerEvents }
 }
 
-function finiteLayoutLength(value: DimensionValue | undefined): number | undefined {
-  if (value === undefined) return undefined
-  const trimmed = String(value).trim()
-  const pixels = trimmed.match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))px$/i)
-  if (pixels) return Number(pixels[1])
-  const numeric = Number(trimmed)
-  return Number.isFinite(numeric) ? numeric : undefined
-}
-
-function estimatedFlexColumnContentHeight(
-  node: HostElementNode,
-  renderer: BoundsCapableRenderer,
-): number | undefined {
-  if (node.style.display !== "flex" || node.style.flexDirection !== "column") return undefined
-
-  const paddingTop = finiteLayoutLength(node.style.paddingTop ?? node.style.padding) ?? 0
-  const paddingBottom = finiteLayoutLength(node.style.paddingBottom ?? node.style.padding) ?? 0
-  const gap = finiteLayoutLength(node.style.rowGap ?? node.style.gap) ?? 0
-  let height = paddingTop + paddingBottom
-  let flowItems = 0
-  let measuredItems = 0
-
-  for (const child of node.children) {
-    if (child.kind === "element" && (
-      child.style.display === "none"
-      || child.style.position === "absolute"
-      || child.style.position === "fixed"
-    )) {
-      continue
-    }
-
-    flowItems += 1
-    let childHeight: number | undefined
-    let marginTop = 0
-    let marginBottom = 0
-
-    if (child.kind === "element") {
-      const authoredHeight = finiteLayoutLength(child.style.height)
-      const authoredMinHeight = finiteLayoutLength(child.style.minHeight)
-      if (authoredHeight !== undefined || authoredMinHeight !== undefined) {
-        childHeight = Math.max(authoredHeight ?? 0, authoredMinHeight ?? 0)
-      }
-      marginTop = finiteLayoutLength(child.style.marginTop ?? child.style.margin) ?? 0
-      marginBottom = finiteLayoutLength(child.style.marginBottom ?? child.style.margin) ?? 0
-    }
-
-    if (childHeight === undefined && child.nativeAlive) {
-      const bounds = renderer.getElementBounds?.(child.id)
-      if (bounds && bounds.length >= 4) childHeight = bounds[3] ?? 0
-    }
-
-    if (childHeight === undefined) continue
-    measuredItems += 1
-    height += Math.max(0, childHeight) + marginTop + marginBottom
-  }
-
-  if (flowItems > 1) height += gap * (flowItems - 1)
-  return measuredItems > 0 ? Math.max(0, height) : undefined
-}
-
 function classTokens(value: string | undefined): string[] {
   if (!value) return []
   return String(value).split(/\s+/).filter(Boolean)
@@ -1259,7 +1193,10 @@ function ownsExplicitPointerSurface(node: HostElementNode): boolean {
     if (EXPLICIT_POINTER_SURFACE_EVENTS.has(eventType)) return true
   }
   const nativeEvents = browserNativeEventTypes(node)
-  return nativeEvents.has("mouseDown") || nativeEvents.has("mouseMove") || nativeEvents.has("mouseUp")
+  return nativeEvents.has("mouseDown")
+    || nativeEvents.has("mouseMove")
+    || nativeEvents.has("mouseUp")
+    || nativeEvents.has("scroll")
 }
 
 function delegatedSemanticPointerSurfaceActive(node: HostElementNode): boolean {

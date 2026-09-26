@@ -704,13 +704,6 @@ export class EventRegistry {
         return
       }
       default:
-        if (event.eventType === "scroll") {
-          console.error("[gpuix-solid1 wheel probe] native scroll", JSON.stringify({
-            elementId: event.elementId,
-            deltaX: event.deltaX,
-            deltaY: event.deltaY,
-          }))
-        }
         for (const domEventType of DOM_EVENTS_BY_NATIVE.get(event.eventType) ?? []) {
           this.#dispatchDom(event.elementId, domEventType, event)
         }
