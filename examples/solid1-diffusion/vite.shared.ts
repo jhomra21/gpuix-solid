@@ -175,6 +175,25 @@ const usabilityTestHook = {
       }
     }
 
+    if (normalizedId.endsWith("/apps/web/src/agent-chat/transcript.tsx")) {
+      const items = `        <For each={props.items}>
+          {(item) => <ChatItem item={item} />}
+        </For>`
+      if (!code.includes(items)) throw new Error("Pinned Diffusion Chat transcript items changed")
+      return {
+        code: code.replace(
+          items,
+          `${items}
+        <ChatItem item={{
+          id: "gpuix-native-markdown-probe",
+          kind: "assistant",
+          text: "## GPUix Markdown\\n\\n- **Bold item**\\n- [Safe link](https://example.com)\\n\\n| A | B |\\n| - | - |\\n| 1 | 2 |\\n\\n<script>GPUix unsafe</script>",
+        }} />`,
+        ),
+        map: null,
+      }
+    }
+
     return null
   },
 }
