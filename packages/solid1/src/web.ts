@@ -550,6 +550,24 @@ function createBrowserStyleProxy(
   style: BrowserStyleDeclaration,
 ): BrowserStyleDeclaration {
   return new Proxy(style, {
+    get(current, property, receiver) {
+      if (property === "setProperty") {
+        return (name: string, value: string, priority?: string) => {
+          current.setProperty(name, value, priority)
+          if (name.startsWith("--")) syncBrowserCustomPropertyMutation(element, name)
+          else syncBrowserStyleMutation(element, current)
+        }
+      }
+      if (property === "removeProperty") {
+        return (name: string) => {
+          const previous = current.removeProperty(name)
+          if (name.startsWith("--")) syncBrowserCustomPropertyMutation(element, name)
+          else syncBrowserStyleMutation(element, current)
+          return previous
+        }
+      }
+      return Reflect.get(current, property, receiver)
+    },
     set(current, property, value, receiver) {
       if (property === "cssText") {
         applyBrowserCssText(current, String(value ?? ""))
@@ -568,8 +586,7 @@ function syncBrowserStyleMutation(element: HostElementNode, style: BrowserStyleD
   if (!root || !element.nativeAlive) return
 
   const nativeStyle = { ...style }
-  const parentBounds = browserParentBounds(element)
-  const translation = browserTranslation(style.transform)
+  const translation = browserTranslation(element, style.transform)
   if (nativePopperPositioners.has(element)) {
     if (translation) setHostProperty(element, "position", translation)
     delete nativeStyle.position
@@ -581,11 +598,19 @@ function syncBrowserStyleMutation(element: HostElementNode, style: BrowserStyleD
     applyBrowserRelativeTranslation(nativeStyle, translation)
   }
 
+  const parentBounds = browserStyleNeedsParentSize(nativeStyle)
+    ? browserParentBounds(element)
+    : { left: 0, top: 0, width: 0, height: 0 }
   normalizeBrowserInset(nativeStyle, "left", parentBounds.width)
   normalizeBrowserInset(nativeStyle, "right", parentBounds.width)
   normalizeBrowserInset(nativeStyle, "top", parentBounds.height)
   normalizeBrowserInset(nativeStyle, "bottom", parentBounds.height)
   delete nativeStyle.transform
+
+  const cursor = browserCursor(element, nativeStyle.cursor)
+  if (cursor === undefined) delete nativeStyle.cursor
+  else nativeStyle.cursor = cursor
+
   if (nativeStyle.zIndex !== undefined) {
     const zIndex = Number(nativeStyle.zIndex)
     if (Number.isFinite(zIndex)) nativeStyle.zIndex = zIndex
@@ -673,18 +698,128 @@ function browserParentBounds(element: HostElementNode): BrowserBounds {
   return { left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height }
 }
 
-function browserTranslation(transform: string | undefined): BrowserTranslation | undefined {
+function browserTranslation(
+  element: HostElementNode,
+  transform: string | undefined,
+): BrowserTranslation | undefined {
   if (!transform) return undefined
   const number = "(-?(?:\\d+(?:\\.\\d+)?|\\.\\d+))"
-  const value = transform.trim()
+  const value = resolveBrowserCustomProperties(element, transform).trim()
   const translate3d = value.match(new RegExp(`^translate3d\\(\\s*${number}px\\s*,\\s*${number}px\\s*,\\s*0(?:px)?\\s*\\)$`, "i"))
   if (translate3d) return { x: Number(translate3d[1]), y: Number(translate3d[2]) }
   const translate = value.match(new RegExp(`^translate\\(\\s*${number}px\\s*,\\s*${number}px\\s*\\)$`, "i"))
   if (translate) return { x: Number(translate[1]), y: Number(translate[2]) }
-  const translateX = value.match(new RegExp(`^translateX\\(\\s*${number}px\\s*\\)$`, "i"))
-  if (translateX) return { x: Number(translateX[1]), y: 0 }
-  const translateY = value.match(new RegExp(`^translateY\\(\\s*${number}px\\s*\\)$`, "i"))
-  return translateY ? { x: 0, y: Number(translateY[1]) } : undefined
+
+  const translateX = browserAxisTranslation(value, "X", number)
+  if (translateX !== undefined) return { x: translateX, y: 0 }
+  const translateY = browserAxisTranslation(value, "Y", number)
+  return translateY === undefined ? undefined : { x: 0, y: translateY }
+}
+
+function browserAxisTranslation(value: string, axis: "X" | "Y", number: string): number | undefined {
+  const direct = value.match(new RegExp(`^translate${axis}\\(\\s*${number}px\\s*\\)$`, "i"))
+  if (direct) return Number(direct[1])
+
+  const scaled = value.match(new RegExp(
+    `^translate${axis}\\(\\s*calc\\(\\s*${number}px\\s*\\*\\s*${number}\\s*\\)\\s*\\)$`,
+    "i",
+  ))
+  return scaled ? Number(scaled[1]) * Number(scaled[2]) : undefined
+}
+
+function resolveBrowserCustomProperties(element: HostElementNode, value: string): string {
+  return value.replace(
+    /var\\(\\s*(--[A-Za-z0-9_-]+)\\s*(?:,\\s*([^)]*))?\\)/gu,
+    (_match, name: string, fallback: string | undefined) =>
+      browserCustomProperty(element, name) ?? fallback?.trim() ?? "",
+  )
+}
+
+function browserCustomProperty(element: HostElementNode, name: string): string | undefined {
+  let current: HostElementNode | null = element
+  while (current) {
+    const value = current.style.getPropertyValue(name)
+    if (value) return value
+    current = current.parentElement
+  }
+  return undefined
+}
+
+function syncBrowserCustomPropertyMutation(element: HostElementNode, name: string): void {
+  const pending: HostElementNode[] = [element]
+  while (pending.length > 0) {
+    const current = pending.pop()
+    if (!current) continue
+    if (browserStyleReferencesCustomProperty(current.style, name)) {
+      syncBrowserStyleMutation(current, current.style)
+    }
+    for (const child of current.children) {
+      if (child.kind === "element") pending.push(child)
+    }
+  }
+}
+
+function browserStyleReferencesCustomProperty(style: BrowserStyleDeclaration, name: string): boolean {
+  const reference = `var(${name}`
+  return Object.values(style).some((value) => isStringValue(value) && value.includes(reference))
+}
+
+function browserStyleNeedsParentSize(style: BrowserStyleDeclaration): boolean {
+  return (["left", "right", "top", "bottom"] as const).some((property) => {
+    const value = style[property]
+    return isStringValue(value) && value.trim().endsWith("%")
+  })
+}
+
+type BrowserNativeCursor = NonNullable<HostElementNode["style"]["cursor"]>
+
+const NATIVE_BROWSER_CURSORS = new Set<string>([
+  "default",
+  "auto",
+  "pointer",
+  "text",
+  "vertical-text",
+  "crosshair",
+  "grab",
+  "grabbing",
+  "move",
+  "all-scroll",
+  "col-resize",
+  "row-resize",
+  "ew-resize",
+  "ns-resize",
+  "nwse-resize",
+  "nesw-resize",
+  "n-resize",
+  "e-resize",
+  "s-resize",
+  "w-resize",
+  "ne-resize",
+  "nw-resize",
+  "se-resize",
+  "sw-resize",
+  "not-allowed",
+  "no-drop",
+  "alias",
+  "copy",
+  "context-menu",
+])
+
+function browserCursor(
+  element: HostElementNode,
+  cursor: BrowserStyleDeclaration["cursor"],
+): BrowserNativeCursor | undefined {
+  if (!cursor) return undefined
+  const resolved = resolveBrowserCustomProperties(element, String(cursor)).trim()
+  if (isBrowserNativeCursor(resolved)) return resolved
+  if (resolved === "cross") return "crosshair"
+  if (resolved === "zoom-in" || resolved === "zoom-out") return "pointer"
+  if (/^url\\(/iu.test(resolved) && /,\\s*pointer\\s*$/iu.test(resolved)) return "pointer"
+  return undefined
+}
+
+function isBrowserNativeCursor(value: string): value is BrowserNativeCursor {
+  return NATIVE_BROWSER_CURSORS.has(value)
 }
 
 function applyBrowserRelativeTranslation(
