@@ -5,7 +5,7 @@ import {
   type GpuixCanvasRenderingContext2D,
 } from "./canvas.js"
 import { parseDragData } from "./drag-data.js"
-import { EVENT_PROP_TO_TYPE, isDelegatedNativeEvent, nativeEventTypeForBrowserEvent, nativeEventTypeForDomEvent, type DomCompatTarget, type EventRegistry } from "./events.js"
+import { EVENT_PROP_TO_TYPE, hasDelegatedNativeHandler, nativeEventTypeForBrowserEvent, nativeEventTypeForDomEvent, type DomCompatTarget, type EventRegistry } from "./events.js"
 import type { MutationDriver, MutationValue } from "./mutations.js"
 import type {
   DragData,
@@ -975,10 +975,10 @@ function ownsExplicitPointerSurface(node: HostElementNode): boolean {
   return nativeEvents.has("mouseDown") || nativeEvents.has("mouseMove") || nativeEvents.has("mouseUp")
 }
 
-function delegatedSemanticPointerSurfaceActive(): boolean {
-  return isDelegatedNativeEvent("click")
-    || isDelegatedNativeEvent("mouseDown")
-    || isDelegatedNativeEvent("mouseUp")
+function delegatedSemanticPointerSurfaceActive(node: HostElementNode): boolean {
+  return hasDelegatedNativeHandler(node, "click")
+    || hasDelegatedNativeHandler(node, "mouseDown")
+    || hasDelegatedNativeHandler(node, "mouseUp")
 }
 
 function effectivePointerEvents(node: HostElementNode): StyleDesc["pointerEvents"] | undefined {
@@ -1001,7 +1001,7 @@ function effectivePointerEvents(node: HostElementNode): StyleDesc["pointerEvents
     || node.events.has("dragOver")
     || node.events.has("drop")
     || (node.events.size > 0 && ownsSemanticHitSurface(node))
-    || (ownsSemanticHitSurface(node) && delegatedSemanticPointerSurfaceActive())
+    || (ownsSemanticHitSurface(node) && delegatedSemanticPointerSurfaceActive(node))
     || ownsExplicitPointerSurface(node)
   ) return "auto"
   return undefined
@@ -1203,7 +1203,7 @@ function browserNativeEventTypes(node: HostElementNode): Set<string> {
 }
 
 function hasNativeEventHandler(node: HostElementNode, nativeEventType: string): boolean {
-  if (isDelegatedNativeEvent(nativeEventType)) return true
+  if (hasDelegatedNativeHandler(node, nativeEventType)) return true
   const hasDragSource = node.dragData !== undefined
   // GPUI implicitly captures a pointer when a node owns mouseDown + mouseMove at
   // press time. Pre-arm drag sources for mouseDown only; BrowserPointerMutationDriver
