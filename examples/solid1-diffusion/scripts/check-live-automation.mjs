@@ -210,11 +210,21 @@ function assertInspectorAppearanceRowsStack(root) {
 }
 
 function assertInspectorSectionHeadings(root) {
-  for (const label of ["Layout", "Time", "Transform", "Appearance"]) {
+  const layout = findText(root, "Layout")
+  assert(layout.bounds && layout.bounds.width > 0 && layout.bounds.height > 0, "Layout heading has no painted native bounds")
+  const inspectorLeft = layout.bounds.x
+
+  for (const label of ["Time", "Transform", "Appearance"]) {
     const heading = findText(root, label)
     assert(
-      heading.bounds && heading.bounds.width > 0 && heading.bounds.height > 0 && heading.bounds.x >= 1000,
-      `${label} heading is not painted inside the Inspector: ${JSON.stringify(heading.bounds)}`,
+      heading.bounds &&
+        heading.bounds.width > 0 &&
+        heading.bounds.height > 0 &&
+        Math.abs(heading.bounds.x - inspectorLeft) <= 2,
+      `${label} heading is not aligned to the Inspector section gutter: ${JSON.stringify({
+        layout: layout.bounds,
+        heading: heading.bounds,
+      })}`,
     )
   }
 }
@@ -833,17 +843,17 @@ try {
     timelineBounds: restoredTimeline.bounds,
     checks: [
       "initial EditorPage and both canvases paint",
-      "layer-row selection updates the Inspector; inherited heading color, Position X input, and Inspector wheel interaction work",
+      "layer-row selection updates the Inspector; section headings, Position X input, and Inspector wheel interaction work",
       "Rectangle toolbar activation plus draw, move, and resize keep the HUD and native engine responsive",
       "Generate with AI mounts and closes without submitting",
       "Text placement, native textarea entry, and Enter commit",
-      "timeline ruler seek and drag move the playhead without getTransform errors",
+      "timeline layer wheel scrolling, ruler seek, and ruler drag work without transform errors",
       "blank-stage marquee drag completes",
-      "project/View and Inspector zoom dropdowns open as occluding native layers and execute actions",
+      "project/View and Inspector zoom dropdowns open as anchored native layers and execute actions",
       "Move/Hand dropdown opens and both choices work",
       "Assets plus menu opens",
       "layer context menu opens and closes without destructive selection",
-      "Assets/Chat navigation, Chat composer input, and timeline minimize/restore work",
+      "Assets/Chat navigation, sanitized assistant Markdown, Chat composer input, and timeline minimize/restore work",
       "Hide/restore UI removes and restores the editor chrome",
       "fixture Play/Pause traverses AudioContext.resume() without claiming real audio playback",
     ],
