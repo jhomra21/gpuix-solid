@@ -56,17 +56,17 @@ For unrotated text, GPUI paints the shaped line directly. For a non-identity aff
 
 The recorder rejects unsupported operations instead of silently changing their meaning. Uniform `roundRect()` clipping is the one deliberate approximation. GPUI's current content mask is rectangular, so the native patch paints the rounded boundary as subpixel-height horizontal mask strips. Current limits include:
 
-- gradients and Canvas patterns;
+- gradient paints outside the supported linear-gradient `fillRect()` path, and Canvas patterns;
 - the `evenodd` fill rule;
 - partial `clearRect()`;
 - arbitrary clip paths, mixed-corner rounded clip radii, rotated rounded clips, and multiple different rounded clips in one active clip stack;
 - `fillText()` `maxWidth` and multiline text;
-- object-form `setTransform()`;
 - non-default line caps, joins, and miter limits;
 - non-uniform or sheared stroke transforms;
 - rotated or sheared `drawImage()` destination transforms;
 - direct `ImageBitmap`, `HTMLImageElement`, and video-frame image sources that do not expose readable Canvas2D pixels;
-- Canvas compositing modes, filters, shadows, and `Path2D`;
+- Canvas compositing modes, filters, and shadows;
+- full browser `Path2D` compatibility. The Solid 1 DOM shim supports SVG path strings with `M`, `L`, `H`, `V`, `Q`, `C`, and `Z`, cloning, and `addPath()` without a transform;
 - pixel readback from the native Canvas.
 
 The first `drawImage()` implementation is a correctness path for Diffusion's canvas-backed images and video frame cache. Large video frames should move to the existing VideoToolbox and IOSurface path rather than copying RGBA pixels every frame.
