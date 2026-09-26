@@ -130,6 +130,10 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   #canvas2d: Canvas2DRecorder | undefined
   #canvasDrawQueued = false
   #videoFrame: VideoFrameSurfaceFrame | null | undefined
+  #scrollOffsetCache: number[] | null | undefined
+  #scrollOffsetCacheQueued = false
+  #scrollViewportCache: { width: number; height: number } | undefined
+  #scrollViewportCacheQueued = false
 
   constructor(type: ElementType, tagName: string = type) {
     this.type = type
@@ -264,11 +268,11 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   }
 
   get clientWidth(): number {
-    return this.getBoundingClientRect().width
+    return this.scrollViewportSize().width
   }
 
   get clientHeight(): number {
-    return this.getBoundingClientRect().height
+    return this.scrollViewportSize().height
   }
 
   get clientLeft(): number {
@@ -280,11 +284,11 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   }
 
   get offsetWidth(): number {
-    return this.getBoundingClientRect().width
+    return this.scrollViewportSize().width
   }
 
   get offsetHeight(): number {
-    return this.getBoundingClientRect().height
+    return this.scrollViewportSize().height
   }
 
   get scrollWidth(): number {
@@ -518,18 +522,61 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     return domBounds(x - paddingLeft, y - paddingTop, width, height)
   }
 
+  private scrollViewportSize(): { width: number; height: number } {
+    const isScrollable = this.style.overflow === "auto"
+      || this.style.overflow === "scroll"
+      || this.style.overflowX === "auto"
+      || this.style.overflowX === "scroll"
+      || this.style.overflowY === "auto"
+      || this.style.overflowY === "scroll"
+    if (!isScrollable) {
+      const bounds = this.getBoundingClientRect()
+      return { width: bounds.width, height: bounds.height }
+    }
+    if (this.#scrollViewportCache) return this.#scrollViewportCache
+    const bounds = this.getBoundingClientRect()
+    this.#scrollViewportCache = { width: bounds.width, height: bounds.height }
+    if (!this.#scrollViewportCacheQueued) {
+      this.#scrollViewportCacheQueued = true
+      queueMicrotask(() => {
+        this.#scrollViewportCacheQueued = false
+        this.#scrollViewportCache = undefined
+      })
+    }
+    return this.#scrollViewportCache
+  }
+
   private scrollOffset(): number[] | null {
+    if (this.#scrollOffsetCache !== undefined) return this.#scrollOffsetCache
     const root = this.root
     if (!root || !this.nativeAlive) return null
     root.driver.flush()
-    return root.driver.renderer.getScrollOffset?.(this.id) ?? null
+    this.#scrollOffsetCache = root.driver.renderer.getScrollOffset?.(this.id) ?? null
+    if (!this.#scrollOffsetCacheQueued) {
+      this.#scrollOffsetCacheQueued = true
+      queueMicrotask(() => {
+        this.#scrollOffsetCacheQueued = false
+        this.#scrollOffsetCache = undefined
+      })
+    }
+    return this.#scrollOffsetCache
   }
 
   private setScrollOffset(left: number, top: number): void {
     const root = this.root
     if (!root || !this.nativeAlive) return
+    const x = Math.max(0, left)
+    const y = Math.max(0, top)
     root.driver.flush()
-    root.driver.renderer.scrollTo?.(this.id, -Math.max(0, left), -Math.max(0, top))
+    root.driver.renderer.scrollTo?.(this.id, -x, -y)
+    this.#scrollOffsetCache = [-x, -y]
+    if (!this.#scrollOffsetCacheQueued) {
+      this.#scrollOffsetCacheQueued = true
+      queueMicrotask(() => {
+        this.#scrollOffsetCacheQueued = false
+        this.#scrollOffsetCache = undefined
+      })
+    }
   }
 }
 
@@ -644,6 +691,8 @@ export function setHostProperty<T>(
   if (name === "style") {
     const previousPointerEvents = effectivePointerEvents(node)
     const previousColor = node.style.color
+    node.#scrollViewportCache = undefined
+    node.#scrollOffsetCache = undefined
     node.style = createHostStyleDeclaration(node, isStyle(value) ? value : {})
     if (node.root && node.nativeAlive) {
       const nextPointerEvents = effectivePointerEvents(node)
