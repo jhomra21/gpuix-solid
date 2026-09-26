@@ -30,6 +30,7 @@ import type { DimensionValue, ElementType, StyleDesc } from "./host/types.js"
 import {
   applyNativeStyleAutoMargin,
   applyNativeStyleParentPosition,
+  applyNativeStyleParentSize,
   applyNativeStyleTranslation,
   applyNativeStyleViewportSize,
   mergeNativeStyles,
@@ -792,8 +793,13 @@ function applyNativeStyleState(node: HostElementNode): void {
   )
   const parentWidth = resolvedNativeNodeSize(node.parent, "x")
   const parentHeight = resolvedNativeNodeSize(node.parent, "y")
-  const positionedStyle = applyNativeStyleParentPosition(
+  const parentSizedStyle = applyNativeStyleParentSize(
     viewportStyle,
+    parentWidth,
+    parentHeight,
+  )
+  const positionedStyle = applyNativeStyleParentPosition(
+    parentSizedStyle,
     classParentPosition,
     parentWidth,
     parentHeight,
