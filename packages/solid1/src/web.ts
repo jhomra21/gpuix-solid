@@ -6,7 +6,7 @@ import {
   type ValidComponent,
 } from "solid-js"
 import { HostElementNode, refreshHostPointerEvents, setHostProperty, type HostRootNode } from "./host/nodes.js"
-import { nativeEventTypeForBrowserEvent, registerDelegatedNativeEvent } from "./host/events.js"
+import { hasDelegatedNativeHandler, nativeEventTypeForBrowserEvent, registerDelegatedNativeEvent } from "./host/events.js"
 import { createComponent, createElement, createTextNode, effect, insert, insertNode, memo, setProp, spread, use } from "./universal.js"
 
 export const isServer = false
@@ -77,11 +77,12 @@ function defineDelegatedListener(
   name: string,
   handler: EventListener,
 ): void {
-  Object.defineProperty(node, `$$${name}`, {
+  Object.defineProperty(node, `$${name}`, {
     configurable: true,
     writable: true,
     value: handler,
   })
+  syncNativeDelegatedTarget(node, name)
 }
 
 function defineDelegatedDataHandler<T>(
@@ -95,11 +96,12 @@ function defineDelegatedDataHandler<T>(
     writable: true,
     value: handler,
   })
-  Object.defineProperty(node, `$$${name}Data`, {
+  Object.defineProperty(node, `$${name}Data`, {
     configurable: true,
     writable: true,
     value: data,
   })
+  syncNativeDelegatedTarget(node, name)
 }
 
 type StaticTemplateText = {
@@ -314,10 +316,21 @@ function dispatchDelegatedEvent(event: Event): void {
   }
 }
 
+function syncNativeDelegatedTarget(node: HostElementNode, browserEventType: string): void {
+  const nativeEventType = nativeEventTypeForBrowserEvent(browserEventType)
+  if (!nativeEventType || !hasDelegatedNativeHandler(node, nativeEventType)) return
+  const root = node.root
+  if (!root || !node.nativeAlive) return
+  root.driver.enqueue("setEventListener", node.id, nativeEventType, true)
+  refreshHostPointerEvents(node)
+  root.driver.flush()
+}
+
 function syncNativeDelegatedObservation(nativeEventType: string): void {
   const roots = new Set<HostRootNode>()
   for (const candidate of Array.from(globalThis.document.body.querySelectorAll("*"))) {
     if (!(candidate instanceof HostElementNode)) continue
+    if (!hasDelegatedNativeHandler(candidate, nativeEventType)) continue
     const root = candidate.root
     if (!root || !candidate.nativeAlive) continue
     roots.add(root)
