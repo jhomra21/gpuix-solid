@@ -144,9 +144,7 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   #scrollOffsetCache: number[] | null | undefined
   #scrollOffsetCacheQueued = false
   #scrollViewportCache: HostViewportSize | undefined
-  #scrollViewportCacheQueued = false
   #scrollContentCache: HostViewportSize | undefined
-  #scrollContentCacheQueued = false
 
   constructor(type: ElementType, tagName: string = type) {
     this.type = type
@@ -610,13 +608,6 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     if (this.#scrollViewportCache) return this.#scrollViewportCache
     const bounds = this.getBoundingClientRect()
     this.#scrollViewportCache = { width: bounds.width, height: bounds.height }
-    if (!this.#scrollViewportCacheQueued) {
-      this.#scrollViewportCacheQueued = true
-      queueMicrotask(() => {
-        this.#scrollViewportCacheQueued = false
-        this.#scrollViewportCache = undefined
-      })
-    }
     return this.#scrollViewportCache
   }
 
@@ -657,13 +648,6 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
       width: Math.max(0, Math.ceil(width)),
       height: Math.max(0, Math.ceil(height)),
     }
-    if (!this.#scrollContentCacheQueued) {
-      this.#scrollContentCacheQueued = true
-      queueMicrotask(() => {
-        this.#scrollContentCacheQueued = false
-        this.#scrollContentCache = undefined
-      })
-    }
     return this.#scrollContentCache
   }
 
@@ -690,7 +674,6 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     const y = Math.max(0, top)
     root.driver.flush()
     root.driver.renderer.scrollTo?.(this.id, -x, -y)
-    this.#scrollContentCache = undefined
     this.#scrollOffsetCache = [-x, -y]
     if (!this.#scrollOffsetCacheQueued) {
       this.#scrollOffsetCacheQueued = true
@@ -796,6 +779,7 @@ export function replaceHostText(node: HostTextNode, value: string): void {
   if (node.text === text) return
   const layoutChanged = (node.text.length === 0) !== (text.length === 0)
   node.text = text
+  invalidateAncestorScrollMeasurements(node.parent)
   if (!node.root || !node.nativeAlive) return
   node.root.driver.enqueue("setText", node.id, text)
   if (layoutChanged) node.root.driver.enqueue("setStyle", node.id, nativeTextStyle(node))
@@ -813,7 +797,7 @@ export function setHostProperty<T>(
   if (name === "style") {
     const previousPointerEvents = effectivePointerEvents(node)
     const previousColor = node.style.color
-    node.invalidateScrollMeasurements()
+    invalidateScrollMeasurementsUpTree(node)
     node.style = createHostStyleDeclaration(node, isStyle(value) ? value : {})
     if (node.root && node.nativeAlive) {
       const nextPointerEvents = effectivePointerEvents(node)
@@ -962,6 +946,7 @@ export function insertHostNode(parent: HostParent, node: HostNode, anchor?: Host
   const index = anchor ? parent.children.indexOf(anchor) : parent.children.length
   parent.children.splice(index, 0, node)
   node.parent = parent
+  invalidateAncestorScrollMeasurements(parent)
   if (parent.kind === "root" && node.kind === "element") mountedHostRootElements.add(node)
 
   if (root) {
@@ -982,6 +967,7 @@ export function removeHostNode(parent: HostParent, node: HostNode): void {
   if (node.parent !== parent) return
   if (parent.kind === "root" && node.kind === "element") mountedHostRootElements.delete(node)
   removeFromChildren(parent, node)
+  invalidateAncestorScrollMeasurements(parent)
   node.parent = null
   const root = rootOf(parent)
   if (!root || !node.root) return
@@ -1404,6 +1390,19 @@ function markNativeDead(root: HostRootNode, node: HostNode): void {
   node.nativeAlive = false
   root.events.deactivate(node.id)
   for (const child of node.children) markNativeDead(root, child)
+}
+
+function invalidateScrollMeasurementsUpTree(node: HostElementNode): void {
+  node.invalidateScrollMeasurements()
+  invalidateAncestorScrollMeasurements(node.parent)
+}
+
+function invalidateAncestorScrollMeasurements(parent: HostParent | null): void {
+  let current = parent
+  while (current?.kind === "element") {
+    current.invalidateScrollMeasurements()
+    current = current.parent
+  }
 }
 
 function rootOf(parent: HostParent): HostRootNode | null {
