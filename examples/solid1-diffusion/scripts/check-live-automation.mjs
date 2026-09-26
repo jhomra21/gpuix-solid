@@ -742,6 +742,28 @@ try {
   await delay(400)
   tree = await getFreshTree(app)
   assert(descendants(tree).some((node) => node.type === "textarea"), "Chat composer disappeared after settling")
+  assertText(tree, "GPUix Markdown", "rendered assistant Markdown heading")
+  assertText(tree, "Bold item", "rendered assistant Markdown strong text")
+  assertText(tree, "Safe link", "rendered assistant Markdown link")
+  assertText(tree, "A", "rendered assistant Markdown table header")
+  assertText(tree, "1", "rendered assistant Markdown table cell")
+  assert(
+    !descendants(tree).some((node) => (node.text ?? "").includes("GPUix unsafe")),
+    "Sanitized assistant Markdown retained script contents",
+  )
+
+  const safeLinkText = findText(tree, "Safe link")
+  const markdownParents = indexParents(tree)
+  let safeLink = markdownParents.get(safeLinkText.id)
+  while (safeLink && safeLink.customProps?.href !== "https://example.com") {
+    safeLink = markdownParents.get(safeLink.id)
+  }
+  assert(safeLink, "Rendered Markdown link did not retain its safe href")
+  assert(
+    safeLink.customProps?.target === "_blank" && safeLink.customProps?.rel === "noopener noreferrer",
+    `Rendered Markdown link did not receive safe external-link attributes: ${JSON.stringify(safeLink.customProps)}`,
+  )
+
   const chatComposer = app.getByType("textarea")
   await chatComposer.fill("GPUix chat smoke")
   await delay(120)
