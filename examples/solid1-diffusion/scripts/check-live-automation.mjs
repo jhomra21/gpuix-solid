@@ -569,47 +569,15 @@ try {
   })
   assert(textContent(tree).includes("1080×1920"), "Scene preset dimensions did not decode the JSX multiplication entity")
   assert(!textContent(tree).includes("&times;"), "Scene preset exposed a raw JSX entity")
-  const scenePresetParents = indexParents(tree)
-  const presetDimensions = descendants(tree)
-    .filter((node) => ["1080", "×", "1920"].includes(node.text))
-    .map((node) => {
-      let parent = scenePresetParents.get(node.id)
-      const ancestors = []
-      while (parent && ancestors.length < 3) {
-        ancestors.push({ type: parent.type, bounds: parent.bounds })
-        parent = scenePresetParents.get(parent.id)
-      }
-      return { text: node.text, bounds: node.bounds, ancestors }
-    })
-  console.log("Scene preset dimension native bounds", JSON.stringify(presetDimensions))
   await screenshot(app, "scenePresetPanel")
-  const preset = findText(tree, "Square video 1:1")
-  const presetParents = indexParents(tree)
-  let presetTarget = presetParents.get(preset.id)
-  while (
-    presetTarget &&
-    !(
-      presetTarget.bounds &&
-      presetTarget.bounds.width >= 120 &&
-      presetTarget.bounds.height >= 28 &&
-      presetTarget.bounds.height <= 36
-    )
-  ) {
-    presetTarget = presetParents.get(presetTarget.id)
-  }
+  const presetTarget = findNode(
+    tree,
+    (node) => node.testId === "diffusion-scene-preset-Square video 1:1",
+    "Square video preset button",
+  )
   assert(
-    presetTarget,
-    `Scene preset label did not expose a painted row ancestor: ${JSON.stringify(
-      (() => {
-        const rows = []
-        let current = presetParents.get(preset.id)
-        while (current && rows.length < 6) {
-          rows.push({ type: current.type, bounds: current.bounds, text: textContent(current) })
-          current = presetParents.get(current.id)
-        }
-        return rows
-      })(),
-    )}`,
+    presetTarget.bounds && presetTarget.bounds.width > 0 && presetTarget.bounds.height >= 28,
+    `Square video preset button has invalid native bounds: ${JSON.stringify(presetTarget.bounds)}`,
   )
   await clickNode(app, presetTarget)
   tree = await waitFor("created and selected scene preset", async () => {

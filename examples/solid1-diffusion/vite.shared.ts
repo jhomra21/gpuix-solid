@@ -64,6 +64,28 @@ const toolbarTestHook = {
   },
 }
 
+const scenePresetTestHook = {
+  name: "diffusion-scene-preset-native-test-hook",
+  enforce: "pre" as const,
+  transform(code: string, id: string) {
+    const normalizedId = id.replaceAll("\\", "/").split("?")[0]
+    if (!normalizedId.endsWith("/apps/web/src/components/sidebar-right/inspector/scene-template.tsx")) return null
+
+    const presetButton = `            <button
+              class="flex items-center gap-1 h-8 w-full pl-2 pr-4 hover:bg-muted/50"`
+    if (!code.includes(presetButton)) {
+      throw new Error("Pinned Diffusion scene preset button changed; update native acceptance instrumentation")
+    }
+
+    return code.replace(
+      presetButton,
+      `            <button
+              testId={"diffusion-scene-preset-" + preset.label}
+              class="flex items-center gap-1 h-8 w-full pl-2 pr-4 hover:bg-muted/50"`,
+    )
+  },
+}
+
 const packageSource = (name: string) =>
   fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/packages/${name}/src/index.ts`)
 
@@ -78,6 +100,7 @@ export function diffusionConfig(entry: string, outDir: string) {
     plugins: [
       multilineClassAttributeHook,
       toolbarTestHook,
+      scenePresetTestHook,
       solid({
         babel: { plugins: [decodeJsxTextEntities] },
         solid: {
