@@ -122,6 +122,7 @@ const runtime = createRenderer<HostNode | HostParent>({
   createElement(tagName, staticProps) {
     const type = nativeElementType(tagName)
     const node = createHostElement(type)
+    node.setClassMutationHandler((className) => setNativeDomClassName(node, className))
     if (type !== tagName || tagName === "svg") semanticTags.set(node, tagName)
     if (staticProps) {
       for (const [name, value] of Object.entries(staticProps)) {
@@ -522,6 +523,17 @@ function setNativeClassList(node: HostElementNode, classList: NativeClassList | 
   commitNativeStyleState(node, state)
 }
 
+function setNativeDomClassName(node: HostElementNode, className: string | undefined): void {
+  const state = nativeStyleState(node)
+  // classList/setAttribute mutate the browser's single live class attribute.
+  // Treat the resulting string as authoritative until Solid next writes class
+  // metadata through its normal renderer path.
+  state.class = className
+  state.className = undefined
+  state.classList = undefined
+  commitNativeStyleState(node, state)
+}
+
 function setNativeHidden(node: HostElementNode, hidden: boolean): void {
   const state = nativeStyleState(node)
   state.hidden = hidden
@@ -530,6 +542,7 @@ function setNativeHidden(node: HostElementNode, hidden: boolean): void {
 
 function commitNativeStyleState(node: HostElementNode, state: NativeStyleState): void {
   styleStates.set(node, state)
+  node.syncClassName(domClassName(state))
   if (hasNativeClasses(state)) classStyledNodes.add(node)
   else classStyledNodes.delete(node)
   reapplyNativeStyleSubtree(node)
@@ -811,4 +824,13 @@ function resolveAncestorDescendantStyle(node: HostElementNode): StyleDesc | unde
 
 function combinedClassName(state: NativeStyleState): string | undefined {
   return [state.class, state.className].filter(Boolean).join(" ") || undefined
+}
+
+function domClassName(state: NativeStyleState): string | undefined {
+  const staticClasses = combinedClassName(state)
+  const dynamicClasses = Object.entries(state.classList ?? {})
+    .filter(([, enabled]) => Boolean(enabled))
+    .map(([className]) => className)
+    .join(" ")
+  return [staticClasses, dynamicClasses].filter(Boolean).join(" ") || undefined
 }
