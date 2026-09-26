@@ -42,7 +42,9 @@ type CompatRect = {
   height: number
 }
 
-type CompatDataset = Record<string, string | undefined>
+interface CompatDataset {
+  [name: string]: string | undefined
+}
 
 type CompatTreeElement = HostElementNode | CompatDocumentNode
 
@@ -1044,31 +1046,28 @@ function datasetFromHost(node: HostElementNode) {
 }
 
 function createLiveDataset(attributes: Map<string, string>): CompatDataset {
-  return new Proxy<CompatDataset>({}, {
+  const target: CompatDataset = {}
+  return new Proxy(target, {
     get(_target, property) {
-      if (typeof property !== "string") return undefined
-      return attributes.get(dataPropertyAttribute(property))
+      return attributes.get(dataPropertyAttribute(String(property)))
     },
     set(_target, property, value) {
-      if (typeof property !== "string") return false
-      const name = dataPropertyAttribute(property)
+      const name = dataPropertyAttribute(String(property))
       if (value === undefined) attributes.delete(name)
       else attributes.set(name, String(value))
       return true
     },
     deleteProperty(_target, property) {
-      if (typeof property !== "string") return false
-      attributes.delete(dataPropertyAttribute(property))
+      attributes.delete(dataPropertyAttribute(String(property)))
       return true
     },
     ownKeys() {
-      return [...attributes.keys()]
+      return Array.from(attributes.keys())
         .filter((name) => name.startsWith("data-"))
         .map(dataAttributeProperty)
     },
     getOwnPropertyDescriptor(_target, property) {
-      if (typeof property !== "string") return undefined
-      const value = attributes.get(dataPropertyAttribute(property))
+      const value = attributes.get(dataPropertyAttribute(String(property)))
       return value === undefined
         ? undefined
         : { configurable: true, enumerable: true, writable: true, value }
