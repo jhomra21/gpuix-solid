@@ -226,8 +226,8 @@ function instantiateStaticTemplate(templateNode: StaticTemplateElement): HostEle
 }
 
 function instantiateStaticTemplateNode(templateNode: StaticTemplateNode): HostNode {
-  if (templateNode.kind === "text") return createTextNode(templateNode.value)
-  if (templateNode.tagName === "br") return createTextNode("\n")
+  if (templateNode.kind === "text") return requireHostTemplateNode(createTextNode(templateNode.value))
+  if (templateNode.tagName === "br") return requireHostTemplateNode(createTextNode("\n"))
 
   const node = createElement(templateNode.tagName)
   if (!(node instanceof HostElementNode)) {
@@ -238,6 +238,11 @@ function instantiateStaticTemplateNode(templateNode: StaticTemplateNode): HostNo
     setProp(node, name, name === "style" ? parseStaticStyleAttribute(value) : value)
   }
   for (const child of templateNode.children) insertNode(node, instantiateStaticTemplateNode(child))
+  return node
+}
+
+function requireHostTemplateNode(node: HostNode | HostRootNode): HostNode {
+  if (node.kind === "root") throw new TypeError("Static DOM template cannot create a host root")
   return node
 }
 
