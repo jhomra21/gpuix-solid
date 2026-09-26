@@ -403,7 +403,15 @@ try {
       })(),
     )}`,
   )
-  await clickNode(app, generateButton)
+  const generateBounds = generateButton.bounds
+  assert(generateBounds, "Generate with AI button row has no native bounds")
+  // Click the button's left padding rather than its centered text leaf. GPUIX
+  // native hit testing targets the painted leaf under the pointer; using the
+  // row padding ensures the source Button owns the synthesized click.
+  await physicalClick(app, {
+    x: generateBounds.x + Math.min(8, generateBounds.width / 4),
+    y: generateBounds.y + generateBounds.height / 2,
+  })
   tree = await waitFor("AI prompt textarea", async () => {
     const next = await currentTree(app)
     return descendants(next).some((node) => node.type === "textarea") ? next : null
