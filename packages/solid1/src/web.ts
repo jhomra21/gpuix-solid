@@ -566,7 +566,7 @@ function createBrowserStyleProxy(
           return previous
         }
       }
-      return Reflect.get(current, property, receiver)
+      return current[property as keyof BrowserStyleDeclaration]
     },
     set(current, property, value, receiver) {
       if (property === "cssText") {
