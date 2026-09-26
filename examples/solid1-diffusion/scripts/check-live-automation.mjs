@@ -195,6 +195,16 @@ function assertInspectorShowsTransformControls(root) {
   assert(!content.includes("Background"), "Inspector still showed Background after selecting the layer row")
 }
 
+function assertInspectorAppearanceRowsStack(root) {
+  const opacity = findText(root, "Opacity")
+  const blending = findText(root, "Blending")
+  assert(opacity.bounds && blending.bounds, "Appearance control labels have no native bounds")
+  assert(
+    blending.bounds.y >= opacity.bounds.y + opacity.bounds.height + 4,
+    `Appearance rows overlap: ${JSON.stringify({ opacity: opacity.bounds, blending: blending.bounds })}`,
+  )
+}
+
 function getEditorCanvases(root) {
   const editor = findNode(root, (node) => node.testId === "diffusion-source-editor", "Diffusion EditorPage")
   return descendants(editor).filter((node) => node.type === "canvas" && node.bounds)
@@ -332,6 +342,7 @@ try {
   await clickNode(app, layerLabel)
   tree = await getFreshTree(app)
   assertInspectorShowsTransformControls(tree)
+  assertInspectorAppearanceRowsStack(tree)
   await screenshot(app, "layerInspector")
 
 
@@ -364,6 +375,7 @@ try {
   await delay(220)
   tree = await getFreshTree(app)
   assertInspectorShowsTransformControls(tree)
+  assertInspectorAppearanceRowsStack(tree)
   await screenshot(app, "rectangleResized")
   assert(
     !readFileSync(screenshots.rectangleMoved).equals(readFileSync(screenshots.rectangleResized)),
