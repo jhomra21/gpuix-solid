@@ -187,14 +187,25 @@ const usabilityTestHook = {
         testId="diffusion-timeline-layers-scroll"
         class="grid grid-cols-1 h-full absolute border-b border-border inset-0 overflow-hidden"
         on:wheel={(event) => {
-          console.error("GPUix Diffusion wheel probe", JSON.stringify({
+          const root = event.currentTarget as HTMLElement
+          const layers = root.querySelector('[data-timeline-layers]') as HTMLElement | null
+          const viewport = root.querySelector('[data-timeline-layers-viewport]') as HTMLElement | null
+          console.error("GPUix Diffusion wheel probe before", JSON.stringify({
             deltaX: event.deltaX,
             deltaY: event.deltaY,
             deltaMode: event.deltaMode,
             clientX: event.clientX,
             clientY: event.clientY,
+            scrollHeight: layers?.scrollHeight,
+            clientHeight: viewport?.clientHeight,
+            transform: layers?.style.transform,
           }))
           timeline.scroll(event)
+          console.error("GPUix Diffusion wheel probe after", JSON.stringify({
+            scrollHeight: layers?.scrollHeight,
+            clientHeight: viewport?.clientHeight,
+            transform: layers?.style.transform,
+          }))
         }}`,
         ),
         map: null,
