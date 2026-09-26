@@ -898,13 +898,7 @@ function installComputedStyleCompatibility(): void {
     value: (element: Element, pseudoElement?: string | null) => {
       const computed = originalGetComputedStyle(element, pseudoElement)
       if (!(element instanceof HostElementNode)) return computed
-      reflectHostComputedStyle(element, computed)
-      Object.defineProperty(computed, "getPropertyValue", {
-        configurable: true,
-        enumerable: false,
-        value: (name: string) => hostComputedProperty(element, name),
-      })
-      return computed
+      return createHostComputedStyle(element, computed)
     },
   })
   Object.defineProperty(globalThis.window, "getComputedStyle", {
@@ -914,18 +908,56 @@ function installComputedStyleCompatibility(): void {
   })
 }
 
-function reflectHostComputedStyle(element: HostElementNode, computed: CSSStyleDeclaration): void {
+function createHostComputedStyle(
+  element: HostElementNode,
+  computed: CSSStyleDeclaration,
+): CSSStyleDeclaration {
+  return new Proxy(computed, {
+    get(target, property) {
+      if (property === "getPropertyValue") {
+        return (name: string) => hostComputedProperty(element, name) || target.getPropertyValue(name)
+      }
+
+      const reflected = hostComputedStyleValue(element, target, property)
+      if (reflected !== undefined) return reflected
+
+      // SAFETY: the proxy receives property keys from CSSStyleDeclaration consumers and forwards them to the same declaration.
+      const value = target[property as keyof CSSStyleDeclaration]
+      return value instanceof Function ? value.bind(target) : value
+    },
+  })
+}
+
+function hostComputedStyleValue(
+  element: HostElementNode,
+  computed: CSSStyleDeclaration,
+  property: PropertyKey,
+): string | undefined {
   const style: BrowserStyleDeclaration = element.style
-  if (style.display !== undefined) computed.display = style.display
-  if (style.position !== undefined) computed.position = style.position
-  if (style.overflow !== undefined) computed.overflow = style.overflow
-  if (style.overflowX !== undefined) computed.overflowX = style.overflowX
-  if (style.overflowY !== undefined) computed.overflowY = style.overflowY
-  computed.width = cssComputedValue(style.width, computed.width)
-  computed.height = cssComputedValue(style.height, computed.height)
-  computed.paddingLeft = cssComputedValue(style.paddingLeft, computed.paddingLeft)
-  computed.paddingTop = cssComputedValue(style.paddingTop, computed.paddingTop)
-  if (style.transform !== undefined) computed.transform = style.transform
+  switch (property) {
+    case "display":
+      return style.display === undefined ? undefined : String(style.display)
+    case "position":
+      return style.position === undefined ? undefined : String(style.position)
+    case "overflow":
+      return style.overflow === undefined ? undefined : String(style.overflow)
+    case "overflowX":
+      return style.overflowX === undefined ? undefined : String(style.overflowX)
+    case "overflowY":
+      return style.overflowY === undefined ? undefined : String(style.overflowY)
+    case "width":
+      return cssComputedValue(style.width, computed.width)
+    case "height":
+      return cssComputedValue(style.height, computed.height)
+    case "paddingLeft":
+      return cssComputedValue(style.paddingLeft, computed.paddingLeft)
+    case "paddingTop":
+      return cssComputedValue(style.paddingTop, computed.paddingTop)
+    case "transform":
+      return style.transform === undefined ? undefined : style.transform
+    default:
+      return undefined
+  }
 }
 
 function cssComputedValue(value: string | number | undefined, fallback: string): string {
