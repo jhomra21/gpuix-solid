@@ -61,7 +61,7 @@ export function Inspector(props: { state: DiffusionEditorState }): SolidElement 
         <InspectorHeader />
       </SourceDiffusionProvider>
       <div style={{ height: 1, backgroundColor: C.borderStrong }} />
-      <div style={{ flexGrow: 1, minHeight: 0, overflowY: "scroll" }}>
+      <div testId="diffusion-inspector-scroll" style={{ flexGrow: 1, minHeight: 0, overflowY: "scroll" }}>
         <Show when={props.state.selectedTool() === "frame"} fallback={
           <Show when={props.state.selectedAsset()} fallback={
             <Show when={scene()} fallback={<Stage />}>
