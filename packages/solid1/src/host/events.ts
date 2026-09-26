@@ -131,8 +131,6 @@ const DOUBLE_CLICK_DISTANCE_PX = 4
 const NATIVE_CLICK_RELAY_MS = 250
 const DRAG_START_DISTANCE_PX = 4
 
-installNativeDomGlobals()
-
 function fallbackTarget(event: NativeEventPayload): DomCompatTarget {
   const x = event.x ?? 0
   const y = event.y ?? 0
@@ -364,6 +362,8 @@ class GpuixWheelEvent extends Event {
     this.deltaMode = init.deltaMode ?? GpuixWheelEvent.DOM_DELTA_PIXEL
   }
 }
+
+installNativeDomGlobals()
 
 function installNativeDomGlobals(): void {
   if (!Object.hasOwn(globalThis, "window")) {
