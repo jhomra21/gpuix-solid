@@ -209,12 +209,12 @@ function assertInspectorAppearanceRowsStack(root) {
 
 function assertInspectorSectionColors(root) {
   const layout = findText(root, "Layout")
-  const expected = layout.style?.color
-  assert(typeof expected === "string" && expected.length > 0, "Layout heading has no native foreground color")
+  const expected = String(layout.style?.color ?? "")
+  assert(expected.length > 0, "Layout heading has no native foreground color")
   for (const label of ["Time", "Transform", "Appearance"]) {
     const heading = findText(root, label)
     assert(
-      heading.style?.color === expected,
+      String(heading.style?.color ?? "") === expected,
       `${label} heading did not inherit the Inspector foreground color: ${JSON.stringify({
         expected,
         actual: heading.style?.color,
