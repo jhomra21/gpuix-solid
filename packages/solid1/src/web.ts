@@ -814,7 +814,7 @@ function browserCursor(
   if (isBrowserNativeCursor(resolved)) return resolved
   if (resolved === "cross") return "crosshair"
   if (resolved === "zoom-in" || resolved === "zoom-out") return "pointer"
-  if (/^url\\(/iu.test(resolved) && /,\\s*pointer\\s*$/iu.test(resolved)) return "pointer"
+  if (/^url\(/iu.test(resolved) && /,\s*pointer\s*$/iu.test(resolved)) return "pointer"
   return undefined
 }
 
