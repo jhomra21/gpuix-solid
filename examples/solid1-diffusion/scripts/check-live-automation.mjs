@@ -17,6 +17,7 @@ const screenshots = {
   aiPrompt: "/tmp/diffusion-ai-prompt.png",
   textEdit: "/tmp/diffusion-text-edit.png",
   timeline: "/tmp/diffusion-timeline-interaction.png",
+  timelineScrolled: "/tmp/diffusion-timeline-scrolled.png",
   scenePresetPanel: "/tmp/diffusion-scene-preset-panel.png",
   scenePreset: "/tmp/diffusion-scene-preset.png",
   projectMenu: "/tmp/diffusion-project-dropdown.png",
@@ -538,6 +539,58 @@ try {
   tree = await getFreshTree(app)
   assertText(tree, "Background", "blank-space marquee deselection")
   assert(getEditorCanvases(tree).length >= 2, "EngineCanvas or timeline stopped painting after marquee drag")
+
+  // Build enough real timeline rows to overflow the layer viewport, then drive
+  // the upstream Layers wheel handler. Each DrawOverlay insertion returns to
+  // Move, so re-arm Rectangle through the real toolbar before every gesture.
+  const extraRects = [
+    [[0.43, 0.60], [0.46, 0.64]],
+    [[0.48, 0.60], [0.51, 0.64]],
+    [[0.53, 0.60], [0.56, 0.64]],
+  ]
+  for (const [from, to] of extraRects) {
+    tree = await getFreshTree(app)
+    parts = toolbarParts(tree)
+    await clickNode(app, parts.rectangle)
+    await drag(app, at(stage.bounds, from[0], from[1]), at(stage.bounds, to[0], to[1]), 8)
+  }
+  tree = await waitFor("overflowing Diffusion layer stack", async () => {
+    const next = await currentTree(app)
+    return descendants(next).some((node) => node.text === "Rect 4") ? next : null
+  })
+
+  const layerBeforeScroll = findText(tree, "GPUix rectangle")
+  assert(layerBeforeScroll.bounds, "Timeline layer label has no bounds before wheel scrolling")
+  const layerParents = indexParents(tree)
+  let layerWheelSurface = layerParents.get(layerBeforeScroll.id)
+  while (layerWheelSurface && !(layerWheelSurface.events ?? []).includes("wheel")) {
+    layerWheelSurface = layerParents.get(layerWheelSurface.id)
+  }
+  assert(layerWheelSurface?.bounds, "Could not find the real timeline layer wheel surface")
+  const layerBeforeY = layerBeforeScroll.bounds.y
+  const layerWheelPoint = {
+    x: layerWheelSurface.bounds.x + Math.min(96, layerWheelSurface.bounds.width / 2),
+    y: layerWheelSurface.bounds.y + Math.min(92, layerWheelSurface.bounds.height - 8),
+  }
+  await app.mouse.wheel(layerWheelPoint, 0, -180)
+  tree = await waitFor("timeline layer wheel translation", async () => {
+    const next = await currentTree(app)
+    const label = descendants(next).find((node) => node.type === "text" && node.text === "GPUix rectangle")
+    return label?.bounds && Math.abs(label.bounds.y - layerBeforeY) >= 20 ? next : null
+  }, 4_000)
+  await screenshot(app, "timelineScrolled")
+
+  const layerAfterScroll = findText(tree, "GPUix rectangle")
+  assert(
+    layerAfterScroll.bounds && layerAfterScroll.bounds.y < layerBeforeY - 20,
+    `Timeline layer wheel should move rows upward; before=${layerBeforeY}, after=${layerAfterScroll.bounds?.y}`,
+  )
+  await app.mouse.wheel(layerWheelPoint, 0, 180)
+  tree = await waitFor("timeline layer wheel restore", async () => {
+    const next = await currentTree(app)
+    const label = descendants(next).find((node) => node.type === "text" && node.text === "GPUix rectangle")
+    return label?.bounds && Math.abs(label.bounds.y - layerBeforeY) <= 3 ? next : null
+  }, 4_000)
 
   // The timeline ruler uses getTransform().transformPoint() for its coordinates.
   // Re-read its live bounds after the preceding editor mutations instead of
