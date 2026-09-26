@@ -837,6 +837,18 @@ function applyBrowserRelativeTranslation(
   style: BrowserStyleDeclaration,
   translation: BrowserTranslation,
 ): void {
+  if (style.position === undefined || style.position === "relative") {
+    if (translation.x !== 0) {
+      const left = browserNumericInset(style.left)
+      if (left !== undefined) style.left = left + translation.x
+    }
+    if (translation.y !== 0) {
+      const top = browserNumericInset(style.top)
+      if (top !== undefined) style.top = top + translation.y
+    }
+    return
+  }
+
   if (translation.x !== 0) {
     const left = browserNumericMargin(style.marginLeft ?? style.margin)
     const right = browserNumericMargin(style.marginRight ?? style.margin)
@@ -853,6 +865,14 @@ function applyBrowserRelativeTranslation(
       style.marginBottom = bottom - translation.y
     }
   }
+}
+
+function browserNumericInset(value: string | number | undefined): number | undefined {
+  if (value === undefined || value === "") return 0
+  const pixels = String(value).trim().match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))px$/u)
+  if (pixels) return Number(pixels[1])
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : undefined
 }
 
 function browserNumericMargin(value: string | number | undefined): number | undefined {
