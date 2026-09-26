@@ -5,7 +5,7 @@ import {
   type JSX,
   type ValidComponent,
 } from "solid-js"
-import { HostElementNode, refreshHostPointerEvents, setHostProperty, type HostRootNode } from "./host/nodes.js"
+import { HostElementNode, refreshHostPointerEvents, setHostProperty, type HostNode, type HostRootNode } from "./host/nodes.js"
 import { hasDelegatedNativeHandler, nativeEventTypeForBrowserEvent, registerDelegatedNativeEvent } from "./host/events.js"
 import { createComponent, createElement, createTextNode, effect, insert, insertNode, memo, setProp, spread, use } from "./universal.js"
 
