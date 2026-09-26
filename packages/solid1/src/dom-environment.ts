@@ -109,6 +109,8 @@ type CompatDocumentNode = CompatEventTarget & {
   getAttribute(name: string): string | null
   setAttribute(name: string, value: string): void
   removeAttribute(name: string): void
+  appendChild(node: HostElementNode): HostElementNode
+  removeChild(node: HostElementNode): HostElementNode
   contains(node: CompatTreeElement): boolean
   querySelector(selector: string): HostElementNode | null
   querySelectorAll(selector: string): HostElementNode[]
@@ -373,6 +375,7 @@ type CompatMutationSnapshot = Map<HostElementNode, CompatTreeElement>
 
 const listeners = new WeakMap<CompatListenerTarget, Map<string, Set<CompatListener>>>()
 const knownRoots = new Set<HostElementNode>()
+const pendingBodyChildren = new Set<HostElementNode>()
 const NODE_FILTER: CompatNodeFilter = {
   FILTER_ACCEPT: 1,
   FILTER_REJECT: 2,
@@ -598,7 +601,7 @@ function createDocumentNode(
     localName: tagName,
     parentElement: null,
     get children() {
-      if (tagName === "body") return activeDomRoots()
+      if (tagName === "body") return [...activeDomRoots(), ...pendingBodyChildren]
       return activeBody ? [activeBody] : []
     },
     get dataset() {
@@ -636,6 +639,19 @@ function createDocumentNode(
     removeAttribute(name) {
       attributes.delete(name)
       if (name === "class") classes.clear()
+    },
+    appendChild(child) {
+      if (tagName !== "body") return child
+      const roots = activeDomRoots()
+      const hostParent = roots[roots.length - 1]
+      if (hostParent) insertHostNode(hostParent, child)
+      else pendingBodyChildren.add(child)
+      return child
+    },
+    removeChild(child) {
+      if (child.parent?.kind === "element") removeHostNode(child.parent, child)
+      pendingBodyChildren.delete(child)
+      return child
     },
     contains(candidate) {
       if (candidate === node) return true
@@ -880,7 +896,13 @@ function activeDomRoots(): HostElementNode[] {
 function registerKnownRoot(node: HostElementNode): void {
   let current = node
   while (current.parent?.kind === "element") current = current.parent
-  if (current.parent?.kind === "root") knownRoots.add(current)
+  if (current.parent?.kind !== "root") return
+  knownRoots.add(current)
+  if (pendingBodyChildren.size === 0) return
+  for (const child of [...pendingBodyChildren]) {
+    pendingBodyChildren.delete(child)
+    insertHostNode(current, child)
+  }
 }
 
 function childElements(node: CompatTreeElement): HostElementNode[] {
