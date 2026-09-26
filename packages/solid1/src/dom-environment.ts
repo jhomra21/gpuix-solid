@@ -73,6 +73,7 @@ type CompatDocument = CompatEventTarget & {
   createElement?: (tagName: string) => HostElementNode
   createElementNS?: (namespace: string | null, qualifiedName: string) => HostElementNode
   createTextNode?: (value: string) => ReturnType<typeof createHostText>
+  createRange?: () => CompatRange
   getElementsByTagName?: (tagName: string) => CompatTreeElement[]
   getElementById?: (id: string) => HostElementNode | null
   querySelector?: (selector: string) => HostElementNode | null
@@ -117,6 +118,41 @@ type CompatDocumentNode = CompatEventTarget & {
   querySelector(selector: string): HostElementNode | null
   querySelectorAll(selector: string): HostElementNode[]
   getBoundingClientRect(): CompatRect
+}
+
+class CompatRange {
+  #contents: HostNode | undefined
+
+  selectNodeContents(node: HostNode): void {
+    this.#contents = node
+  }
+
+  get contents(): HostNode | undefined {
+    return this.#contents
+  }
+}
+
+class CompatSelection {
+  readonly #ranges: CompatRange[] = []
+
+  get rangeCount(): number {
+    return this.#ranges.length
+  }
+
+  removeAllRanges(): void {
+    this.#ranges.length = 0
+  }
+
+  addRange(range: CompatRange): void {
+    this.#ranges.length = 0
+    this.#ranges.push(range)
+  }
+
+  getRangeAt(index: number): CompatRange {
+    const range = this.#ranges[index]
+    if (!range) throw new DOMException("Selection range index is out of bounds", "IndexSizeError")
+    return range
+  }
 }
 
 type CompatImage = {
@@ -208,6 +244,7 @@ type CompatWindow = CompatEventTarget & {
   DOMRect?: typeof CompatDOMRect
   DOMPoint?: typeof GpuixDOMPoint
   Text?: typeof HostTextNode
+  getSelection?: () => CompatSelection
   getComputedStyle?: CompatGetComputedStyle
   localStorage?: CompatStorage
   sessionStorage?: CompatStorage
@@ -428,7 +465,9 @@ export function installDomEventEnvironment(): void {
   documentTarget.fonts = new CompatFontFaceSet()
   documentTarget.createElement = createCompatElement
   documentTarget.createElementNS = (_namespace, qualifiedName) => createCompatNamespacedElement(qualifiedName)
+  const selection = new CompatSelection()
   documentTarget.createTextNode = (value) => createHostText(value)
+  documentTarget.createRange = () => new CompatRange()
   documentTarget.getElementsByTagName = (tagName) => {
     const normalized = tagName.toLowerCase()
     if (normalized === "head") return [headTarget]
@@ -457,6 +496,7 @@ export function installDomEventEnvironment(): void {
   windowTarget.DOMRect = CompatDOMRect
   windowTarget.DOMPoint = GpuixDOMPoint
   windowTarget.Text = HostTextNode
+  windowTarget.getSelection = () => selection
   windowTarget.getComputedStyle = defaultComputedStyle
   windowTarget.matchMedia = (query) => createCompatMediaQueryList(windowTarget, query)
   Object.defineProperty(windowTarget, "Element", {
@@ -551,6 +591,11 @@ export function installDomEventEnvironment(): void {
     configurable: true,
     writable: true,
     value: HostTextNode,
+  })
+  Object.defineProperty(globalThis, "getSelection", {
+    configurable: true,
+    writable: true,
+    value: windowTarget.getSelection,
   })
   Object.defineProperty(globalThis, "requestAnimationFrame", {
     configurable: true,
