@@ -57,6 +57,13 @@ type HostViewportSize = {
   height: number
 }
 
+type HostClassList = {
+  add: (...tokens: string[]) => void
+  remove: (...tokens: string[]) => void
+  contains: (token: string) => boolean
+  toggle: (token: string, force?: boolean) => boolean
+}
+
 const customStyleProperties = new WeakMap<HostElementNode, Map<string, string>>()
 const appliedPointerEvents = new WeakMap<HostElementNode, StyleDesc["pointerEvents"] | undefined>()
 const browserEventListeners = new WeakMap<HostElementNode, Map<string, Set<EventListenerOrEventListenerObject>>>()
@@ -128,10 +135,9 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   readonly props = new Map<string, MutationValue>()
   dragData: DragData | undefined
   readonly events = new Map<string, HostEventHandler>()
-  readonly classList = {
-    add: (..._tokens: string[]): void => undefined,
-    remove: (..._tokens: string[]): void => undefined,
-  }
+  readonly classList: HostClassList
+  #classTokens = new Set<string>()
+  #classMutationHandler: ((className: string | undefined) => void) | undefined
   #canvas2d: Canvas2DRecorder | undefined
   #canvasDrawQueued = false
   #videoFrame: VideoFrameSurfaceFrame | null | undefined
@@ -147,6 +153,51 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     this.tagName = tagName.toUpperCase()
     this.nodeName = this.tagName
     this.style = createHostStyleDeclaration(this, {})
+    this.classList = {
+      add: (...tokens) => {
+        for (const token of tokens) {
+          for (const part of classTokens(token)) this.#classTokens.add(part)
+        }
+        this.#emitClassMutation()
+      },
+      remove: (...tokens) => {
+        for (const token of tokens) {
+          for (const part of classTokens(token)) this.#classTokens.delete(part)
+        }
+        this.#emitClassMutation()
+      },
+      contains: (token) => this.#classTokens.has(String(token)),
+      toggle: (token, force) => {
+        const className = String(token)
+        const shouldAdd = force ?? !this.#classTokens.has(className)
+        if (shouldAdd) this.#classTokens.add(className)
+        else this.#classTokens.delete(className)
+        this.#emitClassMutation()
+        return shouldAdd
+      },
+    }
+  }
+
+  setClassMutationHandler(handler: ((className: string | undefined) => void) | undefined): void {
+    this.#classMutationHandler = handler
+  }
+
+  syncClassName(className: string | undefined): void {
+    this.#classTokens.clear()
+    for (const token of classTokens(className)) this.#classTokens.add(token)
+  }
+
+  get className(): string {
+    return [...this.#classTokens].join(" ")
+  }
+
+  set className(value: string) {
+    this.syncClassName(String(value))
+    this.#emitClassMutation()
+  }
+
+  #emitClassMutation(): void {
+    this.#classMutationHandler?.(this.className || undefined)
   }
 
   get ownerDocument(): Document {
@@ -415,19 +466,29 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   }
 
   getAttribute(name: string): string | null {
+    if (name === "class") return this.className || null
     const value = this.props.get(name)
     return value === null || value === undefined ? null : String(value)
   }
 
   hasAttribute(name: string): boolean {
+    if (name === "class") return this.#classTokens.size > 0
     return this.props.has(name)
   }
 
   setAttribute(name: string, value: string): void {
+    if (name === "class") {
+      this.className = String(value)
+      return
+    }
     setHostProperty(this, name, String(value))
   }
 
   removeAttribute(name: string): void {
+    if (name === "class") {
+      this.className = ""
+      return
+    }
     setHostProperty(this, name, undefined)
   }
 
@@ -943,6 +1004,11 @@ function nativeTextStyle(
   const style = color === undefined ? layout : { ...layout, color }
   if (pointerEvents === undefined) return style
   return { ...style, pointerEvents }
+}
+
+function classTokens(value: string | undefined): string[] {
+  if (!value) return []
+  return String(value).split(/\s+/).filter(Boolean)
 }
 
 function canvasDimension(value: MutationValue | undefined, fallback: number): number {
