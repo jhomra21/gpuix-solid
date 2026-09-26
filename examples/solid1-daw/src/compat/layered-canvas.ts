@@ -3,6 +3,7 @@ import * as base from "./gpuix-solid-canvas"
 type HostNode = ReturnType<typeof base.createElement>
 type HostElement = Extract<HostNode, { kind: "element" }>
 type CanvasHost = HostElement & { width?: number; height?: number }
+type GpuixCanvasContext = base.GpuixCanvasRenderingContext2D
 type CanvasPoint = readonly [number, number]
 type CanvasMatrix = readonly [number, number, number, number, number, number]
 type CanvasSize = { width: number; height: number }
@@ -38,7 +39,7 @@ type CanvasCommand =
     }
 
 type CanvasDrawing = {
-  context: CanvasRenderingContext2D
+  context: GpuixCanvasContext
   toSvg(): string
 }
 
@@ -71,7 +72,7 @@ const runtimeStates = new WeakMap<CanvasHost, RuntimeState>()
 export function installLayeredCanvas2D(node: CanvasHost): void {
   Object.defineProperty(node, "getContext", {
     configurable: true,
-    value(contextId: string): CanvasRenderingContext2D | null {
+    value(contextId: string): GpuixCanvasContext | null {
       const nativeContext = base.getNativeCanvas2DContext(node, contextId)
       if (nativeContext || contextId !== "2d") return nativeContext
       let state = runtimeStates.get(node)
@@ -342,7 +343,7 @@ function createCanvasDrawing(getSize: () => CanvasSize, onChange: () => void): C
       })
       onChange()
     },
-  } as CanvasRenderingContext2D
+  } as GpuixCanvasContext
 
   return {
     context,

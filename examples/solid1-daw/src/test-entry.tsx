@@ -2,6 +2,7 @@ import "./test"
 
 import { createSignal } from "solid-js"
 import {
+  CANVAS_DRAW_LIST_VERSION,
   configureNativeStyleManifest,
   createTestRoot,
   hasNativeTestRenderer,
@@ -61,16 +62,16 @@ if (hasNativeTestRenderer) {
   // Low-level Canvas compaction is covered by check-canvas-bridge.ts. Here the
   // app-level contract is that the exact source waveform paint survives that
   // compaction and occupies the real audio clip inside its timeline lane.
-  const nativeCanvasV1 = app.renderer.getCanvasDrawListVersion() === 1
+  const nativeCanvas = app.renderer.getCanvasDrawListVersion() === CANVAS_DRAW_LIST_VERSION
   const waveformFragments = ['"color":"#00a76c"', '"op":"fillPath"'] as const
-  const surfaceBounds = nativeCanvasV1
+  const surfaceBounds = nativeCanvas
     ? app.renderer.boundsCustomPropJsonContainingAll("drawList", waveformFragments)
     : app.renderer.boundsTestId("gpuix-canvas-2d-surface")
-  if (nativeCanvasV1) {
+  if (nativeCanvas) {
     const waveformDrawList = app.renderer.customPropJsonContainingAll("drawList", waveformFragments)
     requireCondition(
-      waveformDrawList.includes('"version":1'),
-      `native waveform Canvas must use draw-list protocol v1, got ${waveformDrawList}`,
+      waveformDrawList.includes(`"version":${CANVAS_DRAW_LIST_VERSION}`),
+      `native waveform Canvas must use draw-list protocol v${CANVAS_DRAW_LIST_VERSION}, got ${waveformDrawList}`,
     )
   } else {
     app.renderer.customPropStringContainingAll("source", [
@@ -117,9 +118,9 @@ if (hasNativeTestRenderer) {
     eqBandBounds.x >= 0 && eqBandBounds.x + eqBandBounds.width <= viewportWidth,
     `EQ visual acceptance must expose the exact source band controls, got ${JSON.stringify(eqBandBounds)}`,
   )
-  const eqCanvasSource = nativeCanvasV1
+  const eqCanvasSource = nativeCanvas
     ? app.renderer.customPropJsonContainingAll("drawList", [
-        '"version":1',
+        `"version":${CANVAS_DRAW_LIST_VERSION}`,
         '"op":"fillText"',
         '"op":"bezierCurveTo"',
         '"text":"+0 dB"',
@@ -135,7 +136,7 @@ if (hasNativeTestRenderer) {
         "<circle",
       ])
   requireCondition(
-    nativeCanvasV1
+    nativeCanvas
       ? eqCanvasSource.includes('"text":"1"') && eqCanvasSource.includes('"text":"8"')
       : eqCanvasSource.includes(">1</text>") && eqCanvasSource.includes(">8</text>"),
     "exact EQ Canvas paint should retain all numbered band-node labels",

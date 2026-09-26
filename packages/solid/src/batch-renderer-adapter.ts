@@ -29,8 +29,19 @@ export interface BatchRendererApi {
   getSelectedText?(): string | null
   clearSelection?(): void
   getPaintedHighlights?(): HighlightMatch[]
+  getPaintedText?(): string[]
+  captureScreenshot?(path: string): void
   getWindowSize?(): { width: number; height: number }
   getCanvasDrawListVersion?(): number | undefined
+  getAutoMarginVersion?(): number | undefined
+  measureCanvasText?(text: string, fontSize: number, fontFamily: string, fontWeight: number): number
+  setCanvasImagePixels?(
+    elementId: number,
+    imageId: number,
+    width: number,
+    height: number,
+    pixels: Uint8Array,
+  ): void
   getVideoFrameSurfaceVersion?(): number | undefined
   setVideoFrameBgra?(elementId: number, width: number, height: number, data: Uint8Array): void
   getVideoFrameIosurfaceVersion?(): number | undefined
@@ -188,9 +199,20 @@ export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRen
   if (renderer.getSelectedText) adapted.getSelectedText = renderer.getSelectedText.bind(renderer)
   if (renderer.clearSelection) adapted.clearSelection = renderer.clearSelection.bind(renderer)
   if (renderer.getPaintedHighlights) adapted.getPaintedHighlights = renderer.getPaintedHighlights.bind(renderer)
+  if (renderer.getPaintedText) adapted.getPaintedText = renderer.getPaintedText.bind(renderer)
+  if (renderer.captureScreenshot) adapted.captureScreenshot = renderer.captureScreenshot.bind(renderer)
   if (renderer.getWindowSize) adapted.getWindowSize = renderer.getWindowSize.bind(renderer)
   if (renderer.getCanvasDrawListVersion) {
     adapted.getCanvasDrawListVersion = renderer.getCanvasDrawListVersion.bind(renderer)
+  }
+  if (renderer.getAutoMarginVersion) {
+    adapted.getAutoMarginVersion = renderer.getAutoMarginVersion.bind(renderer)
+  }
+  if (renderer.measureCanvasText) {
+    adapted.measureCanvasText = renderer.measureCanvasText.bind(renderer)
+  }
+  if (renderer.setCanvasImagePixels) {
+    adapted.setCanvasImagePixels = renderer.setCanvasImagePixels.bind(renderer)
   }
   if (renderer.getVideoFrameSurfaceVersion) {
     adapted.getVideoFrameSurfaceVersion = renderer.getVideoFrameSurfaceVersion.bind(renderer)

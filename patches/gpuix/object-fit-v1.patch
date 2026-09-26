@@ -1,0 +1,38 @@
+diff --git a/packages/native/src/style.rs b/packages/native/src/style.rs
+--- a/packages/native/src/style.rs
++++ b/packages/native/src/style.rs
+@@ -182,7 +182,8 @@ pub struct StyleDesc {
+     pub background: Option<BackgroundValue>,
+     pub background_color: Option<String>,
+     pub color: Option<String>,
+     pub opacity: Option<f64>,
++    pub object_fit: Option<String>,
+ 
+     // Border
+     pub border_width: Option<f64>,
+diff --git a/packages/native/src/custom_elements/img.rs b/packages/native/src/custom_elements/img.rs
+--- a/packages/native/src/custom_elements/img.rs
++++ b/packages/native/src/custom_elements/img.rs
+@@ -184,8 +184,13 @@ impl CustomElement for ImgElement {
+         use gpui::prelude::*;
+ 
+         if let Some(image) = self.dropped.take() {
+             window.drop_image(image).ok();
+         }
++        let object_fit = ctx
++            .style
++            .and_then(|style| style.object_fit.as_deref())
++            .map(ImgObjectFit::from_str)
++            .unwrap_or_else(|| self.object_fit.clone());
+ 
+         let el = match &self.source {
+             ImgSource::Path(path) => gpui::img(path.clone()),
+@@ -200,7 +204,7 @@ impl CustomElement for ImgElement {
+         // loading state are rebuilt from scratch on every frame and an animation
+         // never advances past frame zero.
+         let mut el = el
+-            .object_fit(self.object_fit.as_gpui())
++            .object_fit(object_fit.as_gpui())
+             .with_fallback(|| {
+                 gpui::div()
+                     .flex()

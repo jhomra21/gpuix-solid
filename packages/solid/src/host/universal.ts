@@ -17,10 +17,13 @@ import {
 } from "./nodes.js"
 import type { DimensionValue, ElementType, StyleDesc } from "./types.js"
 import {
+  applyNativeStyleViewportSize,
+  applyNativeStyleParentSize,
   mergeNativeStyles,
   normalizeNativeStyleColors,
   onNativeStyleEnvironmentChange,
   resolveNativeClassStyle,
+  resolveNativeClassViewportSize,
   resolveNativeClassTextTransform,
   resolveNativeDescendantClassStyle,
   type NativeClassList,
@@ -72,6 +75,10 @@ const svgAttributes = new WeakMap<HostElementNode, Map<string, SvgAttributeValue
 const textTransforms = new WeakMap<HostElementNode, NativeTextTransform>()
 const sourceTextValues = new WeakMap<HostTextNode, string>()
 
+type MeasuredLayoutSize = { width?: number; height?: number }
+const measuredLayoutSizes = new WeakMap<HostElementNode, MeasuredLayoutSize>()
+const scheduledParentMeasurements = new WeakSet<HostElementNode>()
+
 const TEXT_SEMANTIC_TAGS = new Set([
   "span", "p", "h1", "h2", "h3", "h4", "h5", "h6", "strong", "em", "small",
   "label", "time", "kbd", "samp",
@@ -107,6 +114,7 @@ onNativeStyleEnvironmentChange(() => {
       continue
     }
     reapplyNativeStyleSubtree(node)
+    refreshInlineSvgSubtree(node)
   }
 })
 
@@ -114,6 +122,7 @@ const runtime = createRenderer<HostNode | HostParent>({
   createElement(tagName, staticProps) {
     const type = nativeElementType(tagName)
     const node = createHostElement(type)
+    node.setClassMutationHandler((className) => setNativeDomClassName(node, className))
     if (type !== tagName || tagName === "svg") semanticTags.set(node, tagName)
     if (staticProps) {
       for (const [name, value] of Object.entries(staticProps)) {
@@ -145,6 +154,7 @@ const runtime = createRenderer<HostNode | HostParent>({
     insertHostNode(parent, node, anchor ?? null)
     if (node.kind === "element") reapplyNativeStyleSubtree(node)
     else applyNativeTextTransform(node)
+    refreshNativeDisplayContentsNode(parent)
     refreshInlineSvgFromParent(parent)
   },
   isTextNode(node) {
@@ -157,6 +167,7 @@ const runtime = createRenderer<HostNode | HostParent>({
     const svgRoot = parent.kind === "element" ? inlineSvgRoot(parent) : undefined
     if (node.kind === "element") classStyledNodes.delete(node)
     removeHostNode(parent, node)
+    refreshNativeDisplayContentsNode(parent)
     if (svgRoot) refreshInlineSvg(svgRoot)
   },
   getParentNode(node) {
@@ -213,18 +224,22 @@ function setNativeProperty<T>(
     // SAFETY: Solid forwards the JSX style prop as the host element's inline style object.
     const inlineStyle = value as NativeInlineStyleInput | undefined
     setNativeInlineStyle(node, normalizeNativeInlineStyle(inlineStyle))
+    refreshInlineSvgSubtree(node)
     return
   }
   if (name === "class") {
     setNativeClass(node, parseNativeClassName(value))
+    refreshInlineSvgSubtree(node)
     return
   }
   if (name === "className") {
     setNativeClassName(node, parseNativeClassName(value))
+    refreshInlineSvgSubtree(node)
     return
   }
   if (name === "classList") {
     setNativeClassList(node, parseNativeClassList(value))
+    refreshInlineSvgSubtree(node)
     return
   }
   if (name === "hidden") {
@@ -233,6 +248,7 @@ function setNativeProperty<T>(
     return
   }
   setHostProperty(node, name, value, previous)
+  if (name === "disabled") reapplyNativeStyleSubtree(node)
 }
 
 function nativeElementType(tagName: string): ElementType {
@@ -287,6 +303,16 @@ function refreshInlineSvg(node: HostElementNode): void {
   setHostProperty(root, "src", `data:image/svg+xml,${encodeURIComponent(source)}`)
 }
 
+function refreshInlineSvgSubtree(node: HostElementNode): void {
+  if (semanticTags.get(node) === "svg") {
+    refreshInlineSvg(node)
+    return
+  }
+  for (const child of node.children) {
+    if (child.kind === "element") refreshInlineSvgSubtree(child)
+  }
+}
+
 function inlineSvgRoot(node: HostElementNode): HostElementNode | undefined {
   let current: HostElementNode = node
   for (;;) {
@@ -303,7 +329,7 @@ function serializeSvgElement(node: HostElementNode, root: boolean): string {
   const attributes = new Map(svgAttributes.get(node) ?? [])
   if (root && !attributes.has("xmlns")) attributes.set("xmlns", "http://www.w3.org/2000/svg")
   const renderedAttributes = [...attributes]
-    .map(([name, value]) => `${serializeSvgAttributeName(name)}="${escapeXmlAttribute(value)}"`)
+    .map(([name, value]) => `${serializeSvgAttributeName(name)}="${escapeXmlAttribute(resolveSvgCurrentColor(node, value))}"`)
     .join(" ")
   const opening = renderedAttributes ? `<${tagName} ${renderedAttributes}>` : `<${tagName}>`
   const children = node.children.map(serializeSvgChild).join("")
@@ -315,6 +341,21 @@ function serializeSvgChild(node: HostNode): string {
   const tagName = semanticTags.get(node)
   if (!tagName || !isSvgMarkupTag(tagName)) return ""
   return serializeSvgElement(node, false)
+}
+
+function resolveSvgCurrentColor(node: HostElementNode, value: string): string {
+  if (!value.includes("currentColor")) return value
+  const color = inheritedSvgColor(node)
+  return color === undefined ? value : value.replaceAll("currentColor", color)
+}
+
+function inheritedSvgColor(node: HostElementNode): string | undefined {
+  let current: HostParent | null = node
+  while (current?.kind === "element") {
+    if (current.style.color !== undefined) return current.style.color
+    current = current.parent
+  }
+  return undefined
 }
 
 function serializeSvgAttributeName(name: string): string {
@@ -482,6 +523,17 @@ function setNativeClassList(node: HostElementNode, classList: NativeClassList | 
   commitNativeStyleState(node, state)
 }
 
+function setNativeDomClassName(node: HostElementNode, className: string | undefined): void {
+  const state = nativeStyleState(node)
+  // classList/setAttribute mutate the browser's single live class attribute.
+  // Treat the resulting string as authoritative until Solid next writes class
+  // metadata through its normal renderer path.
+  state.class = className
+  state.className = undefined
+  state.classList = undefined
+  commitNativeStyleState(node, state)
+}
+
 function setNativeHidden(node: HostElementNode, hidden: boolean): void {
   const state = nativeStyleState(node)
   state.hidden = hidden
@@ -490,9 +542,11 @@ function setNativeHidden(node: HostElementNode, hidden: boolean): void {
 
 function commitNativeStyleState(node: HostElementNode, state: NativeStyleState): void {
   styleStates.set(node, state)
+  node.syncClassName(domClassName(state))
   if (hasNativeClasses(state)) classStyledNodes.add(node)
   else classStyledNodes.delete(node)
   reapplyNativeStyleSubtree(node)
+  refreshNativeDisplayContentsNode(node.parent)
 }
 
 function hasNativeClasses(state: NativeStyleState): boolean {
@@ -514,6 +568,7 @@ function applyNativeStyleState(node: HostElementNode): void {
   const inheritedStyle = resolveInheritedNativeStyle(node)
   const ancestorStyle = resolveAncestorDescendantStyle(node)
   const classStyle = resolveNativeClassStyle(className, state.classList)
+  const classViewportSize = resolveNativeClassViewportSize(className, state.classList)
   const inheritedTextTransform = resolveInheritedTextTransform(node)
   const classTextTransform = resolveNativeClassTextTransform(className, state.classList)
   const textTransform = classTextTransform ?? inheritedTextTransform
@@ -521,7 +576,19 @@ function applyNativeStyleState(node: HostElementNode): void {
   else textTransforms.set(node, textTransform)
 
   const hiddenStyle: StyleDesc | undefined = state.hidden ? { display: "none" } : undefined
-  const resolvedStyle = mergeNativeStyles(inheritedStyle, ancestorStyle, classStyle, state.inlineStyle, hiddenStyle)
+  const mergedStyle = mergeNativeStyles(inheritedStyle, ancestorStyle, classStyle, state.inlineStyle, hiddenStyle)
+  const viewportStyle = applyNativeStyleViewportSize(
+    mergedStyle,
+    classViewportSize,
+    nativeViewportSize("x"),
+    nativeViewportSize("y"),
+  )
+  const displayContentsStyle = applyNativeDisplayContentsProxy(node, viewportStyle)
+  const resolvedStyle = applyNativeStyleParentSize(
+    displayContentsStyle,
+    resolvedNativeNodeSize(node.parent, "x"),
+    resolvedNativeNodeSize(node.parent, "y"),
+  )
   if (resolvedStyle === undefined) {
     if (!appliedStyleNodes.has(node)) return
     setHostProperty(node, "style", {})
@@ -531,8 +598,159 @@ function applyNativeStyleState(node: HostElementNode): void {
 
   setHostProperty(node, "style", resolvedStyle)
   appliedStyleNodes.add(node)
+  scheduleMeasuredParentSize(
+    node,
+    displayContentsStyle,
+    resolvedNativeNodeSize(node.parent, "x"),
+    resolvedNativeNodeSize(node.parent, "y"),
+  )
 }
 
+function applyNativeDisplayContentsProxy(
+  node: HostElementNode,
+  style: StyleDesc | undefined,
+): StyleDesc | undefined {
+  if (style?.display !== "contents") return style
+
+  const parent = node.parent
+  if (!parent || parent.kind !== "element" || parent.style.display !== "flex") return style
+
+  const elementChildren = node.children.filter(
+    (child): child is HostElementNode => child.kind === "element",
+  )
+  const hasTextContent = node.children.some(
+    (child) => child.kind === "text" && child.text.trim().length > 0,
+  )
+  const child = elementChildren[0]
+  if (!child || elementChildren.length !== 1 || hasTextContent) return style
+
+  const childStyle = child.style
+  const proxy: StyleDesc = {
+    ...style,
+    display: "flex",
+    flexDirection: parent.style.flexDirection ?? "row",
+  }
+  if (childStyle.flexGrow !== undefined) proxy.flexGrow = childStyle.flexGrow
+  if (childStyle.flexShrink !== undefined) proxy.flexShrink = childStyle.flexShrink
+  if (childStyle.flexBasis !== undefined) proxy.flexBasis = childStyle.flexBasis
+  if (childStyle.alignSelf !== undefined) proxy.alignSelf = childStyle.alignSelf
+  if (childStyle.width !== undefined) proxy.width = childStyle.width
+  if (childStyle.height !== undefined) proxy.height = childStyle.height
+  if (childStyle.minWidth !== undefined) proxy.minWidth = childStyle.minWidth
+  if (childStyle.minHeight !== undefined) proxy.minHeight = childStyle.minHeight
+  if (childStyle.maxWidth !== undefined) proxy.maxWidth = childStyle.maxWidth
+  if (childStyle.maxHeight !== undefined) proxy.maxHeight = childStyle.maxHeight
+  return proxy
+}
+
+function refreshNativeDisplayContentsNode(node: HostParent | null): void {
+  if (!node || node.kind !== "element" || sourceDisplay(node) !== "contents") return
+  applyNativeStyleState(node)
+  refreshNativeDisplayContentsNode(node.parent)
+}
+
+function sourceDisplay(node: HostElementNode): StyleDesc["display"] | undefined {
+  const state = styleStates.get(node)
+  if (!state) return node.style?.display
+  if (state.hidden) return "none"
+  if (state.inlineStyle?.display !== undefined) return state.inlineStyle.display
+  return resolveNativeClassStyle(combinedClassName(state), state.classList)?.display
+}
+
+function nativeViewportSize(axis: "x" | "y"): number | undefined {
+  const viewport = Number(axis === "x" ? globalThis.window?.innerWidth : globalThis.window?.innerHeight)
+  return Number.isFinite(viewport) && viewport > 0 ? viewport : undefined
+}
+function resolvedNativeNodeSize(parent: HostParent | null, axis: "x" | "y"): number | undefined {
+  if (!parent) return undefined
+  if (parent.kind === "root") return nativeViewportSize(axis)
+  const parentSize = resolvedNativeNodeSize(parent.parent, axis)
+  const explicit = axis === "x" ? parent.style.width : parent.style.height
+  const resolved = resolveNativeDimension(explicit, parentSize)
+  if (resolved !== undefined) return resolved
+  const measured = measuredLayoutSizes.get(parent)
+  return axis === "x" ? measured?.width : measured?.height
+}
+
+function scheduleMeasuredParentSize(
+  node: HostElementNode,
+  sourceStyle: StyleDesc | undefined,
+  resolvedParentWidth: number | undefined,
+  resolvedParentHeight: number | undefined,
+): void {
+  const parent = node.parent
+  if (!sourceStyle || !parent || parent.kind !== "element") return
+
+  const needsWidth = resolvedParentWidth === undefined && (
+    hasPercentageDimension(sourceStyle.width)
+    || hasPercentageDimension(sourceStyle.minWidth)
+    || hasPercentageDimension(sourceStyle.maxWidth)
+  )
+  const needsHeight = resolvedParentHeight === undefined && (
+    hasPercentageDimension(sourceStyle.height)
+    || hasPercentageDimension(sourceStyle.minHeight)
+    || hasPercentageDimension(sourceStyle.maxHeight)
+  )
+  if (!needsWidth && !needsHeight) return
+  if (scheduledParentMeasurements.has(node)) return
+  scheduledParentMeasurements.add(node)
+
+  queueMicrotask(() => {
+    scheduledParentMeasurements.delete(node)
+    const root = node.root
+    if (!root || !node.nativeAlive) return
+
+    const widthAnchor = needsWidth ? measurementAnchor(node.parent, "x") : undefined
+    const heightAnchor = needsHeight ? measurementAnchor(node.parent, "y") : undefined
+    if ((needsWidth && !widthAnchor) || (needsHeight && !heightAnchor)) return
+
+    root.driver.flush()
+    let changed = false
+
+    for (const anchor of new Set([widthAnchor, heightAnchor].filter((value): value is HostElementNode => value !== undefined))) {
+      if (!anchor.nativeAlive) continue
+      const bounds = anchor.getBoundingClientRect()
+      const previous = measuredLayoutSizes.get(anchor)
+      const next: MeasuredLayoutSize = { ...previous }
+      if (anchor === widthAnchor && bounds.width > 0) next.width = bounds.width
+      if (anchor === heightAnchor && bounds.height > 0) next.height = bounds.height
+      if (anchor === widthAnchor && next.width !== undefined && previous?.width !== next.width) changed = true
+      if (anchor === heightAnchor && next.height !== undefined && previous?.height !== next.height) changed = true
+      measuredLayoutSizes.set(anchor, next)
+    }
+
+    if (!changed) return
+    reapplyNativeStyleSubtree(node)
+    root.driver.flush()
+  })
+}
+
+function measurementAnchor(parent: HostParent | null, axis: "x" | "y"): HostElementNode | undefined {
+  let current = parent
+  while (current && current.kind === "element") {
+    const value = axis === "x" ? current.style.width : current.style.height
+    if (!hasPercentageDimension(value)) return current
+    current = current.parent
+  }
+  return undefined
+}
+
+function hasPercentageDimension(value: DimensionValue | undefined): boolean {
+  if (value === undefined) return false
+  return /^-?(?:\d+(?:\.\d+)?|\.\d+)%$/.test(String(value).trim())
+}
+
+function resolveNativeDimension(
+  value: DimensionValue | undefined,
+  parentSize: number | undefined,
+): number | undefined {
+  if (value === undefined) return undefined
+  const numeric = Number(value)
+  if (Number.isFinite(numeric)) return numeric
+  const percentage = String(value).trim().match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))%$/)
+  if (percentage && parentSize !== undefined) return parentSize * Number(percentage[1]) / 100
+  return undefined
+}
 function applyNativeTextTransform(node: HostTextNode): void {
   const source = sourceTextValues.get(node) ?? node.text
   const parent = node.parent
@@ -592,7 +810,13 @@ function resolveAncestorDescendantStyle(node: HostElementNode): StyleDesc | unde
     if (!state || !hasNativeClasses(state)) continue
     resolved = mergeNativeStyles(
       resolved,
-      resolveNativeDescendantClassStyle(combinedClassName(state), state.classList, tagName, directParent === ancestor),
+      resolveNativeDescendantClassStyle(
+        combinedClassName(state),
+        state.classList,
+        tagName,
+        directParent === ancestor,
+        node.props,
+      ),
     )
   }
   return resolved
@@ -600,4 +824,13 @@ function resolveAncestorDescendantStyle(node: HostElementNode): StyleDesc | unde
 
 function combinedClassName(state: NativeStyleState): string | undefined {
   return [state.class, state.className].filter(Boolean).join(" ") || undefined
+}
+
+function domClassName(state: NativeStyleState): string | undefined {
+  const staticClasses = combinedClassName(state)
+  const dynamicClasses = Object.entries(state.classList ?? {})
+    .filter(([, enabled]) => Boolean(enabled))
+    .map(([className]) => className)
+    .join(" ")
+  return [staticClasses, dynamicClasses].filter(Boolean).join(" ") || undefined
 }

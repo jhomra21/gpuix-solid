@@ -1,0 +1,16 @@
+[
+  "apps/web/src/pages/editor.tsx",
+  "apps/web/src/components/canvas/canvas.tsx",
+  "apps/web/src/components/canvas/desktop-app-banner.tsx",
+  "apps/web/src/components/canvas/draw-overlay.tsx",
+  "apps/web/src/components/canvas/scene-init-overlay.tsx",
+  "apps/web/src/components/canvas/toolbar.tsx",
+  "apps/web/src/components/genai/action-bar.tsx",
+  "apps/web/src/components/ui/button.tsx",
+  "apps/web/src/components/ui/dropdown-menu.tsx",
+  "apps/web/src/components/ui/icon.tsx",
+  "apps/web/src/components/ui/separator.tsx",
+  "apps/web/src/components/ui/tooltip.tsx",
+  "apps/web/src/engine/canvas.tsx",
+  "apps/web/src/components/sidebar-right/inspector/transform/index.ts"
+]

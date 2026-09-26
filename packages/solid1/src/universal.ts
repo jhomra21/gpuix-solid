@@ -1,9 +1,13 @@
 import { createRoot as createSolidRoot, type JSX } from "solid-js"
 import { createRenderer } from "solid-js/universal"
 import {
+  browserGrid2DItemStyle,
   browserGridContainerStyle,
   browserGridItemStyle,
   parseBrowserGridTemplateColumns,
+  parseBrowserGridTemplateRows,
+  placeBrowserGridItems,
+  type BrowserGridItem,
   type BrowserGridTrack,
 } from "./browser-grid-compat.js"
 import {
@@ -24,8 +28,11 @@ import {
 } from "./host/nodes.js"
 import type { DimensionValue, ElementType, StyleDesc } from "./host/types.js"
 import {
+  applyNativeStyleAutoMargin,
   applyNativeStyleParentPosition,
+  applyNativeStyleParentSize,
   applyNativeStyleTranslation,
+  applyNativeStyleViewportSize,
   mergeNativeStyles,
   normalizeNativeStyleColors,
   onNativeStyleEnvironmentChange,
@@ -34,9 +41,14 @@ import {
   resolveNativeClassSvgPaint,
   resolveNativeClassParentPosition,
   resolveNativeClassTranslation,
+  resolveNativeClassViewportSize,
+  resolveNativeClassAutoMargin,
+  resolveNativeClassGridTemplate,
   resolveNativeClassTextTransform,
   resolveNativeDescendantClassStyle,
   type NativeClassList,
+  type NativeStyleMeasuredSize,
+  type NativeStyleTranslation,
   type NativeTextTransform,
 } from "./native-style.js"
 
@@ -59,6 +71,7 @@ type NativeInlineStyleInput = Omit<StyleDesc, "gap" | "rowGap" | "columnGap" | "
   "row-gap"?: DimensionValue
   "column-gap"?: DimensionValue
   "grid-template-columns"?: string
+  "grid-template-rows"?: string
   "min-width"?: DimensionValue
   "min-height"?: DimensionValue
   "max-width"?: DimensionValue
@@ -84,12 +97,25 @@ type SvgAttributeValue = string
 
 const styleStates = new WeakMap<HostElementNode, NativeStyleState>()
 const inlineGridColumns = new WeakMap<HostElementNode, readonly BrowserGridTrack[]>()
+const inlineGridRows = new WeakMap<HostElementNode, readonly BrowserGridTrack[]>()
 const classStyledNodes = new Set<HostElementNode>()
 const semanticTags = new WeakMap<HostElementNode, string>()
 const svgAttributes = new WeakMap<HostElementNode, Map<string, SvgAttributeValue>>()
 const textTransforms = new WeakMap<HostElementNode, NativeTextTransform>()
 const sourceTextValues = new WeakMap<HostTextNode, string>()
 const browserInlineFlowNodes = new WeakSet<HostElementNode>()
+
+type PendingFractionalTranslation = {
+  style: StyleDesc
+  translation: NativeStyleTranslation
+}
+
+const pendingFractionalTranslations = new WeakMap<HostElementNode, PendingFractionalTranslation>()
+const scheduledFractionalTranslations = new WeakSet<HostElementNode>()
+
+type MeasuredLayoutSize = { width?: number; height?: number }
+const measuredLayoutSizes = new WeakMap<HostElementNode, MeasuredLayoutSize>()
+const scheduledParentMeasurements = new WeakSet<HostElementNode>()
 
 const TEXT_SEMANTIC_TAGS = new Set([
   "span",
@@ -202,7 +228,7 @@ onNativeStyleEnvironmentChange(() => {
       continue
     }
     reapplyNativeStyleSubtree(node)
-    refreshInlineSvg(node)
+    refreshInlineSvgSubtree(node)
   }
 })
 
@@ -210,6 +236,7 @@ const runtime = createRenderer<HostNode | HostParent>({
   createElement(tagName) {
     const type = nativeElementType(tagName)
     const node = createHostElement(type, tagName)
+    node.setClassMutationHandler((className) => setNativeDomClassName(node, className))
     if (type !== tagName || tagName === "svg") semanticTags.set(node, tagName)
     return node
   },
@@ -246,31 +273,41 @@ const runtime = createRenderer<HostNode | HostParent>({
         // SAFETY: Solid's DOM-style object reaches this host boundary after JSX typing; this contract adds the CSS kebab-case aliases used by upstream Solid source.
         const inlineStyle = value as NativeInlineStyleInput | undefined
         setNativeInlineGridColumns(node, parseBrowserGridTemplateColumns(inlineStyle?.["grid-template-columns"]))
+        setNativeInlineGridRows(node, parseBrowserGridTemplateRows(inlineStyle?.["grid-template-rows"]))
         setNativeInlineStyle(node, normalizeNativeInlineStyle(inlineStyle))
+        refreshInlineSvgSubtree(node)
+        refreshInlineGridParent(node)
         return
       }
       if (name === "class") {
         setNativeClass(node, parseNativeClassName(value))
-        refreshInlineSvg(node)
+        refreshInlineSvgSubtree(node)
+        refreshInlineGridParent(node)
         return
       }
       if (name === "className") {
         setNativeClassName(node, parseNativeClassName(value))
-        refreshInlineSvg(node)
+        refreshInlineSvgSubtree(node)
+        refreshInlineGridParent(node)
         return
       }
       if (name === "classList") {
         setNativeClassList(node, parseNativeClassList(value))
-        refreshInlineSvg(node)
+        refreshInlineSvgSubtree(node)
+        refreshInlineGridParent(node)
         return
       }
       if (name === "hidden") {
         setHostProperty(node, name, value, previous)
         setNativeHidden(node, Boolean(value))
+        refreshInlineGridParent(node)
         return
       }
     }
     setHostProperty(node, name, value, previous)
+    if (node.kind === "element" && name === "disabled") {
+      reapplyNativeStyleSubtree(node)
+    }
     if (node.kind === "element" && semanticTags.get(node) === "select" && name === "value") {
       for (const child of node.children) {
         if (child.kind === "element") reapplyNativeStyleSubtree(child)
@@ -288,6 +325,8 @@ const runtime = createRenderer<HostNode | HostParent>({
     insertHostNode(parent, node, anchor ?? null)
     if (node.kind === "element") reapplyNativeStyleSubtree(node)
     else applyNativeTextTransform(node)
+    refreshNativeDisplayContentsNode(parent)
+    refreshInlineGridLayout(parent)
     refreshBrowserInlineFlowParent(parent)
     refreshInlineSvgFromParent(parent)
   },
@@ -301,6 +340,8 @@ const runtime = createRenderer<HostNode | HostParent>({
     const svgRoot = parent.kind === "element" ? inlineSvgRoot(parent) : undefined
     if (node.kind === "element") classStyledNodes.delete(node)
     removeHostNode(parent, node)
+    refreshNativeDisplayContentsNode(parent)
+    refreshInlineGridLayout(parent)
     refreshBrowserInlineFlowParent(parent)
     if (svgRoot) refreshInlineSvg(svgRoot)
   },
@@ -353,6 +394,11 @@ function nativeElementType(tagName: string): ElementType {
       // GPUIX 0.7 has no Canvas2D element. Preserve semantic canvas identity on
       // a supported layout box so browser source can feature-detect getContext().
       return "div"
+    case "span":
+      // Browser spans are inline containers and may contain adjacent text nodes
+      // around expressions. Keep the semantic tag while using the div-backed
+      // inline-flow compatibility path instead of a GPUIX text leaf.
+      return "div"
     default:
       if (TEXT_SEMANTIC_TAGS.has(tagName)) return "text"
       if (DIV_SEMANTIC_TAGS.has(tagName) || SVG_CHILD_TAGS.has(tagName)) return "div"
@@ -389,6 +435,16 @@ function refreshInlineSvg(node: HostElementNode): void {
   setHostProperty(root, "src", `data:image/svg+xml,${encodeURIComponent(source)}`)
 }
 
+function refreshInlineSvgSubtree(node: HostElementNode): void {
+  if (semanticTags.get(node) === "svg") {
+    refreshInlineSvg(node)
+    return
+  }
+  for (const child of node.children) {
+    if (child.kind === "element") refreshInlineSvgSubtree(child)
+  }
+}
+
 function inlineSvgRoot(node: HostElementNode): HostElementNode | undefined {
   let current: HostElementNode = node
   for (;;) {
@@ -412,7 +468,7 @@ function serializeSvgElement(node: HostElementNode, root: boolean): string {
   }
   if (root && !attributes.has("xmlns")) attributes.set("xmlns", "http://www.w3.org/2000/svg")
   const renderedAttributes = [...attributes]
-    .map(([name, value]) => `${serializeSvgAttributeName(name)}="${escapeXmlAttribute(value)}"`)
+    .map(([name, value]) => `${serializeSvgAttributeName(name)}="${escapeXmlAttribute(resolveSvgCurrentColor(node, value))}"`)
     .join(" ")
   const opening = renderedAttributes ? `<${tagName} ${renderedAttributes}>` : `<${tagName}>`
   const children = node.children.map(serializeSvgChild).join("")
@@ -424,6 +480,21 @@ function serializeSvgChild(node: HostNode): string {
   const tagName = semanticTags.get(node)
   if (!tagName || !isSvgMarkupTag(tagName)) return ""
   return serializeSvgElement(node, false)
+}
+
+function resolveSvgCurrentColor(node: HostElementNode, value: string): string {
+  if (!value.includes("currentColor")) return value
+  const color = inheritedSvgColor(node)
+  return color === undefined ? value : value.replaceAll("currentColor", color)
+}
+
+function inheritedSvgColor(node: HostElementNode): string | undefined {
+  let current: HostParent | null = node
+  while (current?.kind === "element") {
+    if (current.style.color !== undefined) return current.style.color
+    current = current.parent
+  }
+  return undefined
 }
 
 function serializeSvgAttributeName(name: string): string {
@@ -478,7 +549,8 @@ function normalizeNativeInlineStyle(style: NativeInlineStyleInput | undefined): 
     left,
     "row-gap": cssRowGap,
     "column-gap": cssColumnGap,
-    "grid-template-columns": cssGridTemplateColumns,
+    "grid-template-columns": _cssGridTemplateColumns,
+    "grid-template-rows": _cssGridTemplateRows,
     "min-width": cssMinWidth,
     "min-height": cssMinHeight,
     "max-width": cssMaxWidth,
@@ -501,8 +573,6 @@ function normalizeNativeInlineStyle(style: NativeInlineStyleInput | undefined): 
     ...nativeStyle
   } = style
   const normalized: StyleDesc = { ...nativeStyle }
-  const gridContainerStyle = browserGridContainerStyle(parseBrowserGridTemplateColumns(cssGridTemplateColumns))
-  if (gridContainerStyle) Object.assign(normalized, gridContainerStyle)
 
   if (cssFlexDirection !== undefined) normalized.flexDirection = cssFlexDirection
   if (cssFlexWrap !== undefined) normalized.flexWrap = cssFlexWrap
@@ -617,6 +687,11 @@ function setNativeInlineGridColumns(node: HostElementNode, tracks: readonly Brow
   else inlineGridColumns.delete(node)
 }
 
+function setNativeInlineGridRows(node: HostElementNode, tracks: readonly BrowserGridTrack[] | undefined): void {
+  if (tracks) inlineGridRows.set(node, tracks)
+  else inlineGridRows.delete(node)
+}
+
 function setNativeInlineStyle(node: HostElementNode, style: StyleDesc | undefined): void {
   const state = nativeStyleState(node)
   state.inlineStyle = style
@@ -641,6 +716,17 @@ function setNativeClassList(node: HostElementNode, classList: NativeClassList | 
   commitNativeStyleState(node, state)
 }
 
+function setNativeDomClassName(node: HostElementNode, className: string | undefined): void {
+  const state = nativeStyleState(node)
+  // classList/setAttribute mutate the browser's single live class attribute.
+  // Treat the resulting string as authoritative until Solid next writes class
+  // metadata through its normal renderer path.
+  state.class = className
+  state.className = undefined
+  state.classList = undefined
+  commitNativeStyleState(node, state)
+}
+
 function setNativeHidden(node: HostElementNode, hidden: boolean): void {
   const state = nativeStyleState(node)
   state.hidden = hidden
@@ -649,9 +735,11 @@ function setNativeHidden(node: HostElementNode, hidden: boolean): void {
 
 function commitNativeStyleState(node: HostElementNode, state: NativeStyleState): void {
   styleStates.set(node, state)
+  node.syncClassName(domClassName(state))
   if (hasNativeClasses(state)) classStyledNodes.add(node)
   else classStyledNodes.delete(node)
   reapplyNativeStyleSubtree(node)
+  refreshNativeDisplayContentsNode(node.parent)
 }
 
 function hasNativeClasses(state: NativeStyleState): boolean {
@@ -688,6 +776,8 @@ function applyNativeStyleState(node: HostElementNode): void {
   const classStyle = resolveNativeClassStyle(className, state.classList, state.inlineStyle?.fontSize ?? preClassStyle?.fontSize)
   const classAttributeStyle = resolveNativeClassAttributeStyle(className, state.classList, node.props)
   const classParentPosition = resolveNativeClassParentPosition(className, state.classList)
+  const classViewportSize = resolveNativeClassViewportSize(className, state.classList)
+  const classAutoMargin = resolveNativeClassAutoMargin(className, state.classList)
   const classTranslation = resolveNativeClassTranslation(className, state.classList)
   const inheritedTextTransform = resolveInheritedTextTransform(node)
   const classTextTransform = resolveNativeClassTextTransform(className, state.classList)
@@ -706,23 +796,142 @@ function applyNativeStyleState(node: HostElementNode): void {
     hiddenStyle,
     selectOptionStyle,
   )
+  const gridTracks = sourceGridTracks(node)
+  const browserGridContainer = browserGridContainerStyle(gridTracks.columns, gridTracks.rows)
   const browserInlineFlow = resolveBrowserInlineFlowStyle(node, mergedStyle)
   if (browserInlineFlow) browserInlineFlowNodes.add(node)
   else browserInlineFlowNodes.delete(node)
-  const flowedStyle = mergeNativeStyles(mergedStyle, browserInlineFlow)
+  const browserGrid2D = resolveInlineGrid2DStyle(node)
+  const flowedStyle = mergeNativeStyles(mergedStyle, browserGridContainer, browserInlineFlow, browserGrid2D)
+  const viewportWidth = nativeViewportSize("x")
+  const viewportHeight = nativeViewportSize("y")
+  const viewportStyle = applyNativeStyleViewportSize(
+    flowedStyle,
+    classViewportSize,
+    viewportWidth,
+    viewportHeight,
+  )
   const parentWidth = resolvedNativeNodeSize(node.parent, "x")
   const parentHeight = resolvedNativeNodeSize(node.parent, "y")
+  const displayContentsStyle = applyNativeDisplayContentsProxy(node, viewportStyle)
+  const parentSizedStyle = applyNativeStyleParentSize(
+    displayContentsStyle,
+    parentWidth,
+    parentHeight,
+  )
   const positionedStyle = applyNativeStyleParentPosition(
-    flowedStyle,
+    parentSizedStyle,
     classParentPosition,
     parentWidth,
     parentHeight,
   )
+  const autoMarginVersion = node.root?.driver.renderer.getAutoMarginVersion?.()
+  const supportsAutoMargins = node.root ? autoMarginVersion === 1 : undefined
+  const autoMarginStyle = supportsAutoMargins
+    ? applyNativeStyleAutoMargin(positionedStyle, classAutoMargin)
+    : positionedStyle
   setHostProperty(
     node,
     "style",
-    applyNativeStyleTranslation(positionedStyle, classTranslation) ?? {},
+    applyNativeStyleTranslation(autoMarginStyle, classTranslation, undefined, supportsAutoMargins) ?? {},
   )
+  scheduleMeasuredFractionalTranslation(node, autoMarginStyle, classTranslation)
+  scheduleMeasuredParentSize(node, displayContentsStyle, parentWidth, parentHeight)
+}
+
+function applyNativeDisplayContentsProxy(
+  node: HostElementNode,
+  style: StyleDesc | undefined,
+): StyleDesc | undefined {
+  if (style?.display !== "contents") return style
+
+  const parent = node.parent
+  if (!parent || parent.kind !== "element" || parent.style.display !== "flex") return style
+
+  const elementChildren = node.children.filter(
+    (child): child is HostElementNode => child.kind === "element",
+  )
+  const hasTextContent = node.children.some(
+    (child) => child.kind === "text" && child.text.trim().length > 0,
+  )
+  const child = elementChildren[0]
+  if (!child || elementChildren.length !== 1 || hasTextContent) return style
+
+  const childStyle = child.style
+  const proxy: StyleDesc = {
+    ...style,
+    display: "flex",
+    flexDirection: parent.style.flexDirection ?? "row",
+  }
+  if (childStyle.flexGrow !== undefined) proxy.flexGrow = childStyle.flexGrow
+  if (childStyle.flexShrink !== undefined) proxy.flexShrink = childStyle.flexShrink
+  if (childStyle.flexBasis !== undefined) proxy.flexBasis = childStyle.flexBasis
+  if (childStyle.alignSelf !== undefined) proxy.alignSelf = childStyle.alignSelf
+  if (childStyle.width !== undefined) proxy.width = childStyle.width
+  if (childStyle.height !== undefined) proxy.height = childStyle.height
+  if (childStyle.minWidth !== undefined) proxy.minWidth = childStyle.minWidth
+  if (childStyle.minHeight !== undefined) proxy.minHeight = childStyle.minHeight
+  if (childStyle.maxWidth !== undefined) proxy.maxWidth = childStyle.maxWidth
+  if (childStyle.maxHeight !== undefined) proxy.maxHeight = childStyle.maxHeight
+  return proxy
+}
+
+function refreshNativeDisplayContentsNode(node: HostParent | null): void {
+  if (!node || node.kind !== "element" || sourceDisplay(node) !== "contents") return
+  applyNativeStyleState(node)
+  refreshNativeDisplayContentsNode(node.parent)
+}
+
+function scheduleMeasuredFractionalTranslation(
+  node: HostElementNode,
+  style: StyleDesc | undefined,
+  translation: NativeStyleTranslation | undefined,
+): void {
+  if (!style || !translation) {
+    pendingFractionalTranslations.delete(node)
+    return
+  }
+
+  const needsWidth = translation.xFraction !== undefined && !Number.isFinite(Number(style.width))
+  const needsHeight = translation.yFraction !== undefined && !Number.isFinite(Number(style.height))
+  if (!needsWidth && !needsHeight) {
+    pendingFractionalTranslations.delete(node)
+    return
+  }
+
+  pendingFractionalTranslations.set(node, { style, translation })
+  if (scheduledFractionalTranslations.has(node)) return
+  scheduledFractionalTranslations.add(node)
+
+  queueMicrotask(() => {
+    scheduledFractionalTranslations.delete(node)
+    const pending = pendingFractionalTranslations.get(node)
+    const root = node.root
+    if (!pending || !root || !node.nativeAlive) return
+
+    const pendingNeedsWidth = pending.translation.xFraction !== undefined
+      && !Number.isFinite(Number(pending.style.width))
+    const pendingNeedsHeight = pending.translation.yFraction !== undefined
+      && !Number.isFinite(Number(pending.style.height))
+
+    root.driver.flush()
+    const bounds = node.getBoundingClientRect()
+    const width = bounds.width > 0 ? bounds.width : undefined
+    const height = bounds.height > 0 ? bounds.height : undefined
+    if ((pendingNeedsWidth && width === undefined) || (pendingNeedsHeight && height === undefined)) return
+
+    const measuredSize: NativeStyleMeasuredSize = {}
+    if (width !== undefined) measuredSize.width = width
+    if (height !== undefined) measuredSize.height = height
+    const translated = applyNativeStyleTranslation(
+      pending.style,
+      pending.translation,
+      measuredSize,
+    )
+    setHostProperty(node, "style", translated ?? {})
+    root.driver.flush()
+    pendingFractionalTranslations.delete(node)
+  })
 }
 
 function isUnselectedSelectOption(node: HostElementNode): boolean {
@@ -805,19 +1014,95 @@ function transformText(value: string, transform: NativeTextTransform | undefined
   }
 }
 
+function nativeViewportSize(axis: "x" | "y"): number | undefined {
+  const viewport = Number(axis === "x" ? globalThis.window?.innerWidth : globalThis.window?.innerHeight)
+  return Number.isFinite(viewport) && viewport > 0 ? viewport : undefined
+}
 function resolvedNativeNodeSize(parent: HostParent | null, axis: "x" | "y"): number | undefined {
-  if (!parent || parent.kind === "root") return undefined
+  if (!parent) return undefined
+  if (parent.kind === "root") return nativeViewportSize(axis)
   const style = parent.style
   const parentSize = resolvedNativeNodeSize(parent.parent, axis)
   const explicit = axis === "x" ? style.width : style.height
   const explicitSize = resolvedNativeDimension(explicit, parentSize)
   if (explicitSize !== undefined) return explicitSize
-  if (parentSize === undefined) return undefined
 
-  const start = resolvedNativePosition(axis === "x" ? style.left : style.top, parentSize)
-  const end = resolvedNativePosition(axis === "x" ? style.right : style.bottom, parentSize)
-  if (start === undefined || end === undefined) return undefined
-  return Math.max(0, parentSize - start - end)
+  if (parentSize !== undefined) {
+    const start = resolvedNativePosition(axis === "x" ? style.left : style.top, parentSize)
+    const end = resolvedNativePosition(axis === "x" ? style.right : style.bottom, parentSize)
+    if (start !== undefined && end !== undefined) return Math.max(0, parentSize - start - end)
+  }
+
+  const measured = measuredLayoutSizes.get(parent)
+  return axis === "x" ? measured?.width : measured?.height
+}
+
+function scheduleMeasuredParentSize(
+  node: HostElementNode,
+  sourceStyle: StyleDesc | undefined,
+  resolvedParentWidth: number | undefined,
+  resolvedParentHeight: number | undefined,
+): void {
+  const parent = node.parent
+  if (!sourceStyle || !parent || parent.kind !== "element") return
+
+  const needsWidth = resolvedParentWidth === undefined && (
+    hasPercentageDimension(sourceStyle.width)
+    || hasPercentageDimension(sourceStyle.minWidth)
+    || hasPercentageDimension(sourceStyle.maxWidth)
+  )
+  const needsHeight = resolvedParentHeight === undefined && (
+    hasPercentageDimension(sourceStyle.height)
+    || hasPercentageDimension(sourceStyle.minHeight)
+    || hasPercentageDimension(sourceStyle.maxHeight)
+  )
+  if (!needsWidth && !needsHeight) return
+  if (scheduledParentMeasurements.has(node)) return
+  scheduledParentMeasurements.add(node)
+
+  queueMicrotask(() => {
+    scheduledParentMeasurements.delete(node)
+    const root = node.root
+    if (!root || !node.nativeAlive) return
+
+    const widthAnchor = needsWidth ? measurementAnchor(node.parent, "x") : undefined
+    const heightAnchor = needsHeight ? measurementAnchor(node.parent, "y") : undefined
+    if ((needsWidth && !widthAnchor) || (needsHeight && !heightAnchor)) return
+
+    root.driver.flush()
+    let changed = false
+
+    for (const anchor of new Set([widthAnchor, heightAnchor].filter((value): value is HostElementNode => value !== undefined))) {
+      if (!anchor.nativeAlive) continue
+      const bounds = anchor.getBoundingClientRect()
+      const previous = measuredLayoutSizes.get(anchor)
+      const next: MeasuredLayoutSize = { ...previous }
+      if (anchor === widthAnchor && bounds.width > 0) next.width = bounds.width
+      if (anchor === heightAnchor && bounds.height > 0) next.height = bounds.height
+      if (anchor === widthAnchor && next.width !== undefined && previous?.width !== next.width) changed = true
+      if (anchor === heightAnchor && next.height !== undefined && previous?.height !== next.height) changed = true
+      measuredLayoutSizes.set(anchor, next)
+    }
+
+    if (!changed) return
+    reapplyNativeStyleSubtree(node)
+    root.driver.flush()
+  })
+}
+
+function measurementAnchor(parent: HostParent | null, axis: "x" | "y"): HostElementNode | undefined {
+  let current = parent
+  while (current && current.kind === "element") {
+    const value = axis === "x" ? current.style.width : current.style.height
+    if (!hasPercentageDimension(value)) return current
+    current = current.parent
+  }
+  return undefined
+}
+
+function hasPercentageDimension(value: DimensionValue | undefined): boolean {
+  if (value === undefined) return false
+  return /^-?(?:\d+(?:\.\d+)?|\.\d+)%$/.test(String(value).trim())
 }
 
 function resolvedNativeDimension(value: DimensionValue | undefined, parentSize: number | undefined): number | undefined {
@@ -888,21 +1173,127 @@ function resolveAncestorDescendantStyle(node: HostElementNode): StyleDesc | unde
         tagName,
         directParent === ancestor,
         directParent === ancestor ? directChildIndex : undefined,
+        node.props,
       ),
     )
   }
   return resolved
 }
 
+type SourceGridTracks = {
+  columns: readonly BrowserGridTrack[] | undefined
+  rows: readonly BrowserGridTrack[] | undefined
+}
+
+function sourceGridTracks(node: HostElementNode): SourceGridTracks {
+  // Grid track utilities do not establish CSS grid on their own. Diffusion's
+  // PanelSection always carries grid-cols-* metadata but remains a vertical
+  // flex stack unless its conditional display:grid variant is active.
+  if (sourceDisplay(node) !== "grid") {
+    return { columns: undefined, rows: undefined }
+  }
+
+  const state = styleStates.get(node)
+  const classTemplate = state
+    ? resolveNativeClassGridTemplate(combinedClassName(state), state.classList)
+    : undefined
+  return {
+    columns: inlineGridColumns.get(node) ?? parseBrowserGridTemplateColumns(classTemplate?.columns),
+    rows: inlineGridRows.get(node) ?? parseBrowserGridTemplateRows(classTemplate?.rows),
+  }
+}
+
 function resolveInlineGridItemStyle(node: HostElementNode): StyleDesc | undefined {
   let ancestor: HostParent | null = node.parent
   while (ancestor && ancestor.kind === "element") {
-    const tracks = inlineGridColumns.get(ancestor)
-    if (tracks) return browserGridItemStyle(tracks, inlineGridItemIndex(ancestor, node))
+    const { columns, rows } = sourceGridTracks(ancestor)
+    if (columns && rows) return undefined
+    if (columns) return browserGridItemStyle(columns, inlineGridItemIndex(ancestor, node))
     if (sourceDisplay(ancestor) !== "contents") return undefined
     ancestor = ancestor.parent
   }
   return undefined
+}
+
+function resolveInlineGrid2DStyle(node: HostElementNode): StyleDesc | undefined {
+  let ancestor: HostParent | null = node.parent
+  while (ancestor && ancestor.kind === "element") {
+    const { columns, rows } = sourceGridTracks(ancestor)
+    if (columns && rows) return resolveInlineGrid2DItemStyle(ancestor, node, columns, rows)
+    if (sourceDisplay(ancestor) !== "contents") return undefined
+    ancestor = ancestor.parent
+  }
+  return undefined
+}
+
+function resolveInlineGrid2DItemStyle(
+  grid: HostElementNode,
+  target: HostElementNode,
+  columns: readonly BrowserGridTrack[],
+  rows: readonly BrowserGridTrack[],
+): StyleDesc | undefined {
+  const items = inlineGridItems(grid)
+  const index = items.indexOf(target)
+  if (index < 0) return undefined
+
+  const placements = placeBrowserGridItems(
+    columns,
+    rows,
+    items.map(browserGridItem),
+  )
+  const placement = placements?.[index]
+  if (!placement) return undefined
+
+  const width = resolvedNativeNodeSize(grid, "x")
+  const height = resolvedNativeNodeSize(grid, "y")
+  if (width === undefined || height === undefined) return undefined
+
+  const paddingLeft = finiteStyleNumber(grid.style.paddingLeft)
+  const paddingRight = finiteStyleNumber(grid.style.paddingRight)
+  const paddingTop = finiteStyleNumber(grid.style.paddingTop)
+  const paddingBottom = finiteStyleNumber(grid.style.paddingBottom)
+  return browserGrid2DItemStyle(
+    columns,
+    rows,
+    placement,
+    Math.max(0, width - paddingLeft - paddingRight),
+    Math.max(0, height - paddingTop - paddingBottom),
+    paddingLeft,
+    paddingTop,
+  )
+}
+
+function inlineGridItems(grid: HostElementNode): HostElementNode[] {
+  const items: HostElementNode[] = []
+  const visit = (node: HostElementNode) => {
+    const display = sourceDisplay(node)
+    if (display === "none") return
+    if (display === "contents") {
+      for (const child of node.children) {
+        if (child.kind === "element") visit(child)
+      }
+      return
+    }
+    const position = sourcePosition(node)
+    if (position === "absolute" || position === "fixed") return
+    items.push(node)
+  }
+  for (const child of grid.children) {
+    if (child.kind === "element") visit(child)
+  }
+  return items
+}
+
+function browserGridItem(node: HostElementNode): BrowserGridItem {
+  const style = sourceAuthoredStyle(node)
+  const item: BrowserGridItem = {}
+  if (style?.gridColumnSpanFull) item.columnSpan = "full"
+  else if (style?.gridColumnSpan !== undefined) item.columnSpan = style.gridColumnSpan
+  return item
+}
+
+function finiteStyleNumber(value: number | undefined): number {
+  return value !== undefined && Number.isFinite(value) ? value : 0
 }
 
 function inlineGridItemIndex(grid: HostElementNode, target: HostElementNode): number | undefined {
@@ -935,6 +1326,40 @@ function sourceDisplay(node: HostElementNode): StyleDesc["display"] | undefined 
   return resolveNativeClassStyle(combinedClassName(state), state.classList, state.inlineStyle?.fontSize)?.display
 }
 
+function sourcePosition(node: HostElementNode): StyleDesc["position"] | undefined {
+  return sourceAuthoredStyle(node)?.position
+}
+
+function sourceAuthoredStyle(node: HostElementNode): StyleDesc | undefined {
+  const state = styleStates.get(node)
+  if (!state) return node.style
+  return mergeNativeStyles(
+    resolveNativeClassStyle(combinedClassName(state), state.classList, state.inlineStyle?.fontSize),
+    state.inlineStyle,
+  )
+}
+
+function refreshInlineGridParent(node: HostElementNode): void {
+  const parent = node.parent
+  refreshInlineGridLayout(parent)
+}
+
+function refreshInlineGridLayout(parent: HostParent | null): void {
+  if (!parent || parent.kind !== "element") return
+  const { columns, rows } = sourceGridTracks(parent)
+  if (!columns && !rows) return
+  reapplyNativeStyleSubtree(parent)
+}
+
 function combinedClassName(state: NativeStyleState): string | undefined {
   return [state.class, state.className].filter(Boolean).join(" ") || undefined
+}
+
+function domClassName(state: NativeStyleState): string | undefined {
+  const staticClasses = combinedClassName(state)
+  const dynamicClasses = Object.entries(state.classList ?? {})
+    .filter(([, enabled]) => Boolean(enabled))
+    .map(([className]) => className)
+    .join(" ")
+  return [staticClasses, dynamicClasses].filter(Boolean).join(" ") || undefined
 }

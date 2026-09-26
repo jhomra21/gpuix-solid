@@ -1,6 +1,7 @@
 import { GpuixRenderer, type EventPayload, type WindowOptions } from "@gpuix/native"
 import type { JSX } from "solid-js"
 import { adaptBatchRenderer } from "./batch-renderer-adapter.js"
+import { enableAutomation } from "./automation/server.js"
 import { applyDebugFrameOverlay } from "./capabilities.js"
 import { startFrameLoop, type FrameLoop } from "./frame-loop.js"
 import { useDestroyUnlinksParentBatch } from "./host/mutations.js"
@@ -261,6 +262,7 @@ export function render(code: () => Solid1RenderValue, options: RenderOptions = {
   const nativeRenderer = createNativeRenderer(onEvent)
   const compatibilityRenderer = withLegacyElementBounds(nativeRenderer)
   nativeRenderer.init(windowOptions)
+  if (!process.stdin.isTTY) enableAutomation(compatibilityRenderer)
   const host = adaptBatchRenderer(compatibilityRenderer)
   useDestroyUnlinksParentBatch(host)
   applyDebugFrameOverlay(host, debugFrameOverlay)

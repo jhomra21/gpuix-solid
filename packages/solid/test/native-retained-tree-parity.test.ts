@@ -60,6 +60,9 @@ describe("native retained-tree parity", () => {
               {
                 "children": [
                   {
+                    "style": {
+                      "color": "#6c7086",
+                    },
                     "text": "01",
                     "type": "text",
                   },
@@ -84,6 +87,9 @@ describe("native retained-tree parity", () => {
               {
                 "children": [
                   {
+                    "style": {
+                      "color": "#cdd6f4",
+                    },
                     "text": "Line content that may wrap",
                     "type": "text",
                   },
@@ -97,6 +103,9 @@ describe("native retained-tree parity", () => {
               {
                 "children": [
                   {
+                    "style": {
+                      "color": "#a6adc8",
+                    },
                     "text": "Second line of content",
                     "type": "text",
                   },

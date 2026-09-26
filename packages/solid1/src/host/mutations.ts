@@ -24,6 +24,10 @@ type DimensionStyleKey =
   | "minHeight"
   | "maxWidth"
   | "maxHeight"
+  | "top"
+  | "right"
+  | "bottom"
+  | "left"
 
 type NumberStyleKey =
   | "flexGrow"
@@ -44,10 +48,6 @@ type NumberStyleKey =
   | "marginRight"
   | "marginBottom"
   | "marginLeft"
-  | "top"
-  | "right"
-  | "bottom"
-  | "left"
   | "opacity"
   | "borderWidth"
   | "borderTopWidth"
@@ -73,11 +73,13 @@ type StyleMutationInput = Omit<StyleDesc, DimensionStyleKey | NumberStyleKey | "
 
 type BoxShorthand = {
   value?: number
-  top?: number
-  right?: number
-  bottom?: number
-  left?: number
+  top?: number | "auto"
+  right?: number | "auto"
+  bottom?: number | "auto"
+  left?: number | "auto"
 }
+
+type NormalizedMarginSide = { value?: number; auto?: boolean }
 
 type LegacyMutationRenderer = NativeRenderer & {
   createElement(id: number, elementType: string): void
@@ -182,7 +184,7 @@ export class MutationDriver {
     if (name === "setStyle" && isObjectValue(args[1]) && !Array.isArray(args[1])) {
       // SAFETY: setStyle is only enqueued with the renderer-owned StyleDesc object; this boundary widens numeric fields solely to accept CSS unit strings before native serialization.
       const style = args[1] as StyleMutationInput
-      args[1] = normalizeStyleMutation(style)
+      args[1] = normalizeStyleMutation(style, this.#renderer.getAutoMarginVersion?.() === 1)
     }
 
     this.#queue.push([name, ...args])
@@ -389,10 +391,14 @@ function callMutation(renderer: LegacyMutationRenderer, name: string, args: Muta
   }
 }
 
-function normalizeStyleMutation(style: StyleMutationInput): StyleDesc {
+function normalizeStyleMutation(style: StyleMutationInput, supportsAutoMargins: boolean): StyleDesc {
   const { "font-size": cssFontSize, ...canonicalStyle } = style
   const padding = normalizeBoxShorthand(style.padding, "padding")
-  const margin = normalizeBoxShorthand(style.margin, "margin")
+  const margin = normalizeBoxShorthand(style.margin, "margin", supportsAutoMargins)
+  const marginTop = normalizeMarginSide(parseMarginSide(style.marginTop, "marginTop", supportsAutoMargins), margin.top)
+  const marginRight = normalizeMarginSide(parseMarginSide(style.marginRight, "marginRight", supportsAutoMargins), margin.right)
+  const marginBottom = normalizeMarginSide(parseMarginSide(style.marginBottom, "marginBottom", supportsAutoMargins), margin.bottom)
+  const marginLeft = normalizeMarginSide(parseMarginSide(style.marginLeft, "marginLeft", supportsAutoMargins), margin.left)
   const fontSize = normalizeNumberStyle(cssFontSize ?? style.fontSize, "fontSize")
   const normalized = {
     ...canonicalStyle,
@@ -416,14 +422,18 @@ function normalizeStyleMutation(style: StyleMutationInput): StyleDesc {
     paddingBottom: normalizeNumberStyle(style.paddingBottom, "paddingBottom") ?? padding.bottom,
     paddingLeft: normalizeNumberStyle(style.paddingLeft, "paddingLeft") ?? padding.left,
     margin: margin.value,
-    marginTop: normalizeNumberStyle(style.marginTop, "marginTop") ?? margin.top,
-    marginRight: normalizeNumberStyle(style.marginRight, "marginRight") ?? margin.right,
-    marginBottom: normalizeNumberStyle(style.marginBottom, "marginBottom") ?? margin.bottom,
-    marginLeft: normalizeNumberStyle(style.marginLeft, "marginLeft") ?? margin.left,
-    top: normalizeNumberStyle(style.top, "top"),
-    right: normalizeNumberStyle(style.right, "right"),
-    bottom: normalizeNumberStyle(style.bottom, "bottom"),
-    left: normalizeNumberStyle(style.left, "left"),
+    marginTop: marginTop.value,
+    marginRight: marginRight.value,
+    marginBottom: marginBottom.value,
+    marginLeft: marginLeft.value,
+    marginTopAuto: marginTop.auto ?? style.marginTopAuto,
+    marginRightAuto: marginRight.auto ?? style.marginRightAuto,
+    marginBottomAuto: marginBottom.auto ?? style.marginBottomAuto,
+    marginLeftAuto: marginLeft.auto ?? style.marginLeftAuto,
+    top: normalizeDimensionStyle(style.top, fontSize ?? 16),
+    right: normalizeDimensionStyle(style.right, fontSize ?? 16),
+    bottom: normalizeDimensionStyle(style.bottom, fontSize ?? 16),
+    left: normalizeDimensionStyle(style.left, fontSize ?? 16),
     opacity: normalizeNumberStyle(style.opacity, "opacity"),
     borderWidth: normalizeNumberStyle(style.borderWidth, "borderWidth"),
     borderTopWidth: normalizeNumberStyle(style.borderTopWidth, "borderTopWidth"),
@@ -441,8 +451,8 @@ function normalizeStyleMutation(style: StyleMutationInput): StyleDesc {
     overflow: normalizeOverflowStyle(style.overflow),
     overflowX: normalizeOverflowStyle(style.overflowX),
     overflowY: normalizeOverflowStyle(style.overflowY),
-    hover: style.hover ? normalizeStyleMutation(style.hover) : undefined,
-    active: style.active ? normalizeStyleMutation(style.active) : undefined,
+    hover: style.hover ? normalizeStyleMutation(style.hover, supportsAutoMargins) : undefined,
+    active: style.active ? normalizeStyleMutation(style.active, supportsAutoMargins) : undefined,
   }
   // SAFETY: every widened numeric StyleMutationInput field above is converted to the corresponding StyleDesc number contract before this object crosses the native boundary; undefined optional fields are omitted by JSON serialization.
   return normalized as StyleDesc
@@ -451,19 +461,21 @@ function normalizeStyleMutation(style: StyleMutationInput): StyleDesc {
 function normalizeBoxShorthand(
   value: number | string | undefined,
   property: "padding" | "margin",
+  supportsAutoMargins = false,
 ): BoxShorthand {
   if (value === undefined) return {}
   if (isNumberValue(value)) return { value }
 
-  const scalar = parseNumericCssValue(value)
-  if (scalar !== undefined) return { value: scalar }
+  const scalar = parseBoxValue(value, property, supportsAutoMargins)
+  if (scalar !== undefined && scalar !== "auto") return { value: scalar }
+  if (scalar === "auto") return { top: scalar, right: scalar, bottom: scalar, left: scalar }
 
   const parts = value.trim().split(/\s+/)
   if (parts.length < 2 || parts.length > 4) {
     throw new TypeError(`Unsupported numeric inline style ${property}: ${JSON.stringify(value)}`)
   }
 
-  const values = parts.map(parseNumericCssValue)
+  const values = parts.map((part) => parseBoxValue(part, property, supportsAutoMargins))
   if (values.some((part) => part === undefined)) {
     throw new TypeError(`Unsupported numeric inline style ${property}: ${JSON.stringify(value)}`)
   }
@@ -473,6 +485,43 @@ function normalizeBoxShorthand(
   const bottom = values.length >= 3 ? values[2]! : top
   const left = values.length === 4 ? values[3]! : right
   return { top, right, bottom, left }
+}
+
+function parseBoxValue(
+  value: string,
+  property: "padding" | "margin",
+  supportsAutoMargins: boolean,
+): number | "auto" | undefined {
+  if (property === "margin" && value.trim().toLowerCase() === "auto") {
+    if (!supportsAutoMargins) {
+      throw new TypeError("CSS auto margins require native auto-margin support")
+    }
+    return "auto"
+  }
+  return parseNumericCssValue(value)
+}
+
+function parseMarginSide(
+  value: number | string | undefined,
+  property: NumberStyleKey,
+  supportsAutoMargins: boolean,
+): number | "auto" | undefined {
+  if (value === undefined || isNumberValue(value)) return value
+  const normalized = parseBoxValue(value, "margin", supportsAutoMargins)
+  if (normalized === undefined) {
+    throw new TypeError(`Unsupported numeric inline style ${property}: ${JSON.stringify(value)}`)
+  }
+  return normalized
+}
+
+function normalizeMarginSide(
+  value: number | "auto" | undefined,
+  shorthandValue: number | "auto" | undefined,
+): NormalizedMarginSide {
+  const side = value ?? shorthandValue
+  if (side === undefined) return {}
+  if (side === "auto") return { auto: true }
+  return { value: side, auto: false }
 }
 
 function normalizeNumberStyle(value: number | string | undefined, property: NumberStyleKey): number | undefined {
@@ -492,7 +541,25 @@ function normalizeDimensionStyle(
   if (isIntrinsicCssDimension(trimmed)) return "auto"
   const em = trimmed.match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))em$/i)
   if (em) return Number(em[1]) * fontSize
+  const simplifiedCalc = simplifyDegenerateLinearCalc(trimmed)
+  if (simplifiedCalc !== undefined) return simplifiedCalc
   return parseNumericCssValue(trimmed) ?? value
+}
+
+function simplifyDegenerateLinearCalc(value: string): DimensionValue | undefined {
+  const match = value.match(
+    /^calc\(\s*(-?(?:\d+(?:\.\d+)?|\.\d+))px\s*\+\s*(-?(?:\d+(?:\.\d+)?|\.\d+))\s*\*\s*\(\s*100%\s*-\s*(-?(?:\d+(?:\.\d+)?|\.\d+))px\s*\)\s*\)$/i,
+  )
+  if (!match) return undefined
+
+  const inset = Number(match[1])
+  const ratio = Number(match[2])
+  const subtractedInset = Number(match[3])
+  if (!Number.isFinite(inset) || !Number.isFinite(ratio) || !Number.isFinite(subtractedInset)) return undefined
+  if (inset !== subtractedInset) return undefined
+  if (ratio === 0) return inset
+  if (ratio === 1) return "100%"
+  return undefined
 }
 
 function isIntrinsicCssDimension(value: string): boolean {

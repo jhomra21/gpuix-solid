@@ -1,0 +1,37 @@
+{
+  "name": "gpuix-solid1-diffusion-source",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "host:build": "cd ../../packages/solid1 && bun install --no-save && bun run build",
+    "source:prepare": "node scripts/prepare-source.mjs",
+    "build": "bun run host:build && bun run source:prepare && bun run generate:styles && vite build",
+    "build:test": "bun run host:build && bun run source:prepare && bun run generate:styles && vite build --config vite.test.config.ts",
+    "test:native": "bun run build:test && node scripts/run-test.mjs",
+    "start": "bun dist/app/index.js",
+    "run": "bun run build && bun run start",
+    "build:test:edge": "cd ../../packages/solid1 && bun run build && cd ../../examples/solid1-diffusion && bun run source:prepare && bun run generate:styles && vite build --config vite.test.config.ts",
+    "test:native:edge": "bun run build:test:edge && node scripts/run-test.mjs && vite build --config vite.live-smoke.config.ts && node dist/live-smoke/live-smoke.js",
+    "generate:styles": "node scripts/generate-native-tailwind.mjs",
+    "build:live:edge": "cd ../../packages/solid1 && bun run build && cd ../../examples/solid1-diffusion && bun run source:prepare && bun run generate:styles && cd ../../packages/solid && bun run build && cd ../../examples/solid1-diffusion && vite build",
+    "test:live:edge": "bun run build:live:edge && node scripts/check-live-automation.mjs"
+  },
+  "dependencies": {
+    "@gpuix/native": "0.9.0",
+    "@jhomra21/gpuix-solid1": "file:../../packages/solid1",
+    "@solidjs/router": "0.15.4",
+    "fake-indexeddb": "6.2.5",
+    "koota": "0.6.6",
+    "solid-js": "1.9.15"
+  },
+  "devDependencies": {
+    "@tailwindcss/node": "4.1.18",
+    "@types/node": "^25.3.3",
+    "html-entities": "2.3.3",
+    "postcss": "8.5.26",
+    "typescript": "^5.9.2",
+    "vite": "^8.1.5",
+    "vite-plugin-solid": "^2.11.14",
+    "vite-plugin-solid-svg": "^0.8.1"
+  }
+}

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest"
 import {
   CANVAS_DRAW_LIST_VERSION,
   createCanvas2DRecorder,
+  type CanvasPixelSource,
 } from "../src/host/canvas.js"
 
 describe("Canvas2D draw-list recorder", () => {
@@ -116,6 +117,270 @@ describe("Canvas2D draw-list recorder", () => {
     expect(command.path.filter((segment) => segment.op === "bezierCurveTo")).toHaveLength(4)
   })
 
+  it("records drawImage through binary image resources instead of JSON pixels", () => {
+    const uploads: Array<{ id: number; width: number; height: number; bytes: number[] }> = []
+    const source: CanvasPixelSource = {
+      width: 2,
+      height: 1,
+      getContext: () => ({
+        getImageData: () => ({
+          data: new Uint8ClampedArray([255, 0, 0, 255, 0, 255, 0, 255]),
+        }),
+      }),
+    }
+    const recorder = createCanvas2DRecorder(
+      () => ({ width: 160, height: 90 }),
+      undefined,
+      undefined,
+      (id, image) => uploads.push({
+        id,
+        width: image.width,
+        height: image.height,
+        bytes: [...image.pixels],
+      }),
+    )
+    const ctx = recorder.context
+
+    ctx.globalAlpha = 0.75
+    ctx.drawImage(source, 10, 12, 40, 20)
+
+    expect(uploads).toEqual([{
+      id: 1,
+      width: 2,
+      height: 1,
+      bytes: [255, 0, 0, 191, 0, 255, 0, 191],
+    }])
+    expect(recorder.snapshot().commands).toEqual([{
+      op: "drawImage",
+      imageId: 1,
+      source: { x: 0, y: 0, width: 2, height: 1 },
+      destination: { x: 10, y: 12, width: 40, height: 20 },
+    }])
+    expect(JSON.stringify(recorder.snapshot())).not.toContain("255,0,0,255")
+  })
+
+  it("clips drawImage source rectangles and reuses the source resource id", () => {
+    const uploadedIds: number[] = []
+    const source: CanvasPixelSource = {
+      width: 100,
+      height: 50,
+      getContext: () => ({
+        getImageData: () => ({ data: new Uint8ClampedArray(100 * 50 * 4) }),
+      }),
+    }
+    const recorder = createCanvas2DRecorder(
+      () => ({ width: 300, height: 200 }),
+      undefined,
+      undefined,
+      (id) => uploadedIds.push(id),
+    )
+    const ctx = recorder.context
+
+    ctx.drawImage(source, -10, 0, 40, 20, 0, 0, 80, 40)
+    ctx.globalAlpha = 0.5
+    ctx.drawImage(source, 100, 60)
+
+    expect(uploadedIds).toEqual([1, 2])
+    expect(recorder.snapshot().commands[0]).toMatchObject({
+      op: "drawImage",
+      imageId: 1,
+      source: { x: 0, y: 0, width: 30, height: 20 },
+      destination: { x: 20, y: 0, width: 60, height: 40 },
+    })
+    expect(recorder.snapshot().commands[1]).toMatchObject({
+      op: "drawImage",
+      imageId: 2,
+      destination: { x: 100, y: 60, width: 100, height: 50 },
+    })
+  })
+
+  it("fails closed for drawImage transforms GPUI cannot reproduce yet", () => {
+    const source: CanvasPixelSource = {
+      width: 2,
+      height: 2,
+      getContext: () => ({
+        getImageData: () => ({ data: new Uint8ClampedArray(16) }),
+      }),
+    }
+    const recorder = createCanvas2DRecorder(
+      () => ({ width: 100, height: 100 }),
+      undefined,
+      undefined,
+      () => undefined,
+    )
+    const ctx = recorder.context
+
+    ctx.rotate(Math.PI / 4)
+    expect(() => ctx.drawImage(source, 0, 0)).toThrow(/axis-aligned scale/u)
+  })
+
+  it("lowers arcTo into the existing cubic path protocol", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 120, height: 80 }))
+    const ctx = recorder.context
+
+    ctx.beginPath()
+    ctx.moveTo(0, 0)
+    ctx.lineTo(10, 0)
+    ctx.arcTo(20, 0, 20, 10, 4)
+    ctx.lineTo(20, 20)
+    ctx.fill()
+
+    const command = recorder.snapshot().commands[0]
+    expect(command?.op).toBe("fillPath")
+    if (command?.op !== "fillPath") throw new Error("expected fill path")
+    expect(command.path[2]).toMatchObject({ op: "lineTo", x: 16, y: 0 })
+    expect(command.path[3]).toMatchObject({ op: "bezierCurveTo" })
+    if (command.path[3]?.op !== "bezierCurveTo") throw new Error("expected cubic arc segment")
+    expect(command.path[3].x).toBeCloseTo(20, 12)
+    expect(command.path[3].y).toBeCloseTo(4, 12)
+    expect(command.path[4]).toMatchObject({ op: "lineTo", x: 20, y: 20 })
+  })
+
+  it("keeps arcTo geometry correct through an affine transform", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 200, height: 120 }))
+    const ctx = recorder.context
+
+    ctx.setTransform(2, 0.5, 0.25, 1.5, 7, 11)
+    ctx.beginPath()
+    ctx.moveTo(0, 0)
+    ctx.arcTo(10, 0, 10, 10, 2)
+    ctx.fill()
+
+    const command = recorder.snapshot().commands[0]
+    expect(command?.op).toBe("fillPath")
+    if (command?.op !== "fillPath") throw new Error("expected fill path")
+    expect(command.path[1]).toMatchObject({ op: "lineTo", x: 23, y: 15 })
+    expect(command.path[2]).toMatchObject({ op: "bezierCurveTo", x: 27.5, y: 19 })
+  })
+
+  it("handles degenerate arcTo corners and rejects negative radii", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
+    const ctx = recorder.context
+
+    ctx.beginPath()
+    ctx.arcTo(4, 5, 8, 9, 2)
+    expect(recorder.snapshot().commands).toEqual([])
+
+    ctx.lineTo(10, 5)
+    ctx.arcTo(10, 5, 20, 5, 3)
+    ctx.stroke()
+    const command = recorder.snapshot().commands[0]
+    expect(command?.op).toBe("strokePath")
+    if (command?.op !== "strokePath") throw new Error("expected stroke path")
+    expect(command.path).toMatchObject([
+      { op: "moveTo", x: 4, y: 5 },
+      { op: "lineTo", x: 10, y: 5 },
+      { op: "lineTo", x: 10, y: 5 },
+    ])
+
+    expect(() => ctx.arcTo(0, 0, 10, 10, -1)).toThrow(/radius provided is negative/u)
+  })
+
+  it("lowers roundRect into the existing path protocol", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 120, height: 80 }))
+    const ctx = recorder.context
+
+    ctx.translate(2, 3)
+    ctx.beginPath()
+    ctx.roundRect(10, 20, 80, 40, 8)
+    ctx.fill()
+
+    const command = recorder.snapshot().commands[0]
+    expect(command?.op).toBe("fillPath")
+    if (command?.op !== "fillPath") throw new Error("expected fill path")
+    expect(command.path).toHaveLength(10)
+    expect(command.path[0]).toEqual({ op: "moveTo", x: 20, y: 23 })
+    expect(command.path[1]).toEqual({ op: "lineTo", x: 84, y: 23 })
+    expect(command.path[2]).toMatchObject({ op: "bezierCurveTo", x: 92, y: 31 })
+    expect(command.path[8]).toMatchObject({ op: "bezierCurveTo", x: 20, y: 23 })
+    expect(command.path[9]).toEqual({ op: "closePath" })
+  })
+
+  it("matches Canvas roundRect corner assignment for negative dimensions", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 120, height: 80 }))
+    const ctx = recorder.context
+
+    ctx.beginPath()
+    ctx.roundRect(90, 60, -80, -40, [2, 4, 6, 8])
+    ctx.stroke()
+
+    const command = recorder.snapshot().commands[0]
+    expect(command?.op).toBe("strokePath")
+    if (command?.op !== "strokePath") throw new Error("expected stroke path")
+    expect(command.path[0]).toEqual({ op: "moveTo", x: 16, y: 20 })
+    expect(command.path[1]).toEqual({ op: "lineTo", x: 82, y: 20 })
+  })
+
+  it("rejects invalid roundRect radii instead of approximating them", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
+    const ctx = recorder.context
+
+    expect(() => ctx.roundRect(0, 0, 10, 10, -1)).toThrow(/cannot be negative/u)
+    expect(() => ctx.roundRect(0, 0, 10, 10, [])).toThrow(/between one and four/u)
+    expect(() => ctx.roundRect(0, 0, 10, 10, [1, 2, 3, 4, 5])).toThrow(/between one and four/u)
+  })
+
+  it("records exact rectangular clips on following draw commands", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 200, height: 100 }))
+    const ctx = recorder.context
+
+    ctx.beginPath()
+    ctx.rect(10, 20, 80, 40)
+    ctx.clip()
+    ctx.fillStyle = "#ffffff"
+    ctx.fillRect(0, 0, 200, 100)
+
+    expect(recorder.snapshot().commands[0]).toMatchObject({
+      op: "fillPath",
+      clip: { x: 10, y: 20, width: 80, height: 40 },
+    })
+  })
+
+  it("intersects rectangular clips and restores the previous clip", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 200, height: 100 }))
+    const ctx = recorder.context
+
+    ctx.beginPath()
+    ctx.rect(0, 0, 100, 80)
+    ctx.clip()
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(40, 20, 100, 40)
+    ctx.clip()
+    ctx.fillRect(0, 0, 10, 10)
+    ctx.restore()
+    ctx.fillRect(10, 0, 10, 10)
+
+    expect(recorder.snapshot().commands).toMatchObject([
+      { clip: { x: 40, y: 20, width: 60, height: 40 } },
+      { clip: { x: 0, y: 0, width: 100, height: 80 } },
+    ])
+  })
+
+  it("records uniform rounded clips and rejects rotated or compound clip paths", () => {
+    const roundedRecorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
+    const rounded = roundedRecorder.context
+    rounded.beginPath()
+    rounded.roundRect(0, 0, 20, 20, 4)
+    rounded.clip()
+    rounded.fillRect(0, 0, 20, 20)
+    expect(roundedRecorder.snapshot().commands[0]).toMatchObject({
+      clip: { x: 0, y: 0, width: 20, height: 20, radius: 4 },
+    })
+
+    const rotated = createCanvas2DRecorder(() => ({ width: 100, height: 100 })).context
+    rotated.rotate(Math.PI / 4)
+    rotated.beginPath()
+    rotated.rect(0, 0, 20, 20)
+    expect(() => rotated.clip()).toThrow(/axis-aligned rectangle or uniform rounded rectangle/u)
+
+    const compound = createCanvas2DRecorder(() => ({ width: 100, height: 100 })).context
+    compound.beginPath()
+    compound.rect(0, 0, 20, 20)
+    compound.rect(30, 30, 10, 10)
+    expect(() => compound.clip()).toThrow(/axis-aligned rectangle or uniform rounded rectangle/u)
+  })
+
   it("clears the retained command list only for a full backing-store clear", () => {
     const recorder = createCanvas2DRecorder(() => ({ width: 100, height: 50 }))
     const ctx = recorder.context
@@ -166,7 +431,7 @@ describe("Canvas2D draw-list recorder", () => {
     expect(() => ctx.stroke()).toThrow(/miterLimit/u)
   })
 
-  it("rejects transforms that GPUI cannot reproduce exactly for strokes and text", () => {
+  it("rejects unsupported stroke transforms and retains affine text transforms", () => {
     const strokeRecorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
     const stroke = strokeRecorder.context
     stroke.scale(2, 1)
@@ -178,7 +443,27 @@ describe("Canvas2D draw-list recorder", () => {
     const rotatedTextRecorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
     const rotatedText = rotatedTextRecorder.context
     rotatedText.rotate(Math.PI / 4)
-    expect(() => rotatedText.fillText("rotated", 10, 10)).toThrow(/positive uniform scale/u)
+    rotatedText.fillText("rotated", 10, 10)
+    const rotated = rotatedTextRecorder.snapshot().commands[0]
+    expect(rotated).toMatchObject({
+      op: "fillText",
+      x: 10,
+      y: 10,
+      fontSize: 10,
+    })
+    const rotatedTransform = rotated?.op === "fillText" ? rotated.transform : undefined
+    expect(rotatedTransform).toHaveLength(6)
+    const expectedRotation = [
+      Math.SQRT1_2,
+      Math.SQRT1_2,
+      -Math.SQRT1_2,
+      Math.SQRT1_2,
+      0,
+      0,
+    ]
+    for (let index = 0; index < expectedRotation.length; index += 1) {
+      expect(rotatedTransform?.[index]).toBeCloseTo(expectedRotation[index]!, 12)
+    }
 
     const scaledTextRecorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
     const scaledText = scaledTextRecorder.context
@@ -187,17 +472,42 @@ describe("Canvas2D draw-list recorder", () => {
     scaledText.fillText("scaled", 10, 12)
     expect(scaledTextRecorder.snapshot().commands[0]).toMatchObject({
       op: "fillText",
-      x: 24,
-      y: 30,
-      fontSize: 20,
+      x: 10,
+      y: 12,
+      fontSize: 10,
+      transform: [2, 0, 0, 2, 4, 6],
     })
   })
 
-  it("rejects multiline and constrained fillText instead of mispainting it", () => {
+  it("delegates measureText to native text shaping without applying the canvas transform", () => {
+    const calls: Array<[string, number, string, number]> = []
+    const recorder = createCanvas2DRecorder(
+      () => ({ width: 100, height: 100 }),
+      () => undefined,
+      (text, fontSize, fontFamily, fontWeight) => {
+        calls.push([text, fontSize, fontFamily, fontWeight])
+        return 37.5
+      },
+    )
+    const ctx = recorder.context
+
+    ctx.font = "600 14px Inter"
+    ctx.scale(3, 3)
+    expect(ctx.measureText("GPUix").width).toBe(37.5)
+    expect(calls).toEqual([["GPUix", 14, "Inter", 600]])
+  })
+
+  it("fails clearly when native text measurement is unavailable", () => {
+    const recorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
+    expect(() => recorder.context.measureText("GPUix")).toThrow(/native text measurement/u)
+  })
+
+  it("normalizes Canvas whitespace and rejects constrained fillText", () => {
     const recorder = createCanvas2DRecorder(() => ({ width: 100, height: 100 }))
     const ctx = recorder.context
 
-    expect(() => ctx.fillText("two\nlines", 0, 0)).toThrow(/newlines/u)
+    ctx.fillText("two\nlines", 0, 0)
+    expect(recorder.snapshot().commands[0]).toMatchObject({ op: "fillText", text: "two lines" })
     expect(() => ctx.fillText("text", 0, 0, 20)).toThrow(/maxWidth/u)
   })
 

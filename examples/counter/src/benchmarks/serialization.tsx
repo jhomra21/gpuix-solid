@@ -250,9 +250,10 @@ function benchCanvasDrawList(drawList: CanvasDrawList, iterations: number): void
   console.log("\nCanvas draw-list sample")
   console.log("| commands | path segments | encode p50/p95/p99 | decode p50/p95/p99 | wire bytes |")
   console.log("| ---: | ---: | ---: | ---: | ---: |")
-  const pathSegments = drawList.commands.reduce((total, command) => (
-    command.op === "fillText" ? total : total + command.path.length
-  ), 0)
+  const pathSegments = drawList.commands.reduce((total, command) => {
+    if (command.op !== "fillPath" && command.op !== "strokePath") return total
+    return total + command.path.length
+  }, 0)
   console.log(
     `| ${drawList.commands.length} | ${pathSegments} | ` +
       `${encode.p50.toFixed(2)}/${encode.p95.toFixed(2)}/${encode.p99.toFixed(2)} ms | ` +
@@ -329,7 +330,7 @@ function main(): void {
   benchCanvasDrawList(captureCanvasDrawList(canvasPoints), iterations)
   console.log(
     "\nThis measures Solid's applyBatch JSON path and the same style-interning question as upstream. " +
-      "The Canvas row measures the exact v1 drawList custom-prop envelope for a DAW-style waveform. " +
+      "The Canvas row measures the current drawList custom-prop envelope for a DAW-style waveform. " +
       "The upstream Rust serde benchmark stays upstream because this repository does not own that native decoder.",
   )
 }

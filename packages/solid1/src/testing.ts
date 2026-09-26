@@ -18,6 +18,15 @@ type NativeModule = {
 
 type SourceEdgeNativeTestRenderer = NativeTestRendererApi & {
   getCanvasDrawListVersion?: () => number
+  getAutoMarginVersion?: () => number
+  measureCanvasText?: (text: string, fontSize: number, fontFamily: string, fontWeight: number) => number
+  setCanvasImagePixels?: (
+    elementId: number,
+    imageId: number,
+    width: number,
+    height: number,
+    pixels: Uint8Array,
+  ) => void
   getVideoFrameSurfaceVersion?: () => number
   setVideoFrameBgra?: (elementId: number, width: number, height: number, data: Uint8Array) => void
   scrollIntoView?: (elementId: number) => void
@@ -103,6 +112,22 @@ function findCustomPropStringContainingAll(
     if (found !== undefined) return found
   }
   return undefined
+}
+
+function collectCustomPropStringsContainingAll(
+  node: NativeTreeNode | null,
+  name: string,
+  fragments: readonly string[],
+  values: string[] = [],
+): string[] {
+  if (!node) return values
+  const value = node.customProps?.[name]
+  const text = value === undefined || value === null ? undefined : String(value)
+  if (text !== undefined && fragments.every((fragment) => text.includes(fragment))) values.push(text)
+  for (const child of node.children ?? []) {
+    collectCustomPropStringsContainingAll(child, name, fragments, values)
+  }
+  return values
 }
 
 function findNodeBySerializedCustomProp(
@@ -198,11 +223,42 @@ export class TestRenderer {
   setWindowKeyEvents(keyDown: boolean, keyUp: boolean, eventId: number): void { this.#native.setWindowKeyEvents(keyDown, keyUp, eventId) }
   setWindowSelectionChange(enabled: boolean, eventId: number): void { this.#native.setWindowSelectionChange(enabled, eventId) }
   getElementBounds(elementId: number): number[] | null { return this.#native.getElementBounds(elementId) }
+
+  getWindowSize(): { width: number; height: number } {
+    this.#native.flush()
+    return this.#native.getWindowSize()
+  }
   getCanvasDrawListVersion(): number | undefined {
     // SAFETY: source-edge GPUIX may expose this optional capability before it
     // exists in the published @gpuix/native TypeScript surface.
     const native = this.#native as SourceEdgeNativeTestRenderer
     return native.getCanvasDrawListVersion?.()
+  }
+
+  getAutoMarginVersion(): number | undefined {
+    // SAFETY: source-edge GPUIX may expose CSS auto margins before published typings.
+    const native = this.#native as SourceEdgeNativeTestRenderer
+    return native.getAutoMarginVersion?.()
+  }
+
+  measureCanvasText(text: string, fontSize: number, fontFamily: string, fontWeight: number): number {
+    // SAFETY: the source-edge native renderer adds synchronous GPUI text shaping before published typings expose it.
+    const native = this.#native as SourceEdgeNativeTestRenderer
+    if (!native.measureCanvasText) throw new Error("Native Canvas text measurement is unavailable")
+    return native.measureCanvasText(text, fontSize, fontFamily, fontWeight)
+  }
+
+  setCanvasImagePixels(
+    elementId: number,
+    imageId: number,
+    width: number,
+    height: number,
+    pixels: Uint8Array,
+  ): void {
+    // SAFETY: source-edge GPUIX exposes the Canvas image resource upload before published native typings.
+    const native = this.#native as SourceEdgeNativeTestRenderer
+    if (!native.setCanvasImagePixels) throw new Error("Native Canvas image upload is unavailable")
+    native.setCanvasImagePixels(elementId, imageId, width, height, pixels)
   }
 
   getVideoFrameSurfaceVersion(): number | undefined {
@@ -429,6 +485,11 @@ export class TestRenderer {
       throw new Error(`Expected string custom prop ${JSON.stringify(name)} containing ${JSON.stringify(fragments)}`)
     }
     return value
+  }
+
+  customPropStringsContainingAll(name: string, fragments: readonly string[]): string[] {
+    this.#native.flush()
+    return collectCustomPropStringsContainingAll(parseTree(this.#native.getTreeJson()), name, fragments)
   }
 
   customPropJsonContainingAll(name: string, fragments: readonly string[]): string {

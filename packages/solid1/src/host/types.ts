@@ -154,6 +154,9 @@ export interface StyleDesc {
   columnGap?: number
   gridTemplateColumns?: number
   gridTemplateRows?: number
+  gridAutoFlow?: "row" | "column"
+  gridColumnSpan?: number
+  gridColumnSpanFull?: boolean
   gridColumnMin?: "zero" | "min-content" | "max-content"
   gridRowMin?: "zero" | "min-content" | "max-content"
 
@@ -163,6 +166,8 @@ export interface StyleDesc {
   minHeight?: DimensionValue
   maxWidth?: DimensionValue
   maxHeight?: DimensionValue
+  /** Width-to-height ratio used when one axis is otherwise auto. */
+  aspectRatio?: number
 
   padding?: number
   /** Horizontal padding shorthand; expands to left + right before native render. */
@@ -183,6 +188,11 @@ export interface StyleDesc {
   marginRight?: number
   marginBottom?: number
   marginLeft?: number
+  /** Source-edge CSS auto margins. Sent only when the renderer advertises support. */
+  marginTopAuto?: boolean
+  marginRightAuto?: boolean
+  marginBottomAuto?: boolean
+  marginLeftAuto?: boolean
 
   /** Width + height shorthand; explicit width/height win. */
   size?: DimensionValue
@@ -198,11 +208,14 @@ export interface StyleDesc {
   right?: DimensionValue
   bottom?: DimensionValue
   left?: DimensionValue
+  /** Numeric sibling stacking level. Equal values preserve source order. */
+  zIndex?: number
 
   background?: string | LinearGradientBackground
   backgroundColor?: string
   color?: string
   opacity?: number
+  objectFit?: "fill" | "contain" | "cover" | "scaleDown" | "none"
 
   borderWidth?: number
   borderTopWidth?: number
@@ -355,6 +368,8 @@ export type DomCompatTarget = EventTarget & {
   classList: {
     add: (...tokens: string[]) => void
     remove: (...tokens: string[]) => void
+    contains: (token: string) => boolean
+    toggle: (token: string, force?: boolean) => boolean
   }
   focus: () => void
   blur: () => void
@@ -596,10 +611,23 @@ export interface NativeRenderer {
   getSelectedText?(): string | null
   clearSelection?(): void
   getPaintedHighlights?(): HighlightMatch[]
+  getPaintedText?(): string[]
+  captureScreenshot?(path: string): void
   getWindowSize?(): { width: number; height: number }
   getWindowInsets?(): NativeWindowInsets
   /** Version of the native retained Canvas2D draw-list protocol, or undefined when unavailable. */
   getCanvasDrawListVersion?(): number | undefined
+  /** Version of source-edge CSS auto-margin support, or undefined when unavailable. */
+  getAutoMarginVersion?(): number | undefined
+  /** Synchronously measure one line using GPUI's native text shaping. */
+  measureCanvasText?(text: string, fontSize: number, fontFamily: string, fontWeight: number): number
+  setCanvasImagePixels?(
+    elementId: number,
+    imageId: number,
+    width: number,
+    height: number,
+    pixels: Uint8Array,
+  ): void
   /** Version of the binary BGRA frame-surface protocol, or undefined when unavailable. */
   getVideoFrameSurfaceVersion?(): number | undefined
   setVideoFrameBgra?(elementId: number, width: number, height: number, data: Uint8Array): void

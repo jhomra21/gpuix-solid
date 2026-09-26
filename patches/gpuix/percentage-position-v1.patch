@@ -1,0 +1,86 @@
+diff --git a/packages/native/src/style.rs b/packages/native/src/style.rs
+--- a/packages/native/src/style.rs
++++ b/packages/native/src/style.rs
+@@ -174,7 +174,7 @@ pub struct StyleDesc {
+     // Position
+     pub position: Option<String>,
+-    pub top: Option<f64>,
+-    pub right: Option<f64>,
+-    pub bottom: Option<f64>,
+-    pub left: Option<f64>,
++    pub top: Option<DimensionValue>,
++    pub right: Option<DimensionValue>,
++    pub bottom: Option<DimensionValue>,
++    pub left: Option<DimensionValue>,
+     pub z_index: Option<f64>,
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -5720,17 +5720,33 @@ pub(crate) fn apply_styles<E: gpui::Styled>(mut el: E, style: &StyleDesc) -> E {
+         Some("relative") => el = el.relative(),
+         _ => {}
+     }
+-    if let Some(top) = style.top {
+-        el = el.top(gpui::px(top as f32));
++    if let Some(ref top) = style.top {
++        match top {
++            crate::style::DimensionValue::Pixels(v) => el = el.top(gpui::px(*v as f32)),
++            crate::style::DimensionValue::Percentage(v) => el = el.top(gpui::relative(*v as f32)),
++            crate::style::DimensionValue::Auto => {}
++        }
+     }
+-    if let Some(right) = style.right {
+-        el = el.right(gpui::px(right as f32));
++    if let Some(ref right) = style.right {
++        match right {
++            crate::style::DimensionValue::Pixels(v) => el = el.right(gpui::px(*v as f32)),
++            crate::style::DimensionValue::Percentage(v) => el = el.right(gpui::relative(*v as f32)),
++            crate::style::DimensionValue::Auto => {}
++        }
+     }
+-    if let Some(bottom) = style.bottom {
+-        el = el.bottom(gpui::px(bottom as f32));
++    if let Some(ref bottom) = style.bottom {
++        match bottom {
++            crate::style::DimensionValue::Pixels(v) => el = el.bottom(gpui::px(*v as f32)),
++            crate::style::DimensionValue::Percentage(v) => el = el.bottom(gpui::relative(*v as f32)),
++            crate::style::DimensionValue::Auto => {}
++        }
+     }
+-    if let Some(left) = style.left {
+-        el = el.left(gpui::px(left as f32));
++    if let Some(ref left) = style.left {
++        match left {
++            crate::style::DimensionValue::Pixels(v) => el = el.left(gpui::px(*v as f32)),
++            crate::style::DimensionValue::Percentage(v) => el = el.left(gpui::relative(*v as f32)),
++            crate::style::DimensionValue::Auto => {}
++        }
+     }
+     if let Some(background) = style.resolved_background() {
+         el = el.bg(background);
+diff --git a/packages/native/src/motion.rs b/packages/native/src/motion.rs
+--- a/packages/native/src/motion.rs
++++ b/packages/native/src/motion.rs
+@@ -61,17 +61,17 @@ impl MotionStyle {
+         if let Some(value) = self.opacity {
+             style.opacity = Some(value);
+         }
+         if let Some(value) = self.top {
+-            style.top = Some(value);
++            style.top = Some(DimensionValue::Pixels(value));
+         }
+         if let Some(value) = self.right {
+-            style.right = Some(value);
++            style.right = Some(DimensionValue::Pixels(value));
+         }
+         if let Some(value) = self.bottom {
+-            style.bottom = Some(value);
++            style.bottom = Some(DimensionValue::Pixels(value));
+         }
+         if let Some(value) = self.left {
+-            style.left = Some(value);
++            style.left = Some(DimensionValue::Pixels(value));
+         }
+         if let Some(value) = self.border_radius {
+             style.border_radius = Some(value);
+         }

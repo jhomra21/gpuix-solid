@@ -1,0 +1,65 @@
+diff --git a/packages/native/src/style.rs b/packages/native/src/style.rs
+--- a/packages/native/src/style.rs
++++ b/packages/native/src/style.rs
+@@ -168,6 +168,10 @@ pub struct StyleDesc {
+     pub margin_right: Option<f64>,
+     pub margin_bottom: Option<f64>,
+     pub margin_left: Option<f64>,
++    pub margin_top_auto: Option<bool>,
++    pub margin_right_auto: Option<bool>,
++    pub margin_bottom_auto: Option<bool>,
++    pub margin_left_auto: Option<bool>,
+ 
+     // Position
+     pub position: Option<String>,
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -1482,6 +1482,12 @@ impl GpuixRenderer {
+         ))
+     }
+ 
++    /// Version of CSS auto-margin support in StyleDesc.
++    #[napi]
++    pub fn get_auto_margin_version(&self) -> u32 {
++        1
++    }
++
+     #[napi]
+     pub fn get_window_insets(&self) -> Result<WindowInsets> {
+         #[cfg(target_os = "macos")]
+@@ -5719,6 +5725,18 @@ fn apply_style(mut el: gpui::Div, style: &StyleDesc) -> gpui::Div {
+     if let Some(ml) = style.margin_left {
+         el = el.ml(gpui::px(ml as f32));
+     }
++    if style.margin_top_auto == Some(true) {
++        el = el.mt_auto();
++    }
++    if style.margin_right_auto == Some(true) {
++        el = el.mr_auto();
++    }
++    if style.margin_bottom_auto == Some(true) {
++        el = el.mb_auto();
++    }
++    if style.margin_left_auto == Some(true) {
++        el = el.ml_auto();
++    }
+     // Taffy has no viewport-fixed position, and GPUI has no scrolling document,
+     // so "fixed" lays out exactly like "absolute". `should_occlude` already
+     // treated the two the same; without this arm a "fixed" box stayed in flow.
+diff --git a/packages/native/src/test_renderer.rs b/packages/native/src/test_renderer.rs
+--- a/packages/native/src/test_renderer.rs
++++ b/packages/native/src/test_renderer.rs
+@@ -1222,6 +1222,12 @@ impl TestGpuixRenderer {
+         })
+     }
+ 
++    /// Version of CSS auto-margin support in StyleDesc.
++    #[napi]
++    pub fn get_auto_margin_version(&self) -> u32 {
++        1
++    }
++
+     // ── Private helpers ──────────────────────────────────────────────
+ 
+     fn collect_text(id: u64, tree: &RetainedTree, texts: &mut Vec<String>) {

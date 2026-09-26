@@ -39,7 +39,7 @@ requireCondition(browserGridItemStyle(eq, 1)?.width === 72, "EQ left rail should
 requireCondition(browserGridItemStyle(eq, 2)?.minWidth === 220 && browserGridItemStyle(eq, 2)?.flexGrow === 1, "EQ graph should preserve minmax(220px,1fr)")
 requireCondition(browserGridItemStyle(eq, 3)?.width === 72, "EQ right rail should preserve 72px")
 
-requireCondition(parseBrowserGridTemplateColumns("repeat(3, 1fr)") === undefined, "unsupported grid syntax must fail closed instead of being approximated silently")
+requireCondition(parseBrowserGridTemplateColumns("repeat(auto-fit, 1fr)") === undefined, "unsupported auto-fit grid syntax must fail closed instead of being approximated silently")
 requireCondition(parseBrowserGridTemplateColumns("minmax(min-content, 1fr) 1fr") === undefined, "unsupported intrinsic grid tracks must fail closed")
 
 console.log("solid1 browser grid compatibility: passed")

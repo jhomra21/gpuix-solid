@@ -27,6 +27,11 @@ export interface NativeStyleTranslation {
   yFraction?: number
 }
 
+export interface NativeStyleMeasuredSize {
+  width?: number
+  height?: number
+}
+
 /** Parent-relative offsets used by percentage positioning utilities such as left-1/2. */
 export interface NativeStyleParentPosition {
   leftFraction?: number
@@ -35,9 +40,34 @@ export interface NativeStyleParentPosition {
   bottomFraction?: number
 }
 
+/** Viewport-relative dimensions for CSS units such as vh/vw. */
+export interface NativeStyleViewportSize {
+  widthFraction?: number
+  heightFraction?: number
+  maxWidthFraction?: number
+  maxHeightFraction?: number
+}
+
+/** CSS auto-margin edges that require native flex layout support. */
+export interface NativeStyleAutoMargin {
+  top?: boolean
+  right?: boolean
+  bottom?: boolean
+  left?: boolean
+}
+
+/** Exact browser grid templates retained separately from GPUI's count-only grid fields. */
+export interface NativeStyleGridTemplate {
+  columns?: string
+  rows?: string
+}
+
 export interface NativeStyleManifestEntry extends NativeStyleVariant {
   translation?: NativeStyleTranslation
   parentPosition?: NativeStyleParentPosition
+  viewportSize?: NativeStyleViewportSize
+  autoMargin?: NativeStyleAutoMargin
+  gridTemplate?: NativeStyleGridTemplate
   /** Source :focus / :focus-visible styles applied by compatibility components that own focus state. */
   focus?: NativeStyleVariant
   descendants?: Record<string, NativeStyleVariant>
@@ -183,6 +213,151 @@ export function resolveNativeClassParentPosition(
   return resolved
 }
 
+export function resolveNativeClassViewportSize(
+  className: string | undefined,
+  classList: NativeClassList | undefined,
+): NativeStyleViewportSize | undefined {
+  const candidates = classCandidates(className, classList)
+  if (candidates.length === 0) return undefined
+  const activeManifest = requireManifest()
+
+  let resolved: NativeStyleViewportSize | undefined
+  for (const candidate of candidates) {
+    const entry = activeManifest.classes[candidate]
+    if (!entry) throw missingCandidate(candidate)
+    if (!entry.viewportSize) continue
+    resolved = { ...resolved, ...entry.viewportSize }
+  }
+  return resolved
+}
+
+export function resolveNativeClassAutoMargin(
+  className: string | undefined,
+  classList: NativeClassList | undefined,
+): NativeStyleAutoMargin | undefined {
+  const candidates = classCandidates(className, classList)
+  if (candidates.length === 0) return undefined
+  const activeManifest = requireManifest()
+
+  let resolved: NativeStyleAutoMargin | undefined
+  for (const candidate of candidates) {
+    const entry = activeManifest.classes[candidate]
+    if (!entry) throw missingCandidate(candidate)
+    if (!entry.autoMargin) continue
+    resolved = { ...resolved, ...entry.autoMargin }
+  }
+  return resolved
+}
+
+export function resolveNativeClassGridTemplate(
+  className: string | undefined,
+  classList: NativeClassList | undefined,
+): NativeStyleGridTemplate | undefined {
+  const candidates = classCandidates(className, classList)
+  if (candidates.length === 0) return undefined
+  const activeManifest = requireManifest()
+
+  let resolved: NativeStyleGridTemplate | undefined
+  for (const candidate of candidates) {
+    const entry = activeManifest.classes[candidate]
+    if (!entry) throw missingCandidate(candidate)
+    if (!entry.gridTemplate) continue
+    resolved = { ...resolved, ...entry.gridTemplate }
+  }
+  return resolved
+}
+
+export function applyNativeStyleAutoMargin(
+  style: StyleDesc | undefined,
+  margin: NativeStyleAutoMargin | undefined,
+): StyleDesc | undefined {
+  if (!style) return style
+  const result: StyleDesc = { ...style }
+  const top = margin?.top || isAutoMarginValue(result.marginTop)
+  const right = margin?.right || isAutoMarginValue(result.marginRight)
+  const bottom = margin?.bottom || isAutoMarginValue(result.marginBottom)
+  const left = margin?.left || isAutoMarginValue(result.marginLeft)
+  if (top) {
+    result.marginTopAuto = true
+    delete result.marginTop
+  }
+  if (right) {
+    result.marginRightAuto = true
+    delete result.marginRight
+  }
+  if (bottom) {
+    result.marginBottomAuto = true
+    delete result.marginBottom
+  }
+  if (left) {
+    result.marginLeftAuto = true
+    delete result.marginLeft
+  }
+  return result
+}
+
+export function applyNativeStyleViewportSize(
+  style: StyleDesc | undefined,
+  viewport: NativeStyleViewportSize | undefined,
+  viewportWidth: number | undefined,
+  viewportHeight: number | undefined,
+): StyleDesc | undefined {
+  if (!style || !viewport) return style
+  const result: StyleDesc = { ...style }
+  if (viewport.widthFraction !== undefined && viewportWidth !== undefined) {
+    result.width = viewportWidth * viewport.widthFraction
+  }
+  if (viewport.heightFraction !== undefined && viewportHeight !== undefined) {
+    result.height = viewportHeight * viewport.heightFraction
+  }
+  if (viewport.maxWidthFraction !== undefined && viewportWidth !== undefined) {
+    result.maxWidth = viewportWidth * viewport.maxWidthFraction
+  }
+  if (viewport.maxHeightFraction !== undefined && viewportHeight !== undefined) {
+    result.maxHeight = viewportHeight * viewport.maxHeightFraction
+  }
+  return result
+}
+export function applyNativeStyleParentSize(
+  style: StyleDesc | undefined,
+  parentWidth: number | undefined,
+  parentHeight: number | undefined,
+): StyleDesc | undefined {
+  if (!style) return style
+  const result: StyleDesc = { ...style }
+
+  applyResolvedDimension(result, "width", parentWidth)
+  applyResolvedDimension(result, "minWidth", parentWidth)
+  applyResolvedDimension(result, "maxWidth", parentWidth)
+  applyResolvedDimension(result, "height", parentHeight)
+  applyResolvedDimension(result, "minHeight", parentHeight)
+  applyResolvedDimension(result, "maxHeight", parentHeight)
+
+  return result
+}
+
+function applyResolvedDimension(
+  style: StyleDesc,
+  property: "width" | "minWidth" | "maxWidth" | "height" | "minHeight" | "maxHeight",
+  parentSize: number | undefined,
+): void {
+  const value = resolveRelativeDimension(style[property], parentSize)
+  if (value === undefined) delete style[property]
+  else style[property] = value
+}
+
+function resolveRelativeDimension(
+  value: DimensionValue | undefined,
+  parentSize: number | undefined,
+): DimensionValue | undefined {
+  if (value === undefined || parentSize === undefined) return value
+  const numeric = Number(value)
+  if (Number.isFinite(numeric)) return numeric
+  const percentage = String(value).trim().match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))%$/)
+  if (!percentage) return value
+  return parentSize * Number(percentage[1]) / 100
+}
+
 export function applyNativeStyleParentPosition(
   style: StyleDesc | undefined,
   position: NativeStyleParentPosition | undefined,
@@ -242,18 +417,29 @@ export function resolveNativeClassTranslation(
 export function applyNativeStyleTranslation(
   style: StyleDesc | undefined,
   translation: NativeStyleTranslation | undefined,
+  measuredSize?: NativeStyleMeasuredSize,
+  supportsAutoMargins?: boolean,
 ): StyleDesc | undefined {
   if (!style || !translation) return style
+  const hasUnnormalizedTranslatedAutoMargin =
+    (translation.xFraction !== undefined && isAutoMarginValue(style.marginLeft)) ||
+    (translation.yFraction !== undefined && isAutoMarginValue(style.marginTop))
+  if (hasUnnormalizedTranslatedAutoMargin) {
+    if (supportsAutoMargins === undefined) return style
+    throw new TypeError("CSS auto margins require native auto-margin support")
+  }
   const result: StyleDesc = { ...style }
-  const width = numericStyleLength(result.width)
-  const height = numericStyleLength(result.height)
+  const width = numericStyleLength(result.width) ?? measuredSize?.width
+  const height = numericStyleLength(result.height) ?? measuredSize?.height
   if (translation.xFraction !== undefined && width !== undefined) {
     const offset = width * translation.xFraction
     const left = numericStyleLength(result.left)
     const right = numericStyleLength(result.right)
     if (left !== undefined) result.left = left + offset
     else if (right !== undefined) result.right = right - offset
-    else result.marginLeft = (result.marginLeft ?? 0) + offset
+    else {
+      result.marginLeft = (numericStyleLength(result.marginLeft) ?? 0) + offset
+    }
   }
   if (translation.yFraction !== undefined && height !== undefined) {
     const offset = height * translation.yFraction
@@ -261,7 +447,9 @@ export function applyNativeStyleTranslation(
     const bottom = numericStyleLength(result.bottom)
     if (top !== undefined) result.top = top + offset
     else if (bottom !== undefined) result.bottom = bottom - offset
-    else result.marginTop = (result.marginTop ?? 0) + offset
+    else {
+      result.marginTop = (numericStyleLength(result.marginTop) ?? 0) + offset
+    }
   }
   return result
 }
@@ -270,6 +458,10 @@ function numericStyleLength(value: DimensionValue | undefined): number | undefin
   if (value === undefined) return undefined
   const number = Number(value)
   return Number.isFinite(number) ? number : undefined
+}
+
+function isAutoMarginValue(value: string | number | undefined): boolean {
+  return value === "auto"
 }
 
 export function resolveNativeClassTextTransform(
@@ -295,6 +487,7 @@ export function resolveNativeDescendantClassStyle(
   tagName: string,
   directChild: boolean,
   directChildIndex?: number,
+  attributes?: ReadonlyMap<string, unknown>,
 ): StyleDesc | undefined {
   const candidates = classCandidates(className, classList)
   if (candidates.length === 0) return undefined
@@ -313,9 +506,22 @@ export function resolveNativeDescendantClassStyle(
         resolved = mergeNativeStyles(resolved, resolveVariant(descendants[`>:nth-child(${directChildIndex})`]))
         resolved = mergeNativeStyles(resolved, resolveVariant(descendants[`>${tagName}:nth-child(${directChildIndex})`]))
       }
+      for (const [selector, variant] of Object.entries(descendants)) {
+        const attribute = directChildAttributeSelector(selector)
+        if (!attribute) continue
+        if (String(attributes?.get(attribute.name) ?? "") !== attribute.value) continue
+        resolved = mergeNativeStyles(resolved, resolveVariant(variant))
+      }
     }
   }
   return resolved
+}
+
+function directChildAttributeSelector(selector: string): { name: string; value: string } | undefined {
+  const match = selector.match(/^>\[([A-Za-z][\w-]*)=([^\]]+)\]$/)
+  const name = match?.[1]
+  const value = match?.[2]
+  return name && value ? { name, value } : undefined
 }
 
 export function mergeNativeStyles(...styles: Array<StyleDesc | undefined>): StyleDesc | undefined {

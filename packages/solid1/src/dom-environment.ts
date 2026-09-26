@@ -1,10 +1,17 @@
+import { GpuixPath2D } from "./host/path2d.js"
+import { GpuixDOMPoint } from "./host/dom-point.js"
 import {
   HostElementNode,
+  HostTextNode,
   createHostElement,
+  createHostText,
+  getMountedHostRootElements,
   insertHostNode,
   removeHostNode,
   setHostProperty,
+  type HostNode,
 } from "./host/nodes.js"
+import type { ElementType } from "./host/types.js"
 
 type CompatListener = (event: Event) => void
 
@@ -15,6 +22,14 @@ type CompatEventTarget = {
 }
 
 type CompatListenerTarget = CompatEventTarget | HostElementNode
+
+type CompatMediaQueryList = CompatEventTarget & {
+  readonly media: string
+  readonly matches: boolean
+  onchange: CompatListener | null
+  addListener(listener: CompatListener | null): void
+  removeListener(listener: CompatListener | null): void
+}
 
 type CompatRect = {
   x: number
@@ -39,11 +54,27 @@ type CompatTreeWalker = {
   nextNode(): HostElementNode | null
 }
 
+class CompatFontFaceSet extends EventTarget {
+  readonly ready = Promise.resolve(this)
+
+  add(_font: FontFace): this {
+    return this
+  }
+}
+
 type CompatDocument = CompatEventTarget & {
   body?: CompatDocumentNode
+  head?: HostElementNode
   documentElement?: CompatDocumentNode
   defaultView?: CompatWindow
+  fonts?: CompatFontFaceSet
   createElement?: (tagName: string) => HostElementNode
+  createElementNS?: (namespace: string | null, qualifiedName: string) => HostElementNode
+  createTextNode?: (value: string) => ReturnType<typeof createHostText>
+  getElementsByTagName?: (tagName: string) => CompatTreeElement[]
+  getElementById?: (id: string) => HostElementNode | null
+  querySelector?: (selector: string) => HostElementNode | null
+  querySelectorAll?: (selector: string) => HostElementNode[]
   createTreeWalker?: (
     root: CompatTreeElement,
     whatToShow: number,
@@ -79,6 +110,7 @@ type CompatDocumentNode = CompatEventTarget & {
   setAttribute(name: string, value: string): void
   removeAttribute(name: string): void
   contains(node: CompatTreeElement): boolean
+  querySelector(selector: string): HostElementNode | null
   querySelectorAll(selector: string): HostElementNode[]
   getBoundingClientRect(): CompatRect
 }
@@ -102,6 +134,7 @@ type CompatComputedStyle = {
   overflow: string
   overflowX: string
   overflowY: string
+  scrollBehavior: string
   width: string
   height: string
   paddingLeft: string
@@ -113,6 +146,7 @@ type CompatComputedStyle = {
   filter: string
   willChange: string
   contain: string
+  getPropertyValue(name: string): string
 }
 
 type CompatGetComputedStyle = (element: Element, pseudoElement?: string | null) => CompatComputedStyle
@@ -165,13 +199,174 @@ type CompatWindow = CompatEventTarget & {
   Element?: typeof Element
   HTMLElement?: typeof HTMLElement
   Node?: typeof Node
+  Path2D?: typeof GpuixPath2D
+  DOMMatrix?: typeof CompatDOMMatrix
+  DOMRect?: typeof CompatDOMRect
+  DOMPoint?: typeof GpuixDOMPoint
+  Text?: typeof HostTextNode
   getComputedStyle?: CompatGetComputedStyle
+  localStorage?: CompatStorage
+  sessionStorage?: CompatStorage
+  Storage?: typeof CompatStorage
+  history?: CompatHistory
+  matchMedia?: (query: string) => CompatMediaQueryList
   innerWidth?: number
   innerHeight?: number
   scrollX?: number
   scrollY?: number
   pageXOffset?: number
   pageYOffset?: number
+  devicePixelRatio?: number
+}
+
+
+
+type CompatHistoryState = Record<string, string | number | boolean | null>
+
+class CompatHistory {
+  #state: CompatHistoryState | null = null
+
+  get length(): number {
+    return 1
+  }
+
+  get state(): CompatHistoryState | null {
+    return this.#state
+  }
+
+  replaceState(state: CompatHistoryState | null, title: string): void {
+    void title
+    this.#state = state ? { ...state } : null
+  }
+}
+
+class CompatStorage {
+  readonly #items = new Map<string, string>()
+
+  get length(): number {
+    return this.#items.size
+  }
+
+  clear(): void {
+    this.#items.clear()
+  }
+
+  getItem(key: string): string | null {
+    return this.#items.get(String(key)) ?? null
+  }
+
+  key(index: number): string | null {
+    if (!Number.isInteger(index) || index < 0) return null
+    return [...this.#items.keys()][index] ?? null
+  }
+
+  removeItem(key: string): void {
+    this.#items.delete(String(key))
+  }
+
+  setItem(key: string, value: string): void {
+    this.#items.set(String(key), String(value))
+  }
+}
+
+class CompatDOMRect {
+  constructor(
+    public x = 0,
+    public y = 0,
+    public width = 0,
+    public height = 0,
+  ) {}
+
+  get top(): number {
+    return Math.min(this.y, this.y + this.height)
+  }
+
+  get right(): number {
+    return Math.max(this.x, this.x + this.width)
+  }
+
+  get bottom(): number {
+    return Math.max(this.y, this.y + this.height)
+  }
+
+  get left(): number {
+    return Math.min(this.x, this.x + this.width)
+  }
+
+  toJSON() {
+    return {
+      x: this.x,
+      y: this.y,
+      width: this.width,
+      height: this.height,
+      top: this.top,
+      right: this.right,
+      bottom: this.bottom,
+      left: this.left,
+    }
+  }
+
+  static fromRect(rect: DOMRectInit = {}): CompatDOMRect {
+    return new CompatDOMRect(
+      rect.x ?? 0,
+      rect.y ?? 0,
+      rect.width ?? 0,
+      rect.height ?? 0,
+    )
+  }
+}
+
+class CompatDOMMatrix {
+  a = 1
+  b = 0
+  c = 0
+  d = 1
+  e = 0
+  f = 0
+
+  translate(tx = 0, ty = 0): CompatDOMMatrix {
+    return this.clone().translateSelf(tx, ty)
+  }
+
+  translateSelf(tx = 0, ty = 0): this {
+    const x = Number(tx)
+    const y = Number(ty)
+    this.e += this.a * x + this.c * y
+    this.f += this.b * x + this.d * y
+    return this
+  }
+
+  scaleSelf(scaleX = 1, scaleY = scaleX): this {
+    const x = Number(scaleX)
+    const y = Number(scaleY)
+    this.a *= x
+    this.b *= x
+    this.c *= y
+    this.d *= y
+    return this
+  }
+
+  transformPoint(point: DOMPointInit = {}): GpuixDOMPoint {
+    const x = point.x ?? 0
+    const y = point.y ?? 0
+    return new GpuixDOMPoint(
+      this.a * x + this.c * y + this.e,
+      this.b * x + this.d * y + this.f,
+      point.z ?? 0,
+      point.w ?? 1,
+    )
+  }
+
+  private clone(): CompatDOMMatrix {
+    const matrix = new CompatDOMMatrix()
+    matrix.a = this.a
+    matrix.b = this.b
+    matrix.c = this.c
+    matrix.d = this.d
+    matrix.e = this.e
+    matrix.f = this.f
+    return matrix
+  }
 }
 
 type CompatMutationSnapshot = Map<HostElementNode, CompatTreeElement>
@@ -193,16 +388,25 @@ export function installDomEventEnvironment(): void {
   nativeDomEnvironmentInstalled = true
 
   const documentTarget: CompatDocument = {}
+  const localStorageTarget = new CompatStorage()
+  const sessionStorageTarget = new CompatStorage()
+  const historyTarget = new CompatHistory()
   const windowTarget: CompatWindow = {
+    localStorage: localStorageTarget,
+    sessionStorage: sessionStorageTarget,
+    Storage: CompatStorage,
+    history: historyTarget,
     innerWidth: 800,
     innerHeight: 600,
     scrollX: 0,
     scrollY: 0,
     pageXOffset: 0,
     pageYOffset: 0,
+    devicePixelRatio: 1,
   }
 
   const bodyTarget = createDocumentNode("body", documentTarget, windowTarget)
+  const headTarget = createCompatElement("head")
   const documentElementTarget = createDocumentNode("html", documentTarget, windowTarget)
   activeBody = bodyTarget
   connectDocumentTree(bodyTarget, documentElementTarget)
@@ -213,9 +417,26 @@ export function installDomEventEnvironment(): void {
   installEventTarget(documentElementTarget)
   installEventTarget(windowTarget)
   documentTarget.body = bodyTarget
+  documentTarget.head = headTarget
   documentTarget.documentElement = documentElementTarget
   documentTarget.defaultView = windowTarget
+  documentTarget.fonts = new CompatFontFaceSet()
   documentTarget.createElement = createCompatElement
+  documentTarget.createElementNS = (_namespace, qualifiedName) => createCompatNamespacedElement(qualifiedName)
+  documentTarget.createTextNode = (value) => createHostText(value)
+  documentTarget.getElementsByTagName = (tagName) => {
+    const normalized = tagName.toLowerCase()
+    if (normalized === "head") return [headTarget]
+    if (normalized === "body") return [bodyTarget]
+    if (normalized === "html") return [documentElementTarget]
+    return queryDescendants(bodyTarget, normalized)
+  }
+  documentTarget.getElementById = (id) => {
+    const expected = String(id)
+    return descendantsOf(bodyTarget).find((node) => hostAttribute(node, "id") === expected) ?? null
+  }
+  documentTarget.querySelectorAll = (selector) => queryDescendants(bodyTarget, selector)
+  documentTarget.querySelector = (selector) => documentTarget.querySelectorAll?.(selector)[0] ?? null
   documentTarget.createTreeWalker = createCompatTreeWalker
   windowTarget.document = documentTarget
   windowTarget.setTimeout = (callback, delay) => globalThis.setTimeout(callback, delay)
@@ -226,7 +447,13 @@ export function installDomEventEnvironment(): void {
   windowTarget.ResizeObserver = CompatResizeObserver
   windowTarget.NodeFilter = NODE_FILTER
   windowTarget.Image = CompatImageLoader
+  windowTarget.Path2D = GpuixPath2D
+  windowTarget.DOMMatrix = CompatDOMMatrix
+  windowTarget.DOMRect = CompatDOMRect
+  windowTarget.DOMPoint = GpuixDOMPoint
+  windowTarget.Text = HostTextNode
   windowTarget.getComputedStyle = defaultComputedStyle
+  windowTarget.matchMedia = (query) => createCompatMediaQueryList(windowTarget, query)
   Object.defineProperty(windowTarget, "Element", {
     configurable: true,
     get: () => globalThis.Element,
@@ -250,10 +477,35 @@ export function installDomEventEnvironment(): void {
     writable: true,
     value: windowTarget,
   })
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    writable: true,
+    value: localStorageTarget,
+  })
+  Object.defineProperty(globalThis, "sessionStorage", {
+    configurable: true,
+    writable: true,
+    value: sessionStorageTarget,
+  })
+  Object.defineProperty(globalThis, "Storage", {
+    configurable: true,
+    writable: true,
+    value: CompatStorage,
+  })
+  Object.defineProperty(globalThis, "history", {
+    configurable: true,
+    writable: true,
+    value: historyTarget,
+  })
   Object.defineProperty(globalThis, "getComputedStyle", {
     configurable: true,
     writable: true,
     value: defaultComputedStyle,
+  })
+  Object.defineProperty(globalThis, "matchMedia", {
+    configurable: true,
+    writable: true,
+    value: windowTarget.matchMedia,
   })
   Object.defineProperty(globalThis, "NodeFilter", {
     configurable: true,
@@ -269,6 +521,31 @@ export function installDomEventEnvironment(): void {
     configurable: true,
     writable: true,
     value: CompatResizeObserver,
+  })
+  Object.defineProperty(globalThis, "Path2D", {
+    configurable: true,
+    writable: true,
+    value: GpuixPath2D,
+  })
+  Object.defineProperty(globalThis, "DOMMatrix", {
+    configurable: true,
+    writable: true,
+    value: CompatDOMMatrix,
+  })
+  Object.defineProperty(globalThis, "DOMRect", {
+    configurable: true,
+    writable: true,
+    value: CompatDOMRect,
+  })
+  Object.defineProperty(globalThis, "DOMPoint", {
+    configurable: true,
+    writable: true,
+    value: GpuixDOMPoint,
+  })
+  Object.defineProperty(globalThis, "Text", {
+    configurable: true,
+    writable: true,
+    value: HostTextNode,
   })
   Object.defineProperty(globalThis, "requestAnimationFrame", {
     configurable: true,
@@ -364,6 +641,9 @@ function createDocumentNode(
       if (candidate === node) return true
       return candidate instanceof HostElementNode && descendantsOf(node).includes(candidate)
     },
+    querySelector(selector) {
+      return queryDescendants(node, selector)[0] ?? null
+    },
     querySelectorAll(selector) {
       return queryDescendants(node, selector)
     },
@@ -386,7 +666,20 @@ function createDocumentNode(
 }
 
 function createCompatElement(tagName: string): HostElementNode {
-  return createHostElement("div", tagName.toLowerCase())
+  const localName = tagName.toLowerCase()
+  return createHostElement(nativeCompatElementType(localName), localName)
+}
+
+function createCompatNamespacedElement(qualifiedName: string): HostElementNode {
+  return createHostElement("div", qualifiedName)
+}
+
+function nativeCompatElementType(tagName: string): ElementType {
+  if (tagName === "input" || tagName === "textarea" || tagName === "img" || tagName === "canvas") {
+    return tagName
+  }
+  if (tagName === "video-frame") return "video-frame"
+  return "div"
 }
 
 function connectDocumentTree(body: CompatDocumentNode, documentElement: CompatDocumentNode): void {
@@ -407,6 +700,13 @@ function installHostDomCompatibility(ownerDocument: CompatDocument): void {
         return ownerDocument
       },
     },
+    getRootNode: {
+      configurable: true,
+      value(this: HostElementNode): CompatDocument | HostElementNode {
+        registerKnownRoot(this)
+        return this.parent ? ownerDocument : this
+      },
+    },
     getAttribute: {
       configurable: true,
       value(this: HostElementNode, name: string): string | null {
@@ -425,6 +725,10 @@ function installHostDomCompatibility(ownerDocument: CompatDocument): void {
       configurable: true,
       value(this: HostElementNode, name: string, value: string): void {
         registerKnownRoot(this)
+        if (name === "class") {
+          this.className = String(value)
+          return
+        }
         setHostProperty(this, name, String(value))
       },
     },
@@ -432,13 +736,18 @@ function installHostDomCompatibility(ownerDocument: CompatDocument): void {
       configurable: true,
       value(this: HostElementNode, name: string): void {
         registerKnownRoot(this)
+        if (name === "class") {
+          this.className = ""
+          return
+        }
         setHostProperty(this, name, undefined)
       },
     },
     contains: {
       configurable: true,
-      value(this: HostElementNode, candidate: HostElementNode): boolean {
+      value(this: HostElementNode, candidate: HostElementNode | null | undefined): boolean {
         registerKnownRoot(this)
+        if (!candidate) return false
         if (candidate === this) return true
         let parent = candidate.parent
         while (parent) {
@@ -446,6 +755,13 @@ function installHostDomCompatibility(ownerDocument: CompatDocument): void {
           parent = parent.kind === "root" ? null : parent.parent
         }
         return false
+      },
+    },
+    querySelector: {
+      configurable: true,
+      value(this: HostElementNode, selector: string): HostElementNode | null {
+        registerKnownRoot(this)
+        return queryDescendants(this, selector)[0] ?? null
       },
     },
     querySelectorAll: {
@@ -481,22 +797,32 @@ function installHostDomCompatibility(ownerDocument: CompatDocument): void {
         setHostProperty(this, "tabIndex", value)
       },
     },
-    addEventListener: {
+    firstChild: {
       configurable: true,
-      value(this: HostElementNode, type: string, listener: CompatListener | null): void {
-        addCompatListener(this, type, listener)
+      get(this: HostElementNode): HostNode | null {
+        return this.children[0] ?? null
       },
     },
-    removeEventListener: {
+    appendChild: {
       configurable: true,
-      value(this: HostElementNode, type: string, listener: CompatListener | null): void {
-        removeCompatListener(this, type, listener)
+      value(this: HostElementNode, node: HostNode): HostNode {
+        insertHostNode(this, node)
+        return node
       },
     },
-    dispatchEvent: {
+    insertBefore: {
       configurable: true,
-      value(this: HostElementNode, event: Event): boolean {
-        return dispatchCompatEvent(this, event)
+      value(this: HostElementNode, node: HostNode, before: HostNode | null): HostNode {
+        insertHostNode(this, node, before)
+        return node
+      },
+    },
+    removeChild: {
+      configurable: true,
+      value(this: HostElementNode, node: HostNode): HostNode {
+        if (node.parent !== this) throw new DOMException("Node is not a child of this parent", "NotFoundError")
+        removeHostNode(this, node)
+        return node
       },
     },
     insertAdjacentElement: {
@@ -543,12 +869,12 @@ function installHostDomCompatibility(ownerDocument: CompatDocument): void {
 }
 
 function activeDomRoots(): HostElementNode[] {
-  const roots: HostElementNode[] = []
+  const roots = new Set(getMountedHostRootElements())
   for (const node of knownRoots) {
-    if (node.parent?.kind === "root") roots.push(node)
+    if (node.parent?.kind === "root") roots.add(node)
     else knownRoots.delete(node)
   }
-  return roots
+  return [...roots]
 }
 
 function registerKnownRoot(node: HostElementNode): void {
@@ -587,6 +913,14 @@ function matchesSelector(node: HostElementNode, selector: string): boolean {
     const part = rawPart.trim()
     if (!part) continue
     if (part === "*") return true
+    if (part.startsWith("#")) {
+      if (hostAttribute(node, "id") === part.slice(1)) return true
+      continue
+    }
+    if (part.startsWith(".")) {
+      if (node.classList.contains(part.slice(1))) return true
+      continue
+    }
     if (part.startsWith("[") && part.endsWith("]")) {
       const expression = part.slice(1, -1).trim()
       const separator = expression.indexOf("=")
@@ -605,6 +939,7 @@ function matchesSelector(node: HostElementNode, selector: string): boolean {
 }
 
 function hostAttribute(node: HostElementNode, name: string): string | null {
+  if (name === "class") return node.className || null
   const value = node.props.get(name)
   return value === undefined || value === null ? null : String(value)
 }
@@ -810,30 +1145,79 @@ function defaultRequestAnimationFrame(callback: (time: number) => void): ReturnT
   return globalThis.setTimeout(() => callback(Date.now()), 0)
 }
 
-function defaultComputedStyle(_element: Element, _pseudoElement?: string | null): CompatComputedStyle {
+function defaultComputedStyle(element: Element, _pseudoElement?: string | null): CompatComputedStyle {
+  const node = element instanceof HostElementNode ? element : undefined
+  const style = node?.style
+  const overflow = cssString(style?.overflow, "visible")
+  const overflowX = cssString(style?.overflowX, overflow)
+  const overflowY = cssString(style?.overflowY, overflow)
+  const values = new Map<string, string>([
+    ["display", cssString(style?.display, "block")],
+    ["position", cssString(style?.position, "static")],
+    ["overflow", overflow],
+    ["overflow-x", overflowX],
+    ["overflow-y", overflowY],
+    ["scroll-behavior", style?.getPropertyValue("scroll-behavior") || "auto"],
+    ["padding-left", cssLength(style?.paddingLeft ?? style?.padding)],
+    ["padding-top", cssLength(style?.paddingTop ?? style?.padding)],
+    ["transform", style?.getPropertyValue("transform") || "none"],
+  ])
+  let measuredBounds: CompatRect | undefined
+  const bounds = () => {
+    measuredBounds ??= node?.getBoundingClientRect() ?? zeroCompatRect()
+    return measuredBounds
+  }
   return {
     animationName: "none",
     animationDuration: "0s",
     transitionDuration: "0s",
     transitionProperty: "none",
-    display: "block",
+    display: values.get("display")!,
     direction: "ltr",
-    position: "static",
-    overflow: "visible",
-    overflowX: "visible",
-    overflowY: "visible",
-    width: "0px",
-    height: "0px",
-    paddingLeft: "0px",
-    paddingTop: "0px",
-    transform: "none",
+    position: values.get("position")!,
+    overflow,
+    overflowX,
+    overflowY,
+    scrollBehavior: values.get("scroll-behavior")!,
+    get width() {
+      return `${bounds().width}px`
+    },
+    get height() {
+      return `${bounds().height}px`
+    },
+    paddingLeft: values.get("padding-left")!,
+    paddingTop: values.get("padding-top")!,
+    transform: values.get("transform")!,
     perspective: "none",
     containerType: "normal",
     backdropFilter: "none",
     filter: "none",
     willChange: "auto",
     contain: "none",
+    getPropertyValue(name) {
+      const normalized = String(name).trim().toLowerCase()
+      if (normalized === "width") return `${bounds().width}px`
+      if (normalized === "height") return `${bounds().height}px`
+      return values.get(normalized) ?? style?.getPropertyValue(name) ?? ""
+    },
   }
+}
+
+function zeroCompatRect(): CompatRect {
+  return { x: 0, y: 0, left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 }
+}
+
+type CssComputedValue = string | number | undefined
+
+function cssString(value: CssComputedValue, fallback: string): string {
+  if (value === undefined || value === "") return fallback
+  return String(value)
+}
+
+function cssLength(value: CssComputedValue): string {
+  if (value === undefined || value === "") return "0px"
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? `${numeric}px` : String(value)
 }
 
 class CompatImageLoader implements CompatImage {
@@ -893,6 +1277,87 @@ function installEventTarget(target: CompatEventTarget): void {
   if (!target.dispatchEvent) {
     target.dispatchEvent = (event) => dispatchCompatEvent(target, event)
   }
+}
+
+function createCompatMediaQueryList(windowTarget: CompatWindow, query: string): CompatMediaQueryList {
+  let previousMatches = evaluateMediaQuery(windowTarget, query)
+  const target: CompatMediaQueryList = {
+    media: query,
+    get matches() {
+      return evaluateMediaQuery(windowTarget, query)
+    },
+    onchange: null,
+    addListener(listener: CompatListener | null) {
+      addCompatListener(target, "change", listener)
+    },
+    removeListener(listener: CompatListener | null) {
+      removeCompatListener(target, "change", listener)
+    },
+  }
+
+  installEventTarget(target)
+  addCompatListener(windowTarget, "resize", () => {
+    const matches = target.matches
+    if (matches === previousMatches) return
+    previousMatches = matches
+    const event = new Event("change")
+    Object.defineProperties(event, {
+      matches: { configurable: true, value: matches },
+      media: { configurable: true, value: query },
+    })
+    target.onchange?.(event)
+    dispatchCompatEvent(target, event)
+  })
+  return target
+}
+
+function evaluateMediaQuery(windowTarget: CompatWindow, query: string): boolean {
+  return query
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .some((part) => evaluateMediaQueryAlternative(windowTarget, part))
+}
+
+function evaluateMediaQueryAlternative(windowTarget: CompatWindow, query: string): boolean {
+  const normalized = query.trim().toLowerCase()
+  const negated = normalized.startsWith("not ")
+  const body = negated ? normalized.slice(4).trim() : normalized
+  const matches = body
+    .split(/\s+and\s+/)
+    .every((part) => evaluateMediaQueryPart(windowTarget, part.trim()))
+  return negated ? !matches : matches
+}
+
+function evaluateMediaQueryPart(windowTarget: CompatWindow, part: string): boolean {
+  if (part === "all" || part === "screen" || part === "only screen") return true
+  const feature = part.startsWith("(") && part.endsWith(")") ? part.slice(1, -1).trim() : part
+
+  const dimension = feature.match(/^(min|max)-(width|height):\s*(-?(?:\d+(?:\.\d+)?|\.\d+))px$/)
+  if (dimension) {
+    const [, bound, axis, rawValue] = dimension
+    const viewport = axis === "width" ? windowTarget.innerWidth ?? 800 : windowTarget.innerHeight ?? 600
+    const value = Number(rawValue)
+    return bound === "min" ? viewport >= value : viewport <= value
+  }
+
+  const orientation = feature.match(/^orientation:\s*(portrait|landscape)$/)?.[1]
+  if (orientation) {
+    const width = windowTarget.innerWidth ?? 800
+    const height = windowTarget.innerHeight ?? 600
+    return orientation === "portrait" ? height >= width : width > height
+  }
+
+  const reducedMotion = feature.match(/^prefers-reduced-motion:\s*(reduce|no-preference)$/)?.[1]
+  if (reducedMotion) return reducedMotion === "no-preference"
+
+  const colorScheme = feature.match(/^prefers-color-scheme:\s*(dark|light)$/)?.[1]
+  if (colorScheme) {
+    const dark = windowTarget.document?.documentElement?.classList.contains("dark") ?? false
+    return colorScheme === "dark" ? dark : !dark
+  }
+
+  return false
 }
 
 installDomEventEnvironment()

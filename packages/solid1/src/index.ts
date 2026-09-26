@@ -17,6 +17,7 @@ export type { TestBounds, TestRoot } from "./testing.js"
 export {
   applyNativeStyleParentPosition,
   applyNativeStyleTranslation,
+  applyNativeStyleViewportSize,
   clearNativeStyleManifest,
   configureNativeStyleManifest,
   getNativeStyleColorMode,
@@ -26,6 +27,7 @@ export {
   resolveNativeClassSvgPaint,
   resolveNativeClassParentPosition,
   resolveNativeClassTranslation,
+  resolveNativeClassViewportSize,
   resolveNativeDescendantClassStyle,
   setNativeStyleColorMode,
 } from "./native-style.js"
@@ -36,6 +38,7 @@ export type {
   NativeStyleManifestEntry,
   NativeStyleParentPosition,
   NativeStyleTranslation,
+  NativeStyleViewportSize,
   NativeStyleVariant,
 } from "./native-style.js"
 
@@ -108,6 +111,7 @@ export { CANVAS_DRAW_LIST_VERSION, createCanvas2DRecorder } from "./host/canvas.
 export type {
   Canvas2DRecorder,
   CanvasBackingSize,
+  CanvasClipRect,
   CanvasDrawCommand,
   CanvasDrawList,
   CanvasDrawListVersion,

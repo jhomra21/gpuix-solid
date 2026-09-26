@@ -9,17 +9,131 @@ diff --git a/packages/native/src/custom_elements/mod.rs b/packages/native/src/cu
          registry.register(Box::new(anchored::AnchoredFactory));
 +        registry.register(Box::new(canvas::CanvasFactory));
          registry.register(Box::new(img::ImgFactory));
+@@ -236,12 +238,28 @@
+ 
+     /// Replace the live GPU image on `<img>`. Returns the previous image when
+     /// this adapter already had one, so the renderer can upload in place.
+-    fn replace_live_image(
+-        &mut self,
+-        _image: std::sync::Arc<gpui::RenderImage>,
+-    ) -> Option<std::sync::Arc<gpui::RenderImage>> {
+-        None
+-    }
++    fn replace_live_image(
++        &mut self,
++        _image: std::sync::Arc<gpui::RenderImage>,
++    ) -> Option<std::sync::Arc<gpui::RenderImage>> {
++        None
++    }
++
++    /// Replace one uploaded image owned by a native Canvas element.
++    fn replace_canvas_image(
++        &mut self,
++        _image_id: u64,
++        _width: u32,
++        _height: u32,
++        _image: std::sync::Arc<gpui::RenderImage>,
++    ) -> std::result::Result<Option<std::sync::Arc<gpui::RenderImage>>, String> {
++        Err("element does not accept Canvas image resources".to_string())
++    }
++
++    /// Drain Canvas-owned images before the native element is removed.
++    fn take_canvas_images(&mut self) -> Vec<std::sync::Arc<gpui::RenderImage>> {
++        Vec::new()
++    }
+ }
+ 
+ /// Factory for creating CustomElement instances.
+@@ -385,16 +403,33 @@
+     }
+ 
+     /// Store a decoded image on an `<img>` host node, creating the adapter if needed.
+-    pub fn set_live_image(
+-        &mut self,
+-        id: u64,
+-        image: std::sync::Arc<gpui::RenderImage>,
+-    ) -> std::result::Result<Option<std::sync::Arc<gpui::RenderImage>>, String> {
+-        let entry = self
+-            .get_or_create(id, "img")
+-            .ok_or_else(|| "img factory is not registered".to_string())?;
+-        Ok(entry.element.replace_live_image(image))
+-    }
++    pub fn set_live_image(
++        &mut self,
++        id: u64,
++        image: std::sync::Arc<gpui::RenderImage>,
++    ) -> std::result::Result<Option<std::sync::Arc<gpui::RenderImage>>, String> {
++        let entry = self
++            .get_or_create(id, "img")
++            .ok_or_else(|| "img factory is not registered".to_string())?;
++        Ok(entry.element.replace_live_image(image))
++    }
++
++    /// Store one decoded image resource on a native Canvas element.
++    pub fn set_canvas_image(
++        &mut self,
++        id: u64,
++        image_id: u64,
++        width: u32,
++        height: u32,
++        image: std::sync::Arc<gpui::RenderImage>,
++    ) -> std::result::Result<Option<std::sync::Arc<gpui::RenderImage>>, String> {
++        let entry = self
++            .get_or_create(id, "canvas")
++            .ok_or_else(|| "canvas factory is not registered".to_string())?;
++        entry
++            .element
++            .replace_canvas_image(image_id, width, height, image)
++    }
+ 
+     /// Called when React destroys an element.
+     pub fn destroy(&mut self, id: u64) {
+@@ -420,18 +455,21 @@
+         }
+     }
+ 
+-    fn destroy_live_image(&mut self, id: u64, window: &mut gpui::Window) {
+-        if let Some(mut entry) = self.instances.remove(&id) {
+-            if let Some(image) = entry
+-                .element
+-                .live_image()
+-                .or_else(|| entry.element.take_dropped_image())
+-            {
+-                window.drop_image(image).ok();
+-            }
+-            entry.element.destroy();
+-        }
+-    }
++    fn destroy_live_image(&mut self, id: u64, window: &mut gpui::Window) {
++        if let Some(mut entry) = self.instances.remove(&id) {
++            if let Some(image) = entry
++                .element
++                .live_image()
++                .or_else(|| entry.element.take_dropped_image())
++            {
++                window.drop_image(image).ok();
++            }
++            for image in entry.element.take_canvas_images() {
++                window.drop_image(image).ok();
++            }
++            entry.element.destroy();
++        }
++    }
+ 
+     /// Destroy every live instance. Only for app teardown.
+     ///
 diff --git a/packages/native/src/custom_elements/canvas.rs b/packages/native/src/custom_elements/canvas.rs
 new file mode 100644
 --- /dev/null
 +++ b/packages/native/src/custom_elements/canvas.rs
-@@ -0,0 +1,516 @@
+@@ -0,0 +1,947 @@
 +use gpui::prelude::*;
 +use serde::Deserialize;
++use std::collections::HashMap;
 +
 +use super::{CustomElement, CustomElementFactory, CustomRenderContext};
 +
-+pub const CANVAS_DRAW_LIST_VERSION: u32 = 1;
++pub const CANVAS_DRAW_LIST_VERSION: u32 = 5;
 +
 +#[derive(Clone, Debug, Deserialize)]
 +#[serde(rename_all = "camelCase")]
@@ -28,6 +142,37 @@ new file mode 100644
 +    width: f32,
 +    height: f32,
 +    commands: Vec<CanvasDrawCommand>,
++}
++
++#[derive(Clone, Debug, Deserialize)]
++#[serde(rename_all = "camelCase")]
++struct CanvasClipScissor {
++    x: f32,
++    y: f32,
++    width: f32,
++    height: f32,
++}
++
++#[derive(Clone, Debug, Deserialize)]
++#[serde(rename_all = "camelCase")]
++struct CanvasClipRect {
++    x: f32,
++    y: f32,
++    width: f32,
++    height: f32,
++    #[serde(default)]
++    radius: f32,
++    #[serde(default)]
++    scissor: Option<CanvasClipScissor>,
++}
++
++#[derive(Clone, Debug, Deserialize)]
++#[serde(rename_all = "camelCase")]
++struct CanvasImageRect {
++    x: f32,
++    y: f32,
++    width: f32,
++    height: f32,
 +}
 +
 +#[derive(Clone, Debug, Deserialize)]
@@ -40,6 +185,8 @@ new file mode 100644
 +        #[serde(rename = "fillRule")]
 +        fill_rule: String,
 +        path: Vec<CanvasPathSegment>,
++        #[serde(default)]
++        clip: Option<CanvasClipRect>,
 +    },
 +    #[serde(rename = "strokePath")]
 +    StrokePath {
@@ -54,6 +201,8 @@ new file mode 100644
 +        #[serde(rename = "miterLimit")]
 +        miter_limit: f32,
 +        path: Vec<CanvasPathSegment>,
++        #[serde(default)]
++        clip: Option<CanvasClipRect>,
 +    },
 +    #[serde(rename = "fillText")]
 +    FillText {
@@ -70,7 +219,30 @@ new file mode 100644
 +        font_weight: Option<f32>,
 +        align: String,
 +        baseline: String,
++        transform: [f32; 6],
++        #[serde(default)]
++        clip: Option<CanvasClipRect>,
 +    },
++    #[serde(rename = "drawImage")]
++    DrawImage {
++        #[serde(rename = "imageId")]
++        image_id: u64,
++        source: CanvasImageRect,
++        destination: CanvasImageRect,
++        #[serde(default)]
++        clip: Option<CanvasClipRect>,
++    },
++}
++
++impl CanvasDrawCommand {
++    fn clip(&self) -> Option<&CanvasClipRect> {
++        match self {
++            Self::FillPath { clip, .. }
++            | Self::StrokePath { clip, .. }
++            | Self::FillText { clip, .. }
++            | Self::DrawImage { clip, .. } => clip.as_ref(),
++        }
++    }
 +}
 +
 +#[derive(Clone, Debug, Deserialize)]
@@ -100,9 +272,17 @@ new file mode 100644
 +    ClosePath,
 +}
 +
++#[derive(Clone)]
++struct CanvasImageResource {
++    image: std::sync::Arc<gpui::RenderImage>,
++    width: u32,
++    height: u32,
++}
++
 +#[derive(Default)]
 +pub struct CanvasElement {
 +    draw_list: Option<CanvasDrawList>,
++    images: HashMap<u64, CanvasImageResource>,
 +}
 +
 +pub struct CanvasFactory;
@@ -129,13 +309,14 @@ new file mode 100644
 +        _cx: &mut gpui::Context<crate::renderer::GpuixView>,
 +    ) -> gpui::AnyElement {
 +        let draw_list = self.draw_list.clone();
++        let images = self.images.clone();
 +        let prepaint_list = draw_list.clone();
 +        let paint_list = draw_list;
 +        let canvas = gpui::canvas(
 +            move |bounds, window, _cx| prepare_canvas(prepaint_list.as_ref(), bounds, window),
 +            move |bounds, prepared, window, cx| {
 +                if let Some(draw_list) = paint_list.as_ref() {
-+                    paint_canvas(draw_list, &prepared, bounds, window, cx);
++                    paint_canvas(draw_list, &prepared, &images, bounds, window, cx);
 +                }
 +            },
 +        )
@@ -207,6 +388,30 @@ new file mode 100644
 +    }
 +
 +    fn destroy(&mut self) {}
++
++    fn replace_canvas_image(
++        &mut self,
++        image_id: u64,
++        width: u32,
++        height: u32,
++        image: std::sync::Arc<gpui::RenderImage>,
++    ) -> std::result::Result<Option<std::sync::Arc<gpui::RenderImage>>, String> {
++        Ok(self
++            .images
++            .insert(
++                image_id,
++                CanvasImageResource {
++                    image,
++                    width,
++                    height,
++                },
++            )
++            .map(|previous| previous.image))
++    }
++
++    fn take_canvas_images(&mut self) -> Vec<std::sync::Arc<gpui::RenderImage>> {
++        self.images.drain().map(|(_, resource)| resource.image).collect()
++    }
 +}
 +
 +fn wire_canvas_events(
@@ -347,6 +552,7 @@ new file mode 100644
 +            font_size,
 +            font_family,
 +            font_weight,
++            transform,
 +            ..
 +        } = command
 +        else {
@@ -370,7 +576,7 @@ new file mode 100644
 +        };
 +        let shaped = window.text_system().shape_line(
 +            gpui::SharedString::from(text.clone()),
-+            gpui::px((*font_size * text_scale).max(0.01)),
++            gpui::px((*font_size * canvas_text_transform_scale(transform) * text_scale).max(0.01)),
 +            &[run],
 +            None,
 +        );
@@ -383,6 +589,7 @@ new file mode 100644
 +fn paint_canvas(
 +    draw_list: &CanvasDrawList,
 +    prepared: &PreparedCanvas,
++    images: &HashMap<u64, CanvasImageResource>,
 +    bounds: gpui::Bounds<gpui::Pixels>,
 +    window: &mut gpui::Window,
 +    cx: &mut gpui::App,
@@ -396,6 +603,7 @@ new file mode 100644
 +                alpha,
 +                fill_rule,
 +                path,
++                ..
 +            } => {
 +                let Some(color) = canvas_color(color, *alpha) else {
 +                    continue;
@@ -407,7 +615,9 @@ new file mode 100644
 +                let mut builder = gpui::PathBuilder::fill();
 +                append_path(&mut builder, path, bounds, scale_x, scale_y);
 +                if let Ok(path) = builder.build() {
-+                    window.paint_path(path, color);
++                    paint_with_clip(command.clip(), draw_list, bounds, window, |window| {
++                        window.paint_path(path.clone(), color);
++                    });
 +                }
 +            }
 +            CanvasDrawCommand::StrokePath {
@@ -418,6 +628,7 @@ new file mode 100644
 +                line_join,
 +                miter_limit,
 +                path,
++                ..
 +            } => {
 +                if line_cap != "butt" || line_join != "miter" || (*miter_limit - 10.0).abs() > f32::EPSILON {
 +                    log::warn!(
@@ -432,50 +643,296 @@ new file mode 100644
 +                let mut builder = gpui::PathBuilder::stroke(gpui::px(width));
 +                append_path(&mut builder, path, bounds, scale_x, scale_y);
 +                if let Ok(path) = builder.build() {
-+                    window.paint_path(path, color);
++                    paint_with_clip(command.clip(), draw_list, bounds, window, |window| {
++                        window.paint_path(path.clone(), color);
++                    });
 +                }
 +            }
 +            CanvasDrawCommand::FillText {
++                text,
 +                x,
 +                y,
++                color,
++                alpha,
 +                font_size,
++                font_family,
++                font_weight,
 +                align,
 +                baseline,
++                transform,
 +                ..
 +            } => {
 +                let Some(Some(line)) = prepared.text.get(index) else {
 +                    continue;
 +                };
++                let Some(color) = canvas_color(color, *alpha) else {
++                    continue;
++                };
++                let transform_scale = canvas_text_transform_scale(transform);
++                let font_size = (*font_size * transform_scale * text_scale).max(0.01);
 +                let width = f32::from(line.width());
-+                let x = bounds.origin.x
-+                    + gpui::px(*x * scale_x)
-+                    - gpui::px(match align.as_str() {
-+                        "center" => width / 2.0,
-+                        "right" | "end" => width,
-+                        _ => 0.0,
-+                    });
-+                let font_size = (*font_size * text_scale).max(0.01);
++                let align_offset = match align.as_str() {
++                    "center" => width / 2.0,
++                    "right" | "end" => width,
++                    _ => 0.0,
++                };
 +                let y_offset = match baseline.as_str() {
 +                    "top" | "hanging" => 0.0,
 +                    "middle" => font_size * 0.5,
 +                    "bottom" | "ideographic" => font_size,
 +                    _ => font_size * 0.8,
 +                };
-+                let origin = gpui::point(
-+                    x,
-+                    bounds.origin.y + gpui::px(*y * scale_y - y_offset),
++                let transformed = canvas_text_transform_point(*x, *y, transform);
++                let anchor = gpui::point(
++                    bounds.origin.x + gpui::px(transformed.0 * scale_x),
++                    bounds.origin.y + gpui::px(transformed.1 * scale_y),
 +                );
-+                let _ = line.paint(
-+                    origin,
-+                    gpui::px(font_size),
-+                    gpui::TextAlign::Left,
-+                    None,
-+                    window,
-+                    cx,
++                let linear = canvas_text_screen_linear(transform, scale_x, scale_y);
++
++                if canvas_text_linear_is_identity(linear) {
++                    let origin = gpui::point(
++                        anchor.x - gpui::px(align_offset),
++                        anchor.y - gpui::px(y_offset),
++                    );
++                    paint_with_clip(command.clip(), draw_list, bounds, window, |window| {
++                        let _ = line.paint(
++                            origin,
++                            gpui::px(font_size),
++                            gpui::TextAlign::Left,
++                            None,
++                            window,
++                            cx,
++                        );
++                    });
++                    continue;
++                }
++
++                // GPUI's glyph paint API fixes sprite transforms to identity. For rotated
++                // Canvas text, rasterize the already-shaped line as a compact SVG alpha mask
++                // and apply GPUI's public sprite TransformationMatrix around the Canvas anchor.
++                // The fast glyph path above remains active for the common unrotated case.
++                let pad = 2.0_f32;
++                let svg_width = (width + pad * 2.0).max(1.0);
++                let svg_height = (font_size * 1.2 + pad * 2.0).max(1.0);
++                let svg_bounds = gpui::Bounds {
++                    origin: gpui::point(
++                        anchor.x - gpui::px(align_offset + pad),
++                        anchor.y - gpui::px(y_offset + pad),
++                    ),
++                    size: gpui::size(gpui::px(svg_width), gpui::px(svg_height)),
++                };
++                let svg = canvas_text_svg(
++                    text,
++                    font_family,
++                    font_weight.unwrap_or(400.0),
++                    font_size,
++                    svg_width,
++                    svg_height,
++                    pad,
 +                );
++                let transformation = canvas_text_gpui_transform(linear, anchor, window.scale_factor());
++                paint_with_clip(command.clip(), draw_list, bounds, window, |window| {
++                    let _ = window.paint_svg(
++                        svg_bounds,
++                        gpui::SharedString::from(svg.clone()),
++                        Some(svg.as_bytes()),
++                        transformation,
++                        color,
++                        cx,
++                    );
++                });
++            }
++            CanvasDrawCommand::DrawImage {
++                image_id,
++                source,
++                destination,
++                ..
++            } => {
++                let Some(resource) = images.get(image_id) else {
++                    log::warn!("Skipping missing GPUIX canvas image resource {image_id}");
++                    continue;
++                };
++                if source.width <= 0.0
++                    || source.height <= 0.0
++                    || destination.width <= 0.0
++                    || destination.height <= 0.0
++                {
++                    continue;
++                }
++                let image_scale_x = destination.width / source.width;
++                let image_scale_y = destination.height / source.height;
++                let visible = canvas_image_bounds(destination, bounds, scale_x, scale_y);
++                let full = CanvasImageRect {
++                    x: destination.x - source.x * image_scale_x,
++                    y: destination.y - source.y * image_scale_y,
++                    width: resource.width as f32 * image_scale_x,
++                    height: resource.height as f32 * image_scale_y,
++                };
++                let full = canvas_image_bounds(&full, bounds, scale_x, scale_y);
++                paint_with_clip(command.clip(), draw_list, bounds, window, |window| {
++                    let _ = window.paint_image(
++                        visible,
++                        full,
++                        gpui::Corners::default(),
++                        resource.image.clone(),
++                        0,
++                        false,
++                    );
++                });
 +            }
 +        }
 +    }
++}
++
++fn canvas_image_bounds(
++    rect: &CanvasImageRect,
++    bounds: gpui::Bounds<gpui::Pixels>,
++    scale_x: f32,
++    scale_y: f32,
++) -> gpui::Bounds<gpui::Pixels> {
++    gpui::Bounds::new(
++        gpui::point(
++            bounds.origin.x + gpui::px(rect.x * scale_x),
++            bounds.origin.y + gpui::px(rect.y * scale_y),
++        ),
++        gpui::size(
++            gpui::px((rect.width * scale_x).max(0.0)),
++            gpui::px((rect.height * scale_y).max(0.0)),
++        ),
++    )
++}
++
++fn paint_with_clip(
++    clip: Option<&CanvasClipRect>,
++    draw_list: &CanvasDrawList,
++    bounds: gpui::Bounds<gpui::Pixels>,
++    window: &mut gpui::Window,
++    mut paint: impl FnMut(&mut gpui::Window),
++) {
++    let Some(clip) = clip else {
++        paint(window);
++        return;
++    };
++    let (scale_x, scale_y, _) = canvas_scale(draw_list, bounds);
++
++    let mut paint_mask = |mask: gpui::Bounds<gpui::Pixels>, window: &mut gpui::Window| {
++        if let Some(scissor) = clip.scissor.as_ref() {
++            let scissor_bounds = canvas_clip_bounds(scissor, bounds, scale_x, scale_y);
++            window.with_content_mask(
++                Some(gpui::ContentMask { bounds: scissor_bounds }),
++                |window| {
++                    window.with_content_mask(
++                        Some(gpui::ContentMask { bounds: mask }),
++                        |window| paint(window),
++                    );
++                },
++            );
++        } else {
++            window.with_content_mask(
++                Some(gpui::ContentMask { bounds: mask }),
++                |window| paint(window),
++            );
++        }
++    };
++
++    let clip_bounds = canvas_clip_bounds(clip, bounds, scale_x, scale_y);
++    let width = f32::from(clip_bounds.size.width);
++    let height = f32::from(clip_bounds.size.height);
++    if width <= 0.0 || height <= 0.0 {
++        return;
++    }
++
++    let radius_x = (clip.radius * scale_x.abs()).clamp(0.0, width * 0.5);
++    let radius_y = (clip.radius * scale_y.abs()).clamp(0.0, height * 0.5);
++    if radius_x <= f32::EPSILON || radius_y <= f32::EPSILON {
++        paint_mask(clip_bounds, window);
++        return;
++    }
++
++    // GPUI's ContentMask is rectangular. Paint the rounded mask as disjoint
++    // horizontal strips so every command type (paths, text, images) gets the
++    // same clip semantics without rasterizing the retained Canvas surface.
++    let slices = ((radius_y * 2.0).ceil() as usize).clamp(2, 24);
++    let step = radius_y / slices as f32;
++    for index in 0..slices {
++        let y0 = index as f32 * step;
++        let y1 = (index + 1) as f32 * step;
++        let midpoint = (y0 + y1) * 0.5;
++        let normalized = ((radius_y - midpoint) / radius_y).clamp(0.0, 1.0);
++        let inset = radius_x * (1.0 - (1.0 - normalized * normalized).sqrt());
++        let slice_width = (width - inset * 2.0).max(0.0);
++        if slice_width <= 0.0 {
++            continue;
++        }
++        let slice_height = (y1 - y0).max(0.0);
++        let top = gpui::Bounds::new(
++            gpui::point(
++                clip_bounds.origin.x + gpui::px(inset),
++                clip_bounds.origin.y + gpui::px(y0),
++            ),
++            gpui::size(gpui::px(slice_width), gpui::px(slice_height)),
++        );
++        let bottom = gpui::Bounds::new(
++            gpui::point(
++                clip_bounds.origin.x + gpui::px(inset),
++                clip_bounds.origin.y + gpui::px(height - y1),
++            ),
++            gpui::size(gpui::px(slice_width), gpui::px(slice_height)),
++        );
++        paint_mask(top, window);
++        paint_mask(bottom, window);
++    }
++
++    let middle_height = (height - radius_y * 2.0).max(0.0);
++    if middle_height > 0.0 {
++        let middle = gpui::Bounds::new(
++            gpui::point(
++                clip_bounds.origin.x,
++                clip_bounds.origin.y + gpui::px(radius_y),
++            ),
++            gpui::size(gpui::px(width), gpui::px(middle_height)),
++        );
++        paint_mask(middle, window);
++    }
++}
++
++fn canvas_clip_bounds(
++    clip: &impl CanvasClipBounds,
++    bounds: gpui::Bounds<gpui::Pixels>,
++    scale_x: f32,
++    scale_y: f32,
++) -> gpui::Bounds<gpui::Pixels> {
++    gpui::Bounds::new(
++        gpui::point(
++            bounds.origin.x + gpui::px(clip.x() * scale_x),
++            bounds.origin.y + gpui::px(clip.y() * scale_y),
++        ),
++        gpui::size(
++            gpui::px((clip.width() * scale_x).max(0.0)),
++            gpui::px((clip.height() * scale_y).max(0.0)),
++        ),
++    )
++}
++
++trait CanvasClipBounds {
++    fn x(&self) -> f32;
++    fn y(&self) -> f32;
++    fn width(&self) -> f32;
++    fn height(&self) -> f32;
++}
++
++impl CanvasClipBounds for CanvasClipRect {
++    fn x(&self) -> f32 { self.x }
++    fn y(&self) -> f32 { self.y }
++    fn width(&self) -> f32 { self.width }
++    fn height(&self) -> f32 { self.height }
++}
++
++impl CanvasClipBounds for CanvasClipScissor {
++    fn x(&self) -> f32 { self.x }
++    fn y(&self) -> f32 { self.y }
++    fn width(&self) -> f32 { self.width }
++    fn height(&self) -> f32 { self.height }
 +}
 +
 +fn append_path(
@@ -515,6 +972,93 @@ new file mode 100644
 +    }
 +}
 +
++fn canvas_text_transform_scale(transform: &[f32; 6]) -> f32 {
++    let scale_x = transform[0].hypot(transform[1]);
++    let scale_y = transform[2].hypot(transform[3]);
++    ((scale_x + scale_y) / 2.0).max(0.0001)
++}
++
++fn canvas_text_transform_point(x: f32, y: f32, transform: &[f32; 6]) -> (f32, f32) {
++    (
++        transform[0] * x + transform[2] * y + transform[4],
++        transform[1] * x + transform[3] * y + transform[5],
++    )
++}
++
++fn canvas_text_screen_linear(
++    transform: &[f32; 6],
++    surface_scale_x: f32,
++    surface_scale_y: f32,
++) -> [[f32; 2]; 2] {
++    let transform_scale = canvas_text_transform_scale(transform);
++    let surface_text_scale = ((surface_scale_x.abs() + surface_scale_y.abs()) / 2.0).max(0.0001);
++    let denominator = transform_scale * surface_text_scale;
++    [
++        [
++            surface_scale_x * transform[0] / denominator,
++            surface_scale_x * transform[2] / denominator,
++        ],
++        [
++            surface_scale_y * transform[1] / denominator,
++            surface_scale_y * transform[3] / denominator,
++        ],
++    ]
++}
++
++fn canvas_text_linear_is_identity(linear: [[f32; 2]; 2]) -> bool {
++    let tolerance = 1e-5_f32;
++    (linear[0][0] - 1.0).abs() <= tolerance
++        && linear[0][1].abs() <= tolerance
++        && linear[1][0].abs() <= tolerance
++        && (linear[1][1] - 1.0).abs() <= tolerance
++}
++
++fn canvas_text_gpui_transform(
++    linear: [[f32; 2]; 2],
++    anchor: gpui::Point<gpui::Pixels>,
++    scale_factor: f32,
++) -> gpui::TransformationMatrix {
++    let anchor_x = f32::from(anchor.x) * scale_factor;
++    let anchor_y = f32::from(anchor.y) * scale_factor;
++    gpui::TransformationMatrix {
++        rotation_scale: linear,
++        translation: [
++            anchor_x - linear[0][0] * anchor_x - linear[0][1] * anchor_y,
++            anchor_y - linear[1][0] * anchor_x - linear[1][1] * anchor_y,
++        ],
++    }
++}
++
++fn canvas_text_svg(
++    text: &str,
++    font_family: &str,
++    font_weight: f32,
++    font_size: f32,
++    width: f32,
++    height: f32,
++    pad: f32,
++) -> String {
++    let text = canvas_escape_xml_text(text);
++    let font_family = canvas_escape_xml_attribute(font_family);
++    format!(
++        r##"<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}"><text x="{pad}" y="{}" fill="#fff" font-family="{font_family}" font-size="{font_size}" font-weight="{font_weight}">{text}</text></svg>"##,
++        pad + font_size * 0.8,
++    )
++}
++
++fn canvas_escape_xml_text(value: &str) -> String {
++    value
++        .replace('&', "&amp;")
++        .replace('<', "&lt;")
++        .replace('>', "&gt;")
++}
++
++fn canvas_escape_xml_attribute(value: &str) -> String {
++    canvas_escape_xml_text(value)
++        .replace('"', "&quot;")
++        .replace('\'', "&apos;")
++}
++
 +fn canvas_scale(
 +    draw_list: &CanvasDrawList,
 +    bounds: gpui::Bounds<gpui::Pixels>,
@@ -533,24 +1077,272 @@ new file mode 100644
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -2680,2 +2680,8 @@
+@@ -2205,8 +2205,38 @@
+         Err(Error::from_reason("Unsupported operating system"))
+     }
+ 
+-    /// Decode PNG, JPEG, WebP, GIF, SVG, BMP, TIFF, ICO, or Netpbm bytes onto
+-    /// an `<img>` host node. Prefer `setImagePixels` for live waveforms.
++    /// Upload packed RGBA pixels as one image resource owned by a Canvas element.
++    #[napi]
++    pub fn set_canvas_image_pixels(
++        &self,
++        element_id: f64,
++        image_id: f64,
++        width: f64,
++        height: f64,
++        pixels: Buffer,
++    ) -> Result<()> {
++        let id = to_element_id(element_id)?;
++        let image_id = to_element_id(image_id)?;
++        let width = dimension_u32(width, "width")?;
++        let height = dimension_u32(height, "height")?;
++        let bytes = pixels.to_vec();
++
++        #[cfg(target_os = "macos")]
++        {
++            return update_window(move |view, window, cx| {
++                view.set_canvas_image_pixels(id, image_id, width, height, bytes, window, cx)
++            })?
++            .map_err(Error::from_reason);
++        }
++
++        #[cfg(not(target_os = "macos"))]
++        Err(Error::from_reason(
++            "setCanvasImagePixels is currently supported on macOS source-edge builds",
++        ))
++    }
++
++    /// Decode PNG, JPEG, WebP, GIF, SVG, BMP, TIFF, ICO, or Netpbm bytes onto
++    /// an `<img>` host node. Prefer `setImagePixels` for live waveforms.
+     #[napi]
+     pub fn set_image(&self, element_id: f64, bytes: Buffer) -> Result<()> {
+         let id = to_element_id(element_id)?;
+@@ -1450,8 +1480,63 @@
+         ))
+     }
+ 
+-    /// The paintable size of the window in logical pixels, excluding any
+-    /// platform title bar. This used to answer a hardcoded 800x600, so anything
 +    /// Version of the retained Canvas2D draw-list protocol.
 +    #[napi]
 +    pub fn get_canvas_draw_list_version(&self) -> u32 {
 +        crate::custom_elements::canvas::CANVAS_DRAW_LIST_VERSION
 +    }
 +
-     /// The paintable size of the window in logical pixels, excluding any
-     /// platform title bar. This used to answer a hardcoded 800x600, so anything
++    /// Measure one line of Canvas text with GPUI's native text system.
++    #[napi]
++    pub fn measure_canvas_text(
++        &self,
++        text: String,
++        font_size: f64,
++        font_family: String,
++        font_weight: f64,
++    ) -> Result<f64> {
++        if !font_size.is_finite() || font_size <= 0.0 {
++            return Err(Error::from_reason(format!(
++                "measureCanvasText fontSize must be finite and positive, got {font_size}"
++            )));
++        }
++        if !font_weight.is_finite() {
++            return Err(Error::from_reason(format!(
++                "measureCanvasText fontWeight must be finite, got {font_weight}"
++            )));
++        }
++
++        #[cfg(target_os = "macos")]
++        return update_window(move |_view, window, _cx| {
++            let mut font = gpui::font(font_family);
++            font.weight = gpui::FontWeight(font_weight.clamp(1.0, 1000.0) as f32);
++            let text = gpui::SharedString::from(text);
++            let run = gpui::TextRun {
++                len: text.len(),
++                font,
++                color: gpui::transparent_black(),
++                background_color: None,
++                underline: None,
++                strikethrough: None,
++            };
++            let line =
++                window
++                    .text_system()
++                    .shape_line(text, gpui::px(font_size as f32), &[run], None);
++            f64::from(f32::from(line.width()))
++        });
++
++        #[cfg(not(target_os = "macos"))]
++        {
++            let _ = (text, font_family);
++            Err(Error::from_reason(
++                "measureCanvasText is currently supported on macOS source-edge builds",
++            ))
++        }
++    }
++
++    /// The paintable size of the window in logical pixels, excluding any
++    /// platform title bar. This used to answer a hardcoded 800x600, so anything
+     /// that turned a mouse position into layout coordinates pointed at the
+     /// wrong place on every window that was not exactly that size.
+     #[napi]
+@@ -3723,13 +3808,48 @@
+         self.set_live_image(id, image, window, cx)
+     }
+ 
+-    pub(crate) fn set_encoded_image(
+-        &mut self,
+-        id: u64,
+-        bytes: Vec<u8>,
+-        window: &mut gpui::Window,
+-        cx: &mut gpui::Context<Self>,
+-    ) -> std::result::Result<(), String> {
++    pub(crate) fn set_canvas_image_pixels(
++        &mut self,
++        id: u64,
++        image_id: u64,
++        width: u32,
++        height: u32,
++        bytes: Vec<u8>,
++        window: &mut gpui::Window,
++        cx: &mut gpui::Context<Self>,
++    ) -> std::result::Result<(), String> {
++        {
++            let tree = self.tree.lock().unwrap();
++            let element = tree
++                .elements
++                .get(&id)
++                .ok_or_else(|| format!("Unknown element id {id}"))?;
++            if element.element_type != "canvas" {
++                return Err(format!(
++                    "setCanvasImagePixels is only valid on <canvas>, got <{}>",
++                    element.element_type
++                ));
++            }
++        }
++        let image = crate::custom_elements::img::render_image_from_rgba(width, height, bytes)?;
++        let previous = self
++            .custom_registry
++            .set_canvas_image(id, image_id, width, height, image)?;
++        if let Some(previous) = previous {
++            window.drop_image(previous).ok();
++        }
++        cx.notify();
++        window.refresh();
++        Ok(())
++    }
++
++    pub(crate) fn set_encoded_image(
++        &mut self,
++        id: u64,
++        bytes: Vec<u8>,
++        window: &mut gpui::Window,
++        cx: &mut gpui::Context<Self>,
++    ) -> std::result::Result<(), String> {
+         let image = crate::custom_elements::img::render_image_from_encoded(
+             bytes,
+             cx.svg_renderer(),
 diff --git a/packages/native/src/test_renderer.rs b/packages/native/src/test_renderer.rs
 --- a/packages/native/src/test_renderer.rs
 +++ b/packages/native/src/test_renderer.rs
-@@ -1170,2 +1170,8 @@
+@@ -864,9 +864,36 @@
+         })
+     }
+ 
+-    /// Encoded image bytes onto an `<img>` host node.
+-    #[napi]
+-    pub fn set_image(&self, element_id: f64, bytes: Buffer) -> Result<()> {
++    /// Packed RGBA pixels as one image resource owned by a Canvas element.
++    #[napi]
++    pub fn set_canvas_image_pixels(
++        &self,
++        element_id: f64,
++        image_id: f64,
++        width: f64,
++        height: f64,
++        pixels: Buffer,
++    ) -> Result<()> {
++        let id = to_element_id(element_id)?;
++        let image_id = to_element_id(image_id)?;
++        let width = crate::renderer::dimension_u32(width, "width")?;
++        let height = crate::renderer::dimension_u32(height, "height")?;
++        let bytes = pixels.to_vec();
++        with_test_state(|cx, window, view| {
++            let view = view.clone();
++            cx.update_window(window, |_, window, app| {
++                view.update(app, |view, cx| {
++                    view.set_canvas_image_pixels(id, image_id, width, height, bytes, window, cx)
++                })
++            })
++            .map_err(|e| Error::from_reason(e.to_string()))?
++            .map_err(Error::from_reason)
++        })
++    }
++
++    /// Encoded image bytes onto an `<img>` host node.
++    #[napi]
++    pub fn set_image(&self, element_id: f64, bytes: Buffer) -> Result<()> {
+         let id = to_element_id(element_id)?;
+         let bytes = bytes.to_vec();
+         with_test_state(|cx, window, view| {
+@@ -1208,8 +1235,60 @@
+         self.tree.lock().unwrap().root_id.map(|id| id as f64)
+     }
+ 
+-    /// The offscreen window size, so `useWindowSize()` reports the same numbers
+-    /// under test as in a real window instead of falling back to a default.
 +    /// Version of the retained Canvas2D draw-list protocol.
 +    #[napi]
 +    pub fn get_canvas_draw_list_version(&self) -> u32 {
 +        crate::custom_elements::canvas::CANVAS_DRAW_LIST_VERSION
 +    }
 +
-     /// The offscreen window size, so `useWindowSize()` reports the same numbers
-     /// under test as in a real window instead of falling back to a default.
++    /// Measure one line of Canvas text with GPUI's native text system.
++    #[napi]
++    pub fn measure_canvas_text(
++        &self,
++        text: String,
++        font_size: f64,
++        font_family: String,
++        font_weight: f64,
++    ) -> Result<f64> {
++        if !font_size.is_finite() || font_size <= 0.0 {
++            return Err(Error::from_reason(format!(
++                "measureCanvasText fontSize must be finite and positive, got {font_size}"
++            )));
++        }
++        if !font_weight.is_finite() {
++            return Err(Error::from_reason(format!(
++                "measureCanvasText fontWeight must be finite, got {font_weight}"
++            )));
++        }
++        with_test_state(|cx, window, _view| {
++            let width = cx
++                .update_window(window, |_, window, _| {
++                    let mut font = gpui::font(font_family);
++                    font.weight = gpui::FontWeight(font_weight.clamp(1.0, 1000.0) as f32);
++                    let text = gpui::SharedString::from(text);
++                    let run = gpui::TextRun {
++                        len: text.len(),
++                        font,
++                        color: gpui::transparent_black(),
++                        background_color: None,
++                        underline: None,
++                        strikethrough: None,
++                    };
++                    let line = window.text_system().shape_line(
++                        text,
++                        gpui::px(font_size as f32),
++                        &[run],
++                        None,
++                    );
++                    f64::from(f32::from(line.width()))
++                })
++                .map_err(|error| Error::from_reason(error.to_string()))?;
++            Ok(width)
++        })
++    }
++
++    /// The offscreen window size, so `useWindowSize()` reports the same numbers
++    /// under test as in a real window instead of falling back to a default.
+     #[napi]
+     pub fn get_window_size(&self) -> Result<crate::renderer::WindowSize> {
+         with_test_state(|cx, window, _view| {
