@@ -639,7 +639,8 @@ function scheduleMeasuredParentSize(node: HostElementNode, sourceStyle: StyleDes
 }
 
 function hasPercentageDimension(value: DimensionValue | undefined): boolean {
-  return typeof value === "string" && /^-?(?:\d+(?:\.\d+)?|\.\d+)%$/.test(value.trim())
+  if (value === undefined) return false
+  return /^-?(?:\d+(?:\.\d+)?|\.\d+)%$/.test(String(value).trim())
 }
 
 function resolveNativeDimension(
