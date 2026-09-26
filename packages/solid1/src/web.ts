@@ -492,7 +492,10 @@ function installImperativeDomElementCompatibility(): void {
   })
 }
 
-function prepareImperativeDomElement(element: HostElementNode): HostElementNode {
+function prepareImperativeDomElement(element: Element): HostElementNode {
+  if (!(element instanceof HostElementNode)) {
+    throw new TypeError("GPUix document.createElement() must return a HostElementNode")
+  }
   installBrowserStyleMutationCompatibility(element)
   element.setClassMutationHandler((className) => setProp(element, "class", className))
   return element
