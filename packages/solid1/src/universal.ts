@@ -1173,6 +1173,13 @@ type SourceGridTracks = {
 }
 
 function sourceGridTracks(node: HostElementNode): SourceGridTracks {
+  // Grid track utilities do not establish CSS grid on their own. Diffusion's
+  // PanelSection always carries grid-cols-* metadata but remains a vertical
+  // flex stack unless its conditional display:grid variant is active.
+  if (sourceDisplay(node) !== "grid") {
+    return { columns: undefined, rows: undefined }
+  }
+
   const state = styleStates.get(node)
   const classTemplate = state
     ? resolveNativeClassGridTemplate(combinedClassName(state), state.classList)
