@@ -400,6 +400,8 @@ export type EventPayload = NativeEventPayload &
     metaKey?: boolean
     altKey?: boolean
     ctrlKey?: boolean
+    deltaZ?: number
+    deltaMode?: number
     /** Application-owned payload for internal semantic drag/drop. */
     dragData?: DragData
     dragSourceId?: number
@@ -438,6 +440,7 @@ export interface HostProps {
   onFocus?: HostEventHandler
   onBlur?: HostEventHandler
   onScroll?: HostEventHandler
+  onWheel?: HostEventHandler
   /** Finder / OS file drop paths delivered by GPUIX. */
   onFileDrop?: HostEventHandler
   /** JSON-like application payload used by internal semantic drag/drop. */

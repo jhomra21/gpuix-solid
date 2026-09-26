@@ -38,6 +38,7 @@ export const EVENT_PROPS = [
   ["onFocus", "focus", "focus"],
   ["onBlur", "blur", "blur"],
   ["onScroll", "scroll", "scroll"],
+  ["onWheel", "wheel", "scroll"],
   ["onFileDrop", "fileDrop", "fileDrop"],
   ["onDragStart", "dragStart", null],
   ["onDragOver", "dragOver", null],
@@ -121,6 +122,7 @@ const BUBBLING_DOM_EVENTS = new Set([
   "pointerDown",
   "pointerMove",
   "pointerUp",
+  "wheel",
 ])
 const POINTER_ID = 0
 const PERSISTENT_DEVICE_ID = 0
@@ -201,8 +203,18 @@ function domCompatibleEvent(
   const currentTarget = target ?? fallbackTarget(event)
   if (event.value !== undefined) currentTarget.value = event.value
   const state = { defaultPrevented: false, propagationStopped: false }
+  const wheelFields = domEventType === "wheel"
+    ? {
+        // GPUIX reports negative deltas when scrolling down/right. Browser WheelEvent
+        // uses the opposite sign, so normalize only the browser-shaped wheel event.
+        deltaX: -(event.deltaX ?? 0),
+        deltaY: -(event.deltaY ?? 0),
+        deltaZ: 0,
+        deltaMode: 0,
+      }
+    : {}
   // SAFETY: EventPayload is the native event plus the DOM-compatible fields constructed below.
-  const payload = Object.assign({}, event, {
+  const payload = Object.assign({}, event, wheelFields, {
     type: browserEventName(domEventType),
     currentTarget,
     target: currentTarget,
@@ -277,6 +289,14 @@ function createTargetEvent(
     },
     composedPath: { configurable: true, value: () => [...path] },
   })
+  if (eventType === "wheel") {
+    Object.defineProperties(domEvent, {
+      deltaX: { configurable: true, value: event.deltaX ?? 0 },
+      deltaY: { configurable: true, value: event.deltaY ?? 0 },
+      deltaZ: { configurable: true, value: event.deltaZ ?? 0 },
+      deltaMode: { configurable: true, value: event.deltaMode ?? 0 },
+    })
+  }
   return domEvent
 }
 
@@ -326,6 +346,25 @@ function dispatchGlobalEvent(eventType: string, event: EventPayload): void {
   globalThis.window.dispatchEvent(createGlobalDomEvent(name, event, globalThis.window))
 }
 
+class GpuixWheelEvent extends Event {
+  static readonly DOM_DELTA_PIXEL = 0
+  static readonly DOM_DELTA_LINE = 1
+  static readonly DOM_DELTA_PAGE = 2
+
+  readonly deltaX: number
+  readonly deltaY: number
+  readonly deltaZ: number
+  readonly deltaMode: number
+
+  constructor(type: string, init: WheelEventInit = {}) {
+    super(type, init)
+    this.deltaX = init.deltaX ?? 0
+    this.deltaY = init.deltaY ?? 0
+    this.deltaZ = init.deltaZ ?? 0
+    this.deltaMode = init.deltaMode ?? GpuixWheelEvent.DOM_DELTA_PIXEL
+  }
+}
+
 function installNativeDomGlobals(): void {
   if (!Object.hasOwn(globalThis, "window")) {
     Object.defineProperty(globalThis, "window", {
@@ -357,6 +396,22 @@ function installNativeDomGlobals(): void {
       configurable: true,
       writable: true,
       value: { body: { classList, dispatchEvent: () => true }, dispatchEvent: () => true },
+    })
+  }
+
+  if (!Object.hasOwn(globalThis, "WheelEvent")) {
+    Object.defineProperty(globalThis, "WheelEvent", {
+      configurable: true,
+      writable: true,
+      value: GpuixWheelEvent,
+    })
+  }
+
+  if (!Object.hasOwn(globalThis.window, "WheelEvent")) {
+    Object.defineProperty(globalThis.window, "WheelEvent", {
+      configurable: true,
+      writable: true,
+      value: globalThis.WheelEvent,
     })
   }
 
