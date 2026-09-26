@@ -324,6 +324,7 @@ const runtime = createRenderer<HostNode | HostParent>({
     insertHostNode(parent, node, anchor ?? null)
     if (node.kind === "element") reapplyNativeStyleSubtree(node)
     else applyNativeTextTransform(node)
+    refreshNativeDisplayContentsNode(parent)
     refreshInlineGridLayout(parent)
     refreshBrowserInlineFlowParent(parent)
     refreshInlineSvgFromParent(parent)
@@ -338,6 +339,7 @@ const runtime = createRenderer<HostNode | HostParent>({
     const svgRoot = parent.kind === "element" ? inlineSvgRoot(parent) : undefined
     if (node.kind === "element") classStyledNodes.delete(node)
     removeHostNode(parent, node)
+    refreshNativeDisplayContentsNode(parent)
     refreshInlineGridLayout(parent)
     refreshBrowserInlineFlowParent(parent)
     if (svgRoot) refreshInlineSvg(svgRoot)
@@ -724,6 +726,7 @@ function commitNativeStyleState(node: HostElementNode, state: NativeStyleState):
   if (hasNativeClasses(state)) classStyledNodes.add(node)
   else classStyledNodes.delete(node)
   reapplyNativeStyleSubtree(node)
+  refreshNativeDisplayContentsNode(node.parent)
 }
 
 function hasNativeClasses(state: NativeStyleState): boolean {
@@ -797,8 +800,9 @@ function applyNativeStyleState(node: HostElementNode): void {
   )
   const parentWidth = resolvedNativeNodeSize(node.parent, "x")
   const parentHeight = resolvedNativeNodeSize(node.parent, "y")
+  const displayContentsStyle = applyNativeDisplayContentsProxy(node, viewportStyle)
   const parentSizedStyle = applyNativeStyleParentSize(
-    viewportStyle,
+    displayContentsStyle,
     parentWidth,
     parentHeight,
   )
@@ -819,7 +823,48 @@ function applyNativeStyleState(node: HostElementNode): void {
     applyNativeStyleTranslation(autoMarginStyle, classTranslation, undefined, supportsAutoMargins) ?? {},
   )
   scheduleMeasuredFractionalTranslation(node, autoMarginStyle, classTranslation)
-  scheduleMeasuredParentSize(node, viewportStyle, parentWidth, parentHeight)
+  scheduleMeasuredParentSize(node, displayContentsStyle, parentWidth, parentHeight)
+}
+
+function applyNativeDisplayContentsProxy(
+  node: HostElementNode,
+  style: StyleDesc | undefined,
+): StyleDesc | undefined {
+  if (style?.display !== "contents") return style
+
+  const parent = node.parent
+  if (!parent || parent.kind !== "element" || parent.style.display !== "flex") return style
+
+  const elementChildren = node.children.filter(
+    (child): child is HostElementNode => child.kind === "element",
+  )
+  const hasTextContent = node.children.some(
+    (child) => child.kind === "text" && child.text.trim().length > 0,
+  )
+  if (elementChildren.length !== 1 || hasTextContent) return style
+
+  const childStyle = elementChildren[0].style
+  return {
+    ...style,
+    display: "flex",
+    flexDirection: parent.style.flexDirection ?? "row",
+    flexGrow: childStyle.flexGrow,
+    flexShrink: childStyle.flexShrink,
+    flexBasis: childStyle.flexBasis,
+    alignSelf: childStyle.alignSelf,
+    width: childStyle.width,
+    height: childStyle.height,
+    minWidth: childStyle.minWidth,
+    minHeight: childStyle.minHeight,
+    maxWidth: childStyle.maxWidth,
+    maxHeight: childStyle.maxHeight,
+  }
+}
+
+function refreshNativeDisplayContentsNode(node: HostParent | null): void {
+  if (!node || node.kind !== "element" || sourceDisplay(node) !== "contents") return
+  applyNativeStyleState(node)
+  refreshNativeDisplayContentsNode(node.parent)
 }
 
 function scheduleMeasuredFractionalTranslation(
