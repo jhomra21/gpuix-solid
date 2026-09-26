@@ -153,6 +153,7 @@ const runtime = createRenderer<HostNode | HostParent>({
     insertHostNode(parent, node, anchor ?? null)
     if (node.kind === "element") reapplyNativeStyleSubtree(node)
     else applyNativeTextTransform(node)
+    refreshNativeDisplayContentsNode(parent)
     refreshInlineSvgFromParent(parent)
   },
   isTextNode(node) {
@@ -165,6 +166,7 @@ const runtime = createRenderer<HostNode | HostParent>({
     const svgRoot = parent.kind === "element" ? inlineSvgRoot(parent) : undefined
     if (node.kind === "element") classStyledNodes.delete(node)
     removeHostNode(parent, node)
+    refreshNativeDisplayContentsNode(parent)
     if (svgRoot) refreshInlineSvg(svgRoot)
   },
   getParentNode(node) {
@@ -531,6 +533,7 @@ function commitNativeStyleState(node: HostElementNode, state: NativeStyleState):
   if (hasNativeClasses(state)) classStyledNodes.add(node)
   else classStyledNodes.delete(node)
   reapplyNativeStyleSubtree(node)
+  refreshNativeDisplayContentsNode(node.parent)
 }
 
 function hasNativeClasses(state: NativeStyleState): boolean {
@@ -567,8 +570,9 @@ function applyNativeStyleState(node: HostElementNode): void {
     nativeViewportSize("x"),
     nativeViewportSize("y"),
   )
+  const displayContentsStyle = applyNativeDisplayContentsProxy(node, viewportStyle)
   const resolvedStyle = applyNativeStyleParentSize(
-    viewportStyle,
+    displayContentsStyle,
     resolvedNativeNodeSize(node.parent, "x"),
     resolvedNativeNodeSize(node.parent, "y"),
   )
@@ -583,10 +587,59 @@ function applyNativeStyleState(node: HostElementNode): void {
   appliedStyleNodes.add(node)
   scheduleMeasuredParentSize(
     node,
-    viewportStyle,
+    displayContentsStyle,
     resolvedNativeNodeSize(node.parent, "x"),
     resolvedNativeNodeSize(node.parent, "y"),
   )
+}
+
+function applyNativeDisplayContentsProxy(
+  node: HostElementNode,
+  style: StyleDesc | undefined,
+): StyleDesc | undefined {
+  if (style?.display !== "contents") return style
+
+  const parent = node.parent
+  if (!parent || parent.kind !== "element" || parent.style.display !== "flex") return style
+
+  const elementChildren = node.children.filter(
+    (child): child is HostElementNode => child.kind === "element",
+  )
+  const hasTextContent = node.children.some(
+    (child) => child.kind === "text" && child.text.trim().length > 0,
+  )
+  if (elementChildren.length !== 1 || hasTextContent) return style
+
+  const childStyle = elementChildren[0].style
+  return {
+    ...style,
+    display: "flex",
+    flexDirection: parent.style.flexDirection ?? "row",
+    flexGrow: childStyle.flexGrow,
+    flexShrink: childStyle.flexShrink,
+    flexBasis: childStyle.flexBasis,
+    alignSelf: childStyle.alignSelf,
+    width: childStyle.width,
+    height: childStyle.height,
+    minWidth: childStyle.minWidth,
+    minHeight: childStyle.minHeight,
+    maxWidth: childStyle.maxWidth,
+    maxHeight: childStyle.maxHeight,
+  }
+}
+
+function refreshNativeDisplayContentsNode(node: HostParent | null): void {
+  if (!node || node.kind !== "element" || sourceDisplay(node) !== "contents") return
+  applyNativeStyleState(node)
+  refreshNativeDisplayContentsNode(node.parent)
+}
+
+function sourceDisplay(node: HostElementNode): StyleDesc["display"] | undefined {
+  const state = styleStates.get(node)
+  if (!state) return node.style?.display
+  if (state.hidden) return "none"
+  if (state.inlineStyle?.display !== undefined) return state.inlineStyle.display
+  return resolveNativeClassStyle(combinedClassName(state), state.classList)?.display
 }
 
 function nativeViewportSize(axis: "x" | "y"): number | undefined {
