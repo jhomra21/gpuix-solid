@@ -18,6 +18,7 @@ import {
 import type { DimensionValue, ElementType, StyleDesc } from "./types.js"
 import {
   applyNativeStyleViewportSize,
+  applyNativeStyleParentSize,
   mergeNativeStyles,
   normalizeNativeStyleColors,
   onNativeStyleEnvironmentChange,
@@ -556,11 +557,16 @@ function applyNativeStyleState(node: HostElementNode): void {
 
   const hiddenStyle: StyleDesc | undefined = state.hidden ? { display: "none" } : undefined
   const mergedStyle = mergeNativeStyles(inheritedStyle, ancestorStyle, classStyle, state.inlineStyle, hiddenStyle)
-  const resolvedStyle = applyNativeStyleViewportSize(
+  const viewportStyle = applyNativeStyleViewportSize(
     mergedStyle,
     classViewportSize,
     nativeViewportSize("x"),
     nativeViewportSize("y"),
+  )
+  const resolvedStyle = applyNativeStyleParentSize(
+    viewportStyle,
+    resolvedNativeNodeSize(node.parent, "x"),
+    resolvedNativeNodeSize(node.parent, "y"),
   )
   if (resolvedStyle === undefined) {
     if (!appliedStyleNodes.has(node)) return
@@ -576,6 +582,25 @@ function applyNativeStyleState(node: HostElementNode): void {
 function nativeViewportSize(axis: "x" | "y"): number | undefined {
   const viewport = Number(axis === "x" ? globalThis.window?.innerWidth : globalThis.window?.innerHeight)
   return Number.isFinite(viewport) && viewport > 0 ? viewport : undefined
+}
+function resolvedNativeNodeSize(parent: HostParent | null, axis: "x" | "y"): number | undefined {
+  if (!parent) return undefined
+  if (parent.kind === "root") return nativeViewportSize(axis)
+  const parentSize = resolvedNativeNodeSize(parent.parent, axis)
+  const explicit = axis === "x" ? parent.style.width : parent.style.height
+  return resolveNativeDimension(explicit, parentSize)
+}
+
+function resolveNativeDimension(
+  value: DimensionValue | undefined,
+  parentSize: number | undefined,
+): number | undefined {
+  if (value === undefined) return undefined
+  const numeric = Number(value)
+  if (Number.isFinite(numeric)) return numeric
+  const percentage = String(value).trim().match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))%$/)
+  if (percentage && parentSize !== undefined) return parentSize * Number(percentage[1]) / 100
+  return undefined
 }
 function applyNativeTextTransform(node: HostTextNode): void {
   const source = sourceTextValues.get(node) ?? node.text
