@@ -621,10 +621,9 @@ function scheduleMeasuredParentSize(node: HostElementNode, sourceStyle: StyleDes
 
     root.driver.flush()
     const bounds = currentParent.getBoundingClientRect()
-    const next: MeasuredLayoutSize = {
-      width: bounds.width > 0 ? bounds.width : undefined,
-      height: bounds.height > 0 ? bounds.height : undefined,
-    }
+    const next: MeasuredLayoutSize = {}
+    if (bounds.width > 0) next.width = bounds.width
+    if (bounds.height > 0) next.height = bounds.height
     if ((needsWidth && next.width === undefined) || (needsHeight && next.height === undefined)) return
 
     const previous = measuredLayoutSizes.get(currentParent)
