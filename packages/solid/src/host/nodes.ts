@@ -627,6 +627,7 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     if (!root || !this.nativeAlive) return viewport
 
     root.driver.flush()
+    // SAFETY: this only reads the optional bounds capability already used by getBoundingClientRect().
     const renderer = root.driver.renderer as BoundsCapableRenderer
     const own = renderer.getElementBounds?.(this.id)
     if (!own || own.length < 4) return viewport
