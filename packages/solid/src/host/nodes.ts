@@ -5,7 +5,7 @@ import {
   type GpuixCanvasRenderingContext2D,
 } from "./canvas.js"
 import { parseDragData } from "./drag-data.js"
-import { EVENT_PROP_TO_TYPE, hasDelegatedNativeHandler, nativeEventTypeForBrowserEvent, nativeEventTypeForDomEvent, type DomCompatTarget, type EventRegistry } from "./events.js"
+import { delegatedNativeEventTypesForTarget, EVENT_PROP_TO_TYPE, hasDelegatedNativeHandler, nativeEventTypeForBrowserEvent, nativeEventTypeForDomEvent, type DomCompatTarget, type EventRegistry } from "./events.js"
 import type { MutationDriver, MutationValue } from "./mutations.js"
 import type {
   DragData,
@@ -1212,6 +1212,7 @@ function adopt(root: HostRootNode, node: HostNode): void {
       if (nativeEventType) nativeEventTypes.add(nativeEventType)
     }
     for (const nativeEventType of browserNativeEventTypes(node)) nativeEventTypes.add(nativeEventType)
+    for (const nativeEventType of delegatedNativeEventTypesForTarget(node)) nativeEventTypes.add(nativeEventType)
     if (node.events.has("contextMenu")) root.driver.setContextMenuListener(node.id, true)
     for (const nativeEventType of ["mouseDown", "mouseMove", "mouseUp"] as const) {
       if (hasNativeEventHandler(node, nativeEventType)) nativeEventTypes.add(nativeEventType)
