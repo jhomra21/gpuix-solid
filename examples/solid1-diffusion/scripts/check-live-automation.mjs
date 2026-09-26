@@ -537,20 +537,24 @@ try {
   // the upstream Layers wheel handler. Each DrawOverlay insertion returns to
   // Move, so re-arm Rectangle through the real toolbar before every gesture.
   const extraRects = [
-    [[0.43, 0.60], [0.46, 0.64]],
-    [[0.48, 0.60], [0.51, 0.64]],
-    [[0.53, 0.60], [0.56, 0.64]],
+    [[0.43, 0.45], [0.46, 0.49]],
+    [[0.48, 0.45], [0.51, 0.49]],
+    [[0.53, 0.45], [0.56, 0.49]],
+    [[0.43, 0.52], [0.46, 0.56]],
+    [[0.48, 0.52], [0.51, 0.56]],
+    [[0.53, 0.52], [0.56, 0.56]],
   ]
-  for (const [from, to] of extraRects) {
+  for (const [index, [from, to]] of extraRects.entries()) {
     tree = await getFreshTree(app)
     parts = toolbarParts(tree)
     await clickNode(app, parts.rectangle)
     await drag(app, at(stage.bounds, from[0], from[1]), at(stage.bounds, to[0], to[1]), 8)
+    const expectedLayer = `Rect ${index + 2}`
+    tree = await waitFor(expectedLayer, async () => {
+      const next = await currentTree(app)
+      return descendants(next).some((node) => node.text === expectedLayer) ? next : null
+    }, 4_000)
   }
-  tree = await waitFor("overflowing Diffusion layer stack", async () => {
-    const next = await currentTree(app)
-    return descendants(next).some((node) => node.text === "Rect 4") ? next : null
-  })
 
   const layerBeforeScroll = findText(tree, "GPUix rectangle")
   assert(layerBeforeScroll.bounds, "Timeline layer label has no bounds before wheel scrolling")
