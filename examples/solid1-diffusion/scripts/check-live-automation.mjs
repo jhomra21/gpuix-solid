@@ -108,6 +108,26 @@ function findText(root, text, { exact = true } = {}) {
   )
 }
 
+function paintedRowAncestor(root, node, {
+  minWidth = 100,
+  minHeight = 24,
+  maxHeight = 40,
+} = {}) {
+  const parents = indexParents(root)
+  let current = parents.get(node.id)
+  while (current) {
+    const bounds = current.bounds
+    if (
+      bounds &&
+      bounds.width >= minWidth &&
+      bounds.height >= minHeight &&
+      bounds.height <= maxHeight
+    ) return current
+    current = parents.get(current.id)
+  }
+  return undefined
+}
+
 function findBounds(node, app) {
   if (node.bounds) return Promise.resolve(node.bounds)
   return app.backend.getBounds(node.id)
@@ -365,8 +385,25 @@ try {
   assertText(tree, "Rect 1", "resized rectangle layer after retained Canvas text paint")
 
   // AI prompt mounts from the copied Assets action; no generation request is sent.
+  // The source handler is on the full-width Button, not its painted text leaf.
   const generate = findText(tree, "Generate with AI")
-  await clickNode(app, generate)
+  const generateButton = paintedRowAncestor(tree, generate, { minWidth: 120, minHeight: 28, maxHeight: 40 })
+  assert(
+    generateButton,
+    `Generate with AI did not expose a painted button row: ${JSON.stringify(
+      (() => {
+        const parents = indexParents(tree)
+        const chain = []
+        let current = parents.get(generate.id)
+        while (current && chain.length < 6) {
+          chain.push({ type: current.type, bounds: current.bounds, text: textContent(current) })
+          current = parents.get(current.id)
+        }
+        return chain
+      })(),
+    )}`,
+  )
+  await clickNode(app, generateButton)
   tree = await waitFor("AI prompt textarea", async () => {
     const next = await currentTree(app)
     return descendants(next).some((node) => node.type === "textarea") ? next : null
