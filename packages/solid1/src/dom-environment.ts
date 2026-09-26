@@ -1148,7 +1148,6 @@ function defaultRequestAnimationFrame(callback: (time: number) => void): ReturnT
 function defaultComputedStyle(element: Element, _pseudoElement?: string | null): CompatComputedStyle {
   const node = element instanceof HostElementNode ? element : undefined
   const style = node?.style
-  const bounds = node?.getBoundingClientRect()
   const overflow = cssString(style?.overflow, "visible")
   const overflowX = cssString(style?.overflowX, overflow)
   const overflowY = cssString(style?.overflowY, overflow)
@@ -1159,12 +1158,15 @@ function defaultComputedStyle(element: Element, _pseudoElement?: string | null):
     ["overflow-x", overflowX],
     ["overflow-y", overflowY],
     ["scroll-behavior", style?.getPropertyValue("scroll-behavior") || "auto"],
-    ["width", `${bounds?.width ?? 0}px`],
-    ["height", `${bounds?.height ?? 0}px`],
     ["padding-left", cssLength(style?.paddingLeft ?? style?.padding)],
     ["padding-top", cssLength(style?.paddingTop ?? style?.padding)],
     ["transform", style?.getPropertyValue("transform") || "none"],
   ])
+  let measuredBounds: CompatRect | undefined
+  const bounds = () => {
+    measuredBounds ??= node?.getBoundingClientRect() ?? zeroCompatRect()
+    return measuredBounds
+  }
   return {
     animationName: "none",
     animationDuration: "0s",
@@ -1177,8 +1179,12 @@ function defaultComputedStyle(element: Element, _pseudoElement?: string | null):
     overflowX,
     overflowY,
     scrollBehavior: values.get("scroll-behavior")!,
-    width: values.get("width")!,
-    height: values.get("height")!,
+    get width() {
+      return `${bounds().width}px`
+    },
+    get height() {
+      return `${bounds().height}px`
+    },
     paddingLeft: values.get("padding-left")!,
     paddingTop: values.get("padding-top")!,
     transform: values.get("transform")!,
@@ -1190,9 +1196,15 @@ function defaultComputedStyle(element: Element, _pseudoElement?: string | null):
     contain: "none",
     getPropertyValue(name) {
       const normalized = String(name).trim().toLowerCase()
+      if (normalized === "width") return `${bounds().width}px`
+      if (normalized === "height") return `${bounds().height}px`
       return values.get(normalized) ?? style?.getPropertyValue(name) ?? ""
     },
   }
+}
+
+function zeroCompatRect(): CompatRect {
+  return { x: 0, y: 0, left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 }
 }
 
 type CssComputedValue = string | number | undefined
