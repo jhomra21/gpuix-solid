@@ -167,14 +167,24 @@ export function applyNativeStyleParentSize(
   if (!style) return style
   const result: StyleDesc = { ...style }
 
-  result.width = resolveRelativeDimension(result.width, parentWidth)
-  result.minWidth = resolveRelativeDimension(result.minWidth, parentWidth)
-  result.maxWidth = resolveRelativeDimension(result.maxWidth, parentWidth)
-  result.height = resolveRelativeDimension(result.height, parentHeight)
-  result.minHeight = resolveRelativeDimension(result.minHeight, parentHeight)
-  result.maxHeight = resolveRelativeDimension(result.maxHeight, parentHeight)
+  applyResolvedDimension(result, "width", parentWidth)
+  applyResolvedDimension(result, "minWidth", parentWidth)
+  applyResolvedDimension(result, "maxWidth", parentWidth)
+  applyResolvedDimension(result, "height", parentHeight)
+  applyResolvedDimension(result, "minHeight", parentHeight)
+  applyResolvedDimension(result, "maxHeight", parentHeight)
 
   return result
+}
+
+function applyResolvedDimension(
+  style: StyleDesc,
+  property: "width" | "minWidth" | "maxWidth" | "height" | "minHeight" | "maxHeight",
+  parentSize: number | undefined,
+): void {
+  const value = resolveRelativeDimension(style[property], parentSize)
+  if (value === undefined) delete style[property]
+  else style[property] = value
 }
 
 function resolveRelativeDimension(
