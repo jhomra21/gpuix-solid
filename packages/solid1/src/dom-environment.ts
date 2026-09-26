@@ -1195,15 +1195,17 @@ function defaultComputedStyle(element: Element, _pseudoElement?: string | null):
   }
 }
 
-function cssString(value: unknown, fallback: string): string {
-  if (value === undefined || value === null || value === "") return fallback
+type CssComputedValue = string | number | undefined
+
+function cssString(value: CssComputedValue, fallback: string): string {
+  if (value === undefined || value === "") return fallback
   return String(value)
 }
 
-function cssLength(value: unknown): string {
-  if (value === undefined || value === null || value === "") return "0px"
-  if (typeof value === "number") return `${value}px`
-  return String(value)
+function cssLength(value: CssComputedValue): string {
+  if (value === undefined || value === "") return "0px"
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? `${numeric}px` : String(value)
 }
 
 class CompatImageLoader implements CompatImage {
