@@ -533,7 +533,7 @@ function prepareImperativeDomElement(element: Element): HostElementNode {
   return element
 }
 
-function installBrowserStyleMutationCompatibility(element: HostElementNode): void {
+export function installBrowserStyleMutationCompatibility(element: HostElementNode): void {
   let declaration = createBrowserStyleProxy(element, element.style)
   Object.defineProperty(element, "style", {
     configurable: true,

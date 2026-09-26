@@ -1,7 +1,19 @@
 import "./dom-environment.js"
 import { installPacedAnimationFrame } from "./animation-frame.js"
+import { HostElementNode } from "./host/nodes.js"
+import { createElement as createUniversalElement } from "./universal.js"
+import { installBrowserStyleMutationCompatibility } from "./web.js"
 
 installPacedAnimationFrame()
+
+export function createElement(tagName: string): HostElementNode {
+  const node = createUniversalElement(tagName)
+  if (!(node instanceof HostElementNode)) {
+    throw new TypeError(`Expected GPUIX host element for <${tagName}>`)
+  }
+  installBrowserStyleMutationCompatibility(node)
+  return node
+}
 
 export { render, resetRender } from "./runtime.js"
 export type { RenderHandle, RenderOptions } from "./runtime.js"
@@ -46,7 +58,6 @@ export {
   effect,
   memo,
   createComponent,
-  createElement,
   createTextNode,
   insertNode,
   insert,
