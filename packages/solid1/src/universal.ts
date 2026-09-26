@@ -113,6 +113,10 @@ type PendingFractionalTranslation = {
 const pendingFractionalTranslations = new WeakMap<HostElementNode, PendingFractionalTranslation>()
 const scheduledFractionalTranslations = new WeakSet<HostElementNode>()
 
+type MeasuredLayoutSize = { width?: number; height?: number }
+const measuredLayoutSizes = new WeakMap<HostElementNode, MeasuredLayoutSize>()
+const scheduledParentMeasurements = new WeakSet<HostElementNode>()
+
 const TEXT_SEMANTIC_TAGS = new Set([
   "span",
   "p",
@@ -815,6 +819,7 @@ function applyNativeStyleState(node: HostElementNode): void {
     applyNativeStyleTranslation(autoMarginStyle, classTranslation, undefined, supportsAutoMargins) ?? {},
   )
   scheduleMeasuredFractionalTranslation(node, autoMarginStyle, classTranslation)
+  scheduleMeasuredParentSize(node, viewportStyle)
 }
 
 function scheduleMeasuredFractionalTranslation(
@@ -961,12 +966,59 @@ function resolvedNativeNodeSize(parent: HostParent | null, axis: "x" | "y"): num
   const explicit = axis === "x" ? style.width : style.height
   const explicitSize = resolvedNativeDimension(explicit, parentSize)
   if (explicitSize !== undefined) return explicitSize
-  if (parentSize === undefined) return undefined
 
-  const start = resolvedNativePosition(axis === "x" ? style.left : style.top, parentSize)
-  const end = resolvedNativePosition(axis === "x" ? style.right : style.bottom, parentSize)
-  if (start === undefined || end === undefined) return undefined
-  return Math.max(0, parentSize - start - end)
+  if (parentSize !== undefined) {
+    const start = resolvedNativePosition(axis === "x" ? style.left : style.top, parentSize)
+    const end = resolvedNativePosition(axis === "x" ? style.right : style.bottom, parentSize)
+    if (start !== undefined && end !== undefined) return Math.max(0, parentSize - start - end)
+  }
+
+  const measured = measuredLayoutSizes.get(parent)
+  return axis === "x" ? measured?.width : measured?.height
+}
+
+function scheduleMeasuredParentSize(node: HostElementNode, sourceStyle: StyleDesc | undefined): void {
+  const parent = node.parent
+  if (!sourceStyle || !parent || parent.kind !== "element") return
+
+  const needsWidth = hasPercentageDimension(sourceStyle.width)
+    || hasPercentageDimension(sourceStyle.minWidth)
+    || hasPercentageDimension(sourceStyle.maxWidth)
+  const needsHeight = hasPercentageDimension(sourceStyle.height)
+    || hasPercentageDimension(sourceStyle.minHeight)
+    || hasPercentageDimension(sourceStyle.maxHeight)
+  if (!needsWidth && !needsHeight) return
+  if (scheduledParentMeasurements.has(node)) return
+  scheduledParentMeasurements.add(node)
+
+  queueMicrotask(() => {
+    scheduledParentMeasurements.delete(node)
+    const root = node.root
+    const currentParent = node.parent
+    if (!root || !node.nativeAlive || !currentParent || currentParent.kind !== "element" || !currentParent.nativeAlive) return
+
+    root.driver.flush()
+    const bounds = currentParent.getBoundingClientRect()
+    const next: MeasuredLayoutSize = {
+      width: bounds.width > 0 ? bounds.width : undefined,
+      height: bounds.height > 0 ? bounds.height : undefined,
+    }
+    if ((needsWidth && next.width === undefined) || (needsHeight && next.height === undefined)) return
+
+    const previous = measuredLayoutSizes.get(currentParent)
+    const changed =
+      (needsWidth && previous?.width !== next.width) ||
+      (needsHeight && previous?.height !== next.height)
+    measuredLayoutSizes.set(currentParent, next)
+    if (!changed) return
+
+    reapplyNativeStyleSubtree(node)
+    root.driver.flush()
+  })
+}
+
+function hasPercentageDimension(value: DimensionValue | undefined): boolean {
+  return typeof value === "string" && /^-?(?:\d+(?:\.\d+)?|\.\d+)%$/.test(value.trim())
 }
 
 function resolvedNativeDimension(value: DimensionValue | undefined, parentSize: number | undefined): number | undefined {
