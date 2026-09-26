@@ -267,6 +267,11 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     })
   }
 
+  invalidateScrollMeasurements(): void {
+    this.#scrollViewportCache = undefined
+    this.#scrollOffsetCache = undefined
+  }
+
   get clientWidth(): number {
     return this.scrollViewportSize().width
   }
@@ -691,8 +696,7 @@ export function setHostProperty<T>(
   if (name === "style") {
     const previousPointerEvents = effectivePointerEvents(node)
     const previousColor = node.style.color
-    node.#scrollViewportCache = undefined
-    node.#scrollOffsetCache = undefined
+    node.invalidateScrollMeasurements()
     node.style = createHostStyleDeclaration(node, isStyle(value) ? value : {})
     if (node.root && node.nativeAlive) {
       const nextPointerEvents = effectivePointerEvents(node)
