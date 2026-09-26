@@ -8,6 +8,7 @@ import { parseDragData } from "./drag-data.js"
 import { delegatedNativeEventTypesForTarget, EVENT_PROP_TO_TYPE, hasDelegatedNativeHandler, nativeEventTypeForBrowserEvent, nativeEventTypeForDomEvent, type DomCompatTarget, type EventRegistry } from "./events.js"
 import type { MutationDriver, MutationValue } from "./mutations.js"
 import type {
+  DimensionValue,
   DragData,
   ElementType,
   HostEventHandler,
@@ -1105,10 +1106,9 @@ function nativeTextStyle(
   return { ...style, pointerEvents }
 }
 
-function finiteLayoutLength(value: unknown): number | undefined {
-  if (typeof value === "number") return Number.isFinite(value) ? value : undefined
-  if (typeof value !== "string") return undefined
-  const trimmed = value.trim()
+function finiteLayoutLength(value: DimensionValue | undefined): number | undefined {
+  if (value === undefined) return undefined
+  const trimmed = String(value).trim()
   const pixels = trimmed.match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))px$/i)
   if (pixels) return Number(pixels[1])
   const numeric = Number(trimmed)
