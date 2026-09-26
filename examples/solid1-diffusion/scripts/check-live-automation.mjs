@@ -98,6 +98,32 @@ function textContent(node) {
   return `${node.text ?? ""}${(node.children ?? []).map(textContent).join("")}`
 }
 
+function nativeTreeSummary(node, depth = 0) {
+  if (!node || depth > 5) return null
+  const style = node.style ?? {}
+  return {
+    id: node.id,
+    type: node.type,
+    text: node.text,
+    testId: node.testId,
+    bounds: node.bounds,
+    events: node.events,
+    style: {
+      display: style.display,
+      flexDirection: style.flexDirection,
+      flexGrow: style.flexGrow,
+      flexShrink: style.flexShrink,
+      height: style.height,
+      minHeight: style.minHeight,
+      maxHeight: style.maxHeight,
+      overflow: style.overflow,
+      overflowY: style.overflowY,
+      position: style.position,
+    },
+    children: (node.children ?? []).map((child) => nativeTreeSummary(child, depth + 1)).filter(Boolean),
+  }
+}
+
 function findNode(root, predicate, label) {
   const found = descendants(root).find(predicate)
   assert(found, `Could not find ${label}`)
@@ -560,6 +586,12 @@ try {
   assert(layerBeforeScroll.bounds, "Timeline layer label has no bounds before wheel scrolling")
   const layerScroll = app.getByTestId("diffusion-timeline-layers-scroll")
   await layerScroll.waitFor()
+  const layerScrollNode = findNode(
+    tree,
+    (node) => node.testId === "diffusion-timeline-layers-scroll",
+    "timeline layer scroll surface",
+  )
+  console.log("Diffusion timeline layer scroll diagnostic:", JSON.stringify(nativeTreeSummary(layerScrollNode)))
   const layerBeforeY = layerBeforeScroll.bounds.y
   await layerScroll.wheel(0, -180)
   tree = await waitFor("timeline layer wheel translation", async () => {
