@@ -29,6 +29,11 @@ const nativeCompatEntries = new Map([
   // compiler does not emit candidates for their class spellings. Preserve the
   // source-owned values explicitly instead of substituting a neighboring token.
   ["font-450", { base: { fontWeight: 450 } }],
+  ["[&_h1]:font-450", { descendants: { h1: { base: { fontWeight: 450 } } } }],
+  ["[&_h2]:font-450", { descendants: { h2: { base: { fontWeight: 450 } } } }],
+  ["[&_h3]:font-450", { descendants: { h3: { base: { fontWeight: 450 } } } }],
+  ["[&_strong]:font-450", { descendants: { strong: { base: { fontWeight: 450 } } } }],
+  ["[&_b]:font-450", { descendants: { b: { base: { fontWeight: 450 } } } }],
   ["border-border-input", {
     light: { borderColor: "hsla(0, 0%, 88%, 1)" },
     dark: { borderColor: "hsla(0, 0%, 100%, 0.09)" },
@@ -175,6 +180,15 @@ const nativeCompatEntries = new Map([
 ])
 
 const explicitlyIgnored = new Map([
+  ["[&_a]:underline", "pinned GPUIX edge does not expose text-decoration in StyleDesc; links keep source color and click semantics without the browser underline"],
+  ["[&_a]:underline-offset-2", "pinned GPUIX edge does not expose text-underline-offset; links keep source color and click semantics"],
+  ["[&_ul]:list-disc", "native semantic lists do not publish CSS list-marker painting; list content and indentation remain intact"],
+  ["[&_ol]:list-decimal", "native semantic lists do not publish CSS list-marker painting; list content and indentation remain intact"],
+  ["[&_table]:border-collapse", "GPUIX does not expose table border-collapse; table cells keep their authored borders and spacing"],
+  ["[&_p:first-child]:mt-0", "native descendant styling does not publish structural :first-child matching; Markdown paragraph spacing remains otherwise source-authored"],
+  ["[&_p:last-child]:mb-0", "native descendant styling does not publish structural :last-child matching; Markdown paragraph spacing remains otherwise source-authored"],
+  ["[&_pre_code]:bg-transparent", "native descendant manifest does not yet express chained pre code selectors; code blocks keep the authored pre background"],
+  ["[&_pre_code]:p-0", "native descendant manifest does not yet express chained pre code selectors; code blocks keep the authored pre padding"],
   ["field-sizing-content", "browser field-sizing has no GPUIX style field; the pinned project-name input still keeps its authored auto/min/max width constraints"],
   ["list-disc", "native semantic lists do not publish CSS list-marker painting; list content, indentation, and vertical spacing remain intact"],
   ["max-w-[calc(100%-2rem)]", "native Dialog/FloatingLayer owns viewport-safe popup placement; the source sm:max-w-lg desktop cap remains native"],
@@ -848,12 +862,15 @@ function findCandidateRule(rootNode, candidate) {
 }
 
 function descendantTarget(candidate) {
-  const descendant = candidate.match(/^\[&_([A-Za-z][\w-]*)\]:/)
+  const descendant = candidate.match(/^\[&_([A-Za-z][A-Za-z0-9-]*)\]:/)
   if (descendant) return descendant[1]
   const directChild = candidate.match(/^\[&>([A-Za-z][\w-]*)\]:/)
   if (directChild) return `>${directChild[1]}`
   const dataChild = candidate.match(/^\*:data-\[([A-Za-z][\w-]*)=([^\]]+)\]:/)
   if (dataChild) return `>[data-${dataChild[1]}=${dataChild[2]}]`
+  if (candidate.startsWith("[&_")) {
+    throw new Error(`Unsupported native descendant selector ${JSON.stringify(candidate)}; add explicit compatibility or an omission before compiling it`)
+  }
   return undefined
 }
 
