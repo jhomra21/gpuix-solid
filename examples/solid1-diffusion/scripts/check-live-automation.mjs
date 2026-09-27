@@ -675,6 +675,12 @@ try {
     x: rowBounds.x + rowBounds.width / 2,
     y: rowBounds.y + rowBounds.height / 2,
   }
+  console.error("GPUix Diffusion context target", JSON.stringify({
+    rowLabelId: rowLabel.id,
+    rowId: row.id,
+    rowBounds,
+    contextPoint,
+  }))
   await app.mouse.move(contextPoint)
   await delay(45)
   await app.mouse.click(contextPoint, { button: 2 })
