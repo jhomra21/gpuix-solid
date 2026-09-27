@@ -1,7 +1,7 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -5273,6 +5273,21 @@ fn build_element(
+@@ -5273,6 +5273,22 @@ fn build_element(
                  });
              }
  
