@@ -12,5 +12,22 @@
   "apps/web/src/components/ui/separator.tsx",
   "apps/web/src/components/ui/tooltip.tsx",
   "apps/web/src/engine/canvas.tsx",
-  "apps/web/src/components/sidebar-right/inspector/transform/index.ts"
+  "apps/web/src/components/sidebar-right/inspector/transform/index.ts",
+  "apps/web/src/agent-chat/attachments.tsx",
+  "apps/web/src/agent-chat/chat-panel.tsx",
+  "apps/web/src/agent-chat/composer.tsx",
+  "apps/web/src/agent-chat/connection.ts",
+  "apps/web/src/agent-chat/header-actions.tsx",
+  "apps/web/src/agent-chat/history-menu.tsx",
+  "apps/web/src/agent-chat/index.ts",
+  "apps/web/src/agent-chat/items.tsx",
+  "apps/web/src/agent-chat/markdown.tsx",
+  "apps/web/src/agent-chat/model-picker.tsx",
+  "apps/web/src/agent-chat/question-card.tsx",
+  "apps/web/src/agent-chat/recent-chats.tsx",
+  "apps/web/src/agent-chat/running-indicator.tsx",
+  "apps/web/src/agent-chat/sidebar-tabs.tsx",
+  "apps/web/src/agent-chat/stick-to-bottom.ts",
+  "apps/web/src/agent-chat/store.ts",
+  "apps/web/src/agent-chat/transcript.tsx"
 ]
