@@ -1,0 +1,29 @@
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+index c43ff69..d8f4dc0 100644
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -5123,16 +5123,10 @@ fn build_element(
+         if crate::style::should_occlude(style) {
+             // BlockMouse (occlude) stops the hit test, so the parent scroller
+-            // never sees the wheel. HTML does not work that way: a wheel over
+-            // an absolutely positioned card still scrolls the ancestor. Only
+-            // `pointerEvents: "auto"` opts into stealing it. Everything else
+-            // uses BlockMouseExceptScroll.
++            // never sees the wheel. HTML does not work that way: mouse-hittable
++            // descendants still let wheel events bubble to ancestor scrollers.
++            // Use BlockMouseExceptScroll for normal host elements, including
++            // `pointerEvents: "auto"`.
+             //
+             // Absolute used to steal it too. That made a pannable canvas
+             // impossible: every absolutely placed item (a timeline clip, a
+             // graph node) ended the hit test before the pan listener ran.
+             // `<anchored>` still occludes through its own `occlude` prop, so
+             // menus and tooltips are unaffected.
+-            el = if style.pointer_events.as_deref() == Some("auto") {
+-                el.occlude()
+-            } else {
+-                el.block_mouse_except_scroll()
+-            };
++            el = el.block_mouse_except_scroll();
+         }
+     }

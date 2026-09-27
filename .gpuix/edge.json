@@ -14,6 +14,7 @@
     "patches/gpuix/percentage-position-v1.patch",
     "patches/gpuix/auto-margin-v1.patch",
     "patches/gpuix/display-none-v1.patch",
-    "patches/gpuix/automation-click-view-lease-v1.patch"
+    "patches/gpuix/automation-click-view-lease-v1.patch",
+    "patches/gpuix/pointer-events-auto-scroll-v1.patch"
   ]
 }
