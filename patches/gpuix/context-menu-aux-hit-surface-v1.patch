@@ -1,20 +1,29 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -5273,6 +5273,28 @@ fn build_element(
-                 });
-             }
+@@ -5463,12 +5463,33 @@ fn build_element(
+     // Children
+     let child_ids: Vec<u64> = element.children.clone();
+     for child_id in child_ids {
+         let child = build_element(child_id, ctx, window, cx);
+         el = if overflow_x_only {
+             el.child(gpui::div().flex_none().child(child))
+         } else {
+             el.child(child)
+         };
+     }
  
-+            // ── Context menu (secondary press), like DOM `contextmenu` ──
-+            //
-+            // Use a capture-phase listener instead of an occluding hit surface:
-+            // nested child hitboxes still participate in ordinary primary clicks,
-+            // while a right-button press inside this element reaches the owner.
-+            "contextMenu" => {
-+                el = el.capture_any_mouse_down(move |mouse_event, _window, _cx| {
-+                    if mouse_event.button != gpui::MouseButton::Right {
-+                        return;
-+                    }
++    // Context menus need to win secondary-button hit testing even when a nested
++    // label owns its own interactive hitbox. A final absolute child gives the
++    // right button a topmost normal hitbox without blocking primary clicks.
++    if element.events.contains("contextMenu") {
++        let id = element.id;
++        let callback = ctx.event_callback.clone();
++        el = el.child(
++            gpui::div()
++                .absolute()
++                .inset_0()
++                .on_mouse_down(gpui::MouseButton::Right, move |mouse_event, _window, _cx| {
 +                    emit_event_full(&callback, id, "contextMenu", |p| {
 +                        let (x, y) = point_to_xy(mouse_event.position);
 +                        p.x = Some(x);
@@ -24,9 +33,9 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +                        p.modifiers = Some(mouse_event.modifiers.into());
 +                        p.is_right_click = Some(true);
 +                    });
-+                });
-+            }
++                }),
++        );
++    }
 +
-             // ── Mouse down (all buttons) ─────────────────────────
-             "mouseDown" => {
-                 // Wire all three buttons so JS gets right-click, middle-click, etc.
+     el.into_any_element()
+ }
