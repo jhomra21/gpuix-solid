@@ -765,10 +765,24 @@ try {
     !readFileSync(screenshots.chatMarkdown).equals(readFileSync(screenshots.chat)),
     "Chat composer input did not produce a visible native frame",
   )
-  const assetsTab = app.getByTestId("diffusion-sidebar-tab-assets")
-  await assetsTab.waitFor()
-  await assetsTab.click()
-  tree = await getFreshTree(app)
+  const assetsTabs = descendants(tree).filter(
+    (node) =>
+      node.testId === "diffusion-sidebar-tab-assets"
+      && node.bounds
+      && node.bounds.width > 0
+      && node.bounds.height > 0,
+  )
+  assert(
+    assetsTabs.length > 0,
+    "Could not find a painted Assets sidebar tab after Chat interaction",
+  )
+  await clickNode(app, assetsTabs[0])
+  tree = await waitFor("Assets restored after Chat navigation", async () => {
+    const nextTree = await currentTree(app)
+    return descendants(nextTree).some((node) => (node.text ?? "").includes("Generate with AI"))
+      ? nextTree
+      : null
+  })
   assertText(tree, "Generate with AI", "Assets restored after Chat navigation")
   assert(!descendants(tree).some((node) => node.type === "textarea"), "Chat composer remained mounted after returning to Assets")
 
