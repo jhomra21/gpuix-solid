@@ -1,7 +1,7 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -5510,6 +5510,36 @@ fn build_element(
+@@ -5510,6 +5510,39 @@ fn build_element(
              el.child(child)
          };
      }
@@ -18,6 +18,9 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +                .absolute()
 +                .inset_0()
 +                .size_full()
++                .on_painted(move |bounds, _window, _cx| {
++                    eprintln!("[gpuix context overlay] painted id={id} bounds={bounds:?}");
++                })
 +                .on_aux_click(move |click_event, _window, _cx| {
 +                    if !click_event.is_right_click() {
 +                        return;
