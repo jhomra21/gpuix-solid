@@ -671,6 +671,7 @@ export class EventRegistry {
         return
       }
       case "mouseUp": {
+        this.#nativeMouseDownBubble = undefined
         this.#lastPointerEvent.set(POINTER_ID, event)
         const completedDrag = this.#finishDrag(event.elementId, event, resolvedDragTargetId)
         const activeRangeId = this.#activeRangeId
