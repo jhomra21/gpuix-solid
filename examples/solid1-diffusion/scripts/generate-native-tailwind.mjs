@@ -563,6 +563,7 @@ function collectCandidates(sources) {
   for (const { sourcePath, text } of sources) {
     const scriptKind = sourcePath.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS
     const sourceFile = ts.createSourceFile(sourcePath, text, ts.ScriptTarget.Latest, true, scriptKind)
+    const bindings = collectLocalConstBindings(sourceFile)
 
     const visit = (node) => {
       if (ts.isJsxAttribute(node)) {
@@ -575,22 +576,22 @@ function collectCandidates(sources) {
             attributeName.endsWith("ClassName")
           )
         ) {
-          collectClassExpression(node.initializer, candidates)
+          collectClassExpression(node.initializer, candidates, bindings)
           return
         }
         if (attributeName === "classList") {
-          collectClassListExpression(node.initializer, candidates)
+          collectClassListExpression(node.initializer, candidates, bindings)
           return
         }
       }
 
       if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && (node.expression.text === "cn" || node.expression.text === "clsx" || node.expression.text === "cx")) {
-        for (const argument of node.arguments) collectClassExpression(argument, candidates)
+        for (const argument of node.arguments) collectClassExpression(argument, candidates, bindings)
         return
       }
 
       if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "cva") {
-        collectCvaCall(node, candidates)
+        collectCvaCall(node, candidates, bindings)
         return
       }
 
@@ -603,16 +604,46 @@ function collectCandidates(sources) {
   return [...candidates].sort()
 }
 
-function collectClassExpression(node, candidates) {
+function collectLocalConstBindings(sourceFile) {
+  const bindings = new Map()
+
+  const visit = (node) => {
+    if (
+      ts.isVariableDeclaration(node)
+      && ts.isIdentifier(node.name)
+      && node.initializer
+      && node.parent
+      && ts.isVariableDeclarationList(node.parent)
+      && (node.parent.flags & ts.NodeFlags.Const) !== 0
+    ) {
+      bindings.set(node.name.text, node.initializer)
+    }
+    ts.forEachChild(node, visit)
+  }
+
+  visit(sourceFile)
+  return bindings
+}
+
+function collectClassExpression(node, candidates, bindings = new Map(), resolving = new Set()) {
   if (!node) return
 
+  if (ts.isIdentifier(node)) {
+    const initializer = bindings.get(node.text)
+    if (!initializer || resolving.has(node.text)) return
+    resolving.add(node.text)
+    collectClassExpression(initializer, candidates, bindings, resolving)
+    resolving.delete(node.text)
+    return
+  }
+
   if (ts.isJsxExpression(node) || ts.isParenthesizedExpression(node)) {
-    collectClassExpression(node.expression, candidates)
+    collectClassExpression(node.expression, candidates, bindings, resolving)
     return
   }
 
   if (ts.isTaggedTemplateExpression(node) && ts.isIdentifier(node.tag) && node.tag.text === "tw") {
-    collectClassExpression(node.template, candidates)
+    collectClassExpression(node.template, candidates, bindings, resolving)
     return
   }
 
@@ -624,21 +655,21 @@ function collectClassExpression(node, candidates) {
   if (ts.isTemplateExpression(node)) {
     addClassString(node.head.text, candidates)
     for (const span of node.templateSpans) {
-      collectClassExpression(span.expression, candidates)
+      collectClassExpression(span.expression, candidates, bindings, resolving)
       addClassString(span.literal.text, candidates)
     }
     return
   }
 
   if (ts.isConditionalExpression(node)) {
-    collectClassExpression(node.whenTrue, candidates)
-    collectClassExpression(node.whenFalse, candidates)
+    collectClassExpression(node.whenTrue, candidates, bindings, resolving)
+    collectClassExpression(node.whenFalse, candidates, bindings, resolving)
     return
   }
 
   if (ts.isBinaryExpression(node)) {
     if (node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
-      collectClassExpression(node.right, candidates)
+      collectClassExpression(node.right, candidates, bindings, resolving)
       return
     }
     if (
@@ -646,26 +677,35 @@ function collectClassExpression(node, candidates) {
       node.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken ||
       node.operatorToken.kind === ts.SyntaxKind.PlusToken
     ) {
-      collectClassExpression(node.left, candidates)
-      collectClassExpression(node.right, candidates)
+      collectClassExpression(node.left, candidates, bindings, resolving)
+      collectClassExpression(node.right, candidates, bindings, resolving)
     }
     return
   }
 
   if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && (node.expression.text === "cn" || node.expression.text === "clsx" || node.expression.text === "cx")) {
-    for (const argument of node.arguments) collectClassExpression(argument, candidates)
+    for (const argument of node.arguments) collectClassExpression(argument, candidates, bindings, resolving)
+    return
+  }
+
+  if (
+    ts.isCallExpression(node)
+    && ts.isPropertyAccessExpression(node.expression)
+    && node.expression.name.text === "join"
+  ) {
+    collectClassExpression(node.expression.expression, candidates, bindings, resolving)
     return
   }
 
   if (ts.isArrayLiteralExpression(node)) {
-    for (const element of node.elements) collectClassExpression(element, candidates)
+    for (const element of node.elements) collectClassExpression(element, candidates, bindings, resolving)
     return
   }
 
   if (ts.isObjectLiteralExpression(node)) {
     for (const property of node.properties) {
       if (ts.isPropertyAssignment(property) || ts.isShorthandPropertyAssignment(property)) {
-        collectClassListKey(property.name, candidates)
+        collectClassListKey(property.name, candidates, bindings, resolving)
       }
     }
   }
@@ -676,32 +716,32 @@ function propertyNameText(name) {
   return undefined
 }
 
-function collectCvaCall(node, candidates) {
+function collectCvaCall(node, candidates, bindings = new Map()) {
   const first = node.arguments[0]
   const second = node.arguments[1]
 
   if (first && ts.isObjectLiteralExpression(first) && !second) {
-    collectCvaConfig(first, candidates)
+    collectCvaConfig(first, candidates, bindings)
     return
   }
 
-  collectClassExpression(first, candidates)
-  if (second && ts.isObjectLiteralExpression(second)) collectCvaConfig(second, candidates)
+  collectClassExpression(first, candidates, bindings)
+  if (second && ts.isObjectLiteralExpression(second)) collectCvaConfig(second, candidates, bindings)
 }
 
-function collectCvaConfig(config, candidates) {
+function collectCvaConfig(config, candidates, bindings = new Map()) {
   for (const property of config.properties) {
     if (!ts.isPropertyAssignment(property)) continue
     const name = propertyNameText(property.name)
     if (name === "base") {
-      collectClassExpression(property.initializer, candidates)
+      collectClassExpression(property.initializer, candidates, bindings)
       continue
     }
     if (name === "variants" && ts.isObjectLiteralExpression(property.initializer)) {
       for (const variant of property.initializer.properties) {
         if (!ts.isPropertyAssignment(variant) || !ts.isObjectLiteralExpression(variant.initializer)) continue
         for (const option of variant.initializer.properties) {
-          if (ts.isPropertyAssignment(option)) collectClassExpression(option.initializer, candidates)
+          if (ts.isPropertyAssignment(option)) collectClassExpression(option.initializer, candidates, bindings)
         }
       }
       continue
@@ -712,18 +752,27 @@ function collectCvaConfig(config, candidates) {
         for (const entry of compound.properties) {
           if (!ts.isPropertyAssignment(entry)) continue
           const entryName = propertyNameText(entry.name)
-          if (entryName === "class" || entryName === "className") collectClassExpression(entry.initializer, candidates)
+          if (entryName === "class" || entryName === "className") collectClassExpression(entry.initializer, candidates, bindings)
         }
       }
     }
   }
 }
 
-function collectClassListExpression(node, candidates) {
+function collectClassListExpression(node, candidates, bindings = new Map(), resolving = new Set()) {
   if (!node) return
 
   if (ts.isJsxExpression(node)) {
-    collectClassListExpression(node.expression, candidates)
+    collectClassListExpression(node.expression, candidates, bindings, resolving)
+    return
+  }
+
+  if (ts.isIdentifier(node)) {
+    const initializer = bindings.get(node.text)
+    if (!initializer || resolving.has(node.text)) return
+    resolving.add(node.text)
+    collectClassListExpression(initializer, candidates, bindings, resolving)
+    resolving.delete(node.text)
     return
   }
 
@@ -731,16 +780,16 @@ function collectClassListExpression(node, candidates) {
 
   for (const property of node.properties) {
     if (ts.isPropertyAssignment(property)) {
-      collectClassListKey(property.name, candidates)
+      collectClassListKey(property.name, candidates, bindings, resolving)
       continue
     }
     if (ts.isSpreadAssignment(property)) {
-      collectClassListExpression(property.expression, candidates)
+      collectClassListExpression(property.expression, candidates, bindings, resolving)
     }
   }
 }
 
-function collectClassListKey(name, candidates) {
+function collectClassListKey(name, candidates, bindings = new Map(), resolving = new Set()) {
   if (ts.isStringLiteralLike(name) || ts.isNoSubstitutionTemplateLiteral(name)) {
     addClassString(name.text, candidates)
     return
@@ -750,7 +799,7 @@ function collectClassListKey(name, candidates) {
     return
   }
   if (ts.isComputedPropertyName(name)) {
-    collectClassExpression(name.expression, candidates)
+    collectClassExpression(name.expression, candidates, bindings, resolving)
   }
 }
 
