@@ -133,6 +133,7 @@ export class MutationDriver {
     if (this.#disposed) throw new Error("GPUix Solid mutation driver is disposed")
     if (hasHandler) this.#contextMenuListeners.set(id, true)
     else this.#contextMenuListeners.delete(id)
+    console.error("[gpuix-solid context relay probe] listener", JSON.stringify({ id, hasHandler }))
     this.#syncActivationSubtree(id)
     this.#schedule()
   }
@@ -358,6 +359,15 @@ export class MutationDriver {
     const previousMouseUp = this.#appliedMouseUpListeners.get(id) ?? false
     if (previousMouseUp !== mouseUp) {
       this.#appliedMouseUpListeners.set(id, mouseUp)
+      if (contextMenuRelay) {
+        console.error("[gpuix-solid context relay probe] mouseUp", JSON.stringify({
+          id,
+          mouseUp,
+          direct: this.#contextMenuListeners.get(id) === true,
+          ancestor: this.#hasContextMenuAncestor(id),
+          type: this.#elementTypes.get(id),
+        }))
+      }
       this.#queue.push(["setEventListener", id, "mouseUp", mouseUp])
     }
   }
