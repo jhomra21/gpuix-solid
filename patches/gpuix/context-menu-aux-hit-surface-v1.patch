@@ -1,7 +1,7 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -5510,6 +5510,30 @@ fn build_element(
+@@ -5510,6 +5510,33 @@ fn build_element(
              el.child(child)
          };
      }
@@ -16,14 +16,17 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +            gpui::div()
 +                .absolute()
 +                .inset_0()
-+                .on_mouse_down(gpui::MouseButton::Right, move |mouse_event, _window, _cx| {
++                .on_aux_click(move |click_event, _window, _cx| {
++                    if !click_event.is_right_click() {
++                        return;
++                    }
 +                    emit_event_full(&callback, id, "contextMenu", |p| {
-+                        let (x, y) = point_to_xy(mouse_event.position);
++                        let (x, y) = point_to_xy(click_event.position());
 +                        p.x = Some(x);
 +                        p.y = Some(y);
 +                        p.button = Some(2);
-+                        p.click_count = Some(mouse_event.click_count as u32);
-+                        p.modifiers = Some(mouse_event.modifiers.into());
++                        p.click_count = Some(click_event.click_count() as u32);
++                        p.modifiers = Some(click_event.modifiers().into());
 +                        p.is_right_click = Some(true);
 +                    });
 +                }),
