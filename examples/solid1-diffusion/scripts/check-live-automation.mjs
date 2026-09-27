@@ -669,7 +669,16 @@ try {
   const rowLabel = findText(tree, "GPUix rectangle")
   const row = paintedRowAncestor(tree, rowLabel)
   assert(row, "Could not resolve the painted layer row for context-menu interaction")
-  await clickNode(app, row, 2)
+  const rowBounds = await findBounds(row, app)
+  assert(rowBounds && rowBounds.width > 0 && rowBounds.height > 0, "Layer row has no clickable bounds")
+  const contextPoint = {
+    x: rowBounds.x + rowBounds.width / 2,
+    y: rowBounds.y + rowBounds.height / 2,
+  }
+  await app.mouse.move(contextPoint)
+  await delay(45)
+  await app.mouse.click(contextPoint, { button: 2 })
+  await delay(180)
   tree = await waitFor("layer context menu", async () => {
     const next = await currentTree(app)
     return descendants(next).some((node) => node.text === "Mute") ? next : null
