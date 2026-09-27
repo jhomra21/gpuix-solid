@@ -1,7 +1,7 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -5510,6 +5510,34 @@ fn build_element(
+@@ -5510,6 +5510,36 @@ fn build_element(
              el.child(child)
          };
      }
@@ -17,10 +17,12 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +                .id(gpui::SharedString::from(format!("__gpuix_context_menu_overlay_{}", id)))
 +                .absolute()
 +                .inset_0()
++                .size_full()
 +                .on_aux_click(move |click_event, _window, _cx| {
 +                    if !click_event.is_right_click() {
 +                        return;
 +                    }
++                    eprintln!("[gpuix context overlay] right aux click id={id}");
 +                    emit_event_full(&callback, id, "contextMenu", |p| {
 +                        let (x, y) = point_to_xy(click_event.position());
 +                        p.x = Some(x);
