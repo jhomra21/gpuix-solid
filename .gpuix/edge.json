@@ -15,6 +15,6 @@
     "patches/gpuix/auto-margin-v1.patch",
     "patches/gpuix/display-none-v1.patch",
     "patches/gpuix/automation-click-view-lease-v1.patch",
-    "patches/gpuix/context-menu-right-down-v1.patch"
+    "patches/gpuix/context-menu-aux-hit-surface-v1.patch"
   ]
 }

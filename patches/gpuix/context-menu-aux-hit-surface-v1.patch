@@ -1,0 +1,26 @@
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -5273,6 +5273,21 @@ fn build_element(
+                 });
+             }
+ 
++            // ── Context menu (non-primary click), like DOM `contextmenu` ──
++            "contextMenu" => {
++                el = el.block_mouse_except_scroll();
++                el = el.on_aux_click(move |click_event, _window, _cx| {
++                    emit_event_full(&callback, id, "contextMenu", |p| {
++                        let (x, y) = point_to_xy(click_event.position());
++                        p.x = Some(x);
++                        p.y = Some(y);
++                        p.button = Some(2);
++                        p.modifiers = Some(click_event.modifiers().into());
++                        p.click_count = Some(click_event.click_count() as u32);
++                        p.is_right_click = Some(click_event.is_right_click());
++                    });
++                });
++            }
++
+             // ── Mouse down (all buttons) ─────────────────────────
+             "mouseDown" => {
+                 // Wire all three buttons so JS gets right-click, middle-click, etc.
