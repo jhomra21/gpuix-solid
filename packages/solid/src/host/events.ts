@@ -716,11 +716,21 @@ export class EventRegistry {
       }
       case "contextMenu": {
         if (this.#isBubbledNativeContextMenu(event)) return
-        this.#dispatchDom(event.elementId, "contextMenu", {
+        const contextEvent = this.#dispatchDom(event.elementId, "contextMenu", {
           ...event,
           button: event.button ?? 2,
           isRightClick: event.isRightClick ?? true,
         })
+        console.error("[gpuix-solid contextmenu probe]", JSON.stringify({
+          elementId: event.elementId,
+          owner: this.#contextMenuOwner(event.elementId),
+          x: event.x,
+          y: event.y,
+          button: event.button,
+          isRightClick: event.isRightClick,
+          defaultPrevented: contextEvent?.defaultPrevented ?? false,
+          cancelBubble: contextEvent?.cancelBubble ?? false,
+        }))
         return
       }
       case "mouseEnter": {
