@@ -17,7 +17,7 @@ export const EVENT_PROPS = [
   ["onClick", "click", "click"],
   ["onDblClick", "dblClick", "click"],
   ["onAuxClick", "auxClick", "auxClick"],
-  ["onContextMenu", "contextMenu", "contextMenu"],
+  ["onContextMenu", "contextMenu", "mouseUp"],
   ["onMouseDown", "mouseDown", "mouseDown"],
   ["onPointerDown", "pointerDown", "mouseDown"],
   ["onMouseUp", "mouseUp", "mouseUp"],
@@ -451,14 +451,6 @@ type NativeClickBubble = {
   y: number
 }
 
-type NativeAuxClickBubble = {
-  ancestors: ReadonlySet<number>
-  clickCount: number
-  isRightClick: boolean
-  x: number
-  y: number
-}
-
 type NativeScrollBubble = {
   ancestors: ReadonlySet<number>
   x: number
@@ -499,7 +491,6 @@ export class EventRegistry {
   readonly #dragData = new Map<number, DragData>()
   #dragSession: DragSession | undefined
   #nativeClickBubble: NativeClickBubble | undefined
-  #nativeAuxClickBubble: NativeAuxClickBubble | undefined
   #nativeContextMenuBubble: NativeClickBubble | undefined
   #nativeScrollBubble: NativeScrollBubble | undefined
   #activeRangeId: number | undefined
@@ -575,9 +566,7 @@ export class EventRegistry {
     this.#lastPointerEvent.clear()
     this.#primaryClickBursts.clear()
     this.#nativeClickBubble = undefined
-    this.#nativeAuxClickBubble = undefined
     this.#nativeContextMenuBubble = undefined
-    this.#nativeScrollBubble = undefined
     this.#activeRangeId = undefined
     this.#lastClick = undefined
   }
@@ -709,20 +698,6 @@ export class EventRegistry {
           ? event
           : { ...event, elementId: clickOwner }
         if (this.#shouldDispatchPrimaryClick(clickEvent, `click:${sourceElementId}`)) this.#dispatchPrimaryClick(clickEvent)
-        return
-      }
-      case "auxClick": {
-        if (this.#isBubbledNativeAuxClick(event)) return
-        this.#dispatchDom(event.elementId, "auxClick", event)
-        return
-      }
-      case "contextMenu": {
-        if (this.#isBubbledNativeContextMenu(event)) return
-        this.#dispatchDom(event.elementId, "contextMenu", {
-          ...event,
-          button: event.button ?? 2,
-          isRightClick: event.isRightClick ?? true,
-        })
         return
       }
       case "mouseEnter": {
@@ -925,39 +900,8 @@ export class EventRegistry {
     return false
   }
 
-  #isBubbledNativeAuxClick(event: NativeEventPayload): boolean {
-    const clickCount = event.clickCount ?? 1
-    const isRightClick = event.isRightClick ?? false
-    const x = event.x ?? 0
-    const y = event.y ?? 0
-    const previous = this.#nativeAuxClickBubble
-    if (
-      previous
-      && previous.ancestors.has(event.elementId)
-      && previous.clickCount === clickCount
-      && previous.isRightClick === isRightClick
-      && previous.x === x
-      && previous.y === y
-    ) {
-      return true
-    }
-
-    const ancestors = new Set<number>()
-    let current = this.#parents.get(event.elementId)
-    while (current !== undefined && current !== null) {
-      ancestors.add(current)
-      current = this.#parents.get(current)
-    }
-    const next: NativeAuxClickBubble = { ancestors, clickCount, isRightClick, x, y }
-    this.#nativeAuxClickBubble = next
-    queueMicrotask(() => {
-      if (this.#nativeAuxClickBubble === next) this.#nativeAuxClickBubble = undefined
-    })
-    return false
-  }
-
   #isBubbledNativeContextMenu(event: NativeEventPayload): boolean {
-    const button = event.button ?? (event.isRightClick ? 2 : 0)
+    const button = event.button ?? 0
     const clickCount = event.clickCount ?? 1
     const x = event.x ?? 0
     const y = event.y ?? 0
@@ -973,7 +917,7 @@ export class EventRegistry {
       return true
     }
 
-    const ancestors = new Set<number>([event.elementId])
+    const ancestors = new Set<number>()
     let current = this.#parents.get(event.elementId)
     while (current !== undefined && current !== null) {
       ancestors.add(current)

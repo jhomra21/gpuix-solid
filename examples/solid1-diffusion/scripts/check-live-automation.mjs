@@ -533,6 +533,32 @@ try {
   assertText(tree, "Background", "blank-space marquee deselection")
   assert(getEditorCanvases(tree).length >= 2, "EngineCanvas or timeline stopped painting after marquee drag")
 
+  // Exercise the real Kobalte layer context menu while the seeded row is still
+  // visible and untransformed. Later timeline overflow and project zoom move this
+  // row outside the viewport, so carrying its bounds forward would test stale geometry.
+  tree = await getFreshTree(app)
+  const rowLabel = findText(tree, "GPUix rectangle")
+  const row = paintedRowAncestor(tree, rowLabel)
+  assert(row, "Could not resolve the painted layer row for context-menu interaction")
+  const rowBounds = await findBounds(row, app)
+  assert(rowBounds && rowBounds.width > 0 && rowBounds.height > 0, "Layer row has no clickable bounds")
+  const contextPoint = {
+    x: rowBounds.x + rowBounds.width / 2,
+    y: rowBounds.y + rowBounds.height / 2,
+  }
+  await app.mouse.move(contextPoint)
+  await delay(45)
+  await app.mouse.click(contextPoint, { button: 2 })
+  await delay(180)
+  tree = await waitFor("layer context menu", async () => {
+    const next = await currentTree(app)
+    return descendants(next).some((node) => node.text === "Mute") ? next : null
+  })
+  await screenshot(app, "contextMenu")
+  const mute = findText(tree, "Mute")
+  await app.backend.keystrokes(mute.id, "escape")
+  await delay(150)
+
   // Build enough real timeline rows to overflow the layer viewport, then drive
   // the upstream Layers wheel handler. Each DrawOverlay insertion returns to
   // Move, so re-arm Rectangle through the real toolbar before every gesture.
@@ -661,38 +687,6 @@ try {
     return descendants(next).some((node) => node.text === "Move") ? next : null
   })
   await clickNode(app, findText(tree, "Move"))
-
-  // Context menu is exercised on the actual painted layer row, not the text
-  // label nested inside it. The label can be a separate GPUI hit surface because
-  // it owns double-click editing behavior.
-  tree = await getFreshTree(app)
-  const rowLabel = findText(tree, "GPUix rectangle")
-  const row = paintedRowAncestor(tree, rowLabel)
-  assert(row, "Could not resolve the painted layer row for context-menu interaction")
-  const rowBounds = await findBounds(row, app)
-  assert(rowBounds && rowBounds.width > 0 && rowBounds.height > 0, "Layer row has no clickable bounds")
-  const contextPoint = {
-    x: rowBounds.x + rowBounds.width / 2,
-    y: rowBounds.y + rowBounds.height / 2,
-  }
-  console.error("GPUix Diffusion context target", JSON.stringify({
-    rowLabelId: rowLabel.id,
-    rowId: row.id,
-    rowBounds,
-    contextPoint,
-  }))
-  await app.mouse.move(contextPoint)
-  await delay(45)
-  await app.mouse.click(contextPoint, { button: 2 })
-  await delay(180)
-  tree = await waitFor("layer context menu", async () => {
-    const next = await currentTree(app)
-    return descendants(next).some((node) => node.text === "Mute") ? next : null
-  })
-  await screenshot(app, "contextMenu")
-  const mute = findText(tree, "Mute")
-  await app.backend.keystrokes(mute.id, "escape")
-  await delay(150)
 
   // Create a scene from the copied editor's real preset popup.
   tree = await getFreshTree(app)
