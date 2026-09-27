@@ -1,7 +1,7 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -5510,6 +5510,33 @@ fn build_element(
+@@ -5510,6 +5510,34 @@ fn build_element(
              el.child(child)
          };
      }
@@ -14,6 +14,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +        let callback = ctx.event_callback.clone();
 +        el = el.child(
 +            gpui::div()
++                .id(gpui::SharedString::from(format!("__gpuix_context_menu_overlay_{}", id)))
 +                .absolute()
 +                .inset_0()
 +                .on_aux_click(move |click_event, _window, _cx| {
