@@ -86,7 +86,6 @@ const INTERACTIVE_ROLES = new Set([
 ])
 
 const EXPLICIT_POINTER_SURFACE_EVENTS = new Set([
-  "auxClick",
   "contextMenu",
   "mouseDown",
   "mouseMove",
@@ -1193,8 +1192,7 @@ function ownsExplicitPointerSurface(node: HostElementNode): boolean {
     if (EXPLICIT_POINTER_SURFACE_EVENTS.has(eventType)) return true
   }
   const nativeEvents = browserNativeEventTypes(node)
-  return nativeEvents.has("auxClick")
-    || nativeEvents.has("mouseDown")
+  return nativeEvents.has("mouseDown")
     || nativeEvents.has("mouseMove")
     || nativeEvents.has("mouseUp")
 }
