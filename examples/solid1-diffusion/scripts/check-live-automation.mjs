@@ -662,9 +662,13 @@ try {
   })
   await clickNode(app, findText(tree, "Move"))
 
-  // Context menu is exercised on the actual layer row; do not select destructive actions.
+  // Context menu is exercised on the actual painted layer row, not the text
+  // label nested inside it. The label can be a separate GPUI hit surface because
+  // it owns double-click editing behavior.
   tree = await getFreshTree(app)
-  const row = findText(tree, "GPUix rectangle")
+  const rowLabel = findText(tree, "GPUix rectangle")
+  const row = paintedRowAncestor(tree, rowLabel)
+  assert(row, "Could not resolve the painted layer row for context-menu interaction")
   await clickNode(app, row, 2)
   tree = await waitFor("layer context menu", async () => {
     const next = await currentTree(app)

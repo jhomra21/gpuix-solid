@@ -106,14 +106,10 @@ export class MutationDriver {
   readonly #children = new Map<number, Set<number>>()
   readonly #elementTypes = new Map<number, string>()
   readonly #directClickListeners = new Map<number, boolean>()
-  readonly #directAuxClickListeners = new Map<number, boolean>()
-  readonly #directMouseDownListeners = new Map<number, boolean>()
   readonly #directMouseUpListeners = new Map<number, boolean>()
   readonly #directScrollListeners = new Map<number, boolean>()
   readonly #contextMenuListeners = new Map<number, boolean>()
   readonly #appliedClickListeners = new Map<number, boolean>()
-  readonly #appliedAuxClickListeners = new Map<number, boolean>()
-  readonly #appliedMouseDownListeners = new Map<number, boolean>()
   readonly #appliedMouseUpListeners = new Map<number, boolean>()
   readonly #appliedScrollListeners = new Map<number, boolean>()
   #queue: Mutation[] = []
@@ -160,18 +156,6 @@ export class MutationDriver {
         // name but implements it from primary mouse-up internally.
         this.#directClickListeners.set(id, hasHandler)
         this.#syncActivationSubtree(id)
-        this.#schedule()
-        return
-      }
-      if (eventType === "auxClick") {
-        this.#directAuxClickListeners.set(id, hasHandler)
-        this.#syncActivationListener(id)
-        this.#schedule()
-        return
-      }
-      if (eventType === "mouseDown") {
-        this.#directMouseDownListeners.set(id, hasHandler)
-        this.#syncActivationListener(id)
         this.#schedule()
         return
       }
@@ -363,26 +347,12 @@ export class MutationDriver {
     const activation = this.#needsClickActivation(id)
     const semanticClick = activation && this.#usesSemanticNativeClick(id)
     const contextMenuRelay = this.#needsContextMenuRelay(id)
-    const auxClick = this.#directAuxClickListeners.get(id) === true || contextMenuRelay
-    const mouseDown = this.#directMouseDownListeners.get(id) === true || contextMenuRelay
     const mouseUp = this.#directMouseUpListeners.get(id) === true || contextMenuRelay || (activation && !semanticClick)
 
     const previousClick = this.#appliedClickListeners.get(id) ?? false
     if (previousClick !== semanticClick) {
       this.#appliedClickListeners.set(id, semanticClick)
       this.#queue.push(["setEventListener", id, "click", semanticClick])
-    }
-
-    const previousAuxClick = this.#appliedAuxClickListeners.get(id) ?? false
-    if (previousAuxClick !== auxClick) {
-      this.#appliedAuxClickListeners.set(id, auxClick)
-      this.#queue.push(["setEventListener", id, "auxClick", auxClick])
-    }
-
-    const previousMouseDown = this.#appliedMouseDownListeners.get(id) ?? false
-    if (previousMouseDown !== mouseDown) {
-      this.#appliedMouseDownListeners.set(id, mouseDown)
-      this.#queue.push(["setEventListener", id, "mouseDown", mouseDown])
     }
 
     const previousMouseUp = this.#appliedMouseUpListeners.get(id) ?? false
@@ -407,14 +377,10 @@ export class MutationDriver {
       this.#children.delete(id)
       this.#elementTypes.delete(id)
       this.#directClickListeners.delete(id)
-      this.#directAuxClickListeners.delete(id)
-      this.#directMouseDownListeners.delete(id)
       this.#directMouseUpListeners.delete(id)
       this.#directScrollListeners.delete(id)
       this.#contextMenuListeners.delete(id)
       this.#appliedClickListeners.delete(id)
-      this.#appliedAuxClickListeners.delete(id)
-      this.#appliedMouseDownListeners.delete(id)
       this.#appliedMouseUpListeners.delete(id)
       this.#appliedScrollListeners.delete(id)
     }

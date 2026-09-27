@@ -17,7 +17,7 @@ export const EVENT_PROPS = [
   ["onClick", "click", "click"],
   ["onDblClick", "dblClick", "click"],
   ["onAuxClick", "auxClick", "auxClick"],
-  ["onContextMenu", "contextMenu", "auxClick"],
+  ["onContextMenu", "contextMenu", "mouseUp"],
   ["onMouseDown", "mouseDown", "mouseDown"],
   ["onPointerDown", "pointerDown", "mouseDown"],
   ["onMouseUp", "mouseUp", "mouseUp"],
@@ -451,14 +451,6 @@ type NativeClickBubble = {
   y: number
 }
 
-type NativeAuxClickBubble = {
-  ancestors: ReadonlySet<number>
-  clickCount: number
-  isRightClick: boolean
-  x: number
-  y: number
-}
-
 type NativeScrollBubble = {
   ancestors: ReadonlySet<number>
   x: number
@@ -473,12 +465,6 @@ type DragSession = {
   startX: number
   startY: number
   started: boolean
-}
-
-type ContextMenuPress = {
-  ownerId: number
-  x: number
-  y: number
 }
 
 function finiteRangeNumber(value: string | null | undefined, fallback: number): number {
@@ -505,10 +491,8 @@ export class EventRegistry {
   readonly #dragData = new Map<number, DragData>()
   #dragSession: DragSession | undefined
   #nativeClickBubble: NativeClickBubble | undefined
-  #nativeAuxClickBubble: NativeAuxClickBubble | undefined
   #nativeContextMenuBubble: NativeClickBubble | undefined
   #nativeScrollBubble: NativeScrollBubble | undefined
-  #contextMenuPress: ContextMenuPress | undefined
   #activeRangeId: number | undefined
   #lastClick: LastClick | undefined
 
@@ -658,27 +642,6 @@ export class EventRegistry {
         }
         this.#dispatchDom(event.elementId, "pointerDown", event)
         this.#dispatchDom(event.elementId, "mouseDown", event)
-        if ((event.button ?? 0) === 2) {
-          const contextMenuOwner = this.#contextMenuOwner(event.elementId)
-          const matchesPress = contextMenuOwner !== undefined && this.#matchesContextMenuPress({
-            ...event,
-            elementId: contextMenuOwner,
-          })
-          if (contextMenuOwner !== undefined && !matchesPress) {
-            this.#dispatchDom(
-              contextMenuOwner,
-              "contextMenu",
-              contextMenuOwner === event.elementId ? event : { ...event, elementId: contextMenuOwner },
-            )
-            this.#contextMenuPress = {
-              ownerId: contextMenuOwner,
-              x: event.x ?? 0,
-              y: event.y ?? 0,
-            }
-          }
-        } else {
-          this.#contextMenuPress = undefined
-        }
         return
       }
       case "mouseMove": {
@@ -712,11 +675,7 @@ export class EventRegistry {
           const clickEvent = { ...event, elementId: clickOwner, eventType: "click", button: 0 } satisfies NativeEventPayload
           if (this.#shouldDispatchPrimaryClick(clickEvent, `mouseUp:${sourceElementId}`)) this.#dispatchPrimaryClick(clickEvent)
         }
-        if (
-          event.button === 2
-          && !this.#matchesContextMenuPress(event)
-          && !this.#isBubbledNativeContextMenu(event)
-        ) {
+        if (event.button === 2 && !this.#isBubbledNativeContextMenu(event)) {
           const contextMenuOwner = this.#contextMenuOwner(sourceElementId)
           if (contextMenuOwner !== undefined) {
             this.#dispatchDom(
@@ -725,12 +684,6 @@ export class EventRegistry {
               contextMenuOwner === sourceElementId ? event : { ...event, elementId: contextMenuOwner },
             )
           }
-        }
-        if (event.button === 2 && this.#contextMenuPress) {
-          const activePress = this.#contextMenuPress
-          setTimeout(() => {
-            if (this.#contextMenuPress === activePress) this.#contextMenuPress = undefined
-          }, 0)
         }
         this.#activePointers.delete(POINTER_ID)
         if (capturedId !== undefined) this.#releasePointerCapture(capturedId, POINTER_ID)
@@ -745,27 +698,6 @@ export class EventRegistry {
           ? event
           : { ...event, elementId: clickOwner }
         if (this.#shouldDispatchPrimaryClick(clickEvent, `click:${sourceElementId}`)) this.#dispatchPrimaryClick(clickEvent)
-        return
-      }
-      case "auxClick": {
-        if (this.#isBubbledNativeAuxClick(event)) return
-        this.#dispatchDom(event.elementId, "auxClick", event)
-        if (
-          event.isRightClick
-          && !this.#matchesContextMenuPress(event)
-          && !this.#isBubbledNativeContextMenu(event)
-        ) {
-          const contextMenuOwner = this.#contextMenuOwner(event.elementId)
-          if (contextMenuOwner !== undefined) {
-            this.#dispatchDom(
-              contextMenuOwner,
-              "contextMenu",
-              contextMenuOwner === event.elementId
-                ? { ...event, button: 2 }
-                : { ...event, elementId: contextMenuOwner, button: 2 },
-            )
-          }
-        }
         return
       }
       case "mouseEnter": {
@@ -968,48 +900,8 @@ export class EventRegistry {
     return false
   }
 
-  #matchesContextMenuPress(event: NativeEventPayload): boolean {
-    const press = this.#contextMenuPress
-    if (!press) return false
-    const ownerId = this.#contextMenuOwner(event.elementId)
-    return ownerId === press.ownerId
-      && Math.abs((event.x ?? 0) - press.x) <= 1
-      && Math.abs((event.y ?? 0) - press.y) <= 1
-  }
-
-  #isBubbledNativeAuxClick(event: NativeEventPayload): boolean {
-    const clickCount = event.clickCount ?? 1
-    const isRightClick = event.isRightClick ?? false
-    const x = event.x ?? 0
-    const y = event.y ?? 0
-    const previous = this.#nativeAuxClickBubble
-    if (
-      previous
-      && previous.ancestors.has(event.elementId)
-      && previous.clickCount === clickCount
-      && previous.isRightClick === isRightClick
-      && previous.x === x
-      && previous.y === y
-    ) {
-      return true
-    }
-
-    const ancestors = new Set<number>()
-    let current = this.#parents.get(event.elementId)
-    while (current !== undefined && current !== null) {
-      ancestors.add(current)
-      current = this.#parents.get(current)
-    }
-    const next: NativeAuxClickBubble = { ancestors, clickCount, isRightClick, x, y }
-    this.#nativeAuxClickBubble = next
-    queueMicrotask(() => {
-      if (this.#nativeAuxClickBubble === next) this.#nativeAuxClickBubble = undefined
-    })
-    return false
-  }
-
   #isBubbledNativeContextMenu(event: NativeEventPayload): boolean {
-    const button = event.button ?? (event.isRightClick ? 2 : 0)
+    const button = event.button ?? 0
     const clickCount = event.clickCount ?? 1
     const x = event.x ?? 0
     const y = event.y ?? 0
