@@ -623,6 +623,14 @@ export class EventRegistry {
     if (!this.#live.has(event.elementId)) return
     switch (event.eventType) {
       case "mouseDown": {
+        if ((event.button ?? 0) === 2) {
+          console.error("[gpuix-solid secondary probe] mouseDown", JSON.stringify({
+            elementId: event.elementId,
+            owner: this.#contextMenuOwner(event.elementId),
+            x: event.x,
+            y: event.y,
+          }))
+        }
         // Keep the actual down path through release: the generated click must
         // not synthesize a second pointerDown for the same activation.
         this.#nativePointerDown.clear()
@@ -690,6 +698,14 @@ export class EventRegistry {
         return
       }
       case "mouseUp": {
+        if ((event.button ?? 0) === 2) {
+          console.error("[gpuix-solid secondary probe] mouseUp", JSON.stringify({
+            elementId: event.elementId,
+            owner: this.#contextMenuOwner(event.elementId),
+            x: event.x,
+            y: event.y,
+          }))
+        }
         this.#lastPointerEvent.set(POINTER_ID, event)
         const completedDrag = this.#finishDrag(event.elementId, event, resolvedDragTargetId)
         const activeRangeId = this.#activeRangeId
@@ -744,6 +760,14 @@ export class EventRegistry {
         return
       }
       case "auxClick": {
+        if (event.isRightClick) {
+          console.error("[gpuix-solid secondary probe] auxClick", JSON.stringify({
+            elementId: event.elementId,
+            owner: this.#contextMenuOwner(event.elementId),
+            x: event.x,
+            y: event.y,
+          }))
+        }
         if (this.#isBubbledNativeAuxClick(event)) return
         this.#dispatchDom(event.elementId, "auxClick", event)
         if (
