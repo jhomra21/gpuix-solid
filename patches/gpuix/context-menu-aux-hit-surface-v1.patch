@@ -1,22 +1,28 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -5273,6 +5273,22 @@ fn build_element(
+@@ -5273,6 +5273,24 @@ fn build_element(
                  });
              }
  
-+            // ── Context menu (non-primary click), like DOM `contextmenu` ──
++            // ── Context menu (secondary press), like DOM `contextmenu` ──
++            //
++            // Use a capture-phase listener instead of an occluding hit surface:
++            // nested child hitboxes still participate in ordinary primary clicks,
++            // while a right-button press inside this element reaches the owner.
 +            "contextMenu" => {
-+                el = el.block_mouse_except_scroll();
-+                el = el.on_aux_click(move |click_event, _window, _cx| {
++                el = el.capture_any_mouse_down(move |mouse_event, _window, _cx| {
++                    if mouse_event.button != gpui::MouseButton::Right {
++                        return;
++                    }
 +                    emit_event_full(&callback, id, "contextMenu", |p| {
-+                        let (x, y) = point_to_xy(click_event.position());
++                        let (x, y) = point_to_xy(mouse_event.position);
 +                        p.x = Some(x);
 +                        p.y = Some(y);
 +                        p.button = Some(2);
-+                        p.modifiers = Some(click_event.modifiers().into());
-+                        p.click_count = Some(click_event.click_count() as u32);
-+                        p.is_right_click = Some(click_event.is_right_click());
++                        p.click_count = Some(mouse_event.click_count as u32);
++                        p.modifiers = Some(mouse_event.modifiers.into());
++                        p.is_right_click = Some(true);
 +                    });
 +                });
 +            }
