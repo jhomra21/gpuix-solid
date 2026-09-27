@@ -282,6 +282,13 @@ const runtime = createRenderer<HostNode | HostParent>({
         }
       }
 
+      if (name === "innerHTML") {
+        // The Solid universal compiler routes innerHTML through setProperty.
+        // The package root installs the browser-compatible HostElementNode
+        // innerHTML setter, which parses the fragment into real host descendants.
+        Reflect.set(node, "innerHTML", String(value ?? ""))
+        return
+      }
       if (name === "style") {
         // SAFETY: Solid's DOM-style object reaches this host boundary after JSX typing; this contract adds the CSS kebab-case aliases used by upstream Solid source.
         const inlineStyle = value as NativeInlineStyleInput | undefined
