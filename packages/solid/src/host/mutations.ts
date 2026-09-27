@@ -356,7 +356,7 @@ export class MutationDriver {
     const semanticClick = activation && this.#usesSemanticNativeClick(id)
     const contextMenuRelay = this.#needsContextMenuRelay(id)
     const auxClick = this.#directAuxClickListeners.get(id) === true || contextMenuRelay
-    const mouseUp = this.#directMouseUpListeners.get(id) === true || (activation && !semanticClick)
+    const mouseUp = this.#directMouseUpListeners.get(id) === true || contextMenuRelay || (activation && !semanticClick)
 
     const previousClick = this.#appliedClickListeners.get(id) ?? false
     if (previousClick !== semanticClick) {
