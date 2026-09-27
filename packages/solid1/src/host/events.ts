@@ -17,7 +17,7 @@ export const EVENT_PROPS = [
   ["onClick", "click", "click"],
   ["onDblClick", "dblClick", "click"],
   ["onAuxClick", "auxClick", "auxClick"],
-  ["onContextMenu", "contextMenu", "mouseUp"],
+  ["onContextMenu", "contextMenu", "auxClick"],
   ["onMouseDown", "mouseDown", "mouseDown"],
   ["onPointerDown", "pointerDown", "mouseDown"],
   ["onMouseUp", "mouseUp", "mouseUp"],
@@ -675,29 +675,6 @@ export class EventRegistry {
           const clickEvent = { ...event, elementId: clickOwner, eventType: "click", button: 0 } satisfies NativeEventPayload
           if (this.#shouldDispatchPrimaryClick(clickEvent, `mouseUp:${sourceElementId}`)) this.#dispatchPrimaryClick(clickEvent)
         }
-        if (event.button === 2 && !this.#isBubbledNativeContextMenu(event)) {
-          const ancestry: Array<{ id: number; handlers: string[] }> = []
-          let current: number | null | undefined = sourceElementId
-          while (current !== undefined && current !== null && this.#live.has(current)) {
-            ancestry.push({ id: current, handlers: [...(this.#handlers.get(current)?.keys() ?? [])] })
-            current = this.#parents.get(current)
-          }
-          const contextMenuOwner = this.#contextMenuOwner(sourceElementId)
-          const contextEvent = contextMenuOwner === undefined
-            ? undefined
-            : this.#dispatchDom(
-                contextMenuOwner,
-                "contextMenu",
-                contextMenuOwner === sourceElementId ? event : { ...event, elementId: contextMenuOwner },
-              )
-          console.error("[gpuix-solid context probe]", JSON.stringify({
-            sourceElementId,
-            contextMenuOwner,
-            ancestry,
-            defaultPrevented: contextEvent?.defaultPrevented ?? false,
-            cancelBubble: contextEvent?.cancelBubble ?? false,
-          }))
-        }
         this.#activePointers.delete(POINTER_ID)
         if (capturedId !== undefined) this.#releasePointerCapture(capturedId, POINTER_ID)
         this.#nativePointerDown.clear()
@@ -711,6 +688,14 @@ export class EventRegistry {
           ? event
           : { ...event, elementId: clickOwner }
         if (this.#shouldDispatchPrimaryClick(clickEvent, `click:${sourceElementId}`)) this.#dispatchPrimaryClick(clickEvent)
+        return
+      }
+      case "auxClick": {
+        if (this.#isBubbledNativeContextMenu(event)) return
+        this.#dispatchDom(event.elementId, "auxClick", event)
+        if (event.isRightClick) {
+          this.#dispatchDom(event.elementId, "contextMenu", { ...event, button: 2 })
+        }
         return
       }
       case "mouseEnter": {

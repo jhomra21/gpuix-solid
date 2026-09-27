@@ -106,10 +106,12 @@ export class MutationDriver {
   readonly #children = new Map<number, Set<number>>()
   readonly #elementTypes = new Map<number, string>()
   readonly #directClickListeners = new Map<number, boolean>()
+  readonly #directAuxClickListeners = new Map<number, boolean>()
   readonly #directMouseUpListeners = new Map<number, boolean>()
   readonly #directScrollListeners = new Map<number, boolean>()
   readonly #contextMenuListeners = new Map<number, boolean>()
   readonly #appliedClickListeners = new Map<number, boolean>()
+  readonly #appliedAuxClickListeners = new Map<number, boolean>()
   readonly #appliedMouseUpListeners = new Map<number, boolean>()
   readonly #appliedScrollListeners = new Map<number, boolean>()
   #queue: Mutation[] = []
@@ -133,7 +135,6 @@ export class MutationDriver {
     if (this.#disposed) throw new Error("GPUix Solid mutation driver is disposed")
     if (hasHandler) this.#contextMenuListeners.set(id, true)
     else this.#contextMenuListeners.delete(id)
-    console.error("[gpuix-solid context relay probe] listener", JSON.stringify({ id, hasHandler }))
     this.#syncActivationSubtree(id)
     this.#schedule()
   }
@@ -157,6 +158,12 @@ export class MutationDriver {
         // name but implements it from primary mouse-up internally.
         this.#directClickListeners.set(id, hasHandler)
         this.#syncActivationSubtree(id)
+        this.#schedule()
+        return
+      }
+      if (eventType === "auxClick") {
+        this.#directAuxClickListeners.set(id, hasHandler)
+        this.#syncActivationListener(id)
         this.#schedule()
         return
       }
@@ -348,7 +355,8 @@ export class MutationDriver {
     const activation = this.#needsClickActivation(id)
     const semanticClick = activation && this.#usesSemanticNativeClick(id)
     const contextMenuRelay = this.#needsContextMenuRelay(id)
-    const mouseUp = this.#directMouseUpListeners.get(id) === true || contextMenuRelay || (activation && !semanticClick)
+    const auxClick = this.#directAuxClickListeners.get(id) === true || contextMenuRelay
+    const mouseUp = this.#directMouseUpListeners.get(id) === true || (activation && !semanticClick)
 
     const previousClick = this.#appliedClickListeners.get(id) ?? false
     if (previousClick !== semanticClick) {
@@ -356,18 +364,15 @@ export class MutationDriver {
       this.#queue.push(["setEventListener", id, "click", semanticClick])
     }
 
+    const previousAuxClick = this.#appliedAuxClickListeners.get(id) ?? false
+    if (previousAuxClick !== auxClick) {
+      this.#appliedAuxClickListeners.set(id, auxClick)
+      this.#queue.push(["setEventListener", id, "auxClick", auxClick])
+    }
+
     const previousMouseUp = this.#appliedMouseUpListeners.get(id) ?? false
     if (previousMouseUp !== mouseUp) {
       this.#appliedMouseUpListeners.set(id, mouseUp)
-      if (contextMenuRelay) {
-        console.error("[gpuix-solid context relay probe] mouseUp", JSON.stringify({
-          id,
-          mouseUp,
-          direct: this.#contextMenuListeners.get(id) === true,
-          ancestor: this.#hasContextMenuAncestor(id),
-          type: this.#elementTypes.get(id),
-        }))
-      }
       this.#queue.push(["setEventListener", id, "mouseUp", mouseUp])
     }
   }
@@ -387,10 +392,12 @@ export class MutationDriver {
       this.#children.delete(id)
       this.#elementTypes.delete(id)
       this.#directClickListeners.delete(id)
+      this.#directAuxClickListeners.delete(id)
       this.#directMouseUpListeners.delete(id)
       this.#directScrollListeners.delete(id)
       this.#contextMenuListeners.delete(id)
       this.#appliedClickListeners.delete(id)
+      this.#appliedAuxClickListeners.delete(id)
       this.#appliedMouseUpListeners.delete(id)
       this.#appliedScrollListeners.delete(id)
     }
