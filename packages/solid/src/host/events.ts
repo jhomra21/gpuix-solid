@@ -499,7 +499,6 @@ export class EventRegistry {
   readonly #dragData = new Map<number, DragData>()
   #dragSession: DragSession | undefined
   #nativeClickBubble: NativeClickBubble | undefined
-  #nativeMouseDownBubble: NativeClickBubble | undefined
   #nativeAuxClickBubble: NativeAuxClickBubble | undefined
   #nativeContextMenuBubble: NativeClickBubble | undefined
   #nativeScrollBubble: NativeScrollBubble | undefined
@@ -576,7 +575,6 @@ export class EventRegistry {
     this.#lastPointerEvent.clear()
     this.#primaryClickBursts.clear()
     this.#nativeClickBubble = undefined
-    this.#nativeMouseDownBubble = undefined
     this.#nativeAuxClickBubble = undefined
     this.#nativeContextMenuBubble = undefined
     this.#nativeScrollBubble = undefined
@@ -620,7 +618,6 @@ export class EventRegistry {
     if (!this.#live.has(event.elementId)) return
     switch (event.eventType) {
       case "mouseDown": {
-        if (this.#isBubbledNativeMouseDown(event)) return
         // Keep the actual down path through release: the generated click must
         // not synthesize a second pointerDown for the same activation.
         this.#nativePointerDown.clear()
@@ -671,7 +668,6 @@ export class EventRegistry {
         return
       }
       case "mouseUp": {
-        this.#nativeMouseDownBubble = undefined
         this.#lastPointerEvent.set(POINTER_ID, event)
         const completedDrag = this.#finishDrag(event.elementId, event, resolvedDragTargetId)
         const activeRangeId = this.#activeRangeId
@@ -894,37 +890,6 @@ export class EventRegistry {
     this.#nativeClickBubble = next
     queueMicrotask(() => {
       if (this.#nativeClickBubble === next) this.#nativeClickBubble = undefined
-    })
-    return false
-  }
-
-  #isBubbledNativeMouseDown(event: NativeEventPayload): boolean {
-    const button = event.button ?? 0
-    const clickCount = event.clickCount ?? 1
-    const x = event.x ?? 0
-    const y = event.y ?? 0
-    const previous = this.#nativeMouseDownBubble
-    if (
-      previous
-      && previous.ancestors.has(event.elementId)
-      && previous.button === button
-      && previous.clickCount === clickCount
-      && previous.x === x
-      && previous.y === y
-    ) {
-      return true
-    }
-
-    const ancestors = new Set<number>()
-    let current = this.#parents.get(event.elementId)
-    while (current !== undefined && current !== null) {
-      ancestors.add(current)
-      current = this.#parents.get(current)
-    }
-    const next: NativeClickBubble = { ancestors, button, clickCount, x, y }
-    this.#nativeMouseDownBubble = next
-    queueMicrotask(() => {
-      if (this.#nativeMouseDownBubble === next) this.#nativeMouseDownBubble = undefined
     })
     return false
   }
