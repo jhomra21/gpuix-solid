@@ -17,7 +17,7 @@ export const EVENT_PROPS = [
   ["onClick", "click", "click"],
   ["onDblClick", "dblClick", "click"],
   ["onAuxClick", "auxClick", "auxClick"],
-  ["onContextMenu", "contextMenu", "auxClick"],
+  ["onContextMenu", "contextMenu", "contextMenu"],
   ["onMouseDown", "mouseDown", "mouseDown"],
   ["onPointerDown", "pointerDown", "mouseDown"],
   ["onMouseUp", "mouseUp", "mouseUp"],
@@ -712,18 +712,15 @@ export class EventRegistry {
       case "auxClick": {
         if (this.#isBubbledNativeAuxClick(event)) return
         this.#dispatchDom(event.elementId, "auxClick", event)
-        if (event.isRightClick && !this.#isBubbledNativeContextMenu(event)) {
-          const contextMenuOwner = this.#contextMenuOwner(event.elementId)
-          if (contextMenuOwner !== undefined) {
-            this.#dispatchDom(
-              contextMenuOwner,
-              "contextMenu",
-              contextMenuOwner === event.elementId
-                ? { ...event, button: 2 }
-                : { ...event, elementId: contextMenuOwner, button: 2 },
-            )
-          }
-        }
+        return
+      }
+      case "contextMenu": {
+        if (this.#isBubbledNativeContextMenu(event)) return
+        this.#dispatchDom(event.elementId, "contextMenu", {
+          ...event,
+          button: event.button ?? 2,
+          isRightClick: event.isRightClick ?? true,
+        })
         return
       }
       case "mouseEnter": {
@@ -974,7 +971,7 @@ export class EventRegistry {
       return true
     }
 
-    const ancestors = new Set<number>()
+    const ancestors = new Set<number>([event.elementId])
     let current = this.#parents.get(event.elementId)
     while (current !== undefined && current !== null) {
       ancestors.add(current)

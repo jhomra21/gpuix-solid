@@ -112,6 +112,7 @@ export class MutationDriver {
   readonly #contextMenuListeners = new Map<number, boolean>()
   readonly #appliedClickListeners = new Map<number, boolean>()
   readonly #appliedAuxClickListeners = new Map<number, boolean>()
+  readonly #appliedContextMenuListeners = new Map<number, boolean>()
   readonly #appliedMouseUpListeners = new Map<number, boolean>()
   readonly #appliedScrollListeners = new Map<number, boolean>()
   #queue: Mutation[] = []
@@ -355,7 +356,8 @@ export class MutationDriver {
     const activation = this.#needsClickActivation(id)
     const semanticClick = activation && this.#usesSemanticNativeClick(id)
     const contextMenuRelay = this.#needsContextMenuRelay(id)
-    const auxClick = this.#directAuxClickListeners.get(id) === true || contextMenuRelay
+    const auxClick = this.#directAuxClickListeners.get(id) === true
+    const contextMenu = contextMenuRelay
     const mouseUp = this.#directMouseUpListeners.get(id) === true || contextMenuRelay || (activation && !semanticClick)
 
     const previousClick = this.#appliedClickListeners.get(id) ?? false
@@ -368,6 +370,12 @@ export class MutationDriver {
     if (previousAuxClick !== auxClick) {
       this.#appliedAuxClickListeners.set(id, auxClick)
       this.#queue.push(["setEventListener", id, "auxClick", auxClick])
+    }
+
+    const previousContextMenu = this.#appliedContextMenuListeners.get(id) ?? false
+    if (previousContextMenu !== contextMenu) {
+      this.#appliedContextMenuListeners.set(id, contextMenu)
+      this.#queue.push(["setEventListener", id, "contextMenu", contextMenu])
     }
 
     const previousMouseUp = this.#appliedMouseUpListeners.get(id) ?? false
@@ -398,6 +406,7 @@ export class MutationDriver {
       this.#contextMenuListeners.delete(id)
       this.#appliedClickListeners.delete(id)
       this.#appliedAuxClickListeners.delete(id)
+      this.#appliedContextMenuListeners.delete(id)
       this.#appliedMouseUpListeners.delete(id)
       this.#appliedScrollListeners.delete(id)
     }
