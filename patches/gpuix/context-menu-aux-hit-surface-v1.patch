@@ -1,14 +1,7 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -5463,12 +5463,36 @@ fn build_element(
-     // Children
-     let child_ids: Vec<u64> = element.children.clone();
-     for child_id in child_ids {
-         let child = build_element(child_id, ctx, window, cx);
-         el = if overflow_x_only {
-             el.child(gpui::div().flex_none().child(child))
-         } else {
+@@ -5510,6 +5510,30 @@ fn build_element(
              el.child(child)
          };
      }
