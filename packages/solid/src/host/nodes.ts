@@ -86,6 +86,8 @@ const INTERACTIVE_ROLES = new Set([
 ])
 
 const EXPLICIT_POINTER_SURFACE_EVENTS = new Set([
+  "auxClick",
+  "contextMenu",
   "mouseDown",
   "mouseMove",
   "mouseUp",
@@ -1191,7 +1193,10 @@ function ownsExplicitPointerSurface(node: HostElementNode): boolean {
     if (EXPLICIT_POINTER_SURFACE_EVENTS.has(eventType)) return true
   }
   const nativeEvents = browserNativeEventTypes(node)
-  return nativeEvents.has("mouseDown") || nativeEvents.has("mouseMove") || nativeEvents.has("mouseUp")
+  return nativeEvents.has("auxClick")
+    || nativeEvents.has("mouseDown")
+    || nativeEvents.has("mouseMove")
+    || nativeEvents.has("mouseUp")
 }
 
 function delegatedSemanticPointerSurfaceActive(node: HostElementNode): boolean {
