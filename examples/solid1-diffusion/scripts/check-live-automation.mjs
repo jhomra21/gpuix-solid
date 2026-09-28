@@ -268,6 +268,29 @@ async function openProjectMenu(app) {
   })
 }
 
+async function openProjectEditMenu(app) {
+  let tree = await openProjectMenu(app)
+  const editTrigger = findText(tree, "Edit")
+  await app.mouse.move({
+    x: editTrigger.bounds.x + editTrigger.bounds.width / 2,
+    y: editTrigger.bounds.y + editTrigger.bounds.height / 2,
+  })
+  await delay(350)
+  return await waitFor("project menu Edit submenu", async () => {
+    const next = await currentTree(app)
+    return descendants(next).some((node) => node.text === "Undo") && descendants(next).some((node) => node.text === "Redo")
+      ? next
+      : null
+  })
+}
+
+async function waitForLocatorText(locator, expected, label) {
+  return await waitFor(label, async () => {
+    const actual = (await locator.textContent()).trim()
+    return actual === expected ? actual : null
+  })
+}
+
 function findAssetsPlus(tree) {
   const parentById = indexParents(tree)
   const tabRow = descendants(tree)
@@ -380,6 +403,16 @@ try {
   await delay(140)
   tree = await getFreshTree(app)
   assertInspectorShowsTransformControls(tree)
+  await waitForLocatorText(positionX, "121", "Inspector X edit")
+
+  tree = await openProjectEditMenu(app)
+  await clickNode(app, findText(tree, "Undo"))
+  await waitForLocatorText(positionX, "120", "Edit > Undo Inspector X")
+
+  tree = await openProjectEditMenu(app)
+  await clickNode(app, findText(tree, "Redo"))
+  await waitForLocatorText(positionX, "121", "Edit > Redo Inspector X")
+
   await positionX.fill("120")
   await positionX.press("enter")
   await delay(140)
