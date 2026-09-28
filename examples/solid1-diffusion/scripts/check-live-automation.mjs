@@ -284,10 +284,11 @@ async function openProjectEditMenu(app) {
   })
 }
 
-async function waitForLocatorText(locator, expected, label) {
+async function waitForInputValue(locator, expected, label) {
   return await waitFor(label, async () => {
-    const actual = (await locator.textContent()).trim()
-    return actual === expected ? actual : null
+    const node = await locator.element()
+    const actual = node.customProps?.value
+    return String(actual ?? "") === expected ? actual : null
   })
 }
 
@@ -403,15 +404,15 @@ try {
   await delay(140)
   tree = await getFreshTree(app)
   assertInspectorShowsTransformControls(tree)
-  await waitForLocatorText(positionX, "121", "Inspector X edit")
+  await waitForInputValue(positionX, "121", "Inspector X edit")
 
   tree = await openProjectEditMenu(app)
   await clickNode(app, findText(tree, "Undo"))
-  await waitForLocatorText(positionX, "120", "Edit > Undo Inspector X")
+  await waitForInputValue(positionX, "120", "Edit > Undo Inspector X")
 
   tree = await openProjectEditMenu(app)
   await clickNode(app, findText(tree, "Redo"))
-  await waitForLocatorText(positionX, "121", "Edit > Redo Inspector X")
+  await waitForInputValue(positionX, "121", "Edit > Redo Inspector X")
 
   await positionX.fill("120")
   await positionX.press("enter")
