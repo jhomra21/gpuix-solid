@@ -660,7 +660,14 @@ export class EventRegistry {
         return
       }
       case "mouseUp": {
-        this.#nativeMouseDownBubble = undefined
+        const mouseDownBubble = this.#nativeMouseDownBubble
+        if (mouseDownBubble) {
+          setTimeout(() => {
+            if (this.#nativeMouseDownBubble === mouseDownBubble) {
+              this.#nativeMouseDownBubble = undefined
+            }
+          }, 0)
+        }
         this.#lastPointerEvent.set(POINTER_ID, event)
         const completedDrag = this.#finishDrag(event.elementId, event, resolvedDragTargetId)
         const activeRangeId = this.#activeRangeId
