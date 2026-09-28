@@ -140,6 +140,7 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   #classMutationHandler: ((className: string | undefined) => void) | undefined
   #canvas2d: Canvas2DRecorder | undefined
   #canvasDrawQueued = false
+  #canvasDrawState: { id: number; json: string } | undefined
   #videoFrame: VideoFrameSurfaceFrame | null | undefined
   #scrollOffsetCache: number[] | null | undefined
   #scrollOffsetCacheQueued = false
@@ -378,9 +379,20 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
       const root = this.root
       const recorder = this.#canvas2d
       if (!root || !recorder || !this.nativeAlive) return
-      if (root.driver.renderer.getCanvasDrawListVersion?.() !== CANVAS_DRAW_LIST_VERSION) return
-      root.driver.enqueue("setCustomProp", this.id, "drawList", recorder.snapshot())
+      const renderer = root.driver.renderer
+      if (renderer.getCanvasDrawListVersion?.() !== CANVAS_DRAW_LIST_VERSION) return
+
+      // Canvas redraw loops commonly rebuild the same retained frame while
+      // paused. Serialize once from the recorder's live command buffer and
+      // skip the JS -> Rust mutation entirely when the frame is unchanged.
+      // Sending the already encoded draw list directly also avoids wrapping
+      // it in the generic mutation batch and serializing it a second time.
+      const json = recorder.serialize()
+      if (this.#canvasDrawState?.id === this.id && this.#canvasDrawState.json === json) return
       root.driver.flush()
+      renderer.setCustomProp(this.id, "drawList", json)
+      renderer.commitMutations()
+      this.#canvasDrawState = { id: this.id, json }
     })
   }
 
