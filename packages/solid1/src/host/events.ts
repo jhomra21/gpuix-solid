@@ -1030,6 +1030,27 @@ export class EventRegistry {
       && previous.clickCount === clickCount
       && Math.hypot(previous.x - x, previous.y - y) <= DOUBLE_CLICK_DISTANCE_PX
 
+    console.error("[gpuix primary click probe]", JSON.stringify({
+      elementId: event.elementId,
+      sourceKey,
+      source,
+      button,
+      clickCount,
+      x,
+      y,
+      previous: previous && {
+        elementId: previous.elementId,
+        source: previous.source,
+        sourceKeys: [...previous.sourceKeys],
+        button: previous.button,
+        clickCount: previous.clickCount,
+        x: previous.x,
+        y: previous.y,
+        at: previous.at,
+      },
+      samePhysicalActivation,
+    }))
+
     if (samePhysicalActivation) {
       if (previous.source === "mouseUp" && source === "click") {
         previous.sourceKeys.add(sourceKey)
