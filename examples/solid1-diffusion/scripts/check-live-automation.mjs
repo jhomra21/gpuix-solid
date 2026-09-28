@@ -284,11 +284,11 @@ async function openProjectEditMenu(app) {
   })
 }
 
-async function waitForInputValue(locator, expected, label) {
+async function waitForInputValue(app, expected, label) {
+  const mirror = app.getByTestId("diffusion-inspector-position-x-value")
   return await waitFor(label, async () => {
-    const node = await locator.element()
-    const actual = node.customProps?.value
-    return String(actual ?? "") === expected ? actual : null
+    const actual = (await mirror.textContent()).trim()
+    return actual === expected ? actual : null
   })
 }
 
@@ -404,16 +404,15 @@ try {
   await delay(140)
   tree = await getFreshTree(app)
   assertInspectorShowsTransformControls(tree)
-  console.log("Diffusion Inspector X automation node:", JSON.stringify(await positionX.element()))
-  await waitForInputValue(positionX, "121", "Inspector X edit")
+  await waitForInputValue(app, "121", "Inspector X edit")
 
   tree = await openProjectEditMenu(app)
   await clickNode(app, findText(tree, "Undo"))
-  await waitForInputValue(positionX, "120", "Edit > Undo Inspector X")
+  await waitForInputValue(app, "120", "Edit > Undo Inspector X")
 
   tree = await openProjectEditMenu(app)
   await clickNode(app, findText(tree, "Redo"))
-  await waitForInputValue(positionX, "121", "Edit > Redo Inspector X")
+  await waitForInputValue(app, "121", "Edit > Redo Inspector X")
 
   await positionX.fill("120")
   await positionX.press("enter")

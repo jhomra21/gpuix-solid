@@ -144,7 +144,13 @@ const usabilityTestHook = {
     }
 
     if (normalizedId.endsWith("/apps/web/src/components/sidebar-right/inspector/transform/transform-settings.tsx")) {
-      const field = `          <ControlledTextField
+      const field = `          <span
+            testId="diffusion-inspector-position-x-value"
+            style={{ position: "absolute", left: "-10000px" }}
+          >
+            {String(positionX())}
+          </span>
+          <ControlledTextField
             icon={<Icon name="prop-x-position" />}`
       if (!code.includes(field)) throw new Error("Pinned Diffusion Position X field changed")
       return {
