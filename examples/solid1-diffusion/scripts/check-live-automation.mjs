@@ -23,6 +23,7 @@ const screenshots = {
   projectMenu: "/tmp/diffusion-project-dropdown.png",
   projectViewSubmenu: "/tmp/diffusion-project-view-submenu.png",
   projectZoomed: "/tmp/diffusion-project-zoomed.png",
+  canvasZoomed: "/tmp/diffusion-canvas-wheel-zoomed.png",
   zoomMenu: "/tmp/diffusion-zoom-dropdown.png",
   moveHandMenu: "/tmp/diffusion-move-hand-dropdown.png",
   assetsMenu: "/tmp/diffusion-assets-dropdown.png",
@@ -234,6 +235,28 @@ function assertPopupAnchored(root, label) {
   let current = findText(root, label)
   while (current && current.type !== "anchored") current = parents.get(current.id)
   assert(current?.bounds, `${label} popup has no painted native anchored layer`)
+}
+
+function assertChatTableRows(root) {
+  const a = findText(root, "A")
+  const b = findText(root, "B")
+  const one = findText(root, "1")
+  const two = findText(root, "2")
+  for (const [label, node] of [["A", a], ["B", b], ["1", one], ["2", two]]) {
+    assert(node.bounds && node.bounds.width > 0 && node.bounds.height > 0, `Chat Markdown table cell ${label} has no painted bounds`)
+  }
+  assert(
+    Math.abs(a.bounds.y - b.bounds.y) <= 2 && b.bounds.x > a.bounds.x,
+    `Chat Markdown header cells did not share one row: ${JSON.stringify({ a: a.bounds, b: b.bounds })}`,
+  )
+  assert(
+    Math.abs(one.bounds.y - two.bounds.y) <= 2 && two.bounds.x > one.bounds.x,
+    `Chat Markdown value cells did not share one row: ${JSON.stringify({ one: one.bounds, two: two.bounds })}`,
+  )
+  assert(
+    one.bounds.y >= a.bounds.y + a.bounds.height - 2 && one.bounds.y - a.bounds.y <= 40,
+    `Chat Markdown table rows are vertically over-expanded: ${JSON.stringify({ header: a.bounds, value: one.bounds })}`,
+  )
 }
 
 function getEditorCanvases(root) {
@@ -707,6 +730,33 @@ try {
   await clickNode(app, findText(tree, "Zoom to 100%"))
   await delay(160)
 
+  // Exercise the real EngineCanvas wheel-zoom path instead of accepting only
+  // menu-driven camera changes. Browser trackpad pinch is delivered as a
+  // ctrl-wheel event, which is the contract the native GPUIX bridge preserves.
+  tree = await getFreshTree(app)
+  const wheelZoomStage = getEditorCanvases(tree)
+    .filter((node) => node.id !== timeline.id)
+    .sort((a, b) => b.bounds.width * b.bounds.height - a.bounds.width * a.bounds.height)[0]
+  assert(wheelZoomStage?.bounds, "EngineCanvas disappeared before wheel zoom")
+  const zoomReadout = app.getByTestId("diffusion-inspector-zoom-trigger")
+  const zoomBeforeWheel = (await zoomReadout.textContent()).trim()
+  await app.mouse.wheel(at(wheelZoomStage.bounds, 0.5, 0.5), 0, 20, { modifiers: "ctrl" })
+  const zoomAfterWheel = await waitFor("EngineCanvas ctrl-wheel zoom", async () => {
+    const next = (await zoomReadout.textContent()).trim()
+    return next !== zoomBeforeWheel ? next : null
+  }, 4_000)
+  assert(zoomAfterWheel !== zoomBeforeWheel, `Canvas wheel zoom did not change zoom from ${zoomBeforeWheel}`)
+  await screenshot(app, "canvasZoomed")
+
+  // Restore a deterministic camera scale for the rest of the editor audit.
+  await zoomReadout.click()
+  tree = await waitFor("Inspector zoom reset menu", async () => {
+    const next = await currentTree(app)
+    return descendants(next).some((node) => node.text === "Zoom to 100%") ? next : null
+  })
+  await clickNode(app, findText(tree, "Zoom to 100%"))
+  await delay(160)
+
   tree = await getFreshTree(app)
   parts = toolbarParts(tree)
   await clickNode(app, parts.moveHandTrigger)
@@ -788,6 +838,7 @@ try {
   assertText(tree, "Safe link", "rendered assistant Markdown link")
   assertText(tree, "A", "rendered assistant Markdown table header")
   assertText(tree, "1", "rendered assistant Markdown table cell")
+  assertChatTableRows(tree)
   assert(
     !descendants(tree).some((node) => (node.text ?? "").includes("GPUix unsafe")),
     "Sanitized assistant Markdown retained script contents",
@@ -920,10 +971,11 @@ try {
       "timeline layer wheel scrolling, ruler seek, and ruler drag work without transform errors",
       "blank-stage marquee drag completes",
       "project/View and Inspector zoom dropdowns open as anchored native layers and execute actions",
+      "EngineCanvas ctrl-wheel zoom changes camera scale and restores deterministically",
       "Move/Hand dropdown opens and both choices work",
       "Assets plus menu opens",
       "layer context menu opens and closes without destructive selection",
-      "Assets/Chat navigation, sanitized assistant Markdown, Chat composer input, and timeline minimize/restore work",
+      "Assets/Chat navigation, sanitized assistant Markdown table geometry, Chat composer input, and timeline minimize/restore work",
       "Hide/restore UI removes and restores the editor chrome",
       "fixture Play/Pause traverses AudioContext.resume() without claiming real audio playback",
     ],
