@@ -892,15 +892,23 @@ export class EventRegistry {
     const y = event.y ?? 0
     const now = Date.now()
     const previous = this.#nativeMouseDownBurst
-    if (
-      previous
+    const duplicate = previous !== undefined
       && now - previous.at <= NATIVE_CLICK_RELAY_MS
       && previous.button === button
       && previous.clickCount === clickCount
       && Math.hypot(previous.x - x, previous.y - y) <= DOUBLE_CLICK_DISTANCE_PX
-    ) {
-      return true
-    }
+
+    console.error("[gpuix mouseDown burst probe]", JSON.stringify({
+      elementId: event.elementId,
+      button,
+      clickCount,
+      x,
+      y,
+      previous,
+      duplicate,
+    }))
+
+    if (duplicate) return true
 
     this.#nativeMouseDownBurst = { button, clickCount, x, y, at: now }
     return false
