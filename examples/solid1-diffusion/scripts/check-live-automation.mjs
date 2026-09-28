@@ -259,7 +259,12 @@ async function getFreshTree(app) {
 async function openProjectMenu(app) {
   const trigger = app.getByTestId("diffusion-project-menu-trigger")
   await trigger.waitFor()
-  await trigger.click()
+  const bounds = await trigger.bounds()
+  assert(bounds && bounds.width > 0 && bounds.height > 0, "Project menu trigger has no clickable bounds")
+  await physicalClick(app, {
+    x: bounds.x + bounds.width / 2,
+    y: bounds.y + bounds.height / 2,
+  })
   return await waitFor("project menu", async () => {
     const next = await currentTree(app)
     return descendants(next).some((node) => node.text === "File") && descendants(next).some((node) => node.text === "View")
