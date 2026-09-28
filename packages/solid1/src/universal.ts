@@ -776,14 +776,44 @@ function reapplyNativeStyleSubtree(node: HostElementNode): void {
 }
 
 function browserSemanticDefaultStyle(node: HostElementNode): StyleDesc | undefined {
-  if ((semanticTags.get(node) ?? node.localName) !== "button") return undefined
-  // Native div backing does not receive the browser button UA stylesheet.
-  // Supply only the centering baseline that copied browser source relies on;
-  // authored class and inline styles merge later and remain authoritative.
-  return {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+  switch (semanticTags.get(node) ?? node.localName) {
+    case "button":
+      // Native div backing does not receive the browser button UA stylesheet.
+      // Supply only the centering baseline that copied browser source relies on;
+      // authored class and inline styles merge later and remain authoritative.
+      return {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }
+    case "table":
+    case "thead":
+    case "tbody":
+    case "tfoot":
+      // GPUIX has no table formatting context. A column of row flexboxes keeps
+      // sanitized innerHTML tables compact and preserves the browser's basic
+      // row/column geometry without adding app-specific Markdown markup.
+      return {
+        display: "flex",
+        flexDirection: "column",
+      }
+    case "tr":
+      return {
+        display: "flex",
+        flexDirection: "row",
+      }
+    case "th":
+    case "td":
+      return {
+        display: "flex",
+        flexDirection: "row",
+        flexGrow: 1,
+        flexShrink: 1,
+        flexBasis: 0,
+        minWidth: 0,
+      }
+    default:
+      return undefined
   }
 }
 
