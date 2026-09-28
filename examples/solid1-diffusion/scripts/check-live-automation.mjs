@@ -404,6 +404,7 @@ try {
   await delay(140)
   tree = await getFreshTree(app)
   assertInspectorShowsTransformControls(tree)
+  console.log("Diffusion Inspector X automation node:", JSON.stringify(await positionX.element()))
   await waitForInputValue(positionX, "121", "Inspector X edit")
 
   tree = await openProjectEditMenu(app)
