@@ -896,11 +896,11 @@ export class EventRegistry {
       ancestors.add(current)
       current = this.#parents.get(current)
     }
-    const next: NativeClickBubble = { ancestors, button, clickCount, x, y }
-    this.#nativeMouseDownBubble = next
-    queueMicrotask(() => {
-      if (this.#nativeMouseDownBubble === next) this.#nativeMouseDownBubble = undefined
-    })
+    this.#nativeMouseDownBubble = { ancestors, button, clickCount, x, y }
+    // Keep this record for the whole physical press. GPUIX can surface the
+    // same mouse-down carrier from a nested hit target and its ancestor in
+    // separate native callback turns; clearing in a microtask is too early.
+    // mouseUp is the browser-equivalent activation boundary and clears it.
     return false
   }
 
