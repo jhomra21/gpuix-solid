@@ -185,6 +185,7 @@ export type CanvasBackingSize = {
 export type Canvas2DRecorder = {
   context: GpuixCanvasRenderingContext2D
   snapshot(): CanvasDrawList
+  serialize(): string
   reset(): void
 }
 
@@ -839,6 +840,15 @@ export function createCanvas2DRecorder(
         height: size.height,
         commands: commands.map(cloneCommand),
       }
+    },
+    serialize() {
+      const size = normalizeSize(getSize())
+      return JSON.stringify({
+        version: CANVAS_DRAW_LIST_VERSION,
+        width: size.width,
+        height: size.height,
+        commands,
+      })
     },
     reset() {
       commands = []
