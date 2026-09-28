@@ -703,7 +703,10 @@ export class EventRegistry {
         }
         this.#activePointers.delete(POINTER_ID)
         if (capturedId !== undefined) this.#releasePointerCapture(capturedId, POINTER_ID)
-        this.#nativePointerDown.clear()
+        // Keep the physical down ancestry through the trailing native click
+        // carrier. GPUIX can emit that semantic click after mouseUp; clearing
+        // here makes it look like a click with no press and synthesizes a second
+        // pointerDown. The next real mouseDown clears/replaces this ancestry.
         return
       }
       case "click": {
@@ -898,16 +901,6 @@ export class EventRegistry {
       && previous.clickCount === clickCount
       && Math.hypot(previous.x - x, previous.y - y) <= DOUBLE_CLICK_DISTANCE_PX
 
-    console.error("[gpuix mouseDown burst probe]", JSON.stringify({
-      elementId: event.elementId,
-      button,
-      clickCount,
-      x,
-      y,
-      previous,
-      duplicate,
-    }))
-
     if (duplicate) return true
 
     this.#nativeMouseDownBurst = { button, clickCount, x, y, at: now }
@@ -1029,27 +1022,6 @@ export class EventRegistry {
       && previous.button === button
       && previous.clickCount === clickCount
       && Math.hypot(previous.x - x, previous.y - y) <= DOUBLE_CLICK_DISTANCE_PX
-
-    console.error("[gpuix primary click probe]", JSON.stringify({
-      elementId: event.elementId,
-      sourceKey,
-      source,
-      button,
-      clickCount,
-      x,
-      y,
-      previous: previous && {
-        elementId: previous.elementId,
-        source: previous.source,
-        sourceKeys: [...previous.sourceKeys],
-        button: previous.button,
-        clickCount: previous.clickCount,
-        x: previous.x,
-        y: previous.y,
-        at: previous.at,
-      },
-      samePhysicalActivation,
-    }))
 
     if (samePhysicalActivation) {
       if (previous.source === "mouseUp" && source === "click") {
