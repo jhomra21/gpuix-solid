@@ -102,6 +102,26 @@ const usabilityTestHook = {
           trigger,
           `        <DropdownMenuTrigger
           testId="diffusion-project-menu-trigger"
+          onPointerDown={(event) => {
+            const target = event.currentTarget
+            queueMicrotask(() => {
+              console.error("[gpuix project state probe] pointerDown", JSON.stringify({
+                ariaExpanded: target.getAttribute("aria-expanded"),
+                pointerType: target.dataset.pointerType,
+                button: event.button,
+              }))
+            })
+          }}
+          onClick={(event) => {
+            const target = event.currentTarget
+            queueMicrotask(() => {
+              console.error("[gpuix project state probe] click", JSON.stringify({
+                ariaExpanded: target.getAttribute("aria-expanded"),
+                pointerType: target.dataset.pointerType,
+                button: event.button,
+              }))
+            })
+          }}
           as="button"
           type="button"`,
         ),
