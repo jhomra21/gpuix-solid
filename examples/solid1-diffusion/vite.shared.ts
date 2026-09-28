@@ -102,6 +102,10 @@ const usabilityTestHook = {
           trigger,
           `        <DropdownMenuTrigger
           testId="diffusion-project-menu-trigger"
+          onPointerDown={(event) => console.error("[gpuix project trigger probe] pointerDown", JSON.stringify({ button: event.button, pointerType: event.pointerType }))}
+          onClick={(event) => console.error("[gpuix project trigger probe] click", JSON.stringify({ button: event.button }))}
+          onFocus={() => console.error("[gpuix project trigger probe] focus")}
+          onBlur={() => console.error("[gpuix project trigger probe] blur")}
           as="button"
           type="button"`,
         ),
