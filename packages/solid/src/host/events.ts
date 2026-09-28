@@ -656,6 +656,11 @@ export class EventRegistry {
         return
       }
       case "mouseMove": {
+        // A hover move after release starts a new physical interaction. Keep
+        // same-press native mouse-down carriers deduped, but do not let the
+        // previous press consume the next click/drag merely because it lands
+        // at nearly the same coordinates within the relay window.
+        if (!this.#activePointers.has(POINTER_ID)) this.#nativeMouseDownBurst = undefined
         this.#lastPointerEvent.set(POINTER_ID, event)
         this.#advanceDrag(event.elementId, event, resolvedDragTargetId)
         const activeRangeId = this.#activeRangeId
