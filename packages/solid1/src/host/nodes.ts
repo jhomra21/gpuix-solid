@@ -155,24 +155,35 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     this.style = createHostStyleDeclaration(this, {})
     this.classList = {
       add: (...tokens) => {
+        let changed = false
         for (const token of tokens) {
-          for (const part of classTokens(token)) this.#classTokens.add(part)
+          for (const part of classTokens(token)) {
+            if (this.#classTokens.has(part)) continue
+            this.#classTokens.add(part)
+            changed = true
+          }
         }
-        this.#emitClassMutation()
+        if (changed) this.#emitClassMutation()
       },
       remove: (...tokens) => {
+        let changed = false
         for (const token of tokens) {
-          for (const part of classTokens(token)) this.#classTokens.delete(part)
+          for (const part of classTokens(token)) {
+            changed = this.#classTokens.delete(part) || changed
+          }
         }
-        this.#emitClassMutation()
+        if (changed) this.#emitClassMutation()
       },
       contains: (token) => this.#classTokens.has(String(token)),
       toggle: (token, force) => {
         const className = String(token)
-        const shouldAdd = force ?? !this.#classTokens.has(className)
-        if (shouldAdd) this.#classTokens.add(className)
-        else this.#classTokens.delete(className)
-        this.#emitClassMutation()
+        const present = this.#classTokens.has(className)
+        const shouldAdd = force ?? !present
+        if (shouldAdd !== present) {
+          if (shouldAdd) this.#classTokens.add(className)
+          else this.#classTokens.delete(className)
+          this.#emitClassMutation()
+        }
         return shouldAdd
       },
     }
