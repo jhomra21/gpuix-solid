@@ -158,6 +158,7 @@ export function DiffusionSourceEngine(): JSX.Element {
           <PromptInputProvider>
             <div
               testId="diffusion-source-engine"
+              class="bg-background text-foreground font-sans"
               style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column" }}
             >
               <ProjectMount>
@@ -182,6 +183,7 @@ function DiffusionSourceEditorRoute(): JSX.Element {
                 <LayoutProvider>
                   <div
                     testId="diffusion-source-editor"
+                    class="bg-background text-foreground font-sans"
                     style={{ width: "100%", height: "100%" }}
                   >
                     <ProjectMount>
