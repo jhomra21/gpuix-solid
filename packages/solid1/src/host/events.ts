@@ -451,6 +451,10 @@ type NativeClickBubble = {
   y: number
 }
 
+type NativeMouseDownBubble = NativeClickBubble & {
+  sourceId: number
+}
+
 type NativeScrollBubble = {
   ancestors: ReadonlySet<number>
   x: number
@@ -491,7 +495,7 @@ export class EventRegistry {
   readonly #dragData = new Map<number, DragData>()
   #dragSession: DragSession | undefined
   #nativeClickBubble: NativeClickBubble | undefined
-  #nativeMouseDownBubble: NativeClickBubble | undefined
+  #nativeMouseDownBubble: NativeMouseDownBubble | undefined
   #nativeContextMenuBubble: NativeClickBubble | undefined
   #nativeScrollBubble: NativeScrollBubble | undefined
   #activeRangeId: number | undefined
@@ -885,10 +889,17 @@ export class EventRegistry {
     const clickCount = event.clickCount ?? 1
     const x = event.x ?? 0
     const y = event.y ?? 0
+    const ancestors = new Set<number>([event.elementId])
+    let current = this.#parents.get(event.elementId)
+    while (current !== undefined && current !== null) {
+      ancestors.add(current)
+      current = this.#parents.get(current)
+    }
+
     const previous = this.#nativeMouseDownBubble
     if (
       previous
-      && previous.ancestors.has(event.elementId)
+      && (previous.ancestors.has(event.elementId) || ancestors.has(previous.sourceId))
       && previous.button === button
       && previous.clickCount === clickCount
       && previous.x === x
@@ -897,13 +908,7 @@ export class EventRegistry {
       return true
     }
 
-    const ancestors = new Set<number>([event.elementId])
-    let current = this.#parents.get(event.elementId)
-    while (current !== undefined && current !== null) {
-      ancestors.add(current)
-      current = this.#parents.get(current)
-    }
-    this.#nativeMouseDownBubble = { ancestors, button, clickCount, x, y }
+    this.#nativeMouseDownBubble = { sourceId: event.elementId, ancestors, button, clickCount, x, y }
     // Keep this record for the whole physical press. GPUIX can surface the
     // same mouse-down carrier from a nested hit target and its ancestor in
     // separate native callback turns; clearing in a microtask is too early.
