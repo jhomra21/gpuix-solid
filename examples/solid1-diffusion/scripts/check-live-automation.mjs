@@ -526,12 +526,18 @@ try {
   await screenshot(app, "layerInspector")
 
   // Measure the exact wheel-heavy Inspector path the manual report called out.
+  // Resolve the hit point once. Locator.wheel() intentionally re-queries the
+  // automation tree to find current bounds, which is useful for ordinary E2E
+  // actions but would make this frame probe measure tree serialization 24 times
+  // instead of the wheel/render hot path.
+  const inspectorWheelBounds = await inspectorScroll.bounds()
+  const inspectorWheelPoint = at(inspectorWheelBounds, 0.5, 0.5)
   // Alternate the deltas so the viewport stays near the same content while the
   // native renderer handles enough consecutive input to expose frame spikes.
   await profileNativeFrames(app, "inspector-wheel", async (mark) => {
     for (let index = 0; index < 24; index += 1) {
       mark(`wheel ${index + 1}/24`)
-      await inspectorScroll.wheel(0, index % 2 === 0 ? -36 : 36)
+      await app.mouse.wheel(inspectorWheelPoint, 0, index % 2 === 0 ? -36 : 36)
       // Match the 120 Hz target instead of flooding synchronous N-API input
       // faster than a trackpad can deliver it. This also gives the native frame
       // loop one host turn to paint each retained scroll update.
