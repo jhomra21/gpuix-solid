@@ -1,7 +1,7 @@
 diff --git a/crates/gpui_macos/src/platform.rs b/crates/gpui_macos/src/platform.rs
 --- a/crates/gpui_macos/src/platform.rs
 +++ b/crates/gpui_macos/src/platform.rs
-@@ -22,8 +22,12 @@ use core_foundation::{
+@@ -22,7 +22,11 @@ use core_foundation::{
 -    base::{CFRelease, CFType, CFTypeRef, OSStatus, TCFType},
 +    base::{CFIndex, CFRelease, CFType, CFTypeRef, OSStatus, TCFType},
      boolean::CFBoolean,
