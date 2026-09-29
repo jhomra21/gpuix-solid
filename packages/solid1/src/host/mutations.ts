@@ -107,11 +107,9 @@ export class MutationDriver {
   readonly #elementTypes = new Map<number, string>()
   readonly #directClickListeners = new Map<number, boolean>()
   readonly #directMouseUpListeners = new Map<number, boolean>()
-  readonly #directScrollListeners = new Map<number, boolean>()
   readonly #contextMenuListeners = new Map<number, boolean>()
   readonly #appliedClickListeners = new Map<number, boolean>()
   readonly #appliedMouseUpListeners = new Map<number, boolean>()
-  readonly #appliedScrollListeners = new Map<number, boolean>()
   #queue: Mutation[] = []
   #scheduled = false
   #disposed = false
@@ -165,12 +163,6 @@ export class MutationDriver {
         this.#schedule()
         return
       }
-      if (eventType === "scroll") {
-        this.#directScrollListeners.set(id, hasHandler)
-        this.#syncScrollSubtree(id)
-        this.#schedule()
-        return
-      }
     }
 
     let activationSubtree: number | undefined
@@ -198,7 +190,6 @@ export class MutationDriver {
     this.#queue.push([name, ...args])
     if (activationSubtree !== undefined) {
       this.#syncActivationSubtree(activationSubtree)
-      this.#syncScrollSubtree(activationSubtree)
     }
     if (name === "destroyElement") this.#forgetSubtree(numberArg(args, 0))
     this.#schedule()
@@ -304,35 +295,11 @@ export class MutationDriver {
     return type !== undefined && CUSTOM_NATIVE_CLICK_TYPES.has(type)
   }
 
-  #hasScrollAncestor(id: number): boolean {
-    let parentId = this.#parents.get(id)
-    while (parentId !== undefined) {
-      if (this.#directScrollListeners.get(parentId) === true) return true
-      parentId = this.#parents.get(parentId)
-    }
-    return false
-  }
-
-  #needsScrollCarrier(id: number): boolean {
-    return this.#directScrollListeners.get(id) === true || this.#hasScrollAncestor(id)
-  }
-
-  #syncScrollSubtree(rootId: number): void {
-    const stack = [rootId]
-    while (stack.length > 0) {
-      const id = stack.pop()!
-      this.#syncScrollListener(id)
-      for (const childId of this.#children.get(id) ?? []) stack.push(childId)
-    }
-  }
-
-  #syncScrollListener(id: number): void {
-    const scroll = this.#needsScrollCarrier(id)
-    const previousScroll = this.#appliedScrollListeners.get(id) ?? false
-    if (previousScroll === scroll) return
-    this.#appliedScrollListeners.set(id, scroll)
-    this.#queue.push(["setEventListener", id, "scroll", scroll])
-  }
+  // GPUI dispatches scroll-wheel listeners in the bubble phase. Keep the
+  // native listener on the element that actually requested wheel/scroll
+  // events; registering the same callback on every retained descendant causes
+  // one physical wheel tick to traverse many redundant native listeners.
+  // EventRegistry already performs DOM-style wheel bubbling and deduplication.
 
   #syncActivationSubtree(rootId: number): void {
     const stack = [rootId]
@@ -378,11 +345,9 @@ export class MutationDriver {
       this.#elementTypes.delete(id)
       this.#directClickListeners.delete(id)
       this.#directMouseUpListeners.delete(id)
-      this.#directScrollListeners.delete(id)
       this.#contextMenuListeners.delete(id)
       this.#appliedClickListeners.delete(id)
       this.#appliedMouseUpListeners.delete(id)
-      this.#appliedScrollListeners.delete(id)
     }
   }
 
