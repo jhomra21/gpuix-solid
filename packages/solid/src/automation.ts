@@ -32,7 +32,7 @@ export class AutomationError extends Error {
 export interface AutomationBackend {
   getTree(): AutomationTreeNode | null | Promise<AutomationTreeNode | null>
   getBounds(elementId: number): ElementBounds | null | Promise<ElementBounds | null>
-  getScrollOffset(elementId: number): [number, number] | null | Promise<[number, number] | null>
+  getScrollOffset?(elementId: number): [number, number] | null | Promise<[number, number] | null>
   click(x: number, y: number, button?: number, modifiers?: string): void | Promise<void>
   mouseMove(x: number, y: number, pressedButton?: number, modifiers?: string): void | Promise<void>
   mouseDown(x: number, y: number, button?: number, modifiers?: string): void | Promise<void>
