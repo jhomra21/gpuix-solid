@@ -70,6 +70,18 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
      event_callback: Option<Box<dyn FnMut(PlatformInput) -> gpui::DispatchEventResult>>,
      activate_callback: Option<Box<dyn FnMut(bool)>>,
      resize_callback: Option<Box<dyn FnMut(Size<Pixels>, f32)>>,
+@@ -766,8 +766,15 @@
+     fn start_display_link(&mut self) {
+         self.stop_display_link();
++        if self.embedded {
++            unsafe {
++                let _: () = msg_send![self.native_view.as_ptr(), setNeedsDisplay: YES];
++            }
++            return;
++        }
+         unsafe {
+             if !self
+                 .native_window
 @@ -899,10 +899,11 @@
              ..
          }: WindowParams,
@@ -139,6 +151,50 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
                  event_callback: None,
                  activate_callback: None,
                  resize_callback: None,
+@@ -1800,19 +1800,47 @@
+     fn is_fullscreen(&self) -> bool {
+         let this = self.0.lock();
+         let window = this.native_window;
+ 
+         unsafe {
+             window
+                 .styleMask()
+                 .contains(NSWindowStyleMask::NSFullScreenWindowMask)
+         }
+     }
+ 
+-    fn on_request_frame(&self, callback: Box<dyn FnMut(RequestFrameOptions)>) {
+-        self.0.as_ref().lock().request_frame_callback = Some(callback);
++    fn frame_waker(&self) -> Option<Rc<dyn Fn()>> {
++        if !self.0.lock().embedded {
++            return None;
++        }
++        let state = Arc::downgrade(&self.0);
++        Some(Rc::new(move || {
++            if let Some(state) = state.upgrade() {
++                state.lock().start_display_link();
++            }
++        }))
++    }
++
++    fn schedule_frame(&self) {
++        let mut state = self.0.lock();
++        if state.embedded {
++            state.start_display_link();
++        }
++    }
++
++    fn on_request_frame(&self, callback: Box<dyn FnMut(RequestFrameOptions)>) {
++        let mut state = self.0.as_ref().lock();
++        state.request_frame_callback = Some(callback);
++        if state.embedded {
++            state.start_display_link();
++        }
+     }
+ 
+     fn on_input(&self, callback: Box<dyn FnMut(PlatformInput) -> gpui::DispatchEventResult>) {
+         self.0.as_ref().lock().event_callback = Some(callback);
+     }
 @@ -2865,9 +2865,10 @@
                  callback(Default::default());
  
@@ -153,7 +209,7 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
              }
          } else {
              lock.activated_least_once = true;
-@@ -2985,10 +2985,11 @@
+@@ -2985,10 +3013,13 @@
          drop(lock);
          callback(Default::default());
  
@@ -165,7 +221,9 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
 +        lock.request_frame_callback = Some(callback);
 +        let embedded = lock.embedded;
 +        lock.renderer.set_presents_with_transaction(embedded);
-+        lock.start_display_link();
++        if !embedded {
++            lock.start_display_link();
++        }
      }
  }
  
