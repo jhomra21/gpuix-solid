@@ -196,32 +196,48 @@ async function screenshot(app, name) {
 }
 
 async function profileNativeFrames(app, name, exercise) {
-  await app.performance.reset()
-  // Native reset clears timing samples but intentionally preserves the lifetime
-  // frame counter, so keep an explicit baseline for this interaction window.
-  const baseline = await app.performance.stats()
-  const startedAt = performance.now()
-  await exercise()
-  // Give the native renderer enough time to record the last interaction frame.
-  await delay(80)
-  const elapsedMs = Math.max(1, performance.now() - startedAt)
-  const stats = await app.performance.stats()
-  const frames = Math.max(0, stats.frames - baseline.frames)
-  const observedFps = frames * 1000 / elapsedMs
-  const p90Ms = stats.p90Ms ?? null
-  const p99Ms = stats.p99Ms ?? null
-  performanceReport.scenarios[name] = {
-    elapsedMs,
-    observedFps,
-    currentMs: stats.currentMs ?? null,
-    p90Ms,
-    p99Ms,
-    maxMs: stats.maxMs ?? null,
-    frames,
-    samples: stats.samples,
-    meets120HzDrawBudget: p90Ms !== null && p90Ms <= targetFrameMs,
+  const timeoutMs = 10_000
+  let timeout
+  try {
+    await Promise.race([
+      (async () => {
+        await app.performance.reset()
+        // Native reset clears timing samples but intentionally preserves the lifetime
+        // frame counter, so keep an explicit baseline for this interaction window.
+        const baseline = await app.performance.stats()
+        const startedAt = performance.now()
+        await exercise()
+        // Give the native renderer enough time to record the last interaction frame.
+        await delay(80)
+        const elapsedMs = Math.max(1, performance.now() - startedAt)
+        const stats = await app.performance.stats()
+        const frames = Math.max(0, stats.frames - baseline.frames)
+        const observedFps = frames * 1000 / elapsedMs
+        const p90Ms = stats.p90Ms ?? null
+        const p99Ms = stats.p99Ms ?? null
+        performanceReport.scenarios[name] = {
+          elapsedMs,
+          observedFps,
+          currentMs: stats.currentMs ?? null,
+          p90Ms,
+          p99Ms,
+          maxMs: stats.maxMs ?? null,
+          frames,
+          samples: stats.samples,
+          meets120HzDrawBudget: p90Ms !== null && p90Ms <= targetFrameMs,
+        }
+        assert(stats.samples > 0 && frames > 0, `${name} did not produce native frame samples`)
+      })(),
+      new Promise((_, reject) => {
+        timeout = setTimeout(
+          () => reject(new Error(`${name} native performance probe timed out after ${timeoutMs}ms`)),
+          timeoutMs,
+        )
+      }),
+    ])
+  } finally {
+    if (timeout) clearTimeout(timeout)
   }
-  assert(stats.samples > 0 && frames > 0, `${name} did not produce native frame samples`)
 }
 
 function assertText(root, text, label = text) {
