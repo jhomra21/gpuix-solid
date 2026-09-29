@@ -34,6 +34,15 @@ export interface DebugFrameOverlayStats {
   samples: number
 }
 
+export interface NativeScrollMetrics {
+  offsetX: number
+  offsetY: number
+  maxX: number
+  maxY: number
+  viewportWidth: number
+  viewportHeight: number
+}
+
 export interface EdgeInsets {
   top: number
   right: number
@@ -363,6 +372,7 @@ export type DomCompatTarget = EventTarget & {
   getAttribute: (name: string) => string | null
   scrollTop: number
   scrollLeft: number
+  syncScrollMetrics?: (metrics: NativeScrollMetrics) => void
   style: object
   dataset: Record<string, string>
   classList: {
@@ -402,6 +412,13 @@ export type EventPayload = NativeEventPayload &
     ctrlKey?: boolean
     deltaZ?: number
     deltaMode?: number
+    /** Native scroll geometry sampled in the wheel callback, before JS handlers run. */
+    scrollOffsetX?: number
+    scrollOffsetY?: number
+    scrollMaxX?: number
+    scrollMaxY?: number
+    scrollViewportWidth?: number
+    scrollViewportHeight?: number
     /** Application-owned payload for internal semantic drag/drop. */
     dragData?: DragData
     dragSourceId?: number
