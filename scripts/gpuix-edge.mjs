@@ -41,14 +41,11 @@ function parsePatchList(value) {
 function parseSubmodulePatchList(value) {
   if (!Array.isArray(value)) return []
   return value.map((entry) => {
-    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-      throw new Error(`Invalid GPUIX edge submodule patch entry: ${JSON.stringify(entry)}`)
+    const submodule = String(entry?.submodule ?? "")
+    if (entry?.submodule !== submodule || submodule.length === 0) {
+      throw new Error(`Invalid GPUIX edge submodule path: ${JSON.stringify(entry?.submodule)}`)
     }
-    const submodule = String(entry.submodule ?? "")
-    if (entry.submodule !== submodule || submodule.length === 0) {
-      throw new Error(`Invalid GPUIX edge submodule path: ${JSON.stringify(entry.submodule)}`)
-    }
-    return { submodule, patches: parsePatchList(entry.patches) }
+    return { submodule, patches: parsePatchList(entry?.patches) }
   })
 }
 
