@@ -540,18 +540,25 @@ try {
   // instead of the wheel/render hot path.
   const inspectorWheelBounds = await inspectorScroll.bounds()
   const inspectorWheelPoint = at(inspectorWheelBounds, 0.5, 0.5)
-  // Alternate the deltas so the viewport stays near the same content while the
-  // native renderer handles enough consecutive input to expose frame spikes.
+  // Move in one direction during the measured window. Alternating equal deltas
+  // can cancel between display frames on a 60 Hz CI runner and measure no draw
+  // at all even though each wheel event is handled.
+  const inspectorProfileSteps = 12
+  const inspectorProfileDelta = -12
   await profileNativeFrames(app, "inspector-wheel", async (mark) => {
-    for (let index = 0; index < 24; index += 1) {
-      mark(`wheel ${index + 1}/24`)
-      await app.mouse.wheel(inspectorWheelPoint, 0, index % 2 === 0 ? -36 : 36)
-      // Match the 120 Hz target instead of flooding synchronous N-API input
-      // faster than a trackpad can deliver it. This also gives the native frame
-      // loop one host turn to paint each retained scroll update.
+    for (let index = 0; index < inspectorProfileSteps; index += 1) {
+      mark(`wheel ${index + 1}/${inspectorProfileSteps}`)
+      await app.mouse.wheel(inspectorWheelPoint, 0, inspectorProfileDelta)
+      // Pace input at the target rate instead of flooding synchronous N-API.
       await delay(targetFrameMs)
     }
   })
+  await app.mouse.wheel(
+    inspectorWheelPoint,
+    0,
+    -(inspectorProfileSteps * inspectorProfileDelta),
+  )
+  await delay(120)
 
   // Exercise DrawOverlay through its real toolbar + native pointer sequence.
   let parts = toolbarParts(tree)
