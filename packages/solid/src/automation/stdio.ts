@@ -11,6 +11,7 @@ import { parseAutomationTreeValue } from "./tree.js"
 import {
   clockResultSchema,
   createSseDecoder,
+  frameStatsResultSchema,
   encodeSse,
   getBoundsResultSchema,
   getTreeResultSchema,
@@ -205,6 +206,20 @@ export class SseAutomationBackend implements AutomationBackend {
       { id: this.#nextId++, method: "clockResume", params: {} },
       clockResultSchema,
     )).nowMs
+  }
+
+  async resetFrameStats(): Promise<void> {
+    await this.#request(
+      { id: this.#nextId++, method: "resetFrameStats", params: {} },
+      okResultSchema,
+    )
+  }
+
+  async getFrameStats() {
+    return await this.#request(
+      { id: this.#nextId++, method: "getFrameStats", params: {} },
+      frameStatsResultSchema,
+    )
   }
 
   async close(): Promise<void> {
