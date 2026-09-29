@@ -249,8 +249,8 @@ diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
 +                // Once high-rate input is detected, we sustain presentation for 1 second
 +                // to prevent display underclocking during active input.
 +                let needs_present = request_frame_options.require_presentation
-+                    || needs_present.get()
-+                    || input_rate_tracker.borrow_mut().is_high_rate();
++                    || needs_present.get();
++                // Diagnostic: skip cached high-rate re-presentation in the embedded edge run.
 +
 +                let render_started = Instant::now();
 +                if invalidator.is_dirty() || force_render {
