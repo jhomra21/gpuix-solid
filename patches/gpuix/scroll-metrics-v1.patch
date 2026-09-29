@@ -153,6 +153,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +        if motion_active {
              window.request_animation_frame();
          }
+ 
 @@ -5385,31 +5462,44 @@
              }
  
