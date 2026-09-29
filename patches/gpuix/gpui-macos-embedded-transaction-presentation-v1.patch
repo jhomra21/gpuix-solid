@@ -70,7 +70,7 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
      event_callback: Option<Box<dyn FnMut(PlatformInput) -> gpui::DispatchEventResult>>,
      activate_callback: Option<Box<dyn FnMut(bool)>>,
      resize_callback: Option<Box<dyn FnMut(Size<Pixels>, f32)>>,
-@@ -766,8 +766,15 @@
+@@ -759,5 +759,11 @@
      fn start_display_link(&mut self) {
          self.stop_display_link();
 +        if self.embedded {
@@ -151,7 +151,7 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
                  event_callback: None,
                  activate_callback: None,
                  resize_callback: None,
-@@ -1800,19 +1800,47 @@
+@@ -1802,18 +1802,41 @@
      fn is_fullscreen(&self) -> bool {
          let this = self.0.lock();
          let window = this.native_window;
