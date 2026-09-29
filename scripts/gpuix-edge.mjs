@@ -58,8 +58,8 @@ function validatePatchPath(patch) {
 }
 
 function validateSubmodulePath(submodule) {
-  const absolute = resolve(checkout, submodule)
-  const relativeSubmodule = relative(checkout, absolute)
+  const absolute = resolve(repoRoot, submodule)
+  const relativeSubmodule = relative(repoRoot, absolute)
   if (
     relativeSubmodule.startsWith("..")
     || relativeSubmodule === ""
