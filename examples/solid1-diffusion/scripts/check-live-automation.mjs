@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process"
-import { existsSync, readFileSync, statSync, unlinkSync } from "node:fs"
+import { existsSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { connectStdio } from "../../../packages/solid/dist/automation/stdio.js"
@@ -7,6 +7,14 @@ import { connectStdio } from "../../../packages/solid/dist/automation/stdio.js"
 const here = dirname(fileURLToPath(import.meta.url))
 const exampleDirectory = join(here, "..")
 const timeoutMs = 20_000
+const performancePath = "/tmp/diffusion-performance.json"
+const targetFps = 120
+const targetFrameMs = 1000 / targetFps
+const performanceReport = {
+  targetFps,
+  targetFrameMs,
+  scenarios: {},
+}
 const screenshots = {
   initial: "/tmp/diffusion-editor-initial.png",
   layerInspector: "/tmp/diffusion-layer-inspector.png",
@@ -185,6 +193,31 @@ async function screenshot(app, name) {
   await app.screenshot({ path })
   assert(existsSync(path) && statSync(path).size > 10_000, `Screenshot ${path} was not captured correctly`)
   return path
+}
+
+async function profileNativeFrames(app, name, exercise) {
+  await app.performance.reset()
+  const startedAt = performance.now()
+  await exercise()
+  // Give the native renderer enough time to record the last interaction frame.
+  await delay(80)
+  const elapsedMs = Math.max(1, performance.now() - startedAt)
+  const stats = await app.performance.stats()
+  const observedFps = stats.frames * 1000 / elapsedMs
+  const p90Ms = stats.p90Ms ?? null
+  const p99Ms = stats.p99Ms ?? null
+  performanceReport.scenarios[name] = {
+    elapsedMs,
+    observedFps,
+    currentMs: stats.currentMs ?? null,
+    p90Ms,
+    p99Ms,
+    maxMs: stats.maxMs ?? null,
+    frames: stats.frames,
+    samples: stats.samples,
+    meets120HzDrawBudget: p90Ms !== null && p90Ms <= targetFrameMs,
+  }
+  assert(stats.samples > 0 && stats.frames > 0, `${name} did not produce native frame samples`)
 }
 
 function assertText(root, text, label = text) {
@@ -467,6 +500,15 @@ try {
   assertInspectorSectionHeadings(tree)
   await screenshot(app, "layerInspector")
 
+  // Measure the exact wheel-heavy Inspector path the manual report called out.
+  // Alternate the deltas so the viewport stays near the same content while the
+  // native renderer handles enough consecutive input to expose frame spikes.
+  await profileNativeFrames(app, "inspector-wheel", async () => {
+    for (let index = 0; index < 24; index += 1) {
+      await inspectorScroll.wheel(0, index % 2 === 0 ? -36 : 36)
+    }
+  })
+
   // Exercise DrawOverlay through its real toolbar + native pointer sequence.
   let parts = toolbarParts(tree)
   await clickNode(app, parts.rectangle)
@@ -748,6 +790,19 @@ try {
   assert(zoomAfterWheel !== zoomBeforeWheel, `Canvas wheel zoom did not change zoom from ${zoomBeforeWheel}`)
   await screenshot(app, "canvasZoomed")
 
+  // Keep the camera hot long enough to measure the real retained Canvas path,
+  // including Diffusion's RAF systems and GPUIX draw-list handoff.
+  await profileNativeFrames(app, "canvas-wheel-zoom", async () => {
+    for (let index = 0; index < 24; index += 1) {
+      await app.mouse.wheel(
+        at(wheelZoomStage.bounds, 0.5, 0.5),
+        0,
+        index % 2 === 0 ? 4 : -4,
+        { modifiers: "ctrl" },
+      )
+    }
+  })
+
   // Restore a deterministic camera scale for the rest of the editor audit.
   await zoomReadout.click()
   tree = await waitFor("Inspector zoom reset menu", async () => {
@@ -957,8 +1012,10 @@ try {
   const fatalOutput = [...stderrChunks, ...stdoutLogChunks].join("")
   const foundFatal = fatalPatterns.filter((pattern) => pattern.test(fatalOutput))
   assert(foundFatal.length === 0, `Native runtime emitted a fatal signature: ${foundFatal.map(String).join(", ")}\n${fatalOutput}`)
+  writeFileSync(performancePath, JSON.stringify(performanceReport, null, 2) + "\n")
   await screenshot(app, "final")
   console.log("solid1 Diffusion live-native acceptance: PASSED")
+  console.log("solid1 Diffusion native performance:", JSON.stringify(performanceReport))
   console.log(JSON.stringify({
     initialStageBounds: stage.bounds,
     timelineBounds: restoredTimeline.bounds,
@@ -980,6 +1037,8 @@ try {
       "fixture Play/Pause traverses AudioContext.resume() without claiming real audio playback",
     ],
     screenshots,
+    performance: performanceReport,
+    performancePath,
     nonFatalStderr: stderrChunks.join("").split("\n").filter(Boolean),
   }, null, 2))
 } catch (error) {
