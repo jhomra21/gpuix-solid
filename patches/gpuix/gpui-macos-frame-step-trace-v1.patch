@@ -1,0 +1,16 @@
+diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
+--- a/crates/gpui_macos/src/window.rs
++++ b/crates/gpui_macos/src/window.rs
+@@ -2999,7 +2999,12 @@ extern "C" fn step(view: *mut c_void) {
+ 
+     if let Some(mut callback) = lock.request_frame_callback.take() {
+         drop(lock);
++        let started = std::time::Instant::now();
+         callback(Default::default());
++        let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
++        if elapsed_ms >= 20.0 {
++            eprintln!("[gpuix][perf] mac frame step callback={elapsed_ms:.2}ms");
++        }
+         window_state.lock().request_frame_callback = Some(callback);
+     }
+ }
