@@ -130,6 +130,8 @@ async function syncSource() {
     if (!(await exists(join(submoduleRoot, ".git")))) {
       throw new Error(`GPUIX edge submodule is missing: ${entry.submodule}`)
     }
+    run("git", ["reset", "--hard", "HEAD"], submoduleRoot)
+    run("git", ["clean", "-fd"], submoduleRoot)
     for (const patch of entry.patches) {
       const patchPath = resolve(repoRoot, patch)
       if (!(await exists(patchPath))) throw new Error(`GPUIX edge patch is missing: ${patch}`)
