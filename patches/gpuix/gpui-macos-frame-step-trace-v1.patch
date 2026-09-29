@@ -17,197 +17,13 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
 diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
 --- a/crates/gpui/src/window.rs
 +++ b/crates/gpui/src/window.rs
-@@ -1641,22 +1641,52 @@
- 
--                if invalidator.is_dirty() || force_render {
--                    measure("frame duration", || {
--                        handle
--                            .update(&mut cx, |_, window, cx| {
--                                if force_render {
--                                    // Bypass cached view reuse so we don't replay stale
--                                    // atlas tile references after a GPU device recovery.
--                                    window.refresh();
--                                }
--                                let arena_clear_needed = window.draw(cx);
--                                window.present();
--                                arena_clear_needed.clear(cx);
--                            })
--                            .log_err();
--                    })
--                } else if needs_present {
--                    handle
--                        .update(&mut cx, |_, window, _| window.present())
--                        .log_err();
--                }
-+                if invalidator.is_dirty() || force_render {
-+                    measure("frame duration", || {
-+                        handle
-+                            .update(&mut cx, |_, window, cx| {
-+                                if force_render {
-+                                    // Bypass cached view reuse so we don't replay stale
-+                                    // atlas tile references after a GPU device recovery.
-+                                    window.refresh();
-+                                }
-+                                let draw_started = Instant::now();
-+                                let arena_clear_needed = window.draw(cx);
-+                                let draw_elapsed = draw_started.elapsed();
-+
-+                                let present_started = Instant::now();
-+                                window.present();
-+                                let present_elapsed = present_started.elapsed();
-+
-+                                let clear_started = Instant::now();
-+                                arena_clear_needed.clear(cx);
-+                                let clear_elapsed = clear_started.elapsed();
-+
-+                                if draw_elapsed >= Duration::from_millis(20)
-+                                    || present_elapsed >= Duration::from_millis(20)
-+                                    || clear_elapsed >= Duration::from_millis(20)
-+                                {
-+                                    eprintln!(
-+                                        "[gpuix][perf] frame render draw={:.2}ms present={:.2}ms clear={:.2}ms",
-+                                        draw_elapsed.as_secs_f64() * 1000.0,
-+                                        present_elapsed.as_secs_f64() * 1000.0,
-+                                        clear_elapsed.as_secs_f64() * 1000.0
-+                                    );
-+                                }
-+                            })
-+                            .log_err();
-+                    })
-+                } else if needs_present {
-+                    handle
-+                        .update(&mut cx, |_, window, _| {
-+                            let present_started = Instant::now();
-+                            window.present();
-+                            let present_elapsed = present_started.elapsed();
-+                            if present_elapsed >= Duration::from_millis(20) {
-+                                eprintln!(
-+                                    "[gpuix][perf] frame present-only={:.2}ms",
-+                                    present_elapsed.as_secs_f64() * 1000.0
-+                                );
-+                            }
-+                        })
-+                        .log_err();
-+                }
- 
-diff --git a/crates/gpui_apple/src/metal_renderer.rs b/crates/gpui_apple/src/metal_renderer.rs
---- a/crates/gpui_apple/src/metal_renderer.rs
-+++ b/crates/gpui_apple/src/metal_renderer.rs
-@@ -446,45 +446,64 @@
- 
--    pub fn draw(&mut self, scene: &Scene) {
--        let layer = match &self.layer {
--            Some(l) => l.clone(),
--            None => {
--                log::error!(
--                    "draw() called on headless renderer - use render_scene_to_image() instead"
--                );
--                return;
--            }
--        };
--        let viewport_size = layer.drawable_size();
--        let viewport_size: Size<DevicePixels> = size(
--            (viewport_size.width.ceil() as i32).into(),
--            (viewport_size.height.ceil() as i32).into(),
--        );
--        let drawable = if let Some(drawable) = layer.next_drawable() {
--            drawable
--        } else {
--            log::error!(
--                "failed to retrieve next drawable, drawable size: {:?}",
--                viewport_size
--            );
--            return;
--        };
--
--        let command_buffer = match self.render_frame(scene, drawable.texture(), viewport_size) {
--            Ok(command_buffer) => command_buffer,
--            Err(error) => {
--                log::error!("failed to render: {error:#}");
--                return;
--            }
--        };
--
--        if self.presents_with_transaction {
--            command_buffer.commit();
--            command_buffer.wait_until_scheduled();
--            drawable.present();
--        } else {
--            command_buffer.present_drawable(drawable);
--            command_buffer.commit();
--        }
--    }
--
-+    pub fn draw(&mut self, scene: &Scene) {
-+        let layer = match &self.layer {
-+            Some(l) => l.clone(),
-+            None => {
-+                log::error!(
-+                    "draw() called on headless renderer - use render_scene_to_image() instead"
-+                );
-+                return;
-+            }
-+        };
-+        let viewport_size = layer.drawable_size();
-+        let viewport_size: Size<DevicePixels> = size(
-+            (viewport_size.width.ceil() as i32).into(),
-+            (viewport_size.height.ceil() as i32).into(),
-+        );
-+
-+        let drawable_started = std::time::Instant::now();
-+        let drawable = if let Some(drawable) = layer.next_drawable() {
-+            drawable
-+        } else {
-+            log::error!(
-+                "failed to retrieve next drawable, drawable size: {:?}",
-+                viewport_size
-+            );
-+            return;
-+        };
-+        let drawable_elapsed = drawable_started.elapsed();
-+
-+        let render_started = std::time::Instant::now();
-+        let command_buffer = match self.render_frame(scene, drawable.texture(), viewport_size) {
-+            Ok(command_buffer) => command_buffer,
-+            Err(error) => {
-+                log::error!("failed to render: {error:#}");
-+                return;
-+            }
-+        };
-+        let render_elapsed = render_started.elapsed();
-+
-+        let submit_started = std::time::Instant::now();
-+        if self.presents_with_transaction {
-+            command_buffer.commit();
-+            command_buffer.wait_until_scheduled();
-+            drawable.present();
-+        } else {
-+            command_buffer.present_drawable(drawable);
-+            command_buffer.commit();
-+        }
-+        let submit_elapsed = submit_started.elapsed();
-+
-+        if drawable_elapsed >= std::time::Duration::from_millis(20)
-+            || render_elapsed >= std::time::Duration::from_millis(20)
-+            || submit_elapsed >= std::time::Duration::from_millis(20)
-+        {
-+            eprintln!(
-+                "[gpuix][perf] metal draw drawable={:.2}ms render={:.2}ms submit={:.2}ms transaction={}",
-+                drawable_elapsed.as_secs_f64() * 1000.0,
-+                render_elapsed.as_secs_f64() * 1000.0,
-+                submit_elapsed.as_secs_f64() * 1000.0,
-+                self.presents_with_transaction
-+            );
-+        }
-+    }
-     fn render_frame(
-diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
---- a/crates/gpui/src/window.rs
-+++ b/crates/gpui/src/window.rs
-@@ -1549,136 +1549,153 @@
-             let next_frame_callbacks = next_frame_callbacks.clone();
-             let input_rate_tracker = input_rate_tracker.clone();
-             let mut deferred_force_render = false;
+@@ -1546,139 +1546,186 @@
+             let invalidator = invalidator.clone();
+             let active = active.clone();
+             let needs_present = needs_present.clone();
+-            let next_frame_callbacks = next_frame_callbacks.clone();
+-            let input_rate_tracker = input_rate_tracker.clone();
+-            let mut deferred_force_render = false;
 -            move |request_frame_options| {
 -                #[cfg(feature = "profiler")]
 -                let _foreground_turn = profiler::journal::foreground_turn();
@@ -338,6 +154,9 @@ diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
 -                    invalidator.wake_platform();
 -                }
 -            }
++            let next_frame_callbacks = next_frame_callbacks.clone();
++            let input_rate_tracker = input_rate_tracker.clone();
++            let mut deferred_force_render = false;
 +            move |request_frame_options| {
 +                let callback_started = Instant::now();
 +                #[cfg(feature = "profiler")]
@@ -443,15 +262,45 @@ diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
 +                                    // atlas tile references after a GPU device recovery.
 +                                    window.refresh();
 +                                }
++                                let draw_started = Instant::now();
 +                                let arena_clear_needed = window.draw(cx);
++                                let draw_elapsed = draw_started.elapsed();
++
++                                let present_started = Instant::now();
 +                                window.present();
++                                let present_elapsed = present_started.elapsed();
++
++                                let clear_started = Instant::now();
 +                                arena_clear_needed.clear(cx);
++                                let clear_elapsed = clear_started.elapsed();
++
++                                if draw_elapsed >= Duration::from_millis(20)
++                                    || present_elapsed >= Duration::from_millis(20)
++                                    || clear_elapsed >= Duration::from_millis(20)
++                                {
++                                    eprintln!(
++                                        "[gpuix][perf] frame render draw={:.2}ms present={:.2}ms clear={:.2}ms",
++                                        draw_elapsed.as_secs_f64() * 1000.0,
++                                        present_elapsed.as_secs_f64() * 1000.0,
++                                        clear_elapsed.as_secs_f64() * 1000.0
++                                    );
++                                }
 +                            })
 +                            .log_err();
 +                    })
 +                } else if needs_present {
 +                    handle
-+                        .update(&mut cx, |_, window, _| window.present())
++                        .update(&mut cx, |_, window, _| {
++                            let present_started = Instant::now();
++                            window.present();
++                            let present_elapsed = present_started.elapsed();
++                            if present_elapsed >= Duration::from_millis(20) {
++                                eprintln!(
++                                    "[gpuix][perf] frame present-only={:.2}ms",
++                                    present_elapsed.as_secs_f64() * 1000.0
++                                );
++                            }
++                        })
 +                        .log_err();
 +                }
 +                let render_ms = render_started.elapsed().as_secs_f64() * 1000.0;
@@ -488,3 +337,114 @@ diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
          }));
          invalidator.set_platform_waker(platform_window.frame_waker());
          platform_window.on_resize(Box::new({
+diff --git a/crates/gpui_apple/src/metal_renderer.rs b/crates/gpui_apple/src/metal_renderer.rs
+--- a/crates/gpui_apple/src/metal_renderer.rs
++++ b/crates/gpui_apple/src/metal_renderer.rs
+@@ -446,45 +446,64 @@
+ 
+-    pub fn draw(&mut self, scene: &Scene) {
+-        let layer = match &self.layer {
+-            Some(l) => l.clone(),
+-            None => {
+-                log::error!(
+-                    "draw() called on headless renderer - use render_scene_to_image() instead"
+-                );
+-                return;
+-            }
+-        };
+-        let viewport_size = layer.drawable_size();
+-        let viewport_size: Size<DevicePixels> = size(
+-            (viewport_size.width.ceil() as i32).into(),
+-            (viewport_size.height.ceil() as i32).into(),
+-        );
+-        let drawable = if let Some(drawable) = layer.next_drawable() {
+-            drawable
+-        } else {
+-            log::error!(
+-                "failed to retrieve next drawable, drawable size: {:?}",
+-                viewport_size
+-            );
+-            return;
+-        };
+-
+-        let command_buffer = match self.render_frame(scene, drawable.texture(), viewport_size) {
+-            Ok(command_buffer) => command_buffer,
+-            Err(error) => {
+-                log::error!("failed to render: {error:#}");
+-                return;
+-            }
+-        };
+-
+-        if self.presents_with_transaction {
+-            command_buffer.commit();
+-            command_buffer.wait_until_scheduled();
+-            drawable.present();
+-        } else {
+-            command_buffer.present_drawable(drawable);
+-            command_buffer.commit();
+-        }
+-    }
+-
++    pub fn draw(&mut self, scene: &Scene) {
++        let layer = match &self.layer {
++            Some(l) => l.clone(),
++            None => {
++                log::error!(
++                    "draw() called on headless renderer - use render_scene_to_image() instead"
++                );
++                return;
++            }
++        };
++        let viewport_size = layer.drawable_size();
++        let viewport_size: Size<DevicePixels> = size(
++            (viewport_size.width.ceil() as i32).into(),
++            (viewport_size.height.ceil() as i32).into(),
++        );
++
++        let drawable_started = std::time::Instant::now();
++        let drawable = if let Some(drawable) = layer.next_drawable() {
++            drawable
++        } else {
++            log::error!(
++                "failed to retrieve next drawable, drawable size: {:?}",
++                viewport_size
++            );
++            return;
++        };
++        let drawable_elapsed = drawable_started.elapsed();
++
++        let render_started = std::time::Instant::now();
++        let command_buffer = match self.render_frame(scene, drawable.texture(), viewport_size) {
++            Ok(command_buffer) => command_buffer,
++            Err(error) => {
++                log::error!("failed to render: {error:#}");
++                return;
++            }
++        };
++        let render_elapsed = render_started.elapsed();
++
++        let submit_started = std::time::Instant::now();
++        if self.presents_with_transaction {
++            command_buffer.commit();
++            command_buffer.wait_until_scheduled();
++            drawable.present();
++        } else {
++            command_buffer.present_drawable(drawable);
++            command_buffer.commit();
++        }
++        let submit_elapsed = submit_started.elapsed();
++
++        if drawable_elapsed >= std::time::Duration::from_millis(20)
++            || render_elapsed >= std::time::Duration::from_millis(20)
++            || submit_elapsed >= std::time::Duration::from_millis(20)
++        {
++            eprintln!(
++                "[gpuix][perf] metal draw drawable={:.2}ms render={:.2}ms submit={:.2}ms transaction={}",
++                drawable_elapsed.as_secs_f64() * 1000.0,
++                render_elapsed.as_secs_f64() * 1000.0,
++                submit_elapsed.as_secs_f64() * 1000.0,
++                self.presents_with_transaction
++            );
++        }
++    }
+     fn render_frame(
