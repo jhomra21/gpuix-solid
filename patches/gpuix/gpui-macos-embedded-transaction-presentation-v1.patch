@@ -152,7 +152,7 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
          unsafe {
              let pool = NSAutoreleasePool::new(nil);
  
-@@ -1011,25 +1011,32 @@
+@@ -1011,25 +1011,40 @@
              let native_view = NSView::initWithFrame_(native_view, NSView::bounds(content_view));
              assert!(!native_view.is_null());
  
@@ -185,6 +185,14 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
 +            // Embedded hosts are pumped in short AppKit slices. Present through
 +            // Core Animation so the drawable lifecycle follows those slices.
 +            renderer.set_presents_with_transaction(embedded);
++            if embedded {
++                if let Some(layer) = renderer.layer() {
++                    // The host controls embedded frame pacing. Avoid a second
++                    // display-sync gate inside CAMetalLayer so drawables can be
++                    // recycled as soon as Core Animation consumes them.
++                    layer.set_display_sync_enabled(false);
++                }
++            }
 +
 +            let mut window = Self(Arc::new(Mutex::new(MacWindowState {
 +                handle,
