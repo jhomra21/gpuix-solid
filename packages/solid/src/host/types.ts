@@ -610,6 +610,8 @@ export interface NativeRenderer {
   setImage?(elementId: number, bytes: Uint8Array): void
   setImagePixels?(elementId: number, width: number, height: number, pixels: Uint8Array): void
   getScrollOffset?(elementId: number): number[] | null
+  /** [offsetX, offsetY, maxScrollX, maxScrollY] from the native scroll handle. */
+  getScrollMetrics?(elementId: number): number[] | null
   getListScrollTop?(elementId: number): number[] | null
   getSelectedText?(): string | null
   clearSelection?(): void
