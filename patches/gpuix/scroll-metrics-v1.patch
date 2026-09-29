@@ -16,7 +16,28 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
  const SELECTION_SCROLL_TICK_MS: u64 = 24;
  const SELECTION_SCROLL_EDGE_PX: f32 = 36.0;
  const SELECTION_SCROLL_MAX_STEP_PX: f32 = 24.0;
-@@ -1572,10 +1577,25 @@
+@@ -1402,11 +1407,20 @@
+         #[cfg(target_os = "macos")]
+         {
+             let running = MAC_PLATFORM.with(|p| {
+                 p.borrow()
+                     .as_ref()
+                     .map(|platform| platform.pump_events())
+                     .unwrap_or(false)
+             });
++            if running {
++                if let Ok(stats) = update_window_without_view(|window, _cx| {
++                    debug_frame_overlay_stats_js(window.debug_frame_overlay_stats())
++                }) {
++                    *DEBUG_FRAME_STATS_SNAPSHOT
++                        .lock()
++                        .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(stats);
++                }
++            }
+             return Ok(running);
+         }
+ 
+@@ -1572,10 +1586,25 @@
      /// Clears the last 1000 draw samples. Frame count stays.
      #[napi]
      pub fn reset_debug_frame_overlay_stats(&self) -> Result<()> {
@@ -46,7 +67,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
  
          #[cfg(any(target_os = "windows", target_os = "linux", target_os = "freebsd"))]
          return self.send_ui_command(UiCommand::ResetDebugFrameOverlayStats);
-@@ -1592,10 +1612,20 @@
+@@ -1592,10 +1621,20 @@
      /// Same numbers as the on-screen overlay: current, p90, p99, max, frames.
      #[napi]
      pub fn get_debug_frame_overlay_stats(&self) -> Result<DebugFrameOverlayStats> {
@@ -71,7 +92,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
  
          #[cfg(any(target_os = "windows", target_os = "linux", target_os = "freebsd"))]
          {
-@@ -2134,9 +2164,39 @@
+@@ -2134,9 +2173,39 @@
          Err(Error::from_reason("Unsupported operating system"))
      }
  
@@ -114,7 +135,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
          let id = to_element_id(element_id)?;
          #[cfg(target_os = "macos")]
          {
-@@ -4668,7 +4728,22 @@
+@@ -4668,7 +4737,22 @@
      ) -> impl gpui::IntoElement {
          use gpui::IntoElement;
  
@@ -138,25 +159,6 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
  
          #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
          if let Some(id) = PENDING_FOCUS_ELEMENT.with(|pending| pending.borrow_mut().take()) {
-@@ -4803,9 +4878,15 @@
-         // One-shot: a queued scroll for a list that did not build this frame
-         // would otherwise fire on some later frame, against child indices that
-         // no longer match what JS meant.
--        PENDING_VIRTUAL_LIST_SCROLLS.with(|cell| cell.borrow_mut().clear());
--
--        if motion_active {
-+        PENDING_VIRTUAL_LIST_SCROLLS.with(|cell| cell.borrow_mut().clear());
-+
-+        #[cfg(target_os = "macos")]
-+        *DEBUG_FRAME_STATS_SNAPSHOT
-+            .lock()
-+            .unwrap_or_else(|poisoned| poisoned.into_inner()) =
-+            Some(debug_frame_overlay_stats_js(window.debug_frame_overlay_stats()));
-+
-+        if motion_active {
-             window.request_animation_frame();
-         }
- 
 diff --git a/packages/native/src/element_tree.rs b/packages/native/src/element_tree.rs
 --- a/packages/native/src/element_tree.rs
 +++ b/packages/native/src/element_tree.rs
