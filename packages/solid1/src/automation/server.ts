@@ -20,6 +20,7 @@ const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
 
 const PROTOCOL_VERSION = 1 as const
 const idSchema = z.number().int()
+const requestIdSchema = z.object({ id: idSchema }).passthrough()
 const mouseButtonSchema = z.number().int().optional()
 const modifiersSchema = z.string().optional()
 
@@ -280,14 +281,9 @@ async function dispatch(
 async function respond(raw: JsonValue, renderer: LiveAutomationRenderer): Promise<string> {
   const parsed = automationRequestSchema.safeParse(raw)
   if (!parsed.success) {
-    const id = typeof raw === "object"
-      && raw !== null
-      && !Array.isArray(raw)
-      && typeof raw.id === "number"
-      ? raw.id
-      : -1
+    const requestId = requestIdSchema.safeParse(raw)
     return encodeSse({
-      id,
+      id: requestId.success ? requestId.data.id : -1,
       error: {
         code: "Protocol",
         message: `Invalid automation request: ${parsed.error.message}`,
