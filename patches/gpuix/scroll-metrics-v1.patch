@@ -1,7 +1,7 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -2133,9 +2133,39 @@
+@@ -2133,9 +2133,40 @@
          )))]
          Err(Error::from_reason("Unsupported operating system"))
      }
