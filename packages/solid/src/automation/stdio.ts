@@ -15,6 +15,7 @@ import {
   frameStatsResultSchema,
   encodeSse,
   getBoundsResultSchema,
+  getScrollOffsetResultSchema,
   getTreeResultSchema,
   initializeResultSchema,
   okResultSchema,
@@ -97,6 +98,14 @@ export class SseAutomationBackend implements AutomationBackend {
       getBoundsResultSchema,
     )
     return result.bounds
+  }
+
+  async getScrollOffset(elementId: number): Promise<[number, number] | null> {
+    const result = await this.#request(
+      { id: this.#nextId++, method: "getScrollOffset", params: { elementId } },
+      getScrollOffsetResultSchema,
+    )
+    return result.offset
   }
 
   async click(x: number, y: number, button?: number, modifiers?: string): Promise<void> {
