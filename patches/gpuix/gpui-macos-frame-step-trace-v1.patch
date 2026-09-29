@@ -14,3 +14,79 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
          window_state.lock().request_frame_callback = Some(callback);
      }
  }
+diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
+--- a/crates/gpui/src/window.rs
++++ b/crates/gpui/src/window.rs
+@@ -1641,22 +1641,52 @@
+ 
+-                if invalidator.is_dirty() || force_render {
+-                    measure("frame duration", || {
+-                        handle
+-                            .update(&mut cx, |_, window, cx| {
+-                                if force_render {
+-                                    // Bypass cached view reuse so we don't replay stale
+-                                    // atlas tile references after a GPU device recovery.
+-                                    window.refresh();
+-                                }
+-                                let arena_clear_needed = window.draw(cx);
+-                                window.present();
+-                                arena_clear_needed.clear(cx);
+-                            })
+-                            .log_err();
+-                    })
+-                } else if needs_present {
+-                    handle
+-                        .update(&mut cx, |_, window, _| window.present())
+-                        .log_err();
+-                }
++                if invalidator.is_dirty() || force_render {
++                    measure("frame duration", || {
++                        handle
++                            .update(&mut cx, |_, window, cx| {
++                                if force_render {
++                                    // Bypass cached view reuse so we don't replay stale
++                                    // atlas tile references after a GPU device recovery.
++                                    window.refresh();
++                                }
++                                let draw_started = Instant::now();
++                                let arena_clear_needed = window.draw(cx);
++                                let draw_elapsed = draw_started.elapsed();
++
++                                let present_started = Instant::now();
++                                window.present();
++                                let present_elapsed = present_started.elapsed();
++
++                                let clear_started = Instant::now();
++                                arena_clear_needed.clear(cx);
++                                let clear_elapsed = clear_started.elapsed();
++
++                                if draw_elapsed >= Duration::from_millis(20)
++                                    || present_elapsed >= Duration::from_millis(20)
++                                    || clear_elapsed >= Duration::from_millis(20)
++                                {
++                                    eprintln!(
++                                        "[gpuix][perf] frame render draw={:.2}ms present={:.2}ms clear={:.2}ms",
++                                        draw_elapsed.as_secs_f64() * 1000.0,
++                                        present_elapsed.as_secs_f64() * 1000.0,
++                                        clear_elapsed.as_secs_f64() * 1000.0
++                                    );
++                                }
++                            })
++                            .log_err();
++                    })
++                } else if needs_present {
++                    handle
++                        .update(&mut cx, |_, window, _| {
++                            let present_started = Instant::now();
++                            window.present();
++                            let present_elapsed = present_started.elapsed();
++                            if present_elapsed >= Duration::from_millis(20) {
++                                eprintln!(
++                                    "[gpuix][perf] frame present-only={:.2}ms",
++                                    present_elapsed.as_secs_f64() * 1000.0
++                                );
++                            }
++                        })
++                        .log_err();
++                }
+ 
