@@ -534,27 +534,30 @@ try {
   await screenshot(app, "layerInspector")
 
   // Measure the exact wheel-heavy Inspector path the manual report called out.
-  // Resolve the hit point once. Locator.wheel() intentionally re-queries the
-  // automation tree to find current bounds, which is useful for ordinary E2E
-  // actions but would make this frame probe measure tree serialization 24 times
-  // instead of the wheel/render hot path.
-  const inspectorWheelBounds = await inspectorScroll.bounds()
-  const inspectorWheelPoint = at(inspectorWheelBounds, 0.5, 0.5)
-  // Move in one direction during the measured window. Alternating equal deltas
-  // can cancel between display frames on a 60 Hz CI runner and measure no draw
-  // at all even though each wheel event is handled.
+  // Resolve the element identity once, then read only its native painted bounds
+  // before each wheel. That keeps hit testing current without serializing the
+  // full automation tree for every sample.
+  const inspectorScrollNode = await inspectorScroll.element()
   const inspectorProfileSteps = 12
   const inspectorProfileDelta = -12
   await profileNativeFrames(app, "inspector-wheel", async (mark) => {
     for (let index = 0; index < inspectorProfileSteps; index += 1) {
+      mark(`bounds ${index + 1}/${inspectorProfileSteps}`)
+      const bounds = await app.backend.getBounds(inspectorScrollNode.id)
+      assert(bounds && bounds.width > 0 && bounds.height > 0, "Inspector scroll area lost painted bounds")
       mark(`wheel ${index + 1}/${inspectorProfileSteps}`)
-      await app.mouse.wheel(inspectorWheelPoint, 0, inspectorProfileDelta)
+      await app.mouse.wheel(at(bounds, 0.5, 0.5), 0, inspectorProfileDelta)
       // Pace input at the target rate instead of flooding synchronous N-API.
       await delay(targetFrameMs)
     }
   })
+  const inspectorRestoreBounds = await app.backend.getBounds(inspectorScrollNode.id)
+  assert(
+    inspectorRestoreBounds && inspectorRestoreBounds.width > 0 && inspectorRestoreBounds.height > 0,
+    "Inspector scroll area lost painted bounds before restore",
+  )
   await app.mouse.wheel(
-    inspectorWheelPoint,
+    at(inspectorRestoreBounds, 0.5, 0.5),
     0,
     -(inspectorProfileSteps * inspectorProfileDelta),
   )
