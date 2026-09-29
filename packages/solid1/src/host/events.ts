@@ -1,5 +1,5 @@
 import type { EventPayload as NativeEventPayload } from "@gpuix/native"
-import type { DomCompatTarget, DragData, EventPayload, HostEventHandler } from "./types.js"
+import type { DomCompatTarget, DragData, EventPayload, HostEventHandler, NativeScrollMetrics } from "./types.js"
 import { GpuixDOMPoint } from "./dom-point.js"
 
 export type { DomCompatTarget } from "./types.js"
@@ -467,6 +467,33 @@ type NativeScrollBubble = {
   deltaY: number
 }
 
+type NativeEventPayloadWithScrollMetrics = NativeEventPayload & {
+  scrollOffsetX?: number
+  scrollOffsetY?: number
+  scrollMaxX?: number
+  scrollMaxY?: number
+  scrollViewportWidth?: number
+  scrollViewportHeight?: number
+}
+
+function scrollMetricsFromEvent(event: NativeEventPayloadWithScrollMetrics): NativeScrollMetrics | undefined {
+  const offsetX = event.scrollOffsetX
+  const offsetY = event.scrollOffsetY
+  const maxX = event.scrollMaxX
+  const maxY = event.scrollMaxY
+  const viewportWidth = event.scrollViewportWidth
+  const viewportHeight = event.scrollViewportHeight
+  if (
+    offsetX === undefined ||
+    offsetY === undefined ||
+    maxX === undefined ||
+    maxY === undefined ||
+    viewportWidth === undefined ||
+    viewportHeight === undefined
+  ) return undefined
+  return { offsetX, offsetY, maxX, maxY, viewportWidth, viewportHeight }
+}
+
 type DragSession = {
   sourceId: number
   data: DragData
@@ -613,7 +640,7 @@ export class EventRegistry {
     return this.#pointerCapture.get(pointerId) === id
   }
 
-  dispatch(event: NativeEventPayload, resolvedDragTargetId?: number | null): void {
+  dispatch(event: NativeEventPayloadWithScrollMetrics, resolvedDragTargetId?: number | null): void {
     if (!this.#live.has(event.elementId)) return
     switch (event.eventType) {
       case "mouseDown": {
@@ -733,6 +760,8 @@ export class EventRegistry {
       }
       case "scroll": {
         const duplicateWheel = this.#isBubbledNativeScroll(event)
+        const metrics = scrollMetricsFromEvent(event)
+        if (metrics) this.#targets.get(event.elementId)?.syncScrollMetrics?.(metrics)
         // Native scroll-wheel callbacks can be relayed through descendants so
         // wheel bubbles across GPUI occluders. DOM scroll itself does not bubble,
         // so every native target still receives its own scroll notification.
