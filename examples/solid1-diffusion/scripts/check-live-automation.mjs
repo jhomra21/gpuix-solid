@@ -518,15 +518,24 @@ try {
   // source's ControlScrollArea is instrumented only in this acceptance build.
   const inspectorScroll = app.getByTestId("diffusion-control-scroll-area-scroll")
   await inspectorScroll.waitFor()
+  const inspectorViewportBounds = await inspectorScroll.bounds()
+  // Keep wheel input anchored to the visible viewport. GPUI reports a scrolled
+  // element's painted bounds with its content translation applied, so reusing
+  // that translated y coordinate after the first wheel can point above the
+  // viewport even though the ScrollHandle itself is still live.
+  const inspectorViewportPoint = {
+    x: inspectorViewportBounds.x + inspectorViewportBounds.width / 2,
+    y: inspectorViewportBounds.y + inspectorViewportBounds.height / 2,
+  }
   const sourceBefore = findText(tree, "Source").bounds?.y
   assert(sourceBefore !== undefined, "Inspector Source heading has no initial bounds")
-  await inspectorScroll.wheel(0, -220)
+  await app.mouse.wheel(inspectorViewportPoint, 0, -220)
   await delay(180)
   tree = await getFreshTree(app)
   const sourceAfter = findText(tree, "Source").bounds?.y
   assert(sourceAfter !== undefined && Math.abs(sourceAfter - sourceBefore) >= 20, "Inspector wheel did not move its content")
   await screenshot(app, "inspectorScrolled")
-  await inspectorScroll.wheel(0, 220)
+  await app.mouse.wheel(inspectorViewportPoint, 0, 220)
   await delay(180)
   tree = await getFreshTree(app)
   assertInspectorShowsTransformControls(tree)
@@ -541,16 +550,14 @@ try {
   assert(app.backend.getScrollOffset, "Live automation backend does not expose native scroll offsets")
   const inspectorOffsetBefore = await app.backend.getScrollOffset(inspectorScrollNode.id)
   assert(inspectorOffsetBefore, "Inspector scroll area has no native ScrollHandle")
-  const inspectorProbeBounds = await app.backend.getBounds(inspectorScrollNode.id)
-  assert(inspectorProbeBounds, "Inspector scroll area has no painted bounds for scroll probe")
-  // The earlier functional check may leave the Inspector at either edge. Probe
-  // toward the interior so the wheel must have room to change the ScrollHandle.
+  // Probe toward the interior so the wheel must have room to change the
+  // ScrollHandle, but keep using the viewport point captured before any scroll.
   const inspectorProbeDelta = inspectorOffsetBefore[1] < 0 ? 24 : -24
-  await app.mouse.wheel(at(inspectorProbeBounds, 0.5, 0.5), 0, inspectorProbeDelta)
+  await app.mouse.wheel(inspectorViewportPoint, 0, inspectorProbeDelta)
   await delay(40)
   const inspectorOffsetAfter = await app.backend.getScrollOffset(inspectorScrollNode.id)
   performanceReport.inspectorScrollProbe = {
-    bounds: inspectorProbeBounds,
+    point: inspectorViewportPoint,
     deltaY: inspectorProbeDelta,
     before: inspectorOffsetBefore,
     after: inspectorOffsetAfter,
@@ -560,29 +567,21 @@ try {
     inspectorOffsetAfter && inspectorOffsetAfter[1] !== inspectorOffsetBefore[1],
     `Inspector wheel did not mutate the native scroll offset: ${JSON.stringify(performanceReport.inspectorScrollProbe)}`,
   )
-  await app.mouse.wheel(at(inspectorProbeBounds, 0.5, 0.5), 0, -inspectorProbeDelta)
+  await app.mouse.wheel(inspectorViewportPoint, 0, -inspectorProbeDelta)
   await delay(80)
 
   const inspectorProfileSteps = 12
   const inspectorProfileDelta = inspectorOffsetBefore[1] < 0 ? 12 : -12
   await profileNativeFrames(app, "inspector-wheel", async (mark) => {
     for (let index = 0; index < inspectorProfileSteps; index += 1) {
-      mark(`bounds ${index + 1}/${inspectorProfileSteps}`)
-      const bounds = await app.backend.getBounds(inspectorScrollNode.id)
-      assert(bounds && bounds.width > 0 && bounds.height > 0, "Inspector scroll area lost painted bounds")
       mark(`wheel ${index + 1}/${inspectorProfileSteps}`)
-      await app.mouse.wheel(at(bounds, 0.5, 0.5), 0, inspectorProfileDelta)
+      await app.mouse.wheel(inspectorViewportPoint, 0, inspectorProfileDelta)
       // Pace input at the target rate instead of flooding synchronous N-API.
       await delay(targetFrameMs)
     }
   })
-  const inspectorRestoreBounds = await app.backend.getBounds(inspectorScrollNode.id)
-  assert(
-    inspectorRestoreBounds && inspectorRestoreBounds.width > 0 && inspectorRestoreBounds.height > 0,
-    "Inspector scroll area lost painted bounds before restore",
-  )
   await app.mouse.wheel(
-    at(inspectorRestoreBounds, 0.5, 0.5),
+    inspectorViewportPoint,
     0,
     -(inspectorProfileSteps * inspectorProfileDelta),
   )
