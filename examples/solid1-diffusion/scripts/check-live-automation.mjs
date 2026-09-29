@@ -572,10 +572,33 @@ try {
 
   const inspectorProfileSteps = 12
   const inspectorProfileDelta = inspectorOffsetBefore[1] < 0 ? 12 : -12
+  performanceReport.inspectorWheelTrace = []
   await profileNativeFrames(app, "inspector-wheel", async (mark) => {
     for (let index = 0; index < inspectorProfileSteps; index += 1) {
-      mark(`wheel ${index + 1}/${inspectorProfileSteps}`)
+      const step = index + 1
+      mark(`wheel ${step}/${inspectorProfileSteps} pre-offset`)
+      const beforeOffset = await app.backend.getScrollOffset(inspectorScrollNode.id)
+      const trace = {
+        step,
+        deltaY: inspectorProfileDelta,
+        beforeOffset,
+        startedAtMs: performance.now(),
+        completedAtMs: null,
+        durationMs: null,
+        afterOffset: null,
+      }
+      performanceReport.inspectorWheelTrace.push(trace)
+      writeFileSync(performancePath, `${JSON.stringify(performanceReport, null, 2)}\n`)
+
+      mark(`wheel ${step}/${inspectorProfileSteps} dispatch`)
       await app.mouse.wheel(inspectorViewportPoint, 0, inspectorProfileDelta)
+      trace.completedAtMs = performance.now()
+      trace.durationMs = trace.completedAtMs - trace.startedAtMs
+
+      mark(`wheel ${step}/${inspectorProfileSteps} post-offset`)
+      trace.afterOffset = await app.backend.getScrollOffset(inspectorScrollNode.id)
+      writeFileSync(performancePath, `${JSON.stringify(performanceReport, null, 2)}\n`)
+
       // Pace input at the target rate instead of flooding synchronous N-API.
       await delay(targetFrameMs)
     }
