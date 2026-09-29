@@ -176,7 +176,14 @@ export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRen
       applyOne(["setRoot", id])
     },
     setCustomProp(id, key, valueJson) {
-      applyOne(["setCustomProp", id, key, parseMutationValue(valueJson)])
+      // This legacy-shaped method already receives valid JSON. In particular,
+      // Canvas draw lists can be large; wrapping them through applyOne would
+      // parse the payload in JS and immediately stringify the same tree again.
+      // setCustomProp does not alter the pointer-listener bridge state, so the
+      // raw one-op batch can go straight to the native renderer.
+      renderer.applyBatch(
+        `[["setCustomProp",${id},${JSON.stringify(key)},${valueJson}]]`,
+      )
     },
     commitMutations() {
       // Single-operation compatibility calls above already commit through applyBatch.
