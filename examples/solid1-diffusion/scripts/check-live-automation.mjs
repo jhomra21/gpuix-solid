@@ -873,10 +873,13 @@ try {
   await profileNativeFrames(app, "canvas-wheel-zoom", async (mark) => {
     for (let index = 0; index < 24; index += 1) {
       mark(`wheel ${index + 1}/24`)
+      // Keep the measured zoom monotonic. Alternating equal deltas can cancel
+      // between display frames and hide real camera/Canvas work on a 60 Hz CI
+      // runner even though every wheel handler executes.
       await app.mouse.wheel(
         at(wheelZoomStage.bounds, 0.5, 0.5),
         0,
-        index % 2 === 0 ? 4 : -4,
+        4,
         { modifiers: "ctrl" },
       )
       await delay(targetFrameMs)
