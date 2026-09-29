@@ -70,18 +70,26 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
      event_callback: Option<Box<dyn FnMut(PlatformInput) -> gpui::DispatchEventResult>>,
      activate_callback: Option<Box<dyn FnMut(bool)>>,
      resize_callback: Option<Box<dyn FnMut(Size<Pixels>, f32)>>,
-@@ -759,5 +759,11 @@
+@@ -759,13 +759,19 @@
      fn start_display_link(&mut self) {
          self.stop_display_link();
+         unsafe {
+             if !self
+                 .native_window
+                 .occlusionState()
+                 .contains(NSWindowOcclusionState::NSWindowOcclusionStateVisible)
+             {
+                 return;
+             }
+         }
 +        if self.embedded {
 +            unsafe {
 +                let _: () = msg_send![self.native_view.as_ptr(), setNeedsDisplay: YES];
 +            }
 +            return;
 +        }
-         unsafe {
-             if !self
-                 .native_window
+         let Some(display_id) = display_id_for_screen(unsafe { self.native_window.screen() }) else {
+             // AppKit can temporarily report no screen while displays are being reconfigured.
 @@ -899,10 +899,11 @@
              ..
          }: WindowParams,
