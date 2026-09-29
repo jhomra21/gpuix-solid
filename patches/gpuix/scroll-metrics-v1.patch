@@ -1,16 +1,91 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -2133,9 +2133,40 @@
-         )))]
+@@ -127,8 +127,13 @@
+     static MAC_PLATFORM: RefCell<Option<Rc<gpui_macos::MacPlatform>>> = const { RefCell::new(None) };
+     #[cfg(target_os = "macos")]
+     static GPUI_APP: RefCell<Option<gpui::ApplicationHandle>> = const { RefCell::new(None) };
+-    #[cfg(target_os = "macos")]
+-    static GPUI_WINDOW: RefCell<Option<gpui::WindowHandle<GpuixView>>> = const { RefCell::new(None) };
++    #[cfg(target_os = "macos")]
++    static GPUI_WINDOW: RefCell<Option<gpui::WindowHandle<GpuixView>>> = const { RefCell::new(None) };
++    #[cfg(target_os = "macos")]
++    static DEBUG_FRAME_STATS_RESET_PENDING: RefCell<bool> = const { RefCell::new(false) };
++    #[cfg(target_os = "macos")]
++    static DEBUG_FRAME_STATS_SNAPSHOT: RefCell<Option<DebugFrameOverlayStats>> =
++        const { RefCell::new(None) };
+     #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+     static WEB_APP: RefCell<Option<gpui::ApplicationHandle>> = const { RefCell::new(None) };
+     #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+@@ -1572,10 +1577,27 @@
+     /// Clears the last 1000 draw samples. Frame count stays.
+     #[napi]
+     pub fn reset_debug_frame_overlay_stats(&self) -> Result<()> {
+-        #[cfg(target_os = "macos")]
+-        return update_window(|_view, window, _cx| {
+-            window.reset_debug_frame_overlay_stats();
+-        });
++        #[cfg(target_os = "macos")]
++        {
++            let frames = DEBUG_FRAME_STATS_SNAPSHOT.with(|snapshot| {
++                snapshot
++                    .borrow()
++                    .as_ref()
++                    .map_or(0.0, |stats| stats.frames)
++            });
++            DEBUG_FRAME_STATS_SNAPSHOT.with(|snapshot| {
++                *snapshot.borrow_mut() = Some(DebugFrameOverlayStats {
++                    current_ms: None,
++                    p90_ms: None,
++                    p99_ms: None,
++                    max_ms: None,
++                    frames,
++                    samples: 0.0,
++                });
++            });
++            DEBUG_FRAME_STATS_RESET_PENDING.with(|pending| *pending.borrow_mut() = true);
++            return Ok(());
++        }
+ 
+         #[cfg(any(target_os = "windows", target_os = "linux", target_os = "freebsd"))]
+         return self.send_ui_command(UiCommand::ResetDebugFrameOverlayStats);
+@@ -1592,10 +1614,21 @@
+     /// Same numbers as the on-screen overlay: current, p90, p99, max, frames.
+     #[napi]
+     pub fn get_debug_frame_overlay_stats(&self) -> Result<DebugFrameOverlayStats> {
+-        #[cfg(target_os = "macos")]
+-        return update_window(|_view, window, _cx| {
+-            debug_frame_overlay_stats_js(window.debug_frame_overlay_stats())
+-        });
++        #[cfg(target_os = "macos")]
++        return Ok(DEBUG_FRAME_STATS_SNAPSHOT.with(|snapshot| {
++            snapshot
++                .borrow()
++                .as_ref()
++                .cloned()
++                .unwrap_or(DebugFrameOverlayStats {
++                    current_ms: None,
++                    p90_ms: None,
++                    p99_ms: None,
++                    max_ms: None,
++                    frames: 0.0,
++                    samples: 0.0,
++                })
++        }));
+ 
+         #[cfg(any(target_os = "windows", target_os = "linux", target_os = "freebsd"))]
+         {
+@@ -2134,9 +2167,39 @@
          Err(Error::from_reason("Unsupported operating system"))
      }
  
-+    /// Read the current offset and maximum scroll distance from GPUI's
-+    /// retained ScrollHandle without walking descendant element bounds.
+-    /// Scroll this element's nearest scroll parent until the element is visible.
+-    #[napi]
+-    pub fn scroll_into_view(&self, element_id: f64) -> Result<()> {
++    /// Read the current offset, maximum scroll distance, and viewport size
++    /// from GPUI's retained ScrollHandle without walking descendant bounds.
 +    /// Returns [offsetX, offsetY, maxScrollX, maxScrollY, viewportWidth,
-+    /// viewportHeight], or null when this element does not own a standard
-+    /// scroll handle.
++    /// viewportHeight], or null when the element has no standard scroll handle.
 +    #[napi]
 +    pub fn get_scroll_metrics(&self, element_id: f64) -> Result<Option<Vec<f64>>> {
 +        let id = to_element_id(element_id)?;
@@ -37,8 +112,45 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +        Ok(None)
 +    }
 +
-     /// Scroll this element's nearest scroll parent until the element is visible.
-     #[napi]
-     pub fn scroll_into_view(&self, element_id: f64) -> Result<()> {
++    /// Scroll this element's nearest scroll parent until the element is visible.
++    #[napi]
++    pub fn scroll_into_view(&self, element_id: f64) -> Result<()> {
          let id = to_element_id(element_id)?;
          #[cfg(target_os = "macos")]
+         {
+@@ -4668,7 +4731,14 @@
+     ) -> impl gpui::IntoElement {
+         use gpui::IntoElement;
+ 
+-        window.set_window_title(&self.window_title);
++        window.set_window_title(&self.window_title);
++
++        // Debug-frame statistics are sampled by automation. Applying a reset
++        // from render avoids re-entering the leased GPUI window from N-API.
++        #[cfg(target_os = "macos")]
++        if DEBUG_FRAME_STATS_RESET_PENDING.with(|pending| std::mem::take(&mut *pending.borrow_mut())) {
++            window.reset_debug_frame_overlay_stats();
++        }
+ 
+         #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+         if let Some(id) = PENDING_FOCUS_ELEMENT.with(|pending| pending.borrow_mut().take()) {
+@@ -4803,9 +4873,16 @@
+         // One-shot: a queued scroll for a list that did not build this frame
+         // would otherwise fire on some later frame, against child indices that
+         // no longer match what JS meant.
+-        PENDING_VIRTUAL_LIST_SCROLLS.with(|cell| cell.borrow_mut().clear());
+-
+-        if motion_active {
++        PENDING_VIRTUAL_LIST_SCROLLS.with(|cell| cell.borrow_mut().clear());
++
++        #[cfg(target_os = "macos")]
++        DEBUG_FRAME_STATS_SNAPSHOT.with(|snapshot| {
++            *snapshot.borrow_mut() = Some(debug_frame_overlay_stats_js(
++                window.debug_frame_overlay_stats(),
++            ));
++        });
++
++        if motion_active {
+             window.request_animation_frame();
+         }
+ 
