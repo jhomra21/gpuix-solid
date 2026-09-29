@@ -21,7 +21,8 @@
     {
       "submodule": "zed",
       "patches": [
-        "patches/gpuix/gpui-macos-embedded-pump-budget-v1.patch"
+        "patches/gpuix/gpui-macos-embedded-pump-budget-v1.patch",
+        "patches/gpuix/gpui-macos-frame-step-trace-v1.patch"
       ]
     }
   ]
