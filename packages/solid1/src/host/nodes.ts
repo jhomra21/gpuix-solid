@@ -12,7 +12,7 @@ import type {
   ElementType,
   HostEventHandler,
   NativeRenderer,
-  type NativeScrollMetrics,
+  NativeScrollMetrics,
   PublicInstance,
   StyleDesc,
   VideoFrameSurfaceFrame,
