@@ -17,7 +17,7 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
 diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
 --- a/crates/gpui/src/window.rs
 +++ b/crates/gpui/src/window.rs
-@@ -1641,21 +1641,51 @@
+@@ -1641,22 +1641,52 @@
  
 -                if invalidator.is_dirty() || force_render {
 -                    measure("frame duration", || {
@@ -89,6 +89,7 @@ diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
 +                        })
 +                        .log_err();
 +                }
+ 
 diff --git a/crates/gpui_apple/src/metal_renderer.rs b/crates/gpui_apple/src/metal_renderer.rs
 --- a/crates/gpui_apple/src/metal_renderer.rs
 +++ b/crates/gpui_apple/src/metal_renderer.rs
