@@ -1,15 +1,16 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -2133,9 +2133,36 @@
+@@ -2133,9 +2133,39 @@
          )))]
          Err(Error::from_reason("Unsupported operating system"))
      }
  
 +    /// Read the current offset and maximum scroll distance from GPUI's
 +    /// retained ScrollHandle without walking descendant element bounds.
-+    /// Returns [offsetX, offsetY, maxScrollX, maxScrollY], or null when this
-+    /// element does not own a standard scroll handle.
++    /// Returns [offsetX, offsetY, maxScrollX, maxScrollY, viewportWidth,
++    /// viewportHeight], or null when this element does not own a standard
++    /// scroll handle.
 +    #[napi]
 +    pub fn get_scroll_metrics(&self, element_id: f64) -> Result<Option<Vec<f64>>> {
 +        let id = to_element_id(element_id)?;
@@ -20,11 +21,14 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +            handles.get(&id).map(|handle| {
 +                let offset = handle.offset();
 +                let max = handle.max_offset();
++                let bounds = handle.bounds();
 +                vec![
 +                    f64::from(f32::from(offset.x)),
 +                    f64::from(f32::from(offset.y)),
 +                    f64::from(f32::from(max.x)),
 +                    f64::from(f32::from(max.y)),
++                    f64::from(f32::from(bounds.size.width)),
++                    f64::from(f32::from(bounds.size.height)),
 +                ]
 +            })
 +        }));
