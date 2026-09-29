@@ -43,7 +43,9 @@ export function startFrameLoop(
       options.onTerminated?.()
       return
     }
-    const wait = Math.max(0, frameMs - (performance.now() - started))
+    const elapsed = performance.now() - started
+    if (elapsed > 20) console.error(`[gpuix-solid][perf] native tick ${elapsed.toFixed(2)}ms`)
+    const wait = Math.max(0, frameMs - elapsed)
     timer = setTimeout(tick, wait)
   }
 
