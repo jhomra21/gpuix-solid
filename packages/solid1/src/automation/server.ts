@@ -1,4 +1,5 @@
 import { z } from "zod"
+import type { DebugFrameOverlayStats } from "../host/types.js"
 
 type JsonPrimitive = string | number | boolean | null
 type JsonValue =
@@ -125,6 +126,16 @@ const automationRequestSchema = z.discriminatedUnion("method", [
     method: z.literal("clockResume"),
     params: z.object({}),
   }),
+  z.object({
+    id: idSchema,
+    method: z.literal("resetFrameStats"),
+    params: z.object({}),
+  }),
+  z.object({
+    id: idSchema,
+    method: z.literal("getFrameStats"),
+    params: z.object({}),
+  }),
 ])
 
 type AutomationRequest = z.infer<typeof automationRequestSchema>
@@ -154,6 +165,8 @@ export interface LiveAutomationRenderer {
   clockSet(nowMs: number): number
   clockFastForward(deltaMs: number): number
   clockResume(): number
+  resetDebugFrameOverlayStats(): void
+  getDebugFrameOverlayStats(): DebugFrameOverlayStats
 }
 
 function encodeSse(response: AutomationResponse): string {
@@ -256,6 +269,11 @@ async function dispatch(
       return { nowMs: renderer.clockFastForward(request.params.deltaMs) }
     case "clockResume":
       return { nowMs: renderer.clockResume() }
+    case "resetFrameStats":
+      renderer.resetDebugFrameOverlayStats()
+      return { ok: true }
+    case "getFrameStats":
+      return jsonValueSchema.parse(renderer.getDebugFrameOverlayStats())
   }
 }
 
