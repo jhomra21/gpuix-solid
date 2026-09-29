@@ -153,4 +153,129 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +        if motion_active {
              window.request_animation_frame();
          }
+@@ -5385,31 +5462,44 @@
+             }
  
+             // ── Scroll wheel ─────────────────────────────────────
+-            "scroll" => {
+-                el = el.on_scroll_wheel(move |scroll_event, _window, _cx| {
+-                    emit_event_full(&callback, id, "scroll", |p| {
+-                        let (x, y) = point_to_xy(scroll_event.position);
+-                        p.x = Some(x);
+-                        p.y = Some(y);
+-                        p.modifiers = Some(scroll_event.modifiers.into());
+-                        p.precise = Some(scroll_event.delta.precise());
+-
+-                        // Convert ScrollDelta to pixel values.
+-                        // For Lines delta, we use a default line height of 20px.
+-                        let line_height = gpui::px(20.0);
+-                        let pixel_delta = scroll_event.delta.pixel_delta(line_height);
+-                        p.delta_x = Some(f64::from(f32::from(pixel_delta.x)));
+-                        p.delta_y = Some(f64::from(f32::from(pixel_delta.y)));
+-
+-                        p.touch_phase = Some(match scroll_event.touch_phase {
+-                            gpui::TouchPhase::Started => "started".to_string(),
+-                            gpui::TouchPhase::Moved => "moved".to_string(),
+-                            gpui::TouchPhase::Ended => "ended".to_string(),
+-                            gpui::TouchPhase::Cancelled => "cancelled".to_string(),
+-                        });
+-                    });
+-                });
+-            }
++            "scroll" => {
++                let scroll_handle = ctx.scroll_handles.get(&id).cloned();
++                el = el.on_scroll_wheel(move |scroll_event, _window, _cx| {
++                    emit_event_full(&callback, id, "scroll", |p| {
++                        let (x, y) = point_to_xy(scroll_event.position);
++                        p.x = Some(x);
++                        p.y = Some(y);
++                        p.modifiers = Some(scroll_event.modifiers.into());
++                        p.precise = Some(scroll_event.delta.precise());
++
++                        // Convert ScrollDelta to pixel values.
++                        // For Lines delta, we use a default line height of 20px.
++                        let line_height = gpui::px(20.0);
++                        let pixel_delta = scroll_event.delta.pixel_delta(line_height);
++                        p.delta_x = Some(f64::from(f32::from(pixel_delta.x)));
++                        p.delta_y = Some(f64::from(f32::from(pixel_delta.y)));
++
++                        p.touch_phase = Some(match scroll_event.touch_phase {
++                            gpui::TouchPhase::Started => "started".to_string(),
++                            gpui::TouchPhase::Moved => "moved".to_string(),
++                            gpui::TouchPhase::Ended => "ended".to_string(),
++                            gpui::TouchPhase::Cancelled => "cancelled".to_string(),
++                        });
++
++                        if let Some(handle) = &scroll_handle {
++                            let offset = handle.offset();
++                            let max = handle.max_offset();
++                            let bounds = handle.bounds();
++                            p.scroll_offset_x = Some(f64::from(f32::from(offset.x)));
++                            p.scroll_offset_y = Some(f64::from(f32::from(offset.y)));
++                            p.scroll_max_x = Some(f64::from(f32::from(max.x)));
++                            p.scroll_max_y = Some(f64::from(f32::from(max.y)));
++                            p.scroll_viewport_width = Some(f64::from(f32::from(bounds.size.width)));
++                            p.scroll_viewport_height = Some(f64::from(f32::from(bounds.size.height)));
++                        }
++                    });
++                });
++            }
+ 
+             // ── Key down ─────────────────────────────────────────
+             // Requires .focusable() (set above). Element must be focused
+diff --git a/packages/native/src/element_tree.rs b/packages/native/src/element_tree.rs
+--- a/packages/native/src/element_tree.rs
++++ b/packages/native/src/element_tree.rs
+@@ -78,11 +78,24 @@
+     /// Populated for: scroll.
+     pub precise: Option<bool>,
+ 
+-    /// Touch phase for scroll: "started", "moved", "ended".
+-    /// Populated for: scroll (trackpad gestures).
+-    pub touch_phase: Option<String>,
+-
+-    // ── Hover ────────────────────────────────────────────────────────
++    /// Touch phase for scroll: "started", "moved", "ended".
++    /// Populated for: scroll (trackpad gestures).
++    pub touch_phase: Option<String>,
++
++    /// Current native scroll offset. GPUI uses negative values as content moves
++    /// left/up; browser adapters expose the negated values as scrollLeft/Top.
++    pub scroll_offset_x: Option<f64>,
++    pub scroll_offset_y: Option<f64>,
++
++    /// Maximum positive scroll distance for each axis.
++    pub scroll_max_x: Option<f64>,
++    pub scroll_max_y: Option<f64>,
++
++    /// Scroll viewport size at the time the wheel callback was dispatched.
++    pub scroll_viewport_width: Option<f64>,
++    pub scroll_viewport_height: Option<f64>,
++
++    // ── Hover ────────────────────────────────────────────────────────
+     /// true = mouse entered element, false = mouse left element.
+     /// Populated for: mouseEnter, mouseLeave.
+     pub hovered: Option<bool>,
+@@ -139,11 +152,17 @@
+             key: None,
+             key_char: None,
+             is_held: None,
+-            delta_x: None,
+-            delta_y: None,
+-            precise: None,
+-            touch_phase: None,
+-            hovered: None,
++            delta_x: None,
++            delta_y: None,
++            precise: None,
++            touch_phase: None,
++            scroll_offset_x: None,
++            scroll_offset_y: None,
++            scroll_max_x: None,
++            scroll_max_y: None,
++            scroll_viewport_width: None,
++            scroll_viewport_height: None,
++            hovered: None,
+             value: None,
+             old_line: None,
+             new_line: None,
