@@ -691,6 +691,30 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     if (!root || !this.nativeAlive) return viewport
 
     root.driver.flush()
+    const metrics = root.driver.renderer.getScrollMetrics?.(this.id)
+    if (metrics && metrics.length >= 4) {
+      const offsetX = metrics[0] ?? 0
+      const offsetY = metrics[1] ?? 0
+      const maxX = Math.max(0, metrics[2] ?? 0)
+      const maxY = Math.max(0, metrics[3] ?? 0)
+      this.#scrollOffsetCache = [offsetX, offsetY]
+      if (!this.#scrollOffsetCacheQueued) {
+        this.#scrollOffsetCacheQueued = true
+        queueMicrotask(() => {
+          this.#scrollOffsetCacheQueued = false
+          this.#scrollOffsetCache = undefined
+        })
+      }
+      this.#scrollContentCache = {
+        width: Math.max(0, Math.ceil(viewport.width + maxX)),
+        height: Math.max(0, Math.ceil(viewport.height + maxY)),
+      }
+      return this.#scrollContentCache
+    }
+
+    // Published GPUIX builds do not expose native max-scroll metrics yet.
+    // Preserve the compatibility fallback there, but source-edge builds avoid
+    // this descendant bounds walk on the Inspector's scroll hot path.
     // SAFETY: this only reads the optional bounds capability already used by getBoundingClientRect().
     const renderer = root.driver.renderer as BoundsCapableRenderer
     const own = renderer.getElementBounds?.(this.id)
