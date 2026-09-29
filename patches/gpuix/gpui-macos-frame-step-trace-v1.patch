@@ -89,4 +89,114 @@ diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
 +                        })
 +                        .log_err();
 +                }
+diff --git a/crates/gpui_apple/src/metal_renderer.rs b/crates/gpui_apple/src/metal_renderer.rs
+--- a/crates/gpui_apple/src/metal_renderer.rs
++++ b/crates/gpui_apple/src/metal_renderer.rs
+@@ -446,45 +446,64 @@
  
+-    pub fn draw(&mut self, scene: &Scene) {
+-        let layer = match &self.layer {
+-            Some(l) => l.clone(),
+-            None => {
+-                log::error!(
+-                    "draw() called on headless renderer - use render_scene_to_image() instead"
+-                );
+-                return;
+-            }
+-        };
+-        let viewport_size = layer.drawable_size();
+-        let viewport_size: Size<DevicePixels> = size(
+-            (viewport_size.width.ceil() as i32).into(),
+-            (viewport_size.height.ceil() as i32).into(),
+-        );
+-        let drawable = if let Some(drawable) = layer.next_drawable() {
+-            drawable
+-        } else {
+-            log::error!(
+-                "failed to retrieve next drawable, drawable size: {:?}",
+-                viewport_size
+-            );
+-            return;
+-        };
+-
+-        let command_buffer = match self.render_frame(scene, drawable.texture(), viewport_size) {
+-            Ok(command_buffer) => command_buffer,
+-            Err(error) => {
+-                log::error!("failed to render: {error:#}");
+-                return;
+-            }
+-        };
+-
+-        if self.presents_with_transaction {
+-            command_buffer.commit();
+-            command_buffer.wait_until_scheduled();
+-            drawable.present();
+-        } else {
+-            command_buffer.present_drawable(drawable);
+-            command_buffer.commit();
+-        }
+-    }
+-
++    pub fn draw(&mut self, scene: &Scene) {
++        let layer = match &self.layer {
++            Some(l) => l.clone(),
++            None => {
++                log::error!(
++                    "draw() called on headless renderer - use render_scene_to_image() instead"
++                );
++                return;
++            }
++        };
++        let viewport_size = layer.drawable_size();
++        let viewport_size: Size<DevicePixels> = size(
++            (viewport_size.width.ceil() as i32).into(),
++            (viewport_size.height.ceil() as i32).into(),
++        );
++
++        let drawable_started = std::time::Instant::now();
++        let drawable = if let Some(drawable) = layer.next_drawable() {
++            drawable
++        } else {
++            log::error!(
++                "failed to retrieve next drawable, drawable size: {:?}",
++                viewport_size
++            );
++            return;
++        };
++        let drawable_elapsed = drawable_started.elapsed();
++
++        let render_started = std::time::Instant::now();
++        let command_buffer = match self.render_frame(scene, drawable.texture(), viewport_size) {
++            Ok(command_buffer) => command_buffer,
++            Err(error) => {
++                log::error!("failed to render: {error:#}");
++                return;
++            }
++        };
++        let render_elapsed = render_started.elapsed();
++
++        let submit_started = std::time::Instant::now();
++        if self.presents_with_transaction {
++            command_buffer.commit();
++            command_buffer.wait_until_scheduled();
++            drawable.present();
++        } else {
++            command_buffer.present_drawable(drawable);
++            command_buffer.commit();
++        }
++        let submit_elapsed = submit_started.elapsed();
++
++        if drawable_elapsed >= std::time::Duration::from_millis(20)
++            || render_elapsed >= std::time::Duration::from_millis(20)
++            || submit_elapsed >= std::time::Duration::from_millis(20)
++        {
++            eprintln!(
++                "[gpuix][perf] metal draw drawable={:.2}ms render={:.2}ms submit={:.2}ms transaction={}",
++                drawable_elapsed.as_secs_f64() * 1000.0,
++                render_elapsed.as_secs_f64() * 1000.0,
++                submit_elapsed.as_secs_f64() * 1000.0,
++                self.presents_with_transaction
++            );
++        }
++    }
+     fn render_frame(
