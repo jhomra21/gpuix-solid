@@ -114,7 +114,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
          let id = to_element_id(element_id)?;
          #[cfg(target_os = "macos")]
          {
-@@ -4668,7 +4728,20 @@
+@@ -4668,7 +4728,22 @@
      ) -> impl gpui::IntoElement {
          use gpui::IntoElement;
  
@@ -124,19 +124,21 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +        // Debug-frame statistics are sampled by automation. Applying a reset
 +        // from render avoids re-entering the leased GPUI window from N-API.
 +        #[cfg(target_os = "macos")]
-+        let reset_frame_stats = {
-+            let mut pending = DEBUG_FRAME_STATS_RESET_PENDING
-+                .lock()
-+                .unwrap_or_else(|poisoned| poisoned.into_inner());
-+            std::mem::take(&mut *pending)
-+        };
-+        if reset_frame_stats {
-+            window.reset_debug_frame_overlay_stats();
++        {
++            let reset_frame_stats = {
++                let mut pending = DEBUG_FRAME_STATS_RESET_PENDING
++                    .lock()
++                    .unwrap_or_else(|poisoned| poisoned.into_inner());
++                std::mem::take(&mut *pending)
++            };
++            if reset_frame_stats {
++                window.reset_debug_frame_overlay_stats();
++            }
 +        }
  
          #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
          if let Some(id) = PENDING_FOCUS_ELEMENT.with(|pending| pending.borrow_mut().take()) {
-@@ -4803,9 +4876,15 @@
+@@ -4803,9 +4878,15 @@
          // One-shot: a queued scroll for a list that did not build this frame
          // would otherwise fire on some later frame, against child indices that
          // no longer match what JS meant.
