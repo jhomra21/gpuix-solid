@@ -214,6 +214,9 @@ async function dispatch(
         bounds: await backend.getBounds(request.params.elementId),
       }))
     case "getScrollOffset":
+      if (!backend.getScrollOffset) {
+        throw new AutomationError("Unsupported", "Automation backend does not expose scroll offsets")
+      }
       return success(request.id, jsonValueSchema.parse({
         offset: await backend.getScrollOffset(request.params.elementId),
       }))
