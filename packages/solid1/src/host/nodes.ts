@@ -679,6 +679,35 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
       return { width: bounds.width, height: bounds.height }
     }
     if (this.#scrollViewportCache) return this.#scrollViewportCache
+
+    const root = this.root
+    if (root && this.nativeAlive) {
+      root.driver.flush()
+      const metrics = root.driver.renderer.getScrollMetrics?.(this.id)
+      if (metrics && metrics.length >= 6) {
+        const offsetX = metrics[0] ?? 0
+        const offsetY = metrics[1] ?? 0
+        const maxX = Math.max(0, metrics[2] ?? 0)
+        const maxY = Math.max(0, metrics[3] ?? 0)
+        const width = Math.max(0, metrics[4] ?? 0)
+        const height = Math.max(0, metrics[5] ?? 0)
+        this.#scrollOffsetCache = [offsetX, offsetY]
+        if (!this.#scrollOffsetCacheQueued) {
+          this.#scrollOffsetCacheQueued = true
+          queueMicrotask(() => {
+            this.#scrollOffsetCacheQueued = false
+            this.#scrollOffsetCache = undefined
+          })
+        }
+        this.#scrollViewportCache = { width, height }
+        this.#scrollContentCache = {
+          width: Math.max(0, Math.ceil(width + maxX)),
+          height: Math.max(0, Math.ceil(height + maxY)),
+        }
+        return this.#scrollViewportCache
+      }
+    }
+
     const bounds = this.getBoundingClientRect()
     this.#scrollViewportCache = { width: bounds.width, height: bounds.height }
     return this.#scrollViewportCache
@@ -687,32 +716,11 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   private scrollContentSize(): HostViewportSize {
     if (this.#scrollContentCache) return this.#scrollContentCache
     const viewport = this.scrollViewportSize()
+    if (this.#scrollContentCache) return this.#scrollContentCache
     const root = this.root
     if (!root || !this.nativeAlive) return viewport
 
-    root.driver.flush()
-    const metrics = root.driver.renderer.getScrollMetrics?.(this.id)
-    if (metrics && metrics.length >= 4) {
-      const offsetX = metrics[0] ?? 0
-      const offsetY = metrics[1] ?? 0
-      const maxX = Math.max(0, metrics[2] ?? 0)
-      const maxY = Math.max(0, metrics[3] ?? 0)
-      this.#scrollOffsetCache = [offsetX, offsetY]
-      if (!this.#scrollOffsetCacheQueued) {
-        this.#scrollOffsetCacheQueued = true
-        queueMicrotask(() => {
-          this.#scrollOffsetCacheQueued = false
-          this.#scrollOffsetCache = undefined
-        })
-      }
-      this.#scrollContentCache = {
-        width: Math.max(0, Math.ceil(viewport.width + maxX)),
-        height: Math.max(0, Math.ceil(viewport.height + maxY)),
-      }
-      return this.#scrollContentCache
-    }
-
-    // Published GPUIX builds do not expose native max-scroll metrics yet.
+    // Published GPUIX builds do not expose native viewport/max-scroll metrics yet.
     // Preserve the compatibility fallback there, but source-edge builds avoid
     // this descendant bounds walk on the Inspector's scroll hot path.
     // SAFETY: this only reads the optional bounds capability already used by getBoundingClientRect().
