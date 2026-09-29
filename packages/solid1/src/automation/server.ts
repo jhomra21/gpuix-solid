@@ -45,6 +45,11 @@ const automationRequestSchema = z.discriminatedUnion("method", [
   }),
   z.object({
     id: idSchema,
+    method: z.literal("getScrollOffset"),
+    params: z.object({ elementId: z.number() }),
+  }),
+  z.object({
+    id: idSchema,
     method: z.literal("click"),
     params: z.object({
       x: z.number(),
@@ -161,6 +166,7 @@ export interface LiveAutomationRenderer {
   captureScreenshot(path: string): void
   getAutomationTree(): string
   getElementBounds(elementId: number): number[] | null
+  getScrollOffset(elementId: number): number[] | null
   getWindowSize?(): { width: number; height: number }
   clockPause(): number
   clockSet(nowMs: number): number
@@ -207,6 +213,15 @@ async function dispatch(
       return { tree: parseAutomationTree(renderer.getAutomationTree()) }
     case "getBounds":
       return { bounds: parseBounds(renderer.getElementBounds(request.params.elementId)) }
+    case "getScrollOffset": {
+      const offset = renderer.getScrollOffset(request.params.elementId)
+      if (offset === null) return { offset: null }
+      const [x, y] = offset
+      if (x === undefined || y === undefined) {
+        throw new Error("Native scroll offset did not contain two coordinates")
+      }
+      return { offset: [x, y] }
+    }
     case "click":
       renderer.simulateMouseDown(
         request.params.x,
