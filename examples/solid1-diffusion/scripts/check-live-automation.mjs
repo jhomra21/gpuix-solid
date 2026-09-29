@@ -198,18 +198,23 @@ async function screenshot(app, name) {
 async function profileNativeFrames(app, name, exercise) {
   const timeoutMs = 10_000
   let timeout
+  let phase = "reset"
   try {
     await Promise.race([
       (async () => {
         await app.performance.reset()
+        phase = "baseline stats"
         // Native reset clears timing samples but intentionally preserves the lifetime
         // frame counter, so keep an explicit baseline for this interaction window.
         const baseline = await app.performance.stats()
         const startedAt = performance.now()
-        await exercise()
+        phase = "exercise"
+        await exercise((detail) => { phase = `exercise (${detail})` })
+        phase = "settling"
         // Give the native renderer enough time to record the last interaction frame.
         await delay(80)
         const elapsedMs = Math.max(1, performance.now() - startedAt)
+        phase = "final stats"
         const stats = await app.performance.stats()
         const frames = Math.max(0, stats.frames - baseline.frames)
         const observedFps = frames * 1000 / elapsedMs
@@ -230,7 +235,7 @@ async function profileNativeFrames(app, name, exercise) {
       })(),
       new Promise((_, reject) => {
         timeout = setTimeout(
-          () => reject(new Error(`${name} native performance probe timed out after ${timeoutMs}ms`)),
+          () => reject(new Error(`${name} native performance probe timed out during ${phase} after ${timeoutMs}ms`)),
           timeoutMs,
         )
       }),
@@ -523,8 +528,9 @@ try {
   // Measure the exact wheel-heavy Inspector path the manual report called out.
   // Alternate the deltas so the viewport stays near the same content while the
   // native renderer handles enough consecutive input to expose frame spikes.
-  await profileNativeFrames(app, "inspector-wheel", async () => {
+  await profileNativeFrames(app, "inspector-wheel", async (mark) => {
     for (let index = 0; index < 24; index += 1) {
+      mark(`wheel ${index + 1}/24`)
       await inspectorScroll.wheel(0, index % 2 === 0 ? -36 : 36)
     }
   })
@@ -812,8 +818,9 @@ try {
 
   // Keep the camera hot long enough to measure the real retained Canvas path,
   // including Diffusion's RAF systems and GPUIX draw-list handoff.
-  await profileNativeFrames(app, "canvas-wheel-zoom", async () => {
+  await profileNativeFrames(app, "canvas-wheel-zoom", async (mark) => {
     for (let index = 0; index < 24; index += 1) {
+      mark(`wheel ${index + 1}/24`)
       await app.mouse.wheel(
         at(wheelZoomStage.bounds, 0.5, 0.5),
         0,
