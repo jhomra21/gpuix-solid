@@ -4,6 +4,7 @@ import {
   parseAutomationTree,
   parseBounds,
 } from "../automation.js"
+import type { DebugFrameOverlayStats } from "../host/types.js"
 import { jsonValueSchema, type JsonValue } from "./json.js"
 import {
   automationRequestSchema,
@@ -43,6 +44,8 @@ export interface LiveAutomationRenderer {
   clockSet(nowMs: number): number
   clockFastForward(deltaMs: number): number
   clockResume(): number
+  resetDebugFrameOverlayStats?(): void
+  getDebugFrameOverlayStats?(): DebugFrameOverlayStats
 }
 
 export interface LiveAutomationBackendOptions {
@@ -152,6 +155,18 @@ export class LiveAutomationBackend implements AutomationBackend {
     return this.#renderer.clockResume()
   }
 
+  resetFrameStats(): void {
+    const reset = this.#renderer.resetDebugFrameOverlayStats
+    if (!reset) throw new AutomationError("Unsupported", "Native renderer does not expose frame statistics")
+    reset.call(this.#renderer)
+  }
+
+  getFrameStats(): DebugFrameOverlayStats {
+    const read = this.#renderer.getDebugFrameOverlayStats
+    if (!read) throw new AutomationError("Unsupported", "Native renderer does not expose frame statistics")
+    return read.call(this.#renderer)
+  }
+
   close(): void {}
 }
 
@@ -244,6 +259,17 @@ async function dispatch(
       })
     case "clockResume":
       return success(request.id, { nowMs: await backend.clockResume() })
+    case "resetFrameStats":
+      if (!backend.resetFrameStats) {
+        throw new AutomationError("Unsupported", "Automation backend does not expose frame statistics")
+      }
+      await backend.resetFrameStats()
+      return success(request.id, { ok: true })
+    case "getFrameStats":
+      if (!backend.getFrameStats) {
+        throw new AutomationError("Unsupported", "Automation backend does not expose frame statistics")
+      }
+      return success(request.id, jsonValueSchema.parse(await backend.getFrameStats()))
   }
 }
 
