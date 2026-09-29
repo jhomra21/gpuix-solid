@@ -230,8 +230,16 @@ async function profileNativeFrames(app, name, exercise) {
           frames,
           samples: stats.samples,
           meets120HzDrawBudget: p90Ms !== null && p90Ms <= targetFrameMs,
+          baseline,
+          final: stats,
         }
-        assert(stats.samples > 0 && frames > 0, `${name} did not produce native frame samples`)
+        // Keep the measurements even when the gate fails so CI artifacts show
+        // whether the native frame counter, timing samples, or both are stale.
+        writeFileSync(performancePath, `${JSON.stringify(performanceReport, null, 2)}\n`)
+        assert(
+          stats.samples > 0 && frames > 0,
+          `${name} did not produce native frame samples: ${JSON.stringify({ baseline, final: stats, frames, elapsedMs })}`,
+        )
       })(),
       new Promise((_, reject) => {
         timeout = setTimeout(
