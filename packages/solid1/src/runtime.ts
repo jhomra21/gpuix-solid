@@ -154,7 +154,12 @@ function createNativeRenderer(onEvent?: (event: EventPayload) => void): GpuixRen
     if (!event) return
     const state = rendererBindingState(renderer)
     try {
+      const started = event.eventType === "scroll" ? performance.now() : 0
       const handled = state.root?.dispatch(event) ?? false
+      if (event.eventType === "scroll") {
+        const elapsed = performance.now() - started
+        if (elapsed > 10) console.error(`[gpuix-solid][perf] scroll dispatch ${elapsed.toFixed(2)}ms element=${event.elementId}`)
+      }
       if (handled) state.onEvent?.(event)
     } catch (eventError) {
       scheduleRuntimeError(eventError instanceof Error ? eventError : String(eventError))
