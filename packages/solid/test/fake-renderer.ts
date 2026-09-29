@@ -33,7 +33,9 @@ export class FakeRenderer implements NativeRenderer {
     // Direct custom-prop commits are semantically the same retained-tree
     // mutation as applyBatch; expose them through batches too so existing
     // mutation observers see the native fast path.
-    this.batches.push([["setCustomProp", id, key, JSON.parse(value) as MutationValue]])
+    // SAFETY: setCustomProp receives JSON emitted by the host from a MutationValue-compatible retained payload.
+    const parsed = JSON.parse(value) as MutationValue
+    this.batches.push([["setCustomProp", id, key, parsed]])
   }
   commitMutations(): void { this.direct.push(["commitMutations"]) }
   focusNext(): void { this.focusNextCount++ }
