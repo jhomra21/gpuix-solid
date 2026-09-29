@@ -16,5 +16,13 @@
     "patches/gpuix/percentage-position-v1.patch",
     "patches/gpuix/auto-margin-v1.patch",
     "patches/gpuix/display-none-v1.patch"
+  ],
+  "submodulePatches": [
+    {
+      "submodule": "zed",
+      "patches": [
+        "patches/gpuix/gpui-macos-embedded-pump-budget-v1.patch"
+      ]
+    }
   ]
 }
