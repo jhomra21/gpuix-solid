@@ -70,7 +70,6 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
      event_callback: Option<Box<dyn FnMut(PlatformInput) -> gpui::DispatchEventResult>>,
      activate_callback: Option<Box<dyn FnMut(bool)>>,
      resize_callback: Option<Box<dyn FnMut(Size<Pixels>, f32)>>,
-
 @@ -899,10 +899,11 @@
              ..
          }: WindowParams,
@@ -87,7 +86,6 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
          unsafe {
              let pool = NSAutoreleasePool::new(nil);
  
-
 @@ -1011,25 +1011,33 @@
              let native_view = NSView::initWithFrame_(native_view, NSView::bounds(content_view));
              assert!(!native_view.is_null());
@@ -141,7 +139,6 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
                  event_callback: None,
                  activate_callback: None,
                  resize_callback: None,
-
 @@ -2865,9 +2865,10 @@
                  callback(Default::default());
  
@@ -156,7 +153,6 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
              }
          } else {
              lock.activated_least_once = true;
-
 @@ -2985,10 +2985,11 @@
          drop(lock);
          callback(Default::default());
