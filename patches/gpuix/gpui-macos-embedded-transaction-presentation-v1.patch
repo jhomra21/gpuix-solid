@@ -56,7 +56,26 @@ diff --git a/crates/gpui_macos/src/platform.rs b/crates/gpui_macos/src/platform.
 diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
 --- a/crates/gpui_macos/src/window.rs
 +++ b/crates/gpui_macos/src/window.rs
-@@ -595,9 +595,10 @@
+@@ -231,10 +231,14 @@
+                 sel!(setFrameSize:),
+                 set_frame_size as extern "C" fn(&Object, Sel, NSSize),
+             );
+-            decl.add_method(
+-                sel!(displayLayer:),
+-                display_layer as extern "C" fn(&Object, Sel, id),
+-            );
++            decl.add_method(
++                sel!(displayLayer:),
++                display_layer as extern "C" fn(&Object, Sel, id),
++            );
++            decl.add_method(
++                sel!(requestEmbeddedFrame),
++                request_embedded_frame as extern "C" fn(&Object, Sel),
++            );
+ 
+             decl.add_protocol(Protocol::get("NSTextInputClient").unwrap());
+             decl.add_method(
+@@ -595,9 +595,11 @@
      background_appearance: WindowBackgroundAppearance,
      cursor_style: CursorStyle,
      cursor_visible: Arc<AtomicBool>,
@@ -66,30 +85,57 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
 +    frame_source: Option<WindowFrameSource>,
 +    renderer: renderer::Renderer,
 +    embedded: bool,
++    embedded_frame_scheduled: bool,
 +    request_frame_callback: Option<Box<dyn FnMut(RequestFrameOptions)>>,
      event_callback: Option<Box<dyn FnMut(PlatformInput) -> gpui::DispatchEventResult>>,
      activate_callback: Option<Box<dyn FnMut(bool)>>,
      resize_callback: Option<Box<dyn FnMut(Size<Pixels>, f32)>>,
-@@ -759,13 +759,19 @@
-     fn start_display_link(&mut self) {
-         self.stop_display_link();
-         unsafe {
-             if !self
-                 .native_window
-                 .occlusionState()
-                 .contains(NSWindowOcclusionState::NSWindowOcclusionStateVisible)
-             {
-                 return;
-             }
+@@ -756,18 +756,33 @@
          }
+     }
+ 
+-    fn start_display_link(&mut self) {
+-        self.stop_display_link();
+-        unsafe {
+-            if !self
+-                .native_window
+-                .occlusionState()
+-                .contains(NSWindowOcclusionState::NSWindowOcclusionStateVisible)
+-            {
+-                return;
+-            }
+-        }
+-        let Some(display_id) = display_id_for_screen(unsafe { self.native_window.screen() }) else {
++    fn start_display_link(&mut self) {
++        self.stop_display_link();
++        unsafe {
++            if !self
++                .native_window
++                .occlusionState()
++                .contains(NSWindowOcclusionState::NSWindowOcclusionStateVisible)
++            {
++                return;
++            }
++        }
 +        if self.embedded {
++            if self.embedded_frame_scheduled {
++                return;
++            }
++            self.embedded_frame_scheduled = true;
 +            unsafe {
-+                let _: () = msg_send![self.native_view.as_ptr(), setNeedsDisplay: YES];
++                let _: () = msg_send![
++                    self.native_view.as_ptr(),
++                    performSelector: sel!(requestEmbeddedFrame)
++                    withObject: nil
++                    afterDelay: 0.0f64
++                ];
 +            }
 +            return;
 +        }
-         let Some(display_id) = display_id_for_screen(unsafe { self.native_window.screen() }) else {
++        let Some(display_id) = display_id_for_screen(unsafe { self.native_window.screen() }) else {
              // AppKit can temporarily report no screen while displays are being reconfigured.
+             return;
+         };
 @@ -899,10 +899,11 @@
              ..
          }: WindowParams,
@@ -106,7 +152,7 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
          unsafe {
              let pool = NSAutoreleasePool::new(nil);
  
-@@ -1011,25 +1011,33 @@
+@@ -1011,25 +1011,32 @@
              let native_view = NSView::initWithFrame_(native_view, NSView::bounds(content_view));
              assert!(!native_view.is_null());
  
@@ -136,10 +182,8 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
 +                bounds.size.map(|pixels| pixels.as_f32()),
 +                false,
 +            );
-+            // A normal GPUI app can present directly from the display link.
-+            // Embedded hosts leave NSApplication::run after a short slice, so
-+            // route presentation through Core Animation and flush that
-+            // transaction at the end of the host-driven pump instead.
++            // Embedded hosts are pumped in short AppKit slices. Present through
++            // Core Animation so the drawable lifecycle follows those slices.
 +            renderer.set_presents_with_transaction(embedded);
 +
 +            let mut window = Self(Arc::new(Mutex::new(MacWindowState {
@@ -155,24 +199,18 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
 +                frame_source: None,
 +                renderer,
 +                embedded,
++                embedded_frame_scheduled: false,
 +                request_frame_callback: None,
                  event_callback: None,
                  activate_callback: None,
                  resize_callback: None,
-@@ -1802,18 +1802,41 @@
-     fn is_fullscreen(&self) -> bool {
-         let this = self.0.lock();
-         let window = this.native_window;
- 
-         unsafe {
-             window
-                 .styleMask()
-                 .contains(NSWindowStyleMask::NSFullScreenWindowMask)
+@@ -1810,9 +1810,32 @@
          }
      }
  
 -    fn on_request_frame(&self, callback: Box<dyn FnMut(RequestFrameOptions)>) {
 -        self.0.as_ref().lock().request_frame_callback = Some(callback);
+-    }
 +    fn frame_waker(&self) -> Option<Rc<dyn Fn()>> {
 +        if !self.0.lock().embedded {
 +            return None;
@@ -198,18 +236,19 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
 +        if state.embedded {
 +            state.start_display_link();
 +        }
-     }
++    }
  
      fn on_input(&self, callback: Box<dyn FnMut(PlatformInput) -> gpui::DispatchEventResult>) {
          self.0.as_ref().lock().event_callback = Some(callback);
-     }
-@@ -2865,9 +2865,10 @@
+@@ -2864,10 +2864,11 @@
+                 drop(lock);
                  callback(Default::default());
  
-                 let mut lock = window_state.lock();
+-                let mut lock = window_state.lock();
 -                lock.request_frame_callback = Some(callback);
 -                lock.renderer.set_presents_with_transaction(false);
 -                lock.start_display_link();
++                let mut lock = window_state.lock();
 +                lock.request_frame_callback = Some(callback);
 +                let embedded = lock.embedded;
 +                lock.renderer.set_presents_with_transaction(embedded);
@@ -217,34 +256,59 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
              }
          } else {
              lock.activated_least_once = true;
-@@ -2979,17 +3007,25 @@
- extern "C" fn display_layer(this: &Object, _: Sel, _: id) {
-     let window_state = unsafe { get_window_state(this) };
-     let mut lock = window_state.lock();
-     if let Some(mut callback) = lock.request_frame_callback.take() {
+@@ -2976,21 +2976,40 @@
+     };
+ }
+ 
+-extern "C" fn display_layer(this: &Object, _: Sel, _: id) {
+-    let window_state = unsafe { get_window_state(this) };
+-    let mut lock = window_state.lock();
+-    if let Some(mut callback) = lock.request_frame_callback.take() {
+-        lock.renderer.set_presents_with_transaction(true);
+-        lock.stop_display_link();
+-        drop(lock);
+-        callback(Default::default());
+-
+-        let mut lock = window_state.lock();
+-        lock.request_frame_callback = Some(callback);
+-        lock.renderer.set_presents_with_transaction(false);
+-        lock.start_display_link();
+-    }
+-}
++extern "C" fn request_embedded_frame(this: &Object, _: Sel) {
++    let window_state = unsafe { get_window_state(this) };
++    let mut lock = window_state.lock();
++    lock.embedded_frame_scheduled = false;
++    if lock.embedded {
++        unsafe {
++            let _: () = msg_send![this, setNeedsDisplay: YES];
++        }
++    }
++}
++
++extern "C" fn display_layer(this: &Object, _: Sel, _: id) {
++    let window_state = unsafe { get_window_state(this) };
++    let mut lock = window_state.lock();
++    if let Some(mut callback) = lock.request_frame_callback.take() {
 +        let embedded = lock.embedded;
-         lock.renderer.set_presents_with_transaction(true);
-         lock.stop_display_link();
-         drop(lock);
-         callback(Default::default());
++        lock.renderer.set_presents_with_transaction(true);
++        lock.stop_display_link();
++        drop(lock);
++        callback(Default::default());
 +        if embedded {
 +            unsafe {
 +                let _: () = msg_send![class!(CATransaction), flush];
 +            }
 +        }
- 
--        let mut lock = window_state.lock();
--        lock.request_frame_callback = Some(callback);
--        lock.renderer.set_presents_with_transaction(false);
--        lock.start_display_link();
++
 +        let mut lock = window_state.lock();
 +        lock.request_frame_callback = Some(callback);
 +        lock.renderer.set_presents_with_transaction(embedded);
 +        if !embedded {
 +            lock.start_display_link();
 +        }
-     }
- }
++    }
++}
  
  extern "C" fn step(view: *mut c_void) {
-
+     let view = view as id;
