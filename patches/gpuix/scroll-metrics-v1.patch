@@ -1,0 +1,40 @@
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -2133,9 +2133,36 @@
+         )))]
+         Err(Error::from_reason("Unsupported operating system"))
+     }
+ 
++    /// Read the current offset and maximum scroll distance from GPUI's
++    /// retained ScrollHandle without walking descendant element bounds.
++    /// Returns [offsetX, offsetY, maxScrollX, maxScrollY], or null when this
++    /// element does not own a standard scroll handle.
++    #[napi]
++    pub fn get_scroll_metrics(&self, element_id: f64) -> Result<Option<Vec<f64>>> {
++        let id = to_element_id(element_id)?;
++
++        #[cfg(target_os = "macos")]
++        return Ok(SCROLL_HANDLES.with(|cell| {
++            let handles = cell.borrow();
++            handles.get(&id).map(|handle| {
++                let offset = handle.offset();
++                let max = handle.max_offset();
++                vec![
++                    f64::from(f32::from(offset.x)),
++                    f64::from(f32::from(offset.y)),
++                    f64::from(f32::from(max.x)),
++                    f64::from(f32::from(max.y)),
++                ]
++            })
++        }));
++
++        #[cfg(not(target_os = "macos"))]
++        Ok(None)
++    }
++
+     /// Scroll this element's nearest scroll parent until the element is visible.
+     #[napi]
+     pub fn scroll_into_view(&self, element_id: f64) -> Result<()> {
+         let id = to_element_id(element_id)?;
+         #[cfg(target_os = "macos")]
