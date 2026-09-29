@@ -42,7 +42,6 @@ diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
              .request_decorations(window_decorations.unwrap_or(WindowDecorations::Server));
          platform_window.set_background_appearance(window_background);
  
-
 @@ -1635,9 +1635,10 @@
                  // Keep presenting if input was recently arriving at a high rate (>= 60fps).
                  // Once high-rate input is detected, we sustain presentation for 1 second
@@ -130,7 +129,6 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
      event_callback: Option<Box<dyn FnMut(PlatformInput) -> gpui::DispatchEventResult>>,
      activate_callback: Option<Box<dyn FnMut(bool)>>,
      resize_callback: Option<Box<dyn FnMut(Size<Pixels>, f32)>>,
-
 @@ -899,10 +899,11 @@
              ..
          }: WindowParams,
@@ -147,7 +145,6 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
          unsafe {
              let pool = NSAutoreleasePool::new(nil);
  
-
 @@ -1021,15 +1021,16 @@
                  background_appearance: WindowBackgroundAppearance::Opaque,
                  cursor_style: CursorStyle::Arrow,
@@ -174,7 +171,6 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
                  event_callback: None,
                  activate_callback: None,
                  resize_callback: None,
-
 @@ -1333,8 +1333,12 @@
      }
  }
