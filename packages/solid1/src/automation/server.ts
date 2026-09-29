@@ -280,8 +280,14 @@ async function dispatch(
 async function respond(raw: JsonValue, renderer: LiveAutomationRenderer): Promise<string> {
   const parsed = automationRequestSchema.safeParse(raw)
   if (!parsed.success) {
+    const id = typeof raw === "object"
+      && raw !== null
+      && !Array.isArray(raw)
+      && typeof raw.id === "number"
+      ? raw.id
+      : -1
     return encodeSse({
-      id: -1,
+      id,
       error: {
         code: "Protocol",
         message: `Invalid automation request: ${parsed.error.message}`,
