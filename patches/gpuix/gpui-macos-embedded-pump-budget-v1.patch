@@ -1,17 +1,30 @@
 diff --git a/crates/gpui_macos/src/platform.rs b/crates/gpui_macos/src/platform.rs
 --- a/crates/gpui_macos/src/platform.rs
 +++ b/crates/gpui_macos/src/platform.rs
-@@ -632,6 +632,9 @@
+@@ -71,5 +71,10 @@
+ static mut APP_DELEGATE_CLASS: *const Class = ptr::null();
+ static REGISTERED_MAC_PLATFORM: AtomicPtr<c_void> = AtomicPtr::new(ptr::null_mut());
+ 
++#[link(name = "AppKit", kind = "framework")]
++unsafe extern "C" {
++    static NSEventTrackingRunLoopMode: id;
++}
++
+ #[ctor(unsafe)]
+ unsafe fn build_classes() {
+@@ -627,7 +632,10 @@ unsafe fn pump_app_nonblocking() {
+         // blocks embedded hosts. Drain only work that is ready now.
          let app: id = msg_send![APP_CLASS, sharedApplication];
          let distant_past: id = msg_send![class!(NSDate), distantPast];
-         let mode = kCFRunLoopDefaultMode as id;
+-        let mode = kCFRunLoopDefaultMode as id;
++        let mode = NSEventTrackingRunLoopMode;
 +        let started = std::time::Instant::now();
 +        let mut event_count = 0usize;
 +        let mut slowest_send_ms = 0.0_f64;
  
          for _ in 0..256 {
              let event: id = msg_send![app,
-@@ -643,9 +646,31 @@
+@@ -639,9 +647,31 @@ unsafe fn pump_app_nonblocking() {
              if event == nil {
                  break;
              }
