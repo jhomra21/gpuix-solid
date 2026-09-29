@@ -1,5 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process"
 import type { ZodType } from "zod"
+import type { DebugFrameOverlayStats } from "../host/types.js"
 import {
   App,
   AutomationError,
@@ -215,11 +216,20 @@ export class SseAutomationBackend implements AutomationBackend {
     )
   }
 
-  async getFrameStats() {
-    return await this.#request(
+  async getFrameStats(): Promise<DebugFrameOverlayStats> {
+    const result = await this.#request(
       { id: this.#nextId++, method: "getFrameStats", params: {} },
       frameStatsResultSchema,
     )
+    const stats: DebugFrameOverlayStats = {
+      frames: result.frames,
+      samples: result.samples,
+    }
+    if (result.currentMs !== undefined) stats.currentMs = result.currentMs
+    if (result.p90Ms !== undefined) stats.p90Ms = result.p90Ms
+    if (result.p99Ms !== undefined) stats.p99Ms = result.p99Ms
+    if (result.maxMs !== undefined) stats.maxMs = result.maxMs
+    return stats
   }
 
   async close(): Promise<void> {
