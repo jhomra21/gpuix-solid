@@ -543,10 +543,15 @@ try {
   assert(inspectorOffsetBefore, "Inspector scroll area has no native ScrollHandle")
   const inspectorProbeBounds = await app.backend.getBounds(inspectorScrollNode.id)
   assert(inspectorProbeBounds, "Inspector scroll area has no painted bounds for scroll probe")
-  await app.mouse.wheel(at(inspectorProbeBounds, 0.5, 0.5), 0, -24)
+  // The earlier functional check may leave the Inspector at either edge. Probe
+  // toward the interior so the wheel must have room to change the ScrollHandle.
+  const inspectorProbeDelta = inspectorOffsetBefore[1] < 0 ? 24 : -24
+  await app.mouse.wheel(at(inspectorProbeBounds, 0.5, 0.5), 0, inspectorProbeDelta)
   await delay(40)
   const inspectorOffsetAfter = await app.backend.getScrollOffset(inspectorScrollNode.id)
   performanceReport.inspectorScrollProbe = {
+    bounds: inspectorProbeBounds,
+    deltaY: inspectorProbeDelta,
     before: inspectorOffsetBefore,
     after: inspectorOffsetAfter,
   }
@@ -555,11 +560,11 @@ try {
     inspectorOffsetAfter && inspectorOffsetAfter[1] !== inspectorOffsetBefore[1],
     `Inspector wheel did not mutate the native scroll offset: ${JSON.stringify(performanceReport.inspectorScrollProbe)}`,
   )
-  await app.mouse.wheel(at(inspectorProbeBounds, 0.5, 0.5), 0, 24)
+  await app.mouse.wheel(at(inspectorProbeBounds, 0.5, 0.5), 0, -inspectorProbeDelta)
   await delay(80)
 
   const inspectorProfileSteps = 12
-  const inspectorProfileDelta = -12
+  const inspectorProfileDelta = inspectorOffsetBefore[1] < 0 ? 12 : -12
   await profileNativeFrames(app, "inspector-wheel", async (mark) => {
     for (let index = 0; index < inspectorProfileSteps; index += 1) {
       mark(`bounds ${index + 1}/${inspectorProfileSteps}`)
