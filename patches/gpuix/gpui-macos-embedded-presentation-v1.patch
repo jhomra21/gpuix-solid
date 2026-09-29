@@ -1,0 +1,192 @@
+diff --git a/crates/gpui/src/platform.rs b/crates/gpui/src/platform.rs
+--- a/crates/gpui/src/platform.rs
++++ b/crates/gpui/src/platform.rs
+@@ -856,10 +856,15 @@
+     fn zoom(&self);
+     fn toggle_fullscreen(&self);
+     fn is_fullscreen(&self) -> bool;
+-    fn frame_waker(&self) -> Option<Rc<dyn Fn()>> {
+-        None
+-    }
+-    fn on_request_frame(&self, callback: Box<dyn FnMut(RequestFrameOptions)>);
++    fn frame_waker(&self) -> Option<Rc<dyn Fn()>> {
++        None
++    }
++    /// Whether high-rate input should keep presenting cached frames after the
++    /// underlying content is already clean.
++    fn sustains_high_rate_input_presentation(&self) -> bool {
++        true
++    }
++    fn on_request_frame(&self, callback: Box<dyn FnMut(RequestFrameOptions)>);
+     fn on_input(&self, callback: Box<dyn FnMut(PlatformInput) -> DispatchEventResult>);
+     fn on_active_status_change(&self, callback: Box<dyn FnMut(bool)>);
+     fn on_hover_status_change(&self, callback: Box<dyn FnMut(bool)>);
+
+diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
+--- a/crates/gpui/src/window.rs
++++ b/crates/gpui/src/window.rs
+@@ -1434,10 +1434,12 @@
+         let hovered = Rc::new(Cell::new(platform_window.is_hovered()));
+         let needs_present = Rc::new(Cell::new(false));
+         let next_frame_callbacks: Rc<RefCell<Vec<FrameCallback>>> = Default::default();
+-        let input_rate_tracker = Rc::new(RefCell::new(InputRateTracker::default()));
+-        let last_frame_time = Rc::new(Cell::new(None));
+-
+-        platform_window
++        let input_rate_tracker = Rc::new(RefCell::new(InputRateTracker::default()));
++        let last_frame_time = Rc::new(Cell::new(None));
++        let sustain_high_rate_input_presentation =
++            platform_window.sustains_high_rate_input_presentation();
++
++        platform_window
+             .request_decorations(window_decorations.unwrap_or(WindowDecorations::Server));
+         platform_window.set_background_appearance(window_background);
+ 
+
+@@ -1635,9 +1635,10 @@
+                 // Keep presenting if input was recently arriving at a high rate (>= 60fps).
+                 // Once high-rate input is detected, we sustain presentation for 1 second
+                 // to prevent display underclocking during active input.
+-                let needs_present = request_frame_options.require_presentation
+-                    || needs_present.get()
+-                    || input_rate_tracker.borrow_mut().is_high_rate();
++                let needs_present = request_frame_options.require_presentation
++                    || needs_present.get()
++                    || (sustain_high_rate_input_presentation
++                        && input_rate_tracker.borrow_mut().is_high_rate());
+ 
+                 if invalidator.is_dirty() || force_render {
+                     measure("frame duration", || {
+
+diff --git a/crates/gpui_macos/src/platform.rs b/crates/gpui_macos/src/platform.rs
+--- a/crates/gpui_macos/src/platform.rs
++++ b/crates/gpui_macos/src/platform.rs
+@@ -881,24 +881,32 @@
+             return Err(PopupNotSupportedError.into());
+         }
+ 
+-        let (cursor_visible, foreground_executor, background_executor, renderer_context) = {
+-            let guard = self.0.lock();
+-            (
+-                guard.cursor_visible.clone(),
+-                guard.foreground_executor.clone(),
+-                guard.background_executor.clone(),
+-                guard.renderer_context.clone(),
+-            )
+-        };
+-
+-        Ok(Box::new(MacWindow::open(
+-            handle,
+-            options,
+-            cursor_visible,
+-            foreground_executor,
+-            background_executor,
+-            renderer_context,
+-        )))
++        let (
++            cursor_visible,
++            foreground_executor,
++            background_executor,
++            renderer_context,
++            embedded,
++        ) = {
++            let guard = self.0.lock();
++            (
++                guard.cursor_visible.clone(),
++                guard.foreground_executor.clone(),
++                guard.background_executor.clone(),
++                guard.renderer_context.clone(),
++                matches!(guard.mode, MacPlatformMode::Embedded(_)),
++            )
++        };
++
++        Ok(Box::new(MacWindow::open(
++            handle,
++            options,
++            cursor_visible,
++            foreground_executor,
++            background_executor,
++            renderer_context,
++            embedded,
++        )))
+     }
+ 
+     fn window_appearance(&self) -> WindowAppearance {
+
+diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
+--- a/crates/gpui_macos/src/window.rs
++++ b/crates/gpui_macos/src/window.rs
+@@ -595,9 +595,10 @@
+     background_appearance: WindowBackgroundAppearance,
+     cursor_style: CursorStyle,
+     cursor_visible: Arc<AtomicBool>,
+-    frame_source: Option<WindowFrameSource>,
+-    renderer: renderer::Renderer,
+-    request_frame_callback: Option<Box<dyn FnMut(RequestFrameOptions)>>,
++    frame_source: Option<WindowFrameSource>,
++    renderer: renderer::Renderer,
++    embedded: bool,
++    request_frame_callback: Option<Box<dyn FnMut(RequestFrameOptions)>>,
+     event_callback: Option<Box<dyn FnMut(PlatformInput) -> gpui::DispatchEventResult>>,
+     activate_callback: Option<Box<dyn FnMut(bool)>>,
+     resize_callback: Option<Box<dyn FnMut(Size<Pixels>, f32)>>,
+
+@@ -899,10 +899,11 @@
+             ..
+         }: WindowParams,
+         cursor_visible: Arc<AtomicBool>,
+-        foreground_executor: ForegroundExecutor,
+-        background_executor: BackgroundExecutor,
+-        renderer_context: renderer::Context,
+-    ) -> Self {
++        foreground_executor: ForegroundExecutor,
++        background_executor: BackgroundExecutor,
++        renderer_context: renderer::Context,
++        embedded: bool,
++    ) -> Self {
+         unsafe {
+             let pool = NSAutoreleasePool::new(nil);
+ 
+
+@@ -1021,15 +1021,16 @@
+                 background_appearance: WindowBackgroundAppearance::Opaque,
+                 cursor_style: CursorStyle::Arrow,
+                 cursor_visible,
+-                frame_source: None,
+-                renderer: renderer::new_renderer(
+-                    renderer_context,
+-                    native_window as *mut _,
+-                    native_view as *mut _,
+-                    bounds.size.map(|pixels| pixels.as_f32()),
+-                    false,
+-                ),
+-                request_frame_callback: None,
++                frame_source: None,
++                renderer: renderer::new_renderer(
++                    renderer_context,
++                    native_window as *mut _,
++                    native_view as *mut _,
++                    bounds.size.map(|pixels| pixels.as_f32()),
++                    false,
++                ),
++                embedded,
++                request_frame_callback: None,
+                 event_callback: None,
+                 activate_callback: None,
+                 resize_callback: None,
+
+@@ -1333,8 +1333,12 @@
+     }
+ }
+ 
+-impl PlatformWindow for MacWindow {
+-    fn bounds(&self) -> Bounds<Pixels> {
++impl PlatformWindow for MacWindow {
++    fn sustains_high_rate_input_presentation(&self) -> bool {
++        !self.0.lock().embedded
++    }
++
++    fn bounds(&self) -> Bounds<Pixels> {
+         self.0.as_ref().lock().bounds()
+     }
+ 
