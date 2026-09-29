@@ -1,0 +1,276 @@
+diff --git a/crates/gpui/src/platform.rs b/crates/gpui/src/platform.rs
+--- a/crates/gpui/src/platform.rs
++++ b/crates/gpui/src/platform.rs
+@@ -870,8 +870,12 @@
+     fn on_close(&self, callback: Box<dyn FnOnce()>);
+     fn on_appearance_changed(&self, callback: Box<dyn FnMut()>);
+     fn on_button_layout_changed(&self, _callback: Box<dyn FnMut()>) {}
+-    fn draw(&self, scene: &Scene);
+-    fn schedule_frame(&self) {}
++    fn draw(&self, scene: &Scene);
++    fn try_draw(&self, scene: &Scene) -> bool {
++        self.draw(scene);
++        true
++    }
++    fn schedule_frame(&self) {}
+     fn sprite_atlas(&self) -> Arc<dyn PlatformAtlas>;
+     fn is_subpixel_rendering_supported(&self) -> bool;
+ 
+
+diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
+--- a/crates/gpui/src/window.rs
++++ b/crates/gpui/src/window.rs
+@@ -3087,15 +3087,18 @@
+         let _foreground_turn = profiler::journal::foreground_turn();
+         #[cfg(feature = "profiler")]
+         let present_start = Instant::now();
+-        self.platform_window.draw(&self.rendered_frame.scene);
+-        #[cfg(feature = "profiler")]
+-        self.window_profiler.record_present(
+-            present_start,
+-            Instant::now(),
+-            self.active.get(),
+-            !self.next_frame_callbacks.borrow().is_empty(),
+-        );
+-        self.needs_present.set(false);
++        let presented = self.platform_window.try_draw(&self.rendered_frame.scene);
++        #[cfg(feature = "profiler")]
++        self.window_profiler.record_present(
++            present_start,
++            Instant::now(),
++            self.active.get(),
++            !self.next_frame_callbacks.borrow().is_empty(),
++        );
++        self.needs_present.set(!presented);
++        if !presented {
++            self.platform_window.schedule_frame();
++        }
+         profiling::finish_frame!();
+     }
+ 
+
+diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
+--- a/crates/gpui_macos/src/window.rs
++++ b/crates/gpui_macos/src/window.rs
+@@ -1903,10 +1903,19 @@
+         self.0.as_ref().lock().toggle_tab_bar_callback = Some(callback);
+     }
+ 
+-    fn draw(&self, scene: &gpui::Scene) {
+-        let mut this = self.0.lock();
+-        this.renderer.draw(scene);
+-    }
++    fn draw(&self, scene: &gpui::Scene) {
++        let mut this = self.0.lock();
++        let _ = this.renderer.draw(scene);
++    }
++
++    fn try_draw(&self, scene: &gpui::Scene) -> bool {
++        let mut this = self.0.lock();
++        let presented = this.renderer.draw(scene);
++        if !presented && this.embedded {
++            this.start_display_link();
++        }
++        presented
++    }
+ 
+     fn sprite_atlas(&self) -> Arc<dyn PlatformAtlas> {
+         self.0.lock().renderer.sprite_atlas().clone()
+
+diff --git a/crates/gpui_apple/src/metal_renderer.rs b/crates/gpui_apple/src/metal_renderer.rs
+--- a/crates/gpui_apple/src/metal_renderer.rs
++++ b/crates/gpui_apple/src/metal_renderer.rs
+@@ -25,7 +25,19 @@
+ use objc::{self, msg_send, sel, sel_impl};
+ use parking_lot::Mutex;
+ 
+-use std::{cell::Cell, ffi::c_void, mem, mem::MaybeUninit, ops::Range, ptr, slice, sync::Arc};
++use std::{
++    cell::Cell,
++    ffi::c_void,
++    mem,
++    mem::MaybeUninit,
++    ops::Range,
++    ptr,
++    slice,
++    sync::{
++        Arc,
++        atomic::{AtomicBool, Ordering},
++    },
++};
+ 
+ // Exported to metal
+ pub(crate) type PointF = gpui::Point<f32>;
+@@ -112,10 +112,12 @@
+ pub struct MetalRenderer {
+     device: metal::Device,
+     layer: Option<metal::MetalLayer>,
+-    is_apple_gpu: bool,
+-    is_unified_memory: bool,
+-    presents_with_transaction: bool,
+-    /// For headless rendering, tracks whether output should be opaque
++    is_apple_gpu: bool,
++    is_unified_memory: bool,
++    presents_with_transaction: bool,
++    drawable_backpressure_enabled: bool,
++    drawable_in_flight: Arc<AtomicBool>,
++    /// For headless rendering, tracks whether output should be opaque
+     opaque: bool,
+     command_queue: CommandQueue,
+     paths_rasterization_pipeline_state: metal::RenderPipelineState,
+@@ -331,10 +331,12 @@
+ 
+         Self {
+             device,
+-            layer,
+-            presents_with_transaction: false,
+-            is_apple_gpu,
+-            is_unified_memory,
++            layer,
++            presents_with_transaction: false,
++            drawable_backpressure_enabled: false,
++            drawable_in_flight: Arc::new(AtomicBool::new(false)),
++            is_apple_gpu,
++            is_unified_memory,
+             opaque,
+             command_queue,
+             paths_rasterization_pipeline_state,
+@@ -372,12 +372,19 @@
+         &self.sprite_atlas
+     }
+ 
+-    pub fn set_presents_with_transaction(&mut self, presents_with_transaction: bool) {
+-        self.presents_with_transaction = presents_with_transaction;
+-        if let Some(layer) = &self.layer {
+-            layer.set_presents_with_transaction(presents_with_transaction);
+-        }
+-    }
++    pub fn set_presents_with_transaction(&mut self, presents_with_transaction: bool) {
++        self.presents_with_transaction = presents_with_transaction;
++        if let Some(layer) = &self.layer {
++            layer.set_presents_with_transaction(presents_with_transaction);
++        }
++    }
++
++    pub fn set_drawable_backpressure_enabled(&mut self, enabled: bool) {
++        self.drawable_backpressure_enabled = enabled;
++        if !enabled {
++            self.drawable_in_flight.store(false, Ordering::Release);
++        }
++    }
+ 
+     pub fn update_drawable_size(&mut self, size: Size<DevicePixels>) {
+         if let Some(layer) = &self.layer {
+@@ -444,48 +444,70 @@
+         // nothing to do
+     }
+ 
+-    pub fn draw(&mut self, scene: &Scene) {
+-        let layer = match &self.layer {
+-            Some(l) => l.clone(),
+-            None => {
+-                log::error!(
+-                    "draw() called on headless renderer - use render_scene_to_image() instead"
+-                );
+-                return;
+-            }
+-        };
+-        let viewport_size = layer.drawable_size();
+-        let viewport_size: Size<DevicePixels> = size(
+-            (viewport_size.width.ceil() as i32).into(),
+-            (viewport_size.height.ceil() as i32).into(),
+-        );
+-        let drawable = if let Some(drawable) = layer.next_drawable() {
+-            drawable
+-        } else {
+-            log::error!(
+-                "failed to retrieve next drawable, drawable size: {:?}",
+-                viewport_size
+-            );
+-            return;
+-        };
+-
+-        let command_buffer = match self.render_frame(scene, drawable.texture(), viewport_size) {
+-            Ok(command_buffer) => command_buffer,
+-            Err(error) => {
+-                log::error!("failed to render: {error:#}");
+-                return;
+-            }
+-        };
+-
+-        if self.presents_with_transaction {
+-            command_buffer.commit();
+-            command_buffer.wait_until_scheduled();
+-            drawable.present();
+-        } else {
+-            command_buffer.present_drawable(drawable);
+-            command_buffer.commit();
+-        }
+-    }
++    pub fn draw(&mut self, scene: &Scene) -> bool {
++        if self.drawable_backpressure_enabled
++            && self
++                .drawable_in_flight
++                .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
++                .is_err()
++        {
++            return false;
++        }
++
++        let layer = match &self.layer {
++            Some(l) => l.clone(),
++            None => {
++                self.drawable_in_flight.store(false, Ordering::Release);
++                log::error!(
++                    "draw() called on headless renderer - use render_scene_to_image() instead"
++                );
++                return false;
++            }
++        };
++        let viewport_size = layer.drawable_size();
++        let viewport_size: Size<DevicePixels> = size(
++            (viewport_size.width.ceil() as i32).into(),
++            (viewport_size.height.ceil() as i32).into(),
++        );
++        let drawable = if let Some(drawable) = layer.next_drawable() {
++            drawable
++        } else {
++            self.drawable_in_flight.store(false, Ordering::Release);
++            log::error!(
++                "failed to retrieve next drawable, drawable size: {:?}",
++                viewport_size
++            );
++            return false;
++        };
++
++        if self.drawable_backpressure_enabled {
++            let drawable_in_flight = self.drawable_in_flight.clone();
++            let block = ConcreteBlock::new(move |_| {
++                drawable_in_flight.store(false, Ordering::Release);
++            });
++            let block = block.copy();
++            drawable.add_presented_handler(&block);
++        }
++
++        let command_buffer = match self.render_frame(scene, drawable.texture(), viewport_size) {
++            Ok(command_buffer) => command_buffer,
++            Err(error) => {
++                self.drawable_in_flight.store(false, Ordering::Release);
++                log::error!("failed to render: {error:#}");
++                return false;
++            }
++        };
++
++        if self.presents_with_transaction {
++            command_buffer.commit();
++            command_buffer.wait_until_scheduled();
++            drawable.present();
++        } else {
++            command_buffer.present_drawable(drawable);
++            command_buffer.commit();
++        }
++        true
++    }
+ 
+     fn render_frame(
+         &mut self,
