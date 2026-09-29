@@ -120,6 +120,16 @@ const clockResumeRequestSchema = z.object({
   method: z.literal("clockResume"),
   params: z.object({}),
 })
+const resetFrameStatsRequestSchema = z.object({
+  id: idSchema,
+  method: z.literal("resetFrameStats"),
+  params: z.object({}),
+})
+const getFrameStatsRequestSchema = z.object({
+  id: idSchema,
+  method: z.literal("getFrameStats"),
+  params: z.object({}),
+})
 
 export const automationRequestSchema = z.discriminatedUnion("method", [
   initializeRequestSchema,
@@ -136,6 +146,8 @@ export const automationRequestSchema = z.discriminatedUnion("method", [
   clockSetRequestSchema,
   clockFastForwardRequestSchema,
   clockResumeRequestSchema,
+  resetFrameStatsRequestSchema,
+  getFrameStatsRequestSchema,
 ])
 
 export type AutomationRequest = z.infer<typeof automationRequestSchema>
@@ -159,6 +171,14 @@ export const getBoundsResultSchema = z.object({
 export const okResultSchema = z.object({ ok: z.literal(true) })
 export const screenshotResultSchema = z.object({ path: z.string() })
 export const clockResultSchema = z.object({ nowMs: z.number() })
+export const frameStatsResultSchema = z.object({
+  currentMs: z.number().optional(),
+  p90Ms: z.number().optional(),
+  p99Ms: z.number().optional(),
+  maxMs: z.number().optional(),
+  frames: z.number().int().nonnegative(),
+  samples: z.number().int().nonnegative(),
+})
 
 const responseSchema = z.union([
   z.object({ id: idSchema, result: jsonValueSchema }),
