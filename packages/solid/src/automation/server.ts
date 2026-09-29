@@ -89,6 +89,17 @@ export class LiveAutomationBackend implements AutomationBackend {
     return parseBounds(this.#renderer.getElementBounds(elementId))
   }
 
+  getScrollOffset(elementId: number): [number, number] | null {
+    const offset = this.#renderer.getScrollOffset(elementId)
+    if (!offset) return null
+    const x = offset[0]
+    const y = offset[1]
+    if (x === undefined || y === undefined) {
+      throw new AutomationError("Protocol", "Native scroll offset did not contain two coordinates")
+    }
+    return [x, y]
+  }
+
   async click(x: number, y: number, button?: number, modifiers?: string): Promise<void> {
     // Production GPUIX simulateClick queues press and release before its N-API
     // callbacks can let Solid process the press. Mirror TestRenderer's proven
@@ -201,6 +212,10 @@ async function dispatch(
     case "getBounds":
       return success(request.id, jsonValueSchema.parse({
         bounds: await backend.getBounds(request.params.elementId),
+      }))
+    case "getScrollOffset":
+      return success(request.id, jsonValueSchema.parse({
+        offset: await backend.getScrollOffset(request.params.elementId),
       }))
     case "click":
       await backend.click(
