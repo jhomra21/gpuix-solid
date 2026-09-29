@@ -44,7 +44,6 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
          let id = to_element_id(element_id)?;
          #[cfg(target_os = "macos")]
          {
-
 @@ -5387,26 +5417,41 @@
              // ── Scroll wheel ─────────────────────────────────────
              "scroll" => {
