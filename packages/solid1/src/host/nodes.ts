@@ -12,6 +12,7 @@ import type {
   ElementType,
   HostEventHandler,
   NativeRenderer,
+  type NativeScrollMetrics,
   PublicInstance,
   StyleDesc,
   VideoFrameSurfaceFrame,
@@ -402,6 +403,25 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     this.#scrollOffsetCache = undefined
   }
 
+  syncScrollMetrics(metrics: NativeScrollMetrics): void {
+    this.#scrollOffsetCache = [metrics.offsetX, metrics.offsetY]
+    this.#scrollViewportCache = {
+      width: Math.max(0, metrics.viewportWidth),
+      height: Math.max(0, metrics.viewportHeight),
+    }
+    this.#scrollContentCache = {
+      width: Math.max(0, Math.ceil(metrics.viewportWidth + Math.max(0, metrics.maxX))),
+      height: Math.max(0, Math.ceil(metrics.viewportHeight + Math.max(0, metrics.maxY))),
+    }
+    if (!this.#scrollOffsetCacheQueued) {
+      this.#scrollOffsetCacheQueued = true
+      queueMicrotask(() => {
+        this.#scrollOffsetCacheQueued = false
+        this.#scrollOffsetCache = undefined
+      })
+    }
+  }
+
   get clientWidth(): number {
     return this.scrollViewportSize().width
   }
@@ -685,26 +705,19 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
       root.driver.flush()
       const metrics = root.driver.renderer.getScrollMetrics?.(this.id)
       if (metrics && metrics.length >= 6) {
-        const offsetX = metrics[0] ?? 0
-        const offsetY = metrics[1] ?? 0
-        const maxX = Math.max(0, metrics[2] ?? 0)
-        const maxY = Math.max(0, metrics[3] ?? 0)
-        const width = Math.max(0, metrics[4] ?? 0)
-        const height = Math.max(0, metrics[5] ?? 0)
-        this.#scrollOffsetCache = [offsetX, offsetY]
-        if (!this.#scrollOffsetCacheQueued) {
-          this.#scrollOffsetCacheQueued = true
-          queueMicrotask(() => {
-            this.#scrollOffsetCacheQueued = false
-            this.#scrollOffsetCache = undefined
-          })
+        const nativeMetrics: NativeScrollMetrics = {
+          offsetX: metrics[0] ?? 0,
+          offsetY: metrics[1] ?? 0,
+          maxX: metrics[2] ?? 0,
+          maxY: metrics[3] ?? 0,
+          viewportWidth: metrics[4] ?? 0,
+          viewportHeight: metrics[5] ?? 0,
         }
-        this.#scrollViewportCache = { width, height }
-        this.#scrollContentCache = {
-          width: Math.max(0, Math.ceil(width + maxX)),
-          height: Math.max(0, Math.ceil(height + maxY)),
+        this.syncScrollMetrics(nativeMetrics)
+        return {
+          width: Math.max(0, nativeMetrics.viewportWidth),
+          height: Math.max(0, nativeMetrics.viewportHeight),
         }
-        return this.#scrollViewportCache
       }
     }
 
