@@ -5,6 +5,7 @@
   "patches": [
     "patches/gpuix/canvas-v1.patch",
     "patches/gpuix/pinch-wheel-v1.patch",
+    "patches/gpuix/automation-wheel-refresh-v1.patch",
     "patches/gpuix/scroll-metrics-v1.patch",
     "patches/gpuix/video-frame-v1.patch",
     "patches/gpuix/video-frame-iosurface-v1.patch",
