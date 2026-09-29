@@ -22,7 +22,7 @@ diff --git a/crates/gpui_macos/src/platform.rs b/crates/gpui_macos/src/platform.
 +            run_app_through_wake();
              pool.drain();
          }
-@@ -624,24 +628,39 @@ fn assert_main_thread(operation: &str) {
+@@ -624,24 +628,35 @@ fn assert_main_thread(operation: &str) {
 -unsafe fn pump_app_nonblocking() {
 +unsafe fn run_app_through_wake() {
 +    // GPUI frame ticks use a main-queue source, which only runs after the run loop wakes.
@@ -58,10 +58,6 @@ diff --git a/crates/gpui_macos/src/platform.rs b/crates/gpui_macos/src/platform.
 -        let distant_past: id = msg_send![class!(NSDate), distantPast];
 -        let mode = kCFRunLoopDefaultMode as id;
 +        app.run();
-+        // Embedded hosts return before AppKit reaches its normal end-of-cycle
-+        // Core Animation commit. Flush so presented CAMetalLayer drawables can
-+        // be recycled before the next host-driven event-loop slice.
-+        let _: () = msg_send![class!(CATransaction), flush];
  
 -        for _ in 0..256 {
 -            let event: id = msg_send![app,
