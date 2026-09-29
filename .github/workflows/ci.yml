@@ -211,6 +211,7 @@ jobs:
             /tmp/gpuix-solid1-diffusion-live.png
             /tmp/gpuix-solid1-diffusion-live-automation.png
             /tmp/diffusion-*.png
+            /tmp/diffusion-performance.json
           if-no-files-found: ignore
           retention-days: 7
       - name: Verify source compatibility against pinned GPUIX
