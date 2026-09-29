@@ -23,6 +23,7 @@ export interface BatchRendererApi {
   setImage?(elementId: number, bytes: Uint8Array): void
   setImagePixels?(elementId: number, width: number, height: number, pixels: Uint8Array): void
   getScrollOffset?(elementId: number): number[] | null
+  getScrollMetrics?(elementId: number): number[] | null
   getSelectedText?(): string | null
   clearSelection?(): void
   getPaintedText?(): string[]
@@ -186,6 +187,7 @@ export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRen
   if (renderer.setImage) adapted.setImage = renderer.setImage.bind(renderer)
   if (renderer.setImagePixels) adapted.setImagePixels = renderer.setImagePixels.bind(renderer)
   if (renderer.getScrollOffset) adapted.getScrollOffset = renderer.getScrollOffset.bind(renderer)
+  if (renderer.getScrollMetrics) adapted.getScrollMetrics = renderer.getScrollMetrics.bind(renderer)
   if (renderer.getSelectedText) adapted.getSelectedText = renderer.getSelectedText.bind(renderer)
   if (renderer.clearSelection) adapted.clearSelection = renderer.clearSelection.bind(renderer)
   if (renderer.getPaintedText) adapted.getPaintedText = renderer.getPaintedText.bind(renderer)
