@@ -209,9 +209,21 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
              }
          } else {
              lock.activated_least_once = true;
-@@ -2985,10 +3013,13 @@
+@@ -2979,17 +3007,25 @@
+ extern "C" fn display_layer(this: &Object, _: Sel, _: id) {
+     let window_state = unsafe { get_window_state(this) };
+     let mut lock = window_state.lock();
+     if let Some(mut callback) = lock.request_frame_callback.take() {
++        let embedded = lock.embedded;
+         lock.renderer.set_presents_with_transaction(true);
+         lock.stop_display_link();
          drop(lock);
          callback(Default::default());
++        if embedded {
++            unsafe {
++                let _: () = msg_send![class!(CATransaction), flush];
++            }
++        }
  
 -        let mut lock = window_state.lock();
 -        lock.request_frame_callback = Some(callback);
@@ -219,7 +231,6 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
 -        lock.start_display_link();
 +        let mut lock = window_state.lock();
 +        lock.request_frame_callback = Some(callback);
-+        let embedded = lock.embedded;
 +        lock.renderer.set_presents_with_transaction(embedded);
 +        if !embedded {
 +            lock.start_display_link();
@@ -227,3 +238,5 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
      }
  }
  
+ extern "C" fn step(view: *mut c_void) {
+
