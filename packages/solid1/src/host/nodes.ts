@@ -147,6 +147,8 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   #scrollOffsetCacheQueued = false
   #scrollViewportCache: HostViewportSize | undefined
   #scrollContentCache: HostViewportSize | undefined
+  #scrollEventMetrics: NativeScrollMetrics | undefined
+  #scrollEventMetricsQueued = false
 
   constructor(type: ElementType, tagName: string = type) {
     this.type = type
@@ -404,6 +406,11 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   }
 
   syncScrollMetrics(metrics: NativeScrollMetrics): void {
+    // Keep the geometry from the native scroll callback alive for the whole JS
+    // turn. Scroll handlers are allowed to mutate classes/styles before they
+    // read scrollTop/Height again; those mutations invalidate ordinary layout
+    // caches, but the callback's own geometry is still authoritative.
+    this.#scrollEventMetrics = metrics
     this.#scrollOffsetCache = [metrics.offsetX, metrics.offsetY]
     this.#scrollViewportCache = {
       width: Math.max(0, metrics.viewportWidth),
@@ -412,6 +419,13 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     this.#scrollContentCache = {
       width: Math.max(0, Math.ceil(metrics.viewportWidth + Math.max(0, metrics.maxX))),
       height: Math.max(0, Math.ceil(metrics.viewportHeight + Math.max(0, metrics.maxY))),
+    }
+    if (!this.#scrollEventMetricsQueued) {
+      this.#scrollEventMetricsQueued = true
+      queueMicrotask(() => {
+        this.#scrollEventMetricsQueued = false
+        this.#scrollEventMetrics = undefined
+      })
     }
     if (!this.#scrollOffsetCacheQueued) {
       this.#scrollOffsetCacheQueued = true
@@ -688,6 +702,12 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   }
 
   private scrollViewportSize(): HostViewportSize {
+    if (this.#scrollEventMetrics) {
+      return {
+        width: Math.max(0, this.#scrollEventMetrics.viewportWidth),
+        height: Math.max(0, this.#scrollEventMetrics.viewportHeight),
+      }
+    }
     const isScrollable = this.style.overflow === "auto"
       || this.style.overflow === "scroll"
       || this.style.overflowX === "auto"
@@ -727,6 +747,12 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   }
 
   private scrollContentSize(): HostViewportSize {
+    if (this.#scrollEventMetrics) {
+      return {
+        width: Math.max(0, Math.ceil(this.#scrollEventMetrics.viewportWidth + Math.max(0, this.#scrollEventMetrics.maxX))),
+        height: Math.max(0, Math.ceil(this.#scrollEventMetrics.viewportHeight + Math.max(0, this.#scrollEventMetrics.maxY))),
+      }
+    }
     if (this.#scrollContentCache) return this.#scrollContentCache
     const viewport = this.scrollViewportSize()
     if (this.#scrollContentCache) return this.#scrollContentCache
@@ -770,6 +796,9 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   }
 
   private scrollOffset(): number[] | null {
+    if (this.#scrollEventMetrics) {
+      return [this.#scrollEventMetrics.offsetX, this.#scrollEventMetrics.offsetY]
+    }
     if (this.#scrollOffsetCache !== undefined) return this.#scrollOffsetCache
     const root = this.root
     if (!root || !this.nativeAlive) return null
@@ -792,6 +821,13 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
     const y = Math.max(0, top)
     root.driver.flush()
     root.driver.renderer.scrollTo?.(this.id, -x, -y)
+    if (this.#scrollEventMetrics) {
+      this.#scrollEventMetrics = {
+        ...this.#scrollEventMetrics,
+        offsetX: -x,
+        offsetY: -y,
+      }
+    }
     this.#scrollOffsetCache = [-x, -y]
     if (!this.#scrollOffsetCacheQueued) {
       this.#scrollOffsetCacheQueued = true
