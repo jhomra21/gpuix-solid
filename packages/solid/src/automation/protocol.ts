@@ -39,6 +39,11 @@ const getBoundsRequestSchema = z.object({
   method: z.literal("getBounds"),
   params: z.object({ elementId: z.number() }),
 })
+const getScrollOffsetRequestSchema = z.object({
+  id: idSchema,
+  method: z.literal("getScrollOffset"),
+  params: z.object({ elementId: z.number() }),
+})
 const clickRequestSchema = z.object({
   id: idSchema,
   method: z.literal("click"),
@@ -135,6 +140,7 @@ export const automationRequestSchema = z.discriminatedUnion("method", [
   initializeRequestSchema,
   getTreeRequestSchema,
   getBoundsRequestSchema,
+  getScrollOffsetRequestSchema,
   clickRequestSchema,
   mouseMoveRequestSchema,
   mouseDownRequestSchema,
@@ -167,6 +173,9 @@ export const getBoundsResultSchema = z.object({
     width: z.number(),
     height: z.number(),
   }).nullable(),
+})
+export const getScrollOffsetResultSchema = z.object({
+  offset: z.tuple([z.number(), z.number()]).nullable(),
 })
 export const okResultSchema = z.object({ ok: z.literal(true) })
 export const screenshotResultSchema = z.object({ path: z.string() })
