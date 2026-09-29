@@ -538,6 +538,26 @@ try {
   // before each wheel. That keeps hit testing current without serializing the
   // full automation tree for every sample.
   const inspectorScrollNode = await inspectorScroll.element()
+  assert(app.backend.getScrollOffset, "Live automation backend does not expose native scroll offsets")
+  const inspectorOffsetBefore = await app.backend.getScrollOffset(inspectorScrollNode.id)
+  assert(inspectorOffsetBefore, "Inspector scroll area has no native ScrollHandle")
+  const inspectorProbeBounds = await app.backend.getBounds(inspectorScrollNode.id)
+  assert(inspectorProbeBounds, "Inspector scroll area has no painted bounds for scroll probe")
+  await app.mouse.wheel(at(inspectorProbeBounds, 0.5, 0.5), 0, -24)
+  await delay(40)
+  const inspectorOffsetAfter = await app.backend.getScrollOffset(inspectorScrollNode.id)
+  performanceReport.inspectorScrollProbe = {
+    before: inspectorOffsetBefore,
+    after: inspectorOffsetAfter,
+  }
+  writeFileSync(performancePath, `${JSON.stringify(performanceReport, null, 2)}\n`)
+  assert(
+    inspectorOffsetAfter && inspectorOffsetAfter[1] !== inspectorOffsetBefore[1],
+    `Inspector wheel did not mutate the native scroll offset: ${JSON.stringify(performanceReport.inspectorScrollProbe)}`,
+  )
+  await app.mouse.wheel(at(inspectorProbeBounds, 0.5, 0.5), 0, 24)
+  await delay(80)
+
   const inspectorProfileSteps = 12
   const inspectorProfileDelta = -12
   await profileNativeFrames(app, "inspector-wheel", async (mark) => {
