@@ -9,7 +9,7 @@ diff --git a/crates/gpui_macos/src/platform.rs b/crates/gpui_macos/src/platform.
  
          for _ in 0..256 {
              let event: id = msg_send![app,
-@@ -644,6 +645,11 @@ unsafe fn pump_app_nonblocking() {
+@@ -644,7 +645,13 @@ unsafe fn pump_app_nonblocking() {
                  break;
              }
              let _: () = msg_send![app, sendEvent: event];
