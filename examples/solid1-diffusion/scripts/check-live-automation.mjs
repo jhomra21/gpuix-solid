@@ -532,6 +532,10 @@ try {
     for (let index = 0; index < 24; index += 1) {
       mark(`wheel ${index + 1}/24`)
       await inspectorScroll.wheel(0, index % 2 === 0 ? -36 : 36)
+      // Match the 120 Hz target instead of flooding synchronous N-API input
+      // faster than a trackpad can deliver it. This also gives the native frame
+      // loop one host turn to paint each retained scroll update.
+      await delay(targetFrameMs)
     }
   })
 
@@ -827,6 +831,7 @@ try {
         index % 2 === 0 ? 4 : -4,
         { modifiers: "ctrl" },
       )
+      await delay(targetFrameMs)
     }
   })
 
