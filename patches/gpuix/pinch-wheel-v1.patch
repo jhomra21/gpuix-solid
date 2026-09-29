@@ -1,7 +1,7 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -5384,33 +5384,58 @@
+@@ -5384,33 +5384,88 @@
                  });
              }
  
@@ -32,6 +32,8 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 -                });
 -            }
 +            "scroll" => {
++                let scroll_handle = ctx.scroll_handles.get(&id).cloned();
++                let pinch_scroll_handle = scroll_handle.clone();
 +                let pinch_callback = callback.clone();
 +                el = el
 +                    .on_scroll_wheel(move |scroll_event, _window, _cx| {
@@ -55,6 +57,20 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +                                gpui::TouchPhase::Ended => "ended".to_string(),
 +                                gpui::TouchPhase::Cancelled => "cancelled".to_string(),
 +                            });
++
++                            if let Some(handle) = &scroll_handle {
++                                let offset = handle.offset();
++                                let max = handle.max_offset();
++                                let bounds = handle.bounds();
++                                p.scroll_offset_x = Some(f64::from(f32::from(offset.x)));
++                                p.scroll_offset_y = Some(f64::from(f32::from(offset.y)));
++                                p.scroll_max_x = Some(f64::from(f32::from(max.x)));
++                                p.scroll_max_y = Some(f64::from(f32::from(max.y)));
++                                p.scroll_viewport_width =
++                                    Some(f64::from(f32::from(bounds.size.width)));
++                                p.scroll_viewport_height =
++                                    Some(f64::from(f32::from(bounds.size.height)));
++                            }
 +                        });
 +                    })
 +                    .on_pinch(move |pinch_event, _window, _cx| {
@@ -78,6 +94,20 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +                                gpui::TouchPhase::Ended => "ended".to_string(),
 +                                gpui::TouchPhase::Cancelled => "cancelled".to_string(),
 +                            });
++
++                            if let Some(handle) = &pinch_scroll_handle {
++                                let offset = handle.offset();
++                                let max = handle.max_offset();
++                                let bounds = handle.bounds();
++                                p.scroll_offset_x = Some(f64::from(f32::from(offset.x)));
++                                p.scroll_offset_y = Some(f64::from(f32::from(offset.y)));
++                                p.scroll_max_x = Some(f64::from(f32::from(max.x)));
++                                p.scroll_max_y = Some(f64::from(f32::from(max.y)));
++                                p.scroll_viewport_width =
++                                    Some(f64::from(f32::from(bounds.size.width)));
++                                p.scroll_viewport_height =
++                                    Some(f64::from(f32::from(bounds.size.height)));
++                            }
 +                        });
 +                    });
 +            }
