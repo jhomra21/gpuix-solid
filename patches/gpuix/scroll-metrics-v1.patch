@@ -44,49 +44,6 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
          let id = to_element_id(element_id)?;
          #[cfg(target_os = "macos")]
          {
-@@ -5387,26 +5417,41 @@
-             // ── Scroll wheel ─────────────────────────────────────
-             "scroll" => {
-+                let scroll_handle = ctx.scroll_handles.get(&element.id).cloned();
-                 el = el.on_scroll_wheel(move |scroll_event, _window, _cx| {
-                     emit_event_full(&callback, id, "scroll", |p| {
-                         let (x, y) = point_to_xy(scroll_event.position);
-                         p.x = Some(x);
-                         p.y = Some(y);
-                         p.modifiers = Some(scroll_event.modifiers.into());
-                         p.precise = Some(scroll_event.delta.precise());
- 
-                         // Convert ScrollDelta to pixel values.
-                         // For Lines delta, we use a default line height of 20px.
-                         let line_height = gpui::px(20.0);
-                         let pixel_delta = scroll_event.delta.pixel_delta(line_height);
-                         p.delta_x = Some(f64::from(f32::from(pixel_delta.x)));
-                         p.delta_y = Some(f64::from(f32::from(pixel_delta.y)));
- 
-+                        if let Some(handle) = scroll_handle.as_ref() {
-+                            let offset = handle.offset();
-+                            let max = handle.max_offset();
-+                            let bounds = handle.bounds();
-+                            p.scroll_offset_x = Some(f64::from(f32::from(offset.x)));
-+                            p.scroll_offset_y = Some(f64::from(f32::from(offset.y)));
-+                            p.scroll_max_x = Some(f64::from(f32::from(max.x)));
-+                            p.scroll_max_y = Some(f64::from(f32::from(max.y)));
-+                            p.scroll_viewport_width =
-+                                Some(f64::from(f32::from(bounds.size.width)));
-+                            p.scroll_viewport_height =
-+                                Some(f64::from(f32::from(bounds.size.height)));
-+                        }
-+
-                         p.touch_phase = Some(match scroll_event.touch_phase {
-                             gpui::TouchPhase::Started => "started".to_string(),
-                             gpui::TouchPhase::Moved => "moved".to_string(),
-                             gpui::TouchPhase::Ended => "ended".to_string(),
-                             gpui::TouchPhase::Cancelled => "cancelled".to_string(),
-                         });
-                     });
-                 });
-             }
-
 diff --git a/packages/native/src/element_tree.rs b/packages/native/src/element_tree.rs
 --- a/packages/native/src/element_tree.rs
 +++ b/packages/native/src/element_tree.rs
