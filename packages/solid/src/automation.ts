@@ -4,6 +4,7 @@ import {
   type AutomationTreeNode,
   type ElementBounds,
 } from "./automation/tree.js"
+import type { DebugFrameOverlayStats } from "./host/types.js"
 import type { TestRenderer } from "./testing.js"
 
 export type { AutomationTreeNode, ElementBounds } from "./automation/tree.js"
@@ -50,6 +51,8 @@ export interface AutomationBackend {
   clockSet(nowMs: number): number | Promise<number>
   clockFastForward(deltaMs: number): number | Promise<number>
   clockResume(): number | Promise<number>
+  resetFrameStats?(): void | Promise<void>
+  getFrameStats?(): DebugFrameOverlayStats | Promise<DebugFrameOverlayStats>
   close(): void | Promise<void>
 }
 
@@ -136,6 +139,14 @@ export class InProcessAutomationBackend implements AutomationBackend {
 
   clockResume(): number {
     return this.#renderer.clockResume()
+  }
+
+  resetFrameStats(): void {
+    this.#renderer.resetDebugFrameOverlayStats()
+  }
+
+  getFrameStats(): DebugFrameOverlayStats {
+    return this.#renderer.getDebugFrameOverlayStats()
   }
 
   close(): void {}
@@ -349,6 +360,10 @@ export class App {
     fastForward: (deltaMs: number) => Promise<number>
     resume: () => Promise<number>
   }
+  readonly performance: {
+    reset: () => Promise<void>
+    stats: () => Promise<DebugFrameOverlayStats>
+  }
   readonly mouse: {
     move: (target: PointTarget, options?: MouseOptions & { pressedButton?: number }) => Promise<void>
     down: (target: PointTarget, options?: MouseOptions) => Promise<void>
@@ -408,6 +423,20 @@ export class App {
       set: async (nowMs) => await backend.clockSet(nowMs),
       fastForward: async (deltaMs) => await backend.clockFastForward(deltaMs),
       resume: async () => await backend.clockResume(),
+    }
+    this.performance = {
+      reset: async () => {
+        if (!backend.resetFrameStats) {
+          throw new AutomationError("Unsupported", "This automation backend does not expose native frame statistics")
+        }
+        await backend.resetFrameStats()
+      },
+      stats: async () => {
+        if (!backend.getFrameStats) {
+          throw new AutomationError("Unsupported", "This automation backend does not expose native frame statistics")
+        }
+        return await backend.getFrameStats()
+      },
     }
   }
 
