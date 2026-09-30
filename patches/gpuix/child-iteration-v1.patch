@@ -1,7 +1,7 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -5461,8 +5461,7 @@ pub(crate) fn build_host_container(
+@@ -5480,8 +5480,7 @@ pub(crate) fn build_host_container(
      }
  
      // Children
@@ -9,5 +9,3 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 -    for child_id in child_ids {
 +    for child_id in element.children.iter().copied() {
          let child = build_element(child_id, ctx, window, cx);
-         el = if overflow_x_only {
-             el.child(gpui::div().flex_none().child(child))
