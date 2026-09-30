@@ -760,6 +760,23 @@ export class EventRegistry {
       }
       case "scroll": {
         const duplicateWheel = this.#isBubbledNativeScroll(event)
+        const scrollChain = []
+        let scrollOwner: number | null | undefined = event.elementId
+        while (scrollOwner !== undefined && scrollOwner !== null && this.#live.has(scrollOwner)) {
+          scrollChain.push({
+            id: scrollOwner,
+            wheel: this.#handlers.get(scrollOwner)?.has("wheel") ?? false,
+            scroll: this.#handlers.get(scrollOwner)?.has("scroll") ?? false,
+          })
+          scrollOwner = this.#parents.get(scrollOwner)
+        }
+        console.error("[gpuix-solid][scroll-carrier]", JSON.stringify({
+          elementId: event.elementId,
+          deltaX: event.deltaX ?? 0,
+          deltaY: event.deltaY ?? 0,
+          duplicateWheel,
+          chain: scrollChain,
+        }))
         const metrics = scrollMetricsFromEvent(event)
         if (metrics) this.#targets.get(event.elementId)?.syncScrollMetrics?.(metrics)
         // Native scroll-wheel callbacks can be relayed through descendants so
