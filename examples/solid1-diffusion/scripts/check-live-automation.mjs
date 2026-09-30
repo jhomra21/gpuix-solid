@@ -319,31 +319,10 @@ function assertChatTableRows(root) {
     Math.abs(one.bounds.y - two.bounds.y) <= 2 && two.bounds.x > one.bounds.x,
     `Chat Markdown value cells did not share one row: ${JSON.stringify({ one: one.bounds, two: two.bounds })}`,
   )
-  const rowGapIsCompact = one.bounds.y >= a.bounds.y + a.bounds.height - 2 && one.bounds.y - a.bounds.y <= 40
-  if (!rowGapIsCompact) {
-    const parents = indexParents(root)
-    const chain = (node) => {
-      const ancestors = []
-      let current = node
-      while (current && ancestors.length < 8) {
-        ancestors.push({
-          type: current.type,
-          bounds: current.bounds,
-          text: textContent(current).trim().slice(0, 120),
-        })
-        current = parents.get(current.id)
-      }
-      return ancestors
-    }
-    throw new Error(
-      `Chat Markdown table rows are vertically over-expanded: ${JSON.stringify({
-        header: a.bounds,
-        value: one.bounds,
-        headerChain: chain(a),
-        valueChain: chain(one),
-      })}`,
-    )
-  }
+  assert(
+    one.bounds.y >= a.bounds.y + a.bounds.height - 2 && one.bounds.y - a.bounds.y <= 40,
+    `Chat Markdown table rows are vertically over-expanded: ${JSON.stringify({ header: a.bounds, value: one.bounds })}`,
+  )
 }
 
 function getEditorCanvases(root) {
