@@ -307,7 +307,7 @@ export async function connectStdio(options: {
   write: (chunk: string) => void
   feed: (listener: (chunk: string) => void) => void
   close?: () => Promise<void>
-  requestTimeoutMs?: number
+  requestTimeoutMs?: number | undefined
 }): Promise<App> {
   const backend = new SseAutomationBackend(
     options.write,
@@ -324,7 +324,7 @@ export async function launch(options: {
   args?: string[]
   cwd?: string
   env?: Record<string, string | undefined>
-  requestTimeoutMs?: number
+  requestTimeoutMs?: number | undefined
 }): Promise<App> {
   const child: ChildProcessWithoutNullStreams = spawn(
     options.command,
