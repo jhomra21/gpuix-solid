@@ -1,7 +1,7 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -5480,8 +5480,7 @@ pub(crate) fn build_host_container(
+@@ -5480,6 +5480,5 @@ pub(crate) fn build_host_container(
      }
  
      // Children
