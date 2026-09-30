@@ -1,46 +1,34 @@
 diff --git a/crates/gpui_apple/src/metal_atlas.rs b/crates/gpui_apple/src/metal_atlas.rs
 --- a/crates/gpui_apple/src/metal_atlas.rs
 +++ b/crates/gpui_apple/src/metal_atlas.rs
-@@ -6,9 +6,16 @@
-     AtlasKey, AtlasTextureId, AtlasTextureKind, AtlasTextureList, AtlasTile, Bounds, DevicePixels,
-     PlatformAtlas, Point, Size,
- };
+@@ -1,49 +1,76 @@
+-use anyhow::{Context as _, Result};
+-use collections::FxHashMap;
+-use derive_more::{Deref, DerefMut};
+-use etagere::BucketedAtlasAllocator;
+-use gpui::{
+-    AtlasKey, AtlasTextureId, AtlasTextureKind, AtlasTextureList, AtlasTile, Bounds, DevicePixels,
+-    PlatformAtlas, Point, Size,
+-};
 -use metal::Device;
 -use parking_lot::Mutex;
 -use std::borrow::Cow;
-+use block::ConcreteBlock;
-+use metal::Device;
-+use parking_lot::Mutex;
-+use std::{
-+    borrow::Cow,
-+    sync::{
-+        Arc,
-+        atomic::{AtomicU64, Ordering},
-+    },
-+};
- 
- pub struct MetalAtlas {
-     state: Mutex<MetalAtlasState>,
-@@ -10,10 +10,11 @@
- use parking_lot::Mutex;
- use std::borrow::Cow;
- 
+-
 -pub struct MetalAtlas {
 -    state: Mutex<MetalAtlasState>,
 -    last_submission: Mutex<Option<AssertSend<metal::CommandBuffer>>>,
 -}
-+pub struct MetalAtlas {
-+    state: Mutex<MetalAtlasState>,
-+    last_submission: Arc<Mutex<Option<(u64, AssertSend<metal::CommandBuffer>)>>>,
-+    next_submission_id: AtomicU64,
-+}
- 
- impl MetalAtlas {
-     pub(crate) fn new(device: Device, is_apple_gpu: bool) -> Self {
-@@ -25,22 +25,41 @@
-                 polychrome_textures: Default::default(),
-                 tiles_by_key: Default::default(),
-             }),
+-
+-impl MetalAtlas {
+-    pub(crate) fn new(device: Device, is_apple_gpu: bool) -> Self {
+-        Self {
+-            state: Mutex::new(MetalAtlasState {
+-                device: AssertSend(device),
+-                is_apple_gpu,
+-                monochrome_textures: Default::default(),
+-                polychrome_textures: Default::default(),
+-                tiles_by_key: Default::default(),
+-            }),
 -            last_submission: Mutex::new(None),
 -        }
 -    }
@@ -57,6 +45,47 @@ diff --git a/crates/gpui_apple/src/metal_atlas.rs b/crates/gpui_apple/src/metal_
 -            command_buffer.wait_until_completed();
 -        }
 -    }
+-
+-    pub(crate) fn metal_texture(&self, id: AtlasTextureId) -> metal::Texture {
+-        self.state.lock().texture(id).metal_texture.clone()
+-    }
+-}
+-
++use anyhow::{Context as _, Result};
++use collections::FxHashMap;
++use derive_more::{Deref, DerefMut};
++use etagere::BucketedAtlasAllocator;
++use gpui::{
++    AtlasKey, AtlasTextureId, AtlasTextureKind, AtlasTextureList, AtlasTile, Bounds, DevicePixels,
++    PlatformAtlas, Point, Size,
++};
++use block::ConcreteBlock;
++use metal::Device;
++use parking_lot::Mutex;
++use std::{
++    borrow::Cow,
++    sync::{
++        Arc,
++        atomic::{AtomicU64, Ordering},
++    },
++};
++
++pub struct MetalAtlas {
++    state: Mutex<MetalAtlasState>,
++    last_submission: Arc<Mutex<Option<(u64, AssertSend<metal::CommandBuffer>)>>>,
++    next_submission_id: AtomicU64,
++}
++
++impl MetalAtlas {
++    pub(crate) fn new(device: Device, is_apple_gpu: bool) -> Self {
++        Self {
++            state: Mutex::new(MetalAtlasState {
++                device: AssertSend(device),
++                is_apple_gpu,
++                monochrome_textures: Default::default(),
++                polychrome_textures: Default::default(),
++                tiles_by_key: Default::default(),
++            }),
 +            last_submission: Arc::new(Mutex::new(None)),
 +            next_submission_id: AtomicU64::new(1),
 +        }
@@ -92,6 +121,9 @@ diff --git a/crates/gpui_apple/src/metal_atlas.rs b/crates/gpui_apple/src/metal_
 +            command_buffer.wait_until_completed();
 +        }
 +    }
- 
-     pub(crate) fn metal_texture(&self, id: AtlasTextureId) -> metal::Texture {
-         self.state.lock().texture(id).metal_texture.clone()
++
++    pub(crate) fn metal_texture(&self, id: AtlasTextureId) -> metal::Texture {
++        self.state.lock().texture(id).metal_texture.clone()
++    }
++}
++
