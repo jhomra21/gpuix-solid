@@ -241,6 +241,11 @@ export class SseAutomationBackend implements AutomationBackend {
     if (result.p90Ms !== undefined) stats.p90Ms = result.p90Ms
     if (result.p99Ms !== undefined) stats.p99Ms = result.p99Ms
     if (result.maxMs !== undefined) stats.maxMs = result.maxMs
+    if (result.viewRenderCurrentMs !== undefined) stats.viewRenderCurrentMs = result.viewRenderCurrentMs
+    if (result.viewRenderP90Ms !== undefined) stats.viewRenderP90Ms = result.viewRenderP90Ms
+    if (result.viewRenderP99Ms !== undefined) stats.viewRenderP99Ms = result.viewRenderP99Ms
+    if (result.viewRenderMaxMs !== undefined) stats.viewRenderMaxMs = result.viewRenderMaxMs
+    if (result.viewRenderSamples !== undefined) stats.viewRenderSamples = result.viewRenderSamples
     return stats
   }
 

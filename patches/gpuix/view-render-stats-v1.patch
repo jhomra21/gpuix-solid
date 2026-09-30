@@ -1,0 +1,221 @@
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -26,15 +26,15 @@
+ #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+ use napi_derive::napi;
+ use std::cell::RefCell;
+-use std::collections::{HashMap, HashSet};
+-#[cfg(any(target_os = "macos", target_family = "wasm"))]
+-use std::rc::Rc;
+-#[cfg(any(target_os = "windows", target_os = "linux", target_os = "freebsd"))]
+-use std::sync::atomic::{AtomicBool, Ordering};
+-#[cfg(any(target_os = "windows", target_os = "linux", target_os = "freebsd"))]
+-use std::sync::mpsc::{sync_channel, RecvTimeoutError, SyncSender};
+-use std::sync::{Arc, Mutex};
+-use std::time::Duration;
++use std::collections::{HashMap, HashSet, VecDeque};
++#[cfg(any(target_os = "macos", target_family = "wasm"))]
++use std::rc::Rc;
++#[cfg(any(target_os = "windows", target_os = "linux", target_os = "freebsd"))]
++use std::sync::atomic::{AtomicBool, Ordering};
++#[cfg(any(target_os = "windows", target_os = "linux", target_os = "freebsd"))]
++use std::sync::mpsc::{sync_channel, RecvTimeoutError, SyncSender};
++use std::sync::{Arc, Mutex};
++use std::time::{Duration, Instant};
+ #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+ use wasm_bindgen::JsCast as _;
+ 
+@@ -161,11 +161,50 @@
+     /// just committed, but that commit only reaches `gpui::ListState` when the
+     /// next render splices it in. An eager `scroll_to` would be shifted a
+     /// second time by `splice_focusable` and land on the wrong row.
+-    static PENDING_VIRTUAL_LIST_SCROLLS: RefCell<HashMap<u64, gpui::ListOffset>> =
+-        RefCell::new(HashMap::new());
+-}
+-
+-const SELECTION_SCROLL_TICK_MS: u64 = 24;
++    static PENDING_VIRTUAL_LIST_SCROLLS: RefCell<HashMap<u64, gpui::ListOffset>> =
++        RefCell::new(HashMap::new());
++    static VIEW_RENDER_DURATIONS: RefCell<VecDeque<Duration>> = RefCell::new(VecDeque::new());
++}
++
++const VIEW_RENDER_MAX_SAMPLES: usize = 1000;
++
++fn view_render_duration_ms(duration: Duration) -> f64 {
++    duration.as_secs_f64() * 1000.0
++}
++
++fn record_view_render_duration(duration: Duration) {
++    VIEW_RENDER_DURATIONS.with(|cell| {
++        let mut durations = cell.borrow_mut();
++        if durations.len() >= VIEW_RENDER_MAX_SAMPLES {
++            durations.pop_front();
++        }
++        durations.push_back(duration);
++    });
++}
++
++fn reset_view_render_stats() {
++    VIEW_RENDER_DURATIONS.with(|cell| cell.borrow_mut().clear());
++}
++
++fn view_render_stats() -> (Option<f64>, Option<f64>, Option<f64>, Option<f64>, f64) {
++    VIEW_RENDER_DURATIONS.with(|cell| {
++        let durations = cell.borrow();
++        let mut sorted: Vec<Duration> = durations.iter().copied().collect();
++        sorted.sort_unstable();
++        let percentile = |numerator: usize| {
++            (!sorted.is_empty()).then(|| sorted[(sorted.len() - 1) * numerator / 100])
++        };
++        (
++            durations.back().copied().map(view_render_duration_ms),
++            percentile(90).map(view_render_duration_ms),
++            percentile(99).map(view_render_duration_ms),
++            sorted.last().copied().map(view_render_duration_ms),
++            durations.len() as f64,
++        )
++    })
++}
++
++const SELECTION_SCROLL_TICK_MS: u64 = 24;
+ const SELECTION_SCROLL_EDGE_PX: f32 = 36.0;
+ const SELECTION_SCROLL_MAX_STEP_PX: f32 = 24.0;
+ 
+@@ -263,18 +302,30 @@
+ }
+ 
+ #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+-pub(crate) fn debug_frame_overlay_stats_js(
+-    stats: gpui::DebugFrameOverlayStats,
+-) -> DebugFrameOverlayStats {
+-    DebugFrameOverlayStats {
+-        current_ms: stats.current_ms.map(|ms| ms as f64),
+-        p90_ms: stats.p90_ms.map(|ms| ms as f64),
+-        p99_ms: stats.p99_ms.map(|ms| ms as f64),
+-        max_ms: stats.max_ms.map(|ms| ms as f64),
+-        frames: stats.frames as f64,
+-        samples: stats.samples as f64,
+-    }
+-}
++pub(crate) fn debug_frame_overlay_stats_js(
++    stats: gpui::DebugFrameOverlayStats,
++) -> DebugFrameOverlayStats {
++    let (
++        view_render_current_ms,
++        view_render_p90_ms,
++        view_render_p99_ms,
++        view_render_max_ms,
++        view_render_samples,
++    ) = view_render_stats();
++    DebugFrameOverlayStats {
++        current_ms: stats.current_ms.map(|ms| ms as f64),
++        p90_ms: stats.p90_ms.map(|ms| ms as f64),
++        p99_ms: stats.p99_ms.map(|ms| ms as f64),
++        max_ms: stats.max_ms.map(|ms| ms as f64),
++        frames: stats.frames as f64,
++        samples: stats.samples as f64,
++        view_render_current_ms,
++        view_render_p90_ms,
++        view_render_p99_ms,
++        view_render_max_ms,
++        view_render_samples,
++    }
++}
+ 
+ #[cfg(any(target_os = "windows", target_os = "linux", target_os = "freebsd"))]
+ fn recv_ui_response<T>(receiver: std::sync::mpsc::Receiver<T>, operation: &str) -> Result<T> {
+@@ -568,9 +619,10 @@
+                         .ok();
+                 })
+             }
+-            UiCommand::ResetDebugFrameOverlayStats => window.update(cx, |_view, window, _cx| {
+-                window.reset_debug_frame_overlay_stats();
+-            }),
++            UiCommand::ResetDebugFrameOverlayStats => window.update(cx, |_view, window, _cx| {
++                window.reset_debug_frame_overlay_stats();
++                reset_view_render_stats();
++            }),
+             UiCommand::ScrollTo { id, x, y } => {
+                 if !VIRTUAL_LIST_STATES.with(|cell| {
+                     let states = cell.borrow();
+@@ -1573,9 +1625,10 @@
+     #[napi]
+     pub fn reset_debug_frame_overlay_stats(&self) -> Result<()> {
+         #[cfg(target_os = "macos")]
+-        return update_window(|_view, window, _cx| {
+-            window.reset_debug_frame_overlay_stats();
+-        });
++        return update_window(|_view, window, _cx| {
++            window.reset_debug_frame_overlay_stats();
++            reset_view_render_stats();
++        });
+ 
+         #[cfg(any(target_os = "windows", target_os = "linux", target_os = "freebsd"))]
+         return self.send_ui_command(UiCommand::ResetDebugFrameOverlayStats);
+@@ -4665,10 +4718,11 @@
+         &mut self,
+         window: &mut gpui::Window,
+         cx: &mut gpui::Context<Self>,
+-    ) -> impl gpui::IntoElement {
+-        use gpui::IntoElement;
+-
+-        window.set_window_title(&self.window_title);
++    ) -> impl gpui::IntoElement {
++        use gpui::IntoElement;
++
++        let render_started = Instant::now();
++        window.set_window_title(&self.window_title);
+ 
+         #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+         if let Some(id) = PENDING_FOCUS_ELEMENT.with(|pending| pending.borrow_mut().take()) {
+@@ -4805,13 +4859,14 @@
+         // no longer match what JS meant.
+         PENDING_VIRTUAL_LIST_SCROLLS.with(|cell| cell.borrow_mut().clear());
+ 
+-        if motion_active {
+-            window.request_animation_frame();
+-        }
+-
+-        result
+-    }
+-}
++        if motion_active {
++            window.request_animation_frame();
++        }
++
++        record_view_render_duration(render_started.elapsed());
++        result
++    }
++}
+ 
+ // ── Element builders ─────────────────────────────────────────────────
+ 
+@@ -6558,14 +6613,19 @@
+ #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+ #[derive(Debug, Clone)]
+ #[napi(object)]
+-pub struct DebugFrameOverlayStats {
+-    pub current_ms: Option<f64>,
+-    pub p90_ms: Option<f64>,
+-    pub p99_ms: Option<f64>,
+-    pub max_ms: Option<f64>,
+-    pub frames: f64,
+-    pub samples: f64,
+-}
++pub struct DebugFrameOverlayStats {
++    pub current_ms: Option<f64>,
++    pub p90_ms: Option<f64>,
++    pub p99_ms: Option<f64>,
++    pub max_ms: Option<f64>,
++    pub frames: f64,
++    pub samples: f64,
++    pub view_render_current_ms: Option<f64>,
++    pub view_render_p90_ms: Option<f64>,
++    pub view_render_p99_ms: Option<f64>,
++    pub view_render_max_ms: Option<f64>,
++    pub view_render_samples: f64,
++}
+ 
+ /// Wayland `wlr-layer-shell` surface options. Linux/Wayland only; ignored on
+ /// every other platform. When present on `WindowOptions`, the window is opened

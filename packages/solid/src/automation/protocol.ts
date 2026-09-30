@@ -187,6 +187,11 @@ export const frameStatsResultSchema = z.object({
   maxMs: z.number().optional(),
   frames: z.number().int().nonnegative(),
   samples: z.number().int().nonnegative(),
+  viewRenderCurrentMs: z.number().optional(),
+  viewRenderP90Ms: z.number().optional(),
+  viewRenderP99Ms: z.number().optional(),
+  viewRenderMaxMs: z.number().optional(),
+  viewRenderSamples: z.number().int().nonnegative().optional(),
 })
 
 const responseSchema = z.union([
