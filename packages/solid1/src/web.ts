@@ -838,6 +838,12 @@ function applyBrowserRelativeTranslation(
   translation: BrowserTranslation,
 ): void {
   if (style.position === undefined || style.position === "relative") {
+    if (style.position === undefined && (translation.x !== 0 || translation.y !== 0)) {
+      // CSS transforms move a normal-flow box without removing its original
+      // layout slot. Native top/left offsets have the same behavior only when
+      // the element participates in relative positioning.
+      style.position = "relative"
+    }
     if (translation.x !== 0) {
       const left = browserNumericInset(style.left)
       if (left !== undefined) style.left = left + translation.x
