@@ -8,7 +8,6 @@
     "patches/gpuix/wheel-bubble-relay-v1.patch",
     "patches/gpuix/scroll-metrics-v1.patch",
     "patches/gpuix/view-render-stats-v1.patch",
-    "patches/gpuix/text-build-allocations-v1.patch",
     "patches/gpuix/video-frame-v1.patch",
     "patches/gpuix/video-frame-iosurface-v1.patch",
     "patches/gpuix/z-index-v1.patch",
