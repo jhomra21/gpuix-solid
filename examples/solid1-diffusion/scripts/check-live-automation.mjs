@@ -776,44 +776,6 @@ try {
     x: layerScrollNode.bounds.x + layerScrollNode.bounds.width / 2,
     y: layerScrollNode.bounds.y + layerScrollNode.bounds.height / 2,
   }
-  const timelineHitStack = descendants(tree)
-    .filter((node) => {
-      const bounds = node.bounds
-      return bounds
-        && layerScrollPoint.x >= bounds.x
-        && layerScrollPoint.x <= bounds.x + bounds.width
-        && layerScrollPoint.y >= bounds.y
-        && layerScrollPoint.y <= bounds.y + bounds.height
-    })
-    .map((node) => ({
-      id: node.id,
-      type: node.type,
-      text: node.text,
-      testId: node.testId,
-      bounds: node.bounds,
-    }))
-    .sort((left, right) => {
-      const leftArea = (left.bounds?.width ?? 0) * (left.bounds?.height ?? 0)
-      const rightArea = (right.bounds?.width ?? 0) * (right.bounds?.height ?? 0)
-      return leftArea - rightArea
-    })
-  const tracedTimelineIds = new Set([127, 369, 368, 90, 2, 1])
-  const timelineTracedNodes = descendants(tree)
-    .filter((node) => tracedTimelineIds.has(node.id))
-    .map((node) => ({
-      id: node.id,
-      type: node.type,
-      text: node.text,
-      testId: node.testId,
-      bounds: node.bounds,
-    }))
-  console.error("[diffusion][timeline-wheel-owner]", JSON.stringify({
-    id: layerScrollNode.id,
-    bounds: layerScrollNode.bounds,
-    point: layerScrollPoint,
-    hitStack: timelineHitStack,
-    tracedNodes: timelineTracedNodes,
-  }))
   const layerBeforeY = layerBeforeScroll.bounds.y
   await layerScroll.wheel(0, -180)
   tree = await waitFor("timeline layer wheel translation", async () => {
