@@ -200,6 +200,34 @@ function persistPerformanceReport() {
   writeFileSync(performancePath, `${JSON.stringify(performanceReport, null, 2)}\n`)
 }
 
+function median(values) {
+  const sorted = values.filter((value) => Number.isFinite(value)).sort((a, b) => a - b)
+  if (sorted.length === 0) return null
+  const middle = Math.floor(sorted.length / 2)
+  return sorted.length % 2 === 0
+    ? (sorted[middle - 1] + sorted[middle]) / 2
+    : sorted[middle]
+}
+
+function summarizeProfiles(name, runNames) {
+  const runs = runNames.map((runName) => performanceReport.scenarios[runName])
+  const summary = {
+    status: runs.every((run) => run?.status === "passed") ? "passed" : "failed",
+    runs: runNames,
+    p90Ms: median(runs.map((run) => run?.p90Ms)),
+    p99Ms: median(runs.map((run) => run?.p99Ms)),
+    maxMs: median(runs.map((run) => run?.maxMs)),
+    viewRenderP90Ms: median(runs.map((run) => run?.viewRenderP90Ms)),
+    viewRenderP99Ms: median(runs.map((run) => run?.viewRenderP99Ms)),
+    viewRenderMaxMs: median(runs.map((run) => run?.viewRenderMaxMs)),
+    observedFps: median(runs.map((run) => run?.observedFps)),
+  }
+  summary.meets120HzDrawBudget = summary.p90Ms !== null && summary.p90Ms <= targetFrameMs
+  performanceReport.scenarios[name] = summary
+  persistPerformanceReport()
+  return summary
+}
+
 async function profileNativeFrames(app, name, exercise) {
   const probeTimeoutMs = 10_000
   const probeStartedAt = performance.now()
@@ -618,20 +646,26 @@ try {
   // every sample performs actual scroll work instead of measuring no-op wheel
   // events at the bottom edge.
   const inspectorProfileDelta = inspectorOffsetBefore[1] < 0 ? 6 : -6
-  await profileNativeFrames(app, "inspector-wheel", async (mark) => {
-    for (let index = 0; index < inspectorProfileSteps; index += 1) {
-      mark(`wheel ${index + 1}/${inspectorProfileSteps}`)
-      await app.mouse.wheel(inspectorViewportPoint, 0, inspectorProfileDelta)
-      // Pace input at the target rate instead of flooding synchronous N-API.
-      await delay(targetFrameMs)
-    }
-  })
-  await app.mouse.wheel(
-    inspectorViewportPoint,
-    0,
-    -(inspectorProfileSteps * inspectorProfileDelta),
-  )
-  await delay(120)
+  const inspectorProfileRuns = []
+  for (let run = 1; run <= 3; run += 1) {
+    const runName = `inspector-wheel-run-${run}`
+    inspectorProfileRuns.push(runName)
+    await profileNativeFrames(app, runName, async (mark) => {
+      for (let index = 0; index < inspectorProfileSteps; index += 1) {
+        mark(`wheel ${index + 1}/${inspectorProfileSteps}`)
+        await app.mouse.wheel(inspectorViewportPoint, 0, inspectorProfileDelta)
+        // Pace input at the target rate instead of flooding synchronous N-API.
+        await delay(targetFrameMs)
+      }
+    })
+    await app.mouse.wheel(
+      inspectorViewportPoint,
+      0,
+      -(inspectorProfileSteps * inspectorProfileDelta),
+    )
+    await delay(120)
+  }
+  summarizeProfiles("inspector-wheel", inspectorProfileRuns)
 
   // Exercise DrawOverlay through its real toolbar + native pointer sequence.
   let parts = toolbarParts(tree)
@@ -921,30 +955,36 @@ try {
 
   // Keep the camera hot long enough to measure the real retained Canvas path,
   // including Diffusion's RAF systems and GPUIX draw-list handoff.
-  await profileNativeFrames(app, "canvas-wheel-zoom", async (mark) => {
-    for (let index = 0; index < 24; index += 1) {
-      mark(`wheel ${index + 1}/24`)
-      // Keep the measured zoom monotonic. Alternating equal deltas can cancel
-      // between display frames and hide real camera/Canvas work on a 60 Hz CI
-      // runner even though every wheel handler executes.
-      await app.mouse.wheel(
-        at(wheelZoomStage.bounds, 0.5, 0.5),
-        0,
-        4,
-        { modifiers: "ctrl" },
-      )
-      await delay(targetFrameMs)
-    }
-  })
+  const canvasProfileRuns = []
+  for (let run = 1; run <= 3; run += 1) {
+    const runName = `canvas-wheel-zoom-run-${run}`
+    canvasProfileRuns.push(runName)
+    await profileNativeFrames(app, runName, async (mark) => {
+      for (let index = 0; index < 24; index += 1) {
+        mark(`wheel ${index + 1}/24`)
+        // Keep the measured zoom monotonic. Alternating equal deltas can cancel
+        // between display frames and hide real camera/Canvas work on a 60 Hz CI
+        // runner even though every wheel handler executes.
+        await app.mouse.wheel(
+          at(wheelZoomStage.bounds, 0.5, 0.5),
+          0,
+          4,
+          { modifiers: "ctrl" },
+        )
+        await delay(targetFrameMs)
+      }
+    })
 
-  // Restore a deterministic camera scale for the rest of the editor audit.
-  await zoomReadout.click()
-  tree = await waitFor("Inspector zoom reset menu", async () => {
-    const next = await currentTree(app)
-    return descendants(next).some((node) => node.text === "Zoom to 100%") ? next : null
-  })
-  await clickNode(app, findText(tree, "Zoom to 100%"))
-  await delay(160)
+    // Reset between captures so every run starts from the same camera scale.
+    await zoomReadout.click()
+    tree = await waitFor(`Inspector zoom reset menu run ${run}`, async () => {
+      const next = await currentTree(app)
+      return descendants(next).some((node) => node.text === "Zoom to 100%") ? next : null
+    })
+    await clickNode(app, findText(tree, "Zoom to 100%"))
+    await delay(160)
+  }
+  summarizeProfiles("canvas-wheel-zoom", canvasProfileRuns)
 
   tree = await getFreshTree(app)
   parts = toolbarParts(tree)
