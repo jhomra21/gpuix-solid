@@ -1,0 +1,29 @@
+diff --git a/packages/native/src/custom_elements/mod.rs b/packages/native/src/custom_elements/mod.rs
+--- a/packages/native/src/custom_elements/mod.rs
++++ b/packages/native/src/custom_elements/mod.rs
+@@ -125,8 +125,8 @@
+     {
+         el = el.relative();
+     }
+-    el = el.child(crate::automation::bounds_tracker(ctx.id, None));
+-    el = crate::accessibility::apply_accessibility(el, ctx.props, None);
++    el = crate::automation::track_own_bounds(el, ctx.id);
++    el = crate::accessibility::apply_accessibility(el, ctx.props, None);
+     wire_standard_events(el, ctx)
+ }
+ 
+diff --git a/packages/native/src/custom_elements/input.rs b/packages/native/src/custom_elements/input.rs
+--- a/packages/native/src/custom_elements/input.rs
++++ b/packages/native/src/custom_elements/input.rs
+@@ -479,8 +479,9 @@
+         // `Some(false)` also claims the same box as a non-selectable
+         // selection-start region: a drag inside an editor must move the caret,
+         // not start a document selection.
+-        editor = editor.child(crate::automation::bounds_tracker(ctx.id, Some(false)));
+-        if ctx.events.contains("click") {
++        editor =
++            crate::automation::track_own_bounds_with_selection(editor, ctx.id, Some(false));
++        if ctx.events.contains("click") {
+             let callback = ctx.event_callback.clone();
+             let id = ctx.id;
+             // Match retained hosts: GPUI's semantic click is unreliable under
