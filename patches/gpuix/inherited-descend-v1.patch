@@ -1,7 +1,7 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -4054,23 +4054,22 @@
+@@ -4133,23 +4133,22 @@
          }
      }
  
@@ -41,7 +41,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
  }
  
  fn json_usize(value: &serde_json::Value) -> Option<usize> {
-@@ -4846,8 +4845,8 @@
+@@ -4929,8 +4928,8 @@
  
      // Inheritable style resolves once here so both built-ins and custom
      // elements see the same cascade.
