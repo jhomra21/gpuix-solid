@@ -175,7 +175,7 @@ diff --git a/crates/gpui_apple/src/metal_renderer.rs b/crates/gpui_apple/src/met
  
      pub fn update_drawable_size(&mut self, size: Size<DevicePixels>) {
          if let Some(layer) = &self.layer {
-@@ -444,48 +444,108 @@
+@@ -444,48 +444,95 @@
          // nothing to do
      }
  
@@ -222,7 +222,6 @@ diff --git a/crates/gpui_apple/src/metal_renderer.rs b/crates/gpui_apple/src/met
 -        }
 -    }
 +    pub fn draw(&mut self, scene: &Scene) -> bool {
-+        let mut recycle_age_ms = None;
 +        if self.drawable_backpressure_enabled
 +            && self.drawable_in_flight.load(Ordering::Acquire)
 +        {
@@ -234,8 +233,6 @@ diff --git a/crates/gpui_apple/src/metal_renderer.rs b/crates/gpui_apple/src/met
 +            let ready =
 +                presented_age.is_some_and(|age| age >= Duration::from_millis(16));
 +            if ready {
-+                recycle_age_ms =
-+                    presented_age.map(|age| age.as_secs_f64() * 1000.0);
 +                self.drawable_in_flight.store(false, Ordering::Release);
 +                *self.drawable_presented_at.lock() = None;
 +            } else {
@@ -275,7 +272,6 @@ diff --git a/crates/gpui_apple/src/metal_renderer.rs b/crates/gpui_apple/src/met
 +            (viewport_size.width.ceil() as i32).into(),
 +            (viewport_size.height.ceil() as i32).into(),
 +        );
-+        let drawable_started = Instant::now();
 +        let drawable = if let Some(drawable) = layer.next_drawable() {
 +            drawable
 +        } else {
@@ -286,15 +282,6 @@ diff --git a/crates/gpui_apple/src/metal_renderer.rs b/crates/gpui_apple/src/met
 +            );
 +            return false;
 +        };
-+        let drawable_wait_ms = drawable_started.elapsed().as_secs_f64() * 1000.0;
-+        if drawable_wait_ms >= 20.0 {
-+            eprintln!(
-+                "[gpuix][perf] metal nextDrawable {drawable_wait_ms:.2}ms recycle-age={:.2}ms transaction={}",
-+                recycle_age_ms.unwrap_or(-1.0),
-+                self.presents_with_transaction
-+            );
-+        }
-+
 +        if self.drawable_backpressure_enabled {
 +            let drawable_presented_at = self.drawable_presented_at.clone();
 +            let block = ConcreteBlock::new(move |_| {
