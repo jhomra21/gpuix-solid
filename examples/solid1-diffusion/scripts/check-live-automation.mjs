@@ -256,6 +256,12 @@ async function profileNativeFrames(app, name, exercise) {
         scenario.baseline = baseline
         persistPerformanceReport()
 
+        // The active editor can draw between reset() and stats(), so the baseline
+        // read may already contain one pre-interaction sample. Keep its lifetime
+        // frame counter, then clear timing samples again before the labeled work.
+        setPhase("measurement reset")
+        await app.performance.reset()
+
         const startedAt = performance.now()
         setPhase("exercise")
         await exercise((detail) => { setPhase(`exercise (${detail})`) })
