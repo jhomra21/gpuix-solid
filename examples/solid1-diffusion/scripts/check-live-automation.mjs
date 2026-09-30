@@ -7,6 +7,7 @@ import { connectStdio } from "../../../packages/solid/dist/automation/stdio.js"
 const here = dirname(fileURLToPath(import.meta.url))
 const exampleDirectory = join(here, "..")
 const timeoutMs = 20_000
+const rpcTimeoutMs = 5_000
 const performancePath = "/tmp/diffusion-performance.json"
 const targetFps = 120
 const targetFrameMs = 1000 / targetFps
@@ -195,32 +196,51 @@ async function screenshot(app, name) {
   return path
 }
 
+function persistPerformanceReport() {
+  writeFileSync(performancePath, `${JSON.stringify(performanceReport, null, 2)}\n`)
+}
+
 async function profileNativeFrames(app, name, exercise) {
-  const timeoutMs = 10_000
+  const probeTimeoutMs = 10_000
+  const probeStartedAt = performance.now()
+  const scenario = { status: "running", phase: "reset" }
+  performanceReport.scenarios[name] = scenario
+  persistPerformanceReport()
+
   let timeout
   let phase = "reset"
+  const setPhase = (next) => {
+    phase = next
+    scenario.phase = next
+  }
+
   try {
     await Promise.race([
       (async () => {
         await app.performance.reset()
-        phase = "baseline stats"
+        setPhase("baseline stats")
         // Native reset clears timing samples but intentionally preserves the lifetime
         // frame counter, so keep an explicit baseline for this interaction window.
         const baseline = await app.performance.stats()
+        scenario.baseline = baseline
+        persistPerformanceReport()
+
         const startedAt = performance.now()
-        phase = "exercise"
-        await exercise((detail) => { phase = `exercise (${detail})` })
-        phase = "settling"
+        setPhase("exercise")
+        await exercise((detail) => { setPhase(`exercise (${detail})`) })
+        setPhase("settling")
         // Give the native renderer enough time to record the last interaction frame.
         await delay(80)
         const elapsedMs = Math.max(1, performance.now() - startedAt)
-        phase = "final stats"
+        setPhase("final stats")
         const stats = await app.performance.stats()
         const frames = Math.max(0, stats.frames - baseline.frames)
         const observedFps = frames * 1000 / elapsedMs
         const p90Ms = stats.p90Ms ?? null
         const p99Ms = stats.p99Ms ?? null
-        performanceReport.scenarios[name] = {
+        Object.assign(scenario, {
+          status: "passed",
+          phase: "complete",
           elapsedMs,
           observedFps,
           currentMs: stats.currentMs ?? null,
@@ -232,22 +252,38 @@ async function profileNativeFrames(app, name, exercise) {
           meets120HzDrawBudget: p90Ms !== null && p90Ms <= targetFrameMs,
           baseline,
           final: stats,
-        }
-        // Keep the measurements even when the gate fails so CI artifacts show
-        // whether the native frame counter, timing samples, or both are stale.
-        writeFileSync(performancePath, `${JSON.stringify(performanceReport, null, 2)}\n`)
+        })
+        persistPerformanceReport()
         assert(
           stats.samples > 0 && frames > 0,
           `${name} did not produce native frame samples: ${JSON.stringify({ baseline, final: stats, frames, elapsedMs })}`,
         )
       })(),
       new Promise((_, reject) => {
-        timeout = setTimeout(
-          () => reject(new Error(`${name} native performance probe timed out during ${phase} after ${timeoutMs}ms`)),
-          timeoutMs,
-        )
+        timeout = setTimeout(() => {
+          const message = `${name} native performance probe timed out during ${phase} after ${probeTimeoutMs}ms`
+          Object.assign(scenario, {
+            status: "timed-out",
+            phase,
+            elapsedMs: Math.max(1, performance.now() - probeStartedAt),
+            error: message,
+          })
+          persistPerformanceReport()
+          reject(new Error(message))
+        }, probeTimeoutMs)
       }),
     ])
+  } catch (error) {
+    if (scenario.status !== "timed-out") {
+      Object.assign(scenario, {
+        status: "failed",
+        phase,
+        elapsedMs: Math.max(1, performance.now() - probeStartedAt),
+        error: error instanceof Error ? error.message : String(error),
+      })
+      persistPerformanceReport()
+    }
+    throw error
   } finally {
     if (timeout) clearTimeout(timeout)
   }
@@ -432,6 +468,7 @@ function toolbarParts(tree) {
 const stderrChunks = []
 const stdoutLogChunks = []
 for (const path of Object.values(screenshots)) if (existsSync(path)) unlinkSync(path)
+if (existsSync(performancePath)) unlinkSync(performancePath)
 
 const child = spawn("bun", ["dist/app/index.js"], {
   cwd: exampleDirectory,
@@ -449,6 +486,7 @@ try {
       write(chunk) { child.stdin.write(chunk) },
       feed(listener) { child.stdout.on("data", (buffer) => listener(buffer.toString("utf8"))) },
       async close() { if (!child.killed) child.kill() },
+      requestTimeoutMs: rpcTimeoutMs,
     }),
     exited.then(({ code, signal }) => {
       throw new Error(`Diffusion exited before automation connected (code=${code}, signal=${signal})\n${stderrChunks.join("")}`)
@@ -1103,7 +1141,7 @@ try {
   const fatalOutput = [...stderrChunks, ...stdoutLogChunks].join("")
   const foundFatal = fatalPatterns.filter((pattern) => pattern.test(fatalOutput))
   assert(foundFatal.length === 0, `Native runtime emitted a fatal signature: ${foundFatal.map(String).join(", ")}\n${fatalOutput}`)
-  writeFileSync(performancePath, JSON.stringify(performanceReport, null, 2) + "\n")
+  persistPerformanceReport()
   await screenshot(app, "final")
   console.log("solid1 Diffusion live-native acceptance: PASSED")
   console.log("solid1 Diffusion native performance:", JSON.stringify(performanceReport))
@@ -1137,6 +1175,10 @@ try {
   const diagnostics = matchingDiagnostics([...stderrChunks, ...stdoutLogChunks].join(""))
   if (stderr && error instanceof Error) error.message += `\n\nNative stderr:\n${stderr}`
   if (diagnostics.length && error instanceof Error) error.message += `\n\nMatched native/runtime diagnostics:\n${diagnostics.join("\n---\n")}`
+  performanceReport.failure = {
+    message: error instanceof Error ? error.message : String(error),
+  }
+  persistPerformanceReport()
   throw error
 } finally {
   if (app) await app.close().catch(() => {})

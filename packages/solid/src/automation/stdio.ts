@@ -49,6 +49,7 @@ interface WheelParams extends PointerParams {
 export class SseAutomationBackend implements AutomationBackend {
   readonly #write: (chunk: string) => void
   readonly #onClose: (() => Promise<void>) | undefined
+  readonly #requestTimeoutMs: number | undefined
   readonly #pending = new Map<number, PendingResponse>()
   #nextId = 1
 
@@ -56,9 +57,11 @@ export class SseAutomationBackend implements AutomationBackend {
     write: (chunk: string) => void,
     feed: (listener: (chunk: string) => void) => void,
     onClose?: () => Promise<void>,
+    requestTimeoutMs?: number,
   ) {
     this.#write = write
     this.#onClose = onClose
+    this.#requestTimeoutMs = requestTimeoutMs
 
     const decoder = createSseDecoder((message) => {
       if ("method" in message) return
@@ -260,7 +263,9 @@ export class SseAutomationBackend implements AutomationBackend {
     schema: ZodType<Result>,
   ): Promise<Result> {
     return new Promise<Result>((resolve, reject) => {
+      let timer: ReturnType<typeof setTimeout> | undefined
       this.#pending.set(request.id, (response) => {
+        if (timer !== undefined) clearTimeout(timer)
         if ("error" in response) {
           reject(new AutomationError(response.error.code, response.error.message))
           return
@@ -275,7 +280,25 @@ export class SseAutomationBackend implements AutomationBackend {
         }
         resolve(parsed.data)
       })
-      this.#write(encodeSse(request))
+
+      if (this.#requestTimeoutMs !== undefined) {
+        timer = setTimeout(() => {
+          if (!this.#pending.delete(request.id)) return
+          reject(new AutomationError(
+            "Timeout",
+            `Automation request ${request.method} timed out after ${this.#requestTimeoutMs}ms`,
+          ))
+        }, this.#requestTimeoutMs)
+        timer.unref()
+      }
+
+      try {
+        this.#write(encodeSse(request))
+      } catch (error) {
+        this.#pending.delete(request.id)
+        if (timer !== undefined) clearTimeout(timer)
+        reject(error)
+      }
     })
   }
 }
@@ -284,8 +307,14 @@ export async function connectStdio(options: {
   write: (chunk: string) => void
   feed: (listener: (chunk: string) => void) => void
   close?: () => Promise<void>
+  requestTimeoutMs?: number
 }): Promise<App> {
-  const backend = new SseAutomationBackend(options.write, options.feed, options.close)
+  const backend = new SseAutomationBackend(
+    options.write,
+    options.feed,
+    options.close,
+    options.requestTimeoutMs,
+  )
   await backend.initialize()
   return new App(backend)
 }
@@ -295,6 +324,7 @@ export async function launch(options: {
   args?: string[]
   cwd?: string
   env?: Record<string, string | undefined>
+  requestTimeoutMs?: number
 }): Promise<App> {
   const child: ChildProcessWithoutNullStreams = spawn(
     options.command,
@@ -319,5 +349,6 @@ export async function launch(options: {
     async close() {
       child.kill()
     },
+    requestTimeoutMs: options.requestTimeoutMs,
   })
 }

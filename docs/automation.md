@@ -42,6 +42,7 @@ const app = await launch({
   command: "bun",
   args: ["dist/index.js"],
   cwd: process.cwd(),
+  requestTimeoutMs: 10_000,
 })
 
 await app.getByTestId("save").click()
@@ -51,7 +52,7 @@ await app.close()
 
 `launch()` starts the real application with piped stdin/stdout. GPUix Solid enables its automation server for that non-TTY process, performs a protocol-version handshake, and drives the same locator API over the live native renderer.
 
-Use `connectStdio()` when another process manager owns the child and you only need to supply readable/writable chunks.
+Use `connectStdio()` when another process manager owns the child and you only need to supply readable/writable chunks. Pass `requestTimeoutMs` to either API when a live automation run must fail instead of waiting forever for an unanswered native request. The timeout raises `AutomationError` with code `"Timeout"` and names the RPC that did not return.
 
 ## Mouse and clock primitives
 
