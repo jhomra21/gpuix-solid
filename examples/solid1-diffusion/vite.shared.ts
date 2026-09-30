@@ -198,6 +198,35 @@ const usabilityTestHook = {
       }
     }
 
+    if (normalizedId.endsWith("/apps/web/src/engine/timeline/controller.ts")) {
+      const applyScroll = `\t\twithScene((scene) => {
+\t\t\tconst scrollY = clamp(getScrollY(world, scene), 0, Math.max(0, layersEl!.scrollHeight - layersViewportEl!.clientHeight));
+\t\t\tsetScrollY(world, scene, scrollY);
+\t\t\tlayersEl!.style.transform = \`translateY(\${-scrollY}px)\`;
+\t\t});`
+      if (!code.includes(applyScroll)) throw new Error("Pinned Diffusion timeline applyScroll changed")
+      return {
+        code: code.replace(
+          applyScroll,
+          `\t\twithScene((scene) => {
+\t\t\tconst requestedScrollY = getScrollY(world, scene);
+\t\t\tconst maxScrollY = Math.max(0, layersEl!.scrollHeight - layersViewportEl!.clientHeight);
+\t\t\tconst scrollY = clamp(requestedScrollY, 0, maxScrollY);
+\t\t\tconsole.error("[diffusion][timeline-scroll]", JSON.stringify({
+\t\t\t\trequestedScrollY,
+\t\t\t\tscrollY,
+\t\t\t\tmaxScrollY,
+\t\t\t\tscrollHeight: layersEl!.scrollHeight,
+\t\t\t\tclientHeight: layersViewportEl!.clientHeight,
+\t\t\t}));
+\t\t\tsetScrollY(world, scene, scrollY);
+\t\t\tlayersEl!.style.transform = \`translateY(\${-scrollY}px)\`;
+\t\t});`,
+        ),
+        map: null,
+      }
+    }
+
     if (normalizedId.endsWith("/apps/web/src/agent-chat/transcript.tsx")) {
       const items = `        <For each={props.items}>
           {(item) => <ChatItem item={item} />}
