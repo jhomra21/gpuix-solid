@@ -10,7 +10,6 @@
     "patches/gpuix/view-render-stats-v1.patch",
     "patches/gpuix/host-own-bounds-v1.patch",
     "patches/gpuix/shared-retained-text-v1.patch",
-    "patches/gpuix/inherited-descend-v1.patch",
     "patches/gpuix/video-frame-v1.patch",
     "patches/gpuix/video-frame-iosurface-v1.patch",
     "patches/gpuix/z-index-v1.patch",
