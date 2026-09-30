@@ -220,6 +220,9 @@ function summarizeProfiles(name, runNames) {
     viewRenderP90Ms: median(runs.map((run) => run?.viewRenderP90Ms)),
     viewRenderP99Ms: median(runs.map((run) => run?.viewRenderP99Ms)),
     viewRenderMaxMs: median(runs.map((run) => run?.viewRenderMaxMs)),
+    viewBuildP90Ms: median(runs.map((run) => run?.viewBuildP90Ms)),
+    viewBuildP99Ms: median(runs.map((run) => run?.viewBuildP99Ms)),
+    viewBuildMaxMs: median(runs.map((run) => run?.viewBuildMaxMs)),
     observedFps: median(runs.map((run) => run?.observedFps)),
   }
   summary.meets120HzDrawBudget = summary.p90Ms !== null && summary.p90Ms <= targetFrameMs
@@ -280,6 +283,11 @@ async function profileNativeFrames(app, name, exercise) {
           viewRenderP99Ms: stats.viewRenderP99Ms ?? null,
           viewRenderMaxMs: stats.viewRenderMaxMs ?? null,
           viewRenderSamples: stats.viewRenderSamples ?? null,
+          viewBuildCurrentMs: stats.viewBuildCurrentMs ?? null,
+          viewBuildP90Ms: stats.viewBuildP90Ms ?? null,
+          viewBuildP99Ms: stats.viewBuildP99Ms ?? null,
+          viewBuildMaxMs: stats.viewBuildMaxMs ?? null,
+          viewBuildSamples: stats.viewBuildSamples ?? null,
           frames,
           samples: stats.samples,
           meets120HzDrawBudget: p90Ms !== null && p90Ms <= targetFrameMs,

@@ -37,6 +37,11 @@ export interface DebugFrameOverlayStats {
   viewRenderP99Ms?: number
   viewRenderMaxMs?: number
   viewRenderSamples?: number
+  viewBuildCurrentMs?: number
+  viewBuildP90Ms?: number
+  viewBuildP99Ms?: number
+  viewBuildMaxMs?: number
+  viewBuildSamples?: number
 }
 
 export interface NativeScrollMetrics {

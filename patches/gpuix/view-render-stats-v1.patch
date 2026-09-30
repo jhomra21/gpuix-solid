@@ -26,7 +26,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
  #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
  use wasm_bindgen::JsCast as _;
  
-@@ -161,11 +161,50 @@
+@@ -161,11 +161,64 @@
      /// just committed, but that commit only reaches `gpui::ListState` when the
      /// next render splices it in. An eager `scroll_to` would be shifted a
      /// second time by `splice_focusable` and land on the wrong row.
@@ -38,51 +38,65 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +    static PENDING_VIRTUAL_LIST_SCROLLS: RefCell<HashMap<u64, gpui::ListOffset>> =
 +        RefCell::new(HashMap::new());
 +    static VIEW_RENDER_DURATIONS: RefCell<VecDeque<Duration>> = RefCell::new(VecDeque::new());
++    static VIEW_BUILD_DURATIONS: RefCell<VecDeque<Duration>> = RefCell::new(VecDeque::new());
 +}
 +
 +const VIEW_RENDER_MAX_SAMPLES: usize = 1000;
 +
-+fn view_render_duration_ms(duration: Duration) -> f64 {
++fn view_duration_ms(duration: Duration) -> f64 {
 +    duration.as_secs_f64() * 1000.0
 +}
 +
++fn push_view_duration(samples: &mut VecDeque<Duration>, duration: Duration) {
++    if samples.len() >= VIEW_RENDER_MAX_SAMPLES {
++        samples.pop_front();
++    }
++    samples.push_back(duration);
++}
++
++fn summarize_view_durations(
++    samples: &VecDeque<Duration>,
++) -> (Option<f64>, Option<f64>, Option<f64>, Option<f64>, f64) {
++    let mut sorted: Vec<Duration> = samples.iter().copied().collect();
++    sorted.sort_unstable();
++    let percentile = |numerator: usize| {
++        (!sorted.is_empty()).then(|| sorted[(sorted.len() - 1) * numerator / 100])
++    };
++    (
++        samples.back().copied().map(view_duration_ms),
++        percentile(90).map(view_duration_ms),
++        percentile(99).map(view_duration_ms),
++        sorted.last().copied().map(view_duration_ms),
++        samples.len() as f64,
++    )
++}
++
 +fn record_view_render_duration(duration: Duration) {
-+    VIEW_RENDER_DURATIONS.with(|cell| {
-+        let mut durations = cell.borrow_mut();
-+        if durations.len() >= VIEW_RENDER_MAX_SAMPLES {
-+            durations.pop_front();
-+        }
-+        durations.push_back(duration);
-+    });
++    VIEW_RENDER_DURATIONS.with(|cell| push_view_duration(&mut cell.borrow_mut(), duration));
++}
++
++fn record_view_build_duration(duration: Duration) {
++    VIEW_BUILD_DURATIONS.with(|cell| push_view_duration(&mut cell.borrow_mut(), duration));
 +}
 +
 +fn reset_view_render_stats() {
 +    VIEW_RENDER_DURATIONS.with(|cell| cell.borrow_mut().clear());
++    VIEW_BUILD_DURATIONS.with(|cell| cell.borrow_mut().clear());
 +}
 +
 +fn view_render_stats() -> (Option<f64>, Option<f64>, Option<f64>, Option<f64>, f64) {
-+    VIEW_RENDER_DURATIONS.with(|cell| {
-+        let durations = cell.borrow();
-+        let mut sorted: Vec<Duration> = durations.iter().copied().collect();
-+        sorted.sort_unstable();
-+        let percentile = |numerator: usize| {
-+            (!sorted.is_empty()).then(|| sorted[(sorted.len() - 1) * numerator / 100])
-+        };
-+        (
-+            durations.back().copied().map(view_render_duration_ms),
-+            percentile(90).map(view_render_duration_ms),
-+            percentile(99).map(view_render_duration_ms),
-+            sorted.last().copied().map(view_render_duration_ms),
-+            durations.len() as f64,
-+        )
-+    })
++    VIEW_RENDER_DURATIONS.with(|cell| summarize_view_durations(&cell.borrow()))
++}
++
++fn view_build_stats() -> (Option<f64>, Option<f64>, Option<f64>, Option<f64>, f64) {
++    VIEW_BUILD_DURATIONS.with(|cell| summarize_view_durations(&cell.borrow()))
 +}
 +
 +const SELECTION_SCROLL_TICK_MS: u64 = 24;
  const SELECTION_SCROLL_EDGE_PX: f32 = 36.0;
  const SELECTION_SCROLL_MAX_STEP_PX: f32 = 24.0;
  
-@@ -263,18 +302,30 @@
+@@ -263,18 +316,42 @@
  }
  
  #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
@@ -108,6 +122,13 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +        view_render_max_ms,
 +        view_render_samples,
 +    ) = view_render_stats();
++    let (
++        view_build_current_ms,
++        view_build_p90_ms,
++        view_build_p99_ms,
++        view_build_max_ms,
++        view_build_samples,
++    ) = view_build_stats();
 +    DebugFrameOverlayStats {
 +        current_ms: stats.current_ms.map(|ms| ms as f64),
 +        p90_ms: stats.p90_ms.map(|ms| ms as f64),
@@ -120,12 +141,17 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +        view_render_p99_ms,
 +        view_render_max_ms,
 +        view_render_samples,
++        view_build_current_ms,
++        view_build_p90_ms,
++        view_build_p99_ms,
++        view_build_max_ms,
++        view_build_samples,
 +    }
 +}
  
  #[cfg(any(target_os = "windows", target_os = "linux", target_os = "freebsd"))]
  fn recv_ui_response<T>(receiver: std::sync::mpsc::Receiver<T>, operation: &str) -> Result<T> {
-@@ -568,9 +619,10 @@
+@@ -568,9 +645,10 @@
                          .ok();
                  })
              }
@@ -139,7 +165,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
              UiCommand::ScrollTo { id, x, y } => {
                  if !VIRTUAL_LIST_STATES.with(|cell| {
                      let states = cell.borrow();
-@@ -1573,9 +1625,10 @@
+@@ -1573,9 +1651,10 @@
      #[napi]
      pub fn reset_debug_frame_overlay_stats(&self) -> Result<()> {
          #[cfg(target_os = "macos")]
@@ -153,7 +179,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
  
          #[cfg(any(target_os = "windows", target_os = "linux", target_os = "freebsd"))]
          return self.send_ui_command(UiCommand::ResetDebugFrameOverlayStats);
-@@ -4665,10 +4718,11 @@
+@@ -4665,10 +4744,11 @@
          &mut self,
          window: &mut gpui::Window,
          cx: &mut gpui::Context<Self>,
@@ -169,7 +195,33 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
  
          #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
          if let Some(id) = PENDING_FOCUS_ELEMENT.with(|pending| pending.borrow_mut().take()) {
-@@ -4805,13 +4859,14 @@
+@@ -4708,8 +4788,9 @@
+                 .get(id)
+                 .is_some_and(|element| element.custom_props.contains_key("highlight"))
+         });
+-        let mut highlight_events = Vec::new();
+-        let result = match tree.root_id {
++        let mut highlight_events = Vec::new();
++        let build_started = Instant::now();
++        let result = match tree.root_id {
+             Some(root_id) => {
+                 let mut ctx = BuildCtx {
+                     tree: &tree,
+@@ -4727,9 +4808,10 @@
+                 };
+                 build_element(root_id, &mut ctx, window, cx)
+             }
+-            None => gpui::Empty.into_any_element(),
+-        };
+-        // Flushed after the root build so a `setState` in the handler cannot
++            None => gpui::Empty.into_any_element(),
++        };
++        record_view_build_duration(build_started.elapsed());
++        // Flushed after the root build so a `setState` in the handler cannot
+         // re-enter this build.
+         emit_highlight_events(&callback, &highlight_events);
+         emit_motion_settled(&callback, &tree, &motion_settled);
+@@ -4805,13 +4887,14 @@
          // no longer match what JS meant.
          PENDING_VIRTUAL_LIST_SCROLLS.with(|cell| cell.borrow_mut().clear());
  
@@ -191,7 +243,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
  
  // ── Element builders ─────────────────────────────────────────────────
  
-@@ -6558,14 +6613,19 @@
+@@ -6558,14 +6641,24 @@
  #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
  #[derive(Debug, Clone)]
  #[napi(object)]
@@ -215,6 +267,11 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +    pub view_render_p99_ms: Option<f64>,
 +    pub view_render_max_ms: Option<f64>,
 +    pub view_render_samples: f64,
++    pub view_build_current_ms: Option<f64>,
++    pub view_build_p90_ms: Option<f64>,
++    pub view_build_p99_ms: Option<f64>,
++    pub view_build_max_ms: Option<f64>,
++    pub view_build_samples: f64,
 +}
  
  /// Wayland `wlr-layer-shell` surface options. Linux/Wayland only; ignored on
