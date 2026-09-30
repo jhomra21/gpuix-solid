@@ -67,6 +67,29 @@ if (sourceClip?.backgroundColor !== "rgba(0, 167, 108, 0.2)") {
 
 installDomEventEnvironment()
 
+const { template: createWebTemplate } = await import("../src/web.ts")
+const markdownTableTemplate = createWebTemplate(
+  "<table>\n<thead>\n<tr>\n<th>A</th>\n<th>B</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>1</td>\n<td>2</td>\n</tr>\n</tbody>\n</table>",
+)
+const markdownTable = markdownTableTemplate()
+const tableStructuralNodes = [markdownTable]
+const collectTableStructuralNodes = (node: typeof markdownTable): void => {
+  for (const child of node.children) {
+    if (child.kind !== "element") continue
+    if (["table", "thead", "tbody", "tfoot", "tr"].includes(child.localName)) {
+      tableStructuralNodes.push(child)
+    }
+    collectTableStructuralNodes(child)
+  }
+}
+collectTableStructuralNodes(markdownTable)
+for (const node of tableStructuralNodes) {
+  const whitespace = node.children.filter((child) => child.kind === "text" && child.text.trim().length === 0)
+  if (whitespace.length > 0) {
+    throw new Error(`table structural <${node.localName}> must ignore innerHTML formatting whitespace`)
+  }
+}
+
 const injectedStyle = document.createElement("style")
 injectedStyle.appendChild(document.createTextNode(".gpuix-style-inject-check { display: block; }"))
 document.head.appendChild(injectedStyle)
