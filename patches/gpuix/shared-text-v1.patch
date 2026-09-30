@@ -1,0 +1,161 @@
+diff --git a/packages/native/src/retained_tree.rs b/packages/native/src/retained_tree.rs
+--- a/packages/native/src/retained_tree.rs
++++ b/packages/native/src/retained_tree.rs
+@@ -25,9 +25,11 @@
+     ///
+     /// Read it with `.as_deref()` to get `Option<&StyleDesc>`. Never mutate
+     /// through it; `Arc` has no `DerefMut`, so the compiler enforces that.
+-    pub style: Option<Arc<StyleDesc>>,
+-    pub content: Option<String>,
+-    pub events: HashSet<String>,
++    pub style: Option<Arc<StyleDesc>>,
++    /// Shared backing lets the render path hand text to GPUI without copying
++    /// the same retained string on every frame.
++    pub content: Option<Arc<str>>,
++    pub events: HashSet<String>,
+     pub children: Vec<u64>,
+     pub parent: Option<u64>,
+     /// Props for custom elements (input, editor, diff, etc.).
+@@ -346,14 +348,14 @@
+         }
+     }
+ 
+-    pub fn set_text(&mut self, id: u64, content: String) {
+-        let mut changed = false;
+-        if let Some(element) = self.elements.get_mut(&id) {
+-            if element.content.as_ref() != Some(&content) {
+-                element.content = Some(content);
+-                changed = true;
+-            }
+-        }
++    pub fn set_text(&mut self, id: u64, content: String) {
++        let mut changed = false;
++        if let Some(element) = self.elements.get_mut(&id) {
++            if element.content.as_deref() != Some(content.as_str()) {
++                element.content = Some(Arc::<str>::from(content));
++                changed = true;
++            }
++        }
+         if changed {
+             self.mark_changed(id);
+         }
+@@ -488,12 +490,12 @@
+         );
+     }
+ 
+-    if let Some(ref content) = element.content {
+-        obj.insert(
+-            "text".to_string(),
+-            serde_json::Value::String(content.clone()),
+-        );
+-    }
++    if let Some(ref content) = element.content {
++        obj.insert(
++            "text".to_string(),
++            serde_json::Value::String(content.to_string()),
++        );
++    }
+ 
+     if let Some(rect) = bounds.get(&id) {
+         obj.insert(
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -2677,9 +2677,9 @@
+ 
+ fn collect_text(id: u64, tree: &RetainedTree, texts: &mut Vec<String>) {
+     if let Some(element) = tree.elements.get(&id) {
+-        if let Some(ref content) = element.content {
+-            texts.push(content.clone());
+-        }
++        if let Some(ref content) = element.content {
++            texts.push(content.to_string());
++        }
+         for &child_id in &element.children {
+             collect_text(child_id, tree, texts);
+         }
+@@ -5456,9 +5456,9 @@
+     // creates an empty placeholder text node for every dynamic hole (`<Show>`,
+     // `{cond && x}`). Emitting those as full-height lines inflated every
+     // conditional row. React never sends empty text, so this is a no-op there.
+-    if let Some(content) = element.content.as_deref().filter(|value| !value.is_empty()) {
+-        el = el.child(text_content(element, content, ctx));
+-    }
++    if let Some(content) = element.content.as_ref().filter(|value| !value.is_empty()) {
++        el = el.child(text_content(element, content, ctx));
++    }
+ 
+     // Children
+     let child_ids: Vec<u64> = element.children.clone();
+@@ -5483,11 +5483,11 @@
+ /// A `userSelect: "none"` run still paints highlight washes, because a browser
+ /// still finds that text with Ctrl+F. Element chrome that must never be found,
+ /// such as a code gutter, uses `chrome_text` instead.
+-fn text_content(
+-    element: &crate::retained_tree::RetainedElement,
+-    content: &str,
+-    ctx: &BuildCtx,
+-) -> gpui::AnyElement {
++fn text_content(
++    element: &crate::retained_tree::RetainedElement,
++    content: &Arc<str>,
++    ctx: &BuildCtx,
++) -> gpui::AnyElement {
+     selectable_text(crate::text::SelectableText {
+         group: crate::text::search::group_id(ctx.tree, element.id),
+         selectable: ctx.inherited.selectable,
+@@ -5499,7 +5499,7 @@
+         ..crate::text::SelectableText::new(
+             element.id,
+             0,
+-            gpui::SharedString::from(content.to_string()),
++            gpui::SharedString::from(content),
+             None,
+             ctx.selection.clone(),
+             ctx.inherited.selection_wash,
+diff --git a/packages/native/src/text/search.rs b/packages/native/src/text/search.rs
+--- a/packages/native/src/text/search.rs
++++ b/packages/native/src/text/search.rs
+@@ -527,10 +527,10 @@
+         .as_ref()
+         .filter(|text| !text.is_empty() && paints_own_content)
+     {
+-        out.push(Group::new(
+-            vec![(crate::text::selection_key(id, 0), 0..content.len())],
+-            content.clone(),
+-        ));
++        out.push(Group::new(
++            vec![(crate::text::selection_key(id, 0), 0..content.len())],
++            content.to_string(),
++        ));
+     }
+ 
+     let mut pending: Vec<(Arc<str>, Range<usize>)> = Vec::new();
+diff --git a/packages/native/src/test_renderer.rs b/packages/native/src/test_renderer.rs
+--- a/packages/native/src/test_renderer.rs
++++ b/packages/native/src/test_renderer.rs
+@@ -1070,7 +1070,10 @@
+     pub fn get_text(&self, id: f64) -> Result<Option<String>> {
+         let id = to_element_id(id)?;
+         let tree = self.tree.lock().unwrap();
+-        Ok(tree.elements.get(&id).and_then(|e| e.content.clone()))
++        Ok(tree
++            .elements
++            .get(&id)
++            .and_then(|e| e.content.as_deref().map(str::to_owned)))
+     }
+ 
+     /// Get the full tree as JSON for snapshot testing.
+@@ -1227,9 +1230,9 @@
+ 
+     fn collect_text(id: u64, tree: &RetainedTree, texts: &mut Vec<String>) {
+         if let Some(element) = tree.elements.get(&id) {
+-            if let Some(ref content) = element.content {
+-                texts.push(content.clone());
+-            }
++            if let Some(ref content) = element.content {
++                texts.push(content.to_string());
++            }
+             for &child_id in &element.children {
+                 Self::collect_text(child_id, tree, texts);
+             }
