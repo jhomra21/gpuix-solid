@@ -170,13 +170,21 @@ if (hasNativeTestRenderer) {
     volumeBounds.width >= soloBounds.width * 2.5 && volumeBounds.width < 70,
     `source mixer volume must remain in its compact 3fr column before visual capture: ${JSON.stringify({ volumeBounds, soloBounds })}`,
   )
+  const fillLeftInset = initialFillBounds.x - volumeBounds.x
+  const fillTopInset = initialFillBounds.y - volumeBounds.y
+  const fillBottomInset =
+    volumeBounds.y + volumeBounds.height - (initialFillBounds.y + initialFillBounds.height)
   requireCondition(
-    Math.abs(initialFillBounds.x - volumeBounds.x) <= 1 &&
-      Math.abs(initialFillBounds.y - volumeBounds.y) <= 1 &&
-      Math.abs(initialFillBounds.height - volumeBounds.height) <= 1 &&
+    fillLeftInset >= 0 &&
+      fillLeftInset <= 2 &&
+      fillTopInset >= 0 &&
+      fillTopInset <= 2 &&
+      fillBottomInset >= 0 &&
+      fillBottomInset <= 2 &&
       initialFillBounds.width > 1 &&
+      initialFillBounds.x + initialFillBounds.width <= volumeBounds.x + volumeBounds.width &&
       initialFillBounds.width < volumeBounds.width,
-    `source hard-split fill must occupy the leading portion of Track 1 volume, got ${JSON.stringify({ fill: initialFillBounds, volume: volumeBounds })}`,
+    `source hard-split fill must occupy the leading content box of Track 1 volume, got ${JSON.stringify({ fill: initialFillBounds, volume: volumeBounds })}`,
   )
   app.renderer.captureScreenshot("/tmp/gpuix-solid1-daw-mixer.png")
 
