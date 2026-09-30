@@ -1,10 +1,13 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -4035,13 +4035,17 @@
-     pub selectable: bool,
-     /// Selection wash colour for this subtree.
-     pub selection_wash: gpui::Hsla,
+@@ -4032,27 +4032,32 @@
+ #[derive(Clone)]
+ pub(crate) struct Inherited {
+     /// False once an ancestor sets `userSelect: "none"`.
+-    pub selectable: bool,
+-    /// Selection wash colour for this subtree.
+-    pub selection_wash: gpui::Hsla,
 -    /// The nearest ancestor's `highlight`, resolved. `None` in every app that
 -    /// does not use search. It carries the declaring element id, which is what
 -    /// a virtual-list row re-resolves against: that row is built after the root
@@ -12,6 +15,20 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 -    /// in between, so a stale range would paint over the wrong glyphs.
 -    pub highlight: Option<Arc<crate::text::HighlightContext>>,
 -}
+-
+-impl Inherited {
+-    fn root(theme: &Theme) -> Self {
+-        let mut wash = theme.accent;
+-        wash.a = 0.35;
+-        Self {
+-            selectable: true,
+-            selection_wash: wash,
+-            highlight: None,
+-        }
+-    }
++    pub selectable: bool,
++    /// Selection wash colour for this subtree.
++    pub selection_wash: gpui::Hsla,
 +    /// The nearest ancestor's `highlight`, resolved. `None` in every app that
 +    /// does not use search. It carries the declaring element id, which is what
 +    /// a virtual-list row re-resolves against: that row is built after the root
@@ -23,27 +40,21 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +    /// that child to its listener-owning ancestor.
 +    pub relay_scroll: bool,
 +}
- 
- impl Inherited {
-     fn root(theme: &Theme) -> Self {
-@@ -4047,11 +4047,12 @@
-     fn root(theme: &Theme) -> Self {
-         let mut wash = theme.accent;
-         wash.a = 0.35;
--        Self {
--            selectable: true,
--            selection_wash: wash,
--            highlight: None,
--        }
++
++impl Inherited {
++    fn root(theme: &Theme) -> Self {
++        let mut wash = theme.accent;
++        wash.a = 0.35;
 +        Self {
 +            selectable: true,
 +            selection_wash: wash,
 +            highlight: None,
 +            relay_scroll: false,
 +        }
-     }
++    }
  
      /// Apply the inheritable parts of `style` for the subtree below it.
+     fn descend(mut self, style: Option<&StyleDesc>) -> Self {
 @@ -4846,10 +4846,13 @@
  
      // Inheritable style resolves once here so both built-ins and custom
