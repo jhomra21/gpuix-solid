@@ -1,0 +1,55 @@
+diff --git a/crates/gpui_apple/src/metal_renderer.rs b/crates/gpui_apple/src/metal_renderer.rs
+--- a/crates/gpui_apple/src/metal_renderer.rs
++++ b/crates/gpui_apple/src/metal_renderer.rs
+@@ -531,35 +531,22 @@
+         Ok(command_buffer)
+     }
+ 
+-    /// Renders the scene to a texture and returns the pixel data as an RGBA image.
+-    /// This does not present the frame to screen - useful for visual testing
+-    /// where we want to capture what would be rendered without displaying it.
+-    ///
+-    /// Note: This requires a layer-backed renderer. For headless rendering,
+-    /// use `render_scene_to_image()` instead.
+-    #[cfg(any(test, feature = "test-support"))]
+-    pub fn render_to_image(&mut self, scene: &Scene) -> Result<RgbaImage> {
+-        let layer = self
+-            .layer
+-            .clone()
+-            .ok_or_else(|| anyhow::anyhow!("render_to_image requires a layer-backed renderer"))?;
+-        let viewport_size = layer.drawable_size();
+-        let viewport_size: Size<DevicePixels> = size(
+-            (viewport_size.width.ceil() as i32).into(),
+-            (viewport_size.height.ceil() as i32).into(),
+-        );
+-        let drawable = layer
+-            .next_drawable()
+-            .ok_or_else(|| anyhow::anyhow!("Failed to get drawable for render_to_image"))?;
+-
+-        let command_buffer = self.render_frame(scene, drawable.texture(), viewport_size)?;
+-
+-        // Commit and wait for completion without presenting
+-        command_buffer.commit();
+-        command_buffer.wait_until_completed();
+-
+-        read_texture_to_image(drawable.texture())
+-    }
++    /// Renders the scene to an offscreen texture and returns the pixel data as an RGBA image.
++    /// This does not consume a CAMetalLayer drawable, so visual tests cannot
++    /// interfere with the live window's presentation pool.
++    #[cfg(any(test, feature = "test-support"))]
++    pub fn render_to_image(&mut self, scene: &Scene) -> Result<RgbaImage> {
++        let layer = self
++            .layer
++            .as_ref()
++            .ok_or_else(|| anyhow::anyhow!("render_to_image requires a layer-backed renderer"))?;
++        let viewport_size = layer.drawable_size();
++        let viewport_size: Size<DevicePixels> = size(
++            (viewport_size.width.ceil() as i32).into(),
++            (viewport_size.height.ceil() as i32).into(),
++        );
++        self.render_scene_to_image(scene, viewport_size)
++    }
+ 
+     /// Renders a scene to an image without requiring a window or CAMetalLayer.
+     ///
