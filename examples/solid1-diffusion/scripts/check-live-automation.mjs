@@ -226,8 +226,13 @@ function summarizeProfiles(name, runNames) {
     observedFps: median(runs.map((run) => run?.observedFps)),
   }
   summary.meets120HzDrawBudget = summary.p90Ms !== null && summary.p90Ms <= targetFrameMs
+  if (!summary.meets120HzDrawBudget) summary.status = "budget-miss"
   performanceReport.scenarios[name] = summary
   persistPerformanceReport()
+  assert(
+    summary.meets120HzDrawBudget,
+    `${name} median p90 draw time ${summary.p90Ms?.toFixed(2) ?? "n/a"}ms exceeds the ${targetFrameMs.toFixed(2)}ms 120 Hz budget`,
+  )
   return summary
 }
 
