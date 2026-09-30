@@ -1,0 +1,68 @@
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -5074,27 +5074,43 @@
+     }
+ }
+ 
+-fn joined_text_content(
+-    tree: &RetainedTree,
+-    element: &crate::retained_tree::RetainedElement,
+-) -> Option<String> {
+-    if let Some(content) = element.content.as_deref().filter(|value| !value.is_empty()) {
+-        return Some(content.to_string());
+-    }
+-    let mut parts = Vec::new();
+-    for child_id in &element.children {
+-        let Some(child) = tree.elements.get(child_id) else {
+-            continue;
+-        };
+-        if child.element_type == "text" {
+-            if let Some(content) = child.content.as_deref() {
+-                parts.push(content);
+-            }
+-        }
+-    }
+-    let joined = parts.concat();
+-    (!joined.is_empty()).then_some(joined)
+-}
++fn joined_text_content(
++    tree: &RetainedTree,
++    element: &crate::retained_tree::RetainedElement,
++) -> Option<gpui::SharedString> {
++    if let Some(content) = element.content.as_ref().filter(|value| !value.is_empty()) {
++        return Some(content.clone());
++    }
++
++    let mut single: Option<&gpui::SharedString> = None;
++    let mut joined: Option<String> = None;
++    for child_id in &element.children {
++        let Some(child) = tree.elements.get(child_id) else {
++            continue;
++        };
++        if child.element_type != "text" {
++            continue;
++        }
++        let Some(content) = child.content.as_ref().filter(|value| !value.is_empty()) else {
++            continue;
++        };
++
++        if let Some(buffer) = joined.as_mut() {
++            buffer.push_str(content);
++        } else if let Some(first) = single.take() {
++            let mut buffer = String::with_capacity(first.len() + content.len());
++            buffer.push_str(first);
++            buffer.push_str(content);
++            joined = Some(buffer);
++        } else {
++            single = Some(content);
++        }
++    }
++
++    single
++        .cloned()
++        .or_else(|| joined.map(gpui::SharedString::from))
++}
+ 
+ /// The one builder for `<div>` and `<text>`.
+ ///
