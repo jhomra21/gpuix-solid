@@ -140,6 +140,14 @@ const VOID_TEMPLATE_TAGS = new Set([
   "wbr",
 ])
 
+const TABLE_STRUCTURAL_TEMPLATE_TAGS = new Set([
+  "table",
+  "thead",
+  "tbody",
+  "tfoot",
+  "tr",
+])
+
 export function template(
   html: string,
   _isImportNode?: boolean,
@@ -193,6 +201,13 @@ function parseStaticTemplate(html: string): StaticTemplateElement {
       continue
     }
 
+    // HTML table parsing ignores formatting whitespace between structural
+    // table boxes. Keeping those newlines as GPUIX text children gives each
+    // one a line box and can separate adjacent rows by several line-heights.
+    const parent = stack.at(-1)
+    if (parent && TABLE_STRUCTURAL_TEMPLATE_TAGS.has(parent.tagName) && token.trim().length === 0) {
+      continue
+    }
     append({ kind: "text", value: decodeHtmlEntities(token) })
   }
 
