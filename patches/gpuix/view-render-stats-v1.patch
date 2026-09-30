@@ -219,7 +219,6 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
  }
  
  fn json_usize(value: &serde_json::Value) -> Option<usize> {
-
 @@ -4665,10 +4743,11 @@
          &mut self,
          window: &mut gpui::Window,
@@ -295,7 +294,6 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
  
      // A `highlight` here replaces any ancestor's: the nearest declaration wins,
      // and `GroupList::collect` skips nested declarations so an ancestor never
-
 @@ -6558,14 +6640,24 @@
  #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
  #[derive(Debug, Clone)]
