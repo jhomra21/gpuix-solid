@@ -262,7 +262,7 @@ diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
              }
          } else {
              lock.activated_least_once = true;
-@@ -2976,21 +2976,34 @@
+@@ -2976,21 +2976,35 @@
      };
  }
  
