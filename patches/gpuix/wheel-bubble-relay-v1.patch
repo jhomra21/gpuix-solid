@@ -1,0 +1,122 @@
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -4035,13 +4035,17 @@
+     pub selectable: bool,
+     /// Selection wash colour for this subtree.
+     pub selection_wash: gpui::Hsla,
+-    /// The nearest ancestor's `highlight`, resolved. `None` in every app that
+-    /// does not use search. It carries the declaring element id, which is what
+-    /// a virtual-list row re-resolves against: that row is built after the root
+-    /// render returns, and on Windows and Linux the Node thread can edit text
+-    /// in between, so a stale range would paint over the wrong glyphs.
+-    pub highlight: Option<Arc<crate::text::HighlightContext>>,
+-}
++    /// The nearest ancestor's `highlight`, resolved. `None` in every app that
++    /// does not use search. It carries the declaring element id, which is what
++    /// a virtual-list row re-resolves against: that row is built after the root
++    /// render returns, and on Windows and Linux the Node thread can edit text
++    /// in between, so a stale range would paint over the wrong glyphs.
++    pub highlight: Option<Arc<crate::text::HighlightContext>>,
++    /// True below a host node with a browser wheel listener. GPUI hit-tests
++    /// wheel input at the painted child, while DOM wheel events bubble from
++    /// that child to its listener-owning ancestor.
++    pub relay_scroll: bool,
++}
+ 
+ impl Inherited {
+     fn root(theme: &Theme) -> Self {
+@@ -4047,11 +4047,12 @@
+     fn root(theme: &Theme) -> Self {
+         let mut wash = theme.accent;
+         wash.a = 0.35;
+-        Self {
+-            selectable: true,
+-            selection_wash: wash,
+-            highlight: None,
+-        }
++        Self {
++            selectable: true,
++            selection_wash: wash,
++            highlight: None,
++            relay_scroll: false,
++        }
+     }
+ 
+     /// Apply the inheritable parts of `style` for the subtree below it.
+@@ -4846,10 +4846,13 @@
+ 
+     // Inheritable style resolves once here so both built-ins and custom
+     // elements see the same cascade.
+-    let parent_inherited = ctx.inherited.clone();
+-    ctx.inherited = parent_inherited.clone().descend(style);
+-
+-    // A `highlight` here replaces any ancestor's: the nearest declaration wins,
++    let parent_inherited = ctx.inherited.clone();
++    ctx.inherited = parent_inherited.clone().descend(style);
++    if element.events.contains("scroll") {
++        ctx.inherited.relay_scroll = true;
++    }
++
++    // A `highlight` here replaces any ancestor's: the nearest declaration wins,
+     // and `GroupList::collect` skips nested declarations so an ancestor never
+     // resolves or counts matches that will not paint.
+     if let Some(value) = element.custom_props.get("highlight") {
+@@ -5446,9 +5446,54 @@
+         }
+     }
+ 
+-    if element.events.contains("mouseDown") && element.events.contains("mouseMove") {
+-        el = el.capture_pointer();
+-    }
++    if ctx.inherited.relay_scroll && !element.events.contains("scroll") {
++        let id = element.id;
++        let callback = ctx.event_callback.clone();
++        let pinch_callback = callback.clone();
++        el = el
++            .on_scroll_wheel(move |scroll_event, _window, _cx| {
++                emit_event_full(&callback, id, "scroll", |p| {
++                    let (x, y) = point_to_xy(scroll_event.position);
++                    p.x = Some(x);
++                    p.y = Some(y);
++                    p.modifiers = Some(scroll_event.modifiers.into());
++                    p.precise = Some(scroll_event.delta.precise());
++                    let pixel_delta = scroll_event.delta.pixel_delta(gpui::px(20.0));
++                    p.delta_x = Some(f64::from(f32::from(pixel_delta.x)));
++                    p.delta_y = Some(f64::from(f32::from(pixel_delta.y)));
++                    p.touch_phase = Some(match scroll_event.touch_phase {
++                        gpui::TouchPhase::Started => "started".to_string(),
++                        gpui::TouchPhase::Moved => "moved".to_string(),
++                        gpui::TouchPhase::Ended => "ended".to_string(),
++                        gpui::TouchPhase::Cancelled => "cancelled".to_string(),
++                    });
++                });
++            })
++            .on_pinch(move |pinch_event, _window, _cx| {
++                emit_event_full(&pinch_callback, id, "scroll", |p| {
++                    let (x, y) = point_to_xy(pinch_event.position);
++                    p.x = Some(x);
++                    p.y = Some(y);
++                    let mut modifiers: crate::element_tree::EventModifiers =
++                        pinch_event.modifiers.into();
++                    modifiers.ctrl = true;
++                    p.modifiers = Some(modifiers);
++                    p.precise = Some(true);
++                    p.delta_x = Some(0.0);
++                    p.delta_y = Some(f64::from(pinch_event.delta) * 100.0);
++                    p.touch_phase = Some(match pinch_event.phase {
++                        gpui::TouchPhase::Started => "started".to_string(),
++                        gpui::TouchPhase::Moved => "moved".to_string(),
++                        gpui::TouchPhase::Ended => "ended".to_string(),
++                        gpui::TouchPhase::Cancelled => "cancelled".to_string(),
++                    });
++                });
++            });
++    }
++
++    if element.events.contains("mouseDown") && element.events.contains("mouseMove") {
++        el = el.capture_pointer();
++    }
+ 
+     // Text content — selectable, same as a <text> leaf.
+     // An empty string paints no glyphs, so it must take no space: gpui's text
