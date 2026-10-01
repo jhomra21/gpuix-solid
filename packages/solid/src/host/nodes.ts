@@ -392,10 +392,14 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
       // it in the generic mutation batch and serializing it a second time.
       const json = recorder.serialize()
       if (this.#canvasDrawState?.id === this.id && this.#canvasDrawState.json === json) return
-      root.driver.flush()
       if (renderer.setCanvasDrawList) {
+        // The first direct frame must follow the queued native mount. After
+        // that, MutationDriver owns its own microtask flush and canvas paint
+        // should not synchronously drain unrelated Solid host mutations.
+        if (this.#canvasDrawState?.id !== this.id) root.driver.flush()
         renderer.setCanvasDrawList(this.id, json)
       } else {
+        root.driver.flush()
         renderer.setCustomProp(this.id, "drawList", json)
         renderer.commitMutations()
       }
