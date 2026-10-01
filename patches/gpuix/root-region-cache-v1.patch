@@ -187,7 +187,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
  
 -// ── Element builders ─────────────────────────────────────────────────
 -
--fn z_index_priority
+-fn z_index_priority(tree: &RetainedTree, id: u64) -> Option<usize> {
 +// ── Element builders ─────────────────────────────────────────────────
 +
 +fn retained_region_style(style: Option<&StyleDesc>) -> gpui::StyleRefinement {
@@ -199,7 +199,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +    probe.style().clone()
 +}
 +
-+fn z_index_priority
++fn z_index_priority(tree: &RetainedTree, id: u64) -> Option<usize> {
      let value = tree
          .elements
          .get(&id)?
