@@ -1,0 +1,42 @@
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -4844,20 +4844,28 @@ pub(crate) fn build_element(
+     };
+     let style = animated_style.as_ref().or(element.style.as_deref());
+ 
+-    // Inheritable style resolves once here so both built-ins and custom
+-    // elements see the same cascade.
+-    let parent_inherited = ctx.inherited.clone();
+-    ctx.inherited = parent_inherited.clone().descend(style);
++    // Most retained nodes do not alter inherited text state. Avoid cloning
++    // the inherited highlight Arc and selection state on those nodes; only
++    // save/restore when this element can actually change the cascade.
++    let style_changes_inherited = style.is_some_and(|style| {
++        style.user_select.is_some() || style.selection_color.is_some()
++    });
++    let highlight_value = element.custom_props.get("highlight");
++    let parent_inherited = (style_changes_inherited || highlight_value.is_some())
++        .then(|| ctx.inherited.clone());
++    if style_changes_inherited {
++        ctx.inherited = ctx.inherited.clone().descend(style);
++    }
+ 
+     // A `highlight` here replaces any ancestor's: the nearest declaration wins,
+     // and `GroupList::collect` skips nested declarations so an ancestor never
+     // resolves or counts matches that will not paint.
+-    if let Some(value) = element.custom_props.get("highlight") {
++    if let Some(value) = highlight_value {
+         let has_listener = element.events.contains("highlight");
+         let resolved = resolve_highlight(
+             ctx.highlights,
+@@ -4910,7 +4918,9 @@ pub(crate) fn build_element(
+         }
+     };
+ 
+-    ctx.inherited = parent_inherited;
++    if let Some(parent_inherited) = parent_inherited {
++        ctx.inherited = parent_inherited;
++    }
+     built
+ }

@@ -9,6 +9,7 @@
     "patches/gpuix/scroll-metrics-v1.patch",
     "patches/gpuix/view-render-stats-v1.patch",
     "patches/gpuix/root-revision-stats-v1.patch",
+    "patches/gpuix/sparse-inherited-clone-v1.patch",
     "patches/gpuix/host-own-bounds-v1.patch",
     "patches/gpuix/shared-retained-text-v1.patch",
     "patches/gpuix/video-frame-v1.patch",
