@@ -94,31 +94,6 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
                  .get(id)
                  .is_some_and(|element| element.parent == root_id)
          });
-@@ -5180,7 +5188,24 @@
-             }
-             None => gpui::Empty.into_any_element(),
-         };
-+
-+        let cached_region_bounds = if motion_active {
-+            Vec::new()
-+        } else {
-+            self.retained_regions
-+                .values()
-+                .map(|entry| {
-+                    (
-+                        entry.bounds_snapshot.clone(),
-+                        entry.element_ids.clone(),
-+                        entry.preserve_bounds,
-+                    )
-+                })
-+                .collect()
-+        };
-+        self.retained_regions.values_mut().for_each(|entry| entry.preserve_bounds = true);
-+
-         record_view_build_duration(build_started.elapsed());
- 
-         // Flushed after the root build so a `setState` in the handler cannot
-         // re-enter this build.
 @@ -5206,7 +5228,9 @@
                          });
                      },
