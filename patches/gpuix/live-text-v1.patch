@@ -255,7 +255,8 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +        view
 +    } else {
 +        let view = cx.new(|_cx| LiveTextView {
-             element.id,
+-            element.id,
++            element_id: element.id,
 -            0,
 -            content.clone(),
 -            None,
