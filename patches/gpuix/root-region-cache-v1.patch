@@ -1,12 +1,18 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -3424,5 +3424,18 @@ pub(crate) struct GpuixView {
-     /// Empty in every app that does not use search.
-     highlights: HashMap<u64, HighlightCacheEntry>,
-+    /// Direct children of the retained root become GPUI entity boundaries.
-+    /// A child entity is replaced only when its subtree revision changes, so
-+    /// unrelated siblings can reuse their cached layout/prepaint/paint ranges.
+@@ -3758,10 +3758,22 @@
+     selection_scroll_task: Option<gpui::Task<()>>,
+     /// Motion / review clock. Live wall time unless automation freezes it.
+     pub(crate) clock: crate::automation::AutomationClock,
+-    /// Resolved `highlight` state, keyed by the element that declared it.
+-    /// Empty in every app that does not use search.
+-    highlights: HashMap<u64, HighlightCacheEntry>,
+-}
++    /// Resolved `highlight` state, keyed by the element that declared it.
++    /// Empty in every app that does not use search.
++    highlights: HashMap<u64, HighlightCacheEntry>,
++    /// Cached GPUI entity boundaries for direct children of the retained root.
 +    retained_regions: HashMap<u64, RetainedRegionEntry>,
 +}
 +
@@ -18,38 +24,66 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +struct RetainedRegionView {
 +    parent: gpui::WeakEntity<GpuixView>,
 +    element_id: u64,
- }
++}
  
  /// Two-level cache for one element's `highlight`.
-@@ -3677,6 +3690,7 @@ impl GpuixView {
+ ///
+@@ -4012,9 +4024,10 @@
+             selection_drag_position: None,
+             selection_scroll_list: None,
              selection_scroll_task: None,
-             clock: crate::automation::AutomationClock::new(),
-             highlights: HashMap::new(),
+-            clock: crate::automation::AutomationClock::new(),
+-            highlights: HashMap::new(),
+-        }
++            clock: crate::automation::AutomationClock::new(),
++            highlights: HashMap::new(),
 +            retained_regions: HashMap::new(),
-         }
++        }
      }
  
-@@ -3876,6 +3890,7 @@
+     pub(crate) fn set_live_image(
+@@ -4261,11 +4274,12 @@
+             motion_states: &mut self.motion_states,
+             now,
              selection: self.selection.clone(),
-             inherited,
-             highlights: &mut self.highlights,
-             highlight_events: &mut highlight_events,
+-            inherited,
+-            highlights: &mut self.highlights,
+-            highlight_events: &mut highlight_events,
+-        };
+-        let child = build_element(expected_child_id, &mut build_ctx, window, cx);
++            inherited,
++            highlights: &mut self.highlights,
++            highlight_events: &mut highlight_events,
 +            root_regions: None,
-         };
-         let built = build_element(child_id, &mut build_ctx, window, cx);
++        };
++        let child = build_element(expected_child_id, &mut build_ctx, window, cx);
          emit_highlight_events(&callback, &highlight_events);
-@@ -4007,6 +4022,9 @@ pub(crate) struct BuildCtx<'a> {
-     /// build has returned.
-     highlight_events: &'a mut Vec<(u64, usize)>,
-+    /// Cached direct-root regions. Nested/virtual builds leave this as `None`.
+         emit_motion_settled(&callback, &tree, &motion_settled);
+         if motion_active {
+@@ -4389,11 +4403,13 @@
+     highlights: &'a mut HashMap<u64, HighlightCacheEntry>,
+     /// `onHighlight` payloads queued during the build.
+     ///
+-    /// Never emitted inline: a handler that calls `setState` repaints, which
+-    /// would re-enter the build and emit again. They are flushed once the root
+-    /// build has returned.
+-    highlight_events: &'a mut Vec<(u64, usize)>,
+-}
++    /// Never emitted inline: a handler that calls `setState` repaints, which
++    /// would re-enter the build and emit again. They are flushed once the root
++    /// build has returned.
++    highlight_events: &'a mut Vec<(u64, usize)>,
++    /// Cached direct-root regions. Nested and virtual builds leave this unset.
 +    root_regions: Option<&'a mut HashMap<u64, RetainedRegionEntry>>,
- }
++}
  
  /// Style properties that cascade into descendants.
-@@ -4660,6 +4678,58 @@ impl GpuixView {
+ ///
+@@ -5036,7 +5052,63 @@
      }
  }
  
+-impl gpui::Render for GpuixView {
 +impl GpuixView {
 +    fn build_retained_region(
 +        &mut self,
@@ -106,18 +140,56 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +    }
 +}
 +
- impl gpui::Render for GpuixView {
-@@ -4724,6 +4794,7 @@ impl gpui::Render for GpuixView {
-                     inherited: Inherited::root(&theme),
-                     highlights: &mut self.highlights,
-                     highlight_events: &mut highlight_events,
-+                    root_regions: Some(&mut self.retained_regions),
-                 };
-                 build_element(root_id, &mut ctx, window, cx)
++impl gpui::Render for GpuixView {
+     fn render(
+         &mut self,
+         window: &mut gpui::Window,
+@@ -5069,9 +5141,15 @@
+         // from scroll to non-scroll) is handled inside build_host_container().
+         self.scroll_handles
+             .retain(|id, _| tree.elements.contains_key(id));
+-        self.virtual_lists
+-            .retain(|id, _| tree.elements.contains_key(id));
+-        // Build the element tree. custom_registry, focus_handles, and scroll_handles
++        self.virtual_lists
++            .retain(|id, _| tree.elements.contains_key(id));
++        let root_id = tree.root_id;
++        self.retained_regions.retain(|id, _| {
++            tree.elements
++                .get(id)
++                .is_some_and(|element| element.parent == root_id)
++        });
++        // Build the element tree. custom_registry, focus_handles, and scroll_handles
+         // are different fields of self, so Rust allows borrowing all simultaneously.
+         let theme = Theme::dark();
+         let now = self.clock.now();
+@@ -5099,11 +5177,12 @@
+                     motion_states: &mut self.motion_states,
+                     now,
+                     selection: self.selection.clone(),
+-                    inherited: Inherited::root(&theme),
+-                    highlights: &mut self.highlights,
+-                    highlight_events: &mut highlight_events,
+-                };
+-                build_element(root_id, &mut ctx, window, cx)
++                    inherited: Inherited::root(&theme),
++                    highlights: &mut self.highlights,
++                    highlight_events: &mut highlight_events,
++                    root_regions: (!motion_active).then_some(&mut self.retained_regions),
++                };
++                build_element(root_id, &mut ctx, window, cx)
              }
-@@ -4816,6 +4887,16 @@
- // ── Element builders ─────────────────────────────────────────────────
+             None => gpui::Empty.into_any_element(),
+         };
+@@ -5193,9 +5272,18 @@
+     }
+ }
  
+-// ── Element builders ─────────────────────────────────────────────────
+-
+-fn z_index_priority
++// ── Element builders ─────────────────────────────────────────────────
++
 +fn retained_region_style(style: Option<&StyleDesc>) -> gpui::StyleRefinement {
 +    use gpui::Styled as _;
 +    let mut probe = gpui::div();
@@ -127,11 +199,18 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +    probe.style().clone()
 +}
 +
- pub(crate) fn build_element(
-@@ -5482,9 +5563,31 @@ pub(crate) fn build_host_container(
++fn z_index_priority
+     let value = tree
+         .elements
+         .get(&id)?
+@@ -5996,9 +6084,39 @@
+         } else {
+             std::borrow::Cow::Borrowed(&element.children)
          };
-     for child_id in child_ids.iter().copied() {
+-    for child_id in child_ids.iter().copied() {
 -        let child = build_element(child_id, ctx, window, cx);
+-        let child = if let Some(priority) = z_index_priority(ctx.tree, child_id) {
++    for child_id in child_ids.iter().copied() {
 +        let child = if element.parent.is_none() {
 +            if let Some(regions) = ctx.root_regions.as_deref_mut() {
 +                if let Some(child_element) = ctx.tree.elements.get(&child_id) {
@@ -147,8 +226,9 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +                        });
 +                        regions.insert(child_id, RetainedRegionEntry { revision, view });
 +                    }
-+                    let entry = regions.get(&child_id).expect("retained region just inserted");
-+                    entry
++                    regions
++                        .get(&child_id)
++                        .expect("retained region just inserted")
 +                        .view
 +                        .clone()
 +                        .cached(retained_region_style(child_element.style.as_deref()))
@@ -162,6 +242,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +        } else {
 +            build_element(child_id, ctx, window, cx)
 +        };
-         let child = if let Some(priority) = z_index_priority(ctx.tree, child_id) {
++        let child = if let Some(priority) = z_index_priority(ctx.tree, child_id) {
              gpui::deferred(child).with_priority(priority).into_any_element()
          } else {
+             child
