@@ -1,0 +1,66 @@
+diff --git a/crates/gpui/src/elements/div.rs b/crates/gpui/src/elements/div.rs
+--- a/crates/gpui/src/elements/div.rs
++++ b/crates/gpui/src/elements/div.rs
+@@ -733,11 +733,20 @@
+ 
+ /// A trait for elements that want to use the standard GPUI event handlers that don't
+ /// require any state.
+-pub trait InteractiveElement: Sized {
+-    /// Retrieve the interactivity state associated with this element
+-    fn interactivity(&mut self) -> &mut Interactivity;
+-
+-    /// Assign this element to a group of elements that can be styled together
++pub trait InteractiveElement: Sized {
++    /// Retrieve the interactivity state associated with this element
++    fn interactivity(&mut self) -> &mut Interactivity;
++
++    /// Reuse an immutable base style without cloning every refinement field.
++    ///
++    /// Any later style helper uses copy-on-write through `Styled::style()`, so
++    /// sharing is transparent to callers that continue refining this element.
++    fn shared_base_style(mut self, style: Arc<StyleRefinement>) -> Self {
++        self.interactivity().base_style = style;
++        self
++    }
++
++    /// Assign this element to a group of elements that can be styled together
+     fn group(mut self, group: impl Into<SharedString>) -> Self {
+         self.interactivity().group = Some(group.into());
+         self
+@@ -1791,7 +1800,7 @@
+     /// state. In the future it will make sense to separate the read and write, possibly tracking
+     /// the modifications.
+     #[cfg(any(feature = "inspector", debug_assertions))]
+-    pub base_style: Box<StyleRefinement>,
++    pub base_style: Arc<StyleRefinement>,
+     /// Inspects the bounds of the element.
+     pub bounds: Bounds<Pixels>,
+     /// Size of the children of the element, or `bounds.size` if it has no children.
+@@ -1798,11 +1807,11 @@
+     pub content_size: Size<Pixels>,
+ }
+ 
+-impl Styled for Div {
+-    fn style(&mut self) -> &mut StyleRefinement {
+-        &mut self.interactivity.base_style
+-    }
+-}
++impl Styled for Div {
++    fn style(&mut self) -> &mut StyleRefinement {
++        Arc::make_mut(&mut self.interactivity.base_style)
++    }
++}
+ 
+ impl InteractiveElement for Div {
+     fn interactivity(&mut self) -> &mut Interactivity {
+@@ -2080,8 +2089,8 @@
+     pub(crate) group: Option<SharedString>,
+     /// The base style of the element, before any modifications are applied
+     /// by focus, active, etc.
+-    pub base_style: Box<StyleRefinement>,
+-    pub(crate) focus_style: Option<Box<StyleRefinement>>,
++    pub base_style: Arc<StyleRefinement>,
++    pub(crate) focus_style: Option<Box<StyleRefinement>>,
+     pub(crate) in_focus_style: Option<Box<StyleRefinement>>,
+     pub(crate) focus_visible_style: Option<Box<StyleRefinement>>,
+     pub(crate) hover_style: Option<Box<StyleRefinement>>,

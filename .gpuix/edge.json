@@ -30,7 +30,8 @@
         "patches/gpuix/gpui-macos-embedded-wake-pump-v1.patch",
         "patches/gpuix/gpui-macos-embedded-transaction-presentation-v1.patch",
         "patches/gpuix/gpui-macos-drawable-backpressure-v1.patch",
-        "patches/gpuix/gpui-macos-offscreen-screenshot-v1.patch"
+        "patches/gpuix/gpui-macos-offscreen-screenshot-v1.patch",
+        "patches/gpuix/gpui-shared-base-style-v1.patch"
       ]
     }
   ]
