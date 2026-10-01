@@ -10,7 +10,7 @@ diff --git a/packages/native/src/custom_elements/canvas.rs b/packages/native/src
  
  use super::{CustomElement, CustomElementFactory, CustomRenderContext};
  
-@@ -258,8 +258,8 @@
+@@ -258,7 +258,7 @@
  
  #[derive(Default)]
  pub struct CanvasElement {
@@ -27,7 +27,7 @@ diff --git a/packages/native/src/custom_elements/canvas.rs b/packages/native/src
      text: Vec<Option<gpui::ShapedLine>>,
  }
  
-@@ -291,19 +292,20 @@
+@@ -291,15 +292,17 @@
      ) -> gpui::AnyElement {
          // GPUI runs prepaint and paint from retained closures. Share the
          // immutable frame state instead of deep-cloning every Canvas command
@@ -50,7 +50,7 @@ diff --git a/packages/native/src/custom_elements/canvas.rs b/packages/native/src
                      paint_canvas(draw_list, &prepared, images.as_ref(), bounds, window, cx);
                  }
              },
-@@ -324,36 +326,38 @@
+@@ -324,34 +326,36 @@
          if key != "drawList" {
              return;
          }
@@ -115,7 +115,7 @@ diff --git a/packages/native/src/custom_elements/canvas.rs b/packages/native/src
          }
      }
  
-@@ -499,13 +503,16 @@
+@@ -499,14 +503,17 @@
  }
  
  fn prepare_canvas(
@@ -151,7 +151,7 @@ diff --git a/packages/native/src/custom_elements/canvas.rs b/packages/native/src
 diff --git a/packages/native/src/custom_elements/mod.rs b/packages/native/src/custom_elements/mod.rs
 --- a/packages/native/src/custom_elements/mod.rs
 +++ b/packages/native/src/custom_elements/mod.rs
-@@ -417,6 +417,24 @@
+@@ -417,6 +417,28 @@
              .replace_canvas_image(image_id, width, height, image)
      }
  
@@ -183,7 +183,7 @@ diff --git a/packages/native/src/custom_elements/mod.rs b/packages/native/src/cu
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -1480,6 +1480,47 @@
+@@ -1480,7 +1480,52 @@
      pub fn get_canvas_draw_list_version(&self) -> u32 {
          crate::custom_elements::canvas::CANVAS_DRAW_LIST_VERSION
      }
@@ -239,7 +239,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 diff --git a/packages/native/src/test_renderer.rs b/packages/native/src/test_renderer.rs
 --- a/packages/native/src/test_renderer.rs
 +++ b/packages/native/src/test_renderer.rs
-@@ -1235,6 +1235,30 @@
+@@ -1235,7 +1235,28 @@
      pub fn get_canvas_draw_list_version(&self) -> u32 {
          crate::custom_elements::canvas::CANVAS_DRAW_LIST_VERSION
      }
