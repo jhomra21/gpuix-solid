@@ -115,10 +115,10 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +        };
 +        self.retained_regions.values_mut().for_each(|entry| entry.preserve_bounds = true);
 +
-+        record_view_build_duration(build_started.elapsed());
+         record_view_build_duration(build_started.elapsed());
  
-+        // Flushed after the root build so a `setState` in the handler cannot
-+        // re-enter this build.
+         // Flushed after the root build so a `setState` in the handler cannot
+         // re-enter this build.
 @@ -5206,7 +5228,9 @@
                          });
                      },
