@@ -197,6 +197,7 @@ export const frameStatsResultSchema = z.object({
   viewBuildP99Ms: z.number().optional(),
   viewBuildMaxMs: z.number().optional(),
   viewBuildSamples: z.number().int().nonnegative().optional(),
+  rootSubtreeRevision: z.number().int().nonnegative().optional(),
 })
 
 const responseSchema = z.union([
