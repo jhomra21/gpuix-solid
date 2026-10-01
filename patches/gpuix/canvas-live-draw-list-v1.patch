@@ -1,0 +1,270 @@
+diff --git a/packages/native/src/custom_elements/canvas.rs b/packages/native/src/custom_elements/canvas.rs
+--- a/packages/native/src/custom_elements/canvas.rs
++++ b/packages/native/src/custom_elements/canvas.rs
+@@ -1,7 +1,7 @@
+ use gpui::prelude::*;
+ use serde::Deserialize;
+ use std::collections::HashMap;
+-use std::sync::Arc;
++use std::sync::{Arc, RwLock};
+ 
+ use super::{CustomElement, CustomElementFactory, CustomRenderContext};
+ 
+@@ -258,8 +258,8 @@
+ 
+ #[derive(Default)]
+ pub struct CanvasElement {
+-    draw_list: Option<Arc<CanvasDrawList>>,
++    draw_list: Arc<RwLock<Option<Arc<CanvasDrawList>>>>,
+     images: Arc<HashMap<u64, CanvasImageResource>>,
+ }
+ 
+@@ -279,6 +279,7 @@
+ }
+ 
+ struct PreparedCanvas {
++    draw_list: Option<Arc<CanvasDrawList>>,
+     text: Vec<Option<gpui::ShapedLine>>,
+ }
+ 
+@@ -291,19 +292,20 @@
+     ) -> gpui::AnyElement {
+         // GPUI runs prepaint and paint from retained closures. Share the
+         // immutable frame state instead of deep-cloning every Canvas command
+-        // and uploaded image entry each time this element renders.
++        // and uploaded image entry each time this element renders. The draw-list
++        // slot itself stays live so paint-only updates do not rebuild the host tree.
+         let draw_list = self.draw_list.clone();
+         let images = self.images.clone();
+-        let prepaint_list = draw_list.clone();
+-        let paint_list = draw_list;
+         let canvas = gpui::canvas(
+-            move |bounds, window, _cx| prepare_canvas(prepaint_list.as_deref(), bounds, window),
++            move |bounds, window, _cx| {
++                let snapshot = draw_list.read().ok().and_then(|state| state.clone());
++                prepare_canvas(snapshot, bounds, window)
++            },
+             move |bounds, prepared, window, cx| {
+-                if let Some(draw_list) = paint_list.as_deref() {
++                if let Some(draw_list) = prepared.draw_list.as_deref() {
+                     paint_canvas(draw_list, &prepared, images.as_ref(), bounds, window, cx);
+                 }
+             },
+@@ -324,36 +326,38 @@
+         if key != "drawList" {
+             return;
+         }
+-        if value.is_null() {
+-            self.draw_list = None;
+-            return;
+-        }
+-
+-        match serde_json::from_value::<CanvasDrawList>(value) {
+-            Ok(draw_list)
+-                if draw_list.version == CANVAS_DRAW_LIST_VERSION
+-                    && draw_list.width.is_finite()
+-                    && draw_list.width > 0.0
+-                    && draw_list.height.is_finite()
+-                    && draw_list.height > 0.0 =>
+-            {
+-                self.draw_list = Some(Arc::new(draw_list));
+-            }
+-            Ok(draw_list) => {
+-                log::warn!(
+-                    "Ignoring unsupported GPUIX canvas draw list version/size: version={} size={}x{}",
+-                    draw_list.version,
+-                    draw_list.width,
+-                    draw_list.height
+-                );
+-                self.draw_list = None;
+-            }
+-            Err(error) => {
+-                log::warn!("Ignoring invalid GPUIX canvas draw list: {error}");
+-                self.draw_list = None;
+-            }
++        let next = if value.is_null() {
++            None
++        } else {
++            match serde_json::from_value::<CanvasDrawList>(value) {
++                Ok(draw_list)
++                    if draw_list.version == CANVAS_DRAW_LIST_VERSION
++                        && draw_list.width.is_finite()
++                        && draw_list.width > 0.0
++                        && draw_list.height.is_finite()
++                        && draw_list.height > 0.0 =>
++                {
++                    Some(Arc::new(draw_list))
++                }
++                Ok(draw_list) => {
++                    log::warn!(
++                        "Ignoring unsupported GPUIX canvas draw list version/size: version={} size={}x{}",
++                        draw_list.version,
++                        draw_list.width,
++                        draw_list.height
++                    );
++                    None
++                }
++                Err(error) => {
++                    log::warn!("Ignoring invalid GPUIX canvas draw list: {error}");
++                    None
++                }
++            }
++        };
++        if let Ok(mut state) = self.draw_list.write() {
++            *state = next;
+         }
+     }
+ 
+@@ -499,13 +503,16 @@
+ }
+ 
+ fn prepare_canvas(
+-    draw_list: Option<&CanvasDrawList>,
++    draw_list: Option<Arc<CanvasDrawList>>,
+     bounds: gpui::Bounds<gpui::Pixels>,
+     window: &mut gpui::Window,
+ ) -> PreparedCanvas {
+     let Some(draw_list) = draw_list else {
+-        return PreparedCanvas { text: Vec::new() };
++        return PreparedCanvas {
++            draw_list: None,
++            text: Vec::new(),
++        };
+     };
+-    let (_, _, text_scale) = canvas_scale(draw_list, bounds);
++    let (_, _, text_scale) = canvas_scale(draw_list.as_ref(), bounds);
+     let mut prepared = Vec::with_capacity(draw_list.commands.len());
+ 
+     for command in &draw_list.commands {
+@@ -548,7 +555,10 @@
+         prepared.push(Some(shaped));
+     }
+ 
+-    PreparedCanvas { text: prepared }
++    PreparedCanvas {
++        draw_list: Some(draw_list),
++        text: prepared,
++    }
+ }
+ 
+ fn paint_canvas(
+diff --git a/packages/native/src/custom_elements/mod.rs b/packages/native/src/custom_elements/mod.rs
+--- a/packages/native/src/custom_elements/mod.rs
++++ b/packages/native/src/custom_elements/mod.rs
+@@ -417,6 +417,24 @@
+             .replace_canvas_image(image_id, width, height, image)
+     }
+ 
++    /// Push a high-frequency prop into an already-mounted custom element.
++    ///
++    /// Returns false when the adapter has not rendered yet; callers should
++    /// fall back to a normal view invalidation in that case.
++    pub fn set_live_prop_if_present(
++        &mut self,
++        id: u64,
++        element_type: &str,
++        key: &str,
++        value: serde_json::Value,
++    ) -> bool {
++        let Some(entry) = self.instances.get_mut(&id) else {
++            return false;
++        };
++        if entry.element_type != element_type {
++            return false;
++        }
++        entry.element.set_prop(key, value.clone());
++        entry.applied_props.insert(key.to_string(), value);
++        true
++    }
++
+     /// Called when React destroys an element.
+     pub fn destroy(&mut self, id: u64) {
+         if let Some(mut entry) = self.instances.remove(&id) {
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -1480,6 +1480,47 @@
+     pub fn get_canvas_draw_list_version(&self) -> u32 {
+         crate::custom_elements::canvas::CANVAS_DRAW_LIST_VERSION
+     }
+ 
++    /// Replace one Canvas2D draw list without rebuilding the retained host tree.
++    ///
++    /// The retained prop is still updated so automation and later full renders
++    /// observe the latest frame. Once the Canvas adapter has mounted, macOS can
++    /// repaint the cached GPUI view directly from the live shared draw-list slot.
++    #[napi]
++    pub fn set_canvas_draw_list(&self, element_id: f64, json: String) -> Result<()> {
++        let id = to_element_id(element_id)?;
++        let value: serde_json::Value = serde_json::from_str(&json)
++            .map_err(|error| Error::from_reason(format!("Invalid Canvas draw-list JSON: {error}")))?;
++        {
++            let mut tree = self.tree.lock().unwrap();
++            let element = tree
++                .elements
++                .get(&id)
++                .ok_or_else(|| Error::from_reason(format!("Unknown element id {id}")))?;
++            if element.element_type != "canvas" {
++                return Err(Error::from_reason(format!(
++                    "setCanvasDrawList is only valid on <canvas>, got <{}>",
++                    element.element_type
++                )));
++            }
++            tree.set_custom_prop(id, "drawList".to_string(), value.clone());
++        }
++
++        #[cfg(target_os = "macos")]
++        return update_window(move |view, window, cx| {
++            if view
++                .custom_registry
++                .set_live_prop_if_present(id, "canvas", "drawList", value)
++            {
++                window.refresh();
++            } else {
++                cx.notify();
++                window.refresh();
++            }
++        });
++
++        #[cfg(not(target_os = "macos"))]
++        {
++            let _ = value;
++            self.request_invalidate()
++        }
++    }
++
+     /// Measure one line of Canvas text with GPUI's native text system.
+     #[napi]
+     pub fn measure_canvas_text(
+diff --git a/packages/native/src/test_renderer.rs b/packages/native/src/test_renderer.rs
+--- a/packages/native/src/test_renderer.rs
++++ b/packages/native/src/test_renderer.rs
+@@ -1235,6 +1235,30 @@
+     pub fn get_canvas_draw_list_version(&self) -> u32 {
+         crate::custom_elements::canvas::CANVAS_DRAW_LIST_VERSION
+     }
+ 
++    /// Replace one Canvas2D draw list while preserving the retained custom prop.
++    #[napi]
++    pub fn set_canvas_draw_list(&self, element_id: f64, json: String) -> Result<()> {
++        let id = to_element_id(element_id)?;
++        let value: serde_json::Value = serde_json::from_str(&json)
++            .map_err(|error| Error::from_reason(format!("Invalid Canvas draw-list JSON: {error}")))?;
++        let mut tree = self.tree.lock().unwrap();
++        let element = tree
++            .elements
++            .get(&id)
++            .ok_or_else(|| Error::from_reason(format!("Unknown element id {id}")))?;
++        if element.element_type != "canvas" {
++            return Err(Error::from_reason(format!(
++                "setCanvasDrawList is only valid on <canvas>, got <{}>",
++                element.element_type
++            )));
++        }
++        tree.set_custom_prop(id, "drawList".to_string(), value);
++        Ok(())
++    }
++
+     /// Measure one line of Canvas text with GPUI's native text system.
+     #[napi]
+     pub fn measure_canvas_text(

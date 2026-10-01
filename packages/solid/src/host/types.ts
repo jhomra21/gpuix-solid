@@ -650,6 +650,8 @@ export interface NativeRenderer {
   getWindowInsets?(): NativeWindowInsets
   /** Version of the native retained Canvas2D draw-list protocol, or undefined when unavailable. */
   getCanvasDrawListVersion?(): number | undefined
+  /** High-frequency Canvas2D draw-list replacement that may repaint without rebuilding the host tree. */
+  setCanvasDrawList?(elementId: number, json: string): void
   /** Version of source-edge CSS auto-margin support, or undefined when unavailable. */
   getAutoMarginVersion?(): number | undefined
   /** Synchronously measure one line using GPUI's native text shaping. */

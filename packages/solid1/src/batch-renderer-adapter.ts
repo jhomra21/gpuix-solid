@@ -30,6 +30,7 @@ export interface BatchRendererApi {
   captureScreenshot?(path: string): void
   getWindowSize?(): { width: number; height: number }
   getCanvasDrawListVersion?(): number | undefined
+  setCanvasDrawList?(elementId: number, json: string): void
   getAutoMarginVersion?(): number | undefined
   measureCanvasText?(text: string, fontSize: number, fontFamily: string, fontWeight: number): number
   setCanvasImagePixels?(
@@ -202,6 +203,9 @@ export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRen
   if (renderer.getWindowSize) adapted.getWindowSize = renderer.getWindowSize.bind(renderer)
   if (renderer.getCanvasDrawListVersion) {
     adapted.getCanvasDrawListVersion = renderer.getCanvasDrawListVersion.bind(renderer)
+  }
+  if (renderer.setCanvasDrawList) {
+    adapted.setCanvasDrawList = renderer.setCanvasDrawList.bind(renderer)
   }
   if (renderer.getAutoMarginVersion) {
     adapted.getAutoMarginVersion = renderer.getAutoMarginVersion.bind(renderer)

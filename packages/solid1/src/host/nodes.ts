@@ -393,8 +393,12 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
       const json = recorder.serialize()
       if (this.#canvasDrawState?.id === this.id && this.#canvasDrawState.json === json) return
       root.driver.flush()
-      renderer.setCustomProp(this.id, "drawList", json)
-      renderer.commitMutations()
+      if (renderer.setCanvasDrawList) {
+        renderer.setCanvasDrawList(this.id, json)
+      } else {
+        renderer.setCustomProp(this.id, "drawList", json)
+        renderer.commitMutations()
+      }
       this.#canvasDrawState = { id: this.id, json }
     })
   }
