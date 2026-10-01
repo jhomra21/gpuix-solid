@@ -1,7 +1,7 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -3384,6 +3384,11 @@
+@@ -3600,6 +3600,11 @@
  
  // ── GPUI View ────────────────────────────────────────────────────────
  
@@ -13,7 +13,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
  pub(crate) struct GpuixView {
      pub(crate) tree: Arc<Mutex<RetainedTree>>,
      pub(crate) event_callback: Option<EventCallback>,
-@@ -3405,6 +3410,8 @@
+@@ -3627,6 +3627,8 @@
      /// Registry for custom element types (input, editor, diff, etc.).
      /// Stores factories (one per type) and live instances (one per element ID).
      pub(crate) custom_registry: CustomElementRegistry,
@@ -22,7 +22,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
      /// Persistent ScrollHandles keyed by element ID.
      /// Created lazily for elements with overflow: "scroll" (or per-axis scroll).
      /// Handles persist across renders so GPUI maintains scroll offset state.
-@@ -3668,6 +3675,7 @@
+@@ -3892,6 +3892,7 @@
              pending_focus_element: None,
              focus_subscriptions: HashMap::new(),
              custom_registry: CustomElementRegistry::with_defaults(),
@@ -30,7 +30,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
              scroll_handles: HashMap::new(),
              motion_states: HashMap::new(),
              selection,
-@@ -3885,6 +3893,7 @@
+@@ -4144,6 +4144,7 @@
              event_callback: &callback,
              focus_handles: &self.focus_handles,
              scroll_handles: &mut self.scroll_handles,
@@ -38,7 +38,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
              custom_registry: &mut self.custom_registry,
              virtual_lists: &mut self.virtual_lists,
              motion_states: &mut self.motion_states,
-@@ -4004,6 +4013,7 @@
+@@ -4264,6 +4264,7 @@
      pub tree: &'a RetainedTree,
      pub event_callback: &'a Option<EventCallback>,
      pub focus_handles: &'a HashMap<u64, gpui::FocusHandle>,
@@ -46,7 +46,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
      pub scroll_handles: &'a mut HashMap<u64, gpui::ScrollHandle>,
      pub custom_registry: &'a mut CustomElementRegistry,
      virtual_lists: &'a mut HashMap<u64, VirtualListEntry>,
-@@ -4695,6 +4705,11 @@
+@@ -4962,5 +4962,10 @@
          self.virtual_lists
              .retain(|id, _| tree.elements.contains_key(id));
 +        if self.compiled_styles.len() > 512 {
@@ -57,7 +57,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
          // Build the element tree. custom_registry, focus_handles, and scroll_handles
          // are different fields of self, so Rust allows borrowing all simultaneously.
          let theme = Theme::dark();
-@@ -4716,6 +4731,7 @@
+@@ -4989,6 +4989,7 @@
                      event_callback: &callback,
                      focus_handles: &self.focus_handles,
                      scroll_handles: &mut self.scroll_handles,
@@ -65,7 +65,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
                      custom_registry: &mut self.custom_registry,
                      virtual_lists: &mut self.virtual_lists,
                      motion_states: &mut self.motion_states,
-@@ -5052,8 +5068,9 @@
+@@ -5331,8 +5331,8 @@
              "__gpuix_virtual_list_{}",
              element.id
          ))));
@@ -76,7 +76,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
      }
      apply_accessibility(list, &element.custom_props, None).into_any_element()
  }
-@@ -5116,8 +5133,14 @@
+@@ -5395,8 +5395,13 @@
      // use `ElementId::Name`, which is a different variant and cannot collide.
      let mut el = gpui::div().id(gpui::ElementId::Integer(element.id));
  
@@ -91,7 +91,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
  
          if crate::style::should_occlude(style) {
              // BlockMouse (occlude) stops the hit test, so the parent scroller
-@@ -5537,6 +5560,47 @@
+@@ -5922,6 +5922,50 @@
      }
  }
  
