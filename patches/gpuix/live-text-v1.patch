@@ -1,0 +1,278 @@
+diff --git a/packages/native/js/host.ts b/packages/native/js/host.ts
+--- a/packages/native/js/host.ts
++++ b/packages/native/js/host.ts
+@@ -607,7 +607,9 @@ export interface AnchoredProps extends HostProps {
+   occlude?: boolean
+ }
+ 
+-export type MutationHost = Pick<GpuixRenderer, "applyBatch">
++export type MutationHost = Pick<GpuixRenderer, "applyBatch"> &
++  Partial<Pick<GpuixRenderer, "setLiveText">>
+ export type WindowSizeHost = Pick<GpuixRenderer, "getWindowSize">
+ export type WindowInsetsHost = Pick<GpuixRenderer, "getWindowInsets">
+ export type SelectionHost = Pick<GpuixRenderer, "getSelectedText">
+diff --git a/packages/native/js/mutations.ts b/packages/native/js/mutations.ts
+--- a/packages/native/js/mutations.ts
++++ b/packages/native/js/mutations.ts
+@@ -37,7 +37,13 @@ export function createMutationQueue(
+     setStyle(id, style) {
+       enqueue(["setStyle", id, style])
+     },
+     setText(id, content) {
++      // Preserve atomic mount/mixed commits. A standalone text update can go
++      // straight to an already-mounted native text leaf and avoid rebuilding
++      // the whole retained host tree. Native falls back to root invalidation
++      // when the leaf has not mounted yet.
++      if (queue.length === 0 && renderer.setLiveText) {
++        renderer.setLiveText(id, content)
++        return
++      }
+       enqueue(["setText", id, content])
+     },
+     setEventListener(id, eventType, hasHandler) {
+diff --git a/packages/native/index.d.ts b/packages/native/index.d.ts
+--- a/packages/native/index.d.ts
++++ b/packages/native/index.d.ts
+@@ -276,6 +276,12 @@ export declare class GpuixRenderer {
+    * Acquires the tree mutex ONCE for the entire batch.
+    */
+   applyBatch(json: string): Array<number>
++  /**
++   * Update one already-mounted primitive text leaf without invalidating the
++   * whole root view. Falls back to normal root invalidation before first mount.
++   */
++  setLiveText(elementId: number, content: string): void
+   /** Pump the native event loop. Returns false after the last window closes. */
+   tick(): boolean
+   isInitialized(): boolean
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -1386,6 +1386,48 @@ impl GpuixRenderer {
+         self.request_invalidate()?;
+         Ok(destroyed)
+     }
++
++    /// Update one primitive text leaf without rebuilding the root GPUI view.
++    ///
++    /// Mounts and mixed commits still use applyBatch. This path exists for
++    /// isolated reactive labels (counters, zoom readouts, clocks) after their
++    /// text leaf has already been rendered once.
++    #[napi]
++    pub fn set_live_text(&self, element_id: f64, content: String) -> Result<()> {
++        let id = to_element_id(element_id)?;
++        let shared = gpui::SharedString::from(content.clone());
++        {
++            let mut tree = self.tree.lock().unwrap();
++            let element = tree
++                .elements
++                .get(&id)
++                .ok_or_else(|| Error::from_reason(format!("Unknown element id {id}")))?;
++            if element.element_type != "text" {
++                return Err(Error::from_reason(format!(
++                    "setLiveText is only valid on <text>, got <{}>",
++                    element.element_type
++                )));
++            }
++            tree.set_text(id, content);
++        }
++
++        #[cfg(target_os = "macos")]
++        return update_window(move |view, window, cx| {
++            if !view.set_live_text(id, shared, cx) {
++                cx.notify();
++                window.refresh();
++            }
++        });
++
++        #[cfg(any(target_os = "windows", target_os = "linux", target_os = "freebsd"))]
++        {
++            let _ = shared;
++            return self.request_invalidate();
++        }
++
++        #[cfg(not(any(
++            target_os = "macos",
++            target_os = "windows",
++            target_os = "linux",
++            target_os = "freebsd"
++        )))]
++        {
++            let _ = shared;
++            self.request_invalidate()
++        }
++    }
+ 
+     // ── Frame loop ───────────────────────────────────────────────────
+ 
+@@ -3413,6 +3455,9 @@ pub(crate) struct GpuixView {
+     pub(crate) motion_states: HashMap<u64, crate::motion::MotionState>,
+     /// Live text selection, shared with the paint closures and the napi methods.
+     pub(crate) selection: SharedSelection,
++    /// Primitive retained text leaves rendered behind their own GPUI entity
++    /// boundary so isolated text changes do not rebuild GpuixView.
++    live_text_views: HashMap<u64, gpui::Entity<LiveTextView>>,
+     /// Persistent measurement and scroll state for React-backed virtual lists.
+     virtual_lists: HashMap<u64, VirtualListEntry>,
+@@ -3427,6 +3472,35 @@ pub(crate) struct GpuixView {
+     highlights: HashMap<u64, HighlightCacheEntry>,
+ }
+ 
++struct LiveTextView {
++    element_id: u64,
++    content: gpui::SharedString,
++    group: Option<u64>,
++    selectable: bool,
++    selection: SharedSelection,
++    wash_color: gpui::Hsla,
++    highlight: Option<Arc<crate::text::HighlightContext>>,
++}
++
++impl gpui::Render for LiveTextView {
++    fn render(
++        &mut self,
++        _window: &mut gpui::Window,
++        _cx: &mut gpui::Context<Self>,
++    ) -> impl gpui::IntoElement {
++        crate::text::selectable_text(crate::text::SelectableText {
++            group: self.group,
++            selectable: self.selectable,
++            highlight: self
++                .highlight
++                .clone()
++                .map(crate::text::HighlightSource::Resolved),
++            ..crate::text::SelectableText::new(
++                self.element_id,
++                0,
++                self.content.clone(),
++                None,
++                self.selection.clone(),
++                self.wash_color,
++            )
++        })
++    }
++}
++
+ /// Two-level cache for one element's `highlight`.
+ ///
+ /// The group list is keyed by `search_revision`, which a query change does NOT
+@@ -3672,6 +3746,7 @@ impl GpuixView {
+             scroll_handles: HashMap::new(),
+             motion_states: HashMap::new(),
+             selection,
++            live_text_views: HashMap::new(),
+             virtual_lists: HashMap::new(),
+             selection_drag_position: None,
+@@ -3681,6 +3756,19 @@ impl GpuixView {
+         }
+     }
+ 
++    fn set_live_text(
++        &mut self,
++        id: u64,
++        content: gpui::SharedString,
++        cx: &mut gpui::Context<Self>,
++    ) -> bool {
++        let Some(view) = self.live_text_views.get(&id).cloned() else {
++            return false;
++        };
++        view.update(cx, |state, cx| {
++            state.content = content;
++            cx.notify();
++        });
++        true
++    }
++
+     pub(crate) fn set_live_image(
+         &mut self,
+         id: u64,
+@@ -4006,6 +4094,7 @@ pub(crate) struct BuildCtx<'a> {
+     pub event_callback: &'a Option<EventCallback>,
+     pub focus_handles: &'a HashMap<u64, gpui::FocusHandle>,
+     pub scroll_handles: &'a mut HashMap<u64, gpui::ScrollHandle>,
++    live_text_views: &'a mut HashMap<u64, gpui::Entity<LiveTextView>>,
+     pub custom_registry: &'a mut CustomElementRegistry,
+     virtual_lists: &'a mut HashMap<u64, VirtualListEntry>,
+@@ -4692,6 +4781,8 @@ impl gpui::Render for GpuixView {
+         // from scroll to non-scroll) is handled inside build_host_container().
+         self.scroll_handles
+             .retain(|id, _| tree.elements.contains_key(id));
++        self.live_text_views
++            .retain(|id, _| tree.elements.contains_key(id));
+         self.virtual_lists
+             .retain(|id, _| tree.elements.contains_key(id));
+@@ -4716,6 +4807,7 @@ impl gpui::Render for GpuixView {
+                     event_callback: &callback,
+                     focus_handles: &self.focus_handles,
+                     scroll_handles: &mut self.scroll_handles,
++                    live_text_views: &mut self.live_text_views,
+                     custom_registry: &mut self.custom_registry,
+                     virtual_lists: &mut self.virtual_lists,
+@@ -5456,8 +5548,8 @@ pub(crate) fn build_host_container(
+     // creates an empty placeholder text node for every dynamic hole (`<Show>`,
+     // `{cond && x}`). Emitting those as full-height lines inflated every
+     // conditional row. React never sends empty text, so this is a no-op there.
+     if let Some(content) = element.content.as_ref().filter(|value| !value.is_empty()) {
+-        el = el.child(text_content(element, content, ctx));
++        el = el.child(text_content(element, content, ctx, cx));
+     }
+ 
+     // Children
+@@ -5483,28 +5575,45 @@ pub(crate) fn build_host_container(
+ /// A `userSelect: "none"` run still paints highlight washes, because a browser
+ /// still finds that text with Ctrl+F. Element chrome that must never be found,
+ /// such as a code gutter, uses `chrome_text` instead.
+ fn text_content(
+     element: &crate::retained_tree::RetainedElement,
+     content: &gpui::SharedString,
+-    ctx: &BuildCtx,
++    ctx: &mut BuildCtx,
++    cx: &mut gpui::Context<GpuixView>,
+ ) -> gpui::AnyElement {
+-    selectable_text(crate::text::SelectableText {
+-        group: crate::text::search::group_id(ctx.tree, element.id),
+-        selectable: ctx.inherited.selectable,
+-        highlight: ctx
+-            .inherited
+-            .highlight
+-            .clone()
+-            .map(crate::text::HighlightSource::Resolved),
+-        ..crate::text::SelectableText::new(
++    let group = crate::text::search::group_id(ctx.tree, element.id);
++    let selectable = ctx.inherited.selectable;
++    let wash_color = ctx.inherited.selection_wash;
++    let highlight = ctx.inherited.highlight.clone();
++    let selection = ctx.selection.clone();
++    let view = if let Some(view) = ctx.live_text_views.get(&element.id).cloned() {
++        view.update(cx, |state, _cx| {
++            state.content = content.clone();
++            state.group = group;
++            state.selectable = selectable;
++            state.selection = selection.clone();
++            state.wash_color = wash_color;
++            state.highlight = highlight.clone();
++        });
++        view
++    } else {
++        let view = cx.new(|_cx| LiveTextView {
+             element.id,
+-            0,
+-            content.clone(),
+-            None,
+-            ctx.selection.clone(),
+-            ctx.inherited.selection_wash,
+-        )
+-    })
++            content: content.clone(),
++            group,
++            selectable,
++            selection,
++            wash_color,
++            highlight,
++        });
++        ctx.live_text_views.insert(element.id, view.clone());
++        view
++    };
++    use gpui::IntoElement;
++    view.into_any_element()
+ }
