@@ -21,8 +21,7 @@
     "patches/gpuix/percentage-position-v1.patch",
     "patches/gpuix/auto-margin-v1.patch",
     "patches/gpuix/display-none-v1.patch",
-    "patches/gpuix/canvas-live-draw-list-v1.patch",
-    "patches/gpuix/shared-style-cache-v2.patch"
+    "patches/gpuix/canvas-live-draw-list-v1.patch"
   ],
   "submodulePatches": [
     {
@@ -31,8 +30,7 @@
         "patches/gpuix/gpui-macos-embedded-wake-pump-v1.patch",
         "patches/gpuix/gpui-macos-embedded-transaction-presentation-v1.patch",
         "patches/gpuix/gpui-macos-drawable-backpressure-v1.patch",
-        "patches/gpuix/gpui-macos-offscreen-screenshot-v1.patch",
-        "patches/gpuix/gpui-shared-base-style-v1.patch"
+        "patches/gpuix/gpui-macos-offscreen-screenshot-v1.patch"
       ]
     }
   ]
