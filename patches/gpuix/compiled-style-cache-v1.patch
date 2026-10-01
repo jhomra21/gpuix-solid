@@ -76,10 +76,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
      }
      apply_accessibility(list, &element.custom_props, None).into_any_element()
  }
-@@ -5395,8 +5395,13 @@
-     // use `ElementId::Name`, which is a different variant and cannot collide.
-     let mut el = gpui::div().id(gpui::ElementId::Integer(element.id));
- 
+@@ -5398,3 +5398,8 @@
      if let Some(style) = style {
 -        el = apply_interactive_styles(el, style);
 +        let shared_style = if element.custom_props.contains_key("motion") {
@@ -89,8 +86,6 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +        };
 +        el = apply_interactive_styles_cached(el, style, shared_style, ctx.compiled_styles);
  
-         if crate::style::should_occlude(style) {
-             // BlockMouse (occlude) stops the hit test, so the parent scroller
 @@ -5922,6 +5922,50 @@
      }
  }
