@@ -1,7 +1,7 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -4844,20 +4844,28 @@ pub(crate) fn build_element(
+@@ -5104,18 +5104,28 @@ pub(crate) fn build_element(
      };
      let style = animated_style.as_ref().or(element.style.as_deref());
  
@@ -9,18 +9,24 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 -    // elements see the same cascade.
 -    let parent_inherited = ctx.inherited.clone();
 -    ctx.inherited = parent_inherited.clone().descend(style);
-+    // Most retained nodes do not alter inherited text state. Avoid cloning
-+    // the inherited highlight Arc and selection state on those nodes; only
-+    // save/restore when this element can actually change the cascade.
+-    if element.events.contains("scroll") {
++    // Most retained nodes do not alter inherited text/wheel state. Avoid
++    // cloning the inherited highlight Arc and selection state on inert nodes.
 +    let style_changes_inherited = style.is_some_and(|style| {
 +        style.user_select.is_some() || style.selection_color.is_some()
 +    });
++    let relay_scroll = element.events.contains("scroll");
 +    let highlight_value = element.custom_props.get("highlight");
-+    let parent_inherited = (style_changes_inherited || highlight_value.is_some())
-+        .then(|| ctx.inherited.clone());
++    let parent_inherited =
++        (style_changes_inherited || relay_scroll || highlight_value.is_some())
++            .then(|| ctx.inherited.clone());
++
 +    if style_changes_inherited {
 +        ctx.inherited = ctx.inherited.clone().descend(style);
 +    }
++    if relay_scroll {
+         ctx.inherited.relay_scroll = true;
+     }
  
      // A `highlight` here replaces any ancestor's: the nearest declaration wins,
      // and `GroupList::collect` skips nested declarations so an ancestor never
@@ -30,7 +36,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
          let has_listener = element.events.contains("highlight");
          let resolved = resolve_highlight(
              ctx.highlights,
-@@ -4910,7 +4918,9 @@ pub(crate) fn build_element(
+@@ -5173,7 +5183,9 @@ pub(crate) fn build_element(
          }
      };
  
@@ -40,3 +46,4 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +    }
      built
  }
+ 
