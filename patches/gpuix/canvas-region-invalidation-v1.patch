@@ -1,0 +1,101 @@
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -5052,8 +5053,33 @@
+     }
+ }
+ 
+-impl GpuixView {
+-    fn build_retained_region(
++fn direct_root_region_id(tree: &RetainedTree, id: u64) -> Option<u64> {
++    let root_id = tree.root_id?;
++    if id == root_id {
++        return None;
++    }
++    let mut current = id;
++    loop {
++        let element = tree.elements.get(&current)?;
++        match element.parent {
++            Some(parent) if parent == root_id => return Some(current),
++            Some(parent) => current = parent,
++            None => return None,
++        }
++    }
++}
++
++impl GpuixView {
++    fn notify_retained_region(&self, id: u64, cx: &mut gpui::Context<Self>) -> bool {
++        let Some(entry) = self.retained_regions.get(&id) else {
++            return false;
++        };
++        let region = entry.view.clone();
++        region.update(cx, |_region, region_cx| region_cx.notify());
++        true
++    }
++
++    fn build_retained_region(
+         &mut self,
+         id: u64,
+         window: &mut gpui::Window,
+@@ -1563,33 +1563,34 @@
+         let id = to_element_id(element_id)?;
+         let value: serde_json::Value = serde_json::from_str(&json)
+             .map_err(|error| Error::from_reason(format!("Invalid Canvas draw-list JSON: {error}")))?;
+-        {
+-            let mut tree = self.tree.lock().unwrap();
+-            let element = tree
+-                .elements
+-                .get_mut(&id)
+-                .ok_or_else(|| Error::from_reason(format!("Unknown element id {id}")))?;
+-            if element.element_type != "canvas" {
+-                return Err(Error::from_reason(format!(
+-                    "setCanvasDrawList is only valid on <canvas>, got <{}>",
+-                    element.element_type
+-                )));
+-            }
+-            element.custom_props.insert("drawList".to_string(), value.clone());
+-        }
+-
+-        #[cfg(target_os = "macos")]
+-        return update_window(move |view, window, cx| {
+-            if view
+-                .custom_registry
+-                .set_live_prop_if_present(id, "canvas", "drawList", value)
+-            {
+-                window.refresh();
+-            } else {
+-                cx.notify();
+-                window.refresh();
+-            }
+-        });
++        let region_id = {
++            let mut tree = self.tree.lock().unwrap();
++            let element = tree
++                .elements
++                .get_mut(&id)
++                .ok_or_else(|| Error::from_reason(format!("Unknown element id {id}")))?;
++            if element.element_type != "canvas" {
++                return Err(Error::from_reason(format!(
++                    "setCanvasDrawList is only valid on <canvas>, got <{}>",
++                    element.element_type
++                )));
++            }
++            element.custom_props.insert("drawList".to_string(), value.clone());
++            direct_root_region_id(&tree, id)
++        };
++
++        #[cfg(target_os = "macos")]
++        return update_window(move |view, _window, cx| {
++            let live = view
++                .custom_registry
++                .set_live_prop_if_present(id, "canvas", "drawList", value);
++            if live
++                && region_id.is_some_and(|region_id| view.notify_retained_region(region_id, cx))
++            {
++                return;
++            }
++            cx.notify();
++        });
+ 
+         #[cfg(not(target_os = "macos"))]
+         {
