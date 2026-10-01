@@ -14,22 +14,41 @@ diff --git a/packages/native/js/host.ts b/packages/native/js/host.ts
 diff --git a/packages/native/js/mutations.ts b/packages/native/js/mutations.ts
 --- a/packages/native/js/mutations.ts
 +++ b/packages/native/js/mutations.ts
-@@ -37,7 +37,15 @@ export function createMutationQueue(
-     setStyle(id, style) {
-       enqueue(["setStyle", id, style])
+@@ -58,15 +58,27 @@
      },
-     setText(id, content) {
-+      // Preserve atomic mount/mixed commits. A standalone text update can go
-+      // straight to an already-mounted native text leaf and avoid rebuilding
-+      // the whole retained host tree. Native falls back to root invalidation
-+      // when the leaf has not mounted yet.
-+      if (queue.length === 0 && renderer.setLiveText) {
-+        renderer.setLiveText(id, content)
-+        return
+     setCustomProp(id, key, value) {
+       enqueue(["setCustomProp", id, key, value])
+     },
+-    flushMutations() {
+-      flushScheduled = false
+-      if (queue.length === 0) return
+-      const destroyed = renderer.applyBatch(JSON.stringify(queue))
+-      onDestroyed(destroyed)
+-      queue = []
+-    },
++    flushMutations() {
++      flushScheduled = false
++      if (queue.length === 0) return
++
++      const mutation = queue.length === 1 ? queue[0] : undefined
++      if (mutation?.[0] === "setText" && renderer.setLiveText) {
++        const id = mutation[1]
++        const content = mutation[2]
++        if (typeof id === "number" && typeof content === "string") {
++          renderer.setLiveText(id, content)
++          queue = []
++          return
++        }
 +      }
-       enqueue(["setText", id, content])
-     },
-     setEventListener(id, eventType, hasHandler) {
++
++      const destroyed = renderer.applyBatch(JSON.stringify(queue))
++      onDestroyed(destroyed)
++      queue = []
++    },
+   }
+   return mutations
+ }
+ 
 diff --git a/packages/native/index.d.ts b/packages/native/index.d.ts
 --- a/packages/native/index.d.ts
 +++ b/packages/native/index.d.ts
