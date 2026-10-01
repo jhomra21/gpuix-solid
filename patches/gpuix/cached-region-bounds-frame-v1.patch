@@ -1,7 +1,7 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -5189,1 +5189,18 @@
+@@ -5189,1 +5189,17 @@
 -        record_view_build_duration(build_started.elapsed());
 +        let cached_region_bounds = if motion_active {
 +            Vec::new()
