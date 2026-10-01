@@ -201,6 +201,8 @@ jobs:
         run: bun run test:native:edge
       - name: Run Diffusion Solid 1 live automation
         working-directory: examples/solid1-diffusion
+        env:
+          GPUIX_ENFORCE_120HZ: "1"
         run: bun run test:live:edge
       - name: Upload Diffusion acceptance screenshots
         if: always()
