@@ -1,0 +1,144 @@
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -3384,6 +3384,11 @@
+ 
+ // ── GPUI View ────────────────────────────────────────────────────────
+ 
++struct CachedStyleRefinement {
++    source: std::sync::Weak<StyleDesc>,
++    refinement: gpui::StyleRefinement,
++}
++
+ pub(crate) struct GpuixView {
+     pub(crate) tree: Arc<Mutex<RetainedTree>>,
+     pub(crate) event_callback: Option<EventCallback>,
+@@ -3405,6 +3410,8 @@
+     /// Registry for custom element types (input, editor, diff, etc.).
+     /// Stores factories (one per type) and live instances (one per element ID).
+     pub(crate) custom_registry: CustomElementRegistry,
++    /// GPUI base-style translations keyed by the pointer identity of interned StyleDesc values.
++    compiled_styles: HashMap<usize, CachedStyleRefinement>,
+     /// Persistent ScrollHandles keyed by element ID.
+     /// Created lazily for elements with overflow: "scroll" (or per-axis scroll).
+     /// Handles persist across renders so GPUI maintains scroll offset state.
+@@ -3668,6 +3675,7 @@
+             pending_focus_element: None,
+             focus_subscriptions: HashMap::new(),
+             custom_registry: CustomElementRegistry::with_defaults(),
++            compiled_styles: HashMap::new(),
+             scroll_handles: HashMap::new(),
+             motion_states: HashMap::new(),
+             selection,
+@@ -3885,6 +3893,7 @@
+             event_callback: &callback,
+             focus_handles: &self.focus_handles,
+             scroll_handles: &mut self.scroll_handles,
++            compiled_styles: &mut self.compiled_styles,
+             custom_registry: &mut self.custom_registry,
+             virtual_lists: &mut self.virtual_lists,
+             motion_states: &mut self.motion_states,
+@@ -4004,6 +4013,7 @@
+     pub tree: &'a RetainedTree,
+     pub event_callback: &'a Option<EventCallback>,
+     pub focus_handles: &'a HashMap<u64, gpui::FocusHandle>,
++    compiled_styles: &'a mut HashMap<usize, CachedStyleRefinement>,
+     pub scroll_handles: &'a mut HashMap<u64, gpui::ScrollHandle>,
+     pub custom_registry: &'a mut CustomElementRegistry,
+     virtual_lists: &'a mut HashMap<u64, VirtualListEntry>,
+@@ -4695,6 +4705,11 @@
+         self.virtual_lists
+             .retain(|id, _| tree.elements.contains_key(id));
++        if self.compiled_styles.len() > 512 {
++            self.compiled_styles
++                .retain(|_, entry| entry.source.upgrade().is_some());
++        }
++
+         // Build the element tree. custom_registry, focus_handles, and scroll_handles
+         // are different fields of self, so Rust allows borrowing all simultaneously.
+         let theme = Theme::dark();
+@@ -4716,6 +4731,7 @@
+                     event_callback: &callback,
+                     focus_handles: &self.focus_handles,
+                     scroll_handles: &mut self.scroll_handles,
++                    compiled_styles: &mut self.compiled_styles,
+                     custom_registry: &mut self.custom_registry,
+                     virtual_lists: &mut self.virtual_lists,
+                     motion_states: &mut self.motion_states,
+@@ -5052,8 +5068,9 @@
+             "__gpuix_virtual_list_{}",
+             element.id
+         ))));
+-    if let Some(style) = element.style.as_deref() {
+-        list = apply_styles(list, style);
++    if let Some(style) = element.style.as_ref() {
++        *list.style() = cached_style_refinement(ctx.compiled_styles, style).clone();
+     }
+     apply_accessibility(list, &element.custom_props, None).into_any_element()
+ }
+@@ -5116,8 +5133,14 @@
+     // use `ElementId::Name`, which is a different variant and cannot collide.
+     let mut el = gpui::div().id(gpui::ElementId::Integer(element.id));
+ 
+     if let Some(style) = style {
+-        el = apply_interactive_styles(el, style);
++        let shared_style = if element.custom_props.contains_key("motion") {
++            None
++        } else {
++            element.style.as_ref()
++        };
++        el = apply_interactive_styles_cached(el, style, shared_style, ctx.compiled_styles);
+ 
+         if crate::style::should_occlude(style) {
+             // BlockMouse (occlude) stops the hit test, so the parent scroller
+@@ -5537,6 +5560,47 @@
+     }
+ }
+ 
++fn cached_style_refinement<'a>(
++    cache: &'a mut HashMap<usize, CachedStyleRefinement>,
++    style: &Arc<StyleDesc>,
++) -> &'a gpui::StyleRefinement {
++    let key = Arc::as_ptr(style) as usize;
++    let is_hit = match cache.get(&key).and_then(|entry| entry.source.upgrade()) {
++        Some(source) => Arc::ptr_eq(&source, style),
++        None => false,
++    };
++    if !is_hit {
++        cache.insert(
++            key,
++            CachedStyleRefinement {
++                source: Arc::downgrade(style),
++                refinement: apply_styles(gpui::StyleRefinement::default(), style.as_ref()),
++            },
++        );
++    }
++    &cache.get(&key).expect("compiled style inserted").refinement
++}
++
++fn apply_interactive_styles_cached<E>(
++    mut el: E,
++    style: &StyleDesc,
++    shared_style: Option<&Arc<StyleDesc>>,
++    cache: &mut HashMap<usize, CachedStyleRefinement>,
++) -> E
++where
++    E: gpui::Styled + gpui::StatefulInteractiveElement,
++{
++    if let Some(shared_style) = shared_style {
++        *el.style() = cached_style_refinement(cache, shared_style).clone();
++    } else {
++        el = apply_styles(el, style);
++    }
++    if let Some(hover_style) = style.hover.as_deref() {
++        el = el.hover(|refinement| apply_styles(refinement, hover_style));
++    }
++    if let Some(active_style) = style.active.as_deref() {
++        el = el.active(|refinement| apply_styles(refinement, active_style));
++    }
++    el
++}
++
+ /// Base styles plus gpui's `hover` and `active` refinements.
+ ///
+ /// Every stateful GPUI root must go through this, never `apply_styles` alone.
