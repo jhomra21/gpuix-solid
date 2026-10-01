@@ -1,7 +1,7 @@
 diff --git a/packages/native/src/automation.rs b/packages/native/src/automation.rs
 --- a/packages/native/src/automation.rs
 +++ b/packages/native/src/automation.rs
-@@ -40,21 +40,62 @@
+@@ -40,21 +40,64 @@
  thread_local! {
      static BOUNDS: RefCell<HashMap<u64, ElementBounds>> = RefCell::new(HashMap::new());
  }
@@ -70,7 +70,7 @@ diff --git a/packages/native/src/automation.rs b/packages/native/src/automation.
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -3770,9 +3770,12 @@
+@@ -3770,8 +3770,11 @@
  struct RetainedRegionEntry {
      revision: u64,
      view: gpui::Entity<RetainedRegionView>,
@@ -82,7 +82,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
  struct RetainedRegionView {
      parent: gpui::WeakEntity<GpuixView>,
      element_id: u64,
-@@ -5140,9 +5143,14 @@
+@@ -5140,8 +5143,11 @@
          self.virtual_lists
              .retain(|id, _| tree.elements.contains_key(id));
          let root_id = tree.root_id;
@@ -94,7 +94,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
                  .get(id)
                  .is_some_and(|element| element.parent == root_id)
          });
-@@ -5180,6 +5188,20 @@
+@@ -5180,7 +5188,23 @@
              }
              None => gpui::Empty.into_any_element(),
          };
@@ -129,7 +129,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
                  .child(result)
                  .into_any_element()
          };
-@@ -5272,6 +5296,18 @@
+@@ -5272,7 +5296,17 @@
      probe.style().clone()
  }
  
@@ -147,7 +147,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
      let value = tree
          .elements
          .get(&id)?
-@@ -6090,12 +6126,21 @@
+@@ -6090,12 +6126,23 @@
                          .get(&child_id)
                          .is_none_or(|entry| entry.revision != revision);
                      if replace {
