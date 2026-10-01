@@ -248,7 +248,7 @@ function summarizeProfiles(name, runNames) {
 }
 
 async function profileNativeFrames(app, name, exercise) {
-  const probeTimeoutMs = 10_000
+  const probeTimeoutMs = 15_000
   const probeStartedAt = performance.now()
   const scenario = { status: "running", phase: "reset" }
   performanceReport.scenarios[name] = scenario
@@ -681,28 +681,30 @@ try {
   await app.mouse.wheel(inspectorViewportPoint, 0, -inspectorProbeDelta)
   await delay(80)
 
-  const inspectorProfileSteps = 12
-  // Keep the sustained probe inside the fixture's 96 px vertical travel so
-  // every sample performs actual scroll work instead of measuring no-op wheel
-  // events at the bottom edge.
+  const inspectorProfileLegSteps = 10
+  const inspectorProfileCycles = 4
+  const inspectorProfileSteps = inspectorProfileLegSteps * inspectorProfileCycles * 2
+  // Bounce inside the fixture's 96 px vertical travel so every sample performs
+  // real scroll work while the longer window makes p99 statistically useful.
   const inspectorProfileDelta = inspectorOffsetBefore[1] < 0 ? 6 : -6
   const inspectorProfileRuns = []
   for (let run = 1; run <= 3; run += 1) {
     const runName = `inspector-wheel-run-${run}`
     inspectorProfileRuns.push(runName)
     await profileNativeFrames(app, runName, async (mark) => {
-      for (let index = 0; index < inspectorProfileSteps; index += 1) {
-        mark(`wheel ${index + 1}/${inspectorProfileSteps}`)
-        await app.mouse.wheel(inspectorViewportPoint, 0, inspectorProfileDelta)
-        // Pace input at the target rate instead of flooding synchronous N-API.
-        await delay(targetFrameMs)
+      let sample = 0
+      for (let cycle = 0; cycle < inspectorProfileCycles; cycle += 1) {
+        for (const deltaY of [inspectorProfileDelta, -inspectorProfileDelta]) {
+          for (let step = 0; step < inspectorProfileLegSteps; step += 1) {
+            sample += 1
+            mark(`wheel ${sample}/${inspectorProfileSteps}`)
+            await app.mouse.wheel(inspectorViewportPoint, 0, deltaY)
+            // Pace input at the target rate instead of flooding synchronous N-API.
+            await delay(targetFrameMs)
+          }
+        }
       }
     })
-    await app.mouse.wheel(
-      inspectorViewportPoint,
-      0,
-      -(inspectorProfileSteps * inspectorProfileDelta),
-    )
     await delay(120)
   }
   summarizeProfiles("inspector-wheel", inspectorProfileRuns)
@@ -994,24 +996,32 @@ try {
   await screenshot(app, "canvasZoomed")
 
   // Keep the camera hot long enough to measure the real retained Canvas path,
-  // including Diffusion's RAF systems and GPUIX draw-list handoff.
+  // including Diffusion's RAF systems and GPUIX draw-list handoff. Use long
+  // directional blocks instead of event-by-event alternation so the camera
+  // visibly moves on 60 Hz CI while the overall probe returns near its start.
+  const canvasProfileLegSteps = 10
+  const canvasProfileCycles = 4
+  const canvasProfileSteps = canvasProfileLegSteps * canvasProfileCycles * 2
   const canvasProfileRuns = []
   for (let run = 1; run <= 3; run += 1) {
     const runName = `canvas-wheel-zoom-run-${run}`
     canvasProfileRuns.push(runName)
     await profileNativeFrames(app, runName, async (mark) => {
-      for (let index = 0; index < 24; index += 1) {
-        mark(`wheel ${index + 1}/24`)
-        // Keep the measured zoom monotonic. Alternating equal deltas can cancel
-        // between display frames and hide real camera/Canvas work on a 60 Hz CI
-        // runner even though every wheel handler executes.
-        await app.mouse.wheel(
-          at(wheelZoomStage.bounds, 0.5, 0.5),
-          0,
-          4,
-          { modifiers: "ctrl" },
-        )
-        await delay(targetFrameMs)
+      let sample = 0
+      for (let cycle = 0; cycle < canvasProfileCycles; cycle += 1) {
+        for (const deltaY of [4, -4]) {
+          for (let step = 0; step < canvasProfileLegSteps; step += 1) {
+            sample += 1
+            mark(`wheel ${sample}/${canvasProfileSteps}`)
+            await app.mouse.wheel(
+              at(wheelZoomStage.bounds, 0.5, 0.5),
+              0,
+              deltaY,
+              { modifiers: "ctrl" },
+            )
+            await delay(targetFrameMs)
+          }
+        }
       }
     })
 
