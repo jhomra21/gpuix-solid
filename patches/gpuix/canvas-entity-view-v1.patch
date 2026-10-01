@@ -1,7 +1,7 @@
 diff --git a/packages/native/src/custom_elements/canvas.rs b/packages/native/src/custom_elements/canvas.rs
 --- a/packages/native/src/custom_elements/canvas.rs
 +++ b/packages/native/src/custom_elements/canvas.rs
-@@ -153,8 +153,9 @@
+@@ -153,7 +153,8 @@
  #[derive(Default)]
  pub struct CanvasElement {
      draw_list: Arc<RwLock<Option<Arc<CanvasDrawList>>>>,
@@ -10,7 +10,7 @@ diff --git a/packages/native/src/custom_elements/canvas.rs b/packages/native/src
  }
  
  pub struct CanvasFactory;
-@@ -172,11 +173,38 @@
+@@ -172,40 +173,64 @@
      draw_list: Option<Arc<CanvasDrawList>>,
      text: Vec<Option<gpui::ShapedLine>>,
  }
@@ -96,7 +96,7 @@ diff --git a/packages/native/src/custom_elements/canvas.rs b/packages/native/src
 +            .child(canvas_view)
              .into_any_element()
      }
-@@ -246,6 +274,19 @@
+@@ -246,8 +274,22 @@
          if let Ok(mut state) = self.draw_list.write() {
              *state = next;
          }
@@ -122,7 +122,7 @@ diff --git a/packages/native/src/custom_elements/canvas.rs b/packages/native/src
 diff --git a/packages/native/src/custom_elements/mod.rs b/packages/native/src/custom_elements/mod.rs
 --- a/packages/native/src/custom_elements/mod.rs
 +++ b/packages/native/src/custom_elements/mod.rs
-@@ -215,6 +215,17 @@ pub trait CustomElement: 'static {
+@@ -215,5 +215,19 @@ pub trait CustomElement: 'static {
      /// Apply a changed prop from the retained tree. Removed props arrive as null.
      fn set_prop(&mut self, key: &str, value: serde_json::Value);
  
@@ -142,7 +142,7 @@ diff --git a/packages/native/src/custom_elements/mod.rs b/packages/native/src/cu
 +
      /// Immutable prop capability declaration for this adapter.
      fn supported_props(&self) -> &'static [&'static str];
-@@ -438,7 +449,8 @@
+@@ -438,6 +449,7 @@
          element_type: &str,
          key: &str,
          value: serde_json::Value,
@@ -165,7 +165,7 @@ diff --git a/packages/native/src/custom_elements/mod.rs b/packages/native/src/cu
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -1510,14 +1510,15 @@
+@@ -1510,12 +1510,13 @@
          #[cfg(target_os = "macos")]
          return update_window(move |view, window, cx| {
              if view
