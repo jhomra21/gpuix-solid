@@ -94,7 +94,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
                  .get(id)
                  .is_some_and(|element| element.parent == root_id)
          });
-@@ -5180,6 +5188,22 @@
+@@ -5180,7 +5188,24 @@
              }
              None => gpui::Empty.into_any_element(),
          };
