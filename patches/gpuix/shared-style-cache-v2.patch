@@ -75,7 +75,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +        };
 +        el = apply_interactive_styles_shared(el, style, shared_style, ctx.compiled_styles);
  
-@@ -5922,6 +5943,50 @@
+@@ -5922,6 +5943,57 @@
      }
  }
  
