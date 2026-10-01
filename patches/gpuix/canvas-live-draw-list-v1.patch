@@ -202,7 +202,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +            let mut tree = self.tree.lock().unwrap();
 +            let element = tree
 +                .elements
-+                .get(&id)
++                .get_mut(&id)
 +                .ok_or_else(|| Error::from_reason(format!("Unknown element id {id}")))?;
 +            if element.element_type != "canvas" {
 +                return Err(Error::from_reason(format!(
@@ -210,7 +210,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +                    element.element_type
 +                )));
 +            }
-+            tree.set_custom_prop(id, "drawList".to_string(), value.clone());
++            element.custom_props.insert("drawList".to_string(), value.clone());
 +        }
 +
 +        #[cfg(target_os = "macos")]
@@ -253,7 +253,7 @@ diff --git a/packages/native/src/test_renderer.rs b/packages/native/src/test_ren
 +        let mut tree = self.tree.lock().unwrap();
 +        let element = tree
 +            .elements
-+            .get(&id)
++            .get_mut(&id)
 +            .ok_or_else(|| Error::from_reason(format!("Unknown element id {id}")))?;
 +        if element.element_type != "canvas" {
 +            return Err(Error::from_reason(format!(
@@ -261,7 +261,7 @@ diff --git a/packages/native/src/test_renderer.rs b/packages/native/src/test_ren
 +                element.element_type
 +            )));
 +        }
-+        tree.set_custom_prop(id, "drawList".to_string(), value);
++        element.custom_props.insert("drawList".to_string(), value);
 +        Ok(())
 +    }
 +
