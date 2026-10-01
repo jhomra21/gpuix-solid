@@ -94,6 +94,60 @@ function descendants(node) {
   return [node, ...(node.children ?? []).flatMap(descendants)]
 }
 
+function comparableAutomationNode(node) {
+  return {
+    type: node.type,
+    text: node.text ?? null,
+    testId: node.testId ?? null,
+    style: node.style ?? null,
+    events: node.events ?? null,
+    customProps: node.customProps ?? null,
+    bounds: node.bounds ?? null,
+  }
+}
+
+function diffAutomationTrees(before, after) {
+  const beforeNodes = new Map(descendants(before).map((node) => [node.id, node]))
+  const afterNodes = new Map(descendants(after).map((node) => [node.id, node]))
+  const ids = new Set([...beforeNodes.keys(), ...afterNodes.keys()])
+  const changed = []
+
+  for (const id of ids) {
+    const previous = beforeNodes.get(id)
+    const next = afterNodes.get(id)
+    if (!previous || !next) {
+      changed.push({
+        id,
+        kind: previous ? "removed" : "added",
+        type: (next ?? previous)?.type ?? null,
+        text: (next ?? previous)?.text ?? null,
+        testId: (next ?? previous)?.testId ?? null,
+      })
+      continue
+    }
+
+    const previousComparable = comparableAutomationNode(previous)
+    const nextComparable = comparableAutomationNode(next)
+    if (JSON.stringify(previousComparable) === JSON.stringify(nextComparable)) continue
+
+    const fields = Object.keys(previousComparable).filter(
+      (key) => JSON.stringify(previousComparable[key]) !== JSON.stringify(nextComparable[key]),
+    )
+    changed.push({
+      id,
+      kind: "changed",
+      type: next.type,
+      text: next.text ?? null,
+      testId: next.testId ?? null,
+      fields,
+      before: previousComparable,
+      after: nextComparable,
+    })
+  }
+
+  return changed
+}
+
 function indexParents(root) {
   const parents = new Map()
   const visit = (node) => {
@@ -1005,6 +1059,38 @@ try {
   }, 4_000)
   assert(zoomAfterWheel !== zoomBeforeWheel, `Canvas wheel zoom did not change zoom from ${zoomBeforeWheel}`)
   await screenshot(app, "canvasZoomed")
+
+  // Diagnose which retained UI nodes actually change during camera zoom.
+  // This runs outside the timed performance window and resets camera state
+  // before the measured captures below.
+  const canvasRevisionTrace = []
+  let revisionTree = await currentTree(app)
+  for (let tick = 1; tick <= 3; tick += 1) {
+    await app.mouse.wheel(
+      at(wheelZoomStage.bounds, 0.5, 0.5),
+      0,
+      4,
+      { modifiers: "ctrl" },
+    )
+    await delay(80)
+    const nextTree = await currentTree(app)
+    canvasRevisionTrace.push({
+      tick,
+      zoom: (await zoomReadout.textContent()).trim(),
+      changed: diffAutomationTrees(revisionTree, nextTree),
+    })
+    revisionTree = nextTree
+  }
+  performanceReport.canvasRevisionTrace = canvasRevisionTrace
+  persistPerformanceReport()
+
+  await zoomReadout.click()
+  tree = await waitFor("Inspector zoom reset menu after revision trace", async () => {
+    const next = await currentTree(app)
+    return descendants(next).some((node) => node.text === "Zoom to 100%") ? next : null
+  })
+  await clickNode(app, findText(tree, "Zoom to 100%"))
+  await delay(160)
 
   // Keep the camera hot long enough to measure the real retained Canvas path,
   // including Diffusion's RAF systems and GPUIX draw-list handoff. Use long
