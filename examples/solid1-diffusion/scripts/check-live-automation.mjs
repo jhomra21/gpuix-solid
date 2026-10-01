@@ -234,17 +234,28 @@ function summarizeProfiles(name, runNames) {
   if (!summary.meets120HzDrawBudget) summary.status = "budget-miss"
   performanceReport.scenarios[name] = summary
   persistPerformanceReport()
-  if (enforce120HzBudget) {
-    assert(
-      summary.meets120HzDrawBudget,
-      `${name} median draw budget missed: p90=${summary.p90Ms?.toFixed(2) ?? "n/a"}ms p99=${summary.p99Ms?.toFixed(2) ?? "n/a"}ms target=${targetFrameMs.toFixed(2)}ms`,
-    )
-  } else if (!summary.meets120HzDrawBudget) {
+  if (!enforce120HzBudget && !summary.meets120HzDrawBudget) {
     console.warn(
       `${name} median draw budget missed: p90=${summary.p90Ms?.toFixed(2) ?? "n/a"}ms p99=${summary.p99Ms?.toFixed(2) ?? "n/a"}ms target=${targetFrameMs.toFixed(2)}ms; reporting only on this runner`,
     )
   }
   return summary
+}
+
+function enforcePerformanceBudgets(names) {
+  if (!enforce120HzBudget) return
+
+  const misses = names.flatMap((name) => {
+    const summary = performanceReport.scenarios[name]
+    if (summary?.meets120HzDrawBudget) return []
+    return [
+      `${name}: p90=${summary?.p90Ms?.toFixed(2) ?? "n/a"}ms p99=${summary?.p99Ms?.toFixed(2) ?? "n/a"}ms`,
+    ]
+  })
+  assert(
+    misses.length === 0,
+    `120 Hz median draw budget missed: ${misses.join("; ")}; target=${targetFrameMs.toFixed(2)}ms`,
+  )
 }
 
 async function profileNativeFrames(app, name, exercise) {
@@ -1035,6 +1046,7 @@ try {
     await delay(160)
   }
   summarizeProfiles("canvas-wheel-zoom", canvasProfileRuns)
+  enforcePerformanceBudgets(["inspector-wheel", "canvas-wheel-zoom"])
 
   tree = await getFreshTree(app)
   parts = toolbarParts(tree)
