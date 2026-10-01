@@ -226,6 +226,7 @@ function summarizeProfiles(name, runNames) {
     viewBuildP99Ms: median(runs.map((run) => run?.viewBuildP99Ms)),
     viewBuildMaxMs: median(runs.map((run) => run?.viewBuildMaxMs)),
     observedFps: median(runs.map((run) => run?.observedFps)),
+    rootRevisionDelta: median(runs.map((run) => run?.rootRevisionDelta)),
   }
   summary.meets120HzDrawBudget = summary.p90Ms !== null && summary.p90Ms <= targetFrameMs
   if (!summary.meets120HzDrawBudget) summary.status = "budget-miss"
@@ -307,6 +308,12 @@ async function profileNativeFrames(app, name, exercise) {
           viewBuildP99Ms: stats.viewBuildP99Ms ?? null,
           viewBuildMaxMs: stats.viewBuildMaxMs ?? null,
           viewBuildSamples: stats.viewBuildSamples ?? null,
+          rootRevisionStart: baseline.rootSubtreeRevision ?? null,
+          rootRevisionEnd: stats.rootSubtreeRevision ?? null,
+          rootRevisionDelta:
+            baseline.rootSubtreeRevision !== undefined && stats.rootSubtreeRevision !== undefined
+              ? stats.rootSubtreeRevision - baseline.rootSubtreeRevision
+              : null,
           frames,
           samples: stats.samples,
           meets120HzDrawBudget: p90Ms !== null && p90Ms <= targetFrameMs,
