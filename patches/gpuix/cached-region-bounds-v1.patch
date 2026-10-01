@@ -1,0 +1,174 @@
+diff --git a/packages/native/src/automation.rs b/packages/native/src/automation.rs
+--- a/packages/native/src/automation.rs
++++ b/packages/native/src/automation.rs
+@@ -40,21 +40,62 @@
+ thread_local! {
+     static BOUNDS: RefCell<HashMap<u64, ElementBounds>> = RefCell::new(HashMap::new());
+ }
+ 
++pub type SharedBoundsSnapshot = Arc<Mutex<HashMap<u64, ElementBounds>>>;
++
++pub fn shared_bounds_snapshot() -> SharedBoundsSnapshot {
++    Arc::new(Mutex::new(HashMap::new()))
++}
++
+ /// Zero-size canvas. Keep it ahead of the app subtree under the root.
+ ///
+ /// Everything here is recorded during **paint**, never prepaint: gpui's
+ /// `List::prepaint` speculatively prepaints a row range and can roll the window
+ /// back and prepaint a different one, so a prepaint-recorded box can belong to a
+ /// row that never reached the screen.
+ pub fn bounds_frame_reset() -> impl IntoElement {
++    bounds_frame_reset_with_regions(Vec::new())
++}
++
++/// Reset frame-local bounds while preserving geometry for GPUI-cached root regions.
++///
++/// Cached views reuse prepaint/paint ranges and therefore do not rerun descendant
++/// `on_painted` callbacks. For an unchanged cached region, capture its completed
++/// previous-frame bounds before clearing the global map, then replay that snapshot
++/// into the new frame. Invalidated/new regions pass `preserve_previous = false`
++/// and repaint their bounds normally.
++pub fn bounds_frame_reset_with_regions(
++    regions: Vec<(SharedBoundsSnapshot, Vec<u64>, bool)>,
++) -> impl IntoElement {
+     canvas(
+         |_, _, _| (),
+         move |_, _, _, _| {
+-            BOUNDS.with(|cell| cell.borrow_mut().clear());
++            BOUNDS.with(|cell| {
++                let mut current = cell.borrow_mut();
++
++                for (snapshot, ids, preserve_previous) in &regions {
++                    if !preserve_previous {
++                        continue;
++                    }
++                    if let Ok(mut previous) = snapshot.lock() {
++                        previous.clear();
++                        previous.reserve(ids.len());
++                        for id in ids {
++                            if let Some(bounds) = current.get(id).copied() {
++                                previous.insert(*id, bounds);
++                            }
++                        }
++                    }
++                }
++
++                current.clear();
++                for (snapshot, _, _) in &regions {
++                    if let Ok(previous) = snapshot.lock() {
++                        current.extend(previous.iter().map(|(id, bounds)| (*id, *bounds)));
++                    }
++                }
++            });
+         },
+     )
+     .absolute()
+     .w(px(0.0))
+     .h(px(0.0))
+ }
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -3770,9 +3770,12 @@
+ struct RetainedRegionEntry {
+     revision: u64,
+     view: gpui::Entity<RetainedRegionView>,
++    bounds_snapshot: crate::automation::SharedBoundsSnapshot,
++    element_ids: Vec<u64>,
++    preserve_bounds: bool,
+ }
+ 
+ struct RetainedRegionView {
+     parent: gpui::WeakEntity<GpuixView>,
+     element_id: u64,
+@@ -5140,9 +5143,14 @@
+         self.virtual_lists
+             .retain(|id, _| tree.elements.contains_key(id));
+         let root_id = tree.root_id;
++        if motion_active {
++            self.retained_regions.clear();
++        }
+         self.retained_regions.retain(|id, _| {
+             tree.elements
+                 .get(id)
+                 .is_some_and(|element| element.parent == root_id)
+         });
+@@ -5180,6 +5188,20 @@
+             }
+             None => gpui::Empty.into_any_element(),
+         };
++
++        let cached_region_bounds = if motion_active {
++            Vec::new()
++        } else {
++            self.retained_regions
++                .values()
++                .map(|entry| {
++                    (
++                        entry.bounds_snapshot.clone(),
++                        entry.element_ids.clone(),
++                        entry.preserve_bounds,
++                    )
++                })
++                .collect()
++        };
++        self.retained_regions.values_mut().for_each(|entry| entry.preserve_bounds = true);
+ 
+         let result = {
+             let drag_move_view = cx.weak_entity();
+             let drag_end_view = drag_move_view.clone();
+@@ -5206,7 +5228,9 @@
+                         });
+                     },
+                 ))
+-                .child(crate::automation::bounds_frame_reset())
++                .child(crate::automation::bounds_frame_reset_with_regions(
++                    cached_region_bounds,
++                ))
+                 .child(result)
+                 .into_any_element()
+         };
+@@ -5272,6 +5296,18 @@
+     probe.style().clone()
+ }
+ 
++fn collect_retained_region_ids(tree: &RetainedTree, id: u64, ids: &mut Vec<u64>) {
++    let Some(element) = tree.elements.get(&id) else {
++        return;
++    };
++    ids.push(id);
++    for child_id in &element.children {
++        collect_retained_region_ids(tree, *child_id, ids);
++    }
++}
++
+ fn z_index_priority(tree: &RetainedTree, id: u64) -> Option<usize> {
+     let value = tree
+         .elements
+         .get(&id)?
+@@ -6090,12 +6126,21 @@
+                         .get(&child_id)
+                         .is_none_or(|entry| entry.revision != revision);
+                     if replace {
++                        let mut element_ids = Vec::new();
++                        collect_retained_region_ids(ctx.tree, child_id, &mut element_ids);
+                         let parent = cx.weak_entity();
+                         let view = cx.new(|_| RetainedRegionView {
+                             parent,
+                             element_id: child_id,
+                         });
+-                        regions.insert(child_id, RetainedRegionEntry { revision, view });
++                        regions.insert(
++                            child_id,
++                            RetainedRegionEntry {
++                                revision,
++                                view,
++                                bounds_snapshot: crate::automation::shared_bounds_snapshot(),
++                                element_ids,
++                                preserve_bounds: false,
++                            },
++                        );
+                     }
+                     regions
+                         .get(&child_id)
