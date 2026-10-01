@@ -201,7 +201,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +            });
 +            return true;
 +        }
-++
++
 +        // First isolated update promotes only this text id. The caller performs
 +        // one normal root rebuild, which installs the child view; later updates
 +        // can then notify that child directly.
@@ -212,6 +212,23 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
      pub(crate) fn set_live_image(
          &mut self,
          id: u64,
+@@ -3883,14 +3971,16 @@
+         let mut build_ctx = BuildCtx {
+             tree: &tree,
+             event_callback: &callback,
+             focus_handles: &self.focus_handles,
+             scroll_handles: &mut self.scroll_handles,
++            live_text_ids: &self.live_text_ids,
++            live_text_views: &mut self.live_text_views,
+             custom_registry: &mut self.custom_registry,
+             virtual_lists: &mut self.virtual_lists,
+             motion_states: &mut self.motion_states,
+             now,
+             selection: self.selection.clone(),
+             inherited,
+             highlights: &mut self.highlights,
+             highlight_events: &mut highlight_events,
+         };
 @@ -4006,5 +4094,7 @@ pub(crate) struct BuildCtx<'a> {
      pub event_callback: &'a Option<EventCallback>,
      pub focus_handles: &'a HashMap<u64, gpui::FocusHandle>,
