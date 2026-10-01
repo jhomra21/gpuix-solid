@@ -251,6 +251,7 @@ export class SseAutomationBackend implements AutomationBackend {
     if (result.viewBuildP99Ms !== undefined) stats.viewBuildP99Ms = result.viewBuildP99Ms
     if (result.viewBuildMaxMs !== undefined) stats.viewBuildMaxMs = result.viewBuildMaxMs
     if (result.viewBuildSamples !== undefined) stats.viewBuildSamples = result.viewBuildSamples
+    if (result.rootSubtreeRevision !== undefined) stats.rootSubtreeRevision = result.rootSubtreeRevision
     return stats
   }
 
