@@ -179,47 +179,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
  
          #[cfg(any(target_os = "windows", target_os = "linux", target_os = "freebsd"))]
          return self.send_ui_command(UiCommand::ResetDebugFrameOverlayStats);
-@@ -4054,23 +4133,22 @@
-         }
-     }
- 
--    /// Apply the inheritable parts of `style` for the subtree below it.
--    fn descend(mut self, style: Option<&StyleDesc>) -> Self {
--        let Some(style) = style else { return self };
--        match style.user_select.as_deref() {
--            Some("none") => self.selectable = false,
--            Some("text") | Some("auto") => self.selectable = true,
--            _ => {}
--        }
--        if let Some(color) = style
--            .selection_color
--            .as_deref()
--            .and_then(crate::color::parse_color_rgba)
--        {
--            self.selection_wash = color.into();
--        }
--        self
--    }
-+    /// Apply the inheritable parts of `style` for the subtree below it.
-+    fn descend(&mut self, style: Option<&StyleDesc>) {
-+        let Some(style) = style else { return };
-+        match style.user_select.as_deref() {
-+            Some("none") => self.selectable = false,
-+            Some("text") | Some("auto") => self.selectable = true,
-+            _ => {}
-+        }
-+        if let Some(color) = style
-+            .selection_color
-+            .as_deref()
-+            .and_then(crate::color::parse_color_rgba)
-+        {
-+            self.selection_wash = color.into();
-+        }
-+    }
- }
- 
- fn json_usize(value: &serde_json::Value) -> Option<usize> {
-@@ -4665,10 +4743,11 @@
+@@ -4665,10 +4744,11 @@
          &mut self,
          window: &mut gpui::Window,
          cx: &mut gpui::Context<Self>,
@@ -235,7 +195,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
  
          #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
          if let Some(id) = PENDING_FOCUS_ELEMENT.with(|pending| pending.borrow_mut().take()) {
-@@ -4708,8 +4787,9 @@
+@@ -4708,8 +4788,9 @@
                  .get(id)
                  .is_some_and(|element| element.custom_props.contains_key("highlight"))
          });
@@ -247,7 +207,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
              Some(root_id) => {
                  let mut ctx = BuildCtx {
                      tree: &tree,
-@@ -4727,9 +4807,10 @@
+@@ -4727,9 +4808,10 @@
                  };
                  build_element(root_id, &mut ctx, window, cx)
              }
@@ -261,7 +221,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
          // re-enter this build.
          emit_highlight_events(&callback, &highlight_events);
          emit_motion_settled(&callback, &tree, &motion_settled);
-@@ -4805,13 +4886,14 @@
+@@ -4805,13 +4887,14 @@
          // no longer match what JS meant.
          PENDING_VIRTUAL_LIST_SCROLLS.with(|cell| cell.borrow_mut().clear());
  
@@ -283,18 +243,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
  
  // ── Element builders ─────────────────────────────────────────────────
  
-@@ -4846,8 +4928,8 @@
- 
-     // Inheritable style resolves once here so both built-ins and custom
-     // elements see the same cascade.
--    let parent_inherited = ctx.inherited.clone();
--    ctx.inherited = parent_inherited.clone().descend(style);
-+    let parent_inherited = ctx.inherited.clone();
-+    ctx.inherited.descend(style);
- 
-     // A `highlight` here replaces any ancestor's: the nearest declaration wins,
-     // and `GroupList::collect` skips nested declarations so an ancestor never
-@@ -6558,14 +6640,24 @@
+@@ -6558,14 +6641,24 @@
  #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
  #[derive(Debug, Clone)]
  #[napi(object)]
