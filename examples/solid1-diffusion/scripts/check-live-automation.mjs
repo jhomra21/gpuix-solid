@@ -228,18 +228,20 @@ function summarizeProfiles(name, runNames) {
     observedFps: median(runs.map((run) => run?.observedFps)),
     rootRevisionDelta: median(runs.map((run) => run?.rootRevisionDelta)),
   }
-  summary.meets120HzDrawBudget = summary.p90Ms !== null && summary.p90Ms <= targetFrameMs
+  summary.meets120HzP90Budget = summary.p90Ms !== null && summary.p90Ms <= targetFrameMs
+  summary.meets120HzP99Budget = summary.p99Ms !== null && summary.p99Ms <= targetFrameMs
+  summary.meets120HzDrawBudget = summary.meets120HzP90Budget && summary.meets120HzP99Budget
   if (!summary.meets120HzDrawBudget) summary.status = "budget-miss"
   performanceReport.scenarios[name] = summary
   persistPerformanceReport()
   if (enforce120HzBudget) {
     assert(
       summary.meets120HzDrawBudget,
-      `${name} median p90 draw time ${summary.p90Ms?.toFixed(2) ?? "n/a"}ms exceeds the ${targetFrameMs.toFixed(2)}ms 120 Hz budget`,
+      `${name} median draw budget missed: p90=${summary.p90Ms?.toFixed(2) ?? "n/a"}ms p99=${summary.p99Ms?.toFixed(2) ?? "n/a"}ms target=${targetFrameMs.toFixed(2)}ms`,
     )
   } else if (!summary.meets120HzDrawBudget) {
     console.warn(
-      `${name} median p90 draw time ${summary.p90Ms?.toFixed(2) ?? "n/a"}ms exceeds the ${targetFrameMs.toFixed(2)}ms 120 Hz budget; reporting only on this runner`,
+      `${name} median draw budget missed: p90=${summary.p90Ms?.toFixed(2) ?? "n/a"}ms p99=${summary.p99Ms?.toFixed(2) ?? "n/a"}ms target=${targetFrameMs.toFixed(2)}ms; reporting only on this runner`,
     )
   }
   return summary
@@ -316,7 +318,11 @@ async function profileNativeFrames(app, name, exercise) {
               : null,
           frames,
           samples: stats.samples,
-          meets120HzDrawBudget: p90Ms !== null && p90Ms <= targetFrameMs,
+          meets120HzDrawBudget:
+            p90Ms !== null &&
+            p90Ms <= targetFrameMs &&
+            p99Ms !== null &&
+            p99Ms <= targetFrameMs,
           baseline,
           final: stats,
         })
