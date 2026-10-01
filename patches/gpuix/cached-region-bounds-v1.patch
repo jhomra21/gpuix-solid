@@ -94,7 +94,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
                  .get(id)
                  .is_some_and(|element| element.parent == root_id)
          });
-@@ -5180,7 +5188,23 @@
+@@ -5180,6 +5188,22 @@
              }
              None => gpui::Empty.into_any_element(),
          };
@@ -114,10 +114,11 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +                .collect()
 +        };
 +        self.retained_regions.values_mut().for_each(|entry| entry.preserve_bounds = true);
++
++        record_view_build_duration(build_started.elapsed());
  
-         let result = {
-             let drag_move_view = cx.weak_entity();
-             let drag_end_view = drag_move_view.clone();
++        // Flushed after the root build so a `setState` in the handler cannot
++        // re-enter this build.
 @@ -5206,7 +5228,9 @@
                          });
                      },
