@@ -30,7 +30,8 @@
     "patches/gpuix/canvas-entity-view-v1.patch",
     "patches/gpuix/canvas-prepare-stats-v1.patch",
     "patches/gpuix/prepaint-subphase-stats-v1.patch",
-    "patches/gpuix/cached-prepaint-stats-v1.patch"
+    "patches/gpuix/cached-prepaint-stats-v1.patch",
+    "patches/gpuix/cached-prepaint-reasons-v1.patch"
   ],
   "submodulePatches": [
     {
@@ -42,7 +43,8 @@
         "patches/gpuix/gpui-macos-offscreen-screenshot-v1.patch",
         "patches/gpuix/gpui-draw-phase-stats-v1.patch",
         "patches/gpuix/gpui-prepaint-subphase-stats-v1.patch",
-        "patches/gpuix/gpui-cached-prepaint-stats-v1.patch"
+        "patches/gpuix/gpui-cached-prepaint-stats-v1.patch",
+        "patches/gpuix/gpui-cached-prepaint-reasons-v1.patch"
       ]
     }
   ]
