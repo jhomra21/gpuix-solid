@@ -341,10 +341,10 @@ function enforcePerformanceBudgets(names) {
   )
 }
 
-async function profileNativeFrames(app, name, exercise) {
+async function profileNativeFrames(app, name, exercise, { minimumSamples = 1 } = {}) {
   const probeTimeoutMs = 15_000
   const probeStartedAt = performance.now()
-  const scenario = { status: "running", phase: "reset" }
+  const scenario = { status: "running", phase: "reset", minimumSamples }
   performanceReport.scenarios[name] = scenario
   persistPerformanceReport()
 
@@ -420,8 +420,14 @@ async function profileNativeFrames(app, name, exercise) {
         })
         persistPerformanceReport()
         assert(
-          stats.samples > 0 && frames > 0,
-          `${name} did not produce native frame samples: ${JSON.stringify({ baseline, final: stats, frames, elapsedMs })}`,
+          stats.samples >= minimumSamples && frames >= minimumSamples,
+          `${name} produced too few native frame samples: ${JSON.stringify({
+            minimumSamples,
+            baseline,
+            final: stats,
+            frames,
+            elapsedMs,
+          })}`,
         )
       })(),
       new Promise((_, reject) => {
@@ -1150,25 +1156,26 @@ try {
     const runName = `canvas-wheel-zoom-run-${run}`
     canvasProfileRuns.push(runName)
     await profileNativeFrames(app, runName, async (mark) => {
-      const pending = []
       let sample = 0
       for (let cycle = 0; cycle < canvasProfileCycles; cycle += 1) {
         for (const deltaY of [4, -4]) {
           for (let step = 0; step < canvasProfileLegSteps; step += 1) {
             sample += 1
             mark(`wheel ${sample}/${canvasProfileSteps}`)
-            pending.push(app.mouse.wheel(
+            // Diffusion coalesces camera work through requestAnimationFrame. Keep
+            // each ctrl-wheel RPC ordered so 80 pending inputs cannot collapse
+            // into a handful of frames and make the draw percentiles meaningless.
+            await app.mouse.wheel(
               at(wheelZoomStage.bounds, 0.5, 0.5),
               0,
               deltaY,
               { modifiers: "ctrl" },
-            ))
+            )
             await delay(targetFrameMs)
           }
         }
       }
-      await Promise.all(pending)
-    })
+    }, { minimumSamples: canvasProfileSteps / 2 })
 
     // Reset between captures so every run starts from the same camera scale.
     await zoomReadout.click()
