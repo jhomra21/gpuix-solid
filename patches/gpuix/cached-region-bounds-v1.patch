@@ -82,15 +82,6 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
  struct RetainedRegionView {
      parent: gpui::WeakEntity<GpuixView>,
      element_id: u64,
-@@ -5179,5 +5179,8 @@
-         let now = self.clock.now();
-         let (motion_active, motion_settled) =
-             sync_motion_states(&tree, &mut self.motion_states, now);
-+        if motion_active {
-+            self.retained_regions.clear();
-+        }
-         // Pruned by DECLARATION, not existence: an element that drops its
- 
 @@ -5206,7 +5228,9 @@
                          });
                      },
