@@ -113,19 +113,52 @@ const usabilityTestHook = {
       const trigger = `            <Button
               {...triggerProps}
               variant="link"`
+      const worldImport = `import { useWorld } from "@diffusionstudio/koota-solid";`
+      const scaleBlock = `  const scale = useCameraScale();
+  const zoomLabel = () => \`${Math.round(scale() * 100)}%\`;`
       if (!code.includes(trigger)) throw new Error("Pinned Diffusion Inspector zoom trigger changed")
+      if (!code.includes(worldImport)) throw new Error("Pinned Diffusion Inspector world import changed")
+      if (!code.includes(scaleBlock)) throw new Error("Pinned Diffusion Inspector scale block changed")
       return {
-        code: code.replace(
-          trigger,
-          `            <Button
+        code: code
+          .replace(
+            worldImport,
+            `${worldImport}
+import { createEffect, createSignal, onCleanup } from "solid-js";`,
+          )
+          .replace(
+            scaleBlock,
+            `  const scale = useCameraScale();
+  const [displayScale, setDisplayScale] = createSignal(scale());
+  let zoomLabelTimer: ReturnType<typeof setTimeout> | undefined;
+
+  createEffect(() => {
+    const nextScale = scale();
+    if (zoomLabelTimer !== undefined) clearTimeout(zoomLabelTimer);
+    zoomLabelTimer = setTimeout(() => {
+      setDisplayScale(nextScale);
+      zoomLabelTimer = undefined;
+    }, 80);
+  });
+
+  onCleanup(() => {
+    if (zoomLabelTimer !== undefined) clearTimeout(zoomLabelTimer);
+  });
+
+  const zoomLabel = () => \`${Math.round(displayScale() * 100)}%\`;`,
+          )
+          .replace(
+            trigger,
+            `            <Button
               {...triggerProps}
               testId="diffusion-inspector-zoom-trigger"
               variant="link"
               class="ml-auto flex w-16 items-center justify-end gap-0 text-muted-foreground px-0 relative z-30"`,
-        ).replace(
-          `              class="ml-auto flex items-center gap-0 text-muted-foreground px-0 relative z-30"`,
-          "",
-        ),
+          )
+          .replace(
+            `              class="ml-auto flex items-center gap-0 text-muted-foreground px-0 relative z-30"`,
+            "",
+          ),
         map: null,
       }
     }
