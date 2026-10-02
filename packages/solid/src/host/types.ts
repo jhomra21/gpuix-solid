@@ -572,9 +572,11 @@ type VirtualListShared = {
   style?: Omit<StyleDesc, "hover" | "active">
   children?: unknown
   ref?: HostRef
+  testId?: string
   alignment?: "top" | "bottom"
   followTail?: boolean
   overdraw?: number
+  onScroll?: HostEventHandler
   onVisibleRange?: HostEventHandler
 }
 
