@@ -1,13 +1,196 @@
 diff --git a/crates/gpui/src/debug_overlay.rs b/crates/gpui/src/debug_overlay.rs
 --- a/crates/gpui/src/debug_overlay.rs
 +++ b/crates/gpui/src/debug_overlay.rs
-@@ -35,8 +35,16 @@
-     pub prepaint_max_ms: Option<f32>,
-     pub prepaint_samples: usize,
+@@ -19,177 +19,229 @@
+ 
+ #[allow(missing_docs)]
+ #[derive(Copy, Clone, Debug, Default, PartialEq)]
+-pub struct DebugFrameOverlayStats {
+-    pub current_ms: Option<f32>,
+-    pub p90_ms: Option<f32>,
+-    pub p99_ms: Option<f32>,
+-    pub max_ms: Option<f32>,
+-    pub frames: u64,
+-    pub samples: usize,
+-    pub draw_roots_p90_ms: Option<f32>,
+-    pub draw_roots_p99_ms: Option<f32>,
+-    pub draw_roots_max_ms: Option<f32>,
+-    pub draw_roots_samples: usize,
+-    pub prepaint_p90_ms: Option<f32>,
+-    pub prepaint_p99_ms: Option<f32>,
+-    pub prepaint_max_ms: Option<f32>,
+-    pub prepaint_samples: usize,
 -    pub paint_p90_ms: Option<f32>,
 -    pub paint_p99_ms: Option<f32>,
 -    pub paint_max_ms: Option<f32>,
 -    pub paint_samples: usize,
+-}
+-
+-impl DebugFrameOverlayMode {
+-    /// Returns the next mode in the Hidden → FrameTime → Detailed cycle.
+-    pub fn next(self) -> Self {
+-        match self {
+-            Self::Hidden => Self::Minimal,
+-            Self::Minimal => Self::Full,
+-            Self::Full => Self::Hidden,
+-        }
+-    }
+-}
+-
+-/// The number of most recent draw durations retained for percentile statistics.
+-const MAX_SAMPLES: usize = 1000;
+-
+-const GLYPH_WIDTH: usize = 5;
+-const GLYPH_HEIGHT: usize = 7;
+-/// Glyph advance and line advance, in font cells.
+-const CHAR_ADVANCE: f32 = (GLYPH_WIDTH + 1) as f32;
+-const LINE_ADVANCE: f32 = (GLYPH_HEIGHT + 2) as f32;
+-/// Padding between the panel edge and the text, in font cells.
+-const PANEL_PADDING: f32 = 2.0;
+-/// Margin between the panel and the window corner, in font cells.
+-const PANEL_MARGIN: f32 = 4.0;
+-/// Side of one square font cell, in logical pixels.
+-const CELL_SIZE: f32 = 2.0;
+-
+-fn text_color() -> Hsla {
+-    rgba(0x33ff33ff).into()
+-}
+-
+-fn panel_color() -> Hsla {
+-    rgba(0x000000aa).into()
+-}
+-
+-pub(crate) struct DebugFrameOverlay {
+-    mode: DebugFrameOverlayMode,
+-    draw_durations: VecDeque<Duration>,
+-    draw_roots_durations: VecDeque<Duration>,
+-    prepaint_durations: VecDeque<Duration>,
+-    paint_durations: VecDeque<Duration>,
+-    total_frame_count: u64,
+-}
+-
+-impl DebugFrameOverlay {
+-    pub(crate) fn new() -> Self {
+-        Self {
+-            mode: DebugFrameOverlayMode::default(),
+-            draw_durations: VecDeque::new(),
+-            draw_roots_durations: VecDeque::new(),
+-            prepaint_durations: VecDeque::new(),
+-            paint_durations: VecDeque::new(),
+-            total_frame_count: 0,
+-        }
+-    }
+-
+-    pub(crate) fn mode(&self) -> DebugFrameOverlayMode {
+-        self.mode
+-    }
+-
+-    pub(crate) fn set_mode(&mut self, mode: DebugFrameOverlayMode) {
+-        self.mode = mode;
+-    }
+-
+-    /// Clears the draw-duration samples, restarting the percentile window.
+-    /// The total frame count is left untouched.
+-    pub(crate) fn reset_stats(&mut self) {
+-        self.draw_durations.clear();
+-        self.draw_roots_durations.clear();
+-        self.prepaint_durations.clear();
+-        self.paint_durations.clear();
+-    }
+-
+-    pub(crate) fn is_enabled(&self) -> bool {
+-        self.mode != DebugFrameOverlayMode::Hidden
+-    }
+-
+-    pub(crate) fn record_frame(&mut self, draw_duration: Duration) {
+-        self.total_frame_count += 1;
+-        Self::push_duration(&mut self.draw_durations, draw_duration);
+-    }
+-
+-    pub(crate) fn record_draw_roots(&mut self, duration: Duration) {
+-        Self::push_duration(&mut self.draw_roots_durations, duration);
+-    }
+-
+-    pub(crate) fn record_prepaint(&mut self, duration: Duration) {
+-        Self::push_duration(&mut self.prepaint_durations, duration);
+-    }
+-
+-    pub(crate) fn record_paint(&mut self, duration: Duration) {
+-        Self::push_duration(&mut self.paint_durations, duration);
+-    }
+-
+-    fn push_duration(samples: &mut VecDeque<Duration>, duration: Duration) {
+-        if samples.len() >= MAX_SAMPLES {
+-            samples.pop_front();
+-        }
+-        samples.push_back(duration);
+-    }
+-
+-    fn duration_summary(
+-        samples: &VecDeque<Duration>,
+-    ) -> (Option<f32>, Option<f32>, Option<f32>, usize) {
+-        let mut sorted: Vec<Duration> = samples.iter().copied().collect();
+-        sorted.sort_unstable();
+-        let percentile = |numerator: usize| {
+-            (!sorted.is_empty()).then(|| sorted[(sorted.len() - 1) * numerator / 100])
+-        };
+-        (
+-            percentile(90).map(duration_ms),
+-            percentile(99).map(duration_ms),
+-            sorted.last().copied().map(duration_ms),
+-            samples.len(),
+-        )
+-    }
+-
+-    pub(crate) fn stats(&self) -> DebugFrameOverlayStats {
+-        let mut sorted: Vec<Duration> = self.draw_durations.iter().copied().collect();
+-        sorted.sort_unstable();
+-        let percentile = |numerator: usize| {
+-            (!sorted.is_empty()).then(|| sorted[(sorted.len() - 1) * numerator / 100])
+-        };
+-        let (draw_roots_p90_ms, draw_roots_p99_ms, draw_roots_max_ms, draw_roots_samples) =
+-            Self::duration_summary(&self.draw_roots_durations);
+-        let (prepaint_p90_ms, prepaint_p99_ms, prepaint_max_ms, prepaint_samples) =
+-            Self::duration_summary(&self.prepaint_durations);
+-        let (paint_p90_ms, paint_p99_ms, paint_max_ms, paint_samples) =
+-            Self::duration_summary(&self.paint_durations);
+-        DebugFrameOverlayStats {
+-            current_ms: self.draw_durations.back().copied().map(duration_ms),
+-            p90_ms: percentile(90).map(duration_ms),
+-            p99_ms: percentile(99).map(duration_ms),
+-            max_ms: sorted.last().copied().map(duration_ms),
+-            frames: self.total_frame_count,
+-            samples: self.draw_durations.len(),
+-            draw_roots_p90_ms,
+-            draw_roots_p99_ms,
+-            draw_roots_max_ms,
+-            draw_roots_samples,
+-            prepaint_p90_ms,
+-            prepaint_p99_ms,
+-            prepaint_max_ms,
+-            prepaint_samples,
+-            paint_p90_ms,
+-            paint_p99_ms,
+-            paint_max_ms,
+-            paint_samples,
+-        }
+-    }
+-
++pub struct DebugFrameOverlayStats {
++    pub current_ms: Option<f32>,
++    pub p90_ms: Option<f32>,
++    pub p99_ms: Option<f32>,
++    pub max_ms: Option<f32>,
++    pub frames: u64,
++    pub samples: usize,
++    pub draw_roots_p90_ms: Option<f32>,
++    pub draw_roots_p99_ms: Option<f32>,
++    pub draw_roots_max_ms: Option<f32>,
++    pub draw_roots_samples: usize,
++    pub prepaint_p90_ms: Option<f32>,
++    pub prepaint_p99_ms: Option<f32>,
++    pub prepaint_max_ms: Option<f32>,
++    pub prepaint_samples: usize,
 +    pub paint_p90_ms: Option<f32>,
 +    pub paint_p99_ms: Option<f32>,
 +    pub paint_max_ms: Option<f32>,
@@ -20,14 +203,46 @@ diff --git a/crates/gpui/src/debug_overlay.rs b/crates/gpui/src/debug_overlay.rs
 +    pub root_prepaint_p99_ms: Option<f32>,
 +    pub prepaint_rest_p90_ms: Option<f32>,
 +    pub prepaint_rest_p99_ms: Option<f32>,
- }
- 
-@@ -79,7 +87,11 @@
-     draw_durations: VecDeque<Duration>,
-     draw_roots_durations: VecDeque<Duration>,
--    prepaint_durations: VecDeque<Duration>,
--    paint_durations: VecDeque<Duration>,
--    total_frame_count: u64,
++}
++
++impl DebugFrameOverlayMode {
++    /// Returns the next mode in the Hidden → FrameTime → Detailed cycle.
++    pub fn next(self) -> Self {
++        match self {
++            Self::Hidden => Self::Minimal,
++            Self::Minimal => Self::Full,
++            Self::Full => Self::Hidden,
++        }
++    }
++}
++
++/// The number of most recent draw durations retained for percentile statistics.
++const MAX_SAMPLES: usize = 1000;
++
++const GLYPH_WIDTH: usize = 5;
++const GLYPH_HEIGHT: usize = 7;
++/// Glyph advance and line advance, in font cells.
++const CHAR_ADVANCE: f32 = (GLYPH_WIDTH + 1) as f32;
++const LINE_ADVANCE: f32 = (GLYPH_HEIGHT + 2) as f32;
++/// Padding between the panel edge and the text, in font cells.
++const PANEL_PADDING: f32 = 2.0;
++/// Margin between the panel and the window corner, in font cells.
++const PANEL_MARGIN: f32 = 4.0;
++/// Side of one square font cell, in logical pixels.
++const CELL_SIZE: f32 = 2.0;
++
++fn text_color() -> Hsla {
++    rgba(0x33ff33ff).into()
++}
++
++fn panel_color() -> Hsla {
++    rgba(0x000000aa).into()
++}
++
++pub(crate) struct DebugFrameOverlay {
++    mode: DebugFrameOverlayMode,
++    draw_durations: VecDeque<Duration>,
++    draw_roots_durations: VecDeque<Duration>,
 +    prepaint_durations: VecDeque<Duration>,
 +    paint_durations: VecDeque<Duration>,
 +    root_request_durations: VecDeque<Duration>,
@@ -35,14 +250,14 @@ diff --git a/crates/gpui/src/debug_overlay.rs b/crates/gpui/src/debug_overlay.rs
 +    root_prepaint_durations: VecDeque<Duration>,
 +    prepaint_rest_durations: VecDeque<Duration>,
 +    total_frame_count: u64,
- }
- 
-@@ -90,7 +102,11 @@
-             draw_durations: VecDeque::new(),
-             draw_roots_durations: VecDeque::new(),
--            prepaint_durations: VecDeque::new(),
--            paint_durations: VecDeque::new(),
--            total_frame_count: 0,
++}
++
++impl DebugFrameOverlay {
++    pub(crate) fn new() -> Self {
++        Self {
++            mode: DebugFrameOverlayMode::default(),
++            draw_durations: VecDeque::new(),
++            draw_roots_durations: VecDeque::new(),
 +            prepaint_durations: VecDeque::new(),
 +            paint_durations: VecDeque::new(),
 +            root_request_durations: VecDeque::new(),
@@ -50,29 +265,47 @@ diff --git a/crates/gpui/src/debug_overlay.rs b/crates/gpui/src/debug_overlay.rs
 +            root_prepaint_durations: VecDeque::new(),
 +            prepaint_rest_durations: VecDeque::new(),
 +            total_frame_count: 0,
-         }
-     }
-@@ -109,6 +125,10 @@
-         self.draw_durations.clear();
-         self.draw_roots_durations.clear();
--        self.prepaint_durations.clear();
--        self.paint_durations.clear();
++        }
++    }
++
++    pub(crate) fn mode(&self) -> DebugFrameOverlayMode {
++        self.mode
++    }
++
++    pub(crate) fn set_mode(&mut self, mode: DebugFrameOverlayMode) {
++        self.mode = mode;
++    }
++
++    /// Clears the draw-duration samples, restarting the percentile window.
++    /// The total frame count is left untouched.
++    pub(crate) fn reset_stats(&mut self) {
++        self.draw_durations.clear();
++        self.draw_roots_durations.clear();
 +        self.prepaint_durations.clear();
 +        self.paint_durations.clear();
 +        self.root_request_durations.clear();
 +        self.root_layout_durations.clear();
 +        self.root_prepaint_durations.clear();
 +        self.prepaint_rest_durations.clear();
-     }
- 
-@@ -130,9 +150,25 @@
-     }
- 
--    pub(crate) fn record_paint(&mut self, duration: Duration) {
--        Self::push_duration(&mut self.paint_durations, duration);
--    }
--
--    fn push_duration
++    }
++
++    pub(crate) fn is_enabled(&self) -> bool {
++        self.mode != DebugFrameOverlayMode::Hidden
++    }
++
++    pub(crate) fn record_frame(&mut self, draw_duration: Duration) {
++        self.total_frame_count += 1;
++        Self::push_duration(&mut self.draw_durations, draw_duration);
++    }
++
++    pub(crate) fn record_draw_roots(&mut self, duration: Duration) {
++        Self::push_duration(&mut self.draw_roots_durations, duration);
++    }
++
++    pub(crate) fn record_prepaint(&mut self, duration: Duration) {
++        Self::push_duration(&mut self.prepaint_durations, duration);
++    }
++
 +    pub(crate) fn record_paint(&mut self, duration: Duration) {
 +        Self::push_duration(&mut self.paint_durations, duration);
 +    }
@@ -93,15 +326,39 @@ diff --git a/crates/gpui/src/debug_overlay.rs b/crates/gpui/src/debug_overlay.rs
 +        Self::push_duration(&mut self.prepaint_rest_durations, duration);
 +    }
 +
-+    fn push_duration
-         if samples.len() >= MAX_SAMPLES {
-             samples.pop_front();
-@@ -167,7 +203,15 @@
-         let (prepaint_p90_ms, prepaint_p99_ms, prepaint_max_ms, prepaint_samples) =
-             Self::duration_summary(&self.prepaint_durations);
--        let (paint_p90_ms, paint_p99_ms, paint_max_ms, paint_samples) =
--            Self::duration_summary(&self.paint_durations);
--        DebugFrameOverlayStats {
++    fn push_duration(samples: &mut VecDeque<Duration>, duration: Duration) {
++        if samples.len() >= MAX_SAMPLES {
++            samples.pop_front();
++        }
++        samples.push_back(duration);
++    }
++
++    fn duration_summary(
++        samples: &VecDeque<Duration>,
++    ) -> (Option<f32>, Option<f32>, Option<f32>, usize) {
++        let mut sorted: Vec<Duration> = samples.iter().copied().collect();
++        sorted.sort_unstable();
++        let percentile = |numerator: usize| {
++            (!sorted.is_empty()).then(|| sorted[(sorted.len() - 1) * numerator / 100])
++        };
++        (
++            percentile(90).map(duration_ms),
++            percentile(99).map(duration_ms),
++            sorted.last().copied().map(duration_ms),
++            samples.len(),
++        )
++    }
++
++    pub(crate) fn stats(&self) -> DebugFrameOverlayStats {
++        let mut sorted: Vec<Duration> = self.draw_durations.iter().copied().collect();
++        sorted.sort_unstable();
++        let percentile = |numerator: usize| {
++            (!sorted.is_empty()).then(|| sorted[(sorted.len() - 1) * numerator / 100])
++        };
++        let (draw_roots_p90_ms, draw_roots_p99_ms, draw_roots_max_ms, draw_roots_samples) =
++            Self::duration_summary(&self.draw_roots_durations);
++        let (prepaint_p90_ms, prepaint_p99_ms, prepaint_max_ms, prepaint_samples) =
++            Self::duration_summary(&self.prepaint_durations);
 +        let (paint_p90_ms, paint_p99_ms, paint_max_ms, paint_samples) =
 +            Self::duration_summary(&self.paint_durations);
 +        let (root_request_p90_ms, root_request_p99_ms, _, _) =
@@ -113,15 +370,20 @@ diff --git a/crates/gpui/src/debug_overlay.rs b/crates/gpui/src/debug_overlay.rs
 +        let (prepaint_rest_p90_ms, prepaint_rest_p99_ms, _, _) =
 +            Self::duration_summary(&self.prepaint_rest_durations);
 +        DebugFrameOverlayStats {
-             current_ms: self.draw_durations.back().copied().map(duration_ms),
-             p90_ms: percentile(90).map(duration_ms),
-@@ -184,8 +228,16 @@
-             prepaint_max_ms,
-             prepaint_samples,
--            paint_p90_ms,
--            paint_p99_ms,
--            paint_max_ms,
--            paint_samples,
++            current_ms: self.draw_durations.back().copied().map(duration_ms),
++            p90_ms: percentile(90).map(duration_ms),
++            p99_ms: percentile(99).map(duration_ms),
++            max_ms: sorted.last().copied().map(duration_ms),
++            frames: self.total_frame_count,
++            samples: self.draw_durations.len(),
++            draw_roots_p90_ms,
++            draw_roots_p99_ms,
++            draw_roots_max_ms,
++            draw_roots_samples,
++            prepaint_p90_ms,
++            prepaint_p99_ms,
++            prepaint_max_ms,
++            prepaint_samples,
 +            paint_p90_ms,
 +            paint_p99_ms,
 +            paint_max_ms,
@@ -134,14 +396,22 @@ diff --git a/crates/gpui/src/debug_overlay.rs b/crates/gpui/src/debug_overlay.rs
 +            root_prepaint_p99_ms,
 +            prepaint_rest_p90_ms,
 +            prepaint_rest_p99_ms,
-         }
-     }
++        }
++    }
++
+     pub(crate) fn paint(&self, scene: &mut Scene, viewport_size: Size<Pixels>, scale_factor: f32) {
+         if !self.is_enabled() {
+             return;
 diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
 --- a/crates/gpui/src/window.rs
 +++ b/crates/gpui/src/window.rs
-@@ -3203,14 +3203,34 @@
-         // stretches to fill the viewport unless explicitly sized, window roots
-         // fill the window when their size is `auto`.
+@@ -3199,52 +3199,77 @@
+             }
+         };
+ 
+-        // Layout all root elements. Like the root element on the web, which
+-        // stretches to fill the viewport unless explicitly sized, window roots
+-        // fill the window when their size is `auto`.
 -        let scale_factor = self.scale_factor();
 -        let mut root_element = self.root.as_ref().unwrap().clone().into_any_element();
 -        let root_layout_id = root_element.request_layout(self, cx);
@@ -152,8 +422,45 @@ diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
 -        root_element.prepaint_as_root(Point::default(), root_size.into(), self, cx);
 -
 -        #[cfg(any(feature = "inspector", debug_assertions))]
+-        let inspector_element = self.prepaint_inspector(_inspector_width, cx);
+-
+-        self.prepaint_deferred_draws(cx);
+-
+-        let mut prompt_element = None;
+-        let mut active_drag_element = None;
+-        let mut tooltip_element = None;
+-        if let Some(prompt) = self.prompt.take() {
+-            let mut element = prompt.view.any_view().into_any_element();
+-            let prompt_layout_id = element.request_layout(self, cx);
+-            self.layout_engine
+-                .as_mut()
+-                .unwrap()
+-                .stretch_auto_size_to_fill(prompt_layout_id, root_size, scale_factor);
+-            element.prepaint_as_root(Point::default(), root_size.into(), self, cx);
+-            prompt_element = Some(element);
+-            self.prompt = Some(prompt);
+-        } else if let Some(active_drag) = cx.active_drag.take() {
+-            let mut element = active_drag.view.clone().into_any_element();
+-            let offset = self.mouse_position() - active_drag.cursor_offset;
+-            element.prepaint_as_root(offset, AvailableSpace::min_size(), self, cx);
+-            active_drag_element = Some(element);
+-            cx.active_drag = Some(active_drag);
+-        } else {
+-            tooltip_element = self.prepaint_tooltip(cx);
+-        }
+-
+-        self.mouse_hit_test = self.next_frame.hit_test(self.mouse_position);
+-
+-        #[cfg(feature = "profiler")]
+-        self.debug_frame_overlay
+-            .record_prepaint(Instant::now().duration_since(prepaint_started));
+-
++        // Layout all root elements. Like the root element on the web, which
++        // stretches to fill the viewport unless explicitly sized, window roots
++        // fill the window when their size is `auto`.
 +        let scale_factor = self.scale_factor();
 +        let mut root_element = self.root.as_ref().unwrap().clone().into_any_element();
++
 +        #[cfg(feature = "profiler")]
 +        let root_request_started = Instant::now();
 +        let root_layout_id = root_element.request_layout(self, cx);
@@ -178,20 +485,38 @@ diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
 +        #[cfg(feature = "profiler")]
 +        self.debug_frame_overlay
 +            .record_root_prepaint(Instant::now().duration_since(root_prepaint_started));
++
 +        #[cfg(feature = "profiler")]
 +        let prepaint_rest_started = Instant::now();
 +
 +        #[cfg(any(feature = "inspector", debug_assertions))]
-         let inspector_element = self.prepaint_inspector(_inspector_width, cx);
- 
-@@ -3240,9 +3260,12 @@
-         }
- 
--        self.mouse_hit_test = self.next_frame.hit_test(self.mouse_position);
--
--        #[cfg(feature = "profiler")]
--        self.debug_frame_overlay
--            .record_prepaint(Instant::now().duration_since(prepaint_started));
++        let inspector_element = self.prepaint_inspector(_inspector_width, cx);
++
++        self.prepaint_deferred_draws(cx);
++
++        let mut prompt_element = None;
++        let mut active_drag_element = None;
++        let mut tooltip_element = None;
++        if let Some(prompt) = self.prompt.take() {
++            let mut element = prompt.view.any_view().into_any_element();
++            let prompt_layout_id = element.request_layout(self, cx);
++            self.layout_engine
++                .as_mut()
++                .unwrap()
++                .stretch_auto_size_to_fill(prompt_layout_id, root_size, scale_factor);
++            element.prepaint_as_root(Point::default(), root_size.into(), self, cx);
++            prompt_element = Some(element);
++            self.prompt = Some(prompt);
++        } else if let Some(active_drag) = cx.active_drag.take() {
++            let mut element = active_drag.view.clone().into_any_element();
++            let offset = self.mouse_position() - active_drag.cursor_offset;
++            element.prepaint_as_root(offset, AvailableSpace::min_size(), self, cx);
++            active_drag_element = Some(element);
++            cx.active_drag = Some(active_drag);
++        } else {
++            tooltip_element = self.prepaint_tooltip(cx);
++        }
++
 +        self.mouse_hit_test = self.next_frame.hit_test(self.mouse_position);
 +
 +        #[cfg(feature = "profiler")]
@@ -200,5 +525,7 @@ diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
 +        #[cfg(feature = "profiler")]
 +        self.debug_frame_overlay
 +            .record_prepaint(Instant::now().duration_since(prepaint_started));
- 
++
          // Now actually paint the elements.
+         self.invalidator.set_phase(DrawPhase::Paint);
+         #[cfg(feature = "profiler")]
