@@ -21,7 +21,8 @@
     "patches/gpuix/percentage-position-v1.patch",
     "patches/gpuix/auto-margin-v1.patch",
     "patches/gpuix/display-none-v1.patch",
-    "patches/gpuix/canvas-live-draw-list-v1.patch"
+    "patches/gpuix/canvas-live-draw-list-v1.patch",
+    "patches/gpuix/canvas-entity-view-v1.patch"
   ],
   "submodulePatches": [
     {
