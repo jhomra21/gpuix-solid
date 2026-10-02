@@ -1,0 +1,937 @@
+diff --git a/crates/gpui/src/debug_overlay.rs b/crates/gpui/src/debug_overlay.rs
+--- a/crates/gpui/src/debug_overlay.rs
++++ b/crates/gpui/src/debug_overlay.rs
+@@ -19,229 +19,277 @@
+ 
+ #[allow(missing_docs)]
+ #[derive(Copy, Clone, Debug, Default, PartialEq)]
+-pub struct DebugFrameOverlayStats {
+-    pub current_ms: Option<f32>,
+-    pub p90_ms: Option<f32>,
+-    pub p99_ms: Option<f32>,
+-    pub max_ms: Option<f32>,
+-    pub frames: u64,
+-    pub samples: usize,
+-    pub draw_roots_p90_ms: Option<f32>,
+-    pub draw_roots_p99_ms: Option<f32>,
+-    pub draw_roots_max_ms: Option<f32>,
+-    pub draw_roots_samples: usize,
+-    pub prepaint_p90_ms: Option<f32>,
+-    pub prepaint_p99_ms: Option<f32>,
+-    pub prepaint_max_ms: Option<f32>,
+-    pub prepaint_samples: usize,
+-    pub paint_p90_ms: Option<f32>,
+-    pub paint_p99_ms: Option<f32>,
+-    pub paint_max_ms: Option<f32>,
+-    pub paint_samples: usize,
+-    pub root_request_p90_ms: Option<f32>,
+-    pub root_request_p99_ms: Option<f32>,
+-    pub root_layout_p90_ms: Option<f32>,
+-    pub root_layout_p99_ms: Option<f32>,
+-    pub root_prepaint_p90_ms: Option<f32>,
+-    pub root_prepaint_p99_ms: Option<f32>,
+-    pub prepaint_rest_p90_ms: Option<f32>,
+-    pub prepaint_rest_p99_ms: Option<f32>,
+-}
+-
+-impl DebugFrameOverlayMode {
+-    /// Returns the next mode in the Hidden → FrameTime → Detailed cycle.
+-    pub fn next(self) -> Self {
+-        match self {
+-            Self::Hidden => Self::Minimal,
+-            Self::Minimal => Self::Full,
+-            Self::Full => Self::Hidden,
+-        }
+-    }
+-}
+-
+-/// The number of most recent draw durations retained for percentile statistics.
+-const MAX_SAMPLES: usize = 1000;
+-
+-const GLYPH_WIDTH: usize = 5;
+-const GLYPH_HEIGHT: usize = 7;
+-/// Glyph advance and line advance, in font cells.
+-const CHAR_ADVANCE: f32 = (GLYPH_WIDTH + 1) as f32;
+-const LINE_ADVANCE: f32 = (GLYPH_HEIGHT + 2) as f32;
+-/// Padding between the panel edge and the text, in font cells.
+-const PANEL_PADDING: f32 = 2.0;
+-/// Margin between the panel and the window corner, in font cells.
+-const PANEL_MARGIN: f32 = 4.0;
+-/// Side of one square font cell, in logical pixels.
+-const CELL_SIZE: f32 = 2.0;
+-
+-fn text_color() -> Hsla {
+-    rgba(0x33ff33ff).into()
+-}
+-
+-fn panel_color() -> Hsla {
+-    rgba(0x000000aa).into()
+-}
+-
+-pub(crate) struct DebugFrameOverlay {
+-    mode: DebugFrameOverlayMode,
+-    draw_durations: VecDeque<Duration>,
+-    draw_roots_durations: VecDeque<Duration>,
+-    prepaint_durations: VecDeque<Duration>,
+-    paint_durations: VecDeque<Duration>,
+-    root_request_durations: VecDeque<Duration>,
+-    root_layout_durations: VecDeque<Duration>,
+-    root_prepaint_durations: VecDeque<Duration>,
+-    prepaint_rest_durations: VecDeque<Duration>,
+-    total_frame_count: u64,
+-}
+-
+-impl DebugFrameOverlay {
+-    pub(crate) fn new() -> Self {
+-        Self {
+-            mode: DebugFrameOverlayMode::default(),
+-            draw_durations: VecDeque::new(),
+-            draw_roots_durations: VecDeque::new(),
+-            prepaint_durations: VecDeque::new(),
+-            paint_durations: VecDeque::new(),
+-            root_request_durations: VecDeque::new(),
+-            root_layout_durations: VecDeque::new(),
+-            root_prepaint_durations: VecDeque::new(),
+-            prepaint_rest_durations: VecDeque::new(),
+-            total_frame_count: 0,
+-        }
+-    }
+-
+-    pub(crate) fn mode(&self) -> DebugFrameOverlayMode {
+-        self.mode
+-    }
+-
+-    pub(crate) fn set_mode(&mut self, mode: DebugFrameOverlayMode) {
+-        self.mode = mode;
+-    }
+-
+-    /// Clears the draw-duration samples, restarting the percentile window.
+-    /// The total frame count is left untouched.
+-    pub(crate) fn reset_stats(&mut self) {
+-        self.draw_durations.clear();
+-        self.draw_roots_durations.clear();
+-        self.prepaint_durations.clear();
+-        self.paint_durations.clear();
+-        self.root_request_durations.clear();
+-        self.root_layout_durations.clear();
+-        self.root_prepaint_durations.clear();
+-        self.prepaint_rest_durations.clear();
+-    }
+-
+-    pub(crate) fn is_enabled(&self) -> bool {
+-        self.mode != DebugFrameOverlayMode::Hidden
+-    }
+-
+-    pub(crate) fn record_frame(&mut self, draw_duration: Duration) {
+-        self.total_frame_count += 1;
+-        Self::push_duration(&mut self.draw_durations, draw_duration);
+-    }
+-
+-    pub(crate) fn record_draw_roots(&mut self, duration: Duration) {
+-        Self::push_duration(&mut self.draw_roots_durations, duration);
+-    }
+-
+-    pub(crate) fn record_prepaint(&mut self, duration: Duration) {
+-        Self::push_duration(&mut self.prepaint_durations, duration);
+-    }
+-
+-    pub(crate) fn record_paint(&mut self, duration: Duration) {
+-        Self::push_duration(&mut self.paint_durations, duration);
+-    }
+-
+-    pub(crate) fn record_root_request(&mut self, duration: Duration) {
+-        Self::push_duration(&mut self.root_request_durations, duration);
+-    }
+-
+-    pub(crate) fn record_root_layout(&mut self, duration: Duration) {
+-        Self::push_duration(&mut self.root_layout_durations, duration);
+-    }
+-
+-    pub(crate) fn record_root_prepaint(&mut self, duration: Duration) {
+-        Self::push_duration(&mut self.root_prepaint_durations, duration);
+-    }
+-
+-    pub(crate) fn record_prepaint_rest(&mut self, duration: Duration) {
+-        Self::push_duration(&mut self.prepaint_rest_durations, duration);
+-    }
+-
+-    fn push_duration(samples: &mut VecDeque<Duration>, duration: Duration) {
+-        if samples.len() >= MAX_SAMPLES {
+-            samples.pop_front();
+-        }
+-        samples.push_back(duration);
+-    }
+-
+-    fn duration_summary(
+-        samples: &VecDeque<Duration>,
+-    ) -> (Option<f32>, Option<f32>, Option<f32>, usize) {
+-        let mut sorted: Vec<Duration> = samples.iter().copied().collect();
+-        sorted.sort_unstable();
+-        let percentile = |numerator: usize| {
+-            (!sorted.is_empty()).then(|| sorted[(sorted.len() - 1) * numerator / 100])
+-        };
+-        (
+-            percentile(90).map(duration_ms),
+-            percentile(99).map(duration_ms),
+-            sorted.last().copied().map(duration_ms),
+-            samples.len(),
+-        )
+-    }
+-
+-    pub(crate) fn stats(&self) -> DebugFrameOverlayStats {
+-        let mut sorted: Vec<Duration> = self.draw_durations.iter().copied().collect();
+-        sorted.sort_unstable();
+-        let percentile = |numerator: usize| {
+-            (!sorted.is_empty()).then(|| sorted[(sorted.len() - 1) * numerator / 100])
+-        };
+-        let (draw_roots_p90_ms, draw_roots_p99_ms, draw_roots_max_ms, draw_roots_samples) =
+-            Self::duration_summary(&self.draw_roots_durations);
+-        let (prepaint_p90_ms, prepaint_p99_ms, prepaint_max_ms, prepaint_samples) =
+-            Self::duration_summary(&self.prepaint_durations);
+-        let (paint_p90_ms, paint_p99_ms, paint_max_ms, paint_samples) =
+-            Self::duration_summary(&self.paint_durations);
+-        let (root_request_p90_ms, root_request_p99_ms, _, _) =
+-            Self::duration_summary(&self.root_request_durations);
+-        let (root_layout_p90_ms, root_layout_p99_ms, _, _) =
+-            Self::duration_summary(&self.root_layout_durations);
+-        let (root_prepaint_p90_ms, root_prepaint_p99_ms, _, _) =
+-            Self::duration_summary(&self.root_prepaint_durations);
+-        let (prepaint_rest_p90_ms, prepaint_rest_p99_ms, _, _) =
+-            Self::duration_summary(&self.prepaint_rest_durations);
+-        DebugFrameOverlayStats {
+-            current_ms: self.draw_durations.back().copied().map(duration_ms),
+-            p90_ms: percentile(90).map(duration_ms),
+-            p99_ms: percentile(99).map(duration_ms),
+-            max_ms: sorted.last().copied().map(duration_ms),
+-            frames: self.total_frame_count,
+-            samples: self.draw_durations.len(),
+-            draw_roots_p90_ms,
+-            draw_roots_p99_ms,
+-            draw_roots_max_ms,
+-            draw_roots_samples,
+-            prepaint_p90_ms,
+-            prepaint_p99_ms,
+-            prepaint_max_ms,
+-            prepaint_samples,
+-            paint_p90_ms,
+-            paint_p99_ms,
+-            paint_max_ms,
+-            paint_samples,
+-            root_request_p90_ms,
+-            root_request_p99_ms,
+-            root_layout_p90_ms,
+-            root_layout_p99_ms,
+-            root_prepaint_p90_ms,
+-            root_prepaint_p99_ms,
+-            prepaint_rest_p90_ms,
+-            prepaint_rest_p99_ms,
+-        }
+-    }
+-
++pub struct DebugFrameOverlayStats {
++    pub current_ms: Option<f32>,
++    pub p90_ms: Option<f32>,
++    pub p99_ms: Option<f32>,
++    pub max_ms: Option<f32>,
++    pub frames: u64,
++    pub samples: usize,
++    pub draw_roots_p90_ms: Option<f32>,
++    pub draw_roots_p99_ms: Option<f32>,
++    pub draw_roots_max_ms: Option<f32>,
++    pub draw_roots_samples: usize,
++    pub prepaint_p90_ms: Option<f32>,
++    pub prepaint_p99_ms: Option<f32>,
++    pub prepaint_max_ms: Option<f32>,
++    pub prepaint_samples: usize,
++    pub paint_p90_ms: Option<f32>,
++    pub paint_p99_ms: Option<f32>,
++    pub paint_max_ms: Option<f32>,
++    pub paint_samples: usize,
++    pub root_request_p90_ms: Option<f32>,
++    pub root_request_p99_ms: Option<f32>,
++    pub root_layout_p90_ms: Option<f32>,
++    pub root_layout_p99_ms: Option<f32>,
++    pub root_prepaint_p90_ms: Option<f32>,
++    pub root_prepaint_p99_ms: Option<f32>,
++    pub prepaint_rest_p90_ms: Option<f32>,
++    pub prepaint_rest_p99_ms: Option<f32>,
++    pub cached_prepaint_reuse_p90_ms: Option<f32>,
++    pub cached_prepaint_reuse_p99_ms: Option<f32>,
++    pub cached_prepaint_render_p90_ms: Option<f32>,
++    pub cached_prepaint_render_p99_ms: Option<f32>,
++}
++
++impl DebugFrameOverlayMode {
++    /// Returns the next mode in the Hidden → FrameTime → Detailed cycle.
++    pub fn next(self) -> Self {
++        match self {
++            Self::Hidden => Self::Minimal,
++            Self::Minimal => Self::Full,
++            Self::Full => Self::Hidden,
++        }
++    }
++}
++
++/// The number of most recent draw durations retained for percentile statistics.
++const MAX_SAMPLES: usize = 1000;
++
++const GLYPH_WIDTH: usize = 5;
++const GLYPH_HEIGHT: usize = 7;
++/// Glyph advance and line advance, in font cells.
++const CHAR_ADVANCE: f32 = (GLYPH_WIDTH + 1) as f32;
++const LINE_ADVANCE: f32 = (GLYPH_HEIGHT + 2) as f32;
++/// Padding between the panel edge and the text, in font cells.
++const PANEL_PADDING: f32 = 2.0;
++/// Margin between the panel and the window corner, in font cells.
++const PANEL_MARGIN: f32 = 4.0;
++/// Side of one square font cell, in logical pixels.
++const CELL_SIZE: f32 = 2.0;
++
++fn text_color() -> Hsla {
++    rgba(0x33ff33ff).into()
++}
++
++fn panel_color() -> Hsla {
++    rgba(0x000000aa).into()
++}
++
++pub(crate) struct DebugFrameOverlay {
++    mode: DebugFrameOverlayMode,
++    draw_durations: VecDeque<Duration>,
++    draw_roots_durations: VecDeque<Duration>,
++    prepaint_durations: VecDeque<Duration>,
++    paint_durations: VecDeque<Duration>,
++    root_request_durations: VecDeque<Duration>,
++    root_layout_durations: VecDeque<Duration>,
++    root_prepaint_durations: VecDeque<Duration>,
++    prepaint_rest_durations: VecDeque<Duration>,
++    cached_prepaint_reuse_durations: VecDeque<Duration>,
++    cached_prepaint_render_durations: VecDeque<Duration>,
++    cached_prepaint_reuse_current: Duration,
++    cached_prepaint_render_current: Duration,
++    total_frame_count: u64,
++}
++
++impl DebugFrameOverlay {
++    pub(crate) fn new() -> Self {
++        Self {
++            mode: DebugFrameOverlayMode::default(),
++            draw_durations: VecDeque::new(),
++            draw_roots_durations: VecDeque::new(),
++            prepaint_durations: VecDeque::new(),
++            paint_durations: VecDeque::new(),
++            root_request_durations: VecDeque::new(),
++            root_layout_durations: VecDeque::new(),
++            root_prepaint_durations: VecDeque::new(),
++            prepaint_rest_durations: VecDeque::new(),
++            cached_prepaint_reuse_durations: VecDeque::new(),
++            cached_prepaint_render_durations: VecDeque::new(),
++            cached_prepaint_reuse_current: Duration::ZERO,
++            cached_prepaint_render_current: Duration::ZERO,
++            total_frame_count: 0,
++        }
++    }
++
++    pub(crate) fn mode(&self) -> DebugFrameOverlayMode {
++        self.mode
++    }
++
++    pub(crate) fn set_mode(&mut self, mode: DebugFrameOverlayMode) {
++        self.mode = mode;
++    }
++
++    /// Clears the draw-duration samples, restarting the percentile window.
++    /// The total frame count is left untouched.
++    pub(crate) fn reset_stats(&mut self) {
++        self.draw_durations.clear();
++        self.draw_roots_durations.clear();
++        self.prepaint_durations.clear();
++        self.paint_durations.clear();
++        self.root_request_durations.clear();
++        self.root_layout_durations.clear();
++        self.root_prepaint_durations.clear();
++        self.prepaint_rest_durations.clear();
++        self.cached_prepaint_reuse_durations.clear();
++        self.cached_prepaint_render_durations.clear();
++        self.cached_prepaint_reuse_current = Duration::ZERO;
++        self.cached_prepaint_render_current = Duration::ZERO;
++    }
++
++    pub(crate) fn is_enabled(&self) -> bool {
++        self.mode != DebugFrameOverlayMode::Hidden
++    }
++
++    pub(crate) fn record_frame(&mut self, draw_duration: Duration) {
++        self.total_frame_count += 1;
++        Self::push_duration(&mut self.draw_durations, draw_duration);
++    }
++
++    pub(crate) fn record_draw_roots(&mut self, duration: Duration) {
++        Self::push_duration(&mut self.draw_roots_durations, duration);
++    }
++
++    pub(crate) fn record_prepaint(&mut self, duration: Duration) {
++        Self::push_duration(&mut self.prepaint_durations, duration);
++    }
++
++    pub(crate) fn record_paint(&mut self, duration: Duration) {
++        Self::push_duration(&mut self.paint_durations, duration);
++    }
++
++    pub(crate) fn record_root_request(&mut self, duration: Duration) {
++        Self::push_duration(&mut self.root_request_durations, duration);
++    }
++
++    pub(crate) fn record_root_layout(&mut self, duration: Duration) {
++        Self::push_duration(&mut self.root_layout_durations, duration);
++    }
++
++    pub(crate) fn record_root_prepaint(&mut self, duration: Duration) {
++        Self::push_duration(&mut self.root_prepaint_durations, duration);
++    }
++
++    pub(crate) fn record_prepaint_rest(&mut self, duration: Duration) {
++        Self::push_duration(&mut self.prepaint_rest_durations, duration);
++    }
++
++    pub(crate) fn begin_cached_prepaint_frame(&mut self) {
++        self.cached_prepaint_reuse_current = Duration::ZERO;
++        self.cached_prepaint_render_current = Duration::ZERO;
++    }
++
++    pub(crate) fn record_cached_prepaint_reuse(&mut self, duration: Duration) {
++        self.cached_prepaint_reuse_current += duration;
++    }
++
++    pub(crate) fn record_cached_prepaint_render(&mut self, duration: Duration) {
++        self.cached_prepaint_render_current += duration;
++    }
++
++    pub(crate) fn finish_cached_prepaint_frame(&mut self) {
++        Self::push_duration(
++            &mut self.cached_prepaint_reuse_durations,
++            self.cached_prepaint_reuse_current,
++        );
++        Self::push_duration(
++            &mut self.cached_prepaint_render_durations,
++            self.cached_prepaint_render_current,
++        );
++    }
++
++    fn push_duration(samples: &mut VecDeque<Duration>, duration: Duration) {
++        if samples.len() >= MAX_SAMPLES {
++            samples.pop_front();
++        }
++        samples.push_back(duration);
++    }
++
++    fn duration_summary(
++        samples: &VecDeque<Duration>,
++    ) -> (Option<f32>, Option<f32>, Option<f32>, usize) {
++        let mut sorted: Vec<Duration> = samples.iter().copied().collect();
++        sorted.sort_unstable();
++        let percentile = |numerator: usize| {
++            (!sorted.is_empty()).then(|| sorted[(sorted.len() - 1) * numerator / 100])
++        };
++        (
++            percentile(90).map(duration_ms),
++            percentile(99).map(duration_ms),
++            sorted.last().copied().map(duration_ms),
++            samples.len(),
++        )
++    }
++
++    pub(crate) fn stats(&self) -> DebugFrameOverlayStats {
++        let mut sorted: Vec<Duration> = self.draw_durations.iter().copied().collect();
++        sorted.sort_unstable();
++        let percentile = |numerator: usize| {
++            (!sorted.is_empty()).then(|| sorted[(sorted.len() - 1) * numerator / 100])
++        };
++        let (draw_roots_p90_ms, draw_roots_p99_ms, draw_roots_max_ms, draw_roots_samples) =
++            Self::duration_summary(&self.draw_roots_durations);
++        let (prepaint_p90_ms, prepaint_p99_ms, prepaint_max_ms, prepaint_samples) =
++            Self::duration_summary(&self.prepaint_durations);
++        let (paint_p90_ms, paint_p99_ms, paint_max_ms, paint_samples) =
++            Self::duration_summary(&self.paint_durations);
++        let (root_request_p90_ms, root_request_p99_ms, _, _) =
++            Self::duration_summary(&self.root_request_durations);
++        let (root_layout_p90_ms, root_layout_p99_ms, _, _) =
++            Self::duration_summary(&self.root_layout_durations);
++        let (root_prepaint_p90_ms, root_prepaint_p99_ms, _, _) =
++            Self::duration_summary(&self.root_prepaint_durations);
++        let (prepaint_rest_p90_ms, prepaint_rest_p99_ms, _, _) =
++            Self::duration_summary(&self.prepaint_rest_durations);
++        let (cached_prepaint_reuse_p90_ms, cached_prepaint_reuse_p99_ms, _, _) =
++            Self::duration_summary(&self.cached_prepaint_reuse_durations);
++        let (cached_prepaint_render_p90_ms, cached_prepaint_render_p99_ms, _, _) =
++            Self::duration_summary(&self.cached_prepaint_render_durations);
++        DebugFrameOverlayStats {
++            current_ms: self.draw_durations.back().copied().map(duration_ms),
++            p90_ms: percentile(90).map(duration_ms),
++            p99_ms: percentile(99).map(duration_ms),
++            max_ms: sorted.last().copied().map(duration_ms),
++            frames: self.total_frame_count,
++            samples: self.draw_durations.len(),
++            draw_roots_p90_ms,
++            draw_roots_p99_ms,
++            draw_roots_max_ms,
++            draw_roots_samples,
++            prepaint_p90_ms,
++            prepaint_p99_ms,
++            prepaint_max_ms,
++            prepaint_samples,
++            paint_p90_ms,
++            paint_p99_ms,
++            paint_max_ms,
++            paint_samples,
++            root_request_p90_ms,
++            root_request_p99_ms,
++            root_layout_p90_ms,
++            root_layout_p99_ms,
++            root_prepaint_p90_ms,
++            root_prepaint_p99_ms,
++            prepaint_rest_p90_ms,
++            prepaint_rest_p99_ms,
++            cached_prepaint_reuse_p90_ms,
++            cached_prepaint_reuse_p99_ms,
++            cached_prepaint_render_p90_ms,
++            cached_prepaint_render_p99_ms,
++        }
++    }
++
+     pub(crate) fn paint(&self, scene: &mut Scene, viewport_size: Size<Pixels>, scale_factor: f32) {
+         if !self.is_enabled() {
+             return;
+diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
+--- a/crates/gpui/src/window.rs
++++ b/crates/gpui/src/window.rs
+@@ -3166,110 +3166,124 @@
+ 
+     #[cfg(feature = "profiler")]
+     #[allow(missing_docs)]
+-    pub fn debug_frame_overlay_stats(&self) -> crate::DebugFrameOverlayStats {
+-        self.debug_frame_overlay.stats()
+-    }
+-
+-    fn draw_roots(&mut self, cx: &mut App) {
+-        self.invalidator.set_phase(DrawPhase::Prepaint);
+-        #[cfg(feature = "profiler")]
+-        let prepaint_started = Instant::now();
+-        self.tooltip_bounds.take();
+-
+-        self.a11y.sync_active_flag();
+-        if self.a11y.is_active() {
+-            self.a11y.begin_frame();
+-        }
+-
+-        let _inspector_width: Pixels = rems(30.0).to_pixels(self.rem_size());
+-        let root_size = {
+-            #[cfg(any(feature = "inspector", debug_assertions))]
+-            {
+-                if self.inspector.is_some() {
+-                    let mut size = self.viewport_size;
+-                    size.width = (size.width - _inspector_width).max(px(0.0));
+-                    size
+-                } else {
+-                    self.viewport_size
+-                }
+-            }
+-            #[cfg(not(any(feature = "inspector", debug_assertions)))]
+-            {
+-                self.viewport_size
+-            }
+-        };
+-
+-        // Layout all root elements. Like the root element on the web, which
+-        // stretches to fill the viewport unless explicitly sized, window roots
+-        // fill the window when their size is `auto`.
+-        let scale_factor = self.scale_factor();
+-        let mut root_element = self.root.as_ref().unwrap().clone().into_any_element();
+-
+-        #[cfg(feature = "profiler")]
+-        let root_request_started = Instant::now();
+-        let root_layout_id = root_element.request_layout(self, cx);
+-        self.layout_engine
+-            .as_mut()
+-            .unwrap()
+-            .stretch_auto_size_to_fill(root_layout_id, root_size, scale_factor);
+-        #[cfg(feature = "profiler")]
+-        self.debug_frame_overlay
+-            .record_root_request(Instant::now().duration_since(root_request_started));
+-
+-        #[cfg(feature = "profiler")]
+-        let root_layout_started = Instant::now();
+-        root_element.layout_as_root(root_size.into(), self, cx);
+-        #[cfg(feature = "profiler")]
+-        self.debug_frame_overlay
+-            .record_root_layout(Instant::now().duration_since(root_layout_started));
+-
+-        #[cfg(feature = "profiler")]
+-        let root_prepaint_started = Instant::now();
+-        root_element.prepaint_at(Point::default(), self, cx);
+-        #[cfg(feature = "profiler")]
+-        self.debug_frame_overlay
+-            .record_root_prepaint(Instant::now().duration_since(root_prepaint_started));
+-
+-        #[cfg(feature = "profiler")]
+-        let prepaint_rest_started = Instant::now();
+-
+-        #[cfg(any(feature = "inspector", debug_assertions))]
+-        let inspector_element = self.prepaint_inspector(_inspector_width, cx);
+-
+-        self.prepaint_deferred_draws(cx);
+-
+-        let mut prompt_element = None;
+-        let mut active_drag_element = None;
+-        let mut tooltip_element = None;
+-        if let Some(prompt) = self.prompt.take() {
+-            let mut element = prompt.view.any_view().into_any_element();
+-            let prompt_layout_id = element.request_layout(self, cx);
+-            self.layout_engine
+-                .as_mut()
+-                .unwrap()
+-                .stretch_auto_size_to_fill(prompt_layout_id, root_size, scale_factor);
+-            element.prepaint_as_root(Point::default(), root_size.into(), self, cx);
+-            prompt_element = Some(element);
+-            self.prompt = Some(prompt);
+-        } else if let Some(active_drag) = cx.active_drag.take() {
+-            let mut element = active_drag.view.clone().into_any_element();
+-            let offset = self.mouse_position() - active_drag.cursor_offset;
+-            element.prepaint_as_root(offset, AvailableSpace::min_size(), self, cx);
+-            active_drag_element = Some(element);
+-            cx.active_drag = Some(active_drag);
+-        } else {
+-            tooltip_element = self.prepaint_tooltip(cx);
+-        }
+-
+-        self.mouse_hit_test = self.next_frame.hit_test(self.mouse_position);
+-
+-        #[cfg(feature = "profiler")]
+-        self.debug_frame_overlay
+-            .record_prepaint_rest(Instant::now().duration_since(prepaint_rest_started));
+-        #[cfg(feature = "profiler")]
+-        self.debug_frame_overlay
+-            .record_prepaint(Instant::now().duration_since(prepaint_started));
+-
++    pub fn debug_frame_overlay_stats(&self) -> crate::DebugFrameOverlayStats {
++        self.debug_frame_overlay.stats()
++    }
++
++    #[cfg(feature = "profiler")]
++    pub(crate) fn record_cached_prepaint_reuse(&mut self, duration: Duration) {
++        self.debug_frame_overlay.record_cached_prepaint_reuse(duration);
++    }
++
++    #[cfg(feature = "profiler")]
++    pub(crate) fn record_cached_prepaint_render(&mut self, duration: Duration) {
++        self.debug_frame_overlay.record_cached_prepaint_render(duration);
++    }
++
++    fn draw_roots(&mut self, cx: &mut App) {
++        self.invalidator.set_phase(DrawPhase::Prepaint);
++        #[cfg(feature = "profiler")]
++        let prepaint_started = Instant::now();
++        #[cfg(feature = "profiler")]
++        self.debug_frame_overlay.begin_cached_prepaint_frame();
++        self.tooltip_bounds.take();
++
++        self.a11y.sync_active_flag();
++        if self.a11y.is_active() {
++            self.a11y.begin_frame();
++        }
++
++        let _inspector_width: Pixels = rems(30.0).to_pixels(self.rem_size());
++        let root_size = {
++            #[cfg(any(feature = "inspector", debug_assertions))]
++            {
++                if self.inspector.is_some() {
++                    let mut size = self.viewport_size;
++                    size.width = (size.width - _inspector_width).max(px(0.0));
++                    size
++                } else {
++                    self.viewport_size
++                }
++            }
++            #[cfg(not(any(feature = "inspector", debug_assertions)))]
++            {
++                self.viewport_size
++            }
++        };
++
++        // Layout all root elements. Like the root element on the web, which
++        // stretches to fill the viewport unless explicitly sized, window roots
++        // fill the window when their size is `auto`.
++        let scale_factor = self.scale_factor();
++        let mut root_element = self.root.as_ref().unwrap().clone().into_any_element();
++
++        #[cfg(feature = "profiler")]
++        let root_request_started = Instant::now();
++        let root_layout_id = root_element.request_layout(self, cx);
++        self.layout_engine
++            .as_mut()
++            .unwrap()
++            .stretch_auto_size_to_fill(root_layout_id, root_size, scale_factor);
++        #[cfg(feature = "profiler")]
++        self.debug_frame_overlay
++            .record_root_request(Instant::now().duration_since(root_request_started));
++
++        #[cfg(feature = "profiler")]
++        let root_layout_started = Instant::now();
++        root_element.layout_as_root(root_size.into(), self, cx);
++        #[cfg(feature = "profiler")]
++        self.debug_frame_overlay
++            .record_root_layout(Instant::now().duration_since(root_layout_started));
++
++        #[cfg(feature = "profiler")]
++        let root_prepaint_started = Instant::now();
++        root_element.prepaint_at(Point::default(), self, cx);
++        #[cfg(feature = "profiler")]
++        self.debug_frame_overlay
++            .record_root_prepaint(Instant::now().duration_since(root_prepaint_started));
++
++        #[cfg(feature = "profiler")]
++        let prepaint_rest_started = Instant::now();
++
++        #[cfg(any(feature = "inspector", debug_assertions))]
++        let inspector_element = self.prepaint_inspector(_inspector_width, cx);
++
++        self.prepaint_deferred_draws(cx);
++
++        let mut prompt_element = None;
++        let mut active_drag_element = None;
++        let mut tooltip_element = None;
++        if let Some(prompt) = self.prompt.take() {
++            let mut element = prompt.view.any_view().into_any_element();
++            let prompt_layout_id = element.request_layout(self, cx);
++            self.layout_engine
++                .as_mut()
++                .unwrap()
++                .stretch_auto_size_to_fill(prompt_layout_id, root_size, scale_factor);
++            element.prepaint_as_root(Point::default(), root_size.into(), self, cx);
++            prompt_element = Some(element);
++            self.prompt = Some(prompt);
++        } else if let Some(active_drag) = cx.active_drag.take() {
++            let mut element = active_drag.view.clone().into_any_element();
++            let offset = self.mouse_position() - active_drag.cursor_offset;
++            element.prepaint_as_root(offset, AvailableSpace::min_size(), self, cx);
++            active_drag_element = Some(element);
++            cx.active_drag = Some(active_drag);
++        } else {
++            tooltip_element = self.prepaint_tooltip(cx);
++        }
++
++        self.mouse_hit_test = self.next_frame.hit_test(self.mouse_position);
++
++        #[cfg(feature = "profiler")]
++        self.debug_frame_overlay
++            .record_prepaint_rest(Instant::now().duration_since(prepaint_rest_started));
++        #[cfg(feature = "profiler")]
++        self.debug_frame_overlay
++            .record_prepaint(Instant::now().duration_since(prepaint_started));
++        #[cfg(feature = "profiler")]
++        self.debug_frame_overlay.finish_cached_prepaint_frame();
++
+         // Now actually paint the elements.
+         self.invalidator.set_phase(DrawPhase::Paint);
+         #[cfg(feature = "profiler")]
+diff --git a/crates/gpui/src/view.rs b/crates/gpui/src/view.rs
+--- a/crates/gpui/src/view.rs
++++ b/crates/gpui/src/view.rs
+@@ -8,6 +8,8 @@
+ use collections::FxHashSet;
+ use refineable::Refineable;
+-use std::mem;
+-use std::{any::TypeId, fmt, ops::Range};
++use std::mem;
++#[cfg(feature = "profiler")]
++use std::time::Instant;
++use std::{any::TypeId, fmt, ops::Range};
+ 
+ /// A dynamically-typed view handle that can be downcast to a specific `Entity<V>`.
+@@ -361,92 +361,100 @@
+         }
+     }
+ 
+-    fn prepaint(
+-        &mut self,
+-        global_id: Option<&GlobalElementId>,
+-        _inspector_id: Option<&InspectorElementId>,
+-        bounds: Bounds<Pixels>,
+-        element: &mut Self::RequestLayoutState,
+-        window: &mut Window,
+-        cx: &mut App,
+-    ) -> Option<AnyElement> {
+-        if let Some(entity_id) = self.entity_id {
+-            // Stateful path.
+-            window.set_view_id(entity_id);
+-            window.with_rendered_view(entity_id, |window| {
+-                if let Some(mut element) = element.take() {
+-                    element.prepaint(window, cx);
+-                    return Some(element);
+-                }
+-
+-                window.with_element_state::<ViewElementState, _>(
+-                    global_id.unwrap(),
+-                    |element_state, window| {
+-                        let content_mask = window.content_mask();
+-                        let text_style = window.text_style();
+-
+-                        if let Some(mut element_state) = element_state
+-                            && element_state.cache_key.bounds == bounds
+-                            && element_state.cache_key.content_mask == content_mask
+-                            && element_state.cache_key.text_style == text_style
+-                            && !window.dirty_views.contains(&entity_id)
+-                            && !window.refreshing
+-                        {
+-                            let prepaint_start = window.prepaint_index();
+-                            window.reuse_prepaint(element_state.prepaint_range.clone());
+-                            cx.entities
+-                                .extend_accessed(&element_state.accessed_entities);
+-                            let prepaint_end = window.prepaint_index();
+-                            element_state.prepaint_range = prepaint_start..prepaint_end;
+-
+-                            return (None, element_state);
+-                        }
+-
+-                        let refreshing = mem::replace(&mut window.refreshing, true);
+-                        let prepaint_start = window.prepaint_index();
+-                        let (mut element, accessed_entities) = cx.detect_accessed_entities(|cx| {
+-                            let mut element = self
+-                                .view
+-                                .take()
+-                                .unwrap()
+-                                .render(window, cx)
+-                                .into_any_element();
+-                            element.layout_as_root(bounds.size.into(), window, cx);
+-                            element.prepaint_at(bounds.origin, window, cx);
+-                            element
+-                        });
+-
+-                        let prepaint_end = window.prepaint_index();
+-                        window.refreshing = refreshing;
+-
+-                        (
+-                            Some(element),
+-                            ViewElementState {
+-                                accessed_entities,
+-                                prepaint_range: prepaint_start..prepaint_end,
+-                                paint_range: PaintIndex::default()..PaintIndex::default(),
+-                                cache_key: ViewElementCacheKey {
+-                                    bounds,
+-                                    content_mask,
+-                                    text_style,
+-                                },
+-                            },
+-                        )
+-                    },
+-                )
+-            })
+-        } else {
+-            // Stateless path: just prepaint the element.
+-            window.with_id(
+-                ElementId::Name(std::any::type_name::<V>().into()),
+-                |window| {
+-                    element.as_mut().unwrap().prepaint(window, cx);
+-                },
+-            );
+-            Some(element.take().unwrap())
+-        }
+-    }
+-
++    fn prepaint(
++        &mut self,
++        global_id: Option<&GlobalElementId>,
++        _inspector_id: Option<&InspectorElementId>,
++        bounds: Bounds<Pixels>,
++        element: &mut Self::RequestLayoutState,
++        window: &mut Window,
++        cx: &mut App,
++    ) -> Option<AnyElement> {
++        if let Some(entity_id) = self.entity_id {
++            // Stateful path.
++            window.set_view_id(entity_id);
++            window.with_rendered_view(entity_id, |window| {
++                if let Some(mut element) = element.take() {
++                    element.prepaint(window, cx);
++                    return Some(element);
++                }
++
++                window.with_element_state::<ViewElementState, _>(
++                    global_id.unwrap(),
++                    |element_state, window| {
++                        let content_mask = window.content_mask();
++                        let text_style = window.text_style();
++
++                        if let Some(mut element_state) = element_state
++                            && element_state.cache_key.bounds == bounds
++                            && element_state.cache_key.content_mask == content_mask
++                            && element_state.cache_key.text_style == text_style
++                            && !window.dirty_views.contains(&entity_id)
++                            && !window.refreshing
++                        {
++                            let prepaint_start = window.prepaint_index();
++                            #[cfg(feature = "profiler")]
++                            let cached_reuse_started = Instant::now();
++                            window.reuse_prepaint(element_state.prepaint_range.clone());
++                            #[cfg(feature = "profiler")]
++                            window.record_cached_prepaint_reuse(cached_reuse_started.elapsed());
++                            cx.entities
++                                .extend_accessed(&element_state.accessed_entities);
++                            let prepaint_end = window.prepaint_index();
++                            element_state.prepaint_range = prepaint_start..prepaint_end;
++
++                            return (None, element_state);
++                        }
++
++                        let refreshing = mem::replace(&mut window.refreshing, true);
++                        let prepaint_start = window.prepaint_index();
++                        #[cfg(feature = "profiler")]
++                        let cached_render_started = Instant::now();
++                        let (mut element, accessed_entities) = cx.detect_accessed_entities(|cx| {
++                            let mut element = self
++                                .view
++                                .take()
++                                .unwrap()
++                                .render(window, cx)
++                                .into_any_element();
++                            element.layout_as_root(bounds.size.into(), window, cx);
++                            element.prepaint_at(bounds.origin, window, cx);
++                            element
++                        });
++
++                        #[cfg(feature = "profiler")]
++                        window.record_cached_prepaint_render(cached_render_started.elapsed());
++                        let prepaint_end = window.prepaint_index();
++                        window.refreshing = refreshing;
++
++                        (
++                            Some(element),
++                            ViewElementState {
++                                accessed_entities,
++                                prepaint_range: prepaint_start..prepaint_end,
++                                paint_range: PaintIndex::default()..PaintIndex::default(),
++                                cache_key: ViewElementCacheKey {
++                                    bounds,
++                                    content_mask,
++                                    text_style,
++                                },
++                            },
++                        )
++                    },
++                )
++            })
++        } else {
++            // Stateless path: just prepaint the element.
++            window.with_id(
++                ElementId::Name(std::any::type_name::<V>().into()),
++                |window| {
++                    element.as_mut().unwrap().prepaint(window, cx);
++                },
++            );
++            Some(element.take().unwrap())
++        }
++    }
++
+     fn paint(
+         &mut self,
+         global_id: Option<&GlobalElementId>,
