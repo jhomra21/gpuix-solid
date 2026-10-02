@@ -70,7 +70,7 @@ diff --git a/packages/native/src/automation.rs b/packages/native/src/automation.
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -3770,8 +3770,11 @@
+@@ -3770,9 +3770,12 @@
  struct RetainedRegionEntry {
      revision: u64,
      view: gpui::Entity<RetainedRegionView>,
@@ -82,6 +82,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
  struct RetainedRegionView {
      parent: gpui::WeakEntity<GpuixView>,
      element_id: u64,
+     nested_depth: u8,
 @@ -5206,7 +5228,9 @@
                          });
                      },
@@ -111,16 +112,18 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
      let value = tree
          .elements
          .get(&id)?
-@@ -6090,12 +6126,23 @@
+@@ -6090,14 +6126,25 @@
                          .get(&child_id)
                          .is_none_or(|entry| entry.revision != revision);
                      if replace {
 +                        let mut element_ids = Vec::new();
 +                        collect_retained_region_ids(ctx.tree, child_id, &mut element_ids);
                          let parent = cx.weak_entity();
+                         let nested_depth = ctx.region_cache_depth.saturating_sub(1);
                          let view = cx.new(|_| RetainedRegionView {
                              parent,
                              element_id: child_id,
+                             nested_depth,
                          });
 -                        regions.insert(child_id, RetainedRegionEntry { revision, view });
 +                        regions.insert(
