@@ -13,14 +13,12 @@ const targetFps = 120
 const targetFrameMs = 1000 / targetFps
 const maxGpuixViewRenderP90Ms = 1
 const maxGpuixViewBuildP90Ms = 0.15
-const maxCanvasRootRevisionDelta = 1
 const enforce120HzBudget = process.env.GPUIX_ENFORCE_120HZ === "1"
 const performanceReport = {
   targetFps,
   targetFrameMs,
   maxGpuixViewRenderP90Ms,
   maxGpuixViewBuildP90Ms,
-  maxCanvasRootRevisionDelta,
   enforce120HzBudget,
   scenarios: {},
 }
@@ -294,9 +292,12 @@ function summarizeProfiles(name, runNames) {
     summary.viewRenderP90Ms !== null && summary.viewRenderP90Ms <= maxGpuixViewRenderP90Ms
   summary.meetsGpuixViewBuildBudget =
     summary.viewBuildP90Ms !== null && summary.viewBuildP90Ms <= maxGpuixViewBuildP90Ms
+  summary.unexpectedCanvasRevisionChanges =
+    name === "canvas-wheel-zoom"
+      ? performanceReport.canvasRevisionGuard?.unexpectedChanges?.length ?? null
+      : null
   summary.meetsCanvasRevisionBudget =
-    name !== "canvas-wheel-zoom" ||
-    (summary.rootRevisionDelta !== null && summary.rootRevisionDelta <= maxCanvasRootRevisionDelta)
+    name !== "canvas-wheel-zoom" || summary.unexpectedCanvasRevisionChanges === 0
   summary.meetsGpuixControlledBudget =
     summary.meetsGpuixViewRenderBudget &&
     summary.meetsGpuixViewBuildBudget &&
@@ -329,7 +330,7 @@ function enforcePerformanceBudgets(names) {
         `viewRenderP90=${summary?.viewRenderP90Ms?.toFixed(3) ?? "n/a"}ms/${maxGpuixViewRenderP90Ms.toFixed(2)}ms`,
         `viewBuildP90=${summary?.viewBuildP90Ms?.toFixed(3) ?? "n/a"}ms/${maxGpuixViewBuildP90Ms.toFixed(2)}ms`,
         name === "canvas-wheel-zoom"
-          ? `rootRevisionDelta=${summary?.rootRevisionDelta ?? "n/a"}/${maxCanvasRootRevisionDelta}`
+          ? `unexpectedCanvasChanges=${summary?.unexpectedCanvasRevisionChanges ?? "n/a"}/0 rootRevisionDelta=${summary?.rootRevisionDelta ?? "n/a"}`
           : null,
       ].filter(Boolean).join(" "),
     ]
@@ -1094,6 +1095,12 @@ try {
   // before the measured captures below.
   const canvasRevisionTrace = []
   let revisionTree = await currentTree(app)
+  const zoomRevisionRoot = findNode(
+    revisionTree,
+    (node) => node.testId === "diffusion-inspector-zoom-trigger",
+    "Inspector zoom trigger in automation tree",
+  )
+  const allowedZoomRevisionIds = new Set(descendants(zoomRevisionRoot).map((node) => node.id))
   for (let tick = 1; tick <= 3; tick += 1) {
     await app.mouse.wheel(
       at(wheelZoomStage.bounds, 0.5, 0.5),
@@ -1103,14 +1110,24 @@ try {
     )
     await delay(80)
     const nextTree = await currentTree(app)
+    const changed = diffAutomationTrees(revisionTree, nextTree)
     canvasRevisionTrace.push({
       tick,
       zoom: (await zoomReadout.textContent()).trim(),
-      changed: diffAutomationTrees(revisionTree, nextTree),
+      changed,
+      unexpected: changed.filter((change) => !allowedZoomRevisionIds.has(change.id)),
     })
     revisionTree = nextTree
   }
+  const unexpectedCanvasRevisionChanges = canvasRevisionTrace.flatMap(({ tick, unexpected }) =>
+    unexpected.map((change) => ({ tick, ...change })),
+  )
   performanceReport.canvasRevisionTrace = canvasRevisionTrace
+  performanceReport.canvasRevisionGuard = {
+    zoomSubtreeRootId: zoomRevisionRoot.id,
+    allowedIds: [...allowedZoomRevisionIds].sort((a, b) => a - b),
+    unexpectedChanges: unexpectedCanvasRevisionChanges,
+  }
   persistPerformanceReport()
 
   await zoomReadout.click()
