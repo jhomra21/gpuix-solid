@@ -265,6 +265,12 @@ export class SseAutomationBackend implements AutomationBackend {
     if (result.cachedPrepaintReuseP99Ms !== undefined) stats.cachedPrepaintReuseP99Ms = result.cachedPrepaintReuseP99Ms
     if (result.cachedPrepaintRenderP90Ms !== undefined) stats.cachedPrepaintRenderP90Ms = result.cachedPrepaintRenderP90Ms
     if (result.cachedPrepaintRenderP99Ms !== undefined) stats.cachedPrepaintRenderP99Ms = result.cachedPrepaintRenderP99Ms
+    if (result.cachedPrepaintHits !== undefined) stats.cachedPrepaintHits = result.cachedPrepaintHits
+    if (result.cachedPrepaintMisses !== undefined) stats.cachedPrepaintMisses = result.cachedPrepaintMisses
+    if (result.cachedPrepaintColdMisses !== undefined) stats.cachedPrepaintColdMisses = result.cachedPrepaintColdMisses
+    if (result.cachedPrepaintKeyMisses !== undefined) stats.cachedPrepaintKeyMisses = result.cachedPrepaintKeyMisses
+    if (result.cachedPrepaintDirtyMisses !== undefined) stats.cachedPrepaintDirtyMisses = result.cachedPrepaintDirtyMisses
+    if (result.cachedPrepaintRefreshingMisses !== undefined) stats.cachedPrepaintRefreshingMisses = result.cachedPrepaintRefreshingMisses
     if (result.canvasPrepareP90Ms !== undefined) stats.canvasPrepareP90Ms = result.canvasPrepareP90Ms
     if (result.canvasPrepareP99Ms !== undefined) stats.canvasPrepareP99Ms = result.canvasPrepareP99Ms
     if (result.canvasPrepareMaxMs !== undefined) stats.canvasPrepareMaxMs = result.canvasPrepareMaxMs
