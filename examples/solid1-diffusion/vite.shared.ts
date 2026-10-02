@@ -120,7 +120,11 @@ const usabilityTestHook = {
           `            <Button
               {...triggerProps}
               testId="diffusion-inspector-zoom-trigger"
-              variant="link"`,
+              variant="link"
+              class="ml-auto flex w-16 items-center justify-end gap-0 text-muted-foreground px-0 relative z-30"`,
+        ).replace(
+          `              class="ml-auto flex items-center gap-0 text-muted-foreground px-0 relative z-30"`,
+          "",
         ),
         map: null,
       }
