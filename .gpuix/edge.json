@@ -46,6 +46,7 @@
         "patches/gpuix/gpui-prepaint-subphase-stats-v1.patch",
         "patches/gpuix/gpui-cached-prepaint-stats-v1.patch",
         "patches/gpuix/gpui-cached-prepaint-reasons-v1.patch",
+        "patches/gpuix/gpui-list-painted-bounds-v1.patch",
         "patches/gpuix/gpui-nested-cached-reuse-v1.patch"
       ]
     }
