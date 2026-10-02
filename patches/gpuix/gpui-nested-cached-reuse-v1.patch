@@ -1,0 +1,108 @@
+diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
+--- a/crates/gpui/src/window.rs
++++ b/crates/gpui/src/window.rs
+@@ -1194,7 +1194,8 @@
+     #[cfg(feature = "profiler")]
+     window_profiler: profiler::WindowProfiler,
+     last_input_modality: InputModality,
+     pub(crate) refreshing: bool,
++    pub(crate) refresh_all_views: bool,
+     pub(crate) activation_observers: SubscriberSet<(), AnyObserver>,
+     pub(crate) focus: Option<FocusId>,
+     focus_enabled: bool,
+@@ -1886,7 +1887,8 @@
+             #[cfg(feature = "profiler")]
+             window_profiler: profiler::WindowProfiler::new(handle.window_id())?,
+             last_input_modality: InputModality::Mouse,
+             refreshing: false,
++            refresh_all_views: false,
+             activation_observers: SubscriberSet::new(),
+             focus: None,
+             focus_enabled: true,
+@@ -2031,7 +2033,8 @@
+     /// Mark the window as dirty, scheduling it to be redrawn on the next frame.
+     pub fn refresh(&mut self) {
+         if self.invalidator.not_drawing() {
+             self.refreshing = true;
++            self.refresh_all_views = true;
+             self.invalidator.set_dirty(true);
+         }
+     }
+@@ -3035,7 +3038,8 @@
+         debug_assert!(self.rendered_entity_stack.is_empty());
+         self.record_entities_accessed(cx);
+         self.reset_cursor_style(cx);
+         self.refreshing = false;
++        self.refresh_all_views = false;
+         self.invalidator.set_phase(DrawPhase::None);
+         // Focus listeners may move focus (e.g. a dock forwarding focus to its active
+         // panel). `Window::focus` suppresses `refresh` while a draw is in progress, so
+diff --git a/crates/gpui/src/view.rs b/crates/gpui/src/view.rs
+--- a/crates/gpui/src/view.rs
++++ b/crates/gpui/src/view.rs
+@@ -229,7 +229,17 @@
+     #[track_caller]
+     pub fn cached(self, style: StyleRefinement) -> ViewElement<Entity<T>> {
+         ViewElement::new(self).cached(style)
+     }
++
++    /// Embed this entity as a cached view that may reuse clean nested caches
++    /// while an ancestor cached view is being refreshed.
++    ///
++    /// A full [Window::refresh] still busts the cache. Use this only when the
++    /// parent owns a stronger invalidation contract for the nested subtree.
++    #[track_caller]
++    pub fn cached_nested(self, style: StyleRefinement) -> ViewElement<Entity<T>> {
++        ViewElement::new(self).cached_nested(style)
++    }
+ }
+ 
+ /// The element type for [`View`] implementations. Wraps a `View` and hooks it
+@@ -240,7 +252,8 @@
+ pub struct ViewElement<V: View> {
+     view: Option<V>,
+     entity_id: Option<EntityId>,
+     cached_style: Option<StyleRefinement>,
++    reuse_during_parent_refresh: bool,
+     #[cfg(debug_assertions)]
+     source: &'static core::panic::Location<'static>,
+ }
+@@ -252,6 +265,7 @@
+         ViewElement {
+             entity_id,
+             cached_style: None,
++            reuse_during_parent_refresh: false,
+             view: Some(view),
+             #[cfg(debug_assertions)]
+             source: core::panic::Location::caller(),
+@@ -271,6 +285,12 @@
+         self.cached_style = Some(style);
+         self
+     }
++
++    pub(crate) fn cached_nested(mut self, style: StyleRefinement) -> Self {
++        self.cached_style = Some(style);
++        self.reuse_during_parent_refresh = true;
++        self
++    }
+ }
+ 
+ impl<V: View> IntoElement for ViewElement<V> {
+@@ -378,6 +398,7 @@
+                     element.prepaint(window, cx);
+                     return Some(element);
+                 }
++                let reuse_during_parent_refresh = self.reuse_during_parent_refresh;
+ 
+                 window.with_element_state::<ViewElementState, _>(
+                     global_id.unwrap(),
+@@ -395,7 +416,8 @@
+                                 && state.cache_key.text_style == text_style
+                         });
+                         let dirty = window.dirty_views.contains(&entity_id);
+-                        let refreshing = window.refreshing;
++                        let refreshing = window.refreshing
++                            && !(reuse_during_parent_refresh && !window.refresh_all_views);
+                         let cache_hit =
+                             element_state.is_some() && cache_key_matches && !dirty && !refreshing;
+ 
