@@ -140,5 +140,5 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +                            },
 +                        );
                      }
-                     regions
+                     let view = regions
                          .get(&child_id)
