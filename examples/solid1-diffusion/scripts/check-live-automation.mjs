@@ -783,18 +783,21 @@ try {
     const runName = `inspector-wheel-run-${run}`
     inspectorProfileRuns.push(runName)
     await profileNativeFrames(app, runName, async (mark) => {
+      const pending = []
       let sample = 0
       for (let cycle = 0; cycle < inspectorProfileCycles; cycle += 1) {
         for (const deltaY of [inspectorProfileDelta, -inspectorProfileDelta]) {
           for (let step = 0; step < inspectorProfileLegSteps; step += 1) {
             sample += 1
             mark(`wheel ${sample}/${inspectorProfileSteps}`)
-            await app.mouse.wheel(inspectorViewportPoint, 0, deltaY)
-            // Pace input at the target rate instead of flooding synchronous N-API.
+            pending.push(app.mouse.wheel(inspectorViewportPoint, 0, deltaY))
+            // Queue the next wheel input at the target cadence instead of
+            // serializing the gesture on each automation round trip.
             await delay(targetFrameMs)
           }
         }
       }
+      await Promise.all(pending)
     })
     await delay(120)
   }
@@ -1130,22 +1133,24 @@ try {
     const runName = `canvas-wheel-zoom-run-${run}`
     canvasProfileRuns.push(runName)
     await profileNativeFrames(app, runName, async (mark) => {
+      const pending = []
       let sample = 0
       for (let cycle = 0; cycle < canvasProfileCycles; cycle += 1) {
         for (const deltaY of [4, -4]) {
           for (let step = 0; step < canvasProfileLegSteps; step += 1) {
             sample += 1
             mark(`wheel ${sample}/${canvasProfileSteps}`)
-            await app.mouse.wheel(
+            pending.push(app.mouse.wheel(
               at(wheelZoomStage.bounds, 0.5, 0.5),
               0,
               deltaY,
               { modifiers: "ctrl" },
-            )
+            ))
             await delay(targetFrameMs)
           }
         }
       }
+      await Promise.all(pending)
     })
 
     // Reset between captures so every run starts from the same camera scale.
