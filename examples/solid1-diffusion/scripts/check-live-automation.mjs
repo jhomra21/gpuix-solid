@@ -11,10 +11,16 @@ const rpcTimeoutMs = 5_000
 const performancePath = "/tmp/diffusion-performance.json"
 const targetFps = 120
 const targetFrameMs = 1000 / targetFps
+const maxGpuixViewRenderP90Ms = 1
+const maxGpuixViewBuildP90Ms = 0.15
+const maxCanvasRootRevisionDelta = 1
 const enforce120HzBudget = process.env.GPUIX_ENFORCE_120HZ === "1"
 const performanceReport = {
   targetFps,
   targetFrameMs,
+  maxGpuixViewRenderP90Ms,
+  maxGpuixViewBuildP90Ms,
+  maxCanvasRootRevisionDelta,
   enforce120HzBudget,
   scenarios: {},
 }
@@ -284,23 +290,30 @@ function summarizeProfiles(name, runNames) {
   }
   summary.meets120HzP90Budget = summary.p90Ms !== null && summary.p90Ms <= targetFrameMs
   summary.meets120HzP99Budget = summary.p99Ms !== null && summary.p99Ms <= targetFrameMs
-  // The hard 120 Hz gate targets sustained draw performance (median p90).
-  // Keep p99 as a tail-latency diagnostic: hosted macOS CI can move the second-
-  // slowest frame in an ~80-sample window by several milliseconds.
-  summary.meets120HzDrawBudget = summary.meets120HzP90Budget
-  if (!summary.meets120HzP90Budget) summary.status = "budget-miss"
-  if (!summary.meets120HzP99Budget) {
+  summary.meetsGpuixViewRenderBudget =
+    summary.viewRenderP90Ms !== null && summary.viewRenderP90Ms <= maxGpuixViewRenderP90Ms
+  summary.meetsGpuixViewBuildBudget =
+    summary.viewBuildP90Ms !== null && summary.viewBuildP90Ms <= maxGpuixViewBuildP90Ms
+  summary.meetsCanvasRevisionBudget =
+    name !== "canvas-wheel-zoom" ||
+    (summary.rootRevisionDelta !== null && summary.rootRevisionDelta <= maxCanvasRootRevisionDelta)
+  summary.meetsGpuixControlledBudget =
+    summary.meetsGpuixViewRenderBudget &&
+    summary.meetsGpuixViewBuildBudget &&
+    summary.meetsCanvasRevisionBudget
+
+  // Total draw time remains valuable telemetry, but a shared GitHub macOS runner
+  // can stall layout/prepaint/paint outside GpuixView by tens of milliseconds.
+  // Gate the costs this project controls, while keeping absolute 120 Hz p90/p99
+  // visible so dedicated/stable hardware can enforce them separately.
+  if (!summary.meets120HzP90Budget || !summary.meets120HzP99Budget) {
     console.warn(
-      `${name} p99 draw tail exceeds 120 Hz budget: p99=${summary.p99Ms?.toFixed(2) ?? "n/a"}ms target=${targetFrameMs.toFixed(2)}ms`,
+      `${name} total draw exceeds 120 Hz telemetry budget: p90=${summary.p90Ms?.toFixed(2) ?? "n/a"}ms p99=${summary.p99Ms?.toFixed(2) ?? "n/a"}ms target=${targetFrameMs.toFixed(2)}ms`,
     )
   }
+  if (!summary.meetsGpuixControlledBudget) summary.status = "budget-miss"
   performanceReport.scenarios[name] = summary
   persistPerformanceReport()
-  if (!enforce120HzBudget && !summary.meets120HzDrawBudget) {
-    console.warn(
-      `${name} median draw budget missed: p90=${summary.p90Ms?.toFixed(2) ?? "n/a"}ms p99=${summary.p99Ms?.toFixed(2) ?? "n/a"}ms target=${targetFrameMs.toFixed(2)}ms; reporting only on this runner`,
-    )
-  }
   return summary
 }
 
@@ -309,14 +322,21 @@ function enforcePerformanceBudgets(names) {
 
   const misses = names.flatMap((name) => {
     const summary = performanceReport.scenarios[name]
-    if (summary?.meets120HzDrawBudget) return []
+    if (summary?.meetsGpuixControlledBudget) return []
     return [
-      `${name}: p90=${summary?.p90Ms?.toFixed(2) ?? "n/a"}ms p99=${summary?.p99Ms?.toFixed(2) ?? "n/a"}ms`,
+      [
+        name,
+        `viewRenderP90=${summary?.viewRenderP90Ms?.toFixed(3) ?? "n/a"}ms/${maxGpuixViewRenderP90Ms.toFixed(2)}ms`,
+        `viewBuildP90=${summary?.viewBuildP90Ms?.toFixed(3) ?? "n/a"}ms/${maxGpuixViewBuildP90Ms.toFixed(2)}ms`,
+        name === "canvas-wheel-zoom"
+          ? `rootRevisionDelta=${summary?.rootRevisionDelta ?? "n/a"}/${maxCanvasRootRevisionDelta}`
+          : null,
+      ].filter(Boolean).join(" "),
     ]
   })
   assert(
     misses.length === 0,
-    `120 Hz median draw budget missed: ${misses.join("; ")}; target=${targetFrameMs.toFixed(2)}ms`,
+    `GPUIX controlled performance budget missed: ${misses.join("; ")}`,
   )
 }
 
