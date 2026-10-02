@@ -253,6 +253,14 @@ export class SseAutomationBackend implements AutomationBackend {
     if (result.paintP99Ms !== undefined) stats.paintP99Ms = result.paintP99Ms
     if (result.paintMaxMs !== undefined) stats.paintMaxMs = result.paintMaxMs
     if (result.paintSamples !== undefined) stats.paintSamples = result.paintSamples
+    if (result.rootRequestP90Ms !== undefined) stats.rootRequestP90Ms = result.rootRequestP90Ms
+    if (result.rootRequestP99Ms !== undefined) stats.rootRequestP99Ms = result.rootRequestP99Ms
+    if (result.rootLayoutP90Ms !== undefined) stats.rootLayoutP90Ms = result.rootLayoutP90Ms
+    if (result.rootLayoutP99Ms !== undefined) stats.rootLayoutP99Ms = result.rootLayoutP99Ms
+    if (result.rootPrepaintP90Ms !== undefined) stats.rootPrepaintP90Ms = result.rootPrepaintP90Ms
+    if (result.rootPrepaintP99Ms !== undefined) stats.rootPrepaintP99Ms = result.rootPrepaintP99Ms
+    if (result.prepaintRestP90Ms !== undefined) stats.prepaintRestP90Ms = result.prepaintRestP90Ms
+    if (result.prepaintRestP99Ms !== undefined) stats.prepaintRestP99Ms = result.prepaintRestP99Ms
     if (result.canvasPrepareP90Ms !== undefined) stats.canvasPrepareP90Ms = result.canvasPrepareP90Ms
     if (result.canvasPrepareP99Ms !== undefined) stats.canvasPrepareP99Ms = result.canvasPrepareP99Ms
     if (result.canvasPrepareMaxMs !== undefined) stats.canvasPrepareMaxMs = result.canvasPrepareMaxMs
