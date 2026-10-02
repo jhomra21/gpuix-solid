@@ -77,26 +77,18 @@ diff --git a/crates/gpui/src/debug_overlay.rs b/crates/gpui/src/debug_overlay.rs
  
      pub(crate) fn mode(&self) -> DebugFrameOverlayMode {
          self.mode
-@@ -87,9 +105,12 @@
+@@ -87,37 +105,90 @@
  
      /// Clears the draw-duration samples, restarting the percentile window.
      /// The total frame count is left untouched.
 -    pub(crate) fn reset_stats(&mut self) {
 -        self.draw_durations.clear();
 -    }
-+    pub(crate) fn reset_stats(&mut self) {
-+        self.draw_durations.clear();
-+        self.draw_roots_durations.clear();
-+        self.prepaint_durations.clear();
-+        self.paint_durations.clear();
-+    }
- 
-     pub(crate) fn is_enabled(&self) -> bool {
-         self.mode != DebugFrameOverlayMode::Hidden
-@@ -95,29 +116,79 @@
-         self.mode != DebugFrameOverlayMode::Hidden
-     }
- 
+-
+-    pub(crate) fn is_enabled(&self) -> bool {
+-        self.mode != DebugFrameOverlayMode::Hidden
+-    }
+-
 -    pub(crate) fn record_frame(&mut self, draw_duration: Duration) {
 -        self.total_frame_count += 1;
 -        if self.draw_durations.len() >= MAX_SAMPLES {
@@ -120,6 +112,17 @@ diff --git a/crates/gpui/src/debug_overlay.rs b/crates/gpui/src/debug_overlay.rs
 -            samples: self.draw_durations.len(),
 -        }
 -    }
++    pub(crate) fn reset_stats(&mut self) {
++        self.draw_durations.clear();
++        self.draw_roots_durations.clear();
++        self.prepaint_durations.clear();
++        self.paint_durations.clear();
++    }
++
++    pub(crate) fn is_enabled(&self) -> bool {
++        self.mode != DebugFrameOverlayMode::Hidden
++    }
++
 +    pub(crate) fn record_frame(&mut self, draw_duration: Duration) {
 +        self.total_frame_count += 1;
 +        Self::push_duration(&mut self.draw_durations, draw_duration);
@@ -199,7 +202,7 @@ diff --git a/crates/gpui/src/debug_overlay.rs b/crates/gpui/src/debug_overlay.rs
 diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
 --- a/crates/gpui/src/window.rs
 +++ b/crates/gpui/src/window.rs
-@@ -2947,10 +2947,15 @@
+@@ -2951,10 +2951,15 @@
                  self.rendered_frame.input_handlers.push(Some(input_handler));
              }
          }
@@ -219,7 +222,7 @@ diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
                  self.captured_identity = None;
              }
              #[cfg(feature = "profiler")]
-@@ -3161,9 +3166,11 @@
+@@ -3165,9 +3170,11 @@
          self.debug_frame_overlay.stats()
      }
  
@@ -234,7 +237,7 @@ diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
  
          self.a11y.sync_active_flag();
          if self.a11y.is_active() {
-@@ -3228,11 +3235,17 @@
+@@ -3232,11 +3239,17 @@
              tooltip_element = self.prepaint_tooltip(cx);
          }
  
@@ -257,7 +260,7 @@ diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
  
          #[cfg(any(feature = "inspector", debug_assertions))]
          self.paint_inspector(inspector_element, cx);
-@@ -3268,15 +3281,19 @@
+@@ -3272,15 +3285,19 @@
              // clear the builder state regardless
              let tree_update = self.a11y.end_frame(frame_info);
  
