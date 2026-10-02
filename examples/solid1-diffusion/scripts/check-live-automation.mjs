@@ -348,6 +348,19 @@ function summarizeProfiles(name, runNames) {
   return summary
 }
 
+function assertCachedPrepaintReuse(names) {
+  const misses = names.flatMap((name) => {
+    const summary = performanceReport.scenarios[name]
+    return (summary?.cachedPrepaintHits ?? 0) > 0
+      ? []
+      : [`${name} produced no cached-prepaint reuse hits`]
+  })
+  assert(
+    misses.length === 0,
+    `Nested retained-region cache reuse regressed: ${misses.join("; ")}`,
+  )
+}
+
 function enforcePerformanceBudgets(names) {
   if (!enforce120HzBudget) return
 
@@ -1251,6 +1264,7 @@ try {
     await delay(160)
   }
   summarizeProfiles("canvas-wheel-zoom", canvasProfileRuns)
+  assertCachedPrepaintReuse(["inspector-wheel", "canvas-wheel-zoom"])
   enforcePerformanceBudgets(["inspector-wheel", "canvas-wheel-zoom"])
 
   tree = await getFreshTree(app)
