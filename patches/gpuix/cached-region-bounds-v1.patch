@@ -96,8 +96,9 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
                  .child(result)
                  .into_any_element()
          };
-@@ -5272,7 +5296,17 @@
-     probe.style().clone()
+@@ -5290,7 +5314,17 @@
+     };
+     definite(style.width.as_ref()) && definite(style.height.as_ref())
  }
  
 +fn collect_retained_region_ids(tree: &RetainedTree, id: u64, ids: &mut Vec<u64>) {
