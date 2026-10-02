@@ -253,6 +253,10 @@ export class SseAutomationBackend implements AutomationBackend {
     if (result.paintP99Ms !== undefined) stats.paintP99Ms = result.paintP99Ms
     if (result.paintMaxMs !== undefined) stats.paintMaxMs = result.paintMaxMs
     if (result.paintSamples !== undefined) stats.paintSamples = result.paintSamples
+    if (result.canvasPrepareP90Ms !== undefined) stats.canvasPrepareP90Ms = result.canvasPrepareP90Ms
+    if (result.canvasPrepareP99Ms !== undefined) stats.canvasPrepareP99Ms = result.canvasPrepareP99Ms
+    if (result.canvasPrepareMaxMs !== undefined) stats.canvasPrepareMaxMs = result.canvasPrepareMaxMs
+    if (result.canvasPrepareSamples !== undefined) stats.canvasPrepareSamples = result.canvasPrepareSamples
     if (result.viewRenderCurrentMs !== undefined) stats.viewRenderCurrentMs = result.viewRenderCurrentMs
     if (result.viewRenderP90Ms !== undefined) stats.viewRenderP90Ms = result.viewRenderP90Ms
     if (result.viewRenderP99Ms !== undefined) stats.viewRenderP99Ms = result.viewRenderP99Ms
