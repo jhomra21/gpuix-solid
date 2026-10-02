@@ -96,7 +96,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
                  .child(result)
                  .into_any_element()
          };
-@@ -5290,7 +5314,17 @@
+@@ -5290,8 +5314,18 @@
      };
      definite(style.width.as_ref()) && definite(style.height.as_ref())
  }
