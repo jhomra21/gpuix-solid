@@ -32,6 +32,18 @@ export interface DebugFrameOverlayStats {
   maxMs?: number
   frames: number
   samples: number
+  drawRootsP90Ms?: number
+  drawRootsP99Ms?: number
+  drawRootsMaxMs?: number
+  drawRootsSamples?: number
+  prepaintP90Ms?: number
+  prepaintP99Ms?: number
+  prepaintMaxMs?: number
+  prepaintSamples?: number
+  paintP90Ms?: number
+  paintP99Ms?: number
+  paintMaxMs?: number
+  paintSamples?: number
   viewRenderCurrentMs?: number
   viewRenderP90Ms?: number
   viewRenderP99Ms?: number
