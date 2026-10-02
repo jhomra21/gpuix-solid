@@ -261,6 +261,10 @@ export class SseAutomationBackend implements AutomationBackend {
     if (result.rootPrepaintP99Ms !== undefined) stats.rootPrepaintP99Ms = result.rootPrepaintP99Ms
     if (result.prepaintRestP90Ms !== undefined) stats.prepaintRestP90Ms = result.prepaintRestP90Ms
     if (result.prepaintRestP99Ms !== undefined) stats.prepaintRestP99Ms = result.prepaintRestP99Ms
+    if (result.cachedPrepaintReuseP90Ms !== undefined) stats.cachedPrepaintReuseP90Ms = result.cachedPrepaintReuseP90Ms
+    if (result.cachedPrepaintReuseP99Ms !== undefined) stats.cachedPrepaintReuseP99Ms = result.cachedPrepaintReuseP99Ms
+    if (result.cachedPrepaintRenderP90Ms !== undefined) stats.cachedPrepaintRenderP90Ms = result.cachedPrepaintRenderP90Ms
+    if (result.cachedPrepaintRenderP99Ms !== undefined) stats.cachedPrepaintRenderP99Ms = result.cachedPrepaintRenderP99Ms
     if (result.canvasPrepareP90Ms !== undefined) stats.canvasPrepareP90Ms = result.canvasPrepareP90Ms
     if (result.canvasPrepareP99Ms !== undefined) stats.canvasPrepareP99Ms = result.canvasPrepareP99Ms
     if (result.canvasPrepareMaxMs !== undefined) stats.canvasPrepareMaxMs = result.canvasPrepareMaxMs
