@@ -115,7 +115,7 @@ const usabilityTestHook = {
               variant="link"`
       const worldImport = `import { useWorld } from "@diffusionstudio/koota-solid";`
       const scaleBlock = `  const scale = useCameraScale();
-  const zoomLabel = () => \`${Math.round(scale() * 100)}%\`;`
+  const zoomLabel = () => \`\${Math.round(scale() * 100)}%\`;`
       if (!code.includes(trigger)) throw new Error("Pinned Diffusion Inspector zoom trigger changed")
       if (!code.includes(worldImport)) throw new Error("Pinned Diffusion Inspector world import changed")
       if (!code.includes(scaleBlock)) throw new Error("Pinned Diffusion Inspector scale block changed")
@@ -145,7 +145,7 @@ import { createEffect, createSignal, onCleanup } from "solid-js";`,
     if (zoomLabelTimer !== undefined) clearTimeout(zoomLabelTimer);
   });
 
-  const zoomLabel = () => \`${Math.round(displayScale() * 100)}%\`;`,
+  const zoomLabel = () => \`\${Math.round(displayScale() * 100)}%\`;`,
           )
           .replace(
             trigger,
