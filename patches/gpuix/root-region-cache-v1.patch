@@ -175,7 +175,12 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +                    inherited: Inherited::root(&theme),
 +                    highlights: &mut self.highlights,
 +                    highlight_events: &mut highlight_events,
-+                    root_regions: (!motion_active).then_some(&mut self.retained_regions),
++                    root_regions: if motion_active {
++                        self.retained_regions.clear();
++                        None
++                    } else {
++                        Some(&mut self.retained_regions)
++                    },
 +                };
 +                build_element(root_id, &mut ctx, window, cx)
              }
