@@ -21,7 +21,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +    view: gpui::Entity<RetainedRegionView>,
 +}
 +
-+const RETAINED_REGION_CACHE_LEVELS: u8 = 3;
++const RETAINED_REGION_CACHE_LEVELS: u8 = 4;
 +
 +struct RetainedRegionView {
 +    parent: gpui::WeakEntity<GpuixView>,
