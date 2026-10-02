@@ -27,7 +27,8 @@
     "patches/gpuix/root-region-cache-v1.patch",
     "patches/gpuix/cached-region-bounds-v1.patch",
     "patches/gpuix/cached-region-bounds-frame-v1.patch",
-    "patches/gpuix/canvas-entity-view-v1.patch"
+    "patches/gpuix/canvas-entity-view-v1.patch",
+    "patches/gpuix/canvas-prepare-stats-v1.patch"
   ],
   "submodulePatches": [
     {
