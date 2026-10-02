@@ -44,6 +44,14 @@ export interface DebugFrameOverlayStats {
   paintP99Ms?: number
   paintMaxMs?: number
   paintSamples?: number
+  rootRequestP90Ms?: number
+  rootRequestP99Ms?: number
+  rootLayoutP90Ms?: number
+  rootLayoutP99Ms?: number
+  rootPrepaintP90Ms?: number
+  rootPrepaintP99Ms?: number
+  prepaintRestP90Ms?: number
+  prepaintRestP99Ms?: number
   canvasPrepareP90Ms?: number
   canvasPrepareP99Ms?: number
   canvasPrepareMaxMs?: number
