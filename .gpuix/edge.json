@@ -11,6 +11,7 @@
     "patches/gpuix/root-revision-stats-v1.patch",
     "patches/gpuix/draw-phase-stats-v1.patch",
     "patches/gpuix/host-own-bounds-v1.patch",
+    "patches/gpuix/virtual-list-own-bounds-v1.patch",
     "patches/gpuix/shared-retained-text-v1.patch",
     "patches/gpuix/video-frame-v1.patch",
     "patches/gpuix/video-frame-iosurface-v1.patch",
