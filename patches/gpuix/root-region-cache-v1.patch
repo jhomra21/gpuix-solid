@@ -175,7 +175,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +                    inherited: Inherited::root(&theme),
 +                    highlights: &mut self.highlights,
 +                    highlight_events: &mut highlight_events,
-+                    root_regions: if motion_active || window.a11y.is_active() {
++                    root_regions: if motion_active || window.is_a11y_active() {
 +                        self.retained_regions.clear();
 +                        None
 +                    } else {
