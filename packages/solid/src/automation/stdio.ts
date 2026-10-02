@@ -241,6 +241,18 @@ export class SseAutomationBackend implements AutomationBackend {
     if (result.p90Ms !== undefined) stats.p90Ms = result.p90Ms
     if (result.p99Ms !== undefined) stats.p99Ms = result.p99Ms
     if (result.maxMs !== undefined) stats.maxMs = result.maxMs
+    if (result.drawRootsP90Ms !== undefined) stats.drawRootsP90Ms = result.drawRootsP90Ms
+    if (result.drawRootsP99Ms !== undefined) stats.drawRootsP99Ms = result.drawRootsP99Ms
+    if (result.drawRootsMaxMs !== undefined) stats.drawRootsMaxMs = result.drawRootsMaxMs
+    if (result.drawRootsSamples !== undefined) stats.drawRootsSamples = result.drawRootsSamples
+    if (result.prepaintP90Ms !== undefined) stats.prepaintP90Ms = result.prepaintP90Ms
+    if (result.prepaintP99Ms !== undefined) stats.prepaintP99Ms = result.prepaintP99Ms
+    if (result.prepaintMaxMs !== undefined) stats.prepaintMaxMs = result.prepaintMaxMs
+    if (result.prepaintSamples !== undefined) stats.prepaintSamples = result.prepaintSamples
+    if (result.paintP90Ms !== undefined) stats.paintP90Ms = result.paintP90Ms
+    if (result.paintP99Ms !== undefined) stats.paintP99Ms = result.paintP99Ms
+    if (result.paintMaxMs !== undefined) stats.paintMaxMs = result.paintMaxMs
+    if (result.paintSamples !== undefined) stats.paintSamples = result.paintSamples
     if (result.viewRenderCurrentMs !== undefined) stats.viewRenderCurrentMs = result.viewRenderCurrentMs
     if (result.viewRenderP90Ms !== undefined) stats.viewRenderP90Ms = result.viewRenderP90Ms
     if (result.viewRenderP99Ms !== undefined) stats.viewRenderP99Ms = result.viewRenderP99Ms
