@@ -1,7 +1,7 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -2134,9 +2134,39 @@
+@@ -2134,9 +2134,60 @@
          Err(Error::from_reason("Unsupported operating system"))
      }
  
@@ -17,22 +17,43 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +        let id = to_element_id(element_id)?;
 +
 +        #[cfg(target_os = "macos")]
-+        return Ok(SCROLL_HANDLES.with(|cell| {
-+            let handles = cell.borrow();
-+            handles.get(&id).map(|handle| {
-+                let offset = handle.offset();
-+                let max = handle.max_offset();
-+                let bounds = handle.bounds();
-+                vec![
-+                    f64::from(f32::from(offset.x)),
-+                    f64::from(f32::from(offset.y)),
-+                    f64::from(f32::from(max.x)),
-+                    f64::from(f32::from(max.y)),
-+                    f64::from(f32::from(bounds.size.width)),
-+                    f64::from(f32::from(bounds.size.height)),
-+                ]
-+            })
-+        }));
++        {
++            if let Some(metrics) = VIRTUAL_LIST_STATES.with(|cell| {
++                let states = cell.borrow();
++                states.get(&id).map(|state| {
++                    let offset = state.scroll_px_offset_for_scrollbar();
++                    let max = state.max_offset_for_scrollbar();
++                    let bounds = state.viewport_bounds();
++                    vec![
++                        f64::from(f32::from(offset.x)),
++                        f64::from(f32::from(offset.y)),
++                        f64::from(f32::from(max.x)),
++                        f64::from(f32::from(max.y)),
++                        f64::from(f32::from(bounds.size.width)),
++                        f64::from(f32::from(bounds.size.height)),
++                    ]
++                })
++            }) {
++                return Ok(Some(metrics));
++            }
++
++            return Ok(SCROLL_HANDLES.with(|cell| {
++                let handles = cell.borrow();
++                handles.get(&id).map(|handle| {
++                    let offset = handle.offset();
++                    let max = handle.max_offset();
++                    let bounds = handle.bounds();
++                    vec![
++                        f64::from(f32::from(offset.x)),
++                        f64::from(f32::from(offset.y)),
++                        f64::from(f32::from(max.x)),
++                        f64::from(f32::from(max.y)),
++                        f64::from(f32::from(bounds.size.width)),
++                        f64::from(f32::from(bounds.size.height)),
++                    ]
++                })
++            }));
++        }
 +
 +        #[cfg(not(target_os = "macos"))]
 +        Ok(None)
@@ -44,6 +65,43 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
          let id = to_element_id(element_id)?;
          #[cfg(target_os = "macos")]
          {
+@@ -5024,10 +5024,30 @@
+-    if element.events.contains("visibleRange") {
++    let emits_visible_range = element.events.contains("visibleRange");
++    let emits_scroll = element.events.contains("scroll");
++    if emits_visible_range || emits_scroll {
+         let callback = ctx.event_callback.clone();
+         let list_id = element.id;
++        let list_state_for_metrics = list_state.clone();
+         list_state.set_scroll_handler(move |event, _window, _cx| {
+-            emit_event_full(&callback, list_id, "visibleRange", |payload| {
+-                payload.start_index = Some(event.visible_range.start as f64);
+-                payload.end_index = Some(event.visible_range.end as f64);
+-            });
++            if emits_visible_range {
++                emit_event_full(&callback, list_id, "visibleRange", |payload| {
++                    payload.start_index = Some(event.visible_range.start as f64);
++                    payload.end_index = Some(event.visible_range.end as f64);
++                });
++            }
++            if emits_scroll {
++                let offset = list_state_for_metrics.scroll_px_offset_for_scrollbar();
++                let max = list_state_for_metrics.max_offset_for_scrollbar();
++                let bounds = list_state_for_metrics.viewport_bounds();
++                emit_event_full(&callback, list_id, "scroll", |payload| {
++                    payload.scroll_offset_x = Some(f64::from(f32::from(offset.x)));
++                    payload.scroll_offset_y = Some(f64::from(f32::from(offset.y)));
++                    payload.scroll_max_x = Some(f64::from(f32::from(max.x)));
++                    payload.scroll_max_y = Some(f64::from(f32::from(max.y)));
++                    payload.scroll_viewport_width =
++                        Some(f64::from(f32::from(bounds.size.width)));
++                    payload.scroll_viewport_height =
++                        Some(f64::from(f32::from(bounds.size.height)));
++                });
++            }
+         });
+     }
+
 diff --git a/packages/native/src/element_tree.rs b/packages/native/src/element_tree.rs
 --- a/packages/native/src/element_tree.rs
 +++ b/packages/native/src/element_tree.rs
