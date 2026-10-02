@@ -70,7 +70,7 @@ diff --git a/packages/native/src/automation.rs b/packages/native/src/automation.
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -3770,9 +3770,12 @@
+@@ -3770,11 +3770,14 @@
  struct RetainedRegionEntry {
      revision: u64,
      view: gpui::Entity<RetainedRegionView>,
@@ -78,6 +78,8 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +    element_ids: Vec<u64>,
 +    preserve_bounds: bool,
  }
+ 
+ const RETAINED_REGION_CACHE_LEVELS: u8 = 3;
  
  struct RetainedRegionView {
      parent: gpui::WeakEntity<GpuixView>,
