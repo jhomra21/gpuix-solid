@@ -28,6 +28,7 @@
     "patches/gpuix/canvas-live-draw-list-v1.patch",
     "patches/gpuix/skip-host-custom-registry-destroy-v1.patch",
     "patches/gpuix/root-region-cache-v1.patch",
+    "patches/gpuix/root-shell-region-partition-v2.patch",
     "patches/gpuix/cached-region-bounds-v1.patch",
     "patches/gpuix/cached-region-bounds-frame-v1.patch",
     "patches/gpuix/canvas-entity-view-v1.patch",
