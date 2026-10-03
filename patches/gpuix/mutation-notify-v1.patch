@@ -19,7 +19,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
              UiCommand::Invalidate => refresh_ui_window(window, cx),
              UiCommand::ActivateWindow => window.update(cx, |_view, window, cx| {
                  cx.activate(true);
-@@ -1060,6 +1064,25 @@ impl Renderer {
+@@ -1060,6 +1064,31 @@ impl Renderer {
          recv_ui_response(receiver, "the automation clock command")
      }
  
@@ -51,7 +51,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
      fn request_invalidate(&self) -> Result<()> {
          #[cfg(target_os = "macos")]
          return invalidate_window();
-@@ -1383,7 +1406,7 @@ impl Renderer {
+@@ -1383,7 +1412,7 @@ impl Renderer {
          let destroyed =
              apply_batch_to_tree(&mut tree, json.as_bytes()).map_err(Error::from_reason)?;
          drop(tree);
