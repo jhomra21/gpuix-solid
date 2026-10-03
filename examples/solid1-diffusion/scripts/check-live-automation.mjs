@@ -307,6 +307,15 @@ function summarizeProfiles(name, runNames) {
     cachedPrepaintKeyMisses: median(runs.map((run) => run?.cachedPrepaintKeyMisses)),
     cachedPrepaintDirtyMisses: median(runs.map((run) => run?.cachedPrepaintDirtyMisses)),
     cachedPrepaintRefreshingMisses: median(runs.map((run) => run?.cachedPrepaintRefreshingMisses)),
+    cachedPrepaintSlowest: runs
+      .map((run) => ({
+        run: run?.name ?? null,
+        id: run?.cachedPrepaintSlowestId ?? null,
+        ms: run?.cachedPrepaintSlowestMs ?? null,
+        node: run?.cachedPrepaintSlowestNode ?? null,
+      }))
+      .filter((entry) => Number.isFinite(entry.ms))
+      .sort((left, right) => right.ms - left.ms)[0] ?? null,
     canvasPrepareP90Ms: median(runs.map((run) => run?.canvasPrepareP90Ms)),
     canvasPrepareP99Ms: median(runs.map((run) => run?.canvasPrepareP99Ms)),
     canvasPrepareMaxMs: median(runs.map((run) => run?.canvasPrepareMaxMs)),
@@ -390,7 +399,7 @@ function enforcePerformanceBudgets(names) {
 async function profileNativeFrames(app, name, exercise, { minimumSamples = 1 } = {}) {
   const probeTimeoutMs = 15_000
   const probeStartedAt = performance.now()
-  const scenario = { status: "running", phase: "reset", minimumSamples }
+  const scenario = { name, status: "running", phase: "reset", minimumSamples }
   performanceReport.scenarios[name] = scenario
   persistPerformanceReport()
 
@@ -431,6 +440,18 @@ async function profileNativeFrames(app, name, exercise, { minimumSamples = 1 } =
         const observedFps = frames * 1000 / elapsedMs
         const p90Ms = stats.p90Ms ?? null
         const p99Ms = stats.p99Ms ?? null
+        const cachedPrepaintSlowestId = stats.cachedPrepaintSlowestId ?? null
+        let cachedPrepaintSlowestNode = null
+        if (Number.isFinite(cachedPrepaintSlowestId)) {
+          const profileTree = await currentTree(app)
+          const profileNode = descendants(profileTree).find((node) => node.id === cachedPrepaintSlowestId)
+          if (profileNode) {
+            cachedPrepaintSlowestNode = {
+              id: profileNode.id,
+              ...comparableAutomationNode(profileNode),
+            }
+          }
+        }
         Object.assign(scenario, {
           status: "passed",
           phase: "complete",
@@ -474,6 +495,9 @@ async function profileNativeFrames(app, name, exercise, { minimumSamples = 1 } =
           cachedPrepaintKeyMisses: stats.cachedPrepaintKeyMisses ?? null,
           cachedPrepaintDirtyMisses: stats.cachedPrepaintDirtyMisses ?? null,
           cachedPrepaintRefreshingMisses: stats.cachedPrepaintRefreshingMisses ?? null,
+          cachedPrepaintSlowestId,
+          cachedPrepaintSlowestMs: stats.cachedPrepaintSlowestMs ?? null,
+          cachedPrepaintSlowestNode,
           canvasPrepareP90Ms: stats.canvasPrepareP90Ms ?? null,
           canvasPrepareP99Ms: stats.canvasPrepareP99Ms ?? null,
           canvasPrepareMaxMs: stats.canvasPrepareMaxMs ?? null,
