@@ -222,6 +222,7 @@ export const frameStatsResultSchema = z.object({
   cachedPrepaintDirtyMisses: z.number().int().nonnegative().optional(),
   cachedPrepaintRefreshingMisses: z.number().int().nonnegative().optional(),
   cachedPrepaintSlowestId: z.number().int().nonnegative().optional(),
+  cachedPrepaintSlowestType: z.string().optional(),
   cachedPrepaintSlowestMs: z.number().nonnegative().optional(),
   canvasPrepareP90Ms: z.number().optional(),
   canvasPrepareP99Ms: z.number().optional(),
