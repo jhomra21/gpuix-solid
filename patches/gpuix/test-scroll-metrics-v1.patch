@@ -1,7 +1,7 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -4870,6 +4870,21 @@
+@@ -4870,6 +4870,27 @@
          ])
      }
  
@@ -11,8 +11,14 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +        let max = state.max_offset_for_scrollbar();
 +        let bounds = state.viewport_bounds();
 +        Some([
-+            f64::from(f32::from(offset.x)),
-+            f64::from(f32::from(offset.y)),
++            {
++                let value = f64::from(f32::from(offset.x));
++                if value == 0.0 { 0.0 } else { value }
++            },
++            {
++                let value = f64::from(f32::from(offset.y));
++                if value == 0.0 { 0.0 } else { value }
++            },
 +            f64::from(f32::from(max.x)),
 +            f64::from(f32::from(max.y)),
 +            f64::from(f32::from(bounds.size.width)),
@@ -26,7 +32,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 diff --git a/packages/native/src/test_renderer.rs b/packages/native/src/test_renderer.rs
 --- a/packages/native/src/test_renderer.rs
 +++ b/packages/native/src/test_renderer.rs
-@@ -746,6 +746,39 @@
+@@ -746,6 +746,45 @@
          })
      }
  
@@ -48,8 +54,14 @@ diff --git a/packages/native/src/test_renderer.rs b/packages/native/src/test_ren
 +                            let max = handle.max_offset();
 +                            let bounds = handle.bounds();
 +                            vec![
-+                                f64::from(f32::from(offset.x)),
-+                                f64::from(f32::from(offset.y)),
++                                {
++                                    let value = f64::from(f32::from(offset.x));
++                                    if value == 0.0 { 0.0 } else { value }
++                                },
++                                {
++                                    let value = f64::from(f32::from(offset.y));
++                                    if value == 0.0 { 0.0 } else { value }
++                                },
 +                                f64::from(f32::from(max.x)),
 +                                f64::from(f32::from(max.y)),
 +                                f64::from(f32::from(bounds.size.width)),
