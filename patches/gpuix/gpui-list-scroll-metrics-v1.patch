@@ -1,7 +1,7 @@
 diff --git a/crates/gpui/src/elements/list.rs b/crates/gpui/src/elements/list.rs
 --- a/crates/gpui/src/elements/list.rs
 +++ b/crates/gpui/src/elements/list.rs
-@@ -181,6 +181,15 @@
+@@ -181,6 +181,16 @@
      /// Whether the list has been scrolled.
      pub is_scrolled: bool,
  
@@ -18,7 +18,7 @@ diff --git a/crates/gpui/src/elements/list.rs b/crates/gpui/src/elements/list.rs
      /// Whether the list is currently in follow-tail mode (auto-scrolling to end).
      pub is_following_tail: bool,
  }
-@@ -951,10 +960,16 @@
+@@ -951,9 +960,13 @@
              let visible_range = Self::visible_range(&self.items, height, scroll_top);
 +            let viewport_size = self.last_layout_bounds.unwrap_or_default().size;
              handler(
