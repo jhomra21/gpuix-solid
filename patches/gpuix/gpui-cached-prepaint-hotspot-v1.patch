@@ -37,7 +37,7 @@ diff --git a/crates/gpui/src/debug_overlay.rs b/crates/gpui/src/debug_overlay.rs
      }
  
      pub(crate) fn is_enabled(&self) -> bool {
-@@ -240,8 +248,15 @@
+@@ -240,8 +248,16 @@
          self.cached_prepaint_reuse_current += duration;
      }
  
@@ -55,7 +55,7 @@ diff --git a/crates/gpui/src/debug_overlay.rs b/crates/gpui/src/debug_overlay.rs
      }
  
      pub(crate) fn record_cached_prepaint_hit(&mut self) {
-@@ -374,6 +389,10 @@
+@@ -374,6 +390,10 @@
              cached_prepaint_key_misses: self.cached_prepaint_key_misses,
              cached_prepaint_dirty_misses: self.cached_prepaint_dirty_misses,
              cached_prepaint_refreshing_misses: self.cached_prepaint_refreshing_misses,
@@ -87,7 +87,7 @@ diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
 diff --git a/crates/gpui/src/view.rs b/crates/gpui/src/view.rs
 --- a/crates/gpui/src/view.rs
 +++ b/crates/gpui/src/view.rs
-@@ -239,6 +239,22 @@
+@@ -239,6 +239,26 @@
      pub fn cached_nested(self, style: StyleRefinement) -> ViewElement<Entity<T>> {
          ViewElement::new(self).cached_nested(style)
      }
@@ -114,7 +114,7 @@ diff --git a/crates/gpui/src/view.rs b/crates/gpui/src/view.rs
  }
  
  /// The element type for [`View`] implementations. Wraps a `View` and hooks it
-@@ -253,6 +269,7 @@
+@@ -253,6 +273,7 @@
      entity_id: Option<EntityId>,
      cached_style: Option<StyleRefinement>,
      reuse_during_parent_refresh: bool,
@@ -122,7 +122,7 @@ diff --git a/crates/gpui/src/view.rs b/crates/gpui/src/view.rs
      #[cfg(debug_assertions)]
      source: &'static core::panic::Location<'static>,
  }
-@@ -266,6 +283,7 @@
+@@ -266,6 +287,7 @@
              entity_id,
              cached_style: None,
              reuse_during_parent_refresh: false,
@@ -130,7 +130,7 @@ diff --git a/crates/gpui/src/view.rs b/crates/gpui/src/view.rs
              view: Some(view),
              #[cfg(debug_assertions)]
              source: core::panic::Location::caller(),
-@@ -291,6 +309,11 @@
+@@ -291,6 +313,11 @@
          self
      }
  
@@ -142,7 +142,7 @@ diff --git a/crates/gpui/src/view.rs b/crates/gpui/src/view.rs
  }
  
  impl<V: View> IntoElement for ViewElement<V> {
-@@ -407,6 +430,7 @@
+@@ -407,6 +434,7 @@
                      element.prepaint(window, cx);
                      return Some(element);
                  }
@@ -150,7 +150,7 @@ diff --git a/crates/gpui/src/view.rs b/crates/gpui/src/view.rs
  
                  window.with_element_state::<ViewElementState, _>(
                      global_id.unwrap(),
-@@ -461,7 +485,10 @@
+@@ -461,6 +489,9 @@
                          });
  
                          #[cfg(feature = "profiler")]
