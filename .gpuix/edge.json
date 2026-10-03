@@ -7,6 +7,7 @@
     "patches/gpuix/pinch-wheel-v1.patch",
     "patches/gpuix/wheel-bubble-relay-v1.patch",
     "patches/gpuix/scroll-metrics-v1.patch",
+    "patches/gpuix/test-scroll-metrics-v1.patch",
     "patches/gpuix/view-render-stats-v1.patch",
     "patches/gpuix/root-revision-stats-v1.patch",
     "patches/gpuix/draw-phase-stats-v1.patch",
