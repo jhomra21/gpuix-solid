@@ -162,7 +162,7 @@ diff --git a/crates/gpui/src/view.rs b/crates/gpui/src/view.rs
  
                  window.with_element_state::<ViewElementState, _>(
                      global_id.unwrap(),
-@@ -461,6 +488,10 @@
+@@ -461,6 +488,26 @@
                          });
  
                          #[cfg(feature = "profiler")]
