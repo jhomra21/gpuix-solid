@@ -275,6 +275,7 @@ import { createEffect, createSignal, onCleanup } from "solid-js";`,
       <virtual-list
         ref={scrollEl}
         testId="diffusion-control-scroll-area-scroll"
+        estimatedItemHeight={96}
         overdraw={0}
         class="absolute inset-0"
       >
