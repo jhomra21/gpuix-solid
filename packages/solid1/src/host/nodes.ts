@@ -716,7 +716,8 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
         height: Math.max(0, this.#scrollEventMetrics.viewportHeight),
       }
     }
-    const isScrollable = this.style.overflow === "auto"
+    const isScrollable = this.type === "virtual-list"
+      || this.style.overflow === "auto"
       || this.style.overflow === "scroll"
       || this.style.overflowX === "auto"
       || this.style.overflowX === "scroll"
