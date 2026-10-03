@@ -6,6 +6,7 @@ diff --git a/crates/gpui/src/debug_overlay.rs b/crates/gpui/src/debug_overlay.rs
      pub cached_prepaint_dirty_misses: u64,
      pub cached_prepaint_refreshing_misses: u64,
 +    pub cached_prepaint_slowest_id: Option<u64>,
++    pub cached_prepaint_slowest_type: Option<&'static str>,
 +    pub cached_prepaint_slowest_ms: Option<f32>,
  }
  
@@ -15,6 +16,7 @@ diff --git a/crates/gpui/src/debug_overlay.rs b/crates/gpui/src/debug_overlay.rs
      cached_prepaint_dirty_misses: u64,
      cached_prepaint_refreshing_misses: u64,
 +    cached_prepaint_slowest_id: Option<u64>,
++    cached_prepaint_slowest_type: Option<&'static str>,
 +    cached_prepaint_slowest_duration: Duration,
      total_frame_count: u64,
  }
@@ -24,6 +26,7 @@ diff --git a/crates/gpui/src/debug_overlay.rs b/crates/gpui/src/debug_overlay.rs
              cached_prepaint_dirty_misses: 0,
              cached_prepaint_refreshing_misses: 0,
 +            cached_prepaint_slowest_id: None,
++            cached_prepaint_slowest_type: None,
 +            cached_prepaint_slowest_duration: Duration::ZERO,
              total_frame_count: 0,
          }
@@ -33,6 +36,7 @@ diff --git a/crates/gpui/src/debug_overlay.rs b/crates/gpui/src/debug_overlay.rs
          self.cached_prepaint_dirty_misses = 0;
          self.cached_prepaint_refreshing_misses = 0;
 +        self.cached_prepaint_slowest_id = None;
++        self.cached_prepaint_slowest_type = None;
 +        self.cached_prepaint_slowest_duration = Duration::ZERO;
      }
  
@@ -45,11 +49,13 @@ diff --git a/crates/gpui/src/debug_overlay.rs b/crates/gpui/src/debug_overlay.rs
 +    pub(crate) fn record_cached_prepaint_render(
 +        &mut self,
 +        debug_id: Option<u64>,
++        debug_type: &'static str,
 +        duration: Duration,
 +    ) {
          self.cached_prepaint_render_current += duration;
-+        if debug_id.is_some() && duration > self.cached_prepaint_slowest_duration {
++        if duration > self.cached_prepaint_slowest_duration {
 +            self.cached_prepaint_slowest_id = debug_id;
++            self.cached_prepaint_slowest_type = Some(debug_type);
 +            self.cached_prepaint_slowest_duration = duration;
 +        }
      }
@@ -60,8 +66,9 @@ diff --git a/crates/gpui/src/debug_overlay.rs b/crates/gpui/src/debug_overlay.rs
              cached_prepaint_dirty_misses: self.cached_prepaint_dirty_misses,
              cached_prepaint_refreshing_misses: self.cached_prepaint_refreshing_misses,
 +            cached_prepaint_slowest_id: self.cached_prepaint_slowest_id,
++            cached_prepaint_slowest_type: self.cached_prepaint_slowest_type,
 +            cached_prepaint_slowest_ms: self
-+                .cached_prepaint_slowest_id
++                .cached_prepaint_slowest_type
 +                .map(|_| duration_ms(self.cached_prepaint_slowest_duration)),
          }
      }
@@ -78,9 +85,11 @@ diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
 +    pub(crate) fn record_cached_prepaint_render(
 +        &mut self,
 +        debug_id: Option<u64>,
++        debug_type: &'static str,
 +        duration: Duration,
 +    ) {
-+        self.debug_frame_overlay.record_cached_prepaint_render(debug_id, duration);
++        self.debug_frame_overlay
++            .record_cached_prepaint_render(debug_id, debug_type, duration);
      }
  
      #[cfg(feature = "profiler")]
@@ -159,6 +168,7 @@ diff --git a/crates/gpui/src/view.rs b/crates/gpui/src/view.rs
 -                        window.record_cached_prepaint_render(cached_render_started.elapsed());
 +                        window.record_cached_prepaint_render(
 +                            cached_debug_id,
++                            std::any::type_name::<V>(),
 +                            cached_render_started.elapsed(),
 +                        );
                          let prepaint_end = window.prepaint_index();
