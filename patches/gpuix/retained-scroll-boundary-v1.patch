@@ -1,7 +1,7 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -5302,15 +5302,31 @@
+@@ -5302,15 +5302,43 @@
  fn retained_region_layout_safe(style: Option<&StyleDesc>) -> bool {
      let Some(style) = style else {
          return false;
@@ -46,7 +46,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
  }
  
  fn collect_retained_region_ids(tree: &RetainedTree, id: u64, ids: &mut Vec<u64>) {
-@@ -6163,6 +6179,18 @@
+@@ -6166,6 +6194,18 @@
              } else {
                  build_element(child_id, ctx, window, cx)
              }
