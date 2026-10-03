@@ -164,25 +164,6 @@ function indexParents(root) {
   return parents
 }
 
-function describeNodePath(root, id) {
-  const parents = indexParents(root)
-  const node = descendants(root).find((candidate) => candidate.id === id)
-  if (!node) return { id, missing: true }
-  const path = []
-  let current = node
-  while (current) {
-    path.push({
-      id: current.id,
-      type: current.type,
-      testId: current.testId ?? null,
-      text: current.text ?? null,
-      bounds: current.bounds ?? null,
-    })
-    current = parents.get(current.id)
-  }
-  return { id, path: path.reverse() }
-}
-
 function textContent(node) {
   return `${node.text ?? ""}${(node.children ?? []).map(textContent).join("")}`
 }
@@ -812,10 +793,6 @@ try {
   )
   assertText(initial.tree, "Assets", "Assets navigation")
   assertText(initial.tree, "Chat", "Chat navigation")
-  console.log(
-    "solid1 Diffusion retained hotspot map:",
-    JSON.stringify([2, 3, 5, 57, 59, 90, 678].map((id) => describeNodePath(initial.tree, id))),
-  )
   await screenshot(app, "initial")
 
   const at = (bounds, x, y) => ({ x: bounds.x + bounds.width * x, y: bounds.y + bounds.height * y })
@@ -894,49 +871,6 @@ try {
   assertInspectorShowsTransformControls(tree)
   assertInspectorSectionHeadings(tree)
   await screenshot(app, "layerInspector")
-
-  const inspectorParents = indexParents(tree)
-  let inspectorRegion = descendants(tree).find((node) => node.id === inspectorScrollNode.id)
-  while (inspectorRegion) {
-    const parent = inspectorParents.get(inspectorRegion.id)
-    if (
-      !parent?.bounds
-      || parent.bounds.x < 700
-      || parent.bounds.width > 280
-    ) break
-    inspectorRegion = parent
-  }
-  assert(inspectorRegion, "Could not resolve retained Inspector region")
-  console.log(
-    "solid1 Diffusion Inspector subtree:",
-    JSON.stringify(
-      descendants(inspectorRegion)
-        .filter((node) => node.type === "div" && node.bounds?.width > 0 && node.bounds?.height > 0)
-        .map((node) => ({
-          id: node.id,
-          parentId: inspectorParents.get(node.id)?.id ?? null,
-          testId: node.testId ?? null,
-          bounds: node.bounds,
-          style: node.style
-            ? {
-                display: node.style.display ?? null,
-                position: node.style.position ?? null,
-                width: node.style.width ?? null,
-                height: node.style.height ?? null,
-                minWidth: node.style.minWidth ?? null,
-                minHeight: node.style.minHeight ?? null,
-                maxWidth: node.style.maxWidth ?? null,
-                maxHeight: node.style.maxHeight ?? null,
-                flexDirection: node.style.flexDirection ?? null,
-                flexGrow: node.style.flexGrow ?? null,
-                overflow: node.style.overflow ?? null,
-                overflowX: node.style.overflowX ?? null,
-                overflowY: node.style.overflowY ?? null,
-              }
-            : null,
-        })),
-    ),
-  )
 
   // Measure the exact wheel-heavy Inspector path the manual report called out.
   // Resolve the element identity once, then read only its native painted bounds
