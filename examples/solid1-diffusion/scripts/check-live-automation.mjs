@@ -878,25 +878,71 @@ try {
   // full automation tree for every sample.
   const inspectorOffsetBefore = await app.backend.getScrollOffset(inspectorScrollNode.id)
   assert(inspectorOffsetBefore, "Inspector scroll area has no native ScrollHandle")
+  const inspectorRevisionTreeBefore = await currentTree(app)
+  const inspectorRevisionStatsBefore = await app.performance.stats()
+
   // Probe toward the interior so the wheel must have room to change the
   // ScrollHandle, but keep using the viewport point captured before any scroll.
   const inspectorProbeDelta = inspectorOffsetBefore[1] < 0 ? 24 : -24
   await app.mouse.wheel(inspectorViewportPoint, 0, inspectorProbeDelta)
   await delay(40)
   const inspectorOffsetAfter = await app.backend.getScrollOffset(inspectorScrollNode.id)
+  const inspectorRevisionTreeAfter = await currentTree(app)
+  const inspectorRevisionStatsAfter = await app.performance.stats()
   performanceReport.inspectorScrollProbe = {
     point: inspectorViewportPoint,
     deltaY: inspectorProbeDelta,
     before: inspectorOffsetBefore,
     after: inspectorOffsetAfter,
   }
-  writeFileSync(performancePath, `${JSON.stringify(performanceReport, null, 2)}\n`)
   assert(
     inspectorOffsetAfter && inspectorOffsetAfter[1] !== inspectorOffsetBefore[1],
     `Inspector wheel did not mutate the native scroll offset: ${JSON.stringify(performanceReport.inspectorScrollProbe)}`,
   )
+
   await app.mouse.wheel(inspectorViewportPoint, 0, -inspectorProbeDelta)
   await delay(80)
+  const inspectorRevisionTreeRestored = await currentTree(app)
+  const inspectorRevisionStatsRestored = await app.performance.stats()
+  const inspectorOffsetRestored = await app.backend.getScrollOffset(inspectorScrollNode.id)
+
+  const describeInspectorRevisionStep = (label, previousTree, nextTree, previousStats, nextStats) => {
+    const changed = diffAutomationTrees(previousTree, nextTree)
+    return {
+      label,
+      rootRevisionBefore: previousStats.rootSubtreeRevision ?? null,
+      rootRevisionAfter: nextStats.rootSubtreeRevision ?? null,
+      rootRevisionDelta:
+        previousStats.rootSubtreeRevision !== undefined && nextStats.rootSubtreeRevision !== undefined
+          ? nextStats.rootSubtreeRevision - previousStats.rootSubtreeRevision
+          : null,
+      changed,
+      nonBoundsChanges: changed.filter(
+        (change) =>
+          change.kind !== "changed"
+          || (change.fields ?? []).some((field) => field !== "bounds"),
+      ),
+    }
+  }
+
+  performanceReport.inspectorRevisionTrace = [
+    describeInspectorRevisionStep(
+      "leave-top",
+      inspectorRevisionTreeBefore,
+      inspectorRevisionTreeAfter,
+      inspectorRevisionStatsBefore,
+      inspectorRevisionStatsAfter,
+    ),
+    describeInspectorRevisionStep(
+      "return-top",
+      inspectorRevisionTreeAfter,
+      inspectorRevisionTreeRestored,
+      inspectorRevisionStatsAfter,
+      inspectorRevisionStatsRestored,
+    ),
+  ]
+  performanceReport.inspectorRevisionTraceRestoredOffset = inspectorOffsetRestored
+  persistPerformanceReport()
 
   const inspectorProfileLegSteps = 10
   const inspectorProfileCycles = 4
