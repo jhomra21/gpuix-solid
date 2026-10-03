@@ -813,13 +813,23 @@ try {
     x: inspectorViewportBounds.x + inspectorViewportBounds.width / 2,
     y: inspectorViewportBounds.y + inspectorViewportBounds.height / 2,
   }
-  const sourceBefore = findText(tree, "Source").bounds?.y
-  assert(sourceBefore !== undefined, "Inspector Source heading has no initial bounds")
+  const inspectorScrollNode = await inspectorScroll.element()
+  assert(app.backend.getScrollOffset, "Live automation backend does not expose native scroll offsets")
+  const inspectorOffsetAtTop = await app.backend.getScrollOffset(inspectorScrollNode.id)
+  assert(inspectorOffsetAtTop, "Inspector scroll area has no native scroll state")
   await app.mouse.wheel(inspectorViewportPoint, 0, -220)
   await delay(180)
+  const inspectorOffsetAfterWheel = await app.backend.getScrollOffset(inspectorScrollNode.id)
+  assert(
+    inspectorOffsetAfterWheel && inspectorOffsetAfterWheel[1] !== inspectorOffsetAtTop[1],
+    `Inspector wheel did not mutate the native scroll offset: ${JSON.stringify({
+      before: inspectorOffsetAtTop,
+      after: inspectorOffsetAfterWheel,
+    })}`,
+  )
   tree = await getFreshTree(app)
-  const sourceAfter = findText(tree, "Source").bounds?.y
-  assert(sourceAfter !== undefined && Math.abs(sourceAfter - sourceBefore) >= 20, "Inspector wheel did not move its content")
+  const sourceAfter = findText(tree, "Source")
+  assert(sourceAfter.bounds, "Inspector Source heading did not paint after scrolling into view")
   await screenshot(app, "inspectorScrolled")
   await app.mouse.wheel(inspectorViewportPoint, 0, 220)
   await delay(180)
@@ -832,8 +842,6 @@ try {
   // Resolve the element identity once, then read only its native painted bounds
   // before each wheel. That keeps hit testing current without serializing the
   // full automation tree for every sample.
-  const inspectorScrollNode = await inspectorScroll.element()
-  assert(app.backend.getScrollOffset, "Live automation backend does not expose native scroll offsets")
   const inspectorOffsetBefore = await app.backend.getScrollOffset(inspectorScrollNode.id)
   assert(inspectorOffsetBefore, "Inspector scroll area has no native ScrollHandle")
   // Probe toward the interior so the wheel must have room to change the
