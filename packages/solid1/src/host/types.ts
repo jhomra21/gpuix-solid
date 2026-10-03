@@ -52,6 +52,10 @@ export interface DebugFrameOverlayStats {
   rootPrepaintP99Ms?: number
   prepaintRestP90Ms?: number
   prepaintRestP99Ms?: number
+  scrollDivPrepaintP90Ms?: number
+  scrollDivPrepaintP99Ms?: number
+  scrollDivPrepaintMaxMs?: number
+  scrollDivPrepaintSamples?: number
   cachedPrepaintReuseP90Ms?: number
   cachedPrepaintReuseP99Ms?: number
   cachedPrepaintRenderP90Ms?: number
