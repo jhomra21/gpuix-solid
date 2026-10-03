@@ -727,6 +727,12 @@ export interface WindowKeyEventHandlers {
 export interface PublicInstance {
   readonly id: number
   readonly type: ElementType
+  scrollLeft: number
+  scrollTop: number
+  readonly clientWidth: number
+  readonly clientHeight: number
+  readonly scrollWidth: number
+  readonly scrollHeight: number
   scrollIntoView?(): void
 }
 
