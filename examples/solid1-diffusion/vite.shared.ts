@@ -202,92 +202,18 @@ import { createEffect, createSignal, onCleanup } from "solid-js";`,
     }
 
     if (normalizedId.endsWith("/apps/web/src/components/ui/control-scrollarea.tsx")) {
-      const state = `  let scrollEl: HTMLDivElement | undefined;
-  let contentEl: HTMLDivElement | undefined;
-  let borderEl: HTMLDivElement | undefined;
-  let observer: ResizeObserver | undefined;`
-      const mounted = `  onMount(() => {
-    if (!scrollEl || !contentEl) return;
-    scrollEl.addEventListener('scroll', onScroll);
-
-    observer = new ResizeObserver(() => {
-      if (restoring) {
-        applyRestore();
-      } else if (pinnedToBottom && scrollEl) {
-        scrollEl.scrollTop = maxScrollTop();
-      }
-    });
-
-    observer.observe(contentEl);
-
-    restoreTarget = local.scrollKey != null ? (offsets.get(local.scrollKey) ?? 0) : 0;`
-      const cleanup = `  onCleanup(() => {
-    stopRestore();
-    observer?.disconnect();
-    scrollEl?.removeEventListener('scroll', onScroll);
-  });`
-      const view = `  return (
-    <div class={cx('relative', local.class)} {...others}>
-      <div
+      const scroller = `      <div
         ref={scrollEl}
-        class="overflow-y-auto overflow-x-hidden absolute inset-0"
-      >
-        <div ref={contentEl}>{local.children}</div>
-      </div>
-      <div
-        ref={borderEl}
-        class="hidden absolute left-0 right-0 top-0 h-px bg-border"
-      />
-    </div>
-  );`
-
-      if (!code.includes(state)) throw new Error("Pinned Diffusion ControlScrollArea state changed")
-      if (!code.includes(mounted)) throw new Error("Pinned Diffusion ControlScrollArea mount lifecycle changed")
-      if (!code.includes(cleanup)) throw new Error("Pinned Diffusion ControlScrollArea cleanup changed")
-      if (!code.includes(view)) throw new Error("Pinned Diffusion ControlScrollArea view changed")
-
+        class="overflow-y-auto overflow-x-hidden absolute inset-0"`
+      if (!code.includes(scroller)) throw new Error("Pinned Diffusion ControlScrollArea scroller changed")
       return {
-        code: code
-          .replace(
-            state,
-            `  let scrollEl: HTMLDivElement | undefined;
-  let borderEl: HTMLDivElement | undefined;`,
-          )
-          .replace(
-            mounted,
-            `  onMount(() => {
-    if (!scrollEl) return;
-    scrollEl.addEventListener('scroll', onScroll);
-
-    restoreTarget = local.scrollKey != null ? (offsets.get(local.scrollKey) ?? 0) : 0;`,
-          )
-          .replace(
-            cleanup,
-            `  onCleanup(() => {
-    stopRestore();
-    scrollEl?.removeEventListener('scroll', onScroll);
-  });`,
-          )
-          .replace(
-            view,
-            `  return (
-    <div class={cx('relative', local.class)} {...others}>
-      <virtual-list
+        code: code.replace(
+          scroller,
+          `      <div
         ref={scrollEl}
         testId="diffusion-control-scroll-area-scroll"
-        estimatedItemHeight={96}
-        overdraw={0}
-        class="absolute inset-0"
-      >
-        {local.children}
-      </virtual-list>
-      <div
-        ref={borderEl}
-        class="hidden absolute left-0 right-0 top-0 h-px bg-border"
-      />
-    </div>
-  );`,
-          ),
+        class="overflow-y-auto overflow-x-hidden absolute inset-0"`,
+        ),
         map: null,
       }
     }
