@@ -170,6 +170,28 @@ function checkVirtualListScrollSurface(Renderer) {
   ) {
     throw new Error(`GPUIX virtual-list scroll metrics invalid: ${JSON.stringify(metrics)}`)
   }
+
+  const queried = renderer.getScrollMetrics(2)
+  if (!queried || queried.length < 6) {
+    throw new Error(`GPUIX test renderer omitted virtual-list scroll metrics: ${JSON.stringify(queried)}`)
+  }
+  const expected = [
+    scroll.scrollOffsetX,
+    scroll.scrollOffsetY,
+    scroll.scrollMaxX,
+    scroll.scrollMaxY,
+    scroll.scrollViewportWidth,
+    scroll.scrollViewportHeight,
+  ]
+  for (let index = 0; index < expected.length; index += 1) {
+    const actual = queried[index]
+    const value = expected[index]
+    if (!Number.isFinite(actual) || !Number.isFinite(value) || Math.abs(actual - value) > 0.01) {
+      throw new Error(
+        `GPUIX test/live scroll metrics diverged: ${JSON.stringify({ queried, expected })}`,
+      )
+    }
+  }
 }
 
 function checkTextareaNewline(Renderer) {
