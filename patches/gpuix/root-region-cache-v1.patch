@@ -267,7 +267,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
      let value = tree
          .elements
          .get(&id)?
-@@ -5996,9 +6084,54 @@
+@@ -5996,9 +6084,51 @@
          } else {
              std::borrow::Cow::Borrowed(&element.children)
          };
@@ -278,11 +278,8 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +        let cache_child = ctx.region_cache_depth > 0
 +            && ctx.region_cache_parent == Some(element.id)
 +            && ctx.tree.elements.get(&child_id).is_some_and(|child| {
-+                let style = child.style.as_deref();
-+                !retained_region_passthrough_safe(style)
-+                    && !retained_region_scroll_passthrough_safe(style)
-+                    && (ctx.region_cache_depth == RETAINED_REGION_CACHE_LEVELS
-+                        || retained_region_layout_safe(style))
++                ctx.region_cache_depth == RETAINED_REGION_CACHE_LEVELS
++                    || retained_region_layout_safe(child.style.as_deref())
 +            });
 +        let child = if cache_child {
 +            if let Some(regions) = ctx.root_regions.as_deref_mut() {
