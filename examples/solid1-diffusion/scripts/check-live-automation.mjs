@@ -1077,10 +1077,6 @@ try {
   const layerScroll = app.getByTestId("diffusion-timeline-layers-scroll")
   await layerScroll.waitFor()
   const layerScrollNode = await layerScroll.element()
-  const layerScrollPoint = {
-    x: layerScrollNode.bounds.x + layerScrollNode.bounds.width / 2,
-    y: layerScrollNode.bounds.y + layerScrollNode.bounds.height / 2,
-  }
   const layerBeforeY = layerBeforeScroll.bounds.y
   await layerScroll.wheel(0, -180)
   tree = await waitFor("timeline layer wheel translation", async () => {
