@@ -1,7 +1,7 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -389,6 +389,8 @@
+@@ -389,6 +389,9 @@
          cached_prepaint_key_misses: stats.cached_prepaint_key_misses as f64,
          cached_prepaint_dirty_misses: stats.cached_prepaint_dirty_misses as f64,
          cached_prepaint_refreshing_misses: stats.cached_prepaint_refreshing_misses as f64,
@@ -11,7 +11,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
          canvas_prepare_p90_ms,
          canvas_prepare_p99_ms,
          canvas_prepare_max_ms,
-@@ -6741,6 +6743,8 @@
+@@ -6741,6 +6744,9 @@
      pub cached_prepaint_key_misses: f64,
      pub cached_prepaint_dirty_misses: f64,
      pub cached_prepaint_refreshing_misses: f64,
