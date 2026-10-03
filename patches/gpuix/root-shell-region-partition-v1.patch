@@ -1,0 +1,74 @@
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -5314,6 +5314,32 @@ fn retained_region_layout_safe(style: Option<&StyleDesc>) -> bool {
+     definite(style.width.as_ref()) && definite(style.height.as_ref())
+ }
+ 
++fn retained_region_partition_shell(
++    element: &crate::retained_tree::RetainedElement,
++) -> bool {
++    let Some(style) = element.style.as_deref() else {
++        return false;
++    };
++    let resolved_x = style.overflow_x.as_deref().or(style.overflow.as_deref());
++    let resolved_y = style.overflow_y.as_deref().or(style.overflow.as_deref());
++    matches!(style.display.as_deref(), Some("flex") | Some("grid"))
++        && element.children.len() >= 2
++        && !matches!(style.position.as_deref(), Some("absolute") | Some("fixed"))
++        && resolved_x != Some("scroll")
++        && resolved_y != Some("scroll")
++}
++
++fn retained_region_partition_child_safe(
++    element: &crate::retained_tree::RetainedElement,
++) -> bool {
++    let Some(style) = element.style.as_deref() else {
++        return true;
++    };
++    let resolved_x = style.overflow_x.as_deref().or(style.overflow.as_deref());
++    let resolved_y = style.overflow_y.as_deref().or(style.overflow.as_deref());
++    !matches!(style.position.as_deref(), Some("absolute") | Some("fixed"))
++        && resolved_x != Some("scroll")
++        && resolved_y != Some("scroll")
++}
++
+ fn collect_retained_region_ids(tree: &RetainedTree, id: u64, ids: &mut Vec<u64>) {
+     let Some(element) = tree.elements.get(&id) else {
+         return;
+@@ -6110,13 +6136,32 @@ fn build_host_container(
+ 
+     for child_id in child_ids.iter().copied() {
+-        let cache_child = ctx.region_cache_depth > 0
++        let partition_root_shell = ctx.region_cache_depth == RETAINED_REGION_CACHE_LEVELS
++            && ctx.region_cache_parent == Some(element.id)
++            && element.parent.is_none()
++            && element.children.len() == 1
++            && ctx
++                .tree
++                .elements
++                .get(&child_id)
++                .is_some_and(retained_region_partition_shell);
++        let cache_child = !partition_root_shell
++            && ctx.region_cache_depth > 0
+             && ctx.region_cache_parent == Some(element.id)
+             && ctx.tree.elements.get(&child_id).is_some_and(|child| {
+-                ctx.region_cache_depth == RETAINED_REGION_CACHE_LEVELS
+-                    || retained_region_layout_safe(child.style.as_deref())
++                if ctx.region_cache_depth == RETAINED_REGION_CACHE_LEVELS {
++                    element.parent.is_none() || retained_region_partition_child_safe(child)
++                } else {
++                    retained_region_layout_safe(child.style.as_deref())
++                }
+             });
+-        let child = if cache_child {
++        let child = if partition_root_shell {
++            let previous_parent = ctx.region_cache_parent;
++            ctx.region_cache_parent = Some(child_id);
++            let child = build_element(child_id, ctx, window, cx);
++            ctx.region_cache_parent = previous_parent;
++            child
++        } else if cache_child {
+             if let Some(regions) = ctx.root_regions.as_deref_mut() {
+                 if let Some(child_element) = ctx.tree.elements.get(&child_id) {
+                     let revision = child_element.subtree_revision;
