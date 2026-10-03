@@ -10,7 +10,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
          canvas_prepare_p90_ms,
          canvas_prepare_p99_ms,
          canvas_prepare_max_ms,
-@@ -6144,9 +6146,9 @@
+@@ -6144,13 +6146,13 @@
                      let view = regions
                          .get(&child_id)
                          .expect("retained region just inserted")
