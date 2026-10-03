@@ -1,0 +1,37 @@
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -389,6 +389,8 @@
+         cached_prepaint_key_misses: stats.cached_prepaint_key_misses as f64,
+         cached_prepaint_dirty_misses: stats.cached_prepaint_dirty_misses as f64,
+         cached_prepaint_refreshing_misses: stats.cached_prepaint_refreshing_misses as f64,
++        cached_prepaint_slowest_id: stats.cached_prepaint_slowest_id.map(|id| id as f64),
++        cached_prepaint_slowest_ms: stats.cached_prepaint_slowest_ms.map(|ms| ms as f64),
+         canvas_prepare_p90_ms,
+         canvas_prepare_p99_ms,
+         canvas_prepare_max_ms,
+@@ -6144,9 +6146,9 @@
+                     let view = regions
+                         .get(&child_id)
+                         .expect("retained region just inserted")
+                         .view
+                         .clone();
+                     let style = retained_region_style(child_element.style.as_deref());
+                     if ctx.region_cache_depth == RETAINED_REGION_CACHE_LEVELS {
+-                        view.cached(style).into_any_element()
++                        view.cached_debug(style, child_id).into_any_element()
+                     } else {
+-                        view.cached_nested(style).into_any_element()
++                        view.cached_nested_debug(style, child_id).into_any_element()
+                     }
+                 } else {
+                     gpui::Empty.into_any_element()
+@@ -6741,6 +6743,8 @@
+     pub cached_prepaint_key_misses: f64,
+     pub cached_prepaint_dirty_misses: f64,
+     pub cached_prepaint_refreshing_misses: f64,
++    pub cached_prepaint_slowest_id: Option<f64>,
++    pub cached_prepaint_slowest_ms: Option<f64>,
+     pub canvas_prepare_p90_ms: Option<f64>,
+     pub canvas_prepare_p99_ms: Option<f64>,
+     pub canvas_prepare_max_ms: Option<f64>,
