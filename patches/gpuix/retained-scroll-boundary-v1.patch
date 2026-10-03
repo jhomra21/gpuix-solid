@@ -1,7 +1,7 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -5302,14 +5302,30 @@
+@@ -5302,15 +5302,31 @@
  fn retained_region_layout_safe(style: Option<&StyleDesc>) -> bool {
      let Some(style) = style else {
          return false;
