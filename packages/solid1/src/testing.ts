@@ -232,6 +232,7 @@ export class TestRenderer {
 
   getScrollMetrics(elementId: number): [number, number, number, number, number, number] | null {
     this.#native.flush()
+    // SAFETY: source-edge testing may expose this optional native method; it is feature-detected below.
     const native = this.#native as SourceEdgeNativeTestRenderer
     const metrics = native.getScrollMetrics?.(elementId)
     if (!metrics) return null
