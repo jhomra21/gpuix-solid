@@ -167,10 +167,26 @@ diff --git a/crates/gpui/src/view.rs b/crates/gpui/src/view.rs
  
                          #[cfg(feature = "profiler")]
 -                        window.record_cached_prepaint_render(cached_render_started.elapsed());
-+                        window.record_cached_prepaint_render(
-+                            cached_debug_id,
-+                            std::any::type_name::<V>(),
-+                            cached_render_started.elapsed(),
-+                        );
++                        {
++                            let cached_render_duration = cached_render_started.elapsed();
++                            if cached_debug_id.is_some()
++                                && cached_render_duration >= std::time::Duration::from_micros(500)
++                            {
++                                eprintln!(
++                                    "[gpuix][cached-prepaint-miss] type={} id={:?} duration_ms={} dirty={} refreshing={} full_refresh={}",
++                                    std::any::type_name::<V>(),
++                                    cached_debug_id,
++                                    cached_render_duration.as_secs_f64() * 1000.0,
++                                    dirty,
++                                    refreshing,
++                                    window.refresh_all_views,
++                                );
++                            }
++                            window.record_cached_prepaint_render(
++                                cached_debug_id,
++                                std::any::type_name::<V>(),
++                                cached_render_duration,
++                            );
++                        }
                          let prepaint_end = window.prepaint_index();
                          window.refreshing = refreshing;
