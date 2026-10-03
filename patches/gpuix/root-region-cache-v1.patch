@@ -308,7 +308,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +                    // during an entity-local parent refresh. cached_nested still
 +                    // invalidates on a real Window::refresh via refresh_all_views,
 +                    // while revision replacement handles changed retained subtrees.
-+                    view.cached_nested(style).into_any_element()
++                    view.cached_nested_debug(style, child_id).into_any_element()
 +                } else {
 +                    gpui::Empty.into_any_element()
 +                }
