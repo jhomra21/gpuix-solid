@@ -30,7 +30,7 @@
     "gpuix:edge:live-automation": "bun run examples:live",
     "gpuix:edge:solid1": "cd packages/solid1 && bun install --no-save && cd ../.. && node scripts/gpuix-edge.mjs link && cd packages/solid1 && bun run test && bun run typecheck",
     "gpuix:edge:solid1-examples": "node scripts/check-gpuix-edge-solid1-examples.mjs",
-    "gpuix:edge:check": "bun run gpuix:edge:verify && bun run lint:code && bun run gpuix:edge:native-capabilities && bun run gpuix:edge:canvas && bun run gpuix:edge:video-frame && bun run gpuix:edge:mediabunny-surface && bun run gpuix:edge:waveform && bun run typecheck && bun run test:logic && bun run build && bun run gpuix:edge:solid1 && bun run gpuix:edge:solid1-examples",
+    "gpuix:edge:check": "bun run gpuix:edge:verify && bun run lint:code && bun run gpuix:edge:native-capabilities && bun run gpuix:edge:canvas && bun run gpuix:edge:video-frame && bun run gpuix:edge:mediabunny-surface && bun run gpuix:edge:waveform && bun run typecheck && bun run test:logic && bun run build && bun run --filter 'gpuix-solid-counter' test:todo && bun run gpuix:edge:solid1 && bun run gpuix:edge:solid1-examples",
     "gpuix:edge:ui:diagnostic": "bun run gpuix:edge:live-automation",
     "gpuix:edge:example:diffusion": "bun run gpuix:edge:verify && bun run --filter 'gpuix-solid' build && bun run --filter 'gpuix-solid-counter' build:diffusion && bun run gpuix:edge:verify && bun run --filter 'gpuix-solid-counter' start:diffusion",
     "diffusion:edge:prepare": "bun install --frozen-lockfile && cd packages/solid1 && bun install --no-save && cd ../../examples/solid1-diffusion && bun install --no-save && cd ../.. && bun run gpuix:edge:prepare && bun run gpuix:edge:verify",
