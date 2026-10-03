@@ -51,7 +51,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
      fn request_invalidate(&self) -> Result<()> {
          #[cfg(target_os = "macos")]
          return invalidate_window();
-@@ -1383,7 +1412,7 @@ impl Renderer {
+@@ -1383,6 +1412,6 @@ impl Renderer {
          let destroyed =
              apply_batch_to_tree(&mut tree, json.as_bytes()).map_err(Error::from_reason)?;
          drop(tree);
