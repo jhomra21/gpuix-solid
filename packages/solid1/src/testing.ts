@@ -30,6 +30,7 @@ type SourceEdgeNativeTestRenderer = NativeTestRendererApi & {
   getVideoFrameSurfaceVersion?: () => number
   setVideoFrameBgra?: (elementId: number, width: number, height: number, data: Uint8Array) => void
   scrollIntoView?: (elementId: number) => void
+  getScrollMetrics?: (elementId: number) => number[] | null
   setImage?: (elementId: number, bytes: Uint8Array) => void
   setImagePixels?: (elementId: number, width: number, height: number, pixels: Uint8Array) => void
   clearVideoFrame?: (elementId: number) => void
@@ -228,6 +229,26 @@ export class TestRenderer {
     this.#native.flush()
     return this.#native.getWindowSize()
   }
+
+  getScrollMetrics(elementId: number): [number, number, number, number, number, number] | null {
+    this.#native.flush()
+    const native = this.#native as SourceEdgeNativeTestRenderer
+    const metrics = native.getScrollMetrics?.(elementId)
+    if (!metrics) return null
+    const [offsetX, offsetY, maxX, maxY, viewportWidth, viewportHeight] = metrics
+    if (
+      offsetX === undefined
+      || offsetY === undefined
+      || maxX === undefined
+      || maxY === undefined
+      || viewportWidth === undefined
+      || viewportHeight === undefined
+    ) {
+      throw new Error("Native scroll metrics did not contain six values")
+    }
+    return [offsetX, offsetY, maxX, maxY, viewportWidth, viewportHeight]
+  }
+
   getCanvasDrawListVersion(): number | undefined {
     // SAFETY: source-edge GPUIX may expose this optional capability before it
     // exists in the published @gpuix/native TypeScript surface.
