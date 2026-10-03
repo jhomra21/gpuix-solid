@@ -304,11 +304,11 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +                        .view
 +                        .clone();
 +                    let style = retained_region_style(child_element.style.as_deref());
-+                    // Every retained region can safely reuse clean cached prepaint
-+                    // during an entity-local parent refresh. cached_nested still
-+                    // invalidates on a real Window::refresh via refresh_all_views,
-+                    // while revision replacement handles changed retained subtrees.
-+                    view.cached_nested_debug(style, child_id).into_any_element()
++                    if ctx.region_cache_depth == RETAINED_REGION_CACHE_LEVELS {
++                        view.cached_debug(style, child_id).into_any_element()
++                    } else {
++                        view.cached_nested_debug(style, child_id).into_any_element()
++                    }
 +                } else {
 +                    gpui::Empty.into_any_element()
 +                }
