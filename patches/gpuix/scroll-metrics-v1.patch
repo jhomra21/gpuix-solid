@@ -65,7 +65,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
          let id = to_element_id(element_id)?;
          #[cfg(target_os = "macos")]
          {
-@@ -5024,10 +5024,30 @@
+@@ -5024,10 +5024,37 @@
 -    if element.events.contains("visibleRange") {
 +    let emits_visible_range = element.events.contains("visibleRange");
 +    let emits_scroll = element.events.contains("scroll");
@@ -73,11 +73,12 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
          let callback = ctx.event_callback.clone();
          let list_id = element.id;
 +        let list_state_for_metrics = list_state.clone();
-         list_state.set_scroll_handler(move |event, _window, _cx| {
+-        list_state.set_scroll_handler(move |event, _window, _cx| {
 -            emit_event_full(&callback, list_id, "visibleRange", |payload| {
 -                payload.start_index = Some(event.visible_range.start as f64);
 -                payload.end_index = Some(event.visible_range.end as f64);
 -            });
++        list_state.set_scroll_handler(move |event, window, cx| {
 +            if emits_visible_range {
 +                emit_event_full(&callback, list_id, "visibleRange", |payload| {
 +                    payload.start_index = Some(event.visible_range.start as f64);
@@ -88,15 +89,22 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +                let offset = list_state_for_metrics.scroll_px_offset_for_scrollbar();
 +                let max = list_state_for_metrics.max_offset_for_scrollbar();
 +                let bounds = list_state_for_metrics.viewport_bounds();
-+                emit_event_full(&callback, list_id, "scroll", |payload| {
-+                    payload.scroll_offset_x = Some(f64::from(f32::from(offset.x)));
-+                    payload.scroll_offset_y = Some(f64::from(f32::from(offset.y)));
-+                    payload.scroll_max_x = Some(f64::from(f32::from(max.x)));
-+                    payload.scroll_max_y = Some(f64::from(f32::from(max.y)));
-+                    payload.scroll_viewport_width =
-+                        Some(f64::from(f32::from(bounds.size.width)));
-+                    payload.scroll_viewport_height =
-+                        Some(f64::from(f32::from(bounds.size.height)));
++                let callback = callback.clone();
++                let scroll_offset_x = f64::from(f32::from(offset.x));
++                let scroll_offset_y = f64::from(f32::from(offset.y));
++                let scroll_max_x = f64::from(f32::from(max.x));
++                let scroll_max_y = f64::from(f32::from(max.y));
++                let scroll_viewport_width = f64::from(f32::from(bounds.size.width));
++                let scroll_viewport_height = f64::from(f32::from(bounds.size.height));
++                window.defer(cx, move |_window, _cx| {
++                    emit_event_full(&callback, list_id, "scroll", |payload| {
++                        payload.scroll_offset_x = Some(scroll_offset_x);
++                        payload.scroll_offset_y = Some(scroll_offset_y);
++                        payload.scroll_max_x = Some(scroll_max_x);
++                        payload.scroll_max_y = Some(scroll_max_y);
++                        payload.scroll_viewport_width = Some(scroll_viewport_width);
++                        payload.scroll_viewport_height = Some(scroll_viewport_height);
++                    });
 +                });
 +            }
          });
