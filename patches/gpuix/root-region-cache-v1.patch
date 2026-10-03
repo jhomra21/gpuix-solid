@@ -267,7 +267,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
      let value = tree
          .elements
          .get(&id)?
-@@ -5996,9 +6084,51 @@
+@@ -5996,9 +6084,54 @@
          } else {
              std::borrow::Cow::Borrowed(&element.children)
          };
