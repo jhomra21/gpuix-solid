@@ -36,8 +36,7 @@
     "patches/gpuix/cached-prepaint-stats-v1.patch",
     "patches/gpuix/cached-prepaint-reasons-v1.patch",
     "patches/gpuix/scroll-div-prepaint-stats-v1.patch",
-    "patches/gpuix/cached-prepaint-hotspot-v1.patch",
-    "patches/gpuix/retained-scroll-boundary-v1.patch"
+    "patches/gpuix/cached-prepaint-hotspot-v1.patch"
   ],
   "submodulePatches": [
     {
