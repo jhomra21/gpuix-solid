@@ -41,7 +41,7 @@ diff --git a/crates/gpui/src/debug_overlay.rs b/crates/gpui/src/debug_overlay.rs
      }
  
      pub(crate) fn is_enabled(&self) -> bool {
-@@ -240,8 +252,19 @@
+@@ -240,8 +252,18 @@
          self.cached_prepaint_reuse_current += duration;
      }
  
@@ -57,12 +57,11 @@ diff --git a/crates/gpui/src/debug_overlay.rs b/crates/gpui/src/debug_overlay.rs
 +            self.cached_prepaint_slowest_id = debug_id;
 +            self.cached_prepaint_slowest_type = Some(debug_type);
 +            self.cached_prepaint_slowest_duration = duration;
-+            eprintln!("[gpuix][cached-prepaint-hotspot] type={debug_type} id={debug_id:?} duration_ms={}", duration.as_secs_f64() * 1000.0);
 +        }
      }
  
      pub(crate) fn record_cached_prepaint_hit(&mut self) {
-@@ -374,6 +397,11 @@
+@@ -374,6 +396,11 @@
              cached_prepaint_key_misses: self.cached_prepaint_key_misses,
              cached_prepaint_dirty_misses: self.cached_prepaint_dirty_misses,
              cached_prepaint_refreshing_misses: self.cached_prepaint_refreshing_misses,
@@ -162,31 +161,15 @@ diff --git a/crates/gpui/src/view.rs b/crates/gpui/src/view.rs
  
                  window.with_element_state::<ViewElementState, _>(
                      global_id.unwrap(),
-@@ -461,6 +488,26 @@
+@@ -461,6 +488,10 @@
                          });
  
                          #[cfg(feature = "profiler")]
 -                        window.record_cached_prepaint_render(cached_render_started.elapsed());
-+                        {
-+                            let cached_render_duration = cached_render_started.elapsed();
-+                            if cached_debug_id.is_some()
-+                                && cached_render_duration >= std::time::Duration::from_micros(500)
-+                            {
-+                                eprintln!(
-+                                    "[gpuix][cached-prepaint-miss] type={} id={:?} duration_ms={} dirty={} refreshing={} full_refresh={}",
-+                                    std::any::type_name::<V>(),
-+                                    cached_debug_id,
-+                                    cached_render_duration.as_secs_f64() * 1000.0,
-+                                    dirty,
-+                                    refreshing,
-+                                    window.refresh_all_views,
-+                                );
-+                            }
-+                            window.record_cached_prepaint_render(
-+                                cached_debug_id,
-+                                std::any::type_name::<V>(),
-+                                cached_render_duration,
-+                            );
-+                        }
++                        window.record_cached_prepaint_render(
++                            cached_debug_id,
++                            std::any::type_name::<V>(),
++                            cached_render_started.elapsed(),
++                        );
                          let prepaint_end = window.prepaint_index();
                          window.refreshing = refreshing;
