@@ -143,10 +143,11 @@ diff --git a/crates/gpui/src/view.rs b/crates/gpui/src/view.rs
  }
  
  impl<V: View> IntoElement for ViewElement<V> {
-@@ -407,6 +433,7 @@
+@@ -407,7 +433,8 @@
                      element.prepaint(window, cx);
                      return Some(element);
                  }
+                 let reuse_during_parent_refresh = self.reuse_during_parent_refresh;
 +                let cached_debug_id = self.cached_debug_id;
  
                  window.with_element_state::<ViewElementState, _>(
