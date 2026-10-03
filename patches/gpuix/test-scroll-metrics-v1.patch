@@ -1,7 +1,7 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -4870,6 +4870,25 @@
+@@ -4870,6 +4870,21 @@
          ])
      }
  
@@ -26,7 +26,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 diff --git a/packages/native/src/test_renderer.rs b/packages/native/src/test_renderer.rs
 --- a/packages/native/src/test_renderer.rs
 +++ b/packages/native/src/test_renderer.rs
-@@ -746,6 +746,36 @@
+@@ -746,6 +746,39 @@
          })
      }
  
@@ -69,14 +69,14 @@ diff --git a/packages/native/src/test_renderer.rs b/packages/native/src/test_ren
 diff --git a/packages/native/js/testing.ts b/packages/native/js/testing.ts
 --- a/packages/native/js/testing.ts
 +++ b/packages/native/js/testing.ts
-@@ -95,6 +95,7 @@
+@@ -95,5 +95,6 @@
    ): void
    getScrollOffset(elementId: number): number[] | null
 +  getScrollMetrics(elementId: number): number[] | null
    getListScrollTop(elementId: number): number[] | null
    setDebugFrameOverlay(mode: DebugFrameOverlayMode): string
    getDebugFrameOverlay(): string
-@@ -525,6 +526,17 @@
+@@ -525,6 +526,15 @@
      return [result[0], result[1]]
    }
  
