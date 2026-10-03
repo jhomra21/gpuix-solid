@@ -311,6 +311,7 @@ function summarizeProfiles(name, runNames) {
       .map((run) => ({
         run: run?.name ?? null,
         id: run?.cachedPrepaintSlowestId ?? null,
+        type: run?.cachedPrepaintSlowestType ?? null,
         ms: run?.cachedPrepaintSlowestMs ?? null,
         node: run?.cachedPrepaintSlowestNode ?? null,
       }))
@@ -441,6 +442,7 @@ async function profileNativeFrames(app, name, exercise, { minimumSamples = 1 } =
         const p90Ms = stats.p90Ms ?? null
         const p99Ms = stats.p99Ms ?? null
         const cachedPrepaintSlowestId = stats.cachedPrepaintSlowestId ?? null
+        const cachedPrepaintSlowestType = stats.cachedPrepaintSlowestType ?? null
         let cachedPrepaintSlowestNode = null
         if (Number.isFinite(cachedPrepaintSlowestId)) {
           const profileTree = await currentTree(app)
@@ -496,6 +498,7 @@ async function profileNativeFrames(app, name, exercise, { minimumSamples = 1 } =
           cachedPrepaintDirtyMisses: stats.cachedPrepaintDirtyMisses ?? null,
           cachedPrepaintRefreshingMisses: stats.cachedPrepaintRefreshingMisses ?? null,
           cachedPrepaintSlowestId,
+          cachedPrepaintSlowestType,
           cachedPrepaintSlowestMs: stats.cachedPrepaintSlowestMs ?? null,
           cachedPrepaintSlowestNode,
           canvasPrepareP90Ms: stats.canvasPrepareP90Ms ?? null,
