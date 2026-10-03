@@ -67,6 +67,7 @@ export interface DebugFrameOverlayStats {
   cachedPrepaintDirtyMisses?: number
   cachedPrepaintRefreshingMisses?: number
   cachedPrepaintSlowestId?: number
+  cachedPrepaintSlowestType?: string
   cachedPrepaintSlowestMs?: number
   canvasPrepareP90Ms?: number
   canvasPrepareP99Ms?: number
