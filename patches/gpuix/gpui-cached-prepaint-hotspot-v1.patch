@@ -130,15 +130,16 @@ diff --git a/crates/gpui/src/view.rs b/crates/gpui/src/view.rs
              view: Some(view),
              #[cfg(debug_assertions)]
              source: core::panic::Location::caller(),
-@@ -291,6 +313,11 @@
+@@ -285,6 +307,11 @@
+     pub(crate) fn cached_nested(mut self, style: StyleRefinement) -> Self {
+         self.cached_style = Some(style);
+         self.reuse_during_parent_refresh = true;
          self
      }
- 
 +    fn cached_debug_id(mut self, debug_id: u64) -> Self {
 +        self.cached_debug_id = Some(debug_id);
 +        self
 +    }
-+
  }
  
  impl<V: View> IntoElement for ViewElement<V> {
