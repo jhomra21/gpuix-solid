@@ -164,6 +164,25 @@ function indexParents(root) {
   return parents
 }
 
+function describeNodePath(root, id) {
+  const parents = indexParents(root)
+  const node = descendants(root).find((candidate) => candidate.id === id)
+  if (!node) return { id, missing: true }
+  const path = []
+  let current = node
+  while (current) {
+    path.push({
+      id: current.id,
+      type: current.type,
+      testId: current.testId ?? null,
+      text: current.text ?? null,
+      bounds: current.bounds ?? null,
+    })
+    current = parents.get(current.id)
+  }
+  return { id, path: path.reverse() }
+}
+
 function textContent(node) {
   return `${node.text ?? ""}${(node.children ?? []).map(textContent).join("")}`
 }
@@ -793,6 +812,10 @@ try {
   )
   assertText(initial.tree, "Assets", "Assets navigation")
   assertText(initial.tree, "Chat", "Chat navigation")
+  console.log(
+    "solid1 Diffusion retained hotspot map:",
+    JSON.stringify([2, 3, 5, 57, 59, 90, 678].map((id) => describeNodePath(initial.tree, id))),
+  )
   await screenshot(app, "initial")
 
   const at = (bounds, x, y) => ({ x: bounds.x + bounds.width * x, y: bounds.y + bounds.height * y })
