@@ -1076,7 +1076,6 @@ try {
   assert(layerBeforeScroll.bounds, "Timeline layer label has no bounds before wheel scrolling")
   const layerScroll = app.getByTestId("diffusion-timeline-layers-scroll")
   await layerScroll.waitFor()
-  const layerScrollNode = await layerScroll.element()
   const layerBeforeY = layerBeforeScroll.bounds.y
   await layerScroll.wheel(0, -180)
   tree = await waitFor("timeline layer wheel translation", async () => {
