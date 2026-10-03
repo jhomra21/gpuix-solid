@@ -36,7 +36,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
  fn collect_retained_region_ids(tree: &RetainedTree, id: u64, ids: &mut Vec<u64>) {
      let Some(element) = tree.elements.get(&id) else {
          return;
-@@ -6110,12 +6136,31 @@ fn build_host_container(
+@@ -6110,12 +6138,31 @@ fn build_host_container(
  
      for child_id in child_ids.iter().copied() {
 -        let cache_child = ctx.region_cache_depth > 0
