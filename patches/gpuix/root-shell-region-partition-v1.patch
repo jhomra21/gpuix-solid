@@ -1,43 +1,37 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
-@@ -5314,6 +5314,34 @@ fn retained_region_layout_safe(style: Option<&StyleDesc>) -> bool {
-     definite(style.width.as_ref()) && definite(style.height.as_ref())
- }
- 
-+fn retained_region_partition_shell(
-+    element: &crate::retained_tree::RetainedElement,
-+) -> bool {
-+    let Some(style) = element.style.as_deref() else {
-+        return false;
-+    };
-+    let resolved_x = style.overflow_x.as_deref().or(style.overflow.as_deref());
-+    let resolved_y = style.overflow_y.as_deref().or(style.overflow.as_deref());
-+    matches!(style.display.as_deref(), Some("flex") | Some("grid"))
-+        && element.children.len() >= 2
-+        && !matches!(style.position.as_deref(), Some("absolute") | Some("fixed"))
-+        && resolved_x != Some("scroll")
-+        && resolved_y != Some("scroll")
-+}
-+
-+fn retained_region_partition_child_safe(
-+    element: &crate::retained_tree::RetainedElement,
-+) -> bool {
-+    let Some(style) = element.style.as_deref() else {
-+        return true;
-+    };
-+    let resolved_x = style.overflow_x.as_deref().or(style.overflow.as_deref());
-+    let resolved_y = style.overflow_y.as_deref().or(style.overflow.as_deref());
-+    !matches!(style.position.as_deref(), Some("absolute") | Some("fixed"))
-+        && resolved_x != Some("scroll")
-+        && resolved_y != Some("scroll")
-+}
-+
- fn collect_retained_region_ids(tree: &RetainedTree, id: u64, ids: &mut Vec<u64>) {
-     let Some(element) = tree.elements.get(&id) else {
-         return;
-@@ -6110,12 +6138,31 @@ fn build_host_container(
- 
+@@ -6083,12 +6083,60 @@
+         };
++    let retained_region_partition_shell =
++        |child: &crate::retained_tree::RetainedElement| match child.style.as_deref() {
++            Some(style) => {
++                let resolved_x = style.overflow_x.as_deref().or(style.overflow.as_deref());
++                let resolved_y = style.overflow_y.as_deref().or(style.overflow.as_deref());
++                matches!(style.display.as_deref(), Some("flex") | Some("grid"))
++                    && child.children.len() >= 2
++                    && !matches!(
++                        style.position.as_deref(),
++                        Some("absolute") | Some("fixed")
++                    )
++                    && resolved_x != Some("scroll")
++                    && resolved_y != Some("scroll")
++            }
++            None => false,
++        };
++    let retained_region_partition_child_safe =
++        |child: &crate::retained_tree::RetainedElement| match child.style.as_deref() {
++            Some(style) => {
++                let resolved_x = style.overflow_x.as_deref().or(style.overflow.as_deref());
++                let resolved_y = style.overflow_y.as_deref().or(style.overflow.as_deref());
++                !matches!(
++                    style.position.as_deref(),
++                    Some("absolute") | Some("fixed")
++                ) && resolved_x != Some("scroll")
++                    && resolved_y != Some("scroll")
++            }
++            None => true,
++        };
      for child_id in child_ids.iter().copied() {
 -        let cache_child = ctx.region_cache_depth > 0
 +        let partition_root_shell = ctx.region_cache_depth == RETAINED_REGION_CACHE_LEVELS
@@ -48,7 +42,7 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +                .tree
 +                .elements
 +                .get(&child_id)
-+                .is_some_and(retained_region_partition_shell);
++                .is_some_and(|child| retained_region_partition_shell(child));
 +        let cache_child = !partition_root_shell
 +            && ctx.region_cache_depth > 0
              && ctx.region_cache_parent == Some(element.id)
