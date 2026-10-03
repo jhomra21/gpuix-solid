@@ -35,7 +35,8 @@
     "patches/gpuix/prepaint-subphase-stats-v1.patch",
     "patches/gpuix/cached-prepaint-stats-v1.patch",
     "patches/gpuix/cached-prepaint-reasons-v1.patch",
-    "patches/gpuix/scroll-div-prepaint-stats-v1.patch"
+    "patches/gpuix/scroll-div-prepaint-stats-v1.patch",
+    "patches/gpuix/cached-prepaint-hotspot-v1.patch"
   ],
   "submodulePatches": [
     {
@@ -52,7 +53,8 @@
         "patches/gpuix/gpui-list-scroll-metrics-v1.patch",
         "patches/gpuix/gpui-list-painted-bounds-v1.patch",
         "patches/gpuix/gpui-nested-cached-reuse-v1.patch",
-        "patches/gpuix/gpui-scroll-div-prepaint-stats-v1.patch"
+        "patches/gpuix/gpui-scroll-div-prepaint-stats-v1.patch",
+        "patches/gpuix/gpui-cached-prepaint-hotspot-v1.patch"
       ]
     }
   ]
