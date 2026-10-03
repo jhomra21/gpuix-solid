@@ -34,7 +34,8 @@
     "patches/gpuix/canvas-prepare-stats-v1.patch",
     "patches/gpuix/prepaint-subphase-stats-v1.patch",
     "patches/gpuix/cached-prepaint-stats-v1.patch",
-    "patches/gpuix/cached-prepaint-reasons-v1.patch"
+    "patches/gpuix/cached-prepaint-reasons-v1.patch",
+    "patches/gpuix/scroll-div-prepaint-stats-v1.patch"
   ],
   "submodulePatches": [
     {
