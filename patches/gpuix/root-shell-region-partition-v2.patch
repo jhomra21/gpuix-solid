@@ -1,0 +1,71 @@
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -6081,14 +6081,63 @@
+         } else {
+             std::borrow::Cow::Borrowed(&element.children)
+         };
++    let retained_region_scroll_host =
++        |child: &crate::retained_tree::RetainedElement| match child.style.as_deref() {
++            Some(style) => {
++                let resolved_x = style.overflow_x.as_deref().or(style.overflow.as_deref());
++                let resolved_y = style.overflow_y.as_deref().or(style.overflow.as_deref());
++                resolved_x == Some("scroll") || resolved_y == Some("scroll")
++            }
++            None => false,
++        };
++    let retained_region_partition_shell =
++        |child: &crate::retained_tree::RetainedElement| match child.style.as_deref() {
++            Some(style) => {
++                matches!(style.display.as_deref(), Some("flex") | Some("grid"))
++                    && child.children.len() >= 2
++                    && !matches!(
++                        style.position.as_deref(),
++                        Some("absolute") | Some("fixed")
++                    )
++                    && !retained_region_scroll_host(child)
++            }
++            None => false,
++        };
+     for child_id in child_ids.iter().copied() {
+-        let cache_child = ctx.region_cache_depth > 0
++        let partition_root_shell = ctx.region_cache_depth == RETAINED_REGION_CACHE_LEVELS
++            && ctx.region_cache_parent == Some(element.id)
++            && element.parent.is_none()
++            && element.children.len() == 1
++            && ctx
++                .tree
++                .elements
++                .get(&child_id)
++                .is_some_and(|child| retained_region_partition_shell(child));
++        let pass_through_scroll_host = ctx.region_cache_depth == RETAINED_REGION_CACHE_LEVELS
++            && ctx.region_cache_parent == Some(element.id)
++            && ctx
++                .tree
++                .elements
++                .get(&child_id)
++                .is_some_and(|child| retained_region_scroll_host(child));
++        let promote_cache_boundary = partition_root_shell || pass_through_scroll_host;
++        let cache_child = !promote_cache_boundary
++            && ctx.region_cache_depth > 0
+             && ctx.region_cache_parent == Some(element.id)
+             && ctx.tree.elements.get(&child_id).is_some_and(|child| {
+-                ctx.region_cache_depth == RETAINED_REGION_CACHE_LEVELS
+-                    || retained_region_layout_safe(child.style.as_deref())
++                if ctx.region_cache_depth == RETAINED_REGION_CACHE_LEVELS {
++                    true
++                } else {
++                    retained_region_layout_safe(child.style.as_deref())
++                }
+             });
+-        let child = if cache_child {
++        let child = if promote_cache_boundary {
++            let previous_parent = ctx.region_cache_parent;
++            ctx.region_cache_parent = Some(child_id);
++            let child = build_element(child_id, ctx, window, cx);
++            ctx.region_cache_parent = previous_parent;
++            child
++        } else if cache_child {
+             if let Some(regions) = ctx.root_regions.as_deref_mut() {
+                 if let Some(child_element) = ctx.tree.elements.get(&child_id) {
+                     let revision = child_element.subtree_revision;
