@@ -41,7 +41,7 @@ diff --git a/crates/gpui/src/debug_overlay.rs b/crates/gpui/src/debug_overlay.rs
      }
  
      pub(crate) fn is_enabled(&self) -> bool {
-@@ -240,8 +252,18 @@
+@@ -240,8 +252,19 @@
          self.cached_prepaint_reuse_current += duration;
      }
  
@@ -57,11 +57,12 @@ diff --git a/crates/gpui/src/debug_overlay.rs b/crates/gpui/src/debug_overlay.rs
 +            self.cached_prepaint_slowest_id = debug_id;
 +            self.cached_prepaint_slowest_type = Some(debug_type);
 +            self.cached_prepaint_slowest_duration = duration;
++            eprintln!("[gpuix][cached-prepaint-hotspot] type={debug_type} id={debug_id:?} duration_ms={}", duration.as_secs_f64() * 1000.0);
 +        }
      }
  
      pub(crate) fn record_cached_prepaint_hit(&mut self) {
-@@ -374,6 +396,11 @@
+@@ -374,6 +397,11 @@
              cached_prepaint_key_misses: self.cached_prepaint_key_misses,
              cached_prepaint_dirty_misses: self.cached_prepaint_dirty_misses,
              cached_prepaint_refreshing_misses: self.cached_prepaint_refreshing_misses,
