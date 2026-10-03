@@ -31,6 +31,18 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
 +        Some(crate::style::DimensionValue::Pixels(value)) if *value == 0.0
 +    );
 +    style.flex_grow.is_some_and(|value| value > 0.0) && min_height_zero
++}
++
++fn retained_region_scroll_passthrough_safe(style: Option<&StyleDesc>) -> bool {
++    let Some(style) = style else {
++        return false;
++    };
++    let scrolls = |value: Option<&String>| {
++        matches!(value.map(String::as_str), Some("auto" | "scroll"))
++    };
++    scrolls(style.overflow.as_ref())
++        || scrolls(style.overflow_x.as_ref())
++        || scrolls(style.overflow_y.as_ref())
  }
  
  fn collect_retained_region_ids(tree: &RetainedTree, id: u64, ids: &mut Vec<u64>) {
@@ -40,9 +52,9 @@ diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
              }
 +        } else if ctx.region_cache_depth > 0
 +            && ctx.region_cache_parent == Some(element.id)
-+            && !retained_region_passthrough_safe(element.style.as_deref())
 +            && ctx.tree.elements.get(&child_id).is_some_and(|child| {
 +                retained_region_passthrough_safe(child.style.as_deref())
++                    || retained_region_scroll_passthrough_safe(child.style.as_deref())
 +            })
 +        {
 +            let previous_parent = ctx.region_cache_parent;
