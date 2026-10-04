@@ -1,7 +1,7 @@
 import { CANVAS_DRAW_LIST_VERSION, createTestRoot, hasNativeTestRenderer } from "@jhomra21/gpuix-solid1"
 import { existsSync, statSync, unlinkSync } from "node:fs"
 import { ToolType } from "@diffusionstudio/runtime"
-import { loadDiffusionNativeApp } from "./bootstrap"
+import { loadDiffusionAcceptanceFixture } from "./bootstrap"
 
 const {
   armDiffusionSourceHandTool,
@@ -12,7 +12,7 @@ const {
   readDiffusionSourceSelection,
   readDiffusionSourceState,
   resetDiffusionSourceCamera,
-} = await loadDiffusionNativeApp()
+} = await loadDiffusionAcceptanceFixture()
 
 const screenshotPath = "/tmp/gpuix-solid1-diffusion-source.png"
 const editorScreenshotPath = "/tmp/gpuix-solid1-diffusion-editor.png"
