@@ -1,6 +1,6 @@
 import { existsSync, statSync, unlinkSync } from "node:fs"
 import { render } from "@jhomra21/gpuix-solid1"
-import { loadDiffusionNativeApp } from "./bootstrap"
+import { loadDiffusionAcceptanceFixture } from "./bootstrap"
 import { diffusionWindowOptions } from "./window-options"
 
 const screenshotPath = "/tmp/gpuix-solid1-diffusion-live.png"
@@ -28,7 +28,7 @@ async function settleFrames(count: number): Promise<void> {
 
 async function main(): Promise<void> {
   if (existsSync(screenshotPath)) unlinkSync(screenshotPath)
-  const { DiffusionSourceEditor } = await loadDiffusionNativeApp()
+  const { DiffusionSourceEditor } = await loadDiffusionAcceptanceFixture()
   const app = render(() => <DiffusionSourceEditor />, { ...diffusionWindowOptions, focus: false })
 
   try {
