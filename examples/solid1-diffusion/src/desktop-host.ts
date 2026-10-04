@@ -19,8 +19,11 @@ import { randomUUID } from "node:crypto"
 import {
   MAIN_CHANNELS,
   MAIN_WIRE,
+  type MainEvent,
   type MainReply,
   type MainRequest,
+  type MainRequestChannel,
+  type MainRequestMap,
 } from "@desktop/main-channels"
 import {
   compileProject,
@@ -47,10 +50,14 @@ import {
   writeManifest,
   writeProject,
 } from "@desktop/projects"
+import { BrowserWindow } from "./electron-compat"
 
-type DesktopListener = (payload: unknown) => void
-
-type OpenWrite = Awaited<ReturnType<typeof open>>
+type DesktopPayload = MainReply | MainEvent
+type DesktopListener = (payload: DesktopPayload) => void
+type OpenWrite = {
+  handle: Awaited<ReturnType<typeof open>>
+  path: string
+}
 
 const listeners = new Map<string, Set<DesktopListener>>()
 const writes = new Map<string, OpenWrite>()
@@ -78,126 +85,185 @@ const indexedDbProperties: PropertyDescriptorMap = {
   IDBVersionChangeEvent: { ...globalProperty, value: IDBVersionChangeEvent },
 }
 
-const watchWindow = {
-  isDestroyed: () => false,
-  webContents: {
-    isLoading: () => false,
-    send(channel: string, payload: unknown): void {
-      emit(channel, payload)
-    },
-  },
+const watchWindow = new BrowserWindow((channel, payload) => emit(channel, payload))
+
+function requestData<C extends MainRequestChannel>(
+  request: MainRequest,
+  channel: C,
+): MainRequestMap[C]["request"] {
+  if (request.channel !== channel) {
+    throw new Error(`Expected ${channel}, received ${request.channel}`)
+  }
+
+  // SAFETY: the renderer constructs every request from MainRequestMap before
+  // sending it over this in-process bridge, and the channel discriminant was
+  // checked immediately above against the same owner contract.
+  return request.data as MainRequestMap[C]["request"]
 }
 
-async function dispatch(request: MainRequest): Promise<unknown> {
-  const data = request.data as Record<string, any> | undefined
+async function dispatch(request: MainRequest): Promise<MainReply> {
+  const id = request.id
 
   switch (request.channel) {
     case MAIN_CHANNELS.WINDOW_IS_FULLSCREEN:
-      return false
+      return { id, ok: true, data: false }
     case MAIN_CHANNELS.WINDOW_SET_COLOR_MODE:
     case MAIN_CHANNELS.ANALYTICS_TRACK:
-      return undefined
+      return { id, ok: true, data: undefined }
     case MAIN_CHANNELS.AUTH_GET_PENDING_CALLBACK:
     case MAIN_CHANNELS.CHECKOUT_GET_PENDING_CALLBACK:
-      return null
+      return { id, ok: true, data: null }
     case MAIN_CHANNELS.APP_OPEN_EXTERNAL:
     case MAIN_CHANNELS.APP_SHOW_IN_FOLDER:
-      return undefined
+      return { id, ok: true, data: undefined }
     case MAIN_CHANNELS.LOGS_GET:
-      return []
+      return { id, ok: true, data: [] }
     case MAIN_CHANNELS.PROJECTS_PICK_ROOT:
-      return pickRoot(null)
+      return { id, ok: true, data: await pickRoot(null) }
     case MAIN_CHANNELS.PROJECTS_PICK_FOLDER:
-      return pickFolder(null)
+      return { id, ok: true, data: await pickFolder(null) }
     case MAIN_CHANNELS.PROJECTS_DEFAULT_ROOT:
-      return defaultRoot(null)
-    case MAIN_CHANNELS.PROJECTS_SCAN:
-      return scanProjects(data!.root)
-    case MAIN_CHANNELS.PROJECTS_GET:
-      return getProject(data!.dir)
-    case MAIN_CHANNELS.PROJECTS_INIT:
-      return initProject(null, data!.dir)
-    case MAIN_CHANNELS.PROJECTS_RESOLVE:
-      return resolveProject(data!.dir)
-    case MAIN_CHANNELS.PROJECTS_CREATE:
-      return createProject(data!.root, data!.displayName)
-    case MAIN_CHANNELS.PROJECTS_RENAME:
-      return renameProject(data!.dir, data!.displayName)
-    case MAIN_CHANNELS.PROJECTS_DUPLICATE:
-      return duplicateProject(data!.dir)
-    case MAIN_CHANNELS.PROJECTS_DELETE:
-      await deleteProject(data!.dir)
-      return undefined
-    case MAIN_CHANNELS.PROJECTS_COMPILE:
-      return compileProject(data!.dir)
-    case MAIN_CHANNELS.PROJECTS_WRITE:
-      return writeProject(data!.dir, data!.edits)
-    case MAIN_CHANNELS.PROJECTS_WATCH:
-      watchProject(watchWindow as never, data!.dir)
-      return undefined
-    case MAIN_CHANNELS.PROJECTS_UNWATCH:
-      unwatchProject(data!.dir)
-      return undefined
-    case MAIN_CHANNELS.PROJECTS_MANIFEST_READ:
-      return readManifest(data!.dir)
-    case MAIN_CHANNELS.PROJECTS_MANIFEST_WRITE:
-      await writeManifest(data!.dir, data!.manifest)
-      return undefined
-    case MAIN_CHANNELS.PROJECTS_CONFIG_READ:
-      return readConfig(data!.dir)
-    case MAIN_CHANNELS.PROJECTS_CONFIG_WRITE:
-      await writeConfig(data!.dir, data!.config)
-      return undefined
-    case MAIN_CHANNELS.PROJECTS_FS_LIST:
-      return listEntries(data!.dir, data!.source)
-    case MAIN_CHANNELS.PROJECTS_FS_STAT:
-      return statEntry(data!.dir, data!.source)
-    case MAIN_CHANNELS.PROJECTS_FS_REMOVE:
-      await removeEntry(data!.dir, data!.path)
-      return undefined
-    case MAIN_CHANNELS.PROJECTS_FS_REAL_PATH:
-      return realPathEntry(data!.dir, data!.source)
+      return { id, ok: true, data: await defaultRoot(null) }
+    case MAIN_CHANNELS.PROJECTS_SCAN: {
+      const data = requestData(request, MAIN_CHANNELS.PROJECTS_SCAN)
+      return { id, ok: true, data: await scanProjects(data.root) }
+    }
+    case MAIN_CHANNELS.PROJECTS_GET: {
+      const data = requestData(request, MAIN_CHANNELS.PROJECTS_GET)
+      return { id, ok: true, data: await getProject(data.dir) }
+    }
+    case MAIN_CHANNELS.PROJECTS_INIT: {
+      const data = requestData(request, MAIN_CHANNELS.PROJECTS_INIT)
+      return { id, ok: true, data: await initProject(null, data.dir) }
+    }
+    case MAIN_CHANNELS.PROJECTS_RESOLVE: {
+      const data = requestData(request, MAIN_CHANNELS.PROJECTS_RESOLVE)
+      return { id, ok: true, data: await resolveProject(data.dir) }
+    }
+    case MAIN_CHANNELS.PROJECTS_CREATE: {
+      const data = requestData(request, MAIN_CHANNELS.PROJECTS_CREATE)
+      return { id, ok: true, data: await createProject(data.root, data.displayName) }
+    }
+    case MAIN_CHANNELS.PROJECTS_RENAME: {
+      const data = requestData(request, MAIN_CHANNELS.PROJECTS_RENAME)
+      return { id, ok: true, data: await renameProject(data.dir, data.displayName) }
+    }
+    case MAIN_CHANNELS.PROJECTS_DUPLICATE: {
+      const data = requestData(request, MAIN_CHANNELS.PROJECTS_DUPLICATE)
+      return { id, ok: true, data: await duplicateProject(data.dir) }
+    }
+    case MAIN_CHANNELS.PROJECTS_DELETE: {
+      const data = requestData(request, MAIN_CHANNELS.PROJECTS_DELETE)
+      await deleteProject(data.dir)
+      return { id, ok: true, data: undefined }
+    }
+    case MAIN_CHANNELS.PROJECTS_COMPILE: {
+      const data = requestData(request, MAIN_CHANNELS.PROJECTS_COMPILE)
+      return { id, ok: true, data: await compileProject(data.dir) }
+    }
+    case MAIN_CHANNELS.PROJECTS_WRITE: {
+      const data = requestData(request, MAIN_CHANNELS.PROJECTS_WRITE)
+      return { id, ok: true, data: await writeProject(data.dir, data.edits) }
+    }
+    case MAIN_CHANNELS.PROJECTS_WATCH: {
+      const data = requestData(request, MAIN_CHANNELS.PROJECTS_WATCH)
+      watchProject(watchWindow, data.dir)
+      return { id, ok: true, data: undefined }
+    }
+    case MAIN_CHANNELS.PROJECTS_UNWATCH: {
+      const data = requestData(request, MAIN_CHANNELS.PROJECTS_UNWATCH)
+      unwatchProject(data.dir)
+      return { id, ok: true, data: undefined }
+    }
+    case MAIN_CHANNELS.PROJECTS_MANIFEST_READ: {
+      const data = requestData(request, MAIN_CHANNELS.PROJECTS_MANIFEST_READ)
+      return { id, ok: true, data: await readManifest(data.dir) }
+    }
+    case MAIN_CHANNELS.PROJECTS_MANIFEST_WRITE: {
+      const data = requestData(request, MAIN_CHANNELS.PROJECTS_MANIFEST_WRITE)
+      await writeManifest(data.dir, data.manifest)
+      return { id, ok: true, data: undefined }
+    }
+    case MAIN_CHANNELS.PROJECTS_CONFIG_READ: {
+      const data = requestData(request, MAIN_CHANNELS.PROJECTS_CONFIG_READ)
+      return { id, ok: true, data: await readConfig(data.dir) }
+    }
+    case MAIN_CHANNELS.PROJECTS_CONFIG_WRITE: {
+      const data = requestData(request, MAIN_CHANNELS.PROJECTS_CONFIG_WRITE)
+      await writeConfig(data.dir, data.config)
+      return { id, ok: true, data: undefined }
+    }
+    case MAIN_CHANNELS.PROJECTS_FS_LIST: {
+      const data = requestData(request, MAIN_CHANNELS.PROJECTS_FS_LIST)
+      return { id, ok: true, data: await listEntries(data.dir, data.source) }
+    }
+    case MAIN_CHANNELS.PROJECTS_FS_STAT: {
+      const data = requestData(request, MAIN_CHANNELS.PROJECTS_FS_STAT)
+      return { id, ok: true, data: await statEntry(data.dir, data.source) }
+    }
+    case MAIN_CHANNELS.PROJECTS_FS_REMOVE: {
+      const data = requestData(request, MAIN_CHANNELS.PROJECTS_FS_REMOVE)
+      await removeEntry(data.dir, data.path)
+      return { id, ok: true, data: undefined }
+    }
+    case MAIN_CHANNELS.PROJECTS_FS_REAL_PATH: {
+      const data = requestData(request, MAIN_CHANNELS.PROJECTS_FS_REAL_PATH)
+      return { id, ok: true, data: await realPathEntry(data.dir, data.source) }
+    }
     case MAIN_CHANNELS.FILE_WRITE_OPEN: {
-      const path = data!.path as string
-      await mkdir(dirname(path), { recursive: true })
-      const id = randomUUID()
-      writes.set(id, await open(path, data!.exclusive ? "wx" : "w"))
-      return { id }
+      const data = requestData(request, MAIN_CHANNELS.FILE_WRITE_OPEN)
+      await mkdir(dirname(data.path), { recursive: true })
+      const writeId = randomUUID()
+      writes.set(writeId, {
+        handle: await open(data.path, data.exclusive ? "wx" : "w"),
+        path: data.path,
+      })
+      return { id, ok: true, data: { id: writeId } }
     }
     case MAIN_CHANNELS.FILE_WRITE_CHUNK: {
-      const handle = writes.get(data!.id)
-      if (!handle) throw new Error(`Unknown GPUIX Diffusion write handle ${data!.id}`)
-      const bytes = data!.data instanceof Uint8Array ? data!.data : new Uint8Array(data!.data)
-      await handle.write(bytes, 0, bytes.byteLength, data!.position)
-      return undefined
+      const data = requestData(request, MAIN_CHANNELS.FILE_WRITE_CHUNK)
+      const entry = writes.get(data.id)
+      if (!entry) throw new Error(`Unknown GPUIX Diffusion write handle ${data.id}`)
+      await entry.handle.write(data.data, 0, data.data.byteLength, data.position)
+      return { id, ok: true, data: undefined }
     }
     case MAIN_CHANNELS.FILE_WRITE_CLOSE: {
-      const handle = writes.get(data!.id)
-      writes.delete(data!.id)
-      await handle?.close()
-      return undefined
+      const data = requestData(request, MAIN_CHANNELS.FILE_WRITE_CLOSE)
+      const entry = writes.get(data.id)
+      writes.delete(data.id)
+      await entry?.handle.close()
+      return { id, ok: true, data: undefined }
     }
     case MAIN_CHANNELS.FILE_WRITE_ABORT: {
-      const handle = writes.get(data!.id)
-      writes.delete(data!.id)
-      await handle?.close()
-      if (data!.path) await rm(data!.path, { force: true })
-      return undefined
+      const data = requestData(request, MAIN_CHANNELS.FILE_WRITE_ABORT)
+      const entry = writes.get(data.id)
+      writes.delete(data.id)
+      await entry?.handle.close()
+      if (entry) await rm(entry.path, { force: true })
+      return { id, ok: true, data: undefined }
     }
     case MAIN_CHANNELS.AGENT_CHAT_ENDPOINT:
-      return null
+      return { id, ok: true, data: null }
     case MAIN_CHANNELS.MCP_STATUS:
-      return { url: "", agents: [] }
+      return { id, ok: true, data: { url: "", agents: [] } }
     case MAIN_CHANNELS.MCP_APPLY:
-      return { added: [], removed: [], failures: [] }
+      return { id, ok: true, data: { added: [], removed: [], failures: [] } }
     case MAIN_CHANNELS.CLI_STATUS:
-      return { installed: false, path: null, managed: false, available: false }
+      return { id, ok: true, data: { installed: false, path: null, managed: false, available: false } }
     case MAIN_CHANNELS.CLI_INSTALL:
-      return { status: "error", error: "CLI installation is not available in the GPUIX host yet." }
+      return {
+        id,
+        ok: true,
+        data: { status: "error", error: "CLI installation is not available in the GPUIX host yet." },
+      }
     case MAIN_CHANNELS.CLI_UNINSTALL:
-      return { status: "absent" }
+      return { id, ok: true, data: { status: "absent" } }
     default:
-      throw new Error(`GPUIX Diffusion desktop host does not implement ${request.channel}`)
+      return {
+        id,
+        ok: false,
+        error: `GPUIX Diffusion desktop host does not implement ${request.channel}`,
+      }
   }
 }
 
@@ -220,10 +286,7 @@ export function installDiffusionDesktopHost(): void {
       if (channel !== MAIN_WIRE.REQUEST) return
 
       void dispatch(request).then(
-        (data) => {
-          const reply: MainReply = { id: request.id, ok: true, data } as MainReply
-          emit(MAIN_WIRE.RESPONSE, reply)
-        },
+        (reply) => emit(MAIN_WIRE.RESPONSE, reply),
         (error) => {
           const reply: MainReply = {
             id: request.id,
@@ -257,7 +320,7 @@ export function installDiffusionDesktopHost(): void {
   document.documentElement.dataset.fullscreen = "false"
 }
 
-function emit(channel: string, payload: unknown): void {
+function emit(channel: string, payload: DesktopPayload): void {
   queueMicrotask(() => {
     for (const listener of listeners.get(channel) ?? []) listener(payload)
   })
