@@ -1,8 +1,18 @@
 import { rm } from "node:fs/promises"
 import { tmpdir, homedir } from "node:os"
 import { join } from "node:path"
+import type { MainEvent, MainReply, MainRequest } from "@desktop/main-channels"
 
-type IpcListener = (...args: unknown[]) => void
+export type IpcMainEvent = {
+  sender: {
+    isDestroyed(): boolean
+    send(channel: string, payload: MainReply): void
+  }
+}
+
+type IpcListener = (event: IpcMainEvent, request: MainRequest) => void | Promise<void>
+type WindowPayload = MainEvent | MainReply
+type WindowSend = (channel: string, payload: WindowPayload) => void
 
 export const app = {
   isPackaged: false,
@@ -46,5 +56,20 @@ export const ipcMain = {
   on(_channel: string, _listener: IpcListener): void {},
 }
 
-export class BrowserWindow {}
-export type IpcMainEvent = unknown
+export class BrowserWindow {
+  readonly webContents: {
+    isLoading(): boolean
+    send(channel: string, payload: WindowPayload): void
+  }
+
+  constructor(send: WindowSend = () => {}) {
+    this.webContents = {
+      isLoading: () => false,
+      send,
+    }
+  }
+
+  isDestroyed(): boolean {
+    return false
+  }
+}
