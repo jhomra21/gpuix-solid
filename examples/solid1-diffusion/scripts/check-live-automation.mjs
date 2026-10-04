@@ -664,16 +664,17 @@ function assertChatTableRows(root) {
 }
 
 function getEditorCanvases(root) {
-  const editor = findNode(root, (node) => node.testId === "diffusion-source-editor", "Diffusion EditorPage")
-  return descendants(editor).filter((node) => node.type === "canvas" && node.bounds)
+  return descendants(root).filter((node) => node.type === "canvas" && node.bounds)
 }
 
 async function waitForEditor(app) {
   return await waitFor("Diffusion EditorPage", async () => {
     const tree = await currentTree(app)
-    const editor = descendants(tree).find((node) => node.testId === "diffusion-source-editor")
-    const canvases = editor ? descendants(editor).filter((node) => node.type === "canvas" && node.bounds) : []
-    return editor && canvases.length >= 2 ? { tree, editor, canvases } : null
+    const canvases = getEditorCanvases(tree)
+    const text = descendants(tree).filter((node) => node.type === "text").map((node) => node.text)
+    return canvases.length >= 2 && text.includes("Assets") && text.includes("Editor")
+      ? { tree, editor: tree, canvases }
+      : null
   })
 }
 
@@ -822,7 +823,7 @@ try {
   // Canvas hit-testing is exercised by the real DrawOverlay move/resize gestures
   // below, which operate on geometry created by this test.
   let tree = await getFreshTree(app)
-  const layerLabel = findText(tree, "GPUix rectangle")
+  const layerLabel = findText(tree, "Animated card")
   await clickNode(app, layerLabel)
   tree = await getFreshTree(app)
   assertInspectorShowsTransformControls(tree)
@@ -1113,7 +1114,7 @@ try {
   assertText(tree, "Typography", "text Inspector after Enter commit")
   assertText(tree, "Content", "text content row after Enter commit")
   await screenshot(app, "textEdit")
-  await clickNode(app, findText(tree, "GPUix rectangle"))
+  await clickNode(app, findText(tree, "Animated card"))
   tree = await getFreshTree(app)
   assertInspectorShowsTransformControls(tree)
 
@@ -1127,7 +1128,7 @@ try {
   // visible and untransformed. Later timeline overflow and project zoom move this
   // row outside the viewport, so carrying its bounds forward would test stale geometry.
   tree = await getFreshTree(app)
-  const rowLabel = findText(tree, "GPUix rectangle")
+  const rowLabel = findText(tree, "Animated card")
   const row = paintedRowAncestor(tree, rowLabel)
   assert(row, "Could not resolve the painted layer row for context-menu interaction")
   const rowBounds = await findBounds(row, app)
@@ -1172,7 +1173,7 @@ try {
     }, 4_000)
   }
 
-  const layerBeforeScroll = findText(tree, "GPUix rectangle")
+  const layerBeforeScroll = findText(tree, "Animated card")
   assert(layerBeforeScroll.bounds, "Timeline layer label has no bounds before wheel scrolling")
   const layerScroll = app.getByTestId("diffusion-timeline-layers-scroll")
   await layerScroll.waitFor()
@@ -1180,12 +1181,12 @@ try {
   await layerScroll.wheel(0, -180)
   tree = await waitFor("timeline layer wheel translation", async () => {
     const next = await currentTree(app)
-    const label = descendants(next).find((node) => node.type === "text" && node.text === "GPUix rectangle")
+    const label = descendants(next).find((node) => node.type === "text" && node.text === "Animated card")
     return label?.bounds && Math.abs(label.bounds.y - layerBeforeY) >= 20 ? next : null
   }, 4_000)
   await screenshot(app, "timelineScrolled")
 
-  const layerAfterScroll = findText(tree, "GPUix rectangle")
+  const layerAfterScroll = findText(tree, "Animated card")
   assert(
     layerAfterScroll.bounds && layerAfterScroll.bounds.y < layerBeforeY - 20,
     `Timeline layer wheel should move rows upward; before=${layerBeforeY}, after=${layerAfterScroll.bounds?.y}`,
@@ -1193,7 +1194,7 @@ try {
   await layerScroll.wheel(0, 180)
   tree = await waitFor("timeline layer wheel restore", async () => {
     const next = await currentTree(app)
-    const label = descendants(next).find((node) => node.type === "text" && node.text === "GPUix rectangle")
+    const label = descendants(next).find((node) => node.type === "text" && node.text === "Animated card")
     return label?.bounds && Math.abs(label.bounds.y - layerBeforeY) <= 3 ? next : null
   }, 4_000)
 
