@@ -44,6 +44,7 @@ const markers = [
   "node_modules/@kobalte/core/package.json",
   "node_modules/esbuild/package.json",
   "node_modules/@babel/core/package.json",
+  "node_modules/ts-morph/package.json",
 ]
 if (markers.some((marker) => !existsSync(join(sourceRoot, marker)))) {
   run("bun", [
