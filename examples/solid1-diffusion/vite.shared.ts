@@ -13,6 +13,7 @@ const solidWebCompat = fromHere("../../packages/solid1/dist/web-entry.js")
 const runtimeBridge = fromHere("./src/runtime-bridge.ts")
 const webSource = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/apps/web/src/`)
 const desktopSource = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/apps/desktop/src/`)
+const desktopPackage = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/apps/desktop/package.json`)
 const kobalteSourceRoot = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/node_modules/@kobalte/core/src/`)
 const domPurifyCompat = fromHere("./src/dompurify-compat.ts")
 const electronCompat = fromHere("./src/electron-compat.ts")
@@ -37,6 +38,28 @@ const multilineClassAttributeHook = {
       },
     )
     return changed ? { code: normalizedCode, map: null } : null
+  },
+}
+
+const desktopProjectRuntimeHook = {
+  name: "diffusion-desktop-project-runtime",
+  enforce: "pre" as const,
+  transform(code: string, id: string) {
+    const normalizedId = id.replaceAll("\\", "/").split("?")[0]
+    if (!normalizedId.endsWith("/apps/desktop/src/projects.ts")) return null
+
+    const anchor = "let stagedRequire: NodeJS.Require | undefined;"
+    if (!code.includes(anchor)) {
+      throw new Error("Pinned Diffusion desktop project loader changed; update GPUIX host boundary")
+    }
+
+    return {
+      code: code.replace(
+        anchor,
+        `const require = createRequire(${JSON.stringify(desktopPackage)});\n${anchor}`,
+      ),
+      map: null,
+    }
   },
 }
 
@@ -305,6 +328,7 @@ export function diffusionConfig(entry: string, outDir: string, options: { instru
     },
     plugins: [
       multilineClassAttributeHook,
+      desktopProjectRuntimeHook,
       ...(instrument ? [toolbarTestHook, scenePresetTestHook, usabilityTestHook] : []),
       solid({
         babel: { plugins: [decodeJsxTextEntities] },
