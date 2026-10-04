@@ -241,7 +241,15 @@ const editorTransformTrace = {
   transform(code: string, id: string) {
     const normalizedId = id.replaceAll("\\", "/").split("?")[0]
     if (!normalizedId.endsWith("/apps/web/src/pages/editor.tsx")) return null
-    const needles = ["timelineStyles", "grid-template-columns", "grid-template-rows"]
+    const needles = [
+      "timelineStyles",
+      "grid-template-columns",
+      "grid-template-rows",
+      "_$effect",
+      "_$setProp(_el$, \"style\"",
+      "_$setProp(_el$, \"classList\"",
+      "return _el$",
+    ]
     const snippets = needles.map((needle) => {
       const index = code.indexOf(needle)
       return {
