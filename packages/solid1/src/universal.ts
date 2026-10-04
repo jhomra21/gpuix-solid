@@ -98,6 +98,7 @@ type SvgAttributeValue = string
 const styleStates = new WeakMap<HostElementNode, NativeStyleState>()
 const inlineGridColumns = new WeakMap<HostElementNode, readonly BrowserGridTrack[]>()
 const inlineGridRows = new WeakMap<HostElementNode, readonly BrowserGridTrack[]>()
+const tracedBrowserGridNodes = new WeakSet<HostElementNode>()
 const classStyledNodes = new Set<HostElementNode>()
 const semanticTags = new WeakMap<HostElementNode, string>()
 const svgAttributes = new WeakMap<HostElementNode, Map<string, SvgAttributeValue>>()
@@ -1239,7 +1240,8 @@ function sourceGridTracks(node: HostElementNode): SourceGridTracks {
   // Grid track utilities do not establish CSS grid on their own. Diffusion's
   // PanelSection always carries grid-cols-* metadata but remains a vertical
   // flex stack unless its conditional display:grid variant is active.
-  if (sourceDisplay(node) !== "grid") {
+  const display = sourceDisplay(node)
+  if (display !== "grid") {
     return { columns: undefined, rows: undefined }
   }
 
@@ -1247,10 +1249,44 @@ function sourceGridTracks(node: HostElementNode): SourceGridTracks {
   const classTemplate = state
     ? resolveNativeClassGridTemplate(combinedClassName(state), state.classList)
     : undefined
-  return {
-    columns: inlineGridColumns.get(node) ?? parseBrowserGridTemplateColumns(classTemplate?.columns),
-    rows: inlineGridRows.get(node) ?? parseBrowserGridTemplateRows(classTemplate?.rows),
+  const columns = inlineGridColumns.get(node) ?? parseBrowserGridTemplateColumns(classTemplate?.columns)
+  const rows = inlineGridRows.get(node) ?? parseBrowserGridTemplateRows(classTemplate?.rows)
+
+  const elementChildren = node.children.filter((child): child is HostElementNode => child.kind === "element")
+  if (elementChildren.length >= 12 && !tracedBrowserGridNodes.has(node)) {
+    tracedBrowserGridNodes.add(node)
+    const items = inlineGridItems(node)
+    const placements = columns && rows
+      ? placeBrowserGridItems(columns, rows, items.map(browserGridItem))
+      : undefined
+    console.error("[gpuix-grid-trace]", JSON.stringify({
+      display,
+      className: state ? combinedClassName(state) ?? null : null,
+      classList: state?.classList ?? null,
+      inlineStyle: state?.inlineStyle ?? null,
+      inlineColumns: inlineGridColumns.has(node),
+      inlineRows: inlineGridRows.has(node),
+      classTemplate: classTemplate ?? null,
+      columns: columns ?? null,
+      rows: rows ?? null,
+      elementChildren: elementChildren.length,
+      items: items.map((item, index) => {
+        const itemState = styleStates.get(item)
+        return {
+          index,
+          tag: semanticTags.get(item) ?? item.nativeType,
+          className: itemState ? combinedClassName(itemState) ?? null : null,
+          classList: itemState?.classList ?? null,
+          display: sourceDisplay(item) ?? null,
+          position: sourcePosition(item) ?? null,
+          grid: browserGridItem(item),
+        }
+      }),
+      placements: placements ?? null,
+    }))
   }
+
+  return { columns, rows }
 }
 
 function resolveInlineGridItemStyle(node: HostElementNode): StyleDesc | undefined {
