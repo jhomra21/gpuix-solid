@@ -103,7 +103,6 @@ function comparableAutomationNode(node) {
     type: node.type,
     text: node.text ?? null,
     testId: node.testId ?? null,
-    subtreeRevision: node.subtreeRevision ?? null,
     style: node.style ?? null,
     events: node.events ?? null,
     customProps: node.customProps ?? null,
@@ -163,43 +162,6 @@ function indexParents(root) {
   }
   if (root) visit(root)
   return parents
-}
-
-function retainedRevisionDetail(changed, nextTree) {
-  const revisionChanges = changed.filter(
-    (change) => change.kind === "changed" && (change.fields ?? []).includes("subtreeRevision"),
-  )
-  const revisionIds = new Set(revisionChanges.map((change) => change.id))
-  const nodes = new Map(descendants(nextTree).map((node) => [node.id, node]))
-  const parents = indexParents(nextTree)
-  const compact = (node) => node ? {
-    id: node.id,
-    type: node.type,
-    text: node.text ?? null,
-    testId: node.testId ?? null,
-    subtreeRevision: node.subtreeRevision ?? null,
-    bounds: node.bounds ?? null,
-  } : null
-  const revisionLeaves = revisionChanges
-    .filter((change) => {
-      const node = nodes.get(change.id)
-      return !(node?.children ?? []).some((child) => revisionIds.has(child.id))
-    })
-    .map((change) => ({
-      ...compact(nodes.get(change.id)),
-      beforeRevision: change.before?.subtreeRevision ?? null,
-      afterRevision: change.after?.subtreeRevision ?? null,
-    }))
-  const revisionPaths = revisionLeaves.slice(0, 12).map((leaf) => {
-    const path = []
-    let node = nodes.get(leaf.id)
-    while (node) {
-      path.push(compact(node))
-      node = parents.get(node.id)
-    }
-    return path.reverse()
-  })
-  return { revisionChanges, revisionLeaves, revisionPaths }
 }
 
 function textContent(node) {
@@ -946,7 +908,6 @@ try {
 
   const describeInspectorRevisionStep = (label, previousTree, nextTree, previousStats, nextStats) => {
     const changed = diffAutomationTrees(previousTree, nextTree)
-    const revisionDetail = retainedRevisionDetail(changed, nextTree)
     return {
       label,
       rootRevisionBefore: previousStats.rootSubtreeRevision ?? null,
@@ -956,13 +917,10 @@ try {
           ? nextStats.rootSubtreeRevision - previousStats.rootSubtreeRevision
           : null,
       changed,
-      ...revisionDetail,
       nonBoundsChanges: changed.filter(
         (change) =>
           change.kind !== "changed"
-          || (change.fields ?? []).some(
-            (field) => field !== "bounds" && field !== "subtreeRevision",
-          ),
+          || (change.fields ?? []).some((field) => field !== "bounds"),
       ),
     }
   }
