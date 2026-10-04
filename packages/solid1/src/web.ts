@@ -264,7 +264,7 @@ function parseStaticTemplate(html: string): StaticTemplateElement {
   }
 
   if (stack.length !== 0) {
-    throw new Error(`Unclosed Solid DOM template tag: <${stack.at(-1)?.tagName ?? "unknown"}>`)
+    throw new Error(`Unclosed Solid DOM template tag: <${stack.at(-1)?.tagName ?? "unknown"}>; template=${JSON.stringify(html.slice(0, 1200))}`)
   }
   if (roots.length !== 1 || roots[0]?.kind !== "element") {
     throw new Error("Solid DOM templates must contain exactly one root element")
