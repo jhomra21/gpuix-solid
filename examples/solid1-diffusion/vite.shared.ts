@@ -1,5 +1,6 @@
 import solid from "vite-plugin-solid"
 import solidSvg from "vite-plugin-solid-svg"
+import { existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { defineConfig } from "vite"
 import { decodeJsxTextEntities } from "./src/jsx-text-entities.ts"
@@ -14,11 +15,20 @@ const runtimeBridge = fromHere("./src/runtime-bridge.ts")
 const webSource = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/apps/web/src/`)
 const desktopSource = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/apps/desktop/src/`)
 const desktopPackage = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/apps/desktop/package.json`)
-const kobalteSourceRoot = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/node_modules/@kobalte/core/src/`)
+const dependencyPath = (name: string, relativePath: string) => {
+  const candidates = [
+    fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/apps/web/node_modules/${name}/${relativePath}`),
+    fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/node_modules/${name}/${relativePath}`),
+  ]
+  const found = candidates.find((candidate) => existsSync(candidate))
+  if (!found) throw new Error(`Pinned Diffusion dependency ${name}/${relativePath} is not installed`)
+  return found
+}
+const kobalteSourceRoot = dependencyPath("@kobalte/core", "src/")
 const domPurifyCompat = fromHere("./src/dompurify-compat.ts")
 const electronCompat = fromHere("./src/electron-compat.ts")
 const defaultProject = fromHere("./project/")
-const domPurifySource = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/node_modules/dompurify/dist/purify.es.mjs`)
+const domPurifySource = dependencyPath("dompurify", "dist/purify.es.mjs")
 
 const normalizedSourceRoot = sourceRoot.replaceAll("\\", "/")
 
