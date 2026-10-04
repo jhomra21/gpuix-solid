@@ -749,12 +749,11 @@ async function openProjectEditMenu(app) {
   })
 }
 
-async function waitForInputValue(app, expected, label) {
-  const input = app.getByTestId("diffusion-inspector-position-x")
+async function waitForProjectPositionX(expected, label) {
   return await waitFor(label, async () => {
-    const node = await input.element()
-    const actual = node.customProps?.value
-    return String(actual ?? "") === expected ? String(actual) : null
+    const source = readFileSync(join(exampleDirectory, "project", "index.tsx"), "utf8")
+    const keyframe = source.match(/<keyframe id="card-x-0"[^>]*\bvalue=\{(-?\d+(?:\.\d+)?)\}/)
+    return keyframe?.[1] === expected ? expected : null
   })
 }
 
@@ -773,7 +772,6 @@ async function inspectorInputDiagnostic(input, label) {
   console.log("solid1 Diffusion Inspector X diagnostic:", JSON.stringify({
     label,
     nodeId: node.id,
-    value: node.customProps?.value ?? null,
     sourceLines,
   }))
 }
@@ -925,19 +923,19 @@ try {
   await inspectorInputDiagnostic(positionX, "after-enter")
   tree = await getFreshTree(app)
   assertInspectorShowsTransformControls(tree)
-  await waitForInputValue(app, "121", "Inspector X edit")
+  await waitForProjectPositionX("121", "Inspector X edit")
 
   tree = await openProjectEditMenu(app)
   await clickNode(app, findText(tree, "Undo"))
-  await waitForInputValue(app, "120", "Edit > Undo Inspector X")
+  await waitForProjectPositionX("120", "Edit > Undo Inspector X")
 
   tree = await openProjectEditMenu(app)
   await clickNode(app, findText(tree, "Redo"))
-  await waitForInputValue(app, "121", "Edit > Redo Inspector X")
+  await waitForProjectPositionX("121", "Edit > Redo Inspector X")
 
   await positionX.fill("120")
   await positionX.press("enter")
-  await delay(140)
+  await waitForProjectPositionX("120", "Inspector X restore")
   tree = await getFreshTree(app)
   assertInspectorShowsTransformControls(tree)
 
