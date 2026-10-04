@@ -1,10 +1,17 @@
+import { installNativeAudioCompatibility } from "./audio-compat"
 import { installDiffusionDesktopHost } from "./desktop-host"
 
-/**
- * Installs the native browser/desktop services Diffusion reads during module
- * evaluation, then loads the untouched upstream-backed editor.
- */
-export async function loadDiffusionNativeApp() {
+function installPlatform(): void {
   installDiffusionDesktopHost()
+  installNativeAudioCompatibility()
+}
+
+export async function loadDiffusionNativeApp() {
+  installPlatform()
+  return import("./native-app")
+}
+
+export async function loadDiffusionAcceptanceFixture() {
+  installPlatform()
   return import("./app")
 }
