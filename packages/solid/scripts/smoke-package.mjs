@@ -63,7 +63,7 @@ try {
   )
   run(
     npm,
-    ["install", "--ignore-scripts", "--no-audit", "--no-fund", tarball, `solid-js@${solidVersion}`, "cn@0.3.0"],
+    ["install", "--ignore-scripts", "--no-audit", "--no-fund", tarball, `solid-js@${solidVersion}`, `@solidjs/signals@${solidVersion}`, "cn@0.3.0"],
     { cwd: npmConsumer },
   )
   run(
@@ -327,7 +327,7 @@ try {
     path.join(bunConsumer, "package.json"),
     `${JSON.stringify({ private: true, type: "module" }, null, 2)}\n`,
   )
-  run(bun, ["add", "--ignore-scripts", tarball, `solid-js@${solidVersion}`], { cwd: bunConsumer })
+  run(bun, ["add", "--ignore-scripts", tarball, `solid-js@${solidVersion}`, `@solidjs/signals@${solidVersion}`], { cwd: bunConsumer })
   run(
     bun,
     [

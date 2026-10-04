@@ -1,0 +1,33 @@
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -373,7 +373,11 @@
+         root_prepaint_p90_ms: stats.root_prepaint_p90_ms.map(|ms| ms as f64),
+         root_prepaint_p99_ms: stats.root_prepaint_p99_ms.map(|ms| ms as f64),
+-        prepaint_rest_p90_ms: stats.prepaint_rest_p90_ms.map(|ms| ms as f64),
+-        prepaint_rest_p99_ms: stats.prepaint_rest_p99_ms.map(|ms| ms as f64),
+-        canvas_prepare_p90_ms,
++        prepaint_rest_p90_ms: stats.prepaint_rest_p90_ms.map(|ms| ms as f64),
++        prepaint_rest_p99_ms: stats.prepaint_rest_p99_ms.map(|ms| ms as f64),
++        cached_prepaint_reuse_p90_ms: stats.cached_prepaint_reuse_p90_ms.map(|ms| ms as f64),
++        cached_prepaint_reuse_p99_ms: stats.cached_prepaint_reuse_p99_ms.map(|ms| ms as f64),
++        cached_prepaint_render_p90_ms: stats.cached_prepaint_render_p90_ms.map(|ms| ms as f64),
++        cached_prepaint_render_p99_ms: stats.cached_prepaint_render_p99_ms.map(|ms| ms as f64),
++        canvas_prepare_p90_ms,
+         canvas_prepare_p99_ms,
+         canvas_prepare_max_ms,
+@@ -6721,7 +6725,11 @@
+     pub root_prepaint_p90_ms: Option<f64>,
+     pub root_prepaint_p99_ms: Option<f64>,
+-    pub prepaint_rest_p90_ms: Option<f64>,
+-    pub prepaint_rest_p99_ms: Option<f64>,
+-    pub canvas_prepare_p90_ms: Option<f64>,
++    pub prepaint_rest_p90_ms: Option<f64>,
++    pub prepaint_rest_p99_ms: Option<f64>,
++    pub cached_prepaint_reuse_p90_ms: Option<f64>,
++    pub cached_prepaint_reuse_p99_ms: Option<f64>,
++    pub cached_prepaint_render_p90_ms: Option<f64>,
++    pub cached_prepaint_render_p99_ms: Option<f64>,
++    pub canvas_prepare_p90_ms: Option<f64>,
+     pub canvas_prepare_p99_ms: Option<f64>,
+     pub canvas_prepare_max_ms: Option<f64>,

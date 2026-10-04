@@ -1,0 +1,9 @@
+{
+  "name": "gpuix-native-diffusion",
+  "projectId": "gpuix-native-default",
+  "displayName": "GPUix Diffusion editor",
+  "private": true,
+  "type": "module",
+  "main": "index.tsx",
+  "scripts": {}
+}

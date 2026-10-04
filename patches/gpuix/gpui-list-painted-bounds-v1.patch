@@ -1,0 +1,15 @@
+diff --git a/crates/gpui/src/elements/list.rs b/crates/gpui/src/elements/list.rs
+--- a/crates/gpui/src/elements/list.rs
++++ b/crates/gpui/src/elements/list.rs
+@@ -1659,6 +1659,10 @@
+         window.with_content_mask(Some(ContentMask { bounds }), |window| {
+             for item in &mut prepaint.layout.item_layouts {
+                 item.element.paint(window, cx);
+             }
+         });
++
++        if let Some(listener) = self.interactivity.paint_bounds_listener.take() {
++            listener(bounds, window, cx);
++        }
+     }
+ }

@@ -13,6 +13,7 @@ const repository = process.env.GPUIX_EDGE_REPOSITORY ?? config.repository
 const sha = process.env.GPUIX_EDGE_SHA ?? config.sha
 const branch = process.env.GPUIX_EDGE_BRANCH ?? config.branch ?? "main"
 const patches = parsePatchList(config.patches)
+const submodulePatches = parseSubmodulePatchList(config.submodulePatches)
 
 if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) {
   throw new Error(`Invalid GPUIX edge repository: ${JSON.stringify(repository)}`)
@@ -20,12 +21,10 @@ if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) {
 if (!/^[0-9a-f]{40}$/i.test(sha)) {
   throw new Error(`GPUIX edge SHA must be a full 40-character commit, got ${JSON.stringify(sha)}`)
 }
-for (const patch of patches) {
-  const absolute = resolve(repoRoot, patch)
-  const relativePatch = relative(repoRoot, absolute)
-  if (relativePatch.startsWith("..") || relativePatch === "" || relativePatch.includes("\\0")) {
-    throw new Error(`GPUIX edge patch must stay inside the repository: ${JSON.stringify(patch)}`)
-  }
+for (const patch of patches) validatePatchPath(patch)
+for (const entry of submodulePatches) {
+  validateSubmodulePath(entry.submodule)
+  for (const patch of entry.patches) validatePatchPath(patch)
 }
 
 function parsePatchList(value) {
@@ -37,6 +36,37 @@ function parsePatchList(value) {
     }
     return serialized
   })
+}
+
+function parseSubmodulePatchList(value) {
+  if (!Array.isArray(value)) return []
+  return value.map((entry) => {
+    const submodule = String(entry?.submodule ?? "")
+    if (entry?.submodule !== submodule || submodule.length === 0) {
+      throw new Error(`Invalid GPUIX edge submodule path: ${JSON.stringify(entry?.submodule)}`)
+    }
+    return { submodule, patches: parsePatchList(entry?.patches) }
+  })
+}
+
+function validatePatchPath(patch) {
+  const absolute = resolve(repoRoot, patch)
+  const relativePatch = relative(repoRoot, absolute)
+  if (relativePatch.startsWith("..") || relativePatch === "" || relativePatch.includes("\\0")) {
+    throw new Error(`GPUIX edge patch must stay inside the repository: ${JSON.stringify(patch)}`)
+  }
+}
+
+function validateSubmodulePath(submodule) {
+  const absolute = resolve(repoRoot, submodule)
+  const relativeSubmodule = relative(repoRoot, absolute)
+  if (
+    relativeSubmodule.startsWith("..")
+    || relativeSubmodule === ""
+    || relativeSubmodule.includes("\\0")
+  ) {
+    throw new Error(`GPUIX edge submodule must stay inside the checkout: ${JSON.stringify(submodule)}`)
+  }
 }
 
 const cacheRoot = resolve(repoRoot, process.env.GPUIX_EDGE_CACHE_DIR ?? ".cache/gpuix")
@@ -93,6 +123,22 @@ async function syncSource() {
     run("git", ["apply", "--check", patchPath], checkout)
     run("git", ["apply", patchPath], checkout)
     console.log(`GPUIX edge patch: ${patch}`)
+  }
+
+  for (const entry of submodulePatches) {
+    const submoduleRoot = resolve(checkout, entry.submodule)
+    if (!(await exists(join(submoduleRoot, ".git")))) {
+      throw new Error(`GPUIX edge submodule is missing: ${entry.submodule}`)
+    }
+    run("git", ["reset", "--hard", "HEAD"], submoduleRoot)
+    run("git", ["clean", "-fd"], submoduleRoot)
+    for (const patch of entry.patches) {
+      const patchPath = resolve(repoRoot, patch)
+      if (!(await exists(patchPath))) throw new Error(`GPUIX edge patch is missing: ${patch}`)
+      run("git", ["apply", "--check", patchPath], submoduleRoot)
+      run("git", ["apply", patchPath], submoduleRoot)
+      console.log(`GPUIX edge submodule patch: ${entry.submodule}: ${patch}`)
+    }
   }
 
   const head = capture("git", ["rev-parse", "HEAD"], checkout)
@@ -162,6 +208,7 @@ async function printStatus() {
     branch,
     sha,
     patches,
+    submodulePatches,
     checkout: relative(repoRoot, checkout),
     checkoutHead: head ?? null,
     sourceReady,

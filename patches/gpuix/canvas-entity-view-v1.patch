@@ -1,0 +1,183 @@
+diff --git a/packages/native/src/custom_elements/canvas.rs b/packages/native/src/custom_elements/canvas.rs
+--- a/packages/native/src/custom_elements/canvas.rs
++++ b/packages/native/src/custom_elements/canvas.rs
+@@ -153,7 +153,8 @@
+ #[derive(Default)]
+ pub struct CanvasElement {
+     draw_list: Arc<RwLock<Option<Arc<CanvasDrawList>>>>,
+     images: Arc<HashMap<u64, CanvasImageResource>>,
++    view: Option<gpui::Entity<CanvasView>>,
+ }
+ 
+ pub struct CanvasFactory;
+@@ -172,40 +173,64 @@
+     draw_list: Option<Arc<CanvasDrawList>>,
+     text: Vec<Option<gpui::ShapedLine>>,
+ }
+ 
++struct CanvasView {
++    draw_list: Arc<RwLock<Option<Arc<CanvasDrawList>>>>,
++    images: Arc<HashMap<u64, CanvasImageResource>>,
++}
++
++impl gpui::Render for CanvasView {
++    fn render(
++        &mut self,
++        _window: &mut gpui::Window,
++        _cx: &mut gpui::Context<Self>,
++    ) -> impl gpui::IntoElement {
++        let draw_list = self.draw_list.clone();
++        let images = self.images.clone();
++        gpui::canvas(
++            move |bounds, window, _cx| {
++                let snapshot = draw_list.read().ok().and_then(|state| state.clone());
++                prepare_canvas(snapshot, bounds, window)
++            },
++            move |bounds, prepared, window, cx| {
++                if let Some(draw_list) = prepared.draw_list.as_deref() {
++                    paint_canvas(draw_list, &prepared, images.as_ref(), bounds, window, cx);
++                }
++            },
++        )
++        .absolute()
++        .size_full()
++    }
++}
++
+ impl CustomElement for CanvasElement {
+     fn render(
+         &mut self,
+         ctx: CustomRenderContext,
+         _window: &mut gpui::Window,
+-        _cx: &mut gpui::Context<crate::renderer::GpuixView>,
++        cx: &mut gpui::Context<crate::renderer::GpuixView>,
+     ) -> gpui::AnyElement {
+-        // GPUI runs prepaint and paint from retained closures. Share the
+-        // immutable frame state instead of deep-cloning every Canvas command
+-        // and uploaded image entry each time this element renders. The draw-list
+-        // slot itself stays live so paint-only updates do not rebuild the host tree.
+-        let draw_list = self.draw_list.clone();
+-        let images = self.images.clone();
+-        let canvas = gpui::canvas(
+-            move |bounds, window, _cx| {
+-                let snapshot = draw_list.read().ok().and_then(|state| state.clone());
+-                prepare_canvas(snapshot, bounds, window)
+-            },
+-            move |bounds, prepared, window, cx| {
+-                if let Some(draw_list) = prepared.draw_list.as_deref() {
+-                    paint_canvas(draw_list, &prepared, images.as_ref(), bounds, window, cx);
+-                }
+-            },
+-        )
+-        .absolute()
+-        .size_full();
++        let canvas_view = if let Some(view) = self.view.as_ref() {
++            let images = self.images.clone();
++            view.update(cx, |state, _cx| {
++                state.images = images;
++            });
++            view.clone()
++        } else {
++            let view = cx.new(|_cx| CanvasView {
++                draw_list: self.draw_list.clone(),
++                images: self.images.clone(),
++            });
++            self.view = Some(view.clone());
++            view
++        };
+ 
+         let surface = super::custom_surface(
+             gpui::div()
+                 .id(gpui::SharedString::from(format!("__gpuix_canvas_{}", ctx.id))),
+             &ctx,
+         );
+         wire_canvas_events(surface.overflow_hidden(), &ctx)
+-            .child(canvas)
++            .child(canvas_view)
+             .into_any_element()
+     }
+@@ -246,8 +274,22 @@
+         if let Ok(mut state) = self.draw_list.write() {
+             *state = next;
+         }
+     }
+ 
++    fn set_live_prop(
++        &mut self,
++        key: &str,
++        value: serde_json::Value,
++        cx: &mut gpui::App,
++    ) -> bool {
++        self.set_prop(key, value);
++        let Some(view) = self.view.as_ref().filter(|_| key == "drawList") else {
++            return false;
++        };
++        view.update(cx, |_state, cx| cx.notify());
++        true
++    }
++
+     fn supported_props(&self) -> &'static [&'static str] {
+         &["drawList"]
+     }
+diff --git a/packages/native/src/custom_elements/mod.rs b/packages/native/src/custom_elements/mod.rs
+--- a/packages/native/src/custom_elements/mod.rs
++++ b/packages/native/src/custom_elements/mod.rs
+@@ -215,5 +215,19 @@ pub trait CustomElement: 'static {
+     /// Apply a changed prop from the retained tree. Removed props arrive as null.
+     fn set_prop(&mut self, key: &str, value: serde_json::Value);
+ 
++    /// Apply a high-frequency prop and invalidate only the element-owned view.
++    ///
++    /// Returning true means the custom element scheduled its own redraw and the
++    /// renderer must not refresh the whole root view.
++    fn set_live_prop(
++        &mut self,
++        key: &str,
++        value: serde_json::Value,
++        _cx: &mut gpui::App,
++    ) -> bool {
++        self.set_prop(key, value);
++        false
++    }
++
+     /// Immutable prop capability declaration for this adapter.
+     fn supported_props(&self) -> &'static [&'static str];
+@@ -438,6 +449,7 @@
+         element_type: &str,
+         key: &str,
+         value: serde_json::Value,
++        cx: &mut gpui::App,
+     ) -> bool {
+         let Some(entry) = self.instances.get_mut(&id) else {
+             return false;
+@@ -448,9 +460,9 @@
+         if entry.element_type != element_type {
+             return false;
+         }
+-        entry.element.set_prop(key, value.clone());
++        let handled = entry.element.set_live_prop(key, value.clone(), cx);
+         entry.applied_props.insert(key.to_string(), value);
+-        true
++        handled
+     }
+ 
+     /// Called when React destroys an element.
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -1510,12 +1510,13 @@
+         #[cfg(target_os = "macos")]
+         return update_window(move |view, window, cx| {
+             if view
+                 .custom_registry
+-                .set_live_prop_if_present(id, "canvas", "drawList", value)
++                .set_live_prop_if_present(id, "canvas", "drawList", value, cx)
+             {
+-                window.refresh();
++                // CanvasView owns its invalidation boundary. Its entity notify
++                // redraws only that subtree instead of refreshing GpuixView.
+             } else {
+                 cx.notify();
+                 window.refresh();
+             }
+         });

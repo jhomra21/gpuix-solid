@@ -23,11 +23,21 @@ type NativeModule = {
 
 type SourceEdgeNativeTestRenderer = NativeTestRendererApi & {
   getCanvasDrawListVersion?: () => number
+  getAutoMarginVersion?: () => number
+  measureCanvasText?: (text: string, fontSize: number, fontFamily: string, fontWeight: number) => number
+  setCanvasImagePixels?: (
+    elementId: number,
+    imageId: number,
+    width: number,
+    height: number,
+    pixels: Uint8Array,
+  ) => void
   getVideoFrameSurfaceVersion?: () => number
   setVideoFrameBgra?: (elementId: number, width: number, height: number, data: Uint8Array) => void
   getVideoFrameIosurfaceVersion?: () => number
   setVideoFrameIosurface?: (elementId: number, handle: Uint8Array) => void
   scrollIntoView?: (elementId: number) => void
+  getScrollMetrics?: (elementId: number) => number[] | null
   setImage?: (elementId: number, bytes: Uint8Array) => void
   setImagePixels?: (elementId: number, width: number, height: number, pixels: Uint8Array) => void
   clearVideoFrame?: (elementId: number) => void
@@ -314,6 +324,26 @@ export class TestRenderer implements NativeRenderer {
     return [x, y]
   }
 
+  getScrollMetrics(elementId: number): [number, number, number, number, number, number] | null {
+    this.#native.flush()
+    // SAFETY: source-edge testing may expose this optional native method; it is feature-detected below.
+    const native = this.#native as SourceEdgeNativeTestRenderer
+    const metrics = native.getScrollMetrics?.(elementId)
+    if (!metrics) return null
+    const [offsetX, offsetY, maxX, maxY, viewportWidth, viewportHeight] = metrics
+    if (
+      offsetX === undefined
+      || offsetY === undefined
+      || maxX === undefined
+      || maxY === undefined
+      || viewportWidth === undefined
+      || viewportHeight === undefined
+    ) {
+      throw new Error("Native scroll metrics did not contain six values")
+    }
+    return [offsetX, offsetY, maxX, maxY, viewportWidth, viewportHeight]
+  }
+
   getWindowSize(): { width: number; height: number } {
     this.#native.flush()
     return this.#native.getWindowSize()
@@ -324,6 +354,32 @@ export class TestRenderer implements NativeRenderer {
     // exists in the published @gpuix/native TypeScript surface.
     const native = this.#native as SourceEdgeNativeTestRenderer
     return native.getCanvasDrawListVersion?.()
+  }
+
+  getAutoMarginVersion(): number | undefined {
+    // SAFETY: source-edge GPUIX may expose CSS auto margins before published typings.
+    const native = this.#native as SourceEdgeNativeTestRenderer
+    return native.getAutoMarginVersion?.()
+  }
+
+  measureCanvasText(text: string, fontSize: number, fontFamily: string, fontWeight: number): number {
+    // SAFETY: the source-edge native renderer adds synchronous GPUI text shaping before published typings expose it.
+    const native = this.#native as SourceEdgeNativeTestRenderer
+    if (!native.measureCanvasText) throw new Error("Native Canvas text measurement is unavailable")
+    return native.measureCanvasText(text, fontSize, fontFamily, fontWeight)
+  }
+
+  setCanvasImagePixels(
+    elementId: number,
+    imageId: number,
+    width: number,
+    height: number,
+    pixels: Uint8Array,
+  ): void {
+    // SAFETY: source-edge GPUIX exposes the Canvas image resource upload before published native typings.
+    const native = this.#native as SourceEdgeNativeTestRenderer
+    if (!native.setCanvasImagePixels) throw new Error("Native Canvas image upload is unavailable")
+    native.setCanvasImagePixels(elementId, imageId, width, height, pixels)
   }
 
   getVideoFrameSurfaceVersion(): number | undefined {

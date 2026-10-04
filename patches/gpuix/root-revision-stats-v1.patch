@@ -1,0 +1,105 @@
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -316,9 +316,17 @@
+ }
+ 
+ #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+-pub(crate) fn debug_frame_overlay_stats_js(
+-    stats: gpui::DebugFrameOverlayStats,
+-) -> DebugFrameOverlayStats {
++pub(crate) fn debug_frame_overlay_stats_js(
++    stats: gpui::DebugFrameOverlayStats,
++) -> DebugFrameOverlayStats {
++    debug_frame_overlay_stats_js_with_revision(stats, None)
++}
++
++#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
++fn debug_frame_overlay_stats_js_with_revision(
++    stats: gpui::DebugFrameOverlayStats,
++    root_subtree_revision: Option<f64>,
++) -> DebugFrameOverlayStats {
+     let (
+         view_render_current_ms,
+         view_render_p90_ms,
+@@ -348,10 +356,20 @@
+         view_build_current_ms,
+         view_build_p90_ms,
+         view_build_p99_ms,
+-        view_build_max_ms,
+-        view_build_samples,
+-    }
+-}
++        view_build_max_ms,
++        view_build_samples,
++        root_subtree_revision,
++    }
++}
++
++#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
++fn root_subtree_revision(view: &GpuixView) -> Option<f64> {
++    let tree = view.tree.lock().ok()?;
++    let root_id = tree.root_id?;
++    tree.elements
++        .get(&root_id)
++        .map(|element| element.subtree_revision as f64)
++}
+ 
+ #[cfg(any(target_os = "windows", target_os = "linux", target_os = "freebsd"))]
+ fn recv_ui_response<T>(receiver: std::sync::mpsc::Receiver<T>, operation: &str) -> Result<T> {
+@@ -636,15 +654,16 @@
+                         .ok();
+                 })
+             }
+-            UiCommand::GetDebugFrameOverlayStats { response } => {
+-                window.update(cx, move |_view, window, _cx| {
+-                    response
+-                        .send(debug_frame_overlay_stats_js(
+-                            window.debug_frame_overlay_stats(),
+-                        ))
+-                        .ok();
+-                })
+-            }
++            UiCommand::GetDebugFrameOverlayStats { response } => {
++                window.update(cx, move |view, window, _cx| {
++                    response
++                        .send(debug_frame_overlay_stats_js_with_revision(
++                            window.debug_frame_overlay_stats(),
++                            root_subtree_revision(view),
++                        ))
++                        .ok();
++                })
++            }
+             UiCommand::ResetDebugFrameOverlayStats => window.update(cx, |_view, window, _cx| {
+                 window.reset_debug_frame_overlay_stats();
+                 reset_view_render_stats();
+@@ -1727,9 +1746,12 @@
+     #[napi]
+     pub fn get_debug_frame_overlay_stats(&self) -> Result<DebugFrameOverlayStats> {
+         #[cfg(target_os = "macos")]
+-        return update_window(|_view, window, _cx| {
+-            debug_frame_overlay_stats_js(window.debug_frame_overlay_stats())
+-        });
++        return update_window(|view, window, _cx| {
++            debug_frame_overlay_stats_js_with_revision(
++                window.debug_frame_overlay_stats(),
++                root_subtree_revision(view),
++            )
++        });
+ 
+         #[cfg(any(target_os = "windows", target_os = "linux", target_os = "freebsd"))]
+         {
+@@ -6914,9 +6936,10 @@
+     pub view_build_current_ms: Option<f64>,
+     pub view_build_p90_ms: Option<f64>,
+     pub view_build_p99_ms: Option<f64>,
+-    pub view_build_max_ms: Option<f64>,
+-    pub view_build_samples: f64,
+-}
++    pub view_build_max_ms: Option<f64>,
++    pub view_build_samples: f64,
++    pub root_subtree_revision: Option<f64>,
++}
+ 
+ /// Wayland `wlr-layer-shell` surface options. Linux/Wayland only; ignored on
+ /// every other platform. When present on `WindowOptions`, the window is opened

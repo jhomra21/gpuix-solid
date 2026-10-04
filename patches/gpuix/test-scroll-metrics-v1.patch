@@ -1,0 +1,106 @@
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -4870,6 +4870,27 @@
+         ])
+     }
+ 
++    pub(crate) fn virtual_list_metrics(&self, id: u64) -> Option<[f64; 6]> {
++        let state = &self.virtual_lists.get(&id)?.state;
++        let offset = state.scroll_px_offset_for_scrollbar();
++        let max = state.max_offset_for_scrollbar();
++        let bounds = state.viewport_bounds();
++        Some([
++            {
++                let value = f64::from(f32::from(offset.x));
++                if value == 0.0 { 0.0 } else { value }
++            },
++            {
++                let value = f64::from(f32::from(offset.y));
++                if value == 0.0 { 0.0 } else { value }
++            },
++            f64::from(f32::from(max.x)),
++            f64::from(f32::from(max.y)),
++            f64::from(f32::from(bounds.size.width)),
++            f64::from(f32::from(bounds.size.height)),
++        ])
++    }
++
+     pub(crate) fn reveal_virtual_list_ancestor(&self, id: u64) -> bool {
+         let tree_arc = self.tree.clone();
+         let tree = tree_arc.lock().unwrap();
+diff --git a/packages/native/src/test_renderer.rs b/packages/native/src/test_renderer.rs
+--- a/packages/native/src/test_renderer.rs
++++ b/packages/native/src/test_renderer.rs
+@@ -746,6 +746,45 @@
+         })
+     }
+ 
++    /// Get complete native scroll geometry:
++    /// [offsetX, offsetY, maxScrollX, maxScrollY, viewportWidth, viewportHeight].
++    #[napi]
++    pub fn get_scroll_metrics(&self, element_id: f64) -> Result<Option<Vec<f64>>> {
++        let id = to_element_id(element_id)?;
++        with_test_state(|cx, window, view| {
++            let view = view.clone();
++            let result = cx
++                .update_window(window, |_, _window, app| {
++                    view.update(app, |view, _cx| {
++                        if let Some(metrics) = view.virtual_list_metrics(id) {
++                            return Some(metrics.to_vec());
++                        }
++                        view.scroll_handles.get(&id).map(|handle| {
++                            let offset = handle.offset();
++                            let max = handle.max_offset();
++                            let bounds = handle.bounds();
++                            vec![
++                                {
++                                    let value = f64::from(f32::from(offset.x));
++                                    if value == 0.0 { 0.0 } else { value }
++                                },
++                                {
++                                    let value = f64::from(f32::from(offset.y));
++                                    if value == 0.0 { 0.0 } else { value }
++                                },
++                                f64::from(f32::from(max.x)),
++                                f64::from(f32::from(max.y)),
++                                f64::from(f32::from(bounds.size.width)),
++                                f64::from(f32::from(bounds.size.height)),
++                            ]
++                        })
++                    })
++                })
++                .map_err(|e| Error::from_reason(e.to_string()))?;
++            Ok(result)
++        })
++    }
++
+     /// Capture a screenshot of the current rendered state and save as PNG.
+     /// Supported on macOS through Metal and Windows through DirectX.
+     #[napi]
+diff --git a/packages/native/js/testing.ts b/packages/native/js/testing.ts
+--- a/packages/native/js/testing.ts
++++ b/packages/native/js/testing.ts
+@@ -95,5 +95,6 @@
+   ): void
+   getScrollOffset(elementId: number): number[] | null
++  getScrollMetrics(elementId: number): number[] | null
+   getListScrollTop(elementId: number): number[] | null
+   setDebugFrameOverlay(mode: DebugFrameOverlayMode): string
+   getDebugFrameOverlay(): string
+@@ -525,6 +526,15 @@
+     return [result[0], result[1]]
+   }
+ 
++  /** Native scroll geometry:
++   *  [offsetX, offsetY, maxScrollX, maxScrollY, viewportWidth, viewportHeight]. */
++  getScrollMetrics(elementId: number): [number, number, number, number, number, number] | null {
++    this.native.flush()
++    const result = this.native.getScrollMetrics(elementId)
++    if (!result) return null
++    return [result[0], result[1], result[2], result[3], result[4], result[5]]
++  }
++
+   /** The logical scroll anchor of a `<virtual-list>`:
+    *  `[itemIndex, offsetInItemPx, viewportHeightPx]`, or null for anything
+    *  else. `itemIndex == item count` is gpui's at-end sentinel. Exact even

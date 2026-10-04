@@ -1,0 +1,291 @@
+diff --git a/crates/gpui/src/debug_overlay.rs b/crates/gpui/src/debug_overlay.rs
+--- a/crates/gpui/src/debug_overlay.rs
++++ b/crates/gpui/src/debug_overlay.rs
+@@ -19,14 +19,26 @@
+ 
+ #[allow(missing_docs)]
+ #[derive(Copy, Clone, Debug, Default, PartialEq)]
+-pub struct DebugFrameOverlayStats {
+-    pub current_ms: Option<f32>,
+-    pub p90_ms: Option<f32>,
+-    pub p99_ms: Option<f32>,
+-    pub max_ms: Option<f32>,
+-    pub frames: u64,
+-    pub samples: usize,
+-}
++pub struct DebugFrameOverlayStats {
++    pub current_ms: Option<f32>,
++    pub p90_ms: Option<f32>,
++    pub p99_ms: Option<f32>,
++    pub max_ms: Option<f32>,
++    pub frames: u64,
++    pub samples: usize,
++    pub draw_roots_p90_ms: Option<f32>,
++    pub draw_roots_p99_ms: Option<f32>,
++    pub draw_roots_max_ms: Option<f32>,
++    pub draw_roots_samples: usize,
++    pub prepaint_p90_ms: Option<f32>,
++    pub prepaint_p99_ms: Option<f32>,
++    pub prepaint_max_ms: Option<f32>,
++    pub prepaint_samples: usize,
++    pub paint_p90_ms: Option<f32>,
++    pub paint_p99_ms: Option<f32>,
++    pub paint_max_ms: Option<f32>,
++    pub paint_samples: usize,
++}
+ 
+ impl DebugFrameOverlayMode {
+     /// Returns the next mode in the Hidden → FrameTime → Detailed cycle.
+@@ -62,20 +74,26 @@
+     rgba(0x000000aa).into()
+ }
+ 
+-pub(crate) struct DebugFrameOverlay {
+-    mode: DebugFrameOverlayMode,
+-    draw_durations: VecDeque<Duration>,
+-    total_frame_count: u64,
+-}
+-
+-impl DebugFrameOverlay {
+-    pub(crate) fn new() -> Self {
+-        Self {
+-            mode: DebugFrameOverlayMode::default(),
+-            draw_durations: VecDeque::new(),
+-            total_frame_count: 0,
+-        }
+-    }
++pub(crate) struct DebugFrameOverlay {
++    mode: DebugFrameOverlayMode,
++    draw_durations: VecDeque<Duration>,
++    draw_roots_durations: VecDeque<Duration>,
++    prepaint_durations: VecDeque<Duration>,
++    paint_durations: VecDeque<Duration>,
++    total_frame_count: u64,
++}
++
++impl DebugFrameOverlay {
++    pub(crate) fn new() -> Self {
++        Self {
++            mode: DebugFrameOverlayMode::default(),
++            draw_durations: VecDeque::new(),
++            draw_roots_durations: VecDeque::new(),
++            prepaint_durations: VecDeque::new(),
++            paint_durations: VecDeque::new(),
++            total_frame_count: 0,
++        }
++    }
+ 
+     pub(crate) fn mode(&self) -> DebugFrameOverlayMode {
+         self.mode
+@@ -87,37 +105,90 @@
+ 
+     /// Clears the draw-duration samples, restarting the percentile window.
+     /// The total frame count is left untouched.
+-    pub(crate) fn reset_stats(&mut self) {
+-        self.draw_durations.clear();
+-    }
+-
+-    pub(crate) fn is_enabled(&self) -> bool {
+-        self.mode != DebugFrameOverlayMode::Hidden
+-    }
+-
+-    pub(crate) fn record_frame(&mut self, draw_duration: Duration) {
+-        self.total_frame_count += 1;
+-        if self.draw_durations.len() >= MAX_SAMPLES {
+-            self.draw_durations.pop_front();
+-        }
+-        self.draw_durations.push_back(draw_duration);
+-    }
+-
+-    pub(crate) fn stats(&self) -> DebugFrameOverlayStats {
+-        let mut sorted: Vec<Duration> = self.draw_durations.iter().copied().collect();
+-        sorted.sort_unstable();
+-        let percentile = |numerator: usize| {
+-            (!sorted.is_empty()).then(|| sorted[(sorted.len() - 1) * numerator / 100])
+-        };
+-        DebugFrameOverlayStats {
+-            current_ms: self.draw_durations.back().copied().map(duration_ms),
+-            p90_ms: percentile(90).map(duration_ms),
+-            p99_ms: percentile(99).map(duration_ms),
+-            max_ms: sorted.last().copied().map(duration_ms),
+-            frames: self.total_frame_count,
+-            samples: self.draw_durations.len(),
+-        }
+-    }
++    pub(crate) fn reset_stats(&mut self) {
++        self.draw_durations.clear();
++        self.draw_roots_durations.clear();
++        self.prepaint_durations.clear();
++        self.paint_durations.clear();
++    }
++
++    pub(crate) fn is_enabled(&self) -> bool {
++        self.mode != DebugFrameOverlayMode::Hidden
++    }
++
++    pub(crate) fn record_frame(&mut self, draw_duration: Duration) {
++        self.total_frame_count += 1;
++        Self::push_duration(&mut self.draw_durations, draw_duration);
++    }
++
++    pub(crate) fn record_draw_roots(&mut self, duration: Duration) {
++        Self::push_duration(&mut self.draw_roots_durations, duration);
++    }
++
++    pub(crate) fn record_prepaint(&mut self, duration: Duration) {
++        Self::push_duration(&mut self.prepaint_durations, duration);
++    }
++
++    pub(crate) fn record_paint(&mut self, duration: Duration) {
++        Self::push_duration(&mut self.paint_durations, duration);
++    }
++
++    fn push_duration(samples: &mut VecDeque<Duration>, duration: Duration) {
++        if samples.len() >= MAX_SAMPLES {
++            samples.pop_front();
++        }
++        samples.push_back(duration);
++    }
++
++    fn duration_summary(
++        samples: &VecDeque<Duration>,
++    ) -> (Option<f32>, Option<f32>, Option<f32>, usize) {
++        let mut sorted: Vec<Duration> = samples.iter().copied().collect();
++        sorted.sort_unstable();
++        let percentile = |numerator: usize| {
++            (!sorted.is_empty()).then(|| sorted[(sorted.len() - 1) * numerator / 100])
++        };
++        (
++            percentile(90).map(duration_ms),
++            percentile(99).map(duration_ms),
++            sorted.last().copied().map(duration_ms),
++            samples.len(),
++        )
++    }
++
++    pub(crate) fn stats(&self) -> DebugFrameOverlayStats {
++        let mut sorted: Vec<Duration> = self.draw_durations.iter().copied().collect();
++        sorted.sort_unstable();
++        let percentile = |numerator: usize| {
++            (!sorted.is_empty()).then(|| sorted[(sorted.len() - 1) * numerator / 100])
++        };
++        let (draw_roots_p90_ms, draw_roots_p99_ms, draw_roots_max_ms, draw_roots_samples) =
++            Self::duration_summary(&self.draw_roots_durations);
++        let (prepaint_p90_ms, prepaint_p99_ms, prepaint_max_ms, prepaint_samples) =
++            Self::duration_summary(&self.prepaint_durations);
++        let (paint_p90_ms, paint_p99_ms, paint_max_ms, paint_samples) =
++            Self::duration_summary(&self.paint_durations);
++        DebugFrameOverlayStats {
++            current_ms: self.draw_durations.back().copied().map(duration_ms),
++            p90_ms: percentile(90).map(duration_ms),
++            p99_ms: percentile(99).map(duration_ms),
++            max_ms: sorted.last().copied().map(duration_ms),
++            frames: self.total_frame_count,
++            samples: self.draw_durations.len(),
++            draw_roots_p90_ms,
++            draw_roots_p99_ms,
++            draw_roots_max_ms,
++            draw_roots_samples,
++            prepaint_p90_ms,
++            prepaint_p99_ms,
++            prepaint_max_ms,
++            prepaint_samples,
++            paint_p90_ms,
++            paint_p99_ms,
++            paint_max_ms,
++            paint_samples,
++        }
++    }
+ 
+     pub(crate) fn paint(&self, scene: &mut Scene, viewport_size: Size<Pixels>, scale_factor: f32) {
+         if !self.is_enabled() {
+diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
+--- a/crates/gpui/src/window.rs
++++ b/crates/gpui/src/window.rs
+@@ -2951,10 +2951,15 @@
+                 self.rendered_frame.input_handlers.push(Some(input_handler));
+             }
+         }
+-        if !cx.mode.skip_drawing() {
+-            self.captured_hitbox = None;
+-            self.draw_roots(cx);
+-            if self.captured_identity.is_some() && self.captured_hitbox.is_none() {
++        if !cx.mode.skip_drawing() {
++            self.captured_hitbox = None;
++            #[cfg(feature = "profiler")]
++            let draw_roots_started = Instant::now();
++            self.draw_roots(cx);
++            #[cfg(feature = "profiler")]
++            self.debug_frame_overlay
++                .record_draw_roots(Instant::now().duration_since(draw_roots_started));
++            if self.captured_identity.is_some() && self.captured_hitbox.is_none() {
+                 self.captured_identity = None;
+             }
+             #[cfg(feature = "profiler")]
+@@ -3165,9 +3170,11 @@
+         self.debug_frame_overlay.stats()
+     }
+ 
+-    fn draw_roots(&mut self, cx: &mut App) {
+-        self.invalidator.set_phase(DrawPhase::Prepaint);
+-        self.tooltip_bounds.take();
++    fn draw_roots(&mut self, cx: &mut App) {
++        self.invalidator.set_phase(DrawPhase::Prepaint);
++        #[cfg(feature = "profiler")]
++        let prepaint_started = Instant::now();
++        self.tooltip_bounds.take();
+ 
+         self.a11y.sync_active_flag();
+         if self.a11y.is_active() {
+@@ -3232,11 +3239,17 @@
+             tooltip_element = self.prepaint_tooltip(cx);
+         }
+ 
+-        self.mouse_hit_test = self.next_frame.hit_test(self.mouse_position);
+-
+-        // Now actually paint the elements.
+-        self.invalidator.set_phase(DrawPhase::Paint);
+-        root_element.paint(self, cx);
++        self.mouse_hit_test = self.next_frame.hit_test(self.mouse_position);
++
++        #[cfg(feature = "profiler")]
++        self.debug_frame_overlay
++            .record_prepaint(Instant::now().duration_since(prepaint_started));
++
++        // Now actually paint the elements.
++        self.invalidator.set_phase(DrawPhase::Paint);
++        #[cfg(feature = "profiler")]
++        let paint_started = Instant::now();
++        root_element.paint(self, cx);
+ 
+         #[cfg(any(feature = "inspector", debug_assertions))]
+         self.paint_inspector(inspector_element, cx);
+@@ -3272,15 +3285,19 @@
+             // clear the builder state regardless
+             let tree_update = self.a11y.end_frame(frame_info);
+ 
+-            if should_send_a11y_update {
+-                log::debug!(
+-                    "Sending a11y tree update: {} nodes",
+-                    tree_update.nodes.len()
+-                );
+-                self.platform_window.a11y_tree_update(tree_update);
+-            }
+-        }
+-    }
++            if should_send_a11y_update {
++                log::debug!(
++                    "Sending a11y tree update: {} nodes",
++                    tree_update.nodes.len()
++                );
++                self.platform_window.a11y_tree_update(tree_update);
++            }
++        }
++
++        #[cfg(feature = "profiler")]
++        self.debug_frame_overlay
++            .record_paint(Instant::now().duration_since(paint_started));
++    }
+ 
+     fn prepaint_tooltip(&mut self, cx: &mut App) -> Option<AnyElement> {
+         // Use indexing instead of iteration to avoid borrowing self for the duration of the loop.

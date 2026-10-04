@@ -28,7 +28,15 @@ export class FakeRenderer implements NativeRenderer {
   setText(id: number, content: string): void { this.direct.push(["setText", id, content]) }
   setEventListener(id: number, type: string, enabled: boolean): void { this.direct.push(["setEventListener", id, type, enabled]) }
   setRoot(id: number): void { this.direct.push(["setRoot", id]) }
-  setCustomProp(id: number, key: string, value: string): void { this.direct.push(["setCustomProp", id, key, value]) }
+  setCustomProp(id: number, key: string, value: string): void {
+    this.direct.push(["setCustomProp", id, key, value])
+    // Direct custom-prop commits are semantically the same retained-tree
+    // mutation as applyBatch; expose them through batches too so existing
+    // mutation observers see the native fast path.
+    // SAFETY: setCustomProp receives JSON emitted by the host from a MutationValue-compatible retained payload.
+    const parsed = JSON.parse(value) as MutationValue
+    this.batches.push([["setCustomProp", id, key, parsed]])
+  }
   commitMutations(): void { this.direct.push(["commitMutations"]) }
   focusNext(): void { this.focusNextCount++ }
   focusPrevious(): void { this.focusPreviousCount++ }

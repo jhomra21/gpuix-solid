@@ -43,7 +43,8 @@ export function startFrameLoop(
       options.onTerminated?.()
       return
     }
-    const wait = Math.max(0, frameMs - (performance.now() - started))
+    const elapsed = performance.now() - started
+    const wait = Math.max(0, frameMs - elapsed)
     timer = setTimeout(tick, wait)
   }
 

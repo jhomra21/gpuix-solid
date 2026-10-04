@@ -2,7 +2,10 @@ import { existsSync, statSync, unlinkSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
-import { CANVAS_DRAW_LIST_VERSION } from "../src/host/canvas.js"
+import {
+  CANVAS_DRAW_LIST_VERSION,
+  type CanvasPixelSource,
+} from "../src/host/canvas.js"
 import {
   createElement,
   setProp,
@@ -56,12 +59,38 @@ describe("native Canvas2D source-edge parity", () => {
     context.closePath()
     context.fill()
 
+    context.save()
+    context.beginPath()
+    context.roundRect(180, 80, 40, 32, 6)
+    context.clip()
     context.fillStyle = "#3fb950"
     context.beginPath()
-    context.arc(196, 96, 22, 0, Math.PI * 2)
+    context.arc(200, 96, 22, 0, Math.PI * 2)
     context.fill()
+    context.restore()
+
+    const imageSource: CanvasPixelSource = {
+      width: 2,
+      height: 2,
+      getContext: () => ({
+        getImageData: () => ({
+          data: new Uint8ClampedArray([
+            255, 0, 0, 255,
+            0, 255, 0, 255,
+            0, 0, 255, 255,
+            255, 255, 255, 255,
+          ]),
+        }),
+      }),
+    }
+    context.drawImage(imageSource, 202, 18, 28, 28)
 
     context.fillStyle = "#ffffff"
+    context.font = "600 16px Arial"
+    const measured = context.measureText("GPUix")
+    expect(measured.width).toBeGreaterThan(0)
+    context.font = "600 32px Arial"
+    expect(context.measureText("GPUix").width).toBeGreaterThan(measured.width)
     context.font = "600 16px Arial"
     context.fillText("GPUix", 18, 116)
 
@@ -75,7 +104,13 @@ describe("native Canvas2D source-edge parity", () => {
       commands: [
         { op: "fillPath", color: "#2f81f7" },
         { op: "fillPath", color: "#f2cc60" },
-        { op: "fillPath", color: "#3fb950" },
+        { op: "fillPath", color: "#3fb950", clip: { x: 180, y: 80, width: 40, height: 32, radius: 6 } },
+        {
+          op: "drawImage",
+          imageId: 1,
+          source: { x: 0, y: 0, width: 2, height: 2 },
+          destination: { x: 202, y: 18, width: 28, height: 28 },
+        },
         { op: "fillText", text: "GPUix", fontFamily: "Arial" },
       ],
     })

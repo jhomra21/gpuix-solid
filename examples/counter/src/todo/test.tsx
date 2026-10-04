@@ -1,12 +1,62 @@
 import assert from "node:assert/strict"
-import { createTestApp, createTestRoot, hasNativeTestRenderer } from "gpuix-solid"
+import { createTestApp, createTestRoot, hasNativeTestRenderer, type PublicInstance } from "gpuix-solid"
 import { TodoApp } from "./app"
+
+const scrollMetricsScreenshot = "/tmp/gpuix-solid-virtual-list-scroll-metrics.png"
+
+function verifyInitialVirtualListMetrics(): void {
+  const root = createTestRoot(320, 180)
+  let listRef: PublicInstance | undefined
+
+  try {
+    root.render(() => (
+      <virtual-list
+        ref={(instance) => { listRef = instance }}
+        estimatedItemHeight={32}
+        overdraw={0}
+        style={{ width: 200, height: 80 }}
+      >
+        {Array.from({ length: 12 }, (_, index) => (
+          <div style={{ width: 200, height: 32 }}>
+            <text>{`Metric row ${index + 1}`}</text>
+          </div>
+        ))}
+      </virtual-list>
+    ))
+
+    assert.ok(listRef, "expected Solid virtual-list ref")
+    const metrics = root.renderer.getScrollMetrics(listRef.id)
+    assert.ok(metrics, "expected native virtual-list metrics before the first scroll event")
+
+    const [offsetX, offsetY, maxX, maxY, viewportWidth, viewportHeight] = metrics
+    assert.equal(offsetX, 0)
+    assert.equal(offsetY, 0)
+    assert.ok(maxX >= 0)
+    assert.ok(maxY > 0, `expected virtual-list vertical overflow, got ${maxY}`)
+    assert.ok(viewportWidth > 0)
+    assert.ok(viewportHeight > 0)
+    assert.equal(listRef.clientWidth, viewportWidth)
+    assert.equal(listRef.clientHeight, viewportHeight)
+    assert.equal(listRef.scrollWidth, Math.ceil(viewportWidth + Math.max(0, maxX)))
+    assert.equal(listRef.scrollHeight, Math.ceil(viewportHeight + Math.max(0, maxY)))
+    assert.ok(
+      listRef.scrollHeight > listRef.clientHeight,
+      `expected initial native scrollHeight > clientHeight, got ${listRef.scrollHeight} <= ${listRef.clientHeight}`,
+    )
+
+    root.renderer.captureScreenshot(scrollMetricsScreenshot)
+  } finally {
+    root.unmount()
+  }
+}
 
 async function main(): Promise<void> {
   if (!hasNativeTestRenderer) {
     console.log("todo parity: native TestGpuixRenderer unavailable; skipped")
     return
   }
+
+  verifyInitialVirtualListMetrics()
 
   const testRoot = createTestRoot(940, 660)
   testRoot.renderer.clockPause()
@@ -73,7 +123,7 @@ async function main(): Promise<void> {
     const topAnchor = testRoot.renderer.getListScrollTop(listNode.id)
     assert.ok(topAnchor && topAnchor[0] === 0, `expected Top to restore first retained-list row, got ${JSON.stringify(topAnchor)}`)
 
-    console.log("todo parity: passed")
+    console.log(`todo parity: passed (scroll metrics artifact: ${scrollMetricsScreenshot})`)
   } finally {
     await app.clock.resume()
     await app.close()

@@ -1,0 +1,234 @@
+diff --git a/crates/gpui/src/debug_overlay.rs b/crates/gpui/src/debug_overlay.rs
+--- a/crates/gpui/src/debug_overlay.rs
++++ b/crates/gpui/src/debug_overlay.rs
+@@ -49,7 +49,13 @@
+     pub cached_prepaint_reuse_p90_ms: Option<f32>,
+     pub cached_prepaint_reuse_p99_ms: Option<f32>,
+-    pub cached_prepaint_render_p90_ms: Option<f32>,
+-    pub cached_prepaint_render_p99_ms: Option<f32>,
+-}
++    pub cached_prepaint_render_p90_ms: Option<f32>,
++    pub cached_prepaint_render_p99_ms: Option<f32>,
++    pub cached_prepaint_hits: u64,
++    pub cached_prepaint_misses: u64,
++    pub cached_prepaint_cold_misses: u64,
++    pub cached_prepaint_key_misses: u64,
++    pub cached_prepaint_dirty_misses: u64,
++    pub cached_prepaint_refreshing_misses: u64,
++}
+ 
+ impl DebugFrameOverlayMode {
+@@ -99,7 +105,13 @@
+     cached_prepaint_reuse_durations: VecDeque<Duration>,
+     cached_prepaint_render_durations: VecDeque<Duration>,
+-    cached_prepaint_reuse_current: Duration,
+-    cached_prepaint_render_current: Duration,
+-    total_frame_count: u64,
++    cached_prepaint_reuse_current: Duration,
++    cached_prepaint_render_current: Duration,
++    cached_prepaint_hits: u64,
++    cached_prepaint_misses: u64,
++    cached_prepaint_cold_misses: u64,
++    cached_prepaint_key_misses: u64,
++    cached_prepaint_dirty_misses: u64,
++    cached_prepaint_refreshing_misses: u64,
++    total_frame_count: u64,
+ }
+ 
+@@ -118,7 +130,13 @@
+             cached_prepaint_reuse_durations: VecDeque::new(),
+             cached_prepaint_render_durations: VecDeque::new(),
+-            cached_prepaint_reuse_current: Duration::ZERO,
+-            cached_prepaint_render_current: Duration::ZERO,
+-            total_frame_count: 0,
++            cached_prepaint_reuse_current: Duration::ZERO,
++            cached_prepaint_render_current: Duration::ZERO,
++            cached_prepaint_hits: 0,
++            cached_prepaint_misses: 0,
++            cached_prepaint_cold_misses: 0,
++            cached_prepaint_key_misses: 0,
++            cached_prepaint_dirty_misses: 0,
++            cached_prepaint_refreshing_misses: 0,
++            total_frame_count: 0,
+         }
+     }
+@@ -143,9 +161,15 @@
+         self.root_prepaint_durations.clear();
+         self.prepaint_rest_durations.clear();
+-        self.cached_prepaint_reuse_durations.clear();
+-        self.cached_prepaint_render_durations.clear();
+-        self.cached_prepaint_reuse_current = Duration::ZERO;
+-        self.cached_prepaint_render_current = Duration::ZERO;
+-    }
++        self.cached_prepaint_reuse_durations.clear();
++        self.cached_prepaint_render_durations.clear();
++        self.cached_prepaint_reuse_current = Duration::ZERO;
++        self.cached_prepaint_render_current = Duration::ZERO;
++        self.cached_prepaint_hits = 0;
++        self.cached_prepaint_misses = 0;
++        self.cached_prepaint_cold_misses = 0;
++        self.cached_prepaint_key_misses = 0;
++        self.cached_prepaint_dirty_misses = 0;
++        self.cached_prepaint_refreshing_misses = 0;
++    }
+ 
+     pub(crate) fn is_enabled(&self) -> bool {
+@@ -195,9 +219,27 @@
+     }
+ 
+-    pub(crate) fn record_cached_prepaint_render(&mut self, duration: Duration) {
+-        self.cached_prepaint_render_current += duration;
+-    }
+-
+-    pub(crate) fn finish_cached_prepaint_frame(&mut self) {
++    pub(crate) fn record_cached_prepaint_render(&mut self, duration: Duration) {
++        self.cached_prepaint_render_current += duration;
++    }
++
++    pub(crate) fn record_cached_prepaint_hit(&mut self) {
++        self.cached_prepaint_hits += 1;
++    }
++
++    pub(crate) fn record_cached_prepaint_miss(
++        &mut self,
++        cold: bool,
++        key_mismatch: bool,
++        dirty: bool,
++        refreshing: bool,
++    ) {
++        self.cached_prepaint_misses += 1;
++        self.cached_prepaint_cold_misses += u64::from(cold);
++        self.cached_prepaint_key_misses += u64::from(key_mismatch);
++        self.cached_prepaint_dirty_misses += u64::from(dirty);
++        self.cached_prepaint_refreshing_misses += u64::from(refreshing);
++    }
++
++    pub(crate) fn finish_cached_prepaint_frame(&mut self) {
+         Self::push_duration(
+             &mut self.cached_prepaint_reuse_durations,
+@@ -285,8 +327,14 @@
+             prepaint_rest_p99_ms,
+             cached_prepaint_reuse_p90_ms,
+-            cached_prepaint_reuse_p99_ms,
+-            cached_prepaint_render_p90_ms,
+-            cached_prepaint_render_p99_ms,
+-        }
++            cached_prepaint_reuse_p99_ms,
++            cached_prepaint_render_p90_ms,
++            cached_prepaint_render_p99_ms,
++            cached_prepaint_hits: self.cached_prepaint_hits,
++            cached_prepaint_misses: self.cached_prepaint_misses,
++            cached_prepaint_cold_misses: self.cached_prepaint_cold_misses,
++            cached_prepaint_key_misses: self.cached_prepaint_key_misses,
++            cached_prepaint_dirty_misses: self.cached_prepaint_dirty_misses,
++            cached_prepaint_refreshing_misses: self.cached_prepaint_refreshing_misses,
++        }
+     }
+ 
+diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
+--- a/crates/gpui/src/window.rs
++++ b/crates/gpui/src/window.rs
+@@ -3176,10 +3176,27 @@
+     }
+ 
+-    #[cfg(feature = "profiler")]
+-    pub(crate) fn record_cached_prepaint_render(&mut self, duration: Duration) {
+-        self.debug_frame_overlay.record_cached_prepaint_render(duration);
+-    }
+-
+-    fn draw_roots(&mut self, cx: &mut App) {
++    #[cfg(feature = "profiler")]
++    pub(crate) fn record_cached_prepaint_render(&mut self, duration: Duration) {
++        self.debug_frame_overlay.record_cached_prepaint_render(duration);
++    }
++
++    #[cfg(feature = "profiler")]
++    pub(crate) fn record_cached_prepaint_hit(&mut self) {
++        self.debug_frame_overlay.record_cached_prepaint_hit();
++    }
++
++    #[cfg(feature = "profiler")]
++    pub(crate) fn record_cached_prepaint_miss(
++        &mut self,
++        cold: bool,
++        key_mismatch: bool,
++        dirty: bool,
++        refreshing: bool,
++    ) {
++        self.debug_frame_overlay
++            .record_cached_prepaint_miss(cold, key_mismatch, dirty, refreshing);
++    }
++
++    fn draw_roots(&mut self, cx: &mut App) {
+         self.invalidator.set_phase(DrawPhase::Prepaint);
+         #[cfg(feature = "profiler")]
+diff --git a/crates/gpui/src/view.rs b/crates/gpui/src/view.rs
+--- a/crates/gpui/src/view.rs
++++ b/crates/gpui/src/view.rs
+@@ -386,26 +386,44 @@
+                         let text_style = window.text_style();
+ 
+-                        if let Some(mut element_state) = element_state
+-                            && element_state.cache_key.bounds == bounds
+-                            && element_state.cache_key.content_mask == content_mask
+-                            && element_state.cache_key.text_style == text_style
+-                            && !window.dirty_views.contains(&entity_id)
+-                            && !window.refreshing
+-                        {
+-                            let prepaint_start = window.prepaint_index();
+-                            #[cfg(feature = "profiler")]
+-                            let cached_reuse_started = Instant::now();
+-                            window.reuse_prepaint(element_state.prepaint_range.clone());
+-                            #[cfg(feature = "profiler")]
+-                            window.record_cached_prepaint_reuse(cached_reuse_started.elapsed());
+-                            cx.entities
+-                                .extend_accessed(&element_state.accessed_entities);
+-                            let prepaint_end = window.prepaint_index();
+-                            element_state.prepaint_range = prepaint_start..prepaint_end;
+-
+-                            return (None, element_state);
+-                        }
+-
+-                        let refreshing = mem::replace(&mut window.refreshing, true);
++                        let cache_key_matches = element_state.as_ref().is_some_and(|state| {
++                            state.cache_key.bounds == bounds
++                                && state.cache_key.content_mask == content_mask
++                                && state.cache_key.text_style == text_style
++                        });
++                        let dirty = window.dirty_views.contains(&entity_id);
++                        let refreshing = window.refreshing;
++                        let cache_hit =
++                            element_state.is_some() && cache_key_matches && !dirty && !refreshing;
++
++                        #[cfg(feature = "profiler")]
++                        if cache_hit {
++                            window.record_cached_prepaint_hit();
++                        } else {
++                            window.record_cached_prepaint_miss(
++                                element_state.is_none(),
++                                element_state.is_some() && !cache_key_matches,
++                                dirty,
++                                refreshing,
++                            );
++                        }
++
++                        if cache_hit {
++                            let mut element_state =
++                                element_state.expect("cache hit requires cached element state");
++                            let prepaint_start = window.prepaint_index();
++                            #[cfg(feature = "profiler")]
++                            let cached_reuse_started = Instant::now();
++                            window.reuse_prepaint(element_state.prepaint_range.clone());
++                            #[cfg(feature = "profiler")]
++                            window.record_cached_prepaint_reuse(cached_reuse_started.elapsed());
++                            cx.entities
++                                .extend_accessed(&element_state.accessed_entities);
++                            let prepaint_end = window.prepaint_index();
++                            element_state.prepaint_range = prepaint_start..prepaint_end;
++
++                            return (None, element_state);
++                        }
++
++                        let refreshing = mem::replace(&mut window.refreshing, true);
+                         let prepaint_start = window.prepaint_index();
+                         #[cfg(feature = "profiler")]

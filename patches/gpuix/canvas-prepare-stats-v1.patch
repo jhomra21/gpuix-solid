@@ -1,0 +1,180 @@
+diff --git a/packages/native/src/custom_elements/canvas.rs b/packages/native/src/custom_elements/canvas.rs
+--- a/packages/native/src/custom_elements/canvas.rs
++++ b/packages/native/src/custom_elements/canvas.rs
+@@ -1,9 +1,49 @@
+-use gpui::prelude::*;
+-use serde::Deserialize;
+-use std::collections::HashMap;
+-use std::sync::{Arc, RwLock};
+-
+-use super::{CustomElement, CustomElementFactory, CustomRenderContext};
+-
+-pub const CANVAS_DRAW_LIST_VERSION: u32 = 5;
++use gpui::prelude::*;
++use serde::Deserialize;
++use std::cell::RefCell;
++use std::collections::{HashMap, VecDeque};
++use std::sync::{Arc, RwLock};
++use std::time::{Duration, Instant};
++
++use super::{CustomElement, CustomElementFactory, CustomRenderContext};
++
++pub const CANVAS_DRAW_LIST_VERSION: u32 = 5;
++
++thread_local! {
++    static CANVAS_PREPARE_DURATIONS: RefCell<VecDeque<Duration>> = RefCell::new(VecDeque::new());
++}
++
++const CANVAS_PREPARE_MAX_SAMPLES: usize = 1000;
++
++fn record_canvas_prepare_duration(duration: Duration) {
++    CANVAS_PREPARE_DURATIONS.with(|cell| {
++        let mut samples = cell.borrow_mut();
++        if samples.len() >= CANVAS_PREPARE_MAX_SAMPLES {
++            samples.pop_front();
++        }
++        samples.push_back(duration);
++    });
++}
++
++pub(crate) fn reset_canvas_prepare_stats() {
++    CANVAS_PREPARE_DURATIONS.with(|cell| cell.borrow_mut().clear());
++}
++
++pub(crate) fn canvas_prepare_stats() -> (Option<f64>, Option<f64>, Option<f64>, f64) {
++    CANVAS_PREPARE_DURATIONS.with(|cell| {
++        let samples = cell.borrow();
++        let mut sorted: Vec<Duration> = samples.iter().copied().collect();
++        sorted.sort_unstable();
++        let percentile = |numerator: usize| {
++            (!sorted.is_empty()).then(|| sorted[(sorted.len() - 1) * numerator / 100])
++        };
++        let to_ms = |duration: Duration| duration.as_secs_f64() * 1000.0;
++        (
++            percentile(90).map(to_ms),
++            percentile(99).map(to_ms),
++            sorted.last().copied().map(to_ms),
++            samples.len() as f64,
++        )
++    })
++}
+ 
+@@ -456,8 +496,9 @@
+ 
+-fn prepare_canvas(
+-    draw_list: Option<Arc<CanvasDrawList>>,
+-    bounds: gpui::Bounds<gpui::Pixels>,
+-    window: &mut gpui::Window,
+-) -> PreparedCanvas {
+-    let Some(draw_list) = draw_list else {
++fn prepare_canvas(
++    draw_list: Option<Arc<CanvasDrawList>>,
++    bounds: gpui::Bounds<gpui::Pixels>,
++    window: &mut gpui::Window,
++) -> PreparedCanvas {
++    let started = Instant::now();
++    let Some(draw_list) = draw_list else {
+         return PreparedCanvas {
+@@ -509,9 +550,11 @@
+ 
+-    PreparedCanvas {
+-        draw_list: Some(draw_list),
+-        text: prepared,
+-    }
+-}
+-
+-fn paint_canvas(
++    let result = PreparedCanvas {
++        draw_list: Some(draw_list),
++        text: prepared,
++    };
++    record_canvas_prepare_duration(started.elapsed());
++    result
++}
++
++fn paint_canvas(
+     draw_list: &CanvasDrawList,
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -329,9 +329,15 @@
+ ) -> DebugFrameOverlayStats {
+-    let (
+-        view_render_current_ms,
+-        view_render_p90_ms,
+-        view_render_p99_ms,
+-        view_render_max_ms,
+-        view_render_samples,
+-    ) = view_render_stats();
++    let (
++        canvas_prepare_p90_ms,
++        canvas_prepare_p99_ms,
++        canvas_prepare_max_ms,
++        canvas_prepare_samples,
++    ) = crate::custom_elements::canvas::canvas_prepare_stats();
++    let (
++        view_render_current_ms,
++        view_render_p90_ms,
++        view_render_p99_ms,
++        view_render_max_ms,
++        view_render_samples,
++    ) = view_render_stats();
+     let (
+@@ -358,7 +364,11 @@
+         prepaint_samples: stats.prepaint_samples as f64,
+-        paint_p90_ms: stats.paint_p90_ms.map(|ms| ms as f64),
+-        paint_p99_ms: stats.paint_p99_ms.map(|ms| ms as f64),
+-        paint_max_ms: stats.paint_max_ms.map(|ms| ms as f64),
+-        paint_samples: stats.paint_samples as f64,
+-        view_render_current_ms,
++        paint_p90_ms: stats.paint_p90_ms.map(|ms| ms as f64),
++        paint_p99_ms: stats.paint_p99_ms.map(|ms| ms as f64),
++        paint_max_ms: stats.paint_max_ms.map(|ms| ms as f64),
++        paint_samples: stats.paint_samples as f64,
++        canvas_prepare_p90_ms,
++        canvas_prepare_p99_ms,
++        canvas_prepare_max_ms,
++        canvas_prepare_samples,
++        view_render_current_ms,
+         view_render_p90_ms,
+@@ -678,6 +688,7 @@
+             }
+-            UiCommand::ResetDebugFrameOverlayStats => window.update(cx, |_view, window, _cx| {
+-                window.reset_debug_frame_overlay_stats();
+-                reset_view_render_stats();
+-            }),
++            UiCommand::ResetDebugFrameOverlayStats => window.update(cx, |_view, window, _cx| {
++                window.reset_debug_frame_overlay_stats();
++                reset_view_render_stats();
++                crate::custom_elements::canvas::reset_canvas_prepare_stats();
++            }),
+             UiCommand::ScrollTo { id, x, y } => {
+@@ -1684,6 +1695,7 @@
+         #[cfg(target_os = "macos")]
+-        return update_window(|_view, window, _cx| {
+-            window.reset_debug_frame_overlay_stats();
+-            reset_view_render_stats();
+-        });
++        return update_window(|_view, window, _cx| {
++            window.reset_debug_frame_overlay_stats();
++            reset_view_render_stats();
++            crate::custom_elements::canvas::reset_canvas_prepare_stats();
++        });
+ 
+@@ -6692,7 +6704,11 @@
+     pub prepaint_samples: f64,
+-    pub paint_p90_ms: Option<f64>,
+-    pub paint_p99_ms: Option<f64>,
+-    pub paint_max_ms: Option<f64>,
+-    pub paint_samples: f64,
+-    pub view_render_current_ms: Option<f64>,
++    pub paint_p90_ms: Option<f64>,
++    pub paint_p99_ms: Option<f64>,
++    pub paint_max_ms: Option<f64>,
++    pub paint_samples: f64,
++    pub canvas_prepare_p90_ms: Option<f64>,
++    pub canvas_prepare_p99_ms: Option<f64>,
++    pub canvas_prepare_max_ms: Option<f64>,
++    pub canvas_prepare_samples: f64,
++    pub view_render_current_ms: Option<f64>,
+     pub view_render_p90_ms: Option<f64>,

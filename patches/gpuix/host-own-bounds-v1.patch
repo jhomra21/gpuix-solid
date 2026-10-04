@@ -1,0 +1,48 @@
+diff --git a/packages/native/src/automation.rs b/packages/native/src/automation.rs
+--- a/packages/native/src/automation.rs
++++ b/packages/native/src/automation.rs
+@@ -65,9 +65,22 @@
+ /// such as `gpui::img` cannot have. Wrapping the leaf in a div instead would
+ /// move the layout box: the wrapper would become the flex item and the image
+ /// would lose intrinsic sizing and corner clipping.
+-pub fn track_own_bounds<E: gpui::InteractiveElement>(el: E, id: u64) -> E {
+-    el.on_painted(move |bounds, _, _| record_bounds(id, bounds))
+-}
++pub fn track_own_bounds<E: gpui::InteractiveElement>(el: E, id: u64) -> E {
++    track_own_bounds_with_selection(el, id, None)
++}
++
++pub fn track_own_bounds_with_selection<E: gpui::InteractiveElement>(
++    el: E,
++    id: u64,
++    selection_start: Option<bool>,
++) -> E {
++    el.on_painted(move |bounds, _, _| {
++        record_bounds(id, bounds);
++        if let Some(selectable) = selection_start {
++            crate::text::record_start_region(bounds, selectable);
++        }
++    })
++}
+ 
+ pub fn record_bounds(id: u64, bounds: Bounds<Pixels>) {
+     BOUNDS.with(|cell| {
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -5200,10 +5200,11 @@
+     if style.and_then(|style| style.position.as_deref()).is_none() {
+         el = el.relative();
+     }
+-    el = el.child(crate::automation::bounds_tracker(
+-        element.id,
+-        selection_start_flag(style),
+-    ));
++    el = crate::automation::track_own_bounds_with_selection(
++        el,
++        element.id,
++        selection_start_flag(style),
++    );
+ 
+     if let Some(handle) = ctx.focus_handles.get(&element.id) {
+         el = el.track_focus(handle);

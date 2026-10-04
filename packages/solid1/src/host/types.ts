@@ -32,6 +32,67 @@ export interface DebugFrameOverlayStats {
   maxMs?: number
   frames: number
   samples: number
+  drawRootsP90Ms?: number
+  drawRootsP99Ms?: number
+  drawRootsMaxMs?: number
+  drawRootsSamples?: number
+  prepaintP90Ms?: number
+  prepaintP99Ms?: number
+  prepaintMaxMs?: number
+  prepaintSamples?: number
+  paintP90Ms?: number
+  paintP99Ms?: number
+  paintMaxMs?: number
+  paintSamples?: number
+  rootRequestP90Ms?: number
+  rootRequestP99Ms?: number
+  rootLayoutP90Ms?: number
+  rootLayoutP99Ms?: number
+  rootPrepaintP90Ms?: number
+  rootPrepaintP99Ms?: number
+  prepaintRestP90Ms?: number
+  prepaintRestP99Ms?: number
+  scrollDivPrepaintP90Ms?: number
+  scrollDivPrepaintP99Ms?: number
+  scrollDivPrepaintMaxMs?: number
+  scrollDivPrepaintSamples?: number
+  cachedPrepaintReuseP90Ms?: number
+  cachedPrepaintReuseP99Ms?: number
+  cachedPrepaintRenderP90Ms?: number
+  cachedPrepaintRenderP99Ms?: number
+  cachedPrepaintHits?: number
+  cachedPrepaintMisses?: number
+  cachedPrepaintColdMisses?: number
+  cachedPrepaintKeyMisses?: number
+  cachedPrepaintDirtyMisses?: number
+  cachedPrepaintRefreshingMisses?: number
+  cachedPrepaintSlowestId?: number
+  cachedPrepaintSlowestType?: string
+  cachedPrepaintSlowestMs?: number
+  canvasPrepareP90Ms?: number
+  canvasPrepareP99Ms?: number
+  canvasPrepareMaxMs?: number
+  canvasPrepareSamples?: number
+  viewRenderCurrentMs?: number
+  viewRenderP90Ms?: number
+  viewRenderP99Ms?: number
+  viewRenderMaxMs?: number
+  viewRenderSamples?: number
+  viewBuildCurrentMs?: number
+  viewBuildP90Ms?: number
+  viewBuildP99Ms?: number
+  viewBuildMaxMs?: number
+  viewBuildSamples?: number
+  rootSubtreeRevision?: number
+}
+
+export interface NativeScrollMetrics {
+  offsetX: number
+  offsetY: number
+  maxX: number
+  maxY: number
+  viewportWidth: number
+  viewportHeight: number
 }
 
 export interface EdgeInsets {
@@ -154,6 +215,9 @@ export interface StyleDesc {
   columnGap?: number
   gridTemplateColumns?: number
   gridTemplateRows?: number
+  gridAutoFlow?: "row" | "column"
+  gridColumnSpan?: number
+  gridColumnSpanFull?: boolean
   gridColumnMin?: "zero" | "min-content" | "max-content"
   gridRowMin?: "zero" | "min-content" | "max-content"
 
@@ -163,6 +227,8 @@ export interface StyleDesc {
   minHeight?: DimensionValue
   maxWidth?: DimensionValue
   maxHeight?: DimensionValue
+  /** Width-to-height ratio used when one axis is otherwise auto. */
+  aspectRatio?: number
 
   padding?: number
   /** Horizontal padding shorthand; expands to left + right before native render. */
@@ -183,6 +249,11 @@ export interface StyleDesc {
   marginRight?: number
   marginBottom?: number
   marginLeft?: number
+  /** Source-edge CSS auto margins. Sent only when the renderer advertises support. */
+  marginTopAuto?: boolean
+  marginRightAuto?: boolean
+  marginBottomAuto?: boolean
+  marginLeftAuto?: boolean
 
   /** Width + height shorthand; explicit width/height win. */
   size?: DimensionValue
@@ -198,11 +269,14 @@ export interface StyleDesc {
   right?: DimensionValue
   bottom?: DimensionValue
   left?: DimensionValue
+  /** Numeric sibling stacking level. Equal values preserve source order. */
+  zIndex?: number
 
   background?: string | LinearGradientBackground
   backgroundColor?: string
   color?: string
   opacity?: number
+  objectFit?: "fill" | "contain" | "cover" | "scaleDown" | "none"
 
   borderWidth?: number
   borderTopWidth?: number
@@ -350,11 +424,14 @@ export type DomCompatTarget = EventTarget & {
   getAttribute: (name: string) => string | null
   scrollTop: number
   scrollLeft: number
+  syncScrollMetrics?: (metrics: NativeScrollMetrics) => void
   style: object
   dataset: Record<string, string>
   classList: {
     add: (...tokens: string[]) => void
     remove: (...tokens: string[]) => void
+    contains: (token: string) => boolean
+    toggle: (token: string, force?: boolean) => boolean
   }
   focus: () => void
   blur: () => void
@@ -385,6 +462,15 @@ export type EventPayload = NativeEventPayload &
     metaKey?: boolean
     altKey?: boolean
     ctrlKey?: boolean
+    deltaZ?: number
+    deltaMode?: number
+    /** Native scroll geometry sampled in the wheel callback, before JS handlers run. */
+    scrollOffsetX?: number
+    scrollOffsetY?: number
+    scrollMaxX?: number
+    scrollMaxY?: number
+    scrollViewportWidth?: number
+    scrollViewportHeight?: number
     /** Application-owned payload for internal semantic drag/drop. */
     dragData?: DragData
     dragSourceId?: number
@@ -423,6 +509,7 @@ export interface HostProps {
   onFocus?: HostEventHandler
   onBlur?: HostEventHandler
   onScroll?: HostEventHandler
+  onWheel?: HostEventHandler
   /** Finder / OS file drop paths delivered by GPUIX. */
   onFileDrop?: HostEventHandler
   /** JSON-like application payload used by internal semantic drag/drop. */
@@ -492,9 +579,11 @@ type VirtualListShared = {
   style?: Omit<StyleDesc, "hover" | "active">
   children?: unknown
   ref?: HostRef
+  testId?: string
   alignment?: "top" | "bottom"
   followTail?: boolean
   overdraw?: number
+  onScroll?: HostEventHandler
   onVisibleRange?: HostEventHandler
 }
 
@@ -592,14 +681,31 @@ export interface NativeRenderer {
   setImage?(elementId: number, bytes: Uint8Array): void
   setImagePixels?(elementId: number, width: number, height: number, pixels: Uint8Array): void
   getScrollOffset?(elementId: number): number[] | null
+  /** [offsetX, offsetY, maxScrollX, maxScrollY, viewportWidth, viewportHeight] from the native scroll handle. */
+  getScrollMetrics?(elementId: number): number[] | null
   getListScrollTop?(elementId: number): number[] | null
   getSelectedText?(): string | null
   clearSelection?(): void
   getPaintedHighlights?(): HighlightMatch[]
+  getPaintedText?(): string[]
+  captureScreenshot?(path: string): void
   getWindowSize?(): { width: number; height: number }
   getWindowInsets?(): NativeWindowInsets
   /** Version of the native retained Canvas2D draw-list protocol, or undefined when unavailable. */
   getCanvasDrawListVersion?(): number | undefined
+  /** High-frequency Canvas2D draw-list replacement that may repaint without rebuilding the host tree. */
+  setCanvasDrawList?(elementId: number, json: string): void
+  /** Version of source-edge CSS auto-margin support, or undefined when unavailable. */
+  getAutoMarginVersion?(): number | undefined
+  /** Synchronously measure one line using GPUI's native text shaping. */
+  measureCanvasText?(text: string, fontSize: number, fontFamily: string, fontWeight: number): number
+  setCanvasImagePixels?(
+    elementId: number,
+    imageId: number,
+    width: number,
+    height: number,
+    pixels: Uint8Array,
+  ): void
   /** Version of the binary BGRA frame-surface protocol, or undefined when unavailable. */
   getVideoFrameSurfaceVersion?(): number | undefined
   setVideoFrameBgra?(elementId: number, width: number, height: number, data: Uint8Array): void
@@ -628,6 +734,12 @@ export interface WindowKeyEventHandlers {
 export interface PublicInstance {
   readonly id: number
   readonly type: ElementType
+  scrollLeft: number
+  scrollTop: number
+  readonly clientWidth: number
+  readonly clientHeight: number
+  readonly scrollWidth: number
+  readonly scrollHeight: number
   scrollIntoView?(): void
 }
 

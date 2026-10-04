@@ -13,4 +13,5 @@ export function syncBrowserViewportSize(size: ViewportSize): void {
     writable: true,
     value: size.height,
   })
+  globalThis.window.dispatchEvent(new Event("resize"))
 }

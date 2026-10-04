@@ -67,6 +67,41 @@ if (sourceClip?.backgroundColor !== "rgba(0, 167, 108, 0.2)") {
 
 installDomEventEnvironment()
 
+const { template: createWebTemplate } = await import("../src/web.ts")
+const markdownTableTemplate = createWebTemplate(
+  "<table>\n<thead>\n<tr>\n<th>A</th>\n<th>B</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>1</td>\n<td>2</td>\n</tr>\n</tbody>\n</table>",
+)
+const markdownTable = markdownTableTemplate()
+const tableStructuralNodes = [markdownTable]
+const collectTableStructuralNodes = (node: typeof markdownTable): void => {
+  for (const child of node.children) {
+    if (child.kind !== "element") continue
+    if (["table", "thead", "tbody", "tfoot", "tr"].includes(child.localName)) {
+      tableStructuralNodes.push(child)
+    }
+    collectTableStructuralNodes(child)
+  }
+}
+collectTableStructuralNodes(markdownTable)
+for (const node of tableStructuralNodes) {
+  const whitespace = node.children.filter((child) => child.kind === "text" && child.text.trim().length === 0)
+  if (whitespace.length > 0) {
+    throw new Error(`table structural <${node.localName}> must ignore innerHTML formatting whitespace`)
+  }
+}
+
+const injectedStyle = document.createElement("style")
+injectedStyle.appendChild(document.createTextNode(".gpuix-style-inject-check { display: block; }"))
+document.head.appendChild(injectedStyle)
+if (document.getElementsByTagName("head")[0] !== document.head) {
+  throw new Error("document.getElementsByTagName must expose the compatibility head")
+}
+if (document.head.firstChild !== injectedStyle) {
+  throw new Error("document.head must support browser-style appendChild ordering")
+}
+document.head.removeChild(injectedStyle)
+if (document.head.firstChild !== null) throw new Error("document.head removeChild must detach injected styles")
+
 const selectorRoot = createHostElement("div", "section")
 const selectorButton = createHostElement("div", "button")
 const selectorLabel = createHostElement("text", "span")
@@ -138,7 +173,7 @@ const semanticCanvas = createSemanticElement("canvas")
 if (semanticCanvas.kind !== "element" || semanticCanvas.nativeType !== "div" || semanticCanvas.localName !== "canvas") {
   throw new Error(`semantic canvas must use a supported native layout box: ${JSON.stringify(semanticCanvas)}`)
 }
-if (semanticCanvas.getContext("2d") !== null) throw new Error("semantic canvas must preserve browser feature detection")
+if (semanticCanvas.getContext("2d") === null) throw new Error("disconnected semantic canvas must expose browser-like Canvas2D")
 
 const centeredSemanticButton = createSemanticElement("button")
 if (centeredSemanticButton.kind !== "element") throw new Error("semantic button fixture must create a host element")
@@ -153,6 +188,10 @@ if (
 
 const semanticButton = createHostElement("div", "button")
 if (semanticButton.localName !== "button" || semanticButton.tagName !== "BUTTON") throw new Error("host must retain semantic tag identity")
+setHostProperty(semanticButton, "on:pointerdown", () => undefined)
+if (!semanticButton.events.has("pointerDown")) throw new Error("Solid on:pointerdown must map to the native pointerDown event contract")
+setHostProperty(semanticButton, "on:pointerdown", undefined)
+if (semanticButton.events.has("pointerDown")) throw new Error("clearing on:pointerdown must remove the native pointerDown event contract")
 let localEvents = 0
 semanticButton.addEventListener("click", () => { localEvents += 1 })
 semanticButton.dispatchEvent(new Event("click", { cancelable: true }))

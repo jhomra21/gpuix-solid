@@ -1,0 +1,67 @@
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -5302,15 +5302,43 @@
+ fn retained_region_layout_safe(style: Option<&StyleDesc>) -> bool {
+     let Some(style) = style else {
+         return false;
+     };
+     let definite = |value: Option<&crate::style::DimensionValue>| {
+         matches!(
+             value,
+             Some(crate::style::DimensionValue::Pixels(_))
+                 | Some(crate::style::DimensionValue::Percentage(_))
+         )
+     };
+-    definite(style.width.as_ref()) && definite(style.height.as_ref())
++    let absolute = style.position.as_deref() == Some("absolute");
++    let width_is_definite =
++        definite(style.width.as_ref()) || (absolute && style.left.is_some() && style.right.is_some());
++    let height_is_definite = definite(style.height.as_ref())
++        || (absolute && style.top.is_some() && style.bottom.is_some());
++    width_is_definite && height_is_definite
++}
++
++fn retained_region_passthrough_safe(style: Option<&StyleDesc>) -> bool {
++    let Some(style) = style else {
++        return false;
++    };
++    let min_height_zero = matches!(
++        style.min_height.as_ref(),
++        Some(crate::style::DimensionValue::Pixels(value)) if *value == 0.0
++    );
++    style.flex_grow.is_some_and(|value| value > 0.0) && min_height_zero
++}
++
++fn retained_region_scroll_passthrough_safe(style: Option<&StyleDesc>) -> bool {
++    let Some(style) = style else {
++        return false;
++    };
++    let scrolls = |value: Option<&String>| {
++        matches!(value.map(String::as_str), Some("auto" | "scroll"))
++    };
++    scrolls(style.overflow.as_ref())
++        || scrolls(style.overflow_x.as_ref())
++        || scrolls(style.overflow_y.as_ref())
+ }
+ 
+ fn collect_retained_region_ids(tree: &RetainedTree, id: u64, ids: &mut Vec<u64>) {
+@@ -6166,6 +6194,18 @@
+             } else {
+                 build_element(child_id, ctx, window, cx)
+             }
++        } else if ctx.region_cache_depth > 0
++            && ctx.region_cache_parent == Some(element.id)
++            && ctx.tree.elements.get(&child_id).is_some_and(|child| {
++                retained_region_passthrough_safe(child.style.as_deref())
++                    || retained_region_scroll_passthrough_safe(child.style.as_deref())
++            })
++        {
++            let previous_parent = ctx.region_cache_parent;
++            ctx.region_cache_parent = Some(child_id);
++            let child = build_element(child_id, ctx, window, cx);
++            ctx.region_cache_parent = previous_parent;
++            child
+         } else {
+             build_element(child_id, ctx, window, cx)
+         };

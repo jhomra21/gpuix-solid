@@ -1,0 +1,152 @@
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -438,11 +438,15 @@
+         bytes: Vec<u8>,
+         response: SyncSender<std::result::Result<(), String>>,
+     },
+-    GetScrollOffset {
+-        id: u64,
+-        response: SyncSender<Option<[f64; 2]>>,
+-    },
+-    GetListScrollTop {
++    GetScrollOffset {
++        id: u64,
++        response: SyncSender<Option<[f64; 2]>>,
++    },
++    GetScrollMetrics {
++        id: u64,
++        response: SyncSender<Option<[f64; 6]>>,
++    },
++    GetListScrollTop {
+         id: u64,
+         response: SyncSender<Option<[f64; 3]>>,
+     },
+@@ -630,32 +634,69 @@
+                     .send(view.set_encoded_image(id, bytes, window, cx))
+                     .ok();
+             }),
+-            UiCommand::GetScrollOffset { id, response } => {
+-                let offset = VIRTUAL_LIST_STATES
+-                    .with(|cell| {
+-                        cell.borrow().get(&id).map(|state| {
+-                            let offset = state.scroll_px_offset_for_scrollbar();
+-                            [
+-                                f64::from(f32::from(offset.x)),
+-                                f64::from(f32::from(offset.y)),
+-                            ]
+-                        })
+-                    })
+-                    .or_else(|| {
+-                        SCROLL_HANDLES.with(|cell| {
+-                            cell.borrow().get(&id).map(|handle| {
+-                                let offset = handle.offset();
+-                                [
+-                                    f64::from(f32::from(offset.x)),
+-                                    f64::from(f32::from(offset.y)),
+-                                ]
+-                            })
+-                        })
+-                    });
+-                response.send(offset).ok();
+-                Ok(())
+-            }
+-            UiCommand::GetListScrollTop { id, response } => {
++            UiCommand::GetScrollOffset { id, response } => {
++                let offset = VIRTUAL_LIST_STATES
++                    .with(|cell| {
++                        cell.borrow().get(&id).map(|state| {
++                            let offset = state.scroll_px_offset_for_scrollbar();
++                            [
++                                f64::from(f32::from(offset.x)),
++                                f64::from(f32::from(offset.y)),
++                            ]
++                        })
++                    })
++                    .or_else(|| {
++                        SCROLL_HANDLES.with(|cell| {
++                            cell.borrow().get(&id).map(|handle| {
++                                let offset = handle.offset();
++                                [
++                                    f64::from(f32::from(offset.x)),
++                                    f64::from(f32::from(offset.y)),
++                                ]
++                            })
++                        })
++                    });
++                response.send(offset).ok();
++                Ok(())
++            }
++            UiCommand::GetScrollMetrics { id, response } => {
++                let metrics = VIRTUAL_LIST_STATES
++                    .with(|cell| {
++                        cell.borrow().get(&id).map(|state| {
++                            let offset = state.scroll_px_offset_for_scrollbar();
++                            let max = state.max_offset_for_scrollbar();
++                            let bounds = state.viewport_bounds();
++                            [
++                                f64::from(f32::from(offset.x)),
++                                f64::from(f32::from(offset.y)),
++                                f64::from(f32::from(max.x)),
++                                f64::from(f32::from(max.y)),
++                                f64::from(f32::from(bounds.size.width)),
++                                f64::from(f32::from(bounds.size.height)),
++                            ]
++                        })
++                    })
++                    .or_else(|| {
++                        SCROLL_HANDLES.with(|cell| {
++                            cell.borrow().get(&id).map(|handle| {
++                                let offset = handle.offset();
++                                let max = handle.max_offset();
++                                let bounds = handle.bounds();
++                                [
++                                    f64::from(f32::from(offset.x)),
++                                    f64::from(f32::from(offset.y)),
++                                    f64::from(f32::from(max.x)),
++                                    f64::from(f32::from(max.y)),
++                                    f64::from(f32::from(bounds.size.width)),
++                                    f64::from(f32::from(bounds.size.height)),
++                                ]
++                            })
++                        })
++                    });
++                response.send(metrics).ok();
++                Ok(())
++            }
++            UiCommand::GetListScrollTop { id, response } => {
+                 let top = VIRTUAL_LIST_STATES.with(|cell| {
+                     cell.borrow().get(&id).map(|state| {
+                         let top = state.logical_scroll_top();
+@@ -2181,11 +2222,26 @@
+             }));
+         }
+ 
+-        #[cfg(not(target_os = "macos"))]
+-        Ok(None)
+-    }
+-
+-    /// Scroll this element's nearest scroll parent until the element is visible.
++        #[cfg(any(target_os = "windows", target_os = "linux", target_os = "freebsd"))]
++        {
++            let (response, receiver) = sync_channel(1);
++            self.send_ui_command(UiCommand::GetScrollMetrics { id, response })?;
++            return Ok(
++                recv_ui_response(receiver, "the GPUI scroll metrics query")?
++                    .map(|metrics| metrics.to_vec()),
++            );
++        }
++
++        #[cfg(not(any(
++            target_os = "macos",
++            target_os = "windows",
++            target_os = "linux",
++            target_os = "freebsd"
++        )))]
++        Err(Error::from_reason("Unsupported operating system"))
++    }
++
++    /// Scroll this element's nearest scroll parent until the element is visible.
+     #[napi]
+     pub fn scroll_into_view(&self, element_id: f64) -> Result<()> {
+         let id = to_element_id(element_id)?;

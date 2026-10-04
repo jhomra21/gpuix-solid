@@ -14,8 +14,11 @@ if (native.hasTestGpuixRenderer?.() !== true || !TestGpuixRenderer) {
 checkAccessibility(TestGpuixRenderer)
 checkTextareaNewline(TestGpuixRenderer)
 checkTextDecoration(TestGpuixRenderer)
+checkVirtualListScrollSurface(TestGpuixRenderer)
 
-console.log("GPUIX edge native capabilities: accessibility, textarea newline, and text decoration passed")
+console.log(
+  "GPUIX edge native capabilities: accessibility, textarea newline, text decoration, and virtual-list scroll surface passed",
+)
 
 function checkAccessibility(Renderer) {
   const renderer = new Renderer(480, 320)
@@ -83,6 +86,111 @@ function checkAccessibility(Renderer) {
 function assertAriaNode(nodes, role, label) {
   if (!nodes.some((aria) => aria.role === role && aria.label === label)) {
     throw new Error(`GPUIX edge accessibility node missing: ${role} / ${label}`)
+  }
+}
+
+function checkVirtualListScrollSurface(Renderer) {
+  const renderer = new Renderer(320, 180)
+  const operations = [
+    ["createElement", 1, "div"],
+    ["setStyle", 1, { width: 320, height: 180 }],
+    ["createElement", 2, "virtual-list"],
+    ["setStyle", 2, { width: 200, height: 80 }],
+    ["setCustomProp", 2, "estimatedItemHeight", 32],
+    ["setCustomProp", 2, "overdraw", 0],
+    ["setEventListener", 2, "scroll", true],
+  ]
+
+  for (let index = 0; index < 12; index += 1) {
+    const rowId = 10 + index
+    const textId = 100 + index
+    operations.push(
+      ["createElement", rowId, "div"],
+      ["setStyle", rowId, { width: 200, height: 32 }],
+      ["createElement", textId, "text"],
+      ["setText", textId, `Row ${index + 1}`],
+      ["appendChild", rowId, textId],
+      ["appendChild", 2, rowId],
+    )
+  }
+
+  operations.push(["appendChild", 1, 2], ["setRoot", 1])
+  renderer.applyBatch(JSON.stringify(operations))
+  renderer.flush()
+
+  const bounds = renderer.getElementBounds(2)
+  if (!bounds || bounds.width <= 0 || bounds.height <= 0) {
+    throw new Error(`GPUIX virtual-list painted bounds missing: ${JSON.stringify(bounds)}`)
+  }
+
+  const before = renderer.getScrollOffset(2)
+  if (!before) {
+    throw new Error("GPUIX virtual-list has no native scroll offset before wheel input")
+  }
+
+  renderer.drainEvents()
+  renderer.simulateScrollWheel(
+    bounds.x + bounds.width / 2,
+    bounds.y + bounds.height / 2,
+    0,
+    -48,
+  )
+  renderer.flush()
+
+  const after = renderer.getScrollOffset(2)
+  if (!after || after[1] >= before[1]) {
+    throw new Error(
+      `GPUIX virtual-list wheel did not advance the native offset: ${JSON.stringify({ before, after })}`,
+    )
+  }
+
+  const scroll = renderer
+    .drainEvents()
+    .filter((event) => event.elementId === 2 && event.eventType === "scroll")
+    .at(-1)
+  if (!scroll) {
+    throw new Error("GPUIX virtual-list did not emit a native scroll event")
+  }
+
+  const metrics = {
+    offsetY: scroll.scrollOffsetY,
+    maxY: scroll.scrollMaxY,
+    viewportWidth: scroll.scrollViewportWidth,
+    viewportHeight: scroll.scrollViewportHeight,
+  }
+  if (
+    !Number.isFinite(metrics.offsetY) ||
+    !Number.isFinite(metrics.maxY) ||
+    !Number.isFinite(metrics.viewportWidth) ||
+    !Number.isFinite(metrics.viewportHeight) ||
+    metrics.offsetY >= 0 ||
+    metrics.maxY <= 0 ||
+    metrics.viewportWidth <= 0 ||
+    metrics.viewportHeight <= 0
+  ) {
+    throw new Error(`GPUIX virtual-list scroll metrics invalid: ${JSON.stringify(metrics)}`)
+  }
+
+  const queried = renderer.getScrollMetrics(2)
+  if (!queried || queried.length < 6) {
+    throw new Error(`GPUIX test renderer omitted virtual-list scroll metrics: ${JSON.stringify(queried)}`)
+  }
+  const expected = [
+    scroll.scrollOffsetX,
+    scroll.scrollOffsetY,
+    scroll.scrollMaxX,
+    scroll.scrollMaxY,
+    scroll.scrollViewportWidth,
+    scroll.scrollViewportHeight,
+  ]
+  for (let index = 0; index < expected.length; index += 1) {
+    const actual = queried[index]
+    const value = expected[index]
+    if (!Number.isFinite(actual) || !Number.isFinite(value) || Math.abs(actual - value) > 0.01) {
+      throw new Error(
+        `GPUIX test/live scroll metrics diverged: ${JSON.stringify({ queried, expected })}`,
+      )
+    }
   }
 }
 

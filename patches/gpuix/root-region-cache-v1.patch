@@ -1,0 +1,324 @@
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -3758,10 +3758,25 @@
+     selection_scroll_task: Option<gpui::Task<()>>,
+     /// Motion / review clock. Live wall time unless automation freezes it.
+     pub(crate) clock: crate::automation::AutomationClock,
+-    /// Resolved `highlight` state, keyed by the element that declared it.
+-    /// Empty in every app that does not use search.
+-    highlights: HashMap<u64, HighlightCacheEntry>,
+-}
++    /// Resolved `highlight` state, keyed by the element that declared it.
++    /// Empty in every app that does not use search.
++    highlights: HashMap<u64, HighlightCacheEntry>,
++    /// Cached GPUI entity boundaries for direct children of the retained root.
++    retained_regions: HashMap<u64, RetainedRegionEntry>,
++}
++
++struct RetainedRegionEntry {
++    revision: u64,
++    view: gpui::Entity<RetainedRegionView>,
++}
++
++const RETAINED_REGION_CACHE_LEVELS: u8 = 3;
++
++struct RetainedRegionView {
++    parent: gpui::WeakEntity<GpuixView>,
++    element_id: u64,
++    nested_depth: u8,
++}
+ 
+ /// Two-level cache for one element's `highlight`.
+ ///
+@@ -4012,9 +4024,10 @@
+             selection_drag_position: None,
+             selection_scroll_list: None,
+             selection_scroll_task: None,
+-            clock: crate::automation::AutomationClock::new(),
+-            highlights: HashMap::new(),
+-        }
++            clock: crate::automation::AutomationClock::new(),
++            highlights: HashMap::new(),
++            retained_regions: HashMap::new(),
++        }
+     }
+ 
+     pub(crate) fn set_live_image(
+@@ -4261,11 +4274,14 @@
+             motion_states: &mut self.motion_states,
+             now,
+             selection: self.selection.clone(),
+-            inherited,
+-            highlights: &mut self.highlights,
+-            highlight_events: &mut highlight_events,
+-        };
+-        let child = build_element(expected_child_id, &mut build_ctx, window, cx);
++            inherited,
++            highlights: &mut self.highlights,
++            highlight_events: &mut highlight_events,
++            root_regions: None,
++            region_cache_parent: None,
++            region_cache_depth: 0,
++        };
++        let child = build_element(expected_child_id, &mut build_ctx, window, cx);
+         emit_highlight_events(&callback, &highlight_events);
+         emit_motion_settled(&callback, &tree, &motion_settled);
+         if motion_active {
+@@ -4389,11 +4403,17 @@
+     highlights: &'a mut HashMap<u64, HighlightCacheEntry>,
+     /// `onHighlight` payloads queued during the build.
+     ///
+-    /// Never emitted inline: a handler that calls `setState` repaints, which
+-    /// would re-enter the build and emit again. They are flushed once the root
+-    /// build has returned.
+-    highlight_events: &'a mut Vec<(u64, usize)>,
+-}
++    /// Never emitted inline: a handler that calls `setState` repaints, which
++    /// would re-enter the build and emit again. They are flushed once the root
++    /// build has returned.
++    highlight_events: &'a mut Vec<(u64, usize)>,
++    /// Cached retained regions. Virtual builds leave this unset.
++    root_regions: Option<&'a mut HashMap<u64, RetainedRegionEntry>>,
++    /// The element whose immediate children become retained region boundaries.
++    region_cache_parent: Option<u64>,
++    /// Remaining retained-region levels from this parent.
++    region_cache_depth: u8,
++}
+ 
+ /// Style properties that cascade into descendants.
+ ///
+@@ -5036,7 +5052,93 @@
+     }
+ }
+ 
+-impl gpui::Render for GpuixView {
++impl GpuixView {
++    fn build_retained_region(
++        &mut self,
++        id: u64,
++        nested_depth: u8,
++        window: &mut gpui::Window,
++        cx: &mut gpui::Context<Self>,
++    ) -> gpui::AnyElement {
++        let tree_arc = self.tree.clone();
++        let tree = tree_arc.lock().unwrap();
++        let callback = self.event_callback.clone();
++        let theme = Theme::dark();
++        let now = self.clock.now();
++        let mut highlight_events = Vec::new();
++
++        // Nested retained regions render independently, so reconstruct the
++        // inheritable state from their ancestor chain.
++        let mut ancestor_ids = Vec::new();
++        let mut ancestor_id = tree.elements.get(&id).and_then(|element| element.parent);
++        while let Some(current_id) = ancestor_id {
++            ancestor_ids.push(current_id);
++            ancestor_id = tree.elements.get(&current_id).and_then(|element| element.parent);
++        }
++        ancestor_ids.reverse();
++
++        let mut inherited = Inherited::root(&theme);
++        for ancestor_id in ancestor_ids {
++            let Some(ancestor) = tree.elements.get(&ancestor_id) else {
++                continue;
++            };
++            inherited = inherited.descend(ancestor.style.as_deref());
++            if let Some(value) = ancestor.custom_props.get("highlight") {
++                inherited.highlight = resolve_highlight(
++                    &mut self.highlights,
++                    &tree,
++                    ancestor_id,
++                    value,
++                    &theme,
++                    false,
++                )
++                .map(|(context, _)| context);
++            }
++        }
++
++        let cache_children = nested_depth > 0;
++        let mut build_ctx = BuildCtx {
++            tree: &tree,
++            event_callback: &callback,
++            focus_handles: &self.focus_handles,
++            scroll_handles: &mut self.scroll_handles,
++            custom_registry: &mut self.custom_registry,
++            virtual_lists: &mut self.virtual_lists,
++            motion_states: &mut self.motion_states,
++            now,
++            selection: self.selection.clone(),
++            inherited,
++            highlights: &mut self.highlights,
++            highlight_events: &mut highlight_events,
++            root_regions: cache_children.then_some(&mut self.retained_regions),
++            region_cache_parent: cache_children.then_some(id),
++            region_cache_depth: nested_depth,
++        };
++        let built = build_element(id, &mut build_ctx, window, cx);
++        emit_highlight_events(&callback, &highlight_events);
++        built
++    }
++}
++
++impl gpui::Render for RetainedRegionView {
++    fn render(
++        &mut self,
++        window: &mut gpui::Window,
++        cx: &mut gpui::Context<Self>,
++    ) -> impl gpui::IntoElement {
++        use gpui::IntoElement;
++        let Some(parent) = self.parent.upgrade() else {
++            return gpui::Empty.into_any_element();
++        };
++        let element_id = self.element_id;
++        let nested_depth = self.nested_depth;
++        parent.update(cx, move |parent, parent_cx| {
++            parent.build_retained_region(element_id, nested_depth, window, parent_cx)
++        })
++    }
++}
++
++impl gpui::Render for GpuixView {
+     fn render(
+         &mut self,
+         window: &mut gpui::Window,
+@@ -5069,9 +5141,11 @@
+         // from scroll to non-scroll) is handled inside build_host_container().
+         self.scroll_handles
+             .retain(|id, _| tree.elements.contains_key(id));
+-        self.virtual_lists
+-            .retain(|id, _| tree.elements.contains_key(id));
+-        // Build the element tree. custom_registry, focus_handles, and scroll_handles
++        self.virtual_lists
++            .retain(|id, _| tree.elements.contains_key(id));
++        self.retained_regions
++            .retain(|id, _| tree.elements.contains_key(id));
++        // Build the element tree. custom_registry, focus_handles, and scroll_handles
+         // are different fields of self, so Rust allows borrowing all simultaneously.
+         let theme = Theme::dark();
+         let now = self.clock.now();
+@@ -5099,11 +5177,27 @@
+                     motion_states: &mut self.motion_states,
+                     now,
+                     selection: self.selection.clone(),
+-                    inherited: Inherited::root(&theme),
+-                    highlights: &mut self.highlights,
+-                    highlight_events: &mut highlight_events,
+-                };
+-                build_element(root_id, &mut ctx, window, cx)
++                    inherited: Inherited::root(&theme),
++                    highlights: &mut self.highlights,
++                    highlight_events: &mut highlight_events,
++                    root_regions: if motion_active || window.is_a11y_active() {
++                        self.retained_regions.clear();
++                        None
++                    } else {
++                        Some(&mut self.retained_regions)
++                    },
++                    region_cache_parent: if motion_active || window.is_a11y_active() {
++                        None
++                    } else {
++                        Some(root_id)
++                    },
++                    region_cache_depth: if motion_active || window.is_a11y_active() {
++                        0
++                    } else {
++                        RETAINED_REGION_CACHE_LEVELS
++                    },
++                };
++                build_element(root_id, &mut ctx, window, cx)
+             }
+             None => gpui::Empty.into_any_element(),
+         };
+@@ -5193,9 +5272,32 @@
+     }
+ }
+ 
+-// ── Element builders ─────────────────────────────────────────────────
+-
+-fn z_index_priority(tree: &RetainedTree, id: u64) -> Option<usize> {
++// ── Element builders ─────────────────────────────────────────────────
++
++fn retained_region_style(style: Option<&StyleDesc>) -> gpui::StyleRefinement {
++    use gpui::Styled as _;
++    let mut probe = gpui::div();
++    if let Some(style) = style {
++        probe = apply_styles(probe, style);
++    }
++    probe.style().clone()
++}
++
++fn retained_region_layout_safe(style: Option<&StyleDesc>) -> bool {
++    let Some(style) = style else {
++        return false;
++    };
++    let definite = |value: Option<&crate::style::DimensionValue>| {
++        matches!(
++            value,
++            Some(crate::style::DimensionValue::Pixels(_))
++                | Some(crate::style::DimensionValue::Percentage(_))
++        )
++    };
++    definite(style.width.as_ref()) && definite(style.height.as_ref())
++}
++
++fn z_index_priority(tree: &RetainedTree, id: u64) -> Option<usize> {
+     let value = tree
+         .elements
+         .get(&id)?
+@@ -5996,9 +6084,51 @@
+         } else {
+             std::borrow::Cow::Borrowed(&element.children)
+         };
+-    for child_id in child_ids.iter().copied() {
+-        let child = build_element(child_id, ctx, window, cx);
+-        let child = if let Some(priority) = z_index_priority(ctx.tree, child_id) {
++    for child_id in child_ids.iter().copied() {
++        let cache_child = ctx.region_cache_depth > 0
++            && ctx.region_cache_parent == Some(element.id)
++            && ctx.tree.elements.get(&child_id).is_some_and(|child| {
++                ctx.region_cache_depth == RETAINED_REGION_CACHE_LEVELS
++                    || retained_region_layout_safe(child.style.as_deref())
++            });
++        let child = if cache_child {
++            if let Some(regions) = ctx.root_regions.as_deref_mut() {
++                if let Some(child_element) = ctx.tree.elements.get(&child_id) {
++                    let revision = child_element.subtree_revision;
++                    let replace = regions
++                        .get(&child_id)
++                        .is_none_or(|entry| entry.revision != revision);
++                    if replace {
++                        let parent = cx.weak_entity();
++                        let nested_depth = ctx.region_cache_depth.saturating_sub(1);
++                        let view = cx.new(|_| RetainedRegionView {
++                            parent,
++                            element_id: child_id,
++                            nested_depth,
++                        });
++                        regions.insert(child_id, RetainedRegionEntry { revision, view });
++                    }
++                    let view = regions
++                        .get(&child_id)
++                        .expect("retained region just inserted")
++                        .view
++                        .clone();
++                    let style = retained_region_style(child_element.style.as_deref());
++                    if ctx.region_cache_depth == RETAINED_REGION_CACHE_LEVELS {
++                        view.cached_debug(style, child_id).into_any_element()
++                    } else {
++                        view.cached_nested_debug(style, child_id).into_any_element()
++                    }
++                } else {
++                    gpui::Empty.into_any_element()
++                }
++            } else {
++                build_element(child_id, ctx, window, cx)
++            }
++        } else {
++            build_element(child_id, ctx, window, cx)
++        };
++        let child = if let Some(priority) = z_index_priority(ctx.tree, child_id) {
+             gpui::deferred(child).with_priority(priority).into_any_element()
+         } else {
+             child

@@ -1,5 +1,6 @@
 import { existsSync, statSync } from "node:fs"
 import {
+  CANVAS_DRAW_LIST_VERSION,
   configureNativeStyleManifest,
   createTestRoot,
   hasNativeTestRenderer,
@@ -372,10 +373,10 @@ if (!hasNativeTestRenderer) {
   }
   await Promise.resolve()
   app.renderer.flush()
-  const nativeCanvasV1 = app.renderer.getCanvasDrawListVersion() === 1
-  if (nativeCanvasV1) {
+  const nativeCanvas = app.renderer.getCanvasDrawListVersion() === CANVAS_DRAW_LIST_VERSION
+  if (nativeCanvas) {
     app.renderer.customPropJsonContainingAll("drawList", [
-      '"version":1',
+      `"version":${CANVAS_DRAW_LIST_VERSION}`,
       '"op":"fillText"',
       '"text":"+0 dB"',
       '"align":"left"',

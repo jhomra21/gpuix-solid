@@ -23,10 +23,23 @@ export interface BatchRendererApi {
   setImage?(elementId: number, bytes: Uint8Array): void
   setImagePixels?(elementId: number, width: number, height: number, pixels: Uint8Array): void
   getScrollOffset?(elementId: number): number[] | null
+  getScrollMetrics?(elementId: number): number[] | null
   getSelectedText?(): string | null
   clearSelection?(): void
+  getPaintedText?(): string[]
+  captureScreenshot?(path: string): void
   getWindowSize?(): { width: number; height: number }
   getCanvasDrawListVersion?(): number | undefined
+  setCanvasDrawList?(elementId: number, json: string): void
+  getAutoMarginVersion?(): number | undefined
+  measureCanvasText?(text: string, fontSize: number, fontFamily: string, fontWeight: number): number
+  setCanvasImagePixels?(
+    elementId: number,
+    imageId: number,
+    width: number,
+    height: number,
+    pixels: Uint8Array,
+  ): void
   getVideoFrameSurfaceVersion?(): number | undefined
   setVideoFrameBgra?(elementId: number, width: number, height: number, data: Uint8Array): void
   clearVideoFrame?(elementId: number): void
@@ -155,7 +168,14 @@ export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRen
       applyOne(["setRoot", id])
     },
     setCustomProp(id, key, valueJson) {
-      applyOne(["setCustomProp", id, key, parseMutationValue(valueJson)])
+      // This legacy-shaped method already receives valid JSON. In particular,
+      // Canvas draw lists can be large; wrapping them through applyOne would
+      // parse the payload in JS and immediately stringify the same tree again.
+      // setCustomProp does not alter the pointer-listener bridge state, so the
+      // raw one-op batch can go straight to the native renderer.
+      renderer.applyBatch(
+        `[["setCustomProp",${id},${JSON.stringify(key)},${valueJson}]]`,
+      )
     },
     commitMutations() {
       // Single-operation compatibility calls above already commit through applyBatch.
@@ -175,11 +195,26 @@ export function adaptBatchRenderer(renderer: BatchRendererApi): BoundsCapableRen
   if (renderer.setImage) adapted.setImage = renderer.setImage.bind(renderer)
   if (renderer.setImagePixels) adapted.setImagePixels = renderer.setImagePixels.bind(renderer)
   if (renderer.getScrollOffset) adapted.getScrollOffset = renderer.getScrollOffset.bind(renderer)
+  if (renderer.getScrollMetrics) adapted.getScrollMetrics = renderer.getScrollMetrics.bind(renderer)
   if (renderer.getSelectedText) adapted.getSelectedText = renderer.getSelectedText.bind(renderer)
   if (renderer.clearSelection) adapted.clearSelection = renderer.clearSelection.bind(renderer)
+  if (renderer.getPaintedText) adapted.getPaintedText = renderer.getPaintedText.bind(renderer)
+  if (renderer.captureScreenshot) adapted.captureScreenshot = renderer.captureScreenshot.bind(renderer)
   if (renderer.getWindowSize) adapted.getWindowSize = renderer.getWindowSize.bind(renderer)
   if (renderer.getCanvasDrawListVersion) {
     adapted.getCanvasDrawListVersion = renderer.getCanvasDrawListVersion.bind(renderer)
+  }
+  if (renderer.setCanvasDrawList) {
+    adapted.setCanvasDrawList = renderer.setCanvasDrawList.bind(renderer)
+  }
+  if (renderer.getAutoMarginVersion) {
+    adapted.getAutoMarginVersion = renderer.getAutoMarginVersion.bind(renderer)
+  }
+  if (renderer.measureCanvasText) {
+    adapted.measureCanvasText = renderer.measureCanvasText.bind(renderer)
+  }
+  if (renderer.setCanvasImagePixels) {
+    adapted.setCanvasImagePixels = renderer.setCanvasImagePixels.bind(renderer)
   }
   if (renderer.getVideoFrameSurfaceVersion) {
     adapted.getVideoFrameSurfaceVersion = renderer.getVideoFrameSurfaceVersion.bind(renderer)

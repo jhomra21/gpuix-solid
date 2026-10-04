@@ -238,4 +238,4 @@ The benchmark grows by adding workload cases to the shared suite, not backend-sp
 
 Next cases include broader container read/write and transmux coverage, sparse seeking, transparency/alpha paths, longer playback and replacement loops, and controlled-runner throughput and memory measurements.
 
-The GPUI presentation path is separate from Canvas v1. Video frames are large media resources, so GPUix does not serialize them through the retained Canvas draw-list protocol.
+The GPUI presentation path is separate from the Canvas draw-list protocol. Video frames are large media resources, so GPUix does not serialize them through retained Canvas commands.

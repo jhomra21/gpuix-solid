@@ -1,0 +1,11 @@
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -5108,5 +5108,6 @@
+     if let Some(style) = element.style.as_deref() {
+         list = apply_styles(list, style);
+     }
+-    apply_accessibility(list, &element.custom_props, None).into_any_element()
++    let list = apply_accessibility(list, &element.custom_props, None);
++    crate::automation::track_own_bounds(list, element.id).into_any_element()
+ }

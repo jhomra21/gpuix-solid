@@ -4,7 +4,60 @@
   "branch": "main",
   "patches": [
     "patches/gpuix/canvas-v1.patch",
+    "patches/gpuix/pinch-wheel-v1.patch",
+    "patches/gpuix/wheel-bubble-relay-v1.patch",
+    "patches/gpuix/scroll-metrics-v1.patch",
+    "patches/gpuix/test-scroll-metrics-v1.patch",
+    "patches/gpuix/cross-platform-scroll-metrics-v1.patch",
+    "patches/gpuix/view-render-stats-v1.patch",
+    "patches/gpuix/root-revision-stats-v1.patch",
+    "patches/gpuix/draw-phase-stats-v1.patch",
+    "patches/gpuix/host-own-bounds-v1.patch",
+    "patches/gpuix/virtual-list-own-bounds-v1.patch",
+    "patches/gpuix/shared-retained-text-v1.patch",
     "patches/gpuix/video-frame-v1.patch",
-    "patches/gpuix/video-frame-iosurface-v1.patch"
+    "patches/gpuix/video-frame-iosurface-v1.patch",
+    "patches/gpuix/z-index-v1.patch",
+    "patches/gpuix/aspect-ratio-v1.patch",
+    "patches/gpuix/object-fit-v1.patch",
+    "patches/gpuix/grid-auto-flow-v1.patch",
+    "patches/gpuix/grid-auto-flow-children-v1.patch",
+    "patches/gpuix/percentage-position-v1.patch",
+    "patches/gpuix/auto-margin-v1.patch",
+    "patches/gpuix/display-none-v1.patch",
+    "patches/gpuix/canvas-live-draw-list-v1.patch",
+    "patches/gpuix/skip-host-custom-registry-destroy-v1.patch",
+    "patches/gpuix/decorative-visibility-notify-v1.patch",
+    "patches/gpuix/root-region-cache-v1.patch",
+    "patches/gpuix/root-shell-region-partition-v2.patch",
+    "patches/gpuix/cached-region-bounds-v1.patch",
+    "patches/gpuix/cached-region-bounds-frame-v1.patch",
+    "patches/gpuix/canvas-entity-view-v1.patch",
+    "patches/gpuix/canvas-prepare-stats-v1.patch",
+    "patches/gpuix/prepaint-subphase-stats-v1.patch",
+    "patches/gpuix/cached-prepaint-stats-v1.patch",
+    "patches/gpuix/cached-prepaint-reasons-v1.patch",
+    "patches/gpuix/scroll-div-prepaint-stats-v1.patch",
+    "patches/gpuix/cached-prepaint-hotspot-v1.patch"
+  ],
+  "submodulePatches": [
+    {
+      "submodule": "zed",
+      "patches": [
+        "patches/gpuix/gpui-macos-embedded-wake-pump-v1.patch",
+        "patches/gpuix/gpui-macos-embedded-transaction-presentation-v1.patch",
+        "patches/gpuix/gpui-macos-drawable-backpressure-v1.patch",
+        "patches/gpuix/gpui-macos-offscreen-screenshot-v1.patch",
+        "patches/gpuix/gpui-draw-phase-stats-v1.patch",
+        "patches/gpuix/gpui-prepaint-subphase-stats-v1.patch",
+        "patches/gpuix/gpui-cached-prepaint-stats-v1.patch",
+        "patches/gpuix/gpui-cached-prepaint-reasons-v1.patch",
+        "patches/gpuix/gpui-list-scroll-metrics-v1.patch",
+        "patches/gpuix/gpui-list-painted-bounds-v1.patch",
+        "patches/gpuix/gpui-nested-cached-reuse-v1.patch",
+        "patches/gpuix/gpui-scroll-div-prepaint-stats-v1.patch",
+        "patches/gpuix/gpui-cached-prepaint-hotspot-v1.patch"
+      ]
+    }
   ]
 }
