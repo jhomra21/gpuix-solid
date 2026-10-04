@@ -55,7 +55,7 @@ class CompatAudioDestinationNode extends CompatAudioNode {
 }
 
 class CompatAudioBufferSourceNode extends CompatAudioNode {
-  buffer: unknown = null
+  buffer: AudioBuffer | null = null
   loop = false
   loopStart = 0
   loopEnd = 0
@@ -87,7 +87,7 @@ class CompatAudioWorkletNode extends CompatAudioNode {
   readonly port = new CompatMessagePort()
   readonly parameters = new Map<string, CompatAudioParam>()
 
-  constructor(context: CompatAudioContext, _name: string, _options?: unknown) {
+  constructor(context: CompatAudioContext, _name: string, _options?: AudioWorkletNodeOptions) {
     super(context)
   }
 }
@@ -105,7 +105,7 @@ class CompatAudioContext {
   #offsetSeconds = 0
   #runningSinceMs = 0
 
-  constructor(_options?: unknown) {}
+  constructor(_options?: AudioContextOptions) {}
 
   get currentTime(): number {
     if (this.state !== "running") return this.#offsetSeconds
@@ -156,16 +156,17 @@ export function installNativeAudioCompatibility(): void {
   if (installed) return
   installed = true
 
-  for (const target of [globalThis, globalThis.window] as Array<Record<string, unknown>>) {
-    Object.defineProperties(target, {
-      AudioContext: { configurable: true, writable: true, value: CompatAudioContext },
-      BaseAudioContext: { configurable: true, writable: true, value: CompatAudioContext },
-      AudioNode: { configurable: true, writable: true, value: CompatAudioNode },
-      GainNode: { configurable: true, writable: true, value: CompatGainNode },
-      AudioDestinationNode: { configurable: true, writable: true, value: CompatAudioDestinationNode },
-      AudioBufferSourceNode: { configurable: true, writable: true, value: CompatAudioBufferSourceNode },
-      AudioWorkletNode: { configurable: true, writable: true, value: CompatAudioWorkletNode },
-      AudioParam: { configurable: true, writable: true, value: CompatAudioParam },
-    })
+  const descriptors: PropertyDescriptorMap = {
+    AudioContext: { configurable: true, writable: true, value: CompatAudioContext },
+    BaseAudioContext: { configurable: true, writable: true, value: CompatAudioContext },
+    AudioNode: { configurable: true, writable: true, value: CompatAudioNode },
+    GainNode: { configurable: true, writable: true, value: CompatGainNode },
+    AudioDestinationNode: { configurable: true, writable: true, value: CompatAudioDestinationNode },
+    AudioBufferSourceNode: { configurable: true, writable: true, value: CompatAudioBufferSourceNode },
+    AudioWorkletNode: { configurable: true, writable: true, value: CompatAudioWorkletNode },
+    AudioParam: { configurable: true, writable: true, value: CompatAudioParam },
   }
+
+  Object.defineProperties(globalThis, descriptors)
+  Object.defineProperties(globalThis.window, descriptors)
 }
