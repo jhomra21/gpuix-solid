@@ -695,11 +695,16 @@ function getEditorCanvases(root) {
 }
 
 async function waitForEditor(app) {
-  return await waitFor("Diffusion EditorPage", async () => {
+  return await waitFor("Diffusion EditorPage with mounted project", async () => {
     const tree = await currentTree(app)
     const canvases = getEditorCanvases(tree)
     const text = descendants(tree).filter((node) => node.type === "text").map((node) => node.text)
-    return canvases.length >= 2 && text.includes("Assets") && text.includes("Editor")
+    return (
+      canvases.length >= 2 &&
+      text.includes("Assets") &&
+      text.includes("Editor") &&
+      text.includes("Animated card")
+    )
       ? { tree, editor: tree, canvases }
       : null
   })
