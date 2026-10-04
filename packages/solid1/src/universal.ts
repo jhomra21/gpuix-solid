@@ -117,6 +117,7 @@ const scheduledFractionalTranslations = new WeakSet<HostElementNode>()
 type MeasuredLayoutSize = { width?: number; height?: number }
 const measuredLayoutSizes = new WeakMap<HostElementNode, MeasuredLayoutSize>()
 const scheduledParentMeasurements = new WeakSet<HostElementNode>()
+const scheduledGridMeasurements = new WeakSet<HostElementNode>()
 
 const TEXT_SEMANTIC_TAGS = new Set([
   "span",
@@ -1088,6 +1089,47 @@ function resolvedNativeNodeSize(parent: HostParent | null, axis: "x" | "y"): num
   return axis === "x" ? measured?.width : measured?.height
 }
 
+function scheduleMeasuredGridSize(
+  grid: HostElementNode,
+  needsWidth: boolean,
+  needsHeight: boolean,
+): void {
+  if ((!needsWidth && !needsHeight) || scheduledGridMeasurements.has(grid)) return
+  const root = grid.root
+  if (!root) return
+  scheduledGridMeasurements.add(grid)
+
+  queueMicrotask(() => {
+    scheduledGridMeasurements.delete(grid)
+    const currentRoot = grid.root
+    if (!currentRoot || !grid.nativeAlive) return
+
+    // Two-dimensional browser-grid placement needs the grid's used size. A
+    // browser stretches an auto-width grid to its containing block, but that
+    // used width is not present in the authored style. Let native layout
+    // resolve it once, then cache the painted size and replay placement.
+    currentRoot.driver.flush()
+    const bounds = grid.getBoundingClientRect()
+    const previous = measuredLayoutSizes.get(grid)
+    const next: MeasuredLayoutSize = { ...previous }
+    let changed = false
+
+    if (needsWidth && bounds.width > 0) {
+      next.width = bounds.width
+      if (previous?.width !== next.width) changed = true
+    }
+    if (needsHeight && bounds.height > 0) {
+      next.height = bounds.height
+      if (previous?.height !== next.height) changed = true
+    }
+
+    measuredLayoutSizes.set(grid, next)
+    if (!changed) return
+    reapplyNativeStyleSubtree(grid)
+    currentRoot.driver.flush()
+  })
+}
+
 function scheduleMeasuredParentSize(
   node: HostElementNode,
   sourceStyle: StyleDesc | undefined,
@@ -1335,7 +1377,10 @@ function resolveInlineGrid2DItemStyle(
 
   const width = resolvedNativeNodeSize(grid, "x")
   const height = resolvedNativeNodeSize(grid, "y")
-  if (width === undefined || height === undefined) return undefined
+  if (width === undefined || height === undefined) {
+    scheduleMeasuredGridSize(grid, width === undefined, height === undefined)
+    return undefined
+  }
 
   const paddingLeft = finiteStyleNumber(grid.style.paddingLeft)
   const paddingRight = finiteStyleNumber(grid.style.paddingRight)
