@@ -419,6 +419,8 @@ export interface HighlightMatch {
 }
 
 export type DomCompatTarget = EventTarget & {
+  /** Browser tag identity when the target is backed by a host element. */
+  localName?: string
   value: string
   checked: boolean
   getAttribute: (name: string) => string | null
