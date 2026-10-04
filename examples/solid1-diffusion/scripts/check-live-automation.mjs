@@ -779,6 +779,15 @@ try {
   const stage = [...initial.canvases]
     .sort((a, b) => b.bounds.width * b.bounds.height - a.bounds.width * a.bounds.height)[0]
   assert(stage?.bounds && stage.bounds.width > 400 && stage.bounds.height > 300, "EngineCanvas did not paint at a useful size")
+  await screenshot(app, "initial")
+  console.log("solid1 Diffusion real editor canvases:", JSON.stringify(
+    initial.canvases.map((node) => ({
+      id: node.id,
+      testId: node.testId ?? null,
+      bounds: node.bounds ?? null,
+      customProps: node.customProps ?? null,
+    })),
+  ))
 
   const stageBottom = stage.bounds.y + stage.bounds.height
   const timeline = initial.canvases
@@ -793,7 +802,6 @@ try {
   )
   assertText(initial.tree, "Assets", "Assets navigation")
   assertText(initial.tree, "Chat", "Chat navigation")
-  await screenshot(app, "initial")
 
   const at = (bounds, x, y) => ({ x: bounds.x + bounds.width * x, y: bounds.y + bounds.height * y })
 
