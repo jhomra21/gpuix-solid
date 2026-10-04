@@ -42,6 +42,8 @@ const markers = [
   "node_modules/koota/package.json",
   "node_modules/solid-js/package.json",
   "node_modules/@kobalte/core/package.json",
+  "node_modules/esbuild/package.json",
+  "node_modules/@babel/core/package.json",
 ]
 if (markers.some((marker) => !existsSync(join(sourceRoot, marker)))) {
   run("bun", [
@@ -49,6 +51,8 @@ if (markers.some((marker) => !existsSync(join(sourceRoot, marker)))) {
     "--ignore-scripts",
     "--filter",
     "@diffusionstudio/web",
+    "--filter",
+    "@diffusionstudio/desktop",
     "--filter",
     "@diffusionstudio/runtime",
     "--filter",
