@@ -164,6 +164,24 @@ function indexParents(root) {
   return parents
 }
 
+function automationAncestorChain(root, node) {
+  const parents = indexParents(root)
+  const chain = []
+  let current = node
+  while (current) {
+    chain.push({
+      id: current.id,
+      type: current.type,
+      testId: current.testId ?? null,
+      bounds: current.bounds ?? null,
+      style: current.style ?? null,
+      customProps: current.customProps ?? null,
+    })
+    current = parents.get(current.id)
+  }
+  return chain
+}
+
 function textContent(node) {
   return `${node.text ?? ""}${(node.children ?? []).map(textContent).join("")}`
 }
@@ -786,6 +804,12 @@ try {
       testId: node.testId ?? null,
       bounds: node.bounds ?? null,
       customProps: node.customProps ?? null,
+    })),
+  ))
+  console.log("solid1 Diffusion real editor canvas ancestor chains:", JSON.stringify(
+    initial.canvases.map((node) => ({
+      canvasId: node.id,
+      chain: automationAncestorChain(initial.tree, node),
     })),
   ))
 
