@@ -1269,6 +1269,9 @@ function sourceGridTracks(node: HostElementNode): SourceGridTracks {
       classTemplate: classTemplate ?? null,
       columns: columns ?? null,
       rows: rows ?? null,
+      resolvedWidth: resolvedNativeNodeSize(node, "x") ?? null,
+      resolvedHeight: resolvedNativeNodeSize(node, "y") ?? null,
+      measuredSize: measuredLayoutSizes.get(node) ?? null,
       elementChildren: elementChildren.length,
       items: items.map((item, index) => {
         const itemState = styleStates.get(item)
