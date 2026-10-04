@@ -27,6 +27,7 @@ const dependencyPath = (name: string, relativePath: string) => {
 const kobalteSourceRoot = dependencyPath("@kobalte/core", "src/")
 const domPurifyCompat = fromHere("./src/dompurify-compat.ts")
 const electronCompat = fromHere("./src/electron-compat.ts")
+const tsMorphCompat = fromHere("./src/ts-morph-compat.ts")
 const defaultProject = fromHere("./project/")
 const domPurifySource = dependencyPath("dompurify", "dist/purify.es.mjs")
 
@@ -335,6 +336,7 @@ export function diffusionConfig(entry: string, outDir: string, options: { instru
     define: {
       "import.meta.env.VITE_DESKTOP": JSON.stringify("false"),
       __GPUIX_DIFFUSION_DEFAULT_PROJECT__: JSON.stringify(defaultProject),
+      __GPUIX_DIFFUSION_DESKTOP_PACKAGE__: JSON.stringify(desktopPackage),
     },
     plugins: [
       multilineClassAttributeHook,
@@ -357,6 +359,7 @@ export function diffusionConfig(entry: string, outDir: string, options: { instru
         { find: /^@kobalte\/core\/(.+)$/, replacement: `${kobalteSourceRoot}$1/index.tsx` },
         { find: /^dompurify$/, replacement: domPurifyCompat },
         { find: /^electron$/, replacement: electronCompat },
+        { find: /^ts-morph$/, replacement: tsMorphCompat },
         { find: "@diffusion-native/dompurify-source", replacement: domPurifySource },
         { find: /^@\//, replacement: webSource },
         { find: /^@desktop\//, replacement: desktopSource },
