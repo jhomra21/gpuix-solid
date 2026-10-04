@@ -149,52 +149,15 @@ const usabilityTestHook = {
       const trigger = `            <Button
               {...triggerProps}
               variant="link"`
-      const worldImport = `import { useWorld } from "@diffusionstudio/koota-solid";`
-      const scaleBlock = `  const scale = useCameraScale();
-  const zoomLabel = () => \`\${Math.round(scale() * 100)}%\`;`
       if (!code.includes(trigger)) throw new Error("Pinned Diffusion Inspector zoom trigger changed")
-      if (!code.includes(worldImport)) throw new Error("Pinned Diffusion Inspector world import changed")
-      if (!code.includes(scaleBlock)) throw new Error("Pinned Diffusion Inspector scale block changed")
       return {
-        code: code
-          .replace(
-            worldImport,
-            `${worldImport}
-import { createEffect, createSignal, onCleanup } from "solid-js";`,
-          )
-          .replace(
-            scaleBlock,
-            `  const scale = useCameraScale();
-  const [displayScale, setDisplayScale] = createSignal(scale());
-  let zoomLabelTimer: ReturnType<typeof setTimeout> | undefined;
-
-  createEffect(() => {
-    const nextScale = scale();
-    if (zoomLabelTimer !== undefined) clearTimeout(zoomLabelTimer);
-    zoomLabelTimer = setTimeout(() => {
-      setDisplayScale(nextScale);
-      zoomLabelTimer = undefined;
-    }, 80);
-  });
-
-  onCleanup(() => {
-    if (zoomLabelTimer !== undefined) clearTimeout(zoomLabelTimer);
-  });
-
-  const zoomLabel = () => \`\${Math.round(displayScale() * 100)}%\`;`,
-          )
-          .replace(
-            trigger,
-            `            <Button
+        code: code.replace(
+          trigger,
+          `            <Button
               {...triggerProps}
               testId="diffusion-inspector-zoom-trigger"
-              variant="link"
-              class="ml-auto flex w-16 items-center justify-end gap-0 text-muted-foreground px-0 relative z-30"`,
-          )
-          .replace(
-            `              class="ml-auto flex items-center gap-0 text-muted-foreground px-0 relative z-30"`,
-            "",
-          ),
+              variant="link"`,
+        ),
         map: null,
       }
     }
@@ -223,13 +186,7 @@ import { createEffect, createSignal, onCleanup } from "solid-js";`,
       return {
         code: code.replace(
           field,
-          `          <span
-            testId="diffusion-inspector-position-x-value"
-            style={{ position: "absolute", left: "-10000px" }}
-          >
-            {String(positionX())}
-          </span>
-          <ControlledTextField
+          `          <ControlledTextField
             testId="diffusion-inspector-position-x"
             icon={<Icon name="prop-x-position" />}`,
         ),
@@ -266,54 +223,6 @@ import { createEffect, createSignal, onCleanup } from "solid-js";`,
         testId="diffusion-timeline-layers-scroll"
         class="grid grid-cols-1 h-full absolute border-b border-border inset-0 overflow-hidden"
         on:wheel={timeline.scroll}`,
-        ),
-        map: null,
-      }
-    }
-
-    if (normalizedId.endsWith("/apps/web/src/engine/timeline/controller.ts")) {
-      const applyScroll = `\t\twithScene((scene) => {
-\t\t\tconst scrollY = clamp(getScrollY(world, scene), 0, Math.max(0, layersEl!.scrollHeight - layersViewportEl!.clientHeight));
-\t\t\tsetScrollY(world, scene, scrollY);
-\t\t\tlayersEl!.style.transform = \`translateY(\${-scrollY}px)\`;
-\t\t});`
-      if (!code.includes(applyScroll)) throw new Error("Pinned Diffusion timeline applyScroll changed")
-      return {
-        code: code.replace(
-          applyScroll,
-          `\t\twithScene((scene) => {
-\t\t\tconst requestedScrollY = getScrollY(world, scene);
-\t\t\tconst maxScrollY = Math.max(0, layersEl!.scrollHeight - layersViewportEl!.clientHeight);
-\t\t\tconst scrollY = clamp(requestedScrollY, 0, maxScrollY);
-\t\t\tconsole.error("[diffusion][timeline-scroll]", JSON.stringify({
-\t\t\t\trequestedScrollY,
-\t\t\t\tscrollY,
-\t\t\t\tmaxScrollY,
-\t\t\t\tscrollHeight: layersEl!.scrollHeight,
-\t\t\t\tclientHeight: layersViewportEl!.clientHeight,
-\t\t\t}));
-\t\t\tsetScrollY(world, scene, scrollY);
-\t\t\tlayersEl!.style.transform = \`translateY(\${-scrollY}px)\`;
-\t\t});`,
-        ),
-        map: null,
-      }
-    }
-
-    if (normalizedId.endsWith("/apps/web/src/agent-chat/transcript.tsx")) {
-      const items = `        <For each={props.items}>
-          {(item) => <ChatItem item={item} />}
-        </For>`
-      if (!code.includes(items)) throw new Error("Pinned Diffusion Chat transcript items changed")
-      return {
-        code: code.replace(
-          items,
-          `${items}
-        <ChatItem item={{
-          id: "gpuix-native-markdown-probe",
-          kind: "assistant",
-          text: "## GPUix Markdown\\n\\n- **Bold item**\\n- [Safe link](https://example.com)\\n\\n| A | B |\\n| - | - |\\n| 1 | 2 |\\n\\n<script>GPUix unsafe</script>",
-        }} />`,
         ),
         map: null,
       }
