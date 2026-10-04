@@ -11,6 +11,7 @@ export interface ElementBounds {
 export interface AutomationTreeNode {
   id: number
   type: string
+  subtreeRevision?: number | undefined
   text?: string | undefined
   testId?: string | undefined
   style?: Record<string, JsonValue> | undefined
@@ -31,6 +32,7 @@ export const automationTreeNodeSchema: z.ZodType<AutomationTreeNode> = z.lazy(()
   z.object({
     id: z.number(),
     type: z.string(),
+    subtreeRevision: z.number().optional(),
     text: z.string().optional(),
     testId: z.string().optional(),
     style: z.record(z.string(), jsonValueSchema).optional(),
