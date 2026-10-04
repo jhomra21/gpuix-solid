@@ -374,6 +374,26 @@ function assertCachedPrepaintReuse(names) {
   )
 }
 
+function assertInspectorRefreshIsolation() {
+  const summary = performanceReport.scenarios["inspector-wheel"]
+  const refreshingMisses = summary?.cachedPrepaintRefreshingMisses
+  const totalMisses = summary?.cachedPrepaintMisses
+  assert(
+    Number.isFinite(refreshingMisses) && Number.isFinite(totalMisses) && totalMisses > 0,
+    `Inspector refresh-isolation metrics are unavailable: ${JSON.stringify({ refreshingMisses, totalMisses })}`,
+  )
+  const refreshingRatio = refreshingMisses / totalMisses
+  assert(
+    refreshingRatio <= 0.35,
+    `Inspector retained-region refresh isolation regressed: ${JSON.stringify({
+      refreshingMisses,
+      totalMisses,
+      refreshingRatio,
+      maximumRatio: 0.35,
+    })}`,
+  )
+}
+
 function enforcePerformanceBudgets(names) {
   if (!enforce120HzBudget) return
 
@@ -1348,6 +1368,7 @@ try {
   }
   summarizeProfiles("canvas-wheel-zoom", canvasProfileRuns)
   assertCachedPrepaintReuse(["inspector-wheel", "canvas-wheel-zoom"])
+  assertInspectorRefreshIsolation()
   enforcePerformanceBudgets(["inspector-wheel", "canvas-wheel-zoom"])
 
   tree = await getFreshTree(app)
