@@ -290,7 +290,9 @@ import { createEffect, createSignal, onCleanup } from "solid-js";`,
 const packageSource = (name: string) =>
   fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/packages/${name}/src/index.ts`)
 
-export function diffusionConfig(entry: string, outDir: string) {
+export function diffusionConfig(entry: string, outDir: string, options: { instrument?: boolean } = {}) {
+  const instrument = options.instrument ?? false
+
   return defineConfig({
     // Diffusion resolves absolute /src import.meta.glob patterns from apps/web.
     // Keep that upstream Vite root while using the GPUix fixture as the SSR entry.
@@ -300,9 +302,7 @@ export function diffusionConfig(entry: string, outDir: string) {
     },
     plugins: [
       multilineClassAttributeHook,
-      toolbarTestHook,
-      scenePresetTestHook,
-      usabilityTestHook,
+      ...(instrument ? [toolbarTestHook, scenePresetTestHook, usabilityTestHook] : []),
       solid({
         babel: { plugins: [decodeJsxTextEntities] },
         solid: {
