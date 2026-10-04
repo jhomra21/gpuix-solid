@@ -4,5 +4,6 @@
   "displayName": "GPUix Diffusion editor",
   "private": true,
   "type": "module",
-  "main": "index.tsx"
+  "main": "index.tsx",
+  "scripts": {}
 }
