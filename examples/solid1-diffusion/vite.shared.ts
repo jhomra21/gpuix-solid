@@ -15,6 +15,8 @@ const webSource = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slic
 const desktopSource = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/apps/desktop/src/`)
 const kobalteSourceRoot = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/node_modules/@kobalte/core/src/`)
 const domPurifyCompat = fromHere("./src/dompurify-compat.ts")
+const electronCompat = fromHere("./src/electron-compat.ts")
+const defaultProject = fromHere("./project/")
 const domPurifySource = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/node_modules/dompurify/dist/purify.es.mjs`)
 
 const normalizedSourceRoot = sourceRoot.replaceAll("\\", "/")
@@ -299,6 +301,7 @@ export function diffusionConfig(entry: string, outDir: string, options: { instru
     root: webAppRoot,
     define: {
       "import.meta.env.VITE_DESKTOP": JSON.stringify("false"),
+      __GPUIX_DIFFUSION_DEFAULT_PROJECT__: JSON.stringify(defaultProject),
     },
     plugins: [
       multilineClassAttributeHook,
@@ -319,6 +322,7 @@ export function diffusionConfig(entry: string, outDir: string, options: { instru
         { find: /^@kobalte\/core$/, replacement: `${kobalteSourceRoot}index.ts` },
         { find: /^@kobalte\/core\/(.+)$/, replacement: `${kobalteSourceRoot}$1/index.tsx` },
         { find: /^dompurify$/, replacement: domPurifyCompat },
+        { find: /^electron$/, replacement: electronCompat },
         { find: "@diffusion-native/dompurify-source", replacement: domPurifySource },
         { find: /^@\//, replacement: webSource },
         { find: /^@desktop\//, replacement: desktopSource },
