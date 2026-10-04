@@ -353,7 +353,7 @@ export function diffusionConfig(entry: string, outDir: string, options: { instru
       alias: [
         { find: "@jhomra21/gpuix-solid1", replacement: solid1Entry },
         { find: /^solid-js\/web$/, replacement: solidWebCompat },
-        { find: /^@kobalte\/core$/, replacement: `${kobalteSourceRoot}index.ts` },
+        { find: /^@kobalte\/core$/, replacement: `${kobalteSourceRoot}index.tsx` },
         { find: /^@kobalte\/core\/(.+)$/, replacement: `${kobalteSourceRoot}$1/index.tsx` },
         { find: /^dompurify$/, replacement: domPurifyCompat },
         { find: /^electron$/, replacement: electronCompat },
