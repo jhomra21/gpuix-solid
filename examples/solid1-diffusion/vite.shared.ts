@@ -235,6 +235,26 @@ const usabilityTestHook = {
 const packageSource = (name: string) =>
   fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/packages/${name}/src/index.ts`)
 
+const editorTransformTrace = {
+  name: "diffusion-editor-transform-trace",
+  enforce: "post" as const,
+  transform(code: string, id: string) {
+    const normalizedId = id.replaceAll("\\", "/").split("?")[0]
+    if (!normalizedId.endsWith("/apps/web/src/pages/editor.tsx")) return null
+    const needles = ["timelineStyles", "grid-template-columns", "grid-template-rows"]
+    const snippets = needles.map((needle) => {
+      const index = code.indexOf(needle)
+      return {
+        needle,
+        index,
+        snippet: index < 0 ? null : code.slice(Math.max(0, index - 1200), index + 2400),
+      }
+    })
+    console.error("[gpuix-editor-transform-trace]", JSON.stringify(snippets))
+    return null
+  },
+}
+
 export function diffusionConfig(entry: string, outDir: string, options: { instrument?: boolean } = {}) {
   const instrument = options.instrument ?? false
 
@@ -258,6 +278,7 @@ export function diffusionConfig(entry: string, outDir: string, options: { instru
           moduleName: "@jhomra21/gpuix-solid1",
         },
       }),
+      ...(instrument ? [editorTransformTrace] : []),
       solidSvg({ defaultAsComponent: true }),
     ],
     resolve: {
