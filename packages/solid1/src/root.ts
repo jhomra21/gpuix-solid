@@ -261,6 +261,17 @@ export function createRoot(renderer: NativeRenderer, initialWindowEventHandlers:
 
   const getViewportSize = (): ViewportSize => {
     const nativeSize = renderer.getWindowSize?.()
+    const nativeWidth = Number(nativeSize?.width)
+    const nativeHeight = Number(nativeSize?.height)
+
+    // A browser viewport is the native window, not the size of its document.
+    // Using mounted content bounds here creates a feedback loop for layouts
+    // such as Diffusion's h-screen grid: one temporarily oversized subtree can
+    // inflate window.innerHeight, which makes h-screen larger on the next
+    // style pass and pushes fixed viewport rows farther offscreen. Native
+    // renderers that expose a finite window size are authoritative. Bounds and
+    // authored root dimensions remain only as a fallback for injected/test
+    // renderers that do not report a window size.
     const mounted = container.children[0]
     const bounds = mounted && mounted.kind === "element"
       ? elementBounds(renderer, mounted.id)
@@ -268,8 +279,12 @@ export function createRoot(renderer: NativeRenderer, initialWindowEventHandlers:
     const styleWidth = mounted && mounted.kind === "element" ? numericDimension(mounted.style.width) : 0
     const styleHeight = mounted && mounted.kind === "element" ? numericDimension(mounted.style.height) : 0
     const size = {
-      width: Math.max(nativeSize?.width ?? 800, bounds?.[2] ?? 0, styleWidth),
-      height: Math.max(nativeSize?.height ?? 600, bounds?.[3] ?? 0, styleHeight),
+      width: Number.isFinite(nativeWidth) && nativeWidth > 0
+        ? nativeWidth
+        : Math.max(800, bounds?.[2] ?? 0, styleWidth),
+      height: Number.isFinite(nativeHeight) && nativeHeight > 0
+        ? nativeHeight
+        : Math.max(600, bounds?.[3] ?? 0, styleHeight),
     }
     syncBrowserViewportSize(size)
     return size
