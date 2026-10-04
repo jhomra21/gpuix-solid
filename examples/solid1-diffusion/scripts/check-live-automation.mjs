@@ -844,7 +844,10 @@ try {
     })),
   ))
   const stageChain = automationAncestorChain(initial.tree, stage)
-  const editorGrid = stageChain.at(-2)
+  const editorGridSummary = stageChain.at(-2)
+  const editorGrid = editorGridSummary
+    ? descendants(initial.tree).find((node) => node.id === editorGridSummary.id)
+    : undefined
   if (editorGrid) {
     console.log("solid1 Diffusion real editor grid children:", JSON.stringify(
       automationGridChildren(initial.tree, editorGrid),
