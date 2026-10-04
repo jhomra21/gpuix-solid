@@ -4,7 +4,7 @@ export default function Project() {
       <scene name="Motion" width={1920} height={1080} fill="#101014" active>
         <rect
           name="Animated card"
-          x={180}
+          x={120}
           y={330}
           width={420}
           height={260}
@@ -14,9 +14,9 @@ export default function Project() {
           end={8}
         >
           <keyframeTrack property="x">
-            <keyframe time={0} value={180} easing="easeInOut" />
+            <keyframe time={0} value={120} easing="easeInOut" />
             <keyframe time={4} value={1320} easing="easeInOut" />
-            <keyframe time={8} value={180} easing="easeInOut" />
+            <keyframe time={8} value={120} easing="easeInOut" />
           </keyframeTrack>
           <keyframeTrack property="rotation">
             <keyframe time={0} value={0} />
