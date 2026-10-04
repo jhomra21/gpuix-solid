@@ -505,10 +505,6 @@ export class HostElementNode implements PublicInstance, DomCompatTarget {
   blur(): void {
     const root = this.root
     if (!root || !this.nativeAlive) return
-    // Programmatic blur is synchronous in the browser. Commit a pending text
-    // edit before asking native GPUI to move focus; a later native blur event
-    // sees the cleared focus snapshot and cannot duplicate the change.
-    root.events.commitTextEntryChange(this.id)
     root.driver.flush()
     root.driver.renderer.blur?.()
   }

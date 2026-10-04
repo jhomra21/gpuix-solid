@@ -524,7 +524,6 @@ export class EventRegistry {
   readonly #lastPointerEvent = new Map<number, NativeEventPayload>()
   readonly #primaryClickBursts = new Map<number, ActivationBurst>()
   readonly #dragData = new Map<number, DragData>()
-  readonly #textEntryFocusValues = new Map<number, string>()
   #dragSession: DragSession | undefined
   #nativeClickBubble: NativeClickBubble | undefined
   #nativeMouseDownBurst: NativeMouseDownBurst | undefined
@@ -561,7 +560,6 @@ export class EventRegistry {
     this.#targets.delete(id)
     this.#parents.delete(id)
     this.#dragData.delete(id)
-    this.#textEntryFocusValues.delete(id)
     if (this.#dragSession?.sourceId === id) this.#dragSession = undefined
     this.#nativePointerDown.delete(id)
     this.#primaryClickBursts.delete(id)
@@ -597,7 +595,6 @@ export class EventRegistry {
     this.#targets.clear()
     this.#parents.clear()
     this.#dragData.clear()
-    this.#textEntryFocusValues.clear()
     this.#dragSession = undefined
     this.#nativePointerDown.clear()
     this.#activePointers.clear()
@@ -617,26 +614,6 @@ export class EventRegistry {
 
   hasDragSession(): boolean {
     return this.#dragSession !== undefined
-  }
-
-  /**
-   * Browser text controls emit `input` while editing and one `change` when
-   * the committed value differs from the value they had on focus. GPUIX's
-   * native editor uses "change" as its per-edit transport, so keep that
-   * transport detail out of application event semantics.
-   */
-  commitTextEntryChange(id: number, nativeEvent?: NativeEventPayload): boolean {
-    if (!this.#isTextEntryTarget(id)) return false
-    const target = this.#targets.get(id)
-    const initial = this.#textEntryFocusValues.get(id)
-    this.#textEntryFocusValues.delete(id)
-    if (!target || initial === undefined || target.value === initial) return false
-    this.#dispatchDom(
-      id,
-      "change",
-      nativeEvent ?? ({ elementId: id, eventType: "change" } satisfies NativeEventPayload),
-    )
-    return true
   }
 
   activeDragPreview(): { sourceId: number; startX: number; startY: number } | undefined {
@@ -666,36 +643,6 @@ export class EventRegistry {
   dispatch(event: NativeEventPayloadWithScrollMetrics, resolvedDragTargetId?: number | null): void {
     if (!this.#live.has(event.elementId)) return
     switch (event.eventType) {
-      case "focus": {
-        if (this.#isTextEntryTarget(event.elementId)) {
-          const target = this.#targets.get(event.elementId)
-          if (target) this.#textEntryFocusValues.set(event.elementId, target.value)
-        }
-        this.#dispatchDom(event.elementId, "focus", event)
-        return
-      }
-      case "change": {
-        if (this.#isTextEntryTarget(event.elementId)) {
-          const target = this.#targets.get(event.elementId)
-          if (target && !this.#textEntryFocusValues.has(event.elementId)) {
-            // Automation can focus a native editor without a JS focus listener.
-            // Capture the pre-edit value before domCompatibleEvent applies the
-            // native payload's new value.
-            this.#textEntryFocusValues.set(event.elementId, target.value)
-          }
-          this.#dispatchDom(event.elementId, "input", event)
-          return
-        }
-        for (const domEventType of DOM_EVENTS_BY_NATIVE.get(event.eventType) ?? []) {
-          this.#dispatchDom(event.elementId, domEventType, event)
-        }
-        return
-      }
-      case "blur": {
-        this.commitTextEntryChange(event.elementId, event)
-        this.#dispatchDom(event.elementId, "blur", event)
-        return
-      }
       case "mouseDown": {
         if (this.#isBubbledNativeMouseDown(event)) return
         // Keep the actual down path through release: the generated click must
@@ -909,23 +856,6 @@ export class EventRegistry {
       { dragData: session.data, dragSourceId: session.sourceId, dropTargetId },
     )
     return true
-  }
-
-  #isTextEntryTarget(elementId: number): boolean {
-    const target = this.#targets.get(elementId)
-    if (!target) return false
-    if (target.localName === "textarea") return true
-    if (target.localName !== "input") return false
-    const type = target.getAttribute("type")?.toLowerCase() ?? "text"
-    return type !== "range" &&
-      type !== "checkbox" &&
-      type !== "radio" &&
-      type !== "button" &&
-      type !== "submit" &&
-      type !== "reset" &&
-      type !== "file" &&
-      type !== "color" &&
-      type !== "hidden"
   }
 
   #isRangeTarget(elementId: number): boolean {
