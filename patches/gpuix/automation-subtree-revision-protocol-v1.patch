@@ -1,0 +1,19 @@
+diff --git a/packages/native/js/automation/protocol.ts b/packages/native/js/automation/protocol.ts
+--- a/packages/native/js/automation/protocol.ts
++++ b/packages/native/js/automation/protocol.ts
+@@ -59,6 +59,7 @@ export const treeNodeSchema: z.ZodType<TreeNode> = z.lazy(() =>
+   z.object({
+     id: z.number(),
+     type: z.string(),
++    subtreeRevision: z.number().optional(),
+     text: z.string().optional(),
+     testId: z.string().optional(),
+     style: z.record(z.string(), z.unknown()).optional(),
+@@ -73,6 +74,7 @@ export const treeNodeSchema: z.ZodType<TreeNode> = z.lazy(() =>
+ export interface TreeNode {
+   id: number
+   type: string
++  subtreeRevision?: number
+   text?: string
+   testId?: string
+   style?: Record<string, unknown>

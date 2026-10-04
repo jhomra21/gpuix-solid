@@ -12,6 +12,7 @@
     "patches/gpuix/view-render-stats-v1.patch",
     "patches/gpuix/root-revision-stats-v1.patch",
     "patches/gpuix/automation-subtree-revision-v1.patch",
+    "patches/gpuix/automation-subtree-revision-protocol-v1.patch",
     "patches/gpuix/draw-phase-stats-v1.patch",
     "patches/gpuix/host-own-bounds-v1.patch",
     "patches/gpuix/virtual-list-own-bounds-v1.patch",
