@@ -641,28 +641,6 @@ function assertPopupAnchored(root, label) {
   assert(current?.bounds, `${label} popup has no painted native anchored layer`)
 }
 
-function assertChatTableRows(root) {
-  const a = findText(root, "A")
-  const b = findText(root, "B")
-  const one = findText(root, "1")
-  const two = findText(root, "2")
-  for (const [label, node] of [["A", a], ["B", b], ["1", one], ["2", two]]) {
-    assert(node.bounds && node.bounds.width > 0 && node.bounds.height > 0, `Chat Markdown table cell ${label} has no painted bounds`)
-  }
-  assert(
-    Math.abs(a.bounds.y - b.bounds.y) <= 2 && b.bounds.x > a.bounds.x,
-    `Chat Markdown header cells did not share one row: ${JSON.stringify({ a: a.bounds, b: b.bounds })}`,
-  )
-  assert(
-    Math.abs(one.bounds.y - two.bounds.y) <= 2 && two.bounds.x > one.bounds.x,
-    `Chat Markdown value cells did not share one row: ${JSON.stringify({ one: one.bounds, two: two.bounds })}`,
-  )
-  assert(
-    one.bounds.y >= a.bounds.y + a.bounds.height - 2 && one.bounds.y - a.bounds.y <= 40,
-    `Chat Markdown table rows are vertically over-expanded: ${JSON.stringify({ header: a.bounds, value: one.bounds })}`,
-  )
-}
-
 function getEditorCanvases(root) {
   return descendants(root).filter((node) => node.type === "canvas" && node.bounds)
 }
