@@ -42,7 +42,7 @@ const screenshots = {
   zoomMenu: "/tmp/diffusion-zoom-dropdown.png",
   moveHandMenu: "/tmp/diffusion-move-hand-dropdown.png",
   assetsMenu: "/tmp/diffusion-assets-dropdown.png",
-  chatMarkdown: "/tmp/diffusion-chat-markdown.png",
+  chatIdle: "/tmp/diffusion-chat-idle.png",
   chat: "/tmp/diffusion-chat.png",
   contextMenu: "/tmp/diffusion-context-menu.png",
   hiddenUi: "/tmp/diffusion-hidden-ui.png",
@@ -718,10 +718,11 @@ async function openProjectEditMenu(app) {
 }
 
 async function waitForInputValue(app, expected, label) {
-  const mirror = app.getByTestId("diffusion-inspector-position-x-value")
+  const input = app.getByTestId("diffusion-inspector-position-x")
   return await waitFor(label, async () => {
-    const actual = (await mirror.textContent()).trim()
-    return actual === expected ? actual : null
+    const node = await input.element()
+    const actual = node.customProps?.value
+    return String(actual ?? "") === expected ? String(actual) : null
   })
 }
 
@@ -1448,18 +1449,14 @@ try {
   await delay(400)
   tree = await getFreshTree(app)
   assert(descendants(tree).some((node) => node.type === "textarea"), "Chat composer disappeared after settling")
-  assertText(tree, "GPUix Markdown", "rendered assistant Markdown heading")
-  assertText(tree, "Bold item", "rendered assistant Markdown strong text")
-  assertText(tree, "Safe link", "rendered assistant Markdown link")
-  assertText(tree, "A", "rendered assistant Markdown table header")
-  assertText(tree, "1", "rendered assistant Markdown table cell")
-  assertChatTableRows(tree)
   assert(
-    !descendants(tree).some((node) => (node.text ?? "").includes("GPUix unsafe")),
-    "Sanitized assistant Markdown retained script contents",
+    !textContent(tree).includes("GPUix Markdown") &&
+      !textContent(tree).includes("Bold item") &&
+      !textContent(tree).includes("Safe link"),
+    "Live acceptance must not inject synthetic Chat transcript content",
   )
 
-  await screenshot(app, "chatMarkdown")
+  await screenshot(app, "chatIdle")
   const chatComposer = app.getByType("textarea")
   await chatComposer.fill("GPUix chat smoke")
   await delay(120)
@@ -1467,7 +1464,7 @@ try {
   assert(descendants(tree).some((node) => node.type === "textarea"), "Chat composer disappeared after native text input")
   await screenshot(app, "chat")
   assert(
-    !readFileSync(screenshots.chatMarkdown).equals(readFileSync(screenshots.chat)),
+    !readFileSync(screenshots.chatIdle).equals(readFileSync(screenshots.chat)),
     "Chat composer input did not produce a visible native frame",
   )
   const assetsTabs = descendants(tree).filter(
