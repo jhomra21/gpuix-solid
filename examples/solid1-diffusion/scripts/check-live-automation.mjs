@@ -758,6 +758,26 @@ async function waitForInputValue(app, expected, label) {
   })
 }
 
+async function inspectorInputDiagnostic(input, label) {
+  const node = await input.element()
+  const source = readFileSync(join(exampleDirectory, "project", "index.tsx"), "utf8")
+  const sourceLines = source
+    .split("\n")
+    .filter((line) =>
+      line.includes('id="animated-card"') ||
+      line.includes('id="card-x-0"') ||
+      line.includes('id="card-x-4"') ||
+      line.includes('id="card-x-8"')
+    )
+    .map((line) => line.trim())
+  console.log("solid1 Diffusion Inspector X diagnostic:", JSON.stringify({
+    label,
+    nodeId: node.id,
+    value: node.customProps?.value ?? null,
+    sourceLines,
+  }))
+}
+
 function findAssetsPlus(tree) {
   const parentById = indexParents(tree)
   const tabRow = descendants(tree)
@@ -897,9 +917,12 @@ try {
   // restore the seeded value so later canvas geometry remains deterministic.
   const positionX = app.getByTestId("diffusion-inspector-position-x")
   await positionX.waitFor()
+  await inspectorInputDiagnostic(positionX, "before-fill")
   await positionX.fill("121")
+  await inspectorInputDiagnostic(positionX, "after-fill")
   await positionX.press("enter")
-  await delay(140)
+  await delay(400)
+  await inspectorInputDiagnostic(positionX, "after-enter")
   tree = await getFreshTree(app)
   assertInspectorShowsTransformControls(tree)
   await waitForInputValue(app, "121", "Inspector X edit")
