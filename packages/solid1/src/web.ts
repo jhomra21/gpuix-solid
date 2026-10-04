@@ -160,10 +160,62 @@ export function template(
   return Object.assign(create, { cloneNode: create })
 }
 
+function tokenizeStaticTemplate(html: string): string[] {
+  const tokens: string[] = []
+  let cursor = 0
+
+  while (cursor < html.length) {
+    const open = html.indexOf("<", cursor)
+    if (open < 0) {
+      if (cursor < html.length) tokens.push(html.slice(cursor))
+      break
+    }
+    if (open > cursor) tokens.push(html.slice(cursor, open))
+
+    if (html.startsWith("<!--", open)) {
+      const close = html.indexOf("-->", open + 4)
+      if (close < 0) throw new Error("Unclosed Solid DOM template comment")
+      tokens.push(html.slice(open, close + 3))
+      cursor = close + 3
+      continue
+    }
+
+    if (html.startsWith("<!>", open)) {
+      tokens.push("<!>")
+      cursor = open + 3
+      continue
+    }
+
+    let quote: "\"" | "'" | null = null
+    let end = open + 1
+    for (; end < html.length; end += 1) {
+      const character = html[end]
+      if (quote) {
+        if (character === quote) quote = null
+        continue
+      }
+      if (character === "\"" || character === "'") {
+        quote = character
+        continue
+      }
+      if (character === ">") break
+    }
+
+    if (end >= html.length) {
+      throw new Error(`Unclosed Solid DOM template tag starting at offset ${open}`)
+    }
+
+    tokens.push(html.slice(open, end + 1))
+    cursor = end + 1
+  }
+
+  return tokens
+}
+
 function parseStaticTemplate(html: string): StaticTemplateElement {
   const roots: StaticTemplateNode[] = []
   const stack: StaticTemplateElement[] = []
-  const tokens = html.match(/<!--[\s\S]*?-->|<!>|<\/?[A-Za-z][^>]*>|[^<]+/g) ?? []
+  const tokens = tokenizeStaticTemplate(html)
 
   const append = (node: StaticTemplateNode): void => {
     const parent = stack.at(-1)
