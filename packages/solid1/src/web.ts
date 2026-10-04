@@ -263,9 +263,12 @@ function parseStaticTemplate(html: string): StaticTemplateElement {
     append({ kind: "text", value: decodeHtmlEntities(token) })
   }
 
-  if (stack.length !== 0) {
-    throw new Error(`Unclosed Solid DOM template tag: <${stack.at(-1)?.tagName ?? "unknown"}>; template=${JSON.stringify(html.slice(0, 1200))}`)
-  }
+  // Solid's DOM compiler targets the browser HTML parser, which implicitly
+  // closes still-open elements at end-of-input. Empty/self-closing JSX can
+  // therefore compile to templates such as "<div>" rather than "<div></div>".
+  // The tree is already linked while scanning, so EOF closure needs no work.
+  stack.length = 0
+
   if (roots.length !== 1 || roots[0]?.kind !== "element") {
     throw new Error("Solid DOM templates must contain exactly one root element")
   }
