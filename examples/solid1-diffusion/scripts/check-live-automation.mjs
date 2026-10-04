@@ -186,6 +186,37 @@ function textContent(node) {
   return `${node.text ?? ""}${(node.children ?? []).map(textContent).join("")}`
 }
 
+function directChildOf(root, node, ancestor) {
+  const parents = indexParents(root)
+  let current = node
+  while (current) {
+    const parent = parents.get(current.id)
+    if (!parent) return undefined
+    if (parent.id === ancestor.id) return current
+    current = parent
+  }
+  return undefined
+}
+
+function automationGridChildren(root, grid) {
+  return (grid.children ?? []).map((node, index) => {
+    const canvasIds = descendants(node)
+      .filter((candidate) => candidate.type === "canvas")
+      .map((candidate) => candidate.id)
+    const text = textContent(node).replace(/\s+/g, " ").trim()
+    return {
+      index,
+      id: node.id,
+      type: node.type,
+      testId: node.testId ?? null,
+      bounds: node.bounds ?? null,
+      canvasIds,
+      text: text ? text.slice(0, 120) : null,
+      childCount: node.children?.length ?? 0,
+    }
+  })
+}
+
 function findNode(root, predicate, label) {
   const found = descendants(root).find(predicate)
   assert(found, `Could not find ${label}`)
@@ -812,6 +843,19 @@ try {
       chain: automationAncestorChain(initial.tree, node),
     })),
   ))
+  const stageChain = automationAncestorChain(initial.tree, stage)
+  const editorGrid = stageChain.at(-2)
+  if (editorGrid) {
+    console.log("solid1 Diffusion real editor grid children:", JSON.stringify(
+      automationGridChildren(initial.tree, editorGrid),
+    ))
+    console.log("solid1 Diffusion real editor canvas grid items:", JSON.stringify(
+      initial.canvases.map((node) => ({
+        canvasId: node.id,
+        gridItem: directChildOf(initial.tree, node, editorGrid)?.id ?? null,
+      })),
+    ))
+  }
 
   const stageBottom = stage.bounds.y + stage.bounds.height
   const timeline = initial.canvases
