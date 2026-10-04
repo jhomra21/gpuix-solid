@@ -4,6 +4,7 @@ import {
   parseAutomationTree,
   parseBounds,
 } from "../automation.js"
+import type { DebugFrameOverlayStats } from "../host/types.js"
 import { jsonValueSchema, type JsonValue } from "./json.js"
 import {
   automationRequestSchema,
@@ -43,6 +44,8 @@ export interface LiveAutomationRenderer {
   clockSet(nowMs: number): number
   clockFastForward(deltaMs: number): number
   clockResume(): number
+  resetDebugFrameOverlayStats?(): void
+  getDebugFrameOverlayStats?(): DebugFrameOverlayStats
 }
 
 export interface LiveAutomationBackendOptions {
@@ -84,6 +87,17 @@ export class LiveAutomationBackend implements AutomationBackend {
   getBounds(elementId: number) {
     this.#flushRead()
     return parseBounds(this.#renderer.getElementBounds(elementId))
+  }
+
+  getScrollOffset(elementId: number): [number, number] | null {
+    const offset = this.#renderer.getScrollOffset(elementId)
+    if (!offset) return null
+    const x = offset[0]
+    const y = offset[1]
+    if (x === undefined || y === undefined) {
+      throw new AutomationError("Protocol", "Native scroll offset did not contain two coordinates")
+    }
+    return [x, y]
   }
 
   async click(x: number, y: number, button?: number, modifiers?: string): Promise<void> {
@@ -152,6 +166,18 @@ export class LiveAutomationBackend implements AutomationBackend {
     return this.#renderer.clockResume()
   }
 
+  resetFrameStats(): void {
+    const reset = this.#renderer.resetDebugFrameOverlayStats
+    if (!reset) throw new AutomationError("Unsupported", "Native renderer does not expose frame statistics")
+    reset.call(this.#renderer)
+  }
+
+  getFrameStats(): DebugFrameOverlayStats {
+    const read = this.#renderer.getDebugFrameOverlayStats
+    if (!read) throw new AutomationError("Unsupported", "Native renderer does not expose frame statistics")
+    return read.call(this.#renderer)
+  }
+
   close(): void {}
 }
 
@@ -186,6 +212,13 @@ async function dispatch(
     case "getBounds":
       return success(request.id, jsonValueSchema.parse({
         bounds: await backend.getBounds(request.params.elementId),
+      }))
+    case "getScrollOffset":
+      if (!backend.getScrollOffset) {
+        throw new AutomationError("Unsupported", "Automation backend does not expose scroll offsets")
+      }
+      return success(request.id, jsonValueSchema.parse({
+        offset: await backend.getScrollOffset(request.params.elementId),
       }))
     case "click":
       await backend.click(
@@ -244,6 +277,17 @@ async function dispatch(
       })
     case "clockResume":
       return success(request.id, { nowMs: await backend.clockResume() })
+    case "resetFrameStats":
+      if (!backend.resetFrameStats) {
+        throw new AutomationError("Unsupported", "Automation backend does not expose frame statistics")
+      }
+      await backend.resetFrameStats()
+      return success(request.id, { ok: true })
+    case "getFrameStats":
+      if (!backend.getFrameStats) {
+        throw new AutomationError("Unsupported", "Automation backend does not expose frame statistics")
+      }
+      return success(request.id, jsonValueSchema.parse(await backend.getFrameStats()))
   }
 }
 

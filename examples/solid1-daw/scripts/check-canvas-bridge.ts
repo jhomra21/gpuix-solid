@@ -1,5 +1,9 @@
 import { readFileSync } from "node:fs"
-import { createTestRoot, hasNativeTestRenderer } from "@jhomra21/gpuix-solid1"
+import {
+  CANVAS_DRAW_LIST_VERSION,
+  createTestRoot,
+  hasNativeTestRenderer,
+} from "@jhomra21/gpuix-solid1"
 import {
   createElement,
   registerCssVariableIntervalOverlay,
@@ -117,10 +121,10 @@ if (!hasNativeTestRenderer) {
   await Promise.resolve()
   app.root.flush()
   app.renderer.flush()
-  const nativeCanvasV1 = app.renderer.getCanvasDrawListVersion() === 1
-  if (nativeCanvasV1) {
+  const nativeCanvas = app.renderer.getCanvasDrawListVersion() === CANVAS_DRAW_LIST_VERSION
+  if (nativeCanvas) {
     nativeCanvasDrawList(app, "daw-waveform-canvas", [
-      '"version":1',
+      `"version":${CANVAS_DRAW_LIST_VERSION}`,
       '"op":"fillPath"',
       '"color":"rgba(255,255,255,0.55)"',
       '"op":"strokePath"',
@@ -168,7 +172,7 @@ if (!hasNativeTestRenderer) {
   if (!mountedEqCanvas) throw new Error("Semantic DAW EQ canvas must mount")
   const eqContext = mountedEqCanvas.getContext("2d")
   if (!eqContext) throw new Error("Mounted DAW EQ canvas must expose a 2D context")
-  const nativeEqCanvasV1 = eqApp.renderer.getCanvasDrawListVersion() === 1
+  const nativeEqCanvas = eqApp.renderer.getCanvasDrawListVersion() === CANVAS_DRAW_LIST_VERSION
 
   eqContext.fillStyle = "#09090b"
   eqContext.fillRect(0, 0, 160, 80)
@@ -191,8 +195,8 @@ if (!hasNativeTestRenderer) {
     partialArcRejected = true
   }
   requireCondition(
-    nativeEqCanvasV1 ? !partialArcRejected : partialArcRejected,
-    nativeEqCanvasV1
+    nativeEqCanvas ? !partialArcRejected : partialArcRejected,
+    nativeEqCanvas
       ? "native Canvas v1 must lower partial arcs into cubic path segments"
       : "Canvas SVG fallback must fail closed for partial arc paths it does not implement",
   )
@@ -214,9 +218,9 @@ if (!hasNativeTestRenderer) {
   await Promise.resolve()
   eqApp.root.flush()
   eqApp.renderer.flush()
-  if (nativeEqCanvasV1) {
+  if (nativeEqCanvas) {
     const eqDrawList = nativeCanvasDrawList(eqApp, "daw-eq-canvas", [
-      '"version":1',
+      `"version":${CANVAS_DRAW_LIST_VERSION}`,
       '"color":"#09090b"',
       '"color":"#ffffff29"',
       '"text":"+12 dB"',
@@ -265,7 +269,7 @@ if (!hasNativeTestRenderer) {
   await Promise.resolve()
   eqApp.root.flush()
   eqApp.renderer.flush()
-  if (nativeEqCanvasV1) {
+  if (nativeEqCanvas) {
     const repaintedDrawList = nativeCanvasDrawList(eqApp, "daw-eq-canvas", ['"text":"fresh frame"'])
     requireCondition(
       !repaintedDrawList.includes("+12 dB") && !repaintedDrawList.includes('"text":"5"'),
@@ -287,7 +291,7 @@ if (!hasNativeTestRenderer) {
   eqApp.unmount()
 
   console.log(
-    app.renderer.getCanvasDrawListVersion() === 1
+    app.renderer.getCanvasDrawListVersion() === CANVAS_DRAW_LIST_VERSION
       ? "DAW Canvas2D source-edge path: native draw lists, bounded repaint commands, partial arcs, waveform, and EQ passed"
       : "DAW Canvas2D compatibility bridge: monochrome raw-SVG batching, bounded repaint commands, compact waveform paths, and polychrome EQ routing passed",
   )

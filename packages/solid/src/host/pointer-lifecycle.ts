@@ -182,10 +182,11 @@ export class BrowserPointerReleaseRelay {
  * surface may safely gain a temporary native mouseMove subscription for the
  * current gesture. That cannot retroactively capture the completed mouse-down,
  * and it gives browser-style window.pointermove a carrier when the pointer is
- * still over the pressed surface. If that move mounts a new drag surface, newly
- * connected non-press elements also receive move/up relay listeners without
- * mouseDown so the gesture can continue across the frame change. All temporary
- * relay listeners are removed on the physical release.
+ * still over the pressed surface. If that move mounts a new surface, the new
+ * surface also receives temporary move/up relay listeners so the gesture can
+ * continue across the frame change. An authored mouseDown stays in place because
+ * the physical press has already happened. All temporary relay listeners are
+ * removed on the physical release.
  *
  * Keep the mounted root move/up-only unless it has an authored mouseDown of its
  * own. Pre-arming a synthetic root mouseDown makes GPUI capture unrelated clicks
@@ -306,7 +307,6 @@ export class BrowserPointerMutationDriver extends MutationDriver {
   #needsActiveRelay(id: number, authored: PointerLifecycleState, isRootRelay: boolean): boolean {
     if (!this.#authoredPointerRelayActive || isRootRelay || !this.#isConnectedDescendantOfRoot(id)) return false
     if (id === this.#activePressedRelayId) return authored.mouseDown
-    if (authored.mouseDown) return false
     return true
   }
 

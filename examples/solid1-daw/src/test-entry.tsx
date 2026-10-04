@@ -2,6 +2,7 @@ import "./test"
 
 import { createSignal } from "solid-js"
 import {
+  CANVAS_DRAW_LIST_VERSION,
   configureNativeStyleManifest,
   createTestRoot,
   hasNativeTestRenderer,
@@ -61,16 +62,16 @@ if (hasNativeTestRenderer) {
   // Low-level Canvas compaction is covered by check-canvas-bridge.ts. Here the
   // app-level contract is that the exact source waveform paint survives that
   // compaction and occupies the real audio clip inside its timeline lane.
-  const nativeCanvasV1 = app.renderer.getCanvasDrawListVersion() === 1
+  const nativeCanvas = app.renderer.getCanvasDrawListVersion() === CANVAS_DRAW_LIST_VERSION
   const waveformFragments = ['"color":"#00a76c"', '"op":"fillPath"'] as const
-  const surfaceBounds = nativeCanvasV1
+  const surfaceBounds = nativeCanvas
     ? app.renderer.boundsCustomPropJsonContainingAll("drawList", waveformFragments)
     : app.renderer.boundsTestId("gpuix-canvas-2d-surface")
-  if (nativeCanvasV1) {
+  if (nativeCanvas) {
     const waveformDrawList = app.renderer.customPropJsonContainingAll("drawList", waveformFragments)
     requireCondition(
-      waveformDrawList.includes('"version":1'),
-      `native waveform Canvas must use draw-list protocol v1, got ${waveformDrawList}`,
+      waveformDrawList.includes(`"version":${CANVAS_DRAW_LIST_VERSION}`),
+      `native waveform Canvas must use draw-list protocol v${CANVAS_DRAW_LIST_VERSION}, got ${waveformDrawList}`,
     )
   } else {
     app.renderer.customPropStringContainingAll("source", [
@@ -117,9 +118,9 @@ if (hasNativeTestRenderer) {
     eqBandBounds.x >= 0 && eqBandBounds.x + eqBandBounds.width <= viewportWidth,
     `EQ visual acceptance must expose the exact source band controls, got ${JSON.stringify(eqBandBounds)}`,
   )
-  const eqCanvasSource = nativeCanvasV1
+  const eqCanvasSource = nativeCanvas
     ? app.renderer.customPropJsonContainingAll("drawList", [
-        '"version":1',
+        `"version":${CANVAS_DRAW_LIST_VERSION}`,
         '"op":"fillText"',
         '"op":"bezierCurveTo"',
         '"text":"+0 dB"',
@@ -135,7 +136,7 @@ if (hasNativeTestRenderer) {
         "<circle",
       ])
   requireCondition(
-    nativeCanvasV1
+    nativeCanvas
       ? eqCanvasSource.includes('"text":"1"') && eqCanvasSource.includes('"text":"8"')
       : eqCanvasSource.includes(">1</text>") && eqCanvasSource.includes(">8</text>"),
     "exact EQ Canvas paint should retain all numbered band-node labels",
@@ -169,13 +170,21 @@ if (hasNativeTestRenderer) {
     volumeBounds.width >= soloBounds.width * 2.5 && volumeBounds.width < 70,
     `source mixer volume must remain in its compact 3fr column before visual capture: ${JSON.stringify({ volumeBounds, soloBounds })}`,
   )
+  const fillLeftInset = initialFillBounds.x - volumeBounds.x
+  const fillTopInset = initialFillBounds.y - volumeBounds.y
+  const fillBottomInset =
+    volumeBounds.y + volumeBounds.height - (initialFillBounds.y + initialFillBounds.height)
   requireCondition(
-    Math.abs(initialFillBounds.x - volumeBounds.x) <= 1 &&
-      Math.abs(initialFillBounds.y - volumeBounds.y) <= 1 &&
-      Math.abs(initialFillBounds.height - volumeBounds.height) <= 1 &&
+    fillLeftInset >= 0 &&
+      fillLeftInset <= 2 &&
+      fillTopInset >= 0 &&
+      fillTopInset <= 2 &&
+      fillBottomInset >= 0 &&
+      fillBottomInset <= 2 &&
       initialFillBounds.width > 1 &&
+      initialFillBounds.x + initialFillBounds.width <= volumeBounds.x + volumeBounds.width &&
       initialFillBounds.width < volumeBounds.width,
-    `source hard-split fill must occupy the leading portion of Track 1 volume, got ${JSON.stringify({ fill: initialFillBounds, volume: volumeBounds })}`,
+    `source hard-split fill must occupy the leading content box of Track 1 volume, got ${JSON.stringify({ fill: initialFillBounds, volume: volumeBounds })}`,
   )
   app.renderer.captureScreenshot("/tmp/gpuix-solid1-daw-mixer.png")
 

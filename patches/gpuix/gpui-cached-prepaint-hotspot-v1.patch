@@ -1,0 +1,175 @@
+diff --git a/crates/gpui/src/debug_overlay.rs b/crates/gpui/src/debug_overlay.rs
+--- a/crates/gpui/src/debug_overlay.rs
++++ b/crates/gpui/src/debug_overlay.rs
+@@ -59,6 +59,9 @@
+     pub cached_prepaint_key_misses: u64,
+     pub cached_prepaint_dirty_misses: u64,
+     pub cached_prepaint_refreshing_misses: u64,
++    pub cached_prepaint_slowest_id: Option<u64>,
++    pub cached_prepaint_slowest_type: Option<&'static str>,
++    pub cached_prepaint_slowest_ms: Option<f32>,
+ }
+ 
+ impl DebugFrameOverlayMode {
+@@ -122,6 +125,9 @@
+     cached_prepaint_key_misses: u64,
+     cached_prepaint_dirty_misses: u64,
+     cached_prepaint_refreshing_misses: u64,
++    cached_prepaint_slowest_id: Option<u64>,
++    cached_prepaint_slowest_type: Option<&'static str>,
++    cached_prepaint_slowest_duration: Duration,
+     total_frame_count: u64,
+ }
+ 
+@@ -151,6 +157,9 @@
+             cached_prepaint_key_misses: 0,
+             cached_prepaint_dirty_misses: 0,
+             cached_prepaint_refreshing_misses: 0,
++            cached_prepaint_slowest_id: None,
++            cached_prepaint_slowest_type: None,
++            cached_prepaint_slowest_duration: Duration::ZERO,
+             total_frame_count: 0,
+         }
+     }
+@@ -190,6 +199,9 @@
+         self.cached_prepaint_key_misses = 0;
+         self.cached_prepaint_dirty_misses = 0;
+         self.cached_prepaint_refreshing_misses = 0;
++        self.cached_prepaint_slowest_id = None;
++        self.cached_prepaint_slowest_type = None;
++        self.cached_prepaint_slowest_duration = Duration::ZERO;
+     }
+ 
+     pub(crate) fn is_enabled(&self) -> bool {
+@@ -240,8 +252,18 @@
+         self.cached_prepaint_reuse_current += duration;
+     }
+ 
+-    pub(crate) fn record_cached_prepaint_render(&mut self, duration: Duration) {
++    pub(crate) fn record_cached_prepaint_render(
++        &mut self,
++        debug_id: Option<u64>,
++        debug_type: &'static str,
++        duration: Duration,
++    ) {
+         self.cached_prepaint_render_current += duration;
++        if duration > self.cached_prepaint_slowest_duration {
++            self.cached_prepaint_slowest_id = debug_id;
++            self.cached_prepaint_slowest_type = Some(debug_type);
++            self.cached_prepaint_slowest_duration = duration;
++        }
+     }
+ 
+     pub(crate) fn record_cached_prepaint_hit(&mut self) {
+@@ -374,6 +396,11 @@
+             cached_prepaint_key_misses: self.cached_prepaint_key_misses,
+             cached_prepaint_dirty_misses: self.cached_prepaint_dirty_misses,
+             cached_prepaint_refreshing_misses: self.cached_prepaint_refreshing_misses,
++            cached_prepaint_slowest_id: self.cached_prepaint_slowest_id,
++            cached_prepaint_slowest_type: self.cached_prepaint_slowest_type,
++            cached_prepaint_slowest_ms: self
++                .cached_prepaint_slowest_type
++                .map(|_| duration_ms(self.cached_prepaint_slowest_duration)),
+         }
+     }
+ 
+diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
+--- a/crates/gpui/src/window.rs
++++ b/crates/gpui/src/window.rs
+@@ -3183,8 +3183,14 @@
+     }
+ 
+     #[cfg(feature = "profiler")]
+-    pub(crate) fn record_cached_prepaint_render(&mut self, duration: Duration) {
+-        self.debug_frame_overlay.record_cached_prepaint_render(duration);
++    pub(crate) fn record_cached_prepaint_render(
++        &mut self,
++        debug_id: Option<u64>,
++        debug_type: &'static str,
++        duration: Duration,
++    ) {
++        self.debug_frame_overlay
++            .record_cached_prepaint_render(debug_id, debug_type, duration);
+     }
+ 
+     #[cfg(feature = "profiler")]
+diff --git a/crates/gpui/src/view.rs b/crates/gpui/src/view.rs
+--- a/crates/gpui/src/view.rs
++++ b/crates/gpui/src/view.rs
+@@ -239,6 +239,26 @@
+     pub fn cached_nested(self, style: StyleRefinement) -> ViewElement<Entity<T>> {
+         ViewElement::new(self).cached_nested(style)
+     }
++
++    /// Embed this entity as a cached view and attach a profiler-only identifier.
++    #[track_caller]
++    pub fn cached_debug(
++        self,
++        style: StyleRefinement,
++        debug_id: u64,
++    ) -> ViewElement<Entity<T>> {
++        ViewElement::new(self).cached(style).cached_debug_id(debug_id)
++    }
++
++    /// Embed this entity as a nested cached view and attach a profiler-only identifier.
++    #[track_caller]
++    pub fn cached_nested_debug(
++        self,
++        style: StyleRefinement,
++        debug_id: u64,
++    ) -> ViewElement<Entity<T>> {
++        ViewElement::new(self).cached_nested(style).cached_debug_id(debug_id)
++    }
+ }
+ 
+ /// The element type for [`View`] implementations. Wraps a `View` and hooks it
+@@ -253,6 +273,7 @@
+     entity_id: Option<EntityId>,
+     cached_style: Option<StyleRefinement>,
+     reuse_during_parent_refresh: bool,
++    cached_debug_id: Option<u64>,
+     #[cfg(debug_assertions)]
+     source: &'static core::panic::Location<'static>,
+ }
+@@ -266,6 +287,7 @@
+             entity_id,
+             cached_style: None,
+             reuse_during_parent_refresh: false,
++            cached_debug_id: None,
+             view: Some(view),
+             #[cfg(debug_assertions)]
+             source: core::panic::Location::caller(),
+@@ -285,8 +307,12 @@
+     pub(crate) fn cached_nested(mut self, style: StyleRefinement) -> Self {
+         self.cached_style = Some(style);
+         self.reuse_during_parent_refresh = true;
+         self
+     }
++    fn cached_debug_id(mut self, debug_id: u64) -> Self {
++        self.cached_debug_id = Some(debug_id);
++        self
++    }
+ }
+ 
+ impl<V: View> IntoElement for ViewElement<V> {
+@@ -407,7 +433,8 @@
+                     element.prepaint(window, cx);
+                     return Some(element);
+                 }
+                 let reuse_during_parent_refresh = self.reuse_during_parent_refresh;
++                let cached_debug_id = self.cached_debug_id;
+ 
+                 window.with_element_state::<ViewElementState, _>(
+                     global_id.unwrap(),
+@@ -461,6 +488,10 @@
+                         });
+ 
+                         #[cfg(feature = "profiler")]
+-                        window.record_cached_prepaint_render(cached_render_started.elapsed());
++                        window.record_cached_prepaint_render(
++                            cached_debug_id,
++                            std::any::type_name::<V>(),
++                            cached_render_started.elapsed(),
++                        );
+                         let prepaint_end = window.prepaint_index();
+                         window.refreshing = refreshing;

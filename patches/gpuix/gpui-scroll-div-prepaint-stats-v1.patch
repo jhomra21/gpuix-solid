@@ -1,0 +1,256 @@
+diff --git a/crates/gpui/src/debug_overlay.rs b/crates/gpui/src/debug_overlay.rs
+--- a/crates/gpui/src/debug_overlay.rs
++++ b/crates/gpui/src/debug_overlay.rs
+@@ -44,9 +44,13 @@
+     pub root_layout_p99_ms: Option<f32>,
+     pub root_prepaint_p90_ms: Option<f32>,
+     pub root_prepaint_p99_ms: Option<f32>,
+-    pub prepaint_rest_p90_ms: Option<f32>,
+-    pub prepaint_rest_p99_ms: Option<f32>,
+-    pub cached_prepaint_reuse_p90_ms: Option<f32>,
++    pub prepaint_rest_p90_ms: Option<f32>,
++    pub prepaint_rest_p99_ms: Option<f32>,
++    pub scroll_div_prepaint_p90_ms: Option<f32>,
++    pub scroll_div_prepaint_p99_ms: Option<f32>,
++    pub scroll_div_prepaint_max_ms: Option<f32>,
++    pub scroll_div_prepaint_samples: usize,
++    pub cached_prepaint_reuse_p90_ms: Option<f32>,
+     pub cached_prepaint_reuse_p99_ms: Option<f32>,
+     pub cached_prepaint_render_p90_ms: Option<f32>,
+     pub cached_prepaint_render_p99_ms: Option<f32>,
+@@ -101,8 +105,10 @@
+     root_request_durations: VecDeque<Duration>,
+     root_layout_durations: VecDeque<Duration>,
+     root_prepaint_durations: VecDeque<Duration>,
+-    prepaint_rest_durations: VecDeque<Duration>,
+-    cached_prepaint_reuse_durations: VecDeque<Duration>,
++    prepaint_rest_durations: VecDeque<Duration>,
++    scroll_div_prepaint_durations: VecDeque<Duration>,
++    scroll_div_prepaint_current: Duration,
++    cached_prepaint_reuse_durations: VecDeque<Duration>,
+     cached_prepaint_render_durations: VecDeque<Duration>,
+     cached_prepaint_reuse_current: Duration,
+     cached_prepaint_render_current: Duration,
+@@ -126,8 +132,10 @@
+             root_request_durations: VecDeque::new(),
+             root_layout_durations: VecDeque::new(),
+             root_prepaint_durations: VecDeque::new(),
+-            prepaint_rest_durations: VecDeque::new(),
+-            cached_prepaint_reuse_durations: VecDeque::new(),
++            prepaint_rest_durations: VecDeque::new(),
++            scroll_div_prepaint_durations: VecDeque::new(),
++            scroll_div_prepaint_current: Duration::ZERO,
++            cached_prepaint_reuse_durations: VecDeque::new(),
+             cached_prepaint_render_durations: VecDeque::new(),
+             cached_prepaint_reuse_current: Duration::ZERO,
+             cached_prepaint_render_current: Duration::ZERO,
+@@ -159,8 +167,10 @@
+         self.root_request_durations.clear();
+         self.root_layout_durations.clear();
+         self.root_prepaint_durations.clear();
+-        self.prepaint_rest_durations.clear();
+-        self.cached_prepaint_reuse_durations.clear();
++        self.prepaint_rest_durations.clear();
++        self.scroll_div_prepaint_durations.clear();
++        self.scroll_div_prepaint_current = Duration::ZERO;
++        self.cached_prepaint_reuse_durations.clear();
+         self.cached_prepaint_render_durations.clear();
+         self.cached_prepaint_reuse_current = Duration::ZERO;
+         self.cached_prepaint_render_current = Duration::ZERO;
+@@ -209,10 +219,25 @@
+         Self::push_duration(&mut self.prepaint_rest_durations, duration);
+     }
+ 
+-    pub(crate) fn begin_cached_prepaint_frame(&mut self) {
+-        self.cached_prepaint_reuse_current = Duration::ZERO;
+-        self.cached_prepaint_render_current = Duration::ZERO;
+-    }
++    pub(crate) fn begin_cached_prepaint_frame(&mut self) {
++        self.cached_prepaint_reuse_current = Duration::ZERO;
++        self.cached_prepaint_render_current = Duration::ZERO;
++    }
++
++    pub(crate) fn begin_scroll_div_prepaint_frame(&mut self) {
++        self.scroll_div_prepaint_current = Duration::ZERO;
++    }
++
++    pub(crate) fn record_scroll_div_prepaint(&mut self, duration: Duration) {
++        self.scroll_div_prepaint_current += duration;
++    }
++
++    pub(crate) fn finish_scroll_div_prepaint_frame(&mut self) {
++        Self::push_duration(
++            &mut self.scroll_div_prepaint_durations,
++            self.scroll_div_prepaint_current,
++        );
++    }
+ 
+     pub(crate) fn record_cached_prepaint_reuse(&mut self, duration: Duration) {
+         self.cached_prepaint_reuse_current += duration;
+@@ -292,9 +317,15 @@
+             Self::duration_summary(&self.root_layout_durations);
+         let (root_prepaint_p90_ms, root_prepaint_p99_ms, _, _) =
+             Self::duration_summary(&self.root_prepaint_durations);
+-        let (prepaint_rest_p90_ms, prepaint_rest_p99_ms, _, _) =
+-            Self::duration_summary(&self.prepaint_rest_durations);
+-        let (cached_prepaint_reuse_p90_ms, cached_prepaint_reuse_p99_ms, _, _) =
++        let (prepaint_rest_p90_ms, prepaint_rest_p99_ms, _, _) =
++            Self::duration_summary(&self.prepaint_rest_durations);
++        let (
++            scroll_div_prepaint_p90_ms,
++            scroll_div_prepaint_p99_ms,
++            scroll_div_prepaint_max_ms,
++            scroll_div_prepaint_samples,
++        ) = Self::duration_summary(&self.scroll_div_prepaint_durations);
++        let (cached_prepaint_reuse_p90_ms, cached_prepaint_reuse_p99_ms, _, _) =
+             Self::duration_summary(&self.cached_prepaint_reuse_durations);
+         let (cached_prepaint_render_p90_ms, cached_prepaint_render_p99_ms, _, _) =
+             Self::duration_summary(&self.cached_prepaint_render_durations);
+@@ -323,9 +354,13 @@
+             root_layout_p99_ms,
+             root_prepaint_p90_ms,
+             root_prepaint_p99_ms,
+-            prepaint_rest_p90_ms,
+-            prepaint_rest_p99_ms,
+-            cached_prepaint_reuse_p90_ms,
++            prepaint_rest_p90_ms,
++            prepaint_rest_p99_ms,
++            scroll_div_prepaint_p90_ms,
++            scroll_div_prepaint_p99_ms,
++            scroll_div_prepaint_max_ms,
++            scroll_div_prepaint_samples,
++            cached_prepaint_reuse_p90_ms,
+             cached_prepaint_reuse_p99_ms,
+             cached_prepaint_render_p90_ms,
+             cached_prepaint_render_p99_ms,
+diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
+--- a/crates/gpui/src/window.rs
++++ b/crates/gpui/src/window.rs
+@@ -3183,9 +3183,14 @@
+     }
+ 
+     #[cfg(feature = "profiler")]
+-    pub(crate) fn record_cached_prepaint_render(&mut self, duration: Duration) {
+-        self.debug_frame_overlay.record_cached_prepaint_render(duration);
+-    }
++    pub(crate) fn record_cached_prepaint_render(&mut self, duration: Duration) {
++        self.debug_frame_overlay.record_cached_prepaint_render(duration);
++    }
++
++    #[cfg(feature = "profiler")]
++    pub(crate) fn record_scroll_div_prepaint(&mut self, duration: Duration) {
++        self.debug_frame_overlay.record_scroll_div_prepaint(duration);
++    }
+ 
+     #[cfg(feature = "profiler")]
+     pub(crate) fn record_cached_prepaint_hit(&mut self) {
+@@ -3208,9 +3213,11 @@
+         self.invalidator.set_phase(DrawPhase::Prepaint);
+         #[cfg(feature = "profiler")]
+         let prepaint_started = Instant::now();
+-        #[cfg(feature = "profiler")]
+-        self.debug_frame_overlay.begin_cached_prepaint_frame();
+-        self.tooltip_bounds.take();
++        #[cfg(feature = "profiler")]
++        self.debug_frame_overlay.begin_cached_prepaint_frame();
++        #[cfg(feature = "profiler")]
++        self.debug_frame_overlay.begin_scroll_div_prepaint_frame();
++        self.tooltip_bounds.take();
+ 
+         self.a11y.sync_active_flag();
+         if self.a11y.is_active() {
+@@ -3302,11 +3309,13 @@
+         #[cfg(feature = "profiler")]
+         self.debug_frame_overlay
+             .record_prepaint_rest(Instant::now().duration_since(prepaint_rest_started));
+-        #[cfg(feature = "profiler")]
+-        self.debug_frame_overlay
+-            .record_prepaint(Instant::now().duration_since(prepaint_started));
+-        #[cfg(feature = "profiler")]
+-        self.debug_frame_overlay.finish_cached_prepaint_frame();
++        #[cfg(feature = "profiler")]
++        self.debug_frame_overlay
++            .record_prepaint(Instant::now().duration_since(prepaint_started));
++        #[cfg(feature = "profiler")]
++        self.debug_frame_overlay.finish_cached_prepaint_frame();
++        #[cfg(feature = "profiler")]
++        self.debug_frame_overlay.finish_scroll_div_prepaint_frame();
+ 
+         // Now actually paint the elements.
+         self.invalidator.set_phase(DrawPhase::Paint);
+diff --git a/crates/gpui/src/elements/div.rs b/crates/gpui/src/elements/div.rs
+--- a/crates/gpui/src/elements/div.rs
++++ b/crates/gpui/src/elements/div.rs
+@@ -30,8 +30,10 @@
+ use gpui_util::ResultExt;
+ use refineable::Refineable;
+ use smallvec::SmallVec;
+-use std::{
+-    any::{Any, TypeId},
++#[cfg(feature = "profiler")]
++use std::time::Instant;
++use std::{
++    any::{Any, TypeId},
+     cell::RefCell,
+     cmp::Ordering,
+     fmt::Debug,
+@@ -1942,11 +1944,13 @@
+             (child_max - child_min).into()
+         };
+ 
+-        if let Some(scroll_handle) = self.interactivity.tracked_scroll_handle.as_ref() {
+-            scroll_handle.scroll_to_active_item();
+-        }
+-
+-        self.interactivity.prepaint(
++        if let Some(scroll_handle) = self.interactivity.tracked_scroll_handle.as_ref() {
++            scroll_handle.scroll_to_active_item();
++        }
++        #[cfg(feature = "profiler")]
++        let tracks_scroll = self.interactivity.tracked_scroll_handle.is_some();
++
++        self.interactivity.prepaint(
+             global_id,
+             inspector_id,
+             bounds,
+@@ -1959,8 +1963,14 @@
+                     return hitbox;
+                 }
+ 
+-                window.with_image_cache(image_cache, |window| {
+-                    window.with_element_offset(scroll_offset, |window| {
++                #[cfg(feature = "profiler")]
++                let scroll_div_prepaint_started = (tracks_scroll
++                    && (style.overflow.x == Overflow::Scroll
++                        || style.overflow.y == Overflow::Scroll))
++                    .then(Instant::now);
++
++                window.with_image_cache(image_cache, |window| {
++                    window.with_element_offset(scroll_offset, |window| {
+                         if let Some(order_fn) = &self.prepaint_order_fn {
+                             let order = order_fn(window, cx);
+                             for idx in order {
+@@ -1975,12 +1985,17 @@
+                         }
+                     });
+ 
+-                    if let Some(listener) = self.prepaint_listener.as_ref() {
+-                        listener(children_bounds, window, cx);
+-                    }
+-                });
+-
+-                hitbox
++                    if let Some(listener) = self.prepaint_listener.as_ref() {
++                        listener(children_bounds, window, cx);
++                    }
++                });
++
++                #[cfg(feature = "profiler")]
++                if let Some(started) = scroll_div_prepaint_started {
++                    window.record_scroll_div_prepaint(started.elapsed());
++                }
++
++                hitbox
+             },
+         )
+     }

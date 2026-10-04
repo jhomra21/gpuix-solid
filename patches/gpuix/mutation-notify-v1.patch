@@ -1,0 +1,61 @@
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -392,6 +392,7 @@ enum ClockControl {
+ 
+ #[cfg(any(target_os = "windows", target_os = "linux", target_os = "freebsd"))]
+ enum UiCommand {
++    NotifyView,
+     Invalidate,
+     ActivateWindow,
+     MinimizeWindow,
+@@ -512,6 +513,9 @@ async fn run_ui_commands(
+ ) {
+     while let Some(command) = commands.next().await {
+         let result = match command {
++            UiCommand::NotifyView => window.update(cx, |_view, _window, cx| {
++                cx.notify();
++            }),
+             UiCommand::Invalidate => refresh_ui_window(window, cx),
+             UiCommand::ActivateWindow => window.update(cx, |_view, window, cx| {
+                 cx.activate(true);
+@@ -1060,6 +1064,31 @@ impl Renderer {
+         recv_ui_response(receiver, "the automation clock command")
+     }
+ 
++    /// Retained-tree mutations already identify the root view that changed.
++    ///
++    /// Notify that entity without forcing a full `Window::refresh`. A full
++    /// refresh invalidates otherwise-clean retained-region caches, while the
++    /// entity notification still schedules the updated tree to render.
++    fn request_view_update(&self) -> Result<()> {
++        #[cfg(target_os = "macos")]
++        return update_window(|_view, _window, cx| {
++            cx.notify();
++        });
++
++        #[cfg(any(target_os = "windows", target_os = "linux", target_os = "freebsd"))]
++        return self.send_ui_command(UiCommand::NotifyView);
++
++        #[cfg(not(any(
++            target_os = "macos",
++            target_os = "windows",
++            target_os = "linux",
++            target_os = "freebsd"
++        )))]
++        Err(Error::from_reason(
++            "The production GPUIX renderer does not support this operating system",
++        ))
++    }
++
+     fn request_invalidate(&self) -> Result<()> {
+         #[cfg(target_os = "macos")]
+         return invalidate_window();
+@@ -1383,6 +1412,6 @@ impl Renderer {
+         let destroyed =
+             apply_batch_to_tree(&mut tree, json.as_bytes()).map_err(Error::from_reason)?;
+         drop(tree);
+-        self.request_invalidate()?;
++        self.request_view_update()?;
+         Ok(destroyed)
+     }

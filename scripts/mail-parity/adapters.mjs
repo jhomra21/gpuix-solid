@@ -268,7 +268,7 @@ export async function launchMailAdapter(kind, repoRoot, reactReference) {
     async getScrollOffset(elementId) {
       const result = isReact
         ? await app.call("getScrollOffset", { elementId })
-        : { offset: app.backend.getScrollOffset(elementId) }
+        : { offset: await app.backend.getScrollOffset?.(elementId) }
       const offset = result.offset
       if (!offset) return null
       return { x: Number(offset[0]), y: Number(offset[1]) }

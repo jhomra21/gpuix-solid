@@ -1,0 +1,191 @@
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -5384,33 +5384,88 @@
+                 });
+             }
+ 
+             // ── Scroll wheel ─────────────────────────────────────
+-            "scroll" => {
+-                el = el.on_scroll_wheel(move |scroll_event, _window, _cx| {
+-                    emit_event_full(&callback, id, "scroll", |p| {
+-                        let (x, y) = point_to_xy(scroll_event.position);
+-                        p.x = Some(x);
+-                        p.y = Some(y);
+-                        p.modifiers = Some(scroll_event.modifiers.into());
+-                        p.precise = Some(scroll_event.delta.precise());
+-
+-                        // Convert ScrollDelta to pixel values.
+-                        // For Lines delta, we use a default line height of 20px.
+-                        let line_height = gpui::px(20.0);
+-                        let pixel_delta = scroll_event.delta.pixel_delta(line_height);
+-                        p.delta_x = Some(f64::from(f32::from(pixel_delta.x)));
+-                        p.delta_y = Some(f64::from(f32::from(pixel_delta.y)));
+-
+-                        p.touch_phase = Some(match scroll_event.touch_phase {
+-                            gpui::TouchPhase::Started => "started".to_string(),
+-                            gpui::TouchPhase::Moved => "moved".to_string(),
+-                            gpui::TouchPhase::Ended => "ended".to_string(),
+-                            gpui::TouchPhase::Cancelled => "cancelled".to_string(),
+-                        });
+-                    });
+-                });
+-            }
++            "scroll" => {
++                let scroll_handle = ctx.scroll_handles.get(&id).cloned();
++                let pinch_scroll_handle = scroll_handle.clone();
++                let pinch_callback = callback.clone();
++                el = el
++                    .on_scroll_wheel(move |scroll_event, _window, _cx| {
++                        emit_event_full(&callback, id, "scroll", |p| {
++                            let (x, y) = point_to_xy(scroll_event.position);
++                            p.x = Some(x);
++                            p.y = Some(y);
++                            p.modifiers = Some(scroll_event.modifiers.into());
++                            p.precise = Some(scroll_event.delta.precise());
++
++                            // Convert ScrollDelta to pixel values.
++                            // For Lines delta, we use a default line height of 20px.
++                            let line_height = gpui::px(20.0);
++                            let pixel_delta = scroll_event.delta.pixel_delta(line_height);
++                            p.delta_x = Some(f64::from(f32::from(pixel_delta.x)));
++                            p.delta_y = Some(f64::from(f32::from(pixel_delta.y)));
++
++                            p.touch_phase = Some(match scroll_event.touch_phase {
++                                gpui::TouchPhase::Started => "started".to_string(),
++                                gpui::TouchPhase::Moved => "moved".to_string(),
++                                gpui::TouchPhase::Ended => "ended".to_string(),
++                                gpui::TouchPhase::Cancelled => "cancelled".to_string(),
++                            });
++
++                            if let Some(handle) = &scroll_handle {
++                                let offset = handle.offset();
++                                let max = handle.max_offset();
++                                let bounds = handle.bounds();
++                                p.scroll_offset_x = Some(f64::from(f32::from(offset.x)));
++                                p.scroll_offset_y = Some(f64::from(f32::from(offset.y)));
++                                p.scroll_max_x = Some(f64::from(f32::from(max.x)));
++                                p.scroll_max_y = Some(f64::from(f32::from(max.y)));
++                                p.scroll_viewport_width =
++                                    Some(f64::from(f32::from(bounds.size.width)));
++                                p.scroll_viewport_height =
++                                    Some(f64::from(f32::from(bounds.size.height)));
++                            }
++                        });
++                    })
++                    .on_pinch(move |pinch_event, _window, _cx| {
++                        emit_event_full(&pinch_callback, id, "scroll", |p| {
++                            let (x, y) = point_to_xy(pinch_event.position);
++                            p.x = Some(x);
++                            p.y = Some(y);
++                            let mut modifiers: crate::element_tree::EventModifiers =
++                                pinch_event.modifiers.into();
++                            // Browsers expose trackpad pinch as a ctrl-wheel event.
++                            // Preserve that contract so browser-shaped consumers can
++                            // reuse their existing wheel zoom handlers natively.
++                            modifiers.ctrl = true;
++                            p.modifiers = Some(modifiers);
++                            p.precise = Some(true);
++                            p.delta_x = Some(0.0);
++                            p.delta_y = Some(f64::from(pinch_event.delta) * 100.0);
++                            p.touch_phase = Some(match pinch_event.phase {
++                                gpui::TouchPhase::Started => "started".to_string(),
++                                gpui::TouchPhase::Moved => "moved".to_string(),
++                                gpui::TouchPhase::Ended => "ended".to_string(),
++                                gpui::TouchPhase::Cancelled => "cancelled".to_string(),
++                            });
++
++                            if let Some(handle) = &pinch_scroll_handle {
++                                let offset = handle.offset();
++                                let max = handle.max_offset();
++                                let bounds = handle.bounds();
++                                p.scroll_offset_x = Some(f64::from(f32::from(offset.x)));
++                                p.scroll_offset_y = Some(f64::from(f32::from(offset.y)));
++                                p.scroll_max_x = Some(f64::from(f32::from(max.x)));
++                                p.scroll_max_y = Some(f64::from(f32::from(max.y)));
++                                p.scroll_viewport_width =
++                                    Some(f64::from(f32::from(bounds.size.width)));
++                                p.scroll_viewport_height =
++                                    Some(f64::from(f32::from(bounds.size.height)));
++                            }
++                        });
++                    });
++            }
+ 
+             // ── Key down ─────────────────────────────────────────
+             // Requires .focusable() (set above). Element must be focused
+             // (clicked or tabbed to) for these to fire.
+diff --git a/packages/native/src/custom_elements/canvas.rs b/packages/native/src/custom_elements/canvas.rs
+--- a/packages/native/src/custom_elements/canvas.rs
++++ b/packages/native/src/custom_elements/canvas.rs
+@@ -380,28 +380,50 @@
+                         },
+                     );
+                 });
+             }
+-            "scroll" => {
+-                el = el.on_scroll_wheel(move |scroll_event, _window, _cx| {
+-                    crate::renderer::emit_event_full(&callback, id, "scroll", |payload| {
+-                        let (x, y) = crate::renderer::point_to_xy(scroll_event.position);
+-                        payload.x = Some(x);
+-                        payload.y = Some(y);
+-                        payload.modifiers = Some(scroll_event.modifiers.into());
+-                        payload.precise = Some(scroll_event.delta.precise());
+-                        let pixel_delta = scroll_event.delta.pixel_delta(gpui::px(20.0));
+-                        payload.delta_x = Some(f64::from(f32::from(pixel_delta.x)));
+-                        payload.delta_y = Some(f64::from(f32::from(pixel_delta.y)));
+-                        payload.touch_phase = Some(match scroll_event.touch_phase {
+-                            gpui::TouchPhase::Started => "started".to_string(),
+-                            gpui::TouchPhase::Moved => "moved".to_string(),
+-                            gpui::TouchPhase::Ended => "ended".to_string(),
+-                            gpui::TouchPhase::Cancelled => "cancelled".to_string(),
+-                        });
+-                    });
+-                });
+-            }
++            "scroll" => {
++                let pinch_callback = callback.clone();
++                el = el
++                    .on_scroll_wheel(move |scroll_event, _window, _cx| {
++                        crate::renderer::emit_event_full(&callback, id, "scroll", |payload| {
++                            let (x, y) = crate::renderer::point_to_xy(scroll_event.position);
++                            payload.x = Some(x);
++                            payload.y = Some(y);
++                            payload.modifiers = Some(scroll_event.modifiers.into());
++                            payload.precise = Some(scroll_event.delta.precise());
++                            let pixel_delta = scroll_event.delta.pixel_delta(gpui::px(20.0));
++                            payload.delta_x = Some(f64::from(f32::from(pixel_delta.x)));
++                            payload.delta_y = Some(f64::from(f32::from(pixel_delta.y)));
++                            payload.touch_phase = Some(match scroll_event.touch_phase {
++                                gpui::TouchPhase::Started => "started".to_string(),
++                                gpui::TouchPhase::Moved => "moved".to_string(),
++                                gpui::TouchPhase::Ended => "ended".to_string(),
++                                gpui::TouchPhase::Cancelled => "cancelled".to_string(),
++                            });
++                        });
++                    })
++                    .on_pinch(move |pinch_event, _window, _cx| {
++                        crate::renderer::emit_event_full(&pinch_callback, id, "scroll", |payload| {
++                            let (x, y) = crate::renderer::point_to_xy(pinch_event.position);
++                            payload.x = Some(x);
++                            payload.y = Some(y);
++                            let mut modifiers: crate::element_tree::EventModifiers =
++                                pinch_event.modifiers.into();
++                            modifiers.ctrl = true;
++                            payload.modifiers = Some(modifiers);
++                            payload.precise = Some(true);
++                            payload.delta_x = Some(0.0);
++                            payload.delta_y = Some(f64::from(pinch_event.delta) * 100.0);
++                            payload.touch_phase = Some(match pinch_event.phase {
++                                gpui::TouchPhase::Started => "started".to_string(),
++                                gpui::TouchPhase::Moved => "moved".to_string(),
++                                gpui::TouchPhase::Ended => "ended".to_string(),
++                                gpui::TouchPhase::Cancelled => "cancelled".to_string(),
++                            });
++                        });
++                    });
++            }
+             _ => {}
+         }
+     }
+     if ctx.events.contains("mouseDown") && ctx.events.contains("mouseMove") {

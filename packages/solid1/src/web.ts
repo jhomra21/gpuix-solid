@@ -5,10 +5,421 @@ import {
   type JSX,
   type ValidComponent,
 } from "solid-js"
-import { HostElementNode, setHostProperty, type HostRootNode } from "./host/nodes.js"
-import { createElement, spread } from "./universal.js"
+import { HostElementNode, refreshHostPointerEvents, setHostProperty, type HostNode, type HostRootNode } from "./host/nodes.js"
+import { hasDelegatedNativeHandler, nativeEventTypeForBrowserEvent, registerDelegatedNativeEvent } from "./host/events.js"
+import { createComponent, createElement, createTextNode, effect, insert, insertNode, memo, setProp, spread, use } from "./universal.js"
 
 export const isServer = false
+
+// Solid's client web runtime exposes the server request helper as a no-op.
+// Routers import it unconditionally and rely on isServer=false to keep request-only work dormant.
+export function getRequestEvent(): undefined {
+  return undefined
+}
+
+export { createComponent, effect, insert, memo, use }
+
+type WebAttributeValue = string | number | boolean | null | undefined
+
+type WebStyleValue =
+  | string
+  | Record<string, string | number | null | undefined>
+  | null
+  | undefined
+
+export function setAttribute(node: HostElementNode, name: string, value: WebAttributeValue): void {
+  setProp(node, name, value)
+}
+
+export function className(node: HostElementNode, value: string | null | undefined): void {
+  setProp(node, "class", value)
+}
+
+export function style(
+  node: HostElementNode,
+  value: WebStyleValue,
+  previous?: WebStyleValue,
+): WebStyleValue {
+  setProp(node, "style", value, previous)
+  return value
+}
+
+type WebEventDataHandler<T> = (data: T, event: Event) => void
+type WebEventHandler<T> = EventListener | [WebEventDataHandler<T>, T]
+
+export function addEventListener<T>(
+  node: HostElementNode,
+  name: string,
+  handler: WebEventHandler<T>,
+  delegate: boolean,
+): void {
+  const eventName = name.toLowerCase()
+  if (Array.isArray(handler)) {
+    const [handlerFunction, data] = handler
+    if (delegate) {
+      defineDelegatedDataHandler(node, eventName, handlerFunction, data)
+      return
+    }
+    node.addEventListener(eventName, (event) => handlerFunction.call(node, data, event))
+    return
+  }
+
+  if (delegate) {
+    defineDelegatedListener(node, eventName, handler)
+    return
+  }
+
+  node.addEventListener(eventName, handler)
+}
+
+function defineDelegatedListener(
+  node: HostElementNode,
+  name: string,
+  handler: EventListener,
+): void {
+  Object.defineProperty(node, `$$${name}`, {
+    configurable: true,
+    writable: true,
+    value: handler,
+  })
+  syncNativeDelegatedTarget(node, name)
+}
+
+function defineDelegatedDataHandler<T>(
+  node: HostElementNode,
+  name: string,
+  handler: WebEventDataHandler<T>,
+  data: T,
+): void {
+  Object.defineProperty(node, `$$${name}`, {
+    configurable: true,
+    writable: true,
+    value: handler,
+  })
+  Object.defineProperty(node, `$$${name}Data`, {
+    configurable: true,
+    writable: true,
+    value: data,
+  })
+  syncNativeDelegatedTarget(node, name)
+}
+
+type StaticTemplateText = {
+  kind: "text"
+  value: string
+}
+
+type StaticTemplateElement = {
+  kind: "element"
+  tagName: string
+  attributes: Array<[string, string]>
+  children: StaticTemplateNode[]
+}
+
+type StaticTemplateNode = StaticTemplateText | StaticTemplateElement
+
+interface StaticTemplateFactory {
+  (): HostElementNode
+  cloneNode(): HostElementNode
+}
+
+const VOID_TEMPLATE_TAGS = new Set([
+  "area",
+  "base",
+  "br",
+  "col",
+  "embed",
+  "hr",
+  "img",
+  "input",
+  "link",
+  "meta",
+  "param",
+  "source",
+  "track",
+  "wbr",
+])
+
+const TABLE_STRUCTURAL_TEMPLATE_TAGS = new Set([
+  "table",
+  "thead",
+  "tbody",
+  "tfoot",
+  "tr",
+])
+
+export function template(
+  html: string,
+  _isImportNode?: boolean,
+  _isSvg?: boolean,
+  isMathMl?: boolean,
+): StaticTemplateFactory {
+  if (isMathMl) throw new Error("GPUix Solid does not support MathML templates")
+  const blueprint = parseStaticTemplate(html)
+  const create = (): HostElementNode => instantiateStaticTemplate(blueprint)
+  return Object.assign(create, { cloneNode: create })
+}
+
+function tokenizeStaticTemplate(html: string): string[] {
+  const tokens: string[] = []
+  let cursor = 0
+
+  while (cursor < html.length) {
+    const open = html.indexOf("<", cursor)
+    if (open < 0) {
+      if (cursor < html.length) tokens.push(html.slice(cursor))
+      break
+    }
+    if (open > cursor) tokens.push(html.slice(cursor, open))
+
+    if (html.startsWith("<!--", open)) {
+      const close = html.indexOf("-->", open + 4)
+      if (close < 0) throw new Error("Unclosed Solid DOM template comment")
+      tokens.push(html.slice(open, close + 3))
+      cursor = close + 3
+      continue
+    }
+
+    if (html.startsWith("<!>", open)) {
+      tokens.push("<!>")
+      cursor = open + 3
+      continue
+    }
+
+    let quote: "\"" | "'" | null = null
+    let end = open + 1
+    for (; end < html.length; end += 1) {
+      const character = html[end]
+      if (quote) {
+        if (character === quote) quote = null
+        continue
+      }
+      if (character === "\"" || character === "'") {
+        quote = character
+        continue
+      }
+      if (character === ">") break
+    }
+
+    if (end >= html.length) {
+      throw new Error(`Unclosed Solid DOM template tag starting at offset ${open}`)
+    }
+
+    tokens.push(html.slice(open, end + 1))
+    cursor = end + 1
+  }
+
+  return tokens
+}
+
+function parseStaticTemplate(html: string): StaticTemplateElement {
+  const roots: StaticTemplateNode[] = []
+  const stack: StaticTemplateElement[] = []
+  const tokens = tokenizeStaticTemplate(html)
+
+  const append = (node: StaticTemplateNode): void => {
+    const parent = stack.at(-1)
+    if (parent) parent.children.push(node)
+    else roots.push(node)
+  }
+
+  for (const token of tokens) {
+    if (token.startsWith("<!--") || token === "<!>") {
+      append({ kind: "text", value: "" })
+      continue
+    }
+
+    if (token.startsWith("</")) {
+      const tagName = /^<\/([A-Za-z][\w:-]*)\s*>$/.exec(token)?.[1]?.toLowerCase()
+      const open = stack.pop()
+      if (!tagName || !open || open.tagName !== tagName) {
+        throw new Error(`Invalid Solid DOM template closing tag: ${token}`)
+      }
+      continue
+    }
+
+    if (token.startsWith("<")) {
+      const match = /^<([A-Za-z][\w:-]*)([\s\S]*?)(\/?)>$/.exec(token)
+      if (!match?.[1]) throw new Error(`Invalid Solid DOM template tag: ${token}`)
+      const tagName = match[1].toLowerCase()
+      const element: StaticTemplateElement = {
+        kind: "element",
+        tagName,
+        attributes: parseStaticTemplateAttributes(match[2] ?? ""),
+        children: [],
+      }
+      append(element)
+      if (match[3] !== "/" && !VOID_TEMPLATE_TAGS.has(tagName)) stack.push(element)
+      continue
+    }
+
+    // HTML table parsing ignores formatting whitespace between structural
+    // table boxes. Keeping those newlines as GPUIX text children gives each
+    // one a line box and can separate adjacent rows by several line-heights.
+    const parent = stack.at(-1)
+    if (parent && TABLE_STRUCTURAL_TEMPLATE_TAGS.has(parent.tagName) && token.trim().length === 0) {
+      continue
+    }
+    append({ kind: "text", value: decodeHtmlEntities(token) })
+  }
+
+  // Solid's DOM compiler targets the browser HTML parser, which implicitly
+  // closes still-open elements at end-of-input. Empty/self-closing JSX can
+  // therefore compile to templates such as "<div>" rather than "<div></div>".
+  // The tree is already linked while scanning, so EOF closure needs no work.
+  stack.length = 0
+
+  if (roots.length !== 1 || roots[0]?.kind !== "element") {
+    throw new Error("Solid DOM templates must contain exactly one root element")
+  }
+  return roots[0]
+}
+
+function parseStaticTemplateAttributes(source: string): Array<[string, string]> {
+  const attributes: Array<[string, string]> = []
+  const pattern = /([^\s=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>]+)))?/g
+  for (const match of source.matchAll(pattern)) {
+    const name = match[1]
+    if (!name) continue
+    const rawValue = match[2] ?? match[3] ?? match[4] ?? ""
+    attributes.push([name, decodeHtmlEntities(rawValue)])
+  }
+  return attributes
+}
+
+function instantiateStaticTemplate(templateNode: StaticTemplateElement): HostElementNode {
+  const node = instantiateStaticTemplateNode(templateNode)
+  if (!(node instanceof HostElementNode)) {
+    throw new Error(`Expected host element for static <${templateNode.tagName}> template`)
+  }
+  return node
+}
+
+function instantiateStaticTemplateNode(templateNode: StaticTemplateNode): HostNode {
+  if (templateNode.kind === "text") return requireHostTemplateNode(createTextNode(templateNode.value))
+  if (templateNode.tagName === "br") return requireHostTemplateNode(createTextNode("\n"))
+
+  const node = createElement(templateNode.tagName)
+  if (!(node instanceof HostElementNode)) {
+    throw new Error(`Expected host element for static <${templateNode.tagName}> template`)
+  }
+  installBrowserStyleMutationCompatibility(node)
+
+  for (const [name, value] of templateNode.attributes) {
+    setProp(node, name, name === "style" ? parseStaticStyleAttribute(value) : value)
+  }
+  for (const child of templateNode.children) insertNode(node, instantiateStaticTemplateNode(child))
+  return node
+}
+
+function requireHostTemplateNode(node: HostNode | HostRootNode): HostNode {
+  if (node.kind === "root") throw new TypeError("Static DOM template cannot create a host root")
+  return node
+}
+
+function parseStaticStyleAttribute(value: string) {
+  const declarations: Record<string, string> = {}
+  for (const declaration of value.split(";")) {
+    const separator = declaration.indexOf(":")
+    if (separator < 0) continue
+    const name = declaration.slice(0, separator).trim()
+    const propertyValue = declaration.slice(separator + 1).trim()
+    if (name && propertyValue) declarations[name] = propertyValue
+  }
+  return declarations
+}
+
+function decodeHtmlEntities(value: string): string {
+  return value.replace(
+    /&(#x[0-9A-Fa-f]+|#\\d+|amp|apos|gt|lt|nbsp|quot);/g,
+    (entity, encoded: string) => {
+      if (encoded.startsWith("#x")) return String.fromCodePoint(Number.parseInt(encoded.slice(2), 16))
+      if (encoded.startsWith("#")) return String.fromCodePoint(Number.parseInt(encoded.slice(1), 10))
+      switch (encoded) {
+        case "amp": return "&"
+        case "apos": return "'"
+        case "gt": return ">"
+        case "lt": return "<"
+        case "nbsp": return "\u00a0"
+        case "quot": return '"'
+      }
+      return entity
+    },
+  )
+}
+
+export const SVGElements = new Set([
+  "altGlyph", "altGlyphDef", "altGlyphItem", "animate", "animateColor", "animateMotion",
+  "animateTransform", "circle", "clipPath", "color-profile", "cursor", "defs", "desc",
+  "ellipse", "feBlend", "feColorMatrix", "feComponentTransfer", "feComposite",
+  "feConvolveMatrix", "feDiffuseLighting", "feDisplacementMap", "feDistantLight",
+  "feDropShadow", "feFlood", "feFuncA", "feFuncB", "feFuncG", "feFuncR",
+  "feGaussianBlur", "feImage", "feMerge", "feMergeNode", "feMorphology", "feOffset",
+  "fePointLight", "feSpecularLighting", "feSpotLight", "feTile", "feTurbulence",
+  "filter", "font", "font-face", "font-face-format", "font-face-name", "font-face-src",
+  "font-face-uri", "foreignObject", "g", "glyph", "glyphRef", "hkern", "image", "line",
+  "linearGradient", "marker", "mask", "metadata", "missing-glyph", "mpath", "path",
+  "pattern", "polygon", "polyline", "radialGradient", "rect", "set", "stop", "svg",
+  "switch", "symbol", "text", "textPath", "tref", "tspan", "use", "view", "vkern",
+])
+
+const delegatedEventsByDocument = new WeakMap<object, Set<string>>()
+
+export function delegateEvents(eventNames: string[], documentTarget: Document = globalThis.document): void {
+  const registered = delegatedEventsByDocument.get(documentTarget) ?? new Set<string>()
+  delegatedEventsByDocument.set(documentTarget, registered)
+
+  for (const rawName of eventNames) {
+    const name = rawName.toLowerCase()
+    if (registered.has(name)) continue
+    registered.add(name)
+    documentTarget.addEventListener(name, dispatchDelegatedEvent)
+
+    const nativeEventType = nativeEventTypeForBrowserEvent(name)
+    if (!nativeEventType) continue
+    if (registerDelegatedNativeEvent(nativeEventType)) syncNativeDelegatedObservation(nativeEventType)
+  }
+}
+
+function dispatchDelegatedEvent(event: Event): void {
+  let node = event.target
+  while (node instanceof HostElementNode) {
+    const handlerKey = "$$" + event.type
+    const handlerValue: unknown = Object.getOwnPropertyDescriptor(node, handlerKey)?.value
+    if (handlerValue instanceof Function) {
+      Object.defineProperty(event, "currentTarget", { configurable: true, value: node })
+      const data: unknown = Object.getOwnPropertyDescriptor(node, handlerKey + "Data")?.value
+      if (data === undefined) handlerValue.call(node, event)
+      else handlerValue.call(node, data, event)
+    }
+    if (event.cancelBubble) return
+    node = node.parentElement
+  }
+}
+
+function syncNativeDelegatedTarget(node: HostElementNode, browserEventType: string): void {
+  const nativeEventType = nativeEventTypeForBrowserEvent(browserEventType)
+  if (!nativeEventType || !hasDelegatedNativeHandler(node, nativeEventType)) return
+  const root = node.root
+  if (!root || !node.nativeAlive) return
+  root.driver.enqueue("setEventListener", node.id, nativeEventType, true)
+  refreshHostPointerEvents(node)
+  root.driver.flush()
+}
+
+function syncNativeDelegatedObservation(nativeEventType: string): void {
+  const roots = new Set<HostRootNode>()
+  for (const candidate of Array.from(globalThis.document.body.querySelectorAll("*"))) {
+    if (!(candidate instanceof HostElementNode)) continue
+    if (!hasDelegatedNativeHandler(candidate, nativeEventType)) continue
+    const root = candidate.root
+    if (!root || !candidate.nativeAlive) continue
+    roots.add(root)
+    root.driver.enqueue("setEventListener", candidate.id, nativeEventType, true)
+    refreshHostPointerEvents(candidate)
+  }
+  for (const root of roots) root.driver.flush()
+}
 
 export type DynamicProps<T extends ValidComponent, P = ComponentProps<T>> = {
   [K in keyof P]: P[K]
@@ -55,6 +466,8 @@ installDocumentStyleCompatibility()
 installComputedStyleCompatibility()
 installDocumentFocusCompatibility()
 installDocumentPointerCaptureCompatibility()
+installInnerHtmlCompatibility()
+installImperativeDomElementCompatibility()
 
 export function createDynamic<T extends ValidComponent>(
   component: () => T | undefined,
@@ -104,7 +517,10 @@ function promoteNativePopperPositioner(element: HostElementNode): void {
   setHostProperty(element, "snapMargin", 0)
   setHostProperty(element, "deferred", true)
   setHostProperty(element, "priority", 10)
-  setHostProperty(element, "occlude", false)
+  // Browser portals paint and hit-test above the editor surface. Native Kobalte
+  // positioners must own the same occluding layer or menus can appear behind
+  // canvases/panels and send clicks through to the content below.
+  setHostProperty(element, "occlude", true)
 }
 
 function isHostTag(component: ValidComponent): component is string {
@@ -140,7 +556,54 @@ function installElementQueryCompatibility(): void {
   })
 }
 
-function installBrowserStyleMutationCompatibility(element: HostElementNode): void {
+function installInnerHtmlCompatibility(): void {
+  Object.defineProperty(HostElementNode.prototype, "innerHTML", {
+    configurable: true,
+    get(): string {
+      return ""
+    },
+    set(this: HostElementNode, value: string) {
+      setHostInnerHtml(this, String(value ?? ""))
+    },
+  })
+}
+
+function setHostInnerHtml(element: HostElementNode, html: string): void {
+  element.textContent = ""
+  if (!html) return
+
+  const wrapper = parseStaticTemplate(`<div>${html}</div>`)
+  for (const child of wrapper.children) insertNode(element, instantiateStaticTemplateNode(child))
+}
+
+function installImperativeDomElementCompatibility(): void {
+  const documentTarget = globalThis.document
+  const originalCreateElement = documentTarget.createElement.bind(documentTarget)
+  const originalCreateElementNS = documentTarget.createElementNS.bind(documentTarget)
+
+  Object.defineProperty(documentTarget, "createElement", {
+    configurable: true,
+    writable: true,
+    value: (tagName: string) => prepareImperativeDomElement(originalCreateElement(tagName)),
+  })
+  Object.defineProperty(documentTarget, "createElementNS", {
+    configurable: true,
+    writable: true,
+    value: (namespace: string | null, qualifiedName: string) =>
+      prepareImperativeDomElement(originalCreateElementNS(namespace, qualifiedName)),
+  })
+}
+
+function prepareImperativeDomElement(element: Element): HostElementNode {
+  if (!(element instanceof HostElementNode)) {
+    throw new TypeError("GPUix document.createElement() must return a HostElementNode")
+  }
+  installBrowserStyleMutationCompatibility(element)
+  element.setClassMutationHandler((className) => setProp(element, "class", className))
+  return element
+}
+
+export function installBrowserStyleMutationCompatibility(element: HostElementNode): void {
   let declaration = createBrowserStyleProxy(element, element.style)
   Object.defineProperty(element, "style", {
     configurable: true,
@@ -156,11 +619,45 @@ function createBrowserStyleProxy(
   element: HostElementNode,
   style: BrowserStyleDeclaration,
 ): BrowserStyleDeclaration {
-  return new Proxy(style, {
-    set(current, property, value, receiver) {
-      const updated = Reflect.set(current, property, value, receiver)
-      if (updated && isStringValue(property)) syncBrowserStyleMutation(element, current)
+  // SAFETY: the facade owns no style state; every property operation below forwards to the typed declaration.
+  const facade = {} as BrowserStyleDeclaration
+  return new Proxy(facade, {
+    get(_target, property) {
+      if (property === "setProperty") {
+        return (name: string, value: string, priority?: string) => {
+          style.setProperty(name, value, priority)
+          if (name.startsWith("--")) syncBrowserCustomPropertyMutation(element, name)
+          else syncBrowserStyleMutation(element, style)
+        }
+      }
+      if (property === "removeProperty") {
+        return (name: string) => {
+          const previous = style.removeProperty(name)
+          if (name.startsWith("--")) syncBrowserCustomPropertyMutation(element, name)
+          else syncBrowserStyleMutation(element, style)
+          return previous
+        }
+      }
+
+      // SAFETY: Proxy reads use keys supplied by BrowserStyleDeclaration consumers and forward them to that declaration.
+      return style[property as keyof BrowserStyleDeclaration]
+    },
+    set(_target, property, value) {
+      if (property === "cssText") {
+        applyBrowserCssText(style, String(value ?? ""))
+        syncBrowserStyleMutation(element, style)
+        return true
+      }
+      const updated = Reflect.set(style, property, value)
+      if (updated && isStringValue(property)) syncBrowserStyleMutation(element, style)
       return updated
+    },
+    ownKeys() {
+      return Object.getOwnPropertyNames(style)
+    },
+    getOwnPropertyDescriptor(_target, property) {
+      const descriptor = Object.getOwnPropertyDescriptor(style, property)
+      return descriptor ? { ...descriptor, configurable: true } : undefined
     },
   })
 }
@@ -170,8 +667,7 @@ function syncBrowserStyleMutation(element: HostElementNode, style: BrowserStyleD
   if (!root || !element.nativeAlive) return
 
   const nativeStyle = { ...style }
-  const parentBounds = browserParentBounds(element)
-  const translation = browserTranslation(style.transform)
+  const translation = browserTranslation(element, style.transform)
   if (nativePopperPositioners.has(element)) {
     if (translation) setHostProperty(element, "position", translation)
     delete nativeStyle.position
@@ -180,17 +676,100 @@ function syncBrowserStyleMutation(element: HostElementNode, style: BrowserStyleD
     delete nativeStyle.top
     delete nativeStyle.bottom
   } else if (translation) {
-    nativeStyle.left = translation.x - parentBounds.left
-    nativeStyle.top = translation.y - parentBounds.top
+    applyBrowserRelativeTranslation(nativeStyle, translation)
   }
 
+  const parentBounds = browserStyleNeedsParentSize(nativeStyle)
+    ? browserParentBounds(element)
+    : { left: 0, top: 0, width: 0, height: 0 }
   normalizeBrowserInset(nativeStyle, "left", parentBounds.width)
   normalizeBrowserInset(nativeStyle, "right", parentBounds.width)
   normalizeBrowserInset(nativeStyle, "top", parentBounds.height)
   normalizeBrowserInset(nativeStyle, "bottom", parentBounds.height)
   delete nativeStyle.transform
-  delete nativeStyle.zIndex
+
+  const cursor = browserCursor(element, nativeStyle.cursor)
+  if (cursor === undefined) delete nativeStyle.cursor
+  else nativeStyle.cursor = cursor
+
+  if (nativeStyle.zIndex !== undefined) {
+    const zIndex = Number(nativeStyle.zIndex)
+    if (Number.isFinite(zIndex)) nativeStyle.zIndex = zIndex
+    else delete nativeStyle.zIndex
+  }
   root.driver.enqueue("setStyle", element.id, nativeStyle)
+}
+
+function applyBrowserCssText(style: BrowserStyleDeclaration, cssText: string): void {
+  delete style.position
+  delete style.left
+  delete style.right
+  delete style.top
+  delete style.bottom
+  delete style.zIndex
+  delete style.opacity
+  delete style.pointerEvents
+  delete style.overflow
+  delete style.overflowX
+  delete style.overflowY
+
+  for (const declaration of cssText.split(";")) {
+    const separator = declaration.indexOf(":")
+    if (separator <= 0) continue
+    const property = declaration.slice(0, separator).trim().toLowerCase()
+    const value = declaration.slice(separator + 1).trim()
+    if (!value) continue
+
+    switch (property) {
+      case "position":
+        style.position = value
+        break
+      case "left":
+        style.left = parseBrowserCssDimension(value)
+        break
+      case "right":
+        style.right = parseBrowserCssDimension(value)
+        break
+      case "top":
+        style.top = parseBrowserCssDimension(value)
+        break
+      case "bottom":
+        style.bottom = parseBrowserCssDimension(value)
+        break
+      case "z-index": {
+        const zIndex = Number(value)
+        if (Number.isFinite(zIndex)) style.zIndex = zIndex
+        break
+      }
+      case "opacity": {
+        const opacity = Number(value)
+        if (Number.isFinite(opacity)) style.opacity = opacity
+        break
+      }
+      case "pointer-events":
+        if (value === "auto" || value === "none") style.pointerEvents = value
+        break
+      case "overflow":
+        style.overflow = value
+        break
+      case "overflow-x":
+        style.overflowX = value
+        break
+      case "overflow-y":
+        style.overflowY = value
+        break
+      // GPUIX has no will-change contract. Ignoring the hint preserves the
+      // authored layout/visibility semantics without inventing an effect.
+      case "will-change":
+        break
+    }
+  }
+}
+
+function parseBrowserCssDimension(value: string): string | number {
+  if (value === "0") return 0
+  const pixels = value.match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))px$/u)
+  return pixels ? Number(pixels[1]) : value
 }
 
 function browserParentBounds(element: HostElementNode): BrowserBounds {
@@ -200,13 +779,182 @@ function browserParentBounds(element: HostElementNode): BrowserBounds {
   return { left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height }
 }
 
-function browserTranslation(transform: string | undefined): BrowserTranslation | undefined {
+function browserTranslation(
+  element: HostElementNode,
+  transform: string | undefined,
+): BrowserTranslation | undefined {
   if (!transform) return undefined
   const number = "(-?(?:\\d+(?:\\.\\d+)?|\\.\\d+))"
-  const translate3d = transform.trim().match(new RegExp(`^translate3d\\(\\s*${number}px\\s*,\\s*${number}px\\s*,\\s*0(?:px)?\\s*\\)$`, "i"))
+  const value = resolveBrowserCustomProperties(element, transform).trim()
+  const translate3d = value.match(new RegExp(`^translate3d\\(\\s*${number}px\\s*,\\s*${number}px\\s*,\\s*0(?:px)?\\s*\\)$`, "i"))
   if (translate3d) return { x: Number(translate3d[1]), y: Number(translate3d[2]) }
-  const translate = transform.trim().match(new RegExp(`^translate\\(\\s*${number}px\\s*,\\s*${number}px\\s*\\)$`, "i"))
-  return translate ? { x: Number(translate[1]), y: Number(translate[2]) } : undefined
+  const translate = value.match(new RegExp(`^translate\\(\\s*${number}px\\s*,\\s*${number}px\\s*\\)$`, "i"))
+  if (translate) return { x: Number(translate[1]), y: Number(translate[2]) }
+
+  const translateX = browserAxisTranslation(value, "X", number)
+  if (translateX !== undefined) return { x: translateX, y: 0 }
+  const translateY = browserAxisTranslation(value, "Y", number)
+  return translateY === undefined ? undefined : { x: 0, y: translateY }
+}
+
+function browserAxisTranslation(value: string, axis: "X" | "Y", number: string): number | undefined {
+  const direct = value.match(new RegExp(`^translate${axis}\\(\\s*${number}px\\s*\\)$`, "i"))
+  if (direct) return Number(direct[1])
+
+  const scaled = value.match(new RegExp(
+    `^translate${axis}\\(\\s*calc\\(\\s*${number}px\\s*\\*\\s*${number}\\s*\\)\\s*\\)$`,
+    "i",
+  ))
+  return scaled ? Number(scaled[1]) * Number(scaled[2]) : undefined
+}
+
+function resolveBrowserCustomProperties(element: HostElementNode, value: string): string {
+  return value.replace(
+    /var\\(\\s*(--[A-Za-z0-9_-]+)\\s*(?:,\\s*([^)]*))?\\)/gu,
+    (_match, name: string, fallback: string | undefined) =>
+      browserCustomProperty(element, name) ?? fallback?.trim() ?? "",
+  )
+}
+
+function browserCustomProperty(element: HostElementNode, name: string): string | undefined {
+  let current: HostElementNode | null = element
+  while (current) {
+    const value = current.style.getPropertyValue(name)
+    if (value) return value
+    current = current.parentElement
+  }
+  return undefined
+}
+
+function syncBrowserCustomPropertyMutation(element: HostElementNode, name: string): void {
+  const pending: HostElementNode[] = [element]
+  while (pending.length > 0) {
+    const current = pending.pop()
+    if (!current) continue
+    if (browserStyleReferencesCustomProperty(current.style, name)) {
+      syncBrowserStyleMutation(current, current.style)
+    }
+    for (const child of current.children) {
+      if (child.kind === "element") pending.push(child)
+    }
+  }
+}
+
+function browserStyleReferencesCustomProperty(style: BrowserStyleDeclaration, name: string): boolean {
+  const reference = `var(${name}`
+  return Object.values(style).some((value) => isStringValue(value) && value.includes(reference))
+}
+
+function browserStyleNeedsParentSize(style: BrowserStyleDeclaration): boolean {
+  return (["left", "right", "top", "bottom"] as const).some((property) => {
+    const value = style[property]
+    return isStringValue(value) && value.trim().endsWith("%")
+  })
+}
+
+type BrowserNativeCursor = NonNullable<HostElementNode["style"]["cursor"]>
+
+const NATIVE_BROWSER_CURSORS = new Set<string>([
+  "default",
+  "auto",
+  "pointer",
+  "text",
+  "vertical-text",
+  "crosshair",
+  "grab",
+  "grabbing",
+  "move",
+  "all-scroll",
+  "col-resize",
+  "row-resize",
+  "ew-resize",
+  "ns-resize",
+  "nwse-resize",
+  "nesw-resize",
+  "n-resize",
+  "e-resize",
+  "s-resize",
+  "w-resize",
+  "ne-resize",
+  "nw-resize",
+  "se-resize",
+  "sw-resize",
+  "not-allowed",
+  "no-drop",
+  "alias",
+  "copy",
+  "context-menu",
+])
+
+function browserCursor(
+  element: HostElementNode,
+  cursor: BrowserStyleDeclaration["cursor"],
+): BrowserNativeCursor | undefined {
+  if (!cursor) return undefined
+  const resolved = resolveBrowserCustomProperties(element, String(cursor)).trim()
+  if (isBrowserNativeCursor(resolved)) return resolved
+  if (resolved === "cross") return "crosshair"
+  if (resolved === "zoom-in" || resolved === "zoom-out") return "pointer"
+  if (/^url\(/iu.test(resolved) && /,\s*pointer\s*$/iu.test(resolved)) return "pointer"
+  return undefined
+}
+
+function isBrowserNativeCursor(value: string): value is BrowserNativeCursor {
+  return NATIVE_BROWSER_CURSORS.has(value)
+}
+
+function applyBrowserRelativeTranslation(
+  style: BrowserStyleDeclaration,
+  translation: BrowserTranslation,
+): void {
+  if (style.position === undefined || style.position === "relative") {
+    if (style.position === undefined && (translation.x !== 0 || translation.y !== 0)) {
+      // CSS transforms move a normal-flow box without removing its original
+      // layout slot. Native top/left offsets have the same behavior only when
+      // the element participates in relative positioning.
+      style.position = "relative"
+    }
+    if (translation.x !== 0) {
+      const left = browserNumericInset(style.left)
+      if (left !== undefined) style.left = left + translation.x
+    }
+    if (translation.y !== 0) {
+      const top = browserNumericInset(style.top)
+      if (top !== undefined) style.top = top + translation.y
+    }
+    return
+  }
+
+  if (translation.x !== 0) {
+    const left = browserNumericMargin(style.marginLeft ?? style.margin)
+    const right = browserNumericMargin(style.marginRight ?? style.margin)
+    if (left !== undefined && right !== undefined) {
+      style.marginLeft = left + translation.x
+      style.marginRight = right - translation.x
+    }
+  }
+  if (translation.y !== 0) {
+    const top = browserNumericMargin(style.marginTop ?? style.margin)
+    const bottom = browserNumericMargin(style.marginBottom ?? style.margin)
+    if (top !== undefined && bottom !== undefined) {
+      style.marginTop = top + translation.y
+      style.marginBottom = bottom - translation.y
+    }
+  }
+}
+
+function browserNumericInset(value: string | number | undefined): number | undefined {
+  if (value === undefined || value === "") return 0
+  const pixels = String(value).trim().match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))px$/u)
+  if (pixels) return Number(pixels[1])
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : undefined
+}
+
+function browserNumericMargin(value: string | number | undefined): number | undefined {
+  if (value === undefined) return 0
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : undefined
 }
 
 function normalizeBrowserInset(style: BrowserStyleDeclaration, property: BrowserInset, basis: number): void {
@@ -256,13 +1004,7 @@ function installComputedStyleCompatibility(): void {
     value: (element: Element, pseudoElement?: string | null) => {
       const computed = originalGetComputedStyle(element, pseudoElement)
       if (!(element instanceof HostElementNode)) return computed
-      reflectHostComputedStyle(element, computed)
-      Object.defineProperty(computed, "getPropertyValue", {
-        configurable: true,
-        enumerable: false,
-        value: (name: string) => hostComputedProperty(element, name),
-      })
-      return computed
+      return createHostComputedStyle(element, computed)
     },
   })
   Object.defineProperty(globalThis.window, "getComputedStyle", {
@@ -272,18 +1014,56 @@ function installComputedStyleCompatibility(): void {
   })
 }
 
-function reflectHostComputedStyle(element: HostElementNode, computed: CSSStyleDeclaration): void {
+function createHostComputedStyle(
+  element: HostElementNode,
+  computed: CSSStyleDeclaration,
+): CSSStyleDeclaration {
+  return new Proxy(computed, {
+    get(target, property) {
+      if (property === "getPropertyValue") {
+        return (name: string) => hostComputedProperty(element, name) || target.getPropertyValue(name)
+      }
+
+      const reflected = hostComputedStyleValue(element, target, property)
+      if (reflected !== undefined) return reflected
+
+      // SAFETY: the proxy receives property keys from CSSStyleDeclaration consumers and forwards them to the same declaration.
+      const value = target[property as keyof CSSStyleDeclaration]
+      return value instanceof Function ? value.bind(target) : value
+    },
+  })
+}
+
+function hostComputedStyleValue(
+  element: HostElementNode,
+  computed: CSSStyleDeclaration,
+  property: PropertyKey,
+): string | undefined {
   const style: BrowserStyleDeclaration = element.style
-  if (style.display !== undefined) computed.display = style.display
-  if (style.position !== undefined) computed.position = style.position
-  if (style.overflow !== undefined) computed.overflow = style.overflow
-  if (style.overflowX !== undefined) computed.overflowX = style.overflowX
-  if (style.overflowY !== undefined) computed.overflowY = style.overflowY
-  computed.width = cssComputedValue(style.width, computed.width)
-  computed.height = cssComputedValue(style.height, computed.height)
-  computed.paddingLeft = cssComputedValue(style.paddingLeft, computed.paddingLeft)
-  computed.paddingTop = cssComputedValue(style.paddingTop, computed.paddingTop)
-  if (style.transform !== undefined) computed.transform = style.transform
+  switch (property) {
+    case "display":
+      return style.display === undefined ? undefined : String(style.display)
+    case "position":
+      return style.position === undefined ? undefined : String(style.position)
+    case "overflow":
+      return style.overflow === undefined ? undefined : String(style.overflow)
+    case "overflowX":
+      return style.overflowX === undefined ? undefined : String(style.overflowX)
+    case "overflowY":
+      return style.overflowY === undefined ? undefined : String(style.overflowY)
+    case "width":
+      return cssComputedValue(style.width, computed.width)
+    case "height":
+      return cssComputedValue(style.height, computed.height)
+    case "paddingLeft":
+      return cssComputedValue(style.paddingLeft, computed.paddingLeft)
+    case "paddingTop":
+      return cssComputedValue(style.paddingTop, computed.paddingTop)
+    case "transform":
+      return style.transform === undefined ? undefined : style.transform
+    default:
+      return undefined
+  }
 }
 
 function cssComputedValue(value: string | number | undefined, fallback: string): string {

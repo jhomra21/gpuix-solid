@@ -1,5 +1,6 @@
 import type { EventPayload as NativeEventPayload } from "@gpuix/native"
-import type { DomCompatTarget, DragData, EventPayload, HostEventHandler } from "./types.js"
+import type { DomCompatTarget, DragData, EventPayload, HostEventHandler, NativeScrollMetrics } from "./types.js"
+import { GpuixDOMPoint } from "./dom-point.js"
 
 export type { DomCompatTarget } from "./types.js"
 
@@ -37,6 +38,7 @@ export const EVENT_PROPS = [
   ["onFocus", "focus", "focus"],
   ["onBlur", "blur", "blur"],
   ["onScroll", "scroll", "scroll"],
+  ["onWheel", "wheel", "scroll"],
   ["onFileDrop", "fileDrop", "fileDrop"],
   ["onDragStart", "dragStart", null],
   ["onDragOver", "dragOver", null],
@@ -53,6 +55,7 @@ const DOM_EVENT_TO_NATIVE = new Map<string, NativeEventType>()
 const DOM_EVENTS_BY_NATIVE = new Map<string, DomEventType[]>()
 for (const [propName, domEventType, nativeEventType] of EVENT_PROPS) {
   EVENT_PROP_TO_TYPE.set(propName, domEventType)
+  EVENT_PROP_TO_TYPE.set(`on:${browserEventName(domEventType)}`, domEventType)
   if (nativeEventType === null) continue
   DOM_EVENT_TO_NATIVE.set(domEventType, nativeEventType)
   const domEvents = DOM_EVENTS_BY_NATIVE.get(nativeEventType) ?? []
@@ -64,17 +67,69 @@ export function nativeEventTypeForDomEvent(eventType: string): NativeEventType |
   return DOM_EVENT_TO_NATIVE.get(eventType)
 }
 
+export function nativeEventTypeForBrowserEvent(eventType: string): NativeEventType | undefined {
+  const normalized = eventType.toLowerCase()
+  for (const domEventType of DOM_EVENT_TO_NATIVE.keys()) {
+    if (browserEventName(domEventType) === normalized) return nativeEventTypeForDomEvent(domEventType)
+  }
+  return undefined
+}
+
+const delegatedNativeEventTypes = new Set<string>()
+
+export function registerDelegatedNativeEvent(eventType: NativeEventType): boolean {
+  const alreadyRegistered = delegatedNativeEventTypes.has(eventType)
+  delegatedNativeEventTypes.add(eventType)
+  return !alreadyRegistered
+}
+
+export function isDelegatedNativeEvent(eventType: string): boolean {
+  return delegatedNativeEventTypes.has(eventType)
+}
+
+export function hasDelegatedNativeHandler(target: DomCompatTarget, nativeEventType: string): boolean {
+  if (!isDelegatedNativeEvent(nativeEventType)) return false
+  for (const domEventType of DOM_EVENTS_BY_NATIVE.get(nativeEventType) ?? []) {
+    const handler = Object.getOwnPropertyDescriptor(target, `$$${browserEventName(domEventType)}`)?.value
+    if (handler instanceof Function) return true
+  }
+  return false
+}
+
+export function delegatedNativeEventTypesForTarget(target: DomCompatTarget): string[] {
+  const owned: string[] = []
+  for (const nativeEventType of delegatedNativeEventTypes) {
+    if (hasDelegatedNativeHandler(target, nativeEventType)) owned.push(nativeEventType)
+  }
+  return owned
+}
+
 type GlobalEventHandler = (event: EventPayload) => void
 const globalListeners = new Map<string, Set<GlobalEventHandler>>()
 const EVENT_STATE = new WeakMap<object, { defaultPrevented: boolean; propagationStopped: boolean }>()
+const BUBBLING_DOM_EVENTS = new Set([
+  "auxClick",
+  "change",
+  "contextMenu",
+  "dblClick",
+  "input",
+  "keyDown",
+  "keyUp",
+  "mouseDown",
+  "mouseMove",
+  "mouseUp",
+  "pointerCancel",
+  "pointerDown",
+  "pointerMove",
+  "pointerUp",
+  "wheel",
+])
 const POINTER_ID = 0
 const PERSISTENT_DEVICE_ID = 0
 const DOUBLE_CLICK_MS = 500
 const DOUBLE_CLICK_DISTANCE_PX = 4
 const NATIVE_CLICK_RELAY_MS = 250
 const DRAG_START_DISTANCE_PX = 4
-
-installNativeDomGlobals()
 
 function fallbackTarget(event: NativeEventPayload): DomCompatTarget {
   const x = event.x ?? 0
@@ -90,6 +145,8 @@ function fallbackTarget(event: NativeEventPayload): DomCompatTarget {
     classList: {
       add: () => undefined,
       remove: () => undefined,
+      contains: () => false,
+      toggle: (_token: string, force?: boolean) => force ?? true,
     },
     focus: () => undefined,
     blur: () => undefined,
@@ -144,11 +201,22 @@ function domCompatibleEvent(
   const currentTarget = target ?? fallbackTarget(event)
   if (event.value !== undefined) currentTarget.value = event.value
   const state = { defaultPrevented: false, propagationStopped: false }
+  const wheelFields = domEventType === "wheel"
+    ? {
+        // GPUIX reports negative deltas when scrolling down/right. Browser WheelEvent
+        // uses the opposite sign, so normalize only the browser-shaped wheel event.
+        deltaX: -(event.deltaX ?? 0),
+        deltaY: -(event.deltaY ?? 0),
+        deltaZ: 0,
+        deltaMode: 0,
+      }
+    : {}
   // SAFETY: EventPayload is the native event plus the DOM-compatible fields constructed below.
-  const payload = Object.assign({}, event, {
+  const payload = Object.assign({}, event, wheelFields, {
     type: browserEventName(domEventType),
     currentTarget,
     target: currentTarget,
+    relatedTarget: null,
     clientX: x,
     clientY: y,
     pointerId: POINTER_ID,
@@ -173,13 +241,23 @@ function domCompatibleEvent(
   return payload
 }
 
-function createTargetEvent(eventType: string, event: EventPayload, target: EventTarget): Event {
-  const domEvent = new Event(browserEventName(eventType), { bubbles: true, cancelable: true })
+function createTargetEvent(
+  eventType: string,
+  event: EventPayload,
+  target: EventTarget,
+  origin: EventTarget,
+  path: readonly EventTarget[],
+): Event {
+  const domEvent = new Event(browserEventName(eventType), {
+    bubbles: BUBBLING_DOM_EVENTS.has(eventType),
+    cancelable: true,
+  })
   const originalPreventDefault = domEvent.preventDefault.bind(domEvent)
   const originalStopPropagation = domEvent.stopPropagation.bind(domEvent)
   Object.defineProperties(domEvent, {
-    target: { configurable: true, value: target },
+    target: { configurable: true, value: origin },
     currentTarget: { configurable: true, value: target },
+    relatedTarget: { configurable: true, value: event.relatedTarget ?? null },
     clientX: { configurable: true, value: event.clientX ?? 0 },
     clientY: { configurable: true, value: event.clientY ?? 0 },
     pointerId: { configurable: true, value: event.pointerId ?? POINTER_ID },
@@ -207,8 +285,16 @@ function createTargetEvent(eventType: string, event: EventPayload, target: Event
         event.stopPropagation?.()
       },
     },
-    composedPath: { configurable: true, value: () => [target] },
+    composedPath: { configurable: true, value: () => [...path] },
   })
+  if (eventType === "wheel") {
+    Object.defineProperties(domEvent, {
+      deltaX: { configurable: true, value: event.deltaX ?? 0 },
+      deltaY: { configurable: true, value: event.deltaY ?? 0 },
+      deltaZ: { configurable: true, value: event.deltaZ ?? 0 },
+      deltaMode: { configurable: true, value: event.deltaMode ?? 0 },
+    })
+  }
   return domEvent
 }
 
@@ -218,6 +304,7 @@ function createGlobalDomEvent(name: string, event: EventPayload, currentTarget: 
   Object.defineProperties(domEvent, {
     target: { configurable: true, value: target },
     currentTarget: { configurable: true, value: currentTarget },
+    relatedTarget: { configurable: true, value: event.relatedTarget ?? null },
     clientX: { configurable: true, value: event.clientX ?? 0 },
     clientY: { configurable: true, value: event.clientY ?? 0 },
     pointerId: { configurable: true, value: event.pointerId ?? POINTER_ID },
@@ -251,9 +338,32 @@ function dispatchGlobalEvent(eventType: string, event: EventPayload): void {
   const name = globalEventName(eventType)
   if (!name) return
   for (const handler of globalListeners.get(name) ?? []) handler(event)
+  const body = globalThis.document.body
+  body.dispatchEvent(createGlobalDomEvent(name, event, body))
   globalThis.document.dispatchEvent(createGlobalDomEvent(name, event, globalThis.document))
   globalThis.window.dispatchEvent(createGlobalDomEvent(name, event, globalThis.window))
 }
+
+class GpuixWheelEvent extends Event {
+  static readonly DOM_DELTA_PIXEL = 0
+  static readonly DOM_DELTA_LINE = 1
+  static readonly DOM_DELTA_PAGE = 2
+
+  readonly deltaX: number
+  readonly deltaY: number
+  readonly deltaZ: number
+  readonly deltaMode: number
+
+  constructor(type: string, init: WheelEventInit = {}) {
+    super(type, init)
+    this.deltaX = init.deltaX ?? 0
+    this.deltaY = init.deltaY ?? 0
+    this.deltaZ = init.deltaZ ?? 0
+    this.deltaMode = init.deltaMode ?? GpuixWheelEvent.DOM_DELTA_PIXEL
+  }
+}
+
+installNativeDomGlobals()
 
 function installNativeDomGlobals(): void {
   if (!Object.hasOwn(globalThis, "window")) {
@@ -285,7 +395,31 @@ function installNativeDomGlobals(): void {
     Object.defineProperty(globalThis, "document", {
       configurable: true,
       writable: true,
-      value: { body: { classList }, dispatchEvent: () => true },
+      value: { body: { classList, dispatchEvent: () => true }, dispatchEvent: () => true },
+    })
+  }
+
+  if (!Object.hasOwn(globalThis, "WheelEvent")) {
+    Object.defineProperty(globalThis, "WheelEvent", {
+      configurable: true,
+      writable: true,
+      value: GpuixWheelEvent,
+    })
+  }
+
+  if (!Object.hasOwn(globalThis.window, "WheelEvent")) {
+    Object.defineProperty(globalThis.window, "WheelEvent", {
+      configurable: true,
+      writable: true,
+      value: globalThis.WheelEvent,
+    })
+  }
+
+  if (!Object.hasOwn(globalThis, "DOMPoint")) {
+    Object.defineProperty(globalThis, "DOMPoint", {
+      configurable: true,
+      writable: true,
+      value: GpuixDOMPoint,
     })
   }
 }
@@ -315,6 +449,49 @@ type NativeClickBubble = {
   clickCount: number
   x: number
   y: number
+}
+
+type NativeMouseDownBurst = {
+  button: number
+  clickCount: number
+  x: number
+  y: number
+  at: number
+}
+
+type NativeScrollBubble = {
+  ancestors: ReadonlySet<number>
+  x: number
+  y: number
+  deltaX: number
+  deltaY: number
+}
+
+type NativeEventPayloadWithScrollMetrics = NativeEventPayload & {
+  scrollOffsetX?: number
+  scrollOffsetY?: number
+  scrollMaxX?: number
+  scrollMaxY?: number
+  scrollViewportWidth?: number
+  scrollViewportHeight?: number
+}
+
+function scrollMetricsFromEvent(event: NativeEventPayloadWithScrollMetrics): NativeScrollMetrics | undefined {
+  const offsetX = event.scrollOffsetX
+  const offsetY = event.scrollOffsetY
+  const maxX = event.scrollMaxX
+  const maxY = event.scrollMaxY
+  const viewportWidth = event.scrollViewportWidth
+  const viewportHeight = event.scrollViewportHeight
+  if (
+    offsetX === undefined ||
+    offsetY === undefined ||
+    maxX === undefined ||
+    maxY === undefined ||
+    viewportWidth === undefined ||
+    viewportHeight === undefined
+  ) return undefined
+  return { offsetX, offsetY, maxX, maxY, viewportWidth, viewportHeight }
 }
 
 type DragSession = {
@@ -349,7 +526,9 @@ export class EventRegistry {
   readonly #dragData = new Map<number, DragData>()
   #dragSession: DragSession | undefined
   #nativeClickBubble: NativeClickBubble | undefined
+  #nativeMouseDownBurst: NativeMouseDownBurst | undefined
   #nativeContextMenuBubble: NativeClickBubble | undefined
+  #nativeScrollBubble: NativeScrollBubble | undefined
   #activeRangeId: number | undefined
   #lastClick: LastClick | undefined
 
@@ -423,6 +602,7 @@ export class EventRegistry {
     this.#lastPointerEvent.clear()
     this.#primaryClickBursts.clear()
     this.#nativeClickBubble = undefined
+    this.#nativeMouseDownBurst = undefined
     this.#nativeContextMenuBubble = undefined
     this.#activeRangeId = undefined
     this.#lastClick = undefined
@@ -460,10 +640,14 @@ export class EventRegistry {
     return this.#pointerCapture.get(pointerId) === id
   }
 
-  dispatch(event: NativeEventPayload, resolvedDragTargetId?: number | null): void {
+  dispatch(event: NativeEventPayloadWithScrollMetrics, resolvedDragTargetId?: number | null): void {
     if (!this.#live.has(event.elementId)) return
     switch (event.eventType) {
       case "mouseDown": {
+        if (this.#isBubbledNativeMouseDown(event)) return
+        // Keep the actual down path through release: the generated click must
+        // not synthesize a second pointerDown for the same activation.
+        this.#nativePointerDown.clear()
         if ((event.button ?? 0) === 0) {
           const sourceId = this.#dragSourceOwner(event.elementId)
           const data = sourceId === undefined ? undefined : this.#dragData.get(sourceId)
@@ -487,13 +671,23 @@ export class EventRegistry {
           this.#activeRangeId = event.elementId
           if (this.#updateRangeValue(event.elementId, event)) this.#dispatchDom(event.elementId, "input", event)
         }
-        this.#nativePointerDown.add(event.elementId)
-        queueMicrotask(() => this.#nativePointerDown.delete(event.elementId))
+        if ((event.button ?? 0) === 0) {
+          let current: number | null | undefined = event.elementId
+          while (current !== undefined && current !== null && this.#live.has(current)) {
+            this.#nativePointerDown.add(current)
+            current = this.#parents.get(current)
+          }
+        }
         this.#dispatchDom(event.elementId, "pointerDown", event)
         this.#dispatchDom(event.elementId, "mouseDown", event)
         return
       }
       case "mouseMove": {
+        // A hover move after release starts a new physical interaction. Keep
+        // same-press native mouse-down carriers deduped, but do not let the
+        // previous press consume the next click/drag merely because it lands
+        // at nearly the same coordinates within the relay window.
+        if (!this.#activePointers.has(POINTER_ID)) this.#nativeMouseDownBurst = undefined
         this.#lastPointerEvent.set(POINTER_ID, event)
         this.#advanceDrag(event.elementId, event, resolvedDragTargetId)
         const activeRangeId = this.#activeRangeId
@@ -536,6 +730,10 @@ export class EventRegistry {
         }
         this.#activePointers.delete(POINTER_ID)
         if (capturedId !== undefined) this.#releasePointerCapture(capturedId, POINTER_ID)
+        // Keep the physical down ancestry through the trailing native click
+        // carrier. GPUIX can emit that semantic click after mouseUp; clearing
+        // here makes it look like a click with no press and synthesizes a second
+        // pointerDown. The next real mouseDown clears/replaces this ancestry.
         return
       }
       case "click": {
@@ -558,6 +756,17 @@ export class EventRegistry {
         this.#dispatchDom(event.elementId, "pointerLeave", event)
         this.#dispatchDom(event.elementId, "mouseLeave", event)
         this.#dispatchDom(event.elementId, "mouseOut", event)
+        return
+      }
+      case "scroll": {
+        const duplicateWheel = this.#isBubbledNativeScroll(event)
+        const metrics = scrollMetricsFromEvent(event)
+        if (metrics) this.#targets.get(event.elementId)?.syncScrollMetrics?.(metrics)
+        // Native scroll-wheel callbacks can be relayed through descendants so
+        // wheel bubbles across GPUI occluders. DOM scroll itself does not bubble,
+        // so every native target still receives its own scroll notification.
+        this.#dispatchDom(event.elementId, "scroll", event)
+        if (!duplicateWheel) this.#dispatchDom(event.elementId, "wheel", event)
         return
       }
       default:
@@ -708,6 +917,56 @@ export class EventRegistry {
     return false
   }
 
+  #isBubbledNativeMouseDown(event: NativeEventPayload): boolean {
+    const button = event.button ?? 0
+    const clickCount = event.clickCount ?? 1
+    const x = event.x ?? 0
+    const y = event.y ?? 0
+    const now = Date.now()
+    const previous = this.#nativeMouseDownBurst
+    const duplicate = previous !== undefined
+      && now - previous.at <= NATIVE_CLICK_RELAY_MS
+      && previous.button === button
+      && previous.clickCount === clickCount
+      && Math.hypot(previous.x - x, previous.y - y) <= DOUBLE_CLICK_DISTANCE_PX
+
+    if (duplicate) return true
+
+    this.#nativeMouseDownBurst = { button, clickCount, x, y, at: now }
+    return false
+  }
+
+  #isBubbledNativeScroll(event: NativeEventPayload): boolean {
+    const x = event.x ?? 0
+    const y = event.y ?? 0
+    const deltaX = event.deltaX ?? 0
+    const deltaY = event.deltaY ?? 0
+    const previous = this.#nativeScrollBubble
+    if (
+      previous
+      && previous.ancestors.has(event.elementId)
+      && previous.x === x
+      && previous.y === y
+      && previous.deltaX === deltaX
+      && previous.deltaY === deltaY
+    ) {
+      return true
+    }
+
+    const ancestors = new Set<number>()
+    let current = this.#parents.get(event.elementId)
+    while (current !== undefined && current !== null) {
+      ancestors.add(current)
+      current = this.#parents.get(current)
+    }
+    const next: NativeScrollBubble = { ancestors, x, y, deltaX, deltaY }
+    this.#nativeScrollBubble = next
+    queueMicrotask(() => {
+      if (this.#nativeScrollBubble === next) this.#nativeScrollBubble = undefined
+    })
+    return false
+  }
+
   #isBubbledNativeContextMenu(event: NativeEventPayload): boolean {
     const button = event.button ?? 0
     const clickCount = event.clickCount ?? 1
@@ -841,14 +1100,34 @@ export class EventRegistry {
     },
   ): EventPayload | undefined {
     if (!this.#live.has(elementId)) return undefined
-    const target = this.#targets.get(elementId)
-    const event = domCompatibleEvent({ ...nativeEvent, elementId }, target, eventType)
+    const origin = this.#targets.get(elementId)
+    const event = domCompatibleEvent({ ...nativeEvent, elementId }, origin, eventType)
     if (extras) Object.assign(event, extras)
     if (!globalOnly) {
-      this.#handlers.get(elementId)?.get(eventType)?.(event)
-      if (target) target.dispatchEvent(createTargetEvent(eventType, event, target))
+      const targetIds = [elementId]
+      if (BUBBLING_DOM_EVENTS.has(eventType)) {
+        let parentId = this.#parents.get(elementId)
+        while (parentId !== undefined && parentId !== null && this.#live.has(parentId)) {
+          targetIds.push(parentId)
+          parentId = this.#parents.get(parentId)
+        }
+      }
+      const path = targetIds.flatMap((id) => {
+        const target = this.#targets.get(id)
+        return target ? [target] : []
+      })
+      const eventState = EVENT_STATE.get(event)
+      for (const currentId of targetIds) {
+        const currentTarget = this.#targets.get(currentId)
+        if (currentTarget) event.currentTarget = currentTarget
+        this.#handlers.get(currentId)?.get(eventType)?.(event)
+        if (currentTarget && origin) {
+          currentTarget.dispatchEvent(createTargetEvent(eventType, event, currentTarget, origin, path))
+        }
+        if (eventState?.propagationStopped) break
+      }
     }
-    dispatchGlobalEvent(eventType, event)
+    if (!EVENT_STATE.get(event)?.propagationStopped) dispatchGlobalEvent(eventType, event)
     return event
   }
 

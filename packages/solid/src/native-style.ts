@@ -17,6 +17,11 @@ export interface NativeStyleTranslation {
   yFraction?: number
 }
 
+export interface NativeStyleMeasuredSize {
+  width?: number
+  height?: number
+}
+
 /** Parent-relative offsets used by percentage positioning utilities such as left-1/2. */
 export interface NativeStyleParentPosition {
   leftFraction?: number
@@ -25,9 +30,18 @@ export interface NativeStyleParentPosition {
   bottomFraction?: number
 }
 
+/** Viewport-relative dimensions for CSS units such as vh/vw. */
+export interface NativeStyleViewportSize {
+  widthFraction?: number
+  heightFraction?: number
+  maxWidthFraction?: number
+  maxHeightFraction?: number
+}
+
 export interface NativeStyleManifestEntry extends NativeStyleVariant {
   translation?: NativeStyleTranslation
   parentPosition?: NativeStyleParentPosition
+  viewportSize?: NativeStyleViewportSize
   descendants?: Record<string, NativeStyleVariant>
   textTransform?: NativeTextTransform
 }
@@ -105,6 +119,86 @@ export function resolveNativeClassParentPosition(
   return resolved
 }
 
+export function resolveNativeClassViewportSize(
+  className: string | undefined,
+  classList: NativeClassList | undefined,
+): NativeStyleViewportSize | undefined {
+  const candidates = classCandidates(className, classList)
+  if (candidates.length === 0 || !manifest) return undefined
+  const activeManifest = manifest
+
+  let resolved: NativeStyleViewportSize | undefined
+  for (const candidate of candidates) {
+    const entry = activeManifest.classes[candidate]
+    if (!entry) throw missingCandidate(candidate)
+    if (!entry.viewportSize) continue
+    resolved = { ...resolved, ...entry.viewportSize }
+  }
+  return resolved
+}
+
+export function applyNativeStyleViewportSize(
+  style: StyleDesc | undefined,
+  viewport: NativeStyleViewportSize | undefined,
+  viewportWidth: number | undefined,
+  viewportHeight: number | undefined,
+): StyleDesc | undefined {
+  if (!style || !viewport) return style
+  const result: StyleDesc = { ...style }
+  if (viewport.widthFraction !== undefined && viewportWidth !== undefined) {
+    result.width = viewportWidth * viewport.widthFraction
+  }
+  if (viewport.heightFraction !== undefined && viewportHeight !== undefined) {
+    result.height = viewportHeight * viewport.heightFraction
+  }
+  if (viewport.maxWidthFraction !== undefined && viewportWidth !== undefined) {
+    result.maxWidth = viewportWidth * viewport.maxWidthFraction
+  }
+  if (viewport.maxHeightFraction !== undefined && viewportHeight !== undefined) {
+    result.maxHeight = viewportHeight * viewport.maxHeightFraction
+  }
+  return result
+}
+export function applyNativeStyleParentSize(
+  style: StyleDesc | undefined,
+  parentWidth: number | undefined,
+  parentHeight: number | undefined,
+): StyleDesc | undefined {
+  if (!style) return style
+  const result: StyleDesc = { ...style }
+
+  applyResolvedDimension(result, "width", parentWidth)
+  applyResolvedDimension(result, "minWidth", parentWidth)
+  applyResolvedDimension(result, "maxWidth", parentWidth)
+  applyResolvedDimension(result, "height", parentHeight)
+  applyResolvedDimension(result, "minHeight", parentHeight)
+  applyResolvedDimension(result, "maxHeight", parentHeight)
+
+  return result
+}
+
+function applyResolvedDimension(
+  style: StyleDesc,
+  property: "width" | "minWidth" | "maxWidth" | "height" | "minHeight" | "maxHeight",
+  parentSize: number | undefined,
+): void {
+  const value = resolveRelativeDimension(style[property], parentSize)
+  if (value === undefined) delete style[property]
+  else style[property] = value
+}
+
+function resolveRelativeDimension(
+  value: DimensionValue | undefined,
+  parentSize: number | undefined,
+): DimensionValue | undefined {
+  if (value === undefined || parentSize === undefined) return value
+  const numeric = Number(value)
+  if (Number.isFinite(numeric)) return numeric
+  const percentage = String(value).trim().match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))%$/)
+  if (!percentage) return value
+  return parentSize * Number(percentage[1]) / 100
+}
+
 export function applyNativeStyleParentPosition(
   style: StyleDesc | undefined,
   position: NativeStyleParentPosition | undefined,
@@ -164,11 +258,12 @@ export function resolveNativeClassTranslation(
 export function applyNativeStyleTranslation(
   style: StyleDesc | undefined,
   translation: NativeStyleTranslation | undefined,
+  measuredSize?: NativeStyleMeasuredSize,
 ): StyleDesc | undefined {
   if (!style || !translation) return style
   const result: StyleDesc = { ...style }
-  const width = numericStyleLength(result.width)
-  const height = numericStyleLength(result.height)
+  const width = numericStyleLength(result.width) ?? measuredSize?.width
+  const height = numericStyleLength(result.height) ?? measuredSize?.height
   if (translation.xFraction !== undefined && width !== undefined) {
     const offset = width * translation.xFraction
     const left = numericStyleLength(result.left)
@@ -216,6 +311,7 @@ export function resolveNativeDescendantClassStyle(
   classList: NativeClassList | undefined,
   tagName: string,
   directChild: boolean,
+  attributes?: ReadonlyMap<string, unknown>,
 ): StyleDesc | undefined {
   const candidates = classCandidates(className, classList)
   if (candidates.length === 0 || !manifest) return undefined
@@ -228,9 +324,24 @@ export function resolveNativeDescendantClassStyle(
     const descendants = entry.descendants
     if (!descendants) continue
     resolved = mergeNativeStyles(resolved, resolveVariant(descendants[tagName]))
-    if (directChild) resolved = mergeNativeStyles(resolved, resolveVariant(descendants[`>${tagName}`]))
+    if (directChild) {
+      resolved = mergeNativeStyles(resolved, resolveVariant(descendants[`>${tagName}`]))
+      for (const [selector, variant] of Object.entries(descendants)) {
+        const attribute = directChildAttributeSelector(selector)
+        if (!attribute) continue
+        if (String(attributes?.get(attribute.name) ?? "") !== attribute.value) continue
+        resolved = mergeNativeStyles(resolved, resolveVariant(variant))
+      }
+    }
   }
   return resolved
+}
+
+function directChildAttributeSelector(selector: string): { name: string; value: string } | undefined {
+  const match = selector.match(/^>\[([A-Za-z][\w-]*)=([^\]]+)\]$/)
+  const name = match?.[1]
+  const value = match?.[2]
+  return name && value ? { name, value } : undefined
 }
 
 export function mergeNativeStyles(...styles: Array<StyleDesc | undefined>): StyleDesc | undefined {

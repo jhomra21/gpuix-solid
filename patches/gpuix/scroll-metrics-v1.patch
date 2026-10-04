@@ -1,0 +1,176 @@
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -2134,9 +2134,72 @@
+         Err(Error::from_reason("Unsupported operating system"))
+     }
+ 
+-    /// Scroll this element's nearest scroll parent until the element is visible.
+-    #[napi]
+-    pub fn scroll_into_view(&self, element_id: f64) -> Result<()> {
++    /// Read the current offset, maximum scroll distance, and viewport size
++    /// from GPUI's retained ScrollHandle without walking descendant bounds.
++    /// Returns [offsetX, offsetY, maxScrollX, maxScrollY, viewportWidth,
++    /// viewportHeight], or null when the element has no standard scroll handle.
++    #[napi]
++    pub fn get_scroll_metrics(&self, element_id: f64) -> Result<Option<Vec<f64>>> {
++        let id = to_element_id(element_id)?;
++
++        #[cfg(target_os = "macos")]
++        {
++            if let Some(metrics) = VIRTUAL_LIST_STATES.with(|cell| {
++                let states = cell.borrow();
++                states.get(&id).map(|state| {
++                    let offset = state.scroll_px_offset_for_scrollbar();
++                    let max = state.max_offset_for_scrollbar();
++                    let bounds = state.viewport_bounds();
++                    vec![
++                        {
++                            let value = f64::from(f32::from(offset.x));
++                            if value == 0.0 { 0.0 } else { value }
++                        },
++                        {
++                            let value = f64::from(f32::from(offset.y));
++                            if value == 0.0 { 0.0 } else { value }
++                        },
++                        f64::from(f32::from(max.x)),
++                        f64::from(f32::from(max.y)),
++                        f64::from(f32::from(bounds.size.width)),
++                        f64::from(f32::from(bounds.size.height)),
++                    ]
++                })
++            }) {
++                return Ok(Some(metrics));
++            }
++
++            return Ok(SCROLL_HANDLES.with(|cell| {
++                let handles = cell.borrow();
++                handles.get(&id).map(|handle| {
++                    let offset = handle.offset();
++                    let max = handle.max_offset();
++                    let bounds = handle.bounds();
++                    vec![
++                        {
++                            let value = f64::from(f32::from(offset.x));
++                            if value == 0.0 { 0.0 } else { value }
++                        },
++                        {
++                            let value = f64::from(f32::from(offset.y));
++                            if value == 0.0 { 0.0 } else { value }
++                        },
++                        f64::from(f32::from(max.x)),
++                        f64::from(f32::from(max.y)),
++                        f64::from(f32::from(bounds.size.width)),
++                        f64::from(f32::from(bounds.size.height)),
++                    ]
++                })
++            }));
++        }
++
++        #[cfg(not(target_os = "macos"))]
++        Ok(None)
++    }
++
++    /// Scroll this element's nearest scroll parent until the element is visible.
++    #[napi]
++    pub fn scroll_into_view(&self, element_id: f64) -> Result<()> {
+         let id = to_element_id(element_id)?;
+         #[cfg(target_os = "macos")]
+         {
+@@ -5024,10 +5024,33 @@
+-    if element.events.contains("visibleRange") {
++    let emits_visible_range = element.events.contains("visibleRange");
++    let emits_scroll = element.events.contains("scroll");
++    if emits_visible_range || emits_scroll {
+         let callback = ctx.event_callback.clone();
+         let list_id = element.id;
+-        list_state.set_scroll_handler(move |event, _window, _cx| {
+-            emit_event_full(&callback, list_id, "visibleRange", |payload| {
+-                payload.start_index = Some(event.visible_range.start as f64);
+-                payload.end_index = Some(event.visible_range.end as f64);
+-            });
++        list_state.set_scroll_handler(move |event, window, cx| {
++            if emits_visible_range {
++                emit_event_full(&callback, list_id, "visibleRange", |payload| {
++                    payload.start_index = Some(event.visible_range.start as f64);
++                    payload.end_index = Some(event.visible_range.end as f64);
++                });
++            }
++            if emits_scroll {
++                let callback = callback.clone();
++                let scroll_offset_x = f64::from(f32::from(event.scroll_offset.x));
++                let scroll_offset_y = f64::from(f32::from(event.scroll_offset.y));
++                let scroll_max_x = f64::from(f32::from(event.max_scroll_offset.x));
++                let scroll_max_y = f64::from(f32::from(event.max_scroll_offset.y));
++                let scroll_viewport_width = f64::from(f32::from(event.viewport_size.width));
++                let scroll_viewport_height = f64::from(f32::from(event.viewport_size.height));
++                window.defer(cx, move |_window, _cx| {
++                    emit_event_full(&callback, list_id, "scroll", |payload| {
++                        payload.scroll_offset_x = Some(scroll_offset_x);
++                        payload.scroll_offset_y = Some(scroll_offset_y);
++                        payload.scroll_max_x = Some(scroll_max_x);
++                        payload.scroll_max_y = Some(scroll_max_y);
++                        payload.scroll_viewport_width = Some(scroll_viewport_width);
++                        payload.scroll_viewport_height = Some(scroll_viewport_height);
++                    });
++                });
++            }
+         });
+     }
+
+diff --git a/packages/native/src/element_tree.rs b/packages/native/src/element_tree.rs
+--- a/packages/native/src/element_tree.rs
++++ b/packages/native/src/element_tree.rs
+@@ -78,11 +78,24 @@
+     /// Populated for: scroll.
+     pub precise: Option<bool>,
+ 
+-    /// Touch phase for scroll: "started", "moved", "ended".
+-    /// Populated for: scroll (trackpad gestures).
+-    pub touch_phase: Option<String>,
+-
+-    // ── Hover ────────────────────────────────────────────────────────
++    /// Touch phase for scroll: "started", "moved", "ended".
++    /// Populated for: scroll (trackpad gestures).
++    pub touch_phase: Option<String>,
++
++    /// Current native scroll offset. GPUI uses negative values as content moves
++    /// left/up; browser adapters expose the negated values as scrollLeft/Top.
++    pub scroll_offset_x: Option<f64>,
++    pub scroll_offset_y: Option<f64>,
++
++    /// Maximum positive scroll distance for each axis.
++    pub scroll_max_x: Option<f64>,
++    pub scroll_max_y: Option<f64>,
++
++    /// Scroll viewport size at the time the wheel callback was dispatched.
++    pub scroll_viewport_width: Option<f64>,
++    pub scroll_viewport_height: Option<f64>,
++
++    // ── Hover ────────────────────────────────────────────────────────
+     /// true = mouse entered element, false = mouse left element.
+     /// Populated for: mouseEnter, mouseLeave.
+     pub hovered: Option<bool>,
+@@ -139,11 +152,17 @@
+             key: None,
+             key_char: None,
+             is_held: None,
+-            delta_x: None,
+-            delta_y: None,
+-            precise: None,
+-            touch_phase: None,
+-            hovered: None,
++            delta_x: None,
++            delta_y: None,
++            precise: None,
++            touch_phase: None,
++            scroll_offset_x: None,
++            scroll_offset_y: None,
++            scroll_max_x: None,
++            scroll_max_y: None,
++            scroll_viewport_width: None,
++            scroll_viewport_height: None,
++            hovered: None,
+             value: None,
+             old_line: None,
+             new_line: None,

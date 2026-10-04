@@ -39,6 +39,11 @@ const getBoundsRequestSchema = z.object({
   method: z.literal("getBounds"),
   params: z.object({ elementId: z.number() }),
 })
+const getScrollOffsetRequestSchema = z.object({
+  id: idSchema,
+  method: z.literal("getScrollOffset"),
+  params: z.object({ elementId: z.number() }),
+})
 const clickRequestSchema = z.object({
   id: idSchema,
   method: z.literal("click"),
@@ -120,11 +125,22 @@ const clockResumeRequestSchema = z.object({
   method: z.literal("clockResume"),
   params: z.object({}),
 })
+const resetFrameStatsRequestSchema = z.object({
+  id: idSchema,
+  method: z.literal("resetFrameStats"),
+  params: z.object({}),
+})
+const getFrameStatsRequestSchema = z.object({
+  id: idSchema,
+  method: z.literal("getFrameStats"),
+  params: z.object({}),
+})
 
 export const automationRequestSchema = z.discriminatedUnion("method", [
   initializeRequestSchema,
   getTreeRequestSchema,
   getBoundsRequestSchema,
+  getScrollOffsetRequestSchema,
   clickRequestSchema,
   mouseMoveRequestSchema,
   mouseDownRequestSchema,
@@ -136,6 +152,8 @@ export const automationRequestSchema = z.discriminatedUnion("method", [
   clockSetRequestSchema,
   clockFastForwardRequestSchema,
   clockResumeRequestSchema,
+  resetFrameStatsRequestSchema,
+  getFrameStatsRequestSchema,
 ])
 
 export type AutomationRequest = z.infer<typeof automationRequestSchema>
@@ -156,9 +174,72 @@ export const getBoundsResultSchema = z.object({
     height: z.number(),
   }).nullable(),
 })
+export const getScrollOffsetResultSchema = z.object({
+  offset: z.tuple([z.number(), z.number()]).nullable(),
+})
 export const okResultSchema = z.object({ ok: z.literal(true) })
 export const screenshotResultSchema = z.object({ path: z.string() })
 export const clockResultSchema = z.object({ nowMs: z.number() })
+export const frameStatsResultSchema = z.object({
+  currentMs: z.number().optional(),
+  p90Ms: z.number().optional(),
+  p99Ms: z.number().optional(),
+  maxMs: z.number().optional(),
+  frames: z.number().int().nonnegative(),
+  samples: z.number().int().nonnegative(),
+  drawRootsP90Ms: z.number().optional(),
+  drawRootsP99Ms: z.number().optional(),
+  drawRootsMaxMs: z.number().optional(),
+  drawRootsSamples: z.number().int().nonnegative().optional(),
+  prepaintP90Ms: z.number().optional(),
+  prepaintP99Ms: z.number().optional(),
+  prepaintMaxMs: z.number().optional(),
+  prepaintSamples: z.number().int().nonnegative().optional(),
+  paintP90Ms: z.number().optional(),
+  paintP99Ms: z.number().optional(),
+  paintMaxMs: z.number().optional(),
+  paintSamples: z.number().int().nonnegative().optional(),
+  rootRequestP90Ms: z.number().optional(),
+  rootRequestP99Ms: z.number().optional(),
+  rootLayoutP90Ms: z.number().optional(),
+  rootLayoutP99Ms: z.number().optional(),
+  rootPrepaintP90Ms: z.number().optional(),
+  rootPrepaintP99Ms: z.number().optional(),
+  prepaintRestP90Ms: z.number().optional(),
+  prepaintRestP99Ms: z.number().optional(),
+  scrollDivPrepaintP90Ms: z.number().optional(),
+  scrollDivPrepaintP99Ms: z.number().optional(),
+  scrollDivPrepaintMaxMs: z.number().optional(),
+  scrollDivPrepaintSamples: z.number().int().nonnegative().optional(),
+  cachedPrepaintReuseP90Ms: z.number().optional(),
+  cachedPrepaintReuseP99Ms: z.number().optional(),
+  cachedPrepaintRenderP90Ms: z.number().optional(),
+  cachedPrepaintRenderP99Ms: z.number().optional(),
+  cachedPrepaintHits: z.number().int().nonnegative().optional(),
+  cachedPrepaintMisses: z.number().int().nonnegative().optional(),
+  cachedPrepaintColdMisses: z.number().int().nonnegative().optional(),
+  cachedPrepaintKeyMisses: z.number().int().nonnegative().optional(),
+  cachedPrepaintDirtyMisses: z.number().int().nonnegative().optional(),
+  cachedPrepaintRefreshingMisses: z.number().int().nonnegative().optional(),
+  cachedPrepaintSlowestId: z.number().int().nonnegative().optional(),
+  cachedPrepaintSlowestType: z.string().optional(),
+  cachedPrepaintSlowestMs: z.number().nonnegative().optional(),
+  canvasPrepareP90Ms: z.number().optional(),
+  canvasPrepareP99Ms: z.number().optional(),
+  canvasPrepareMaxMs: z.number().optional(),
+  canvasPrepareSamples: z.number().int().nonnegative().optional(),
+  viewRenderCurrentMs: z.number().optional(),
+  viewRenderP90Ms: z.number().optional(),
+  viewRenderP99Ms: z.number().optional(),
+  viewRenderMaxMs: z.number().optional(),
+  viewRenderSamples: z.number().int().nonnegative().optional(),
+  viewBuildCurrentMs: z.number().optional(),
+  viewBuildP90Ms: z.number().optional(),
+  viewBuildP99Ms: z.number().optional(),
+  viewBuildMaxMs: z.number().optional(),
+  viewBuildSamples: z.number().int().nonnegative().optional(),
+  rootSubtreeRevision: z.number().int().nonnegative().optional(),
+})
 
 const responseSchema = z.union([
   z.object({ id: idSchema, result: jsonValueSchema }),

@@ -1,0 +1,27 @@
+diff --git a/packages/native/src/style.rs b/packages/native/src/style.rs
+--- a/packages/native/src/style.rs
++++ b/packages/native/src/style.rs
+@@ -156,7 +156,8 @@ pub struct StyleDesc {
+     pub min_width: Option<DimensionValue>,
+     pub min_height: Option<DimensionValue>,
+     pub max_width: Option<DimensionValue>,
+     pub max_height: Option<DimensionValue>,
++    pub aspect_ratio: Option<f64>,
+ 
+     // Spacing (padding)
+     pub padding: Option<f64>,
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -5689,6 +5689,11 @@ pub(crate) fn apply_styles<E: gpui::Styled>(mut el: E, style: &StyleDesc) -> E {
+             crate::style::DimensionValue::Auto => {}
+         }
+     }
++    if let Some(ratio) = style.aspect_ratio {
++        if ratio.is_finite() && ratio > 0.0 {
++            el = el.aspect_ratio(ratio as f32);
++        }
++    }
+     if let Some(p) = style.padding {
+         el = el.p(gpui::px(p as f32));
+     }

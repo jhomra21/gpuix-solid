@@ -1,0 +1,333 @@
+import solid from "vite-plugin-solid"
+import solidSvg from "vite-plugin-solid-svg"
+import { existsSync } from "node:fs"
+import { fileURLToPath } from "node:url"
+import { defineConfig } from "vite"
+import { decodeJsxTextEntities } from "./src/jsx-text-entities.ts"
+
+const diffusionCommit = "666cdced1f6b97a792b63e551f45797649efb27a"
+const fromHere = (relativePath: string) => fileURLToPath(new URL(relativePath, import.meta.url))
+const sourceRoot = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/`)
+const webAppRoot = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/apps/web/`)
+const solid1Entry = fromHere("../../packages/solid1/dist/index.js")
+const solidWebCompat = fromHere("../../packages/solid1/dist/web-entry.js")
+const runtimeBridge = fromHere("./src/runtime-bridge.ts")
+const webSource = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/apps/web/src/`)
+const desktopSource = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/apps/desktop/src/`)
+const desktopPackage = fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/apps/desktop/package.json`)
+const dependencyPath = (name: string, relativePath: string) => {
+  const candidates = [
+    fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/apps/web/node_modules/${name}/${relativePath}`),
+    fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/node_modules/${name}/${relativePath}`),
+  ]
+  const found = candidates.find((candidate) => existsSync(candidate))
+  if (!found) throw new Error(`Pinned Diffusion dependency ${name}/${relativePath} is not installed`)
+  return found
+}
+const kobalteSourceRoot = dependencyPath("@kobalte/core", "src/")
+const domPurifyCompat = fromHere("./src/dompurify-compat.ts")
+const electronCompat = fromHere("./src/electron-compat.ts")
+const tsMorphCompat = fromHere("./src/ts-morph-compat.ts")
+const defaultProject = fromHere("./project/")
+const domPurifySource = dependencyPath("dompurify", "dist/purify.es.mjs")
+
+const normalizedSourceRoot = sourceRoot.replaceAll("\\", "/")
+
+const multilineClassAttributeHook = {
+  name: "diffusion-multiline-class-attribute-compat",
+  enforce: "pre" as const,
+  transform(code: string, id: string) {
+    const normalizedId = id.replaceAll("\\", "/").split("?")[0]
+    if (!normalizedId.startsWith(normalizedSourceRoot) || !normalizedId.endsWith(".tsx")) return null
+
+    let changed = false
+    const normalizedCode = code.replace(
+      /\b(class|className)\s*=\s*"([^"]*\n[^"]*)"/g,
+      (_match, name: string, value: string) => {
+        changed = true
+        return `${name}="${value.replace(/\s*\n\s*/g, " ")}"`
+      },
+    )
+    return changed ? { code: normalizedCode, map: null } : null
+  },
+}
+
+const desktopProjectRuntimeHook = {
+  name: "diffusion-desktop-project-runtime",
+  enforce: "pre" as const,
+  transform(code: string, id: string) {
+    const normalizedId = id.replaceAll("\\", "/").split("?")[0]
+    if (!normalizedId.endsWith("/apps/desktop/src/projects.ts")) return null
+
+    const anchor = "let stagedRequire: NodeJS.Require | undefined;"
+    if (!code.includes(anchor)) {
+      throw new Error("Pinned Diffusion desktop project loader changed; update GPUIX host boundary")
+    }
+
+    return {
+      code: code.replace(
+        anchor,
+        `const require = createRequire(${JSON.stringify(desktopPackage)});\n${anchor}`,
+      ),
+      map: null,
+    }
+  },
+}
+
+const toolbarTestHook = {
+  name: "diffusion-toolbar-native-test-hook",
+  enforce: "pre" as const,
+  transform(code: string, id: string) {
+    const normalizedId = id.replaceAll("\\", "/").split("?")[0]
+    if (!normalizedId.endsWith("/apps/web/src/components/canvas/toolbar.tsx")) return null
+
+    const rectangleTrigger = `<TooltipTrigger
+            as={Button}
+            size="icon-square"
+            variant={selectedTool() === ToolType.RECT ? 'default' : 'ghost'}`
+    if (!code.includes(rectangleTrigger)) {
+      throw new Error("Pinned Diffusion Toolbar RECT trigger changed; update native acceptance instrumentation")
+    }
+
+    return code.replace(
+      rectangleTrigger,
+      `<TooltipTrigger
+            as={Button}
+            testId="diffusion-toolbar-rectangle"
+            size="icon-square"
+            variant={selectedTool() === ToolType.RECT ? 'default' : 'ghost'}`,
+    )
+  },
+}
+
+const scenePresetTestHook = {
+  name: "diffusion-scene-preset-native-test-hook",
+  enforce: "pre" as const,
+  transform(code: string, id: string) {
+    const normalizedId = id.replaceAll("\\", "/").split("?")[0]
+    if (!normalizedId.endsWith("/apps/web/src/components/sidebar-right/inspector/scene-template.tsx")) return null
+
+    const presetButton = `            <button
+              class="flex items-center gap-1 h-8 w-full pl-2 pr-4 hover:bg-muted/50"`
+    if (!code.includes(presetButton)) {
+      throw new Error("Pinned Diffusion scene preset button changed; update native acceptance instrumentation")
+    }
+
+    return code.replace(
+      presetButton,
+      `            <button
+              testId={"diffusion-scene-preset-" + preset.label}
+              class="flex items-center gap-1 h-8 w-full pl-2 pr-4 hover:bg-muted/50"`,
+    )
+  },
+}
+
+const usabilityTestHook = {
+  name: "diffusion-native-usability-test-hook",
+  enforce: "pre" as const,
+  transform(code: string, id: string) {
+    const normalizedId = id.replaceAll("\\", "/").split("?")[0]
+
+    if (normalizedId.endsWith("/apps/web/src/components/sidebar-left/project-menu/index.tsx")) {
+      const trigger = `        <DropdownMenuTrigger
+          as="button"
+          type="button"`
+      if (!code.includes(trigger)) throw new Error("Pinned Diffusion project-menu trigger changed")
+      return {
+        code: code.replace(
+          trigger,
+          `        <DropdownMenuTrigger
+          testId="diffusion-project-menu-trigger"
+          as="button"
+          type="button"`,
+        ),
+        map: null,
+      }
+    }
+
+    if (normalizedId.endsWith("/apps/web/src/components/sidebar-right/inspector/inspector-header.tsx")) {
+      const trigger = `            <Button
+              {...triggerProps}
+              variant="link"`
+      if (!code.includes(trigger)) throw new Error("Pinned Diffusion Inspector zoom trigger changed")
+      return {
+        code: code.replace(
+          trigger,
+          `            <Button
+              {...triggerProps}
+              testId="diffusion-inspector-zoom-trigger"
+              variant="link"`,
+        ),
+        map: null,
+      }
+    }
+
+    if (normalizedId.endsWith("/apps/web/src/agent-chat/sidebar-tabs.tsx")) {
+      const trigger = `          <button
+            type="button"
+            role="tab"`
+      if (!code.includes(trigger)) throw new Error("Pinned Diffusion sidebar tab trigger changed")
+      return {
+        code: code.replace(
+          trigger,
+          `          <button
+            testId={"diffusion-sidebar-tab-" + tab.id}
+            type="button"
+            role="tab"`,
+        ),
+        map: null,
+      }
+    }
+
+    if (normalizedId.endsWith("/apps/web/src/components/sidebar-right/inspector/transform/transform-settings.tsx")) {
+      const field = `          <ControlledTextField
+            icon={<Icon name="prop-x-position" />}`
+      if (!code.includes(field)) throw new Error("Pinned Diffusion Position X field changed")
+      return {
+        code: code.replace(
+          field,
+          `          <ControlledTextField
+            testId="diffusion-inspector-position-x"
+            icon={<Icon name="prop-x-position" />}`,
+        ),
+        map: null,
+      }
+    }
+
+    if (normalizedId.endsWith("/apps/web/src/components/ui/control-scrollarea.tsx")) {
+      const scroller = `      <div
+        ref={scrollEl}
+        class="overflow-y-auto overflow-x-hidden absolute inset-0"`
+      if (!code.includes(scroller)) throw new Error("Pinned Diffusion ControlScrollArea scroller changed")
+      return {
+        code: code.replace(
+          scroller,
+          `      <div
+        ref={scrollEl}
+        testId="diffusion-control-scroll-area-scroll"
+        class="overflow-y-auto overflow-x-hidden absolute inset-0"`,
+        ),
+        map: null,
+      }
+    }
+
+    if (normalizedId.endsWith("/apps/web/src/components/timeline/layers/layers.tsx")) {
+      const scroller = `      <div
+        class="grid grid-cols-1 h-full absolute border-b border-border inset-0 overflow-hidden"
+        on:wheel={timeline.scroll}`
+      if (!code.includes(scroller)) throw new Error("Pinned Diffusion timeline layer scroller changed")
+      return {
+        code: code.replace(
+          scroller,
+          `      <div
+        testId="diffusion-timeline-layers-scroll"
+        class="grid grid-cols-1 h-full absolute border-b border-border inset-0 overflow-hidden"
+        on:wheel={timeline.scroll}`,
+        ),
+        map: null,
+      }
+    }
+
+    return null
+  },
+}
+
+const packageSource = (name: string) =>
+  fromHere(`../../.cache/diffusion-editor/${diffusionCommit.slice(0, 12)}/packages/${name}/src/index.ts`)
+
+const editorTransformTrace = {
+  name: "diffusion-editor-transform-trace",
+  enforce: "post" as const,
+  transform(code: string, id: string) {
+    const normalizedId = id.replaceAll("\\", "/").split("?")[0]
+    if (!normalizedId.endsWith("/apps/web/src/pages/editor.tsx")) return null
+    const needles = [
+      "timelineStyles",
+      "grid-template-columns",
+      "grid-template-rows",
+      "_$effect",
+      "_$setProp(_el$, \"style\"",
+      "_$setProp(_el$, \"classList\"",
+      "return _el$",
+    ]
+    const snippets = needles.map((needle) => {
+      const index = code.indexOf(needle)
+      return {
+        needle,
+        index,
+        snippet: index < 0 ? null : code.slice(Math.max(0, index - 1200), index + 2400),
+      }
+    })
+    console.error("[gpuix-editor-transform-trace]", JSON.stringify(snippets))
+    return null
+  },
+}
+
+export function diffusionConfig(entry: string, outDir: string, options: { instrument?: boolean } = {}) {
+  const instrument = options.instrument ?? false
+
+  return defineConfig({
+    // Diffusion resolves absolute /src import.meta.glob patterns from apps/web.
+    // Keep that upstream Vite root while using the GPUix fixture as the SSR entry.
+    root: webAppRoot,
+    define: {
+      "import.meta.env.VITE_DESKTOP": JSON.stringify("false"),
+      __GPUIX_DIFFUSION_DEFAULT_PROJECT__: JSON.stringify(defaultProject),
+      __GPUIX_DIFFUSION_DESKTOP_PACKAGE__: JSON.stringify(desktopPackage),
+    },
+    plugins: [
+      multilineClassAttributeHook,
+      desktopProjectRuntimeHook,
+      ...(instrument ? [toolbarTestHook, scenePresetTestHook, usabilityTestHook] : []),
+      solid({
+        babel: { plugins: [decodeJsxTextEntities] },
+        solid: {
+          generate: "universal",
+          moduleName: "@jhomra21/gpuix-solid1",
+        },
+      }),
+      ...(instrument ? [editorTransformTrace] : []),
+      solidSvg({ defaultAsComponent: true }),
+    ],
+    resolve: {
+      alias: [
+        { find: "@jhomra21/gpuix-solid1", replacement: solid1Entry },
+        { find: /^solid-js\/web$/, replacement: solidWebCompat },
+        { find: /^@kobalte\/core$/, replacement: `${kobalteSourceRoot}index.tsx` },
+        { find: /^@kobalte\/core\/(.+)$/, replacement: `${kobalteSourceRoot}$1/index.tsx` },
+        { find: /^dompurify$/, replacement: domPurifyCompat },
+        { find: /^electron$/, replacement: electronCompat },
+        { find: /^ts-morph$/, replacement: tsMorphCompat },
+        { find: "@diffusion-native/dompurify-source", replacement: domPurifySource },
+        { find: /^@\//, replacement: webSource },
+        { find: /^@desktop\//, replacement: desktopSource },
+        { find: "@diffusionstudio/assets", replacement: packageSource("assets") },
+        { find: "@diffusionstudio/jsx", replacement: packageSource("jsx") },
+        { find: "@diffusionstudio/koota-solid", replacement: packageSource("koota-solid") },
+        { find: "@diffusionstudio/reconciler", replacement: packageSource("reconciler") },
+        { find: "@diffusionstudio/runtime-source", replacement: packageSource("runtime") },
+        { find: /^@diffusionstudio\/runtime$/, replacement: runtimeBridge },
+      ],
+      conditions: ["solid", "browser", "development"],
+      dedupe: ["solid-js", "@solidjs/router", "koota"],
+    },
+    ssr: {
+      noExternal: true,
+      external: ["@gpuix/native"],
+      resolve: {
+        conditions: ["solid", "browser", "development", "import", "default"],
+      },
+    },
+    build: {
+      target: "node22",
+      ssr: fromHere(`./${entry}`),
+      outDir: fromHere(`./${outDir}/`),
+      emptyOutDir: true,
+      rollupOptions: {
+        external: ["@gpuix/native"],
+      },
+    },
+  })
+}
+
+export { diffusionCommit, sourceRoot }

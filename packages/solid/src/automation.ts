@@ -4,6 +4,7 @@ import {
   type AutomationTreeNode,
   type ElementBounds,
 } from "./automation/tree.js"
+import type { DebugFrameOverlayStats } from "./host/types.js"
 import type { TestRenderer } from "./testing.js"
 
 export type { AutomationTreeNode, ElementBounds } from "./automation/tree.js"
@@ -31,6 +32,7 @@ export class AutomationError extends Error {
 export interface AutomationBackend {
   getTree(): AutomationTreeNode | null | Promise<AutomationTreeNode | null>
   getBounds(elementId: number): ElementBounds | null | Promise<ElementBounds | null>
+  getScrollOffset?(elementId: number): [number, number] | null | Promise<[number, number] | null>
   click(x: number, y: number, button?: number, modifiers?: string): void | Promise<void>
   mouseMove(x: number, y: number, pressedButton?: number, modifiers?: string): void | Promise<void>
   mouseDown(x: number, y: number, button?: number, modifiers?: string): void | Promise<void>
@@ -50,6 +52,8 @@ export interface AutomationBackend {
   clockSet(nowMs: number): number | Promise<number>
   clockFastForward(deltaMs: number): number | Promise<number>
   clockResume(): number | Promise<number>
+  resetFrameStats?(): void | Promise<void>
+  getFrameStats?(): DebugFrameOverlayStats | Promise<DebugFrameOverlayStats>
   close(): void | Promise<void>
 }
 
@@ -82,6 +86,17 @@ export class InProcessAutomationBackend implements AutomationBackend {
 
   getBounds(elementId: number): ElementBounds | null {
     return parseBounds(this.#renderer.getElementBounds(elementId))
+  }
+
+  getScrollOffset(elementId: number): [number, number] | null {
+    const offset = this.#renderer.getScrollOffset(elementId)
+    if (!offset) return null
+    const x = offset[0]
+    const y = offset[1]
+    if (x === undefined || y === undefined) {
+      throw new Error("Native scroll offset did not contain two coordinates")
+    }
+    return [x, y]
   }
 
   click(x: number, y: number, button?: number, modifiers?: string): void {
@@ -136,6 +151,14 @@ export class InProcessAutomationBackend implements AutomationBackend {
 
   clockResume(): number {
     return this.#renderer.clockResume()
+  }
+
+  resetFrameStats(): void {
+    this.#renderer.resetDebugFrameOverlayStats()
+  }
+
+  getFrameStats(): DebugFrameOverlayStats {
+    return this.#renderer.getDebugFrameOverlayStats()
   }
 
   close(): void {}
@@ -349,6 +372,10 @@ export class App {
     fastForward: (deltaMs: number) => Promise<number>
     resume: () => Promise<number>
   }
+  readonly performance: {
+    reset: () => Promise<void>
+    stats: () => Promise<DebugFrameOverlayStats>
+  }
   readonly mouse: {
     move: (target: PointTarget, options?: MouseOptions & { pressedButton?: number }) => Promise<void>
     down: (target: PointTarget, options?: MouseOptions) => Promise<void>
@@ -408,6 +435,20 @@ export class App {
       set: async (nowMs) => await backend.clockSet(nowMs),
       fastForward: async (deltaMs) => await backend.clockFastForward(deltaMs),
       resume: async () => await backend.clockResume(),
+    }
+    this.performance = {
+      reset: async () => {
+        if (!backend.resetFrameStats) {
+          throw new AutomationError("Unsupported", "This automation backend does not expose native frame statistics")
+        }
+        await backend.resetFrameStats()
+      },
+      stats: async () => {
+        if (!backend.getFrameStats) {
+          throw new AutomationError("Unsupported", "This automation backend does not expose native frame statistics")
+        }
+        return await backend.getFrameStats()
+      },
     }
   }
 

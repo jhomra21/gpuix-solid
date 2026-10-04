@@ -4,10 +4,10 @@ type SetTimer = (callback: () => void, delay: number) => AnimationFrameHandle
 type ClearTimer = (handle: AnimationFrameHandle) => void
 type Now = () => number
 
-// Native GPUIX does not expose a browser display-vsync callback. Pace the DOM
-// compatibility fallback at roughly one 60 Hz frame instead of using a 0 ms
-// timer, which lets source RAF loops spin as fast as Bun can schedule them.
-export const COMPAT_ANIMATION_FRAME_MS = 16
+// Native GPUIX does not expose a browser display-vsync callback. Match the
+// native 8 ms pump instead of capping browser-shaped requestAnimationFrame()
+// loops at 60 Hz. A zero-delay timer would spin independently of native paint.
+export const COMPAT_ANIMATION_FRAME_MS = 8
 
 export function createAnimationFrameScheduler(
   setTimer: SetTimer = (callback, delay) => globalThis.setTimeout(callback, delay),

@@ -1,7 +1,19 @@
 import "./dom-environment.js"
 import { installPacedAnimationFrame } from "./animation-frame.js"
+import { HostElementNode } from "./host/nodes.js"
+import { createElement as createUniversalElement } from "./universal.js"
+import { installBrowserStyleMutationCompatibility } from "./web.js"
 
 installPacedAnimationFrame()
+
+export function createElement(tagName: string): HostElementNode {
+  const node = createUniversalElement(tagName)
+  if (!(node instanceof HostElementNode)) {
+    throw new TypeError(`Expected GPUIX host element for <${tagName}>`)
+  }
+  installBrowserStyleMutationCompatibility(node)
+  return node
+}
 
 export { render, resetRender } from "./runtime.js"
 export type { RenderHandle, RenderOptions } from "./runtime.js"
@@ -17,6 +29,7 @@ export type { TestBounds, TestRoot } from "./testing.js"
 export {
   applyNativeStyleParentPosition,
   applyNativeStyleTranslation,
+  applyNativeStyleViewportSize,
   clearNativeStyleManifest,
   configureNativeStyleManifest,
   getNativeStyleColorMode,
@@ -26,6 +39,7 @@ export {
   resolveNativeClassSvgPaint,
   resolveNativeClassParentPosition,
   resolveNativeClassTranslation,
+  resolveNativeClassViewportSize,
   resolveNativeDescendantClassStyle,
   setNativeStyleColorMode,
 } from "./native-style.js"
@@ -36,6 +50,7 @@ export type {
   NativeStyleManifestEntry,
   NativeStyleParentPosition,
   NativeStyleTranslation,
+  NativeStyleViewportSize,
   NativeStyleVariant,
 } from "./native-style.js"
 
@@ -43,7 +58,6 @@ export {
   effect,
   memo,
   createComponent,
-  createElement,
   createTextNode,
   insertNode,
   insert,
@@ -108,6 +122,7 @@ export { CANVAS_DRAW_LIST_VERSION, createCanvas2DRecorder } from "./host/canvas.
 export type {
   Canvas2DRecorder,
   CanvasBackingSize,
+  CanvasClipRect,
   CanvasDrawCommand,
   CanvasDrawList,
   CanvasDrawListVersion,

@@ -1,0 +1,41 @@
+diff --git a/crates/gpui/src/elements/list.rs b/crates/gpui/src/elements/list.rs
+--- a/crates/gpui/src/elements/list.rs
++++ b/crates/gpui/src/elements/list.rs
+@@ -181,6 +181,16 @@
+     /// Whether the list has been scrolled.
+     pub is_scrolled: bool,
+ 
++    /// Pixel scroll offset after this event. The y value is negative when the
++    /// content has moved upward, matching `scroll_px_offset_for_scrollbar`.
++    pub scroll_offset: Point<Pixels>,
++
++    /// Maximum positive pixel scroll distance on each axis.
++    pub max_scroll_offset: Point<Pixels>,
++
++    /// Current viewport size when the scroll event was produced.
++    pub viewport_size: Size<Pixels>,
++
+     /// Whether the list is currently in follow-tail mode (auto-scrolling to end).
+     pub is_following_tail: bool,
+ }
+@@ -951,9 +960,20 @@
+             let visible_range = Self::visible_range(&self.items, height, scroll_top);
++            let viewport_size = self.last_layout_bounds.unwrap_or_default().size;
+             handler(
+                 &ListScrollEvent {
+                     visible_range,
+                     count: self.items.summary().count,
+                     is_scrolled: self.logical_scroll_top.is_some(),
++                    scroll_offset: point(
++                        Pixels::ZERO,
++                        if new_scroll_top == Pixels::ZERO {
++                            Pixels::ZERO
++                        } else {
++                            -new_scroll_top
++                        },
++                    ),
++                    max_scroll_offset: point(Pixels::ZERO, scroll_max),
++                    viewport_size: size(viewport_size.width, height),
+                     is_following_tail: matches!(
+                         self.follow_state,
+                         FollowState::Tail { is_following: true }

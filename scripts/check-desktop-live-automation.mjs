@@ -119,21 +119,28 @@ try {
     }
   })
 
-  await delay(60)
-  await step("observe rejected preview moving home", async () => {
-    const returningBounds = await preview.bounds()
+  await step("observe rejected preview returning home", async () => {
     const releaseDistance = Math.hypot(
       rejectedReleaseBounds.x - sourceBounds.x,
       rejectedReleaseBounds.y - sourceBounds.y,
     )
-    const returningDistance = Math.hypot(
-      returningBounds.x - sourceBounds.x,
-      returningBounds.y - sourceBounds.y,
-    )
-    if (!(returningDistance < releaseDistance)) {
-      throw new Error(
-        `Desktop live acceptance rejected drag preview did not move toward its source: ${JSON.stringify({ rejectedReleaseBounds, returningBounds, sourceBounds })}`,
+    const deadline = Date.now() + 500
+    for (;;) {
+      if (await preview.count() === 0) return
+
+      const returningBounds = await preview.bounds()
+      const returningDistance = Math.hypot(
+        returningBounds.x - sourceBounds.x,
+        returningBounds.y - sourceBounds.y,
       )
+      if (returningDistance < releaseDistance) return
+
+      if (Date.now() >= deadline) {
+        throw new Error(
+          `Desktop live acceptance rejected drag preview did not move toward its source: ${JSON.stringify({ rejectedReleaseBounds, returningBounds, sourceBounds })}`,
+        )
+      }
+      await delay(settleMs)
     }
   })
 

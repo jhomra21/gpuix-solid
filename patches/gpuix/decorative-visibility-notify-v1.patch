@@ -1,0 +1,262 @@
+diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
+--- a/packages/native/src/renderer.rs
++++ b/packages/native/src/renderer.rs
+@@ -394,2 +394,3 @@
+ enum UiCommand {
++    NotifyView,
+     Invalidate,
+@@ -514,2 +515,5 @@
+         let result = match command {
++            UiCommand::NotifyView => window.update(cx, |_view, _window, cx| {
++                cx.notify();
++            }),
+             UiCommand::Invalidate => refresh_ui_window(window, cx),
+@@ -1063,1 +1067,23 @@
++    /// Schedule the root view to rebuild without marking the whole window as
++    /// refreshing. This preserves clean nested view caches.
++    fn request_view_update(&self) -> Result<()> {
++        #[cfg(target_os = "macos")]
++        return update_window(|_view, _window, cx| {
++            cx.notify();
++        });
++
++        #[cfg(any(target_os = "windows", target_os = "linux", target_os = "freebsd"))]
++        return self.send_ui_command(UiCommand::NotifyView);
++
++        #[cfg(not(any(
++            target_os = "macos",
++            target_os = "windows",
++            target_os = "linux",
++            target_os = "freebsd"
++        )))]
++        Err(Error::from_reason(
++            "The production GPUIX renderer does not support this operating system",
++        ))
++    }
++
+     fn request_invalidate(&self) -> Result<()> {
+@@ -1381,8 +1407,14 @@
+     pub fn apply_batch(&self, json: String) -> Result<Vec<f64>> {
+         let mut tree = self.tree.lock().unwrap();
+-        let destroyed =
+-            apply_batch_to_tree(&mut tree, json.as_bytes()).map_err(Error::from_reason)?;
+-        drop(tree);
+-        self.request_invalidate()?;
+-        Ok(destroyed)
++        let AppliedBatch {
++            destroyed_ids,
++            invalidation,
++        } = apply_batch_to_tree_detail(&mut tree, json.as_bytes()).map_err(Error::from_reason)?;
++        drop(tree);
++        match invalidation {
++            BatchInvalidation::None => {}
++            BatchInvalidation::View => self.request_view_update()?,
++            BatchInvalidation::Window => self.request_invalidate()?,
++        }
++        Ok(destroyed_ids)
+     }
+@@ -5993,2 +6025,57 @@
++#[derive(Copy, Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
++enum BatchInvalidation {
++    None,
++    View,
++    Window,
++}
++
++struct AppliedBatch {
++    destroyed_ids: Vec<f64>,
++    invalidation: BatchInvalidation,
++}
++
++/// A soft view update is intentionally limited to a decorative positioned leaf
++/// toggling only `display: none`. It cannot reflow siblings and owns no event,
++/// text, custom-element, or child state that requires a full window refresh.
++fn style_batch_invalidation(
++    tree: &RetainedTree,
++    id: u64,
++    next: &StyleDesc,
++) -> BatchInvalidation {
++    let Some(element) = tree.elements.get(&id) else {
++        return BatchInvalidation::Window;
++    };
++    let Some(current) = element.style.as_deref() else {
++        return BatchInvalidation::Window;
++    };
++    if current == next {
++        return BatchInvalidation::None;
++    }
++    if element.element_type != "div"
++        || !element.children.is_empty()
++        || element.content.is_some()
++        || !element.events.is_empty()
++        || !element.custom_props.is_empty()
++        || element.auto_focus
++    {
++        return BatchInvalidation::Window;
++    }
++
++    let mut comparable = (*current).clone();
++    comparable.display = next.display.clone();
++    if comparable != *next
++        || !matches!(next.position.as_deref(), Some("absolute") | Some("fixed"))
++    {
++        return BatchInvalidation::Window;
++    }
++
++    let current_hidden = current.display.as_deref() == Some("none");
++    let next_hidden = next.display.as_deref() == Some("none");
++    if current_hidden == next_hidden {
++        return BatchInvalidation::Window;
++    }
++    BatchInvalidation::View
++}
++
+ /// A batch failure. The message names the op index, so it survives the trip
+ /// back to JS as a plain `Error`.
+@@ -6244,66 +6331,83 @@
+ pub fn apply_batch_to_tree(tree: &mut RetainedTree, bytes: &[u8]) -> BatchResult<Vec<f64>> {
+-    // Phase 1: decode. No mutation.
+-    let parsed = parse_batch_ops(bytes)?;
+-
+-    // Phase 2: resolve styles. Touches the style table only; a failure here
+-    // sweeps back out whatever this call interned.
+-    let styles = resolve_styles(&mut tree.styles, &parsed).inspect_err(|_| tree.styles.sweep())?;
+-    let mut styles = styles.into_iter();
+-
+-    // Phase 3: apply. Cannot fail.
+-    let mut destroyed_ids: Vec<f64> = Vec::new();
+-    for batch_op in parsed {
+-        match batch_op {
+-            BatchOp::CreateElement { id, element_type } => {
+-                tree.create_element(id, element_type);
+-            }
+-            BatchOp::DestroyElement { id } => {
+-                let destroyed = tree.destroy_element(id);
+-                destroyed_ids.extend(destroyed.iter().map(|&id| id as f64));
+-            }
+-            BatchOp::AppendChild {
+-                parent_id,
+-                child_id,
+-            } => {
+-                tree.append_child(parent_id, child_id);
+-            }
+-            BatchOp::InsertBefore {
+-                parent_id,
+-                child_id,
+-                before_id,
+-            } => {
+-                tree.insert_before(parent_id, child_id, before_id);
+-            }
+-            BatchOp::SetStyle { id, .. } => {
+-                let shared = styles.next().expect("one resolved style per setStyle op");
+-                tree.set_style(id, shared);
+-            }
+-            BatchOp::SetText { id, content } => {
+-                tree.set_text(id, content);
+-            }
+-            BatchOp::SetEventListener {
+-                id,
+-                event_type,
+-                has_handler,
+-            } => {
+-                tree.set_event_listener(id, event_type, has_handler);
+-            }
+-            BatchOp::SetRoot { id } => {
+-                tree.root_id = Some(id);
+-            }
+-            BatchOp::SetCustomProp { id, key, value } => {
+-                tree.set_custom_prop(id, key, value);
+-            }
+-        }
+-    }
+-
+-    // Release styles nothing references any more. Without this a dragged
+-    // element, which produces a distinct style every frame, would grow the
+-    // table for as long as the app runs. The element count is what catches the
+-    // opposite case, a batch that destroyed most of the tree.
+-    let live_elements = tree.elements.len();
+-    tree.styles.maybe_sweep(live_elements);
+-
+-    Ok(destroyed_ids)
++    Ok(apply_batch_to_tree_detail(tree, bytes)?.destroyed_ids)
++}
++
++fn apply_batch_to_tree_detail(tree: &mut RetainedTree, bytes: &[u8]) -> BatchResult<AppliedBatch> {
++    // Phase 1: decode. No mutation.
++    let parsed = parse_batch_ops(bytes)?;
++
++    // Phase 2: resolve styles. Touches the style table only; a failure here
++    // sweeps back out whatever this call interned.
++    let styles = resolve_styles(&mut tree.styles, &parsed).inspect_err(|_| tree.styles.sweep())?;
++    let mut styles = styles.into_iter();
++
++    // Phase 3: apply. Cannot fail.
++    let mut destroyed_ids: Vec<f64> = Vec::new();
++    let mut invalidation = BatchInvalidation::None;
++    for batch_op in parsed {
++        match batch_op {
++            BatchOp::CreateElement { id, element_type } => {
++                invalidation = BatchInvalidation::Window;
++                tree.create_element(id, element_type);
++            }
++            BatchOp::DestroyElement { id } => {
++                invalidation = BatchInvalidation::Window;
++                let destroyed = tree.destroy_element(id);
++                destroyed_ids.extend(destroyed.iter().map(|&id| id as f64));
++            }
++            BatchOp::AppendChild {
++                parent_id,
++                child_id,
++            } => {
++                invalidation = BatchInvalidation::Window;
++                tree.append_child(parent_id, child_id);
++            }
++            BatchOp::InsertBefore {
++                parent_id,
++                child_id,
++                before_id,
++            } => {
++                invalidation = BatchInvalidation::Window;
++                tree.insert_before(parent_id, child_id, before_id);
++            }
++            BatchOp::SetStyle { id, .. } => {
++                let shared = styles.next().expect("one resolved style per setStyle op");
++                invalidation = invalidation.max(style_batch_invalidation(tree, id, shared.as_ref()));
++                tree.set_style(id, shared);
++            }
++            BatchOp::SetText { id, content } => {
++                invalidation = BatchInvalidation::Window;
++                tree.set_text(id, content);
++            }
++            BatchOp::SetEventListener {
++                id,
++                event_type,
++                has_handler,
++            } => {
++                invalidation = BatchInvalidation::Window;
++                tree.set_event_listener(id, event_type, has_handler);
++            }
++            BatchOp::SetRoot { id } => {
++                invalidation = BatchInvalidation::Window;
++                tree.root_id = Some(id);
++            }
++            BatchOp::SetCustomProp { id, key, value } => {
++                invalidation = BatchInvalidation::Window;
++                tree.set_custom_prop(id, key, value);
++            }
++        }
++    }
++
++    // Release styles nothing references any more. Without this a dragged
++    // element, which produces a distinct style every frame, would grow the
++    // table for as long as the app runs. The element count is what catches the
++    // opposite case, a batch that destroyed most of the tree.
++    let live_elements = tree.elements.len();
++    tree.styles.maybe_sweep(live_elements);
++
++    Ok(AppliedBatch {
++        destroyed_ids,
++        invalidation,
++    })
+ }
+ 
